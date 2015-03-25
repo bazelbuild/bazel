@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -26,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,11 +43,14 @@ import javax.annotation.Nullable;
 public class FileFunction implements SkyFunction {
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
+  private final TimestampGranularityMonitor tsgm;
   private final ExternalFilesHelper externalFilesHelper;
 
   public FileFunction(AtomicReference<PathPackageLocator> pkgLocator,
+      TimestampGranularityMonitor tsgm,
       ExternalFilesHelper externalFilesHelper) {
     this.pkgLocator = pkgLocator;
+    this.tsgm = tsgm;
     this.externalFilesHelper = externalFilesHelper;
   }
 
@@ -58,12 +63,10 @@ public class FileFunction implements SkyFunction {
 
     // Resolve ancestor symlinks, but only if the current file is not the filesystem root (has no
     // parent) or a package path root (treated opaquely and handled by skyframe's DiffAwareness
-    // interface) or otherwise assumed to be immutable (handling ancestors would add dependencies
-    // too aggressively). Note that this is the first thing we do - if an ancestor is part of a
+    // interface). Note that this is the first thing we do - if an ancestor is part of a
     // symlink cycle, we want to detect that quickly as it gives a more informative error message
     // than we'd get doing bogus filesystem operations.
-    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)
-        && !externalFilesHelper.shouldAssumeImmutable(rootedPath)) {
+    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
       Pair<RootedPath, FileStateValue> resolvedState =
           resolveFromAncestors(rootedPath, env);
       if (resolvedState == null) {
@@ -94,13 +97,28 @@ public class FileFunction implements SkyFunction {
         }
         throw new FileFunctionException(fileSymlinkCycleException);
       }
-      Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
-          realFileStateValue.getSymlinkTarget(), env);
-      if (resolvedState == null) {
-        return null;
+      if (externalFilesHelper.shouldAssumeImmutable(realRootedPath)) {
+        // If the file is assumed to be immutable, we want to resolve the symlink chain without
+        // adding dependencies since we don't care about incremental correctness.
+        try {
+          Path realPath = rootedPath.asPath().resolveSymbolicLinks();
+          realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
+              pkgLocator.get().getPathEntries());
+          realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
+        } catch (IOException e) {
+          throw new FileFunctionException(e, Transience.TRANSIENT);
+        } catch (InconsistentFilesystemException e) {
+          throw new FileFunctionException(e, Transience.TRANSIENT);
+        }
+      } else {
+        Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
+            realFileStateValue.getSymlinkTarget(), env);
+        if (resolvedState == null) {
+          return null;
+        }
+        realRootedPath = resolvedState.getFirst();
+        realFileStateValue = resolvedState.getSecond();
       }
-      realRootedPath = resolvedState.getFirst();
-      realFileStateValue = resolvedState.getSecond();
     }
     return FileValue.value(rootedPath, fileStateValue, realRootedPath, realFileStateValue);
   }
@@ -115,7 +133,10 @@ public class FileFunction implements SkyFunction {
     PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
-    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
+    // We only resolve ancestors if the file is not assumed to be immutable (handling ancestors
+    // would be too aggressive).
+    if (!externalFilesHelper.shouldAssumeImmutable(rootedPath)
+        && !relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
       RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
           relativePath.getParentDirectory());
       parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
@@ -212,6 +233,10 @@ public class FileFunction implements SkyFunction {
 
     public FileFunctionException(FileSymlinkCycleException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    public FileFunctionException(IOException e, Transience transience) {
+      super(e, transience);
     }
   }
 }

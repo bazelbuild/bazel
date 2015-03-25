@@ -149,8 +149,15 @@ function test_new_local_repository() {
 
   # Create a non-Bazel directory.
   project_dir=$TEST_TMPDIR/project
+  mkdir -p $project_dir
+  outside_dir=$TEST_TMPDIR/outside
+  mkdir -p $outside_dir
   package_dir=$project_dir/carnivore
-  mkdir -p $package_dir
+  mkdir $package_dir
+  # Be tricky with absolute symlinks to make sure that Bazel still acts as
+  # though external repositories are immutable.
+  ln -s $outside_dir/Mongoose.java $package_dir/Mongoose.java
+
   cat > $package_dir/Mongoose.java <<EOF
 package carnivore;
 public class Mongoose {
