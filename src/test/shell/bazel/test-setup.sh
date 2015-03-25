@@ -115,10 +115,6 @@ function create_new_workspace() {
     ln -s ${jdk_dir} tools/jdk/jdk
   fi
 
-  if [[ -d ${go_root} ]]; then
-    ln -s ${go_root} tools/go/go_root
-  fi
-
   touch WORKSPACE
 }
 

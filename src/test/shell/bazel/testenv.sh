@@ -52,10 +52,6 @@ protoc_jar="${TEST_SRCDIR}/third_party/protobuf/protobuf-*.jar"
 junit_jar="${TEST_SRCDIR}/third_party/junit/junit-*.jar"
 hamcrest_jar="${TEST_SRCDIR}/third_party/hamcrest/hamcrest-*.jar"
 
-# Try to detect go root and fallback with /usr/lib/golang
-# The test itselfs is skipped if go_root is unset.
-go_root="$(go env GOROOT 2>/dev/null || echo "/usr/lib/golang")"
-
 # This function copy the tools directory from Blaze.
 function copy_tools_directory() {
   cp -R ${tools_dir}/* tools

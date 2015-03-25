@@ -112,31 +112,6 @@ function test_python() {
   expect_log "Fib(5)=8"
 }
 
-function test_go() {
-  if [ -e "tools/go/go_root" ]; then
-    bazel build -s //examples/go/lib1:lib1 \
-      || fail "Failed to build //examples/go/lib1:lib1"
-    bazel clean
-    bazel build -s //examples/go:fib \
-      || fail "Failed to build //examples/go:fib"
-    [ -x "bazel-bin/examples/go/fib" ] \
-      || fail "bazel-bin/examples/go/fib is not executable"
-
-    bazel run //examples/go:fib >$TEST_log \
-      || fail "Failed to run //examples/go:fib"
-    expect_log "Fib(5): 8"
-
-    bazel test //examples/go/lib1:lib1_test \
-      || fail "Failed to run //examples/go/lib1:lib1_test"
-
-    bazel test //examples/go/lib1:fail_test \
-      && fail "Test //examples/go/lib1:fail_test has succeeded" \
-      || true
-  else
-    echo "Skipping go test: go_root not set"
-  fi
-}
-
 function test_java_skylark() {
   local java_pkg=examples/java-skylark/src/main/java/com/example/myproject
   assert_build ${java_pkg}:hello-lib ./bazel-bin/${java_pkg}/libhello-lib.jar

@@ -8,7 +8,6 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/jdk:srcs",
-        "//tools/go:srcs",
         "//tools/genrule:srcs",
         "//tools/cpp:srcs",
         "//tools/objc:srcs",
