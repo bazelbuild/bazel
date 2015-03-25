@@ -32,5 +32,6 @@ rules or macros (composition of rules and macros).
 ## Getting started
 
 Read the [concepts](concepts.html) behind Skylark and try the
-[cookbook examples](cookbook.html).
+[cookbook examples](cookbook.html). To go further, read about the
+[standard library](library.html).
 
