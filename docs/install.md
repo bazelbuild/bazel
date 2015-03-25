@@ -39,7 +39,7 @@ To build Bazel on Ubuntu:
 
 2. Install required packages:
 
-        $ sudo apt-get install libarchive-dev pkg-config zip
+        $ sudo apt-get install libarchive-dev pkg-config zip g++ zlib1g-dev
 
 3. Build Bazel:
 
