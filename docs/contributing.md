@@ -1,33 +1,37 @@
 # Contributing to Bazel
 
+*Please do not send us pull requests on GitHub!* We welcome contributions
+(see below) but we cannot currently accept patches via pull request.
+
 ## How can I contribute to Bazel?
 
 You should first read the [Bazel governance plan](governance.md). Then you can
-read this page that explains how to submit a patch to Bazel and how to set-up
+read this page that explains how to submit a patch to Bazel, as well as how to set-up
 and work on the Bazel code.
 
 ## Patch Acceptance Process
 
 1. Discuss your plan and design, and get agreement on our [mailing
    list](https://groups.google.com/forum/#!forum/bazel-discuss).
-2. Prepare a patch that implements the feature. Don't forget to add tests.
+2. Prepare a git commit that implements the feature. Don't forget to add tests.
 3. Upload to [Gerrit](https://bazel-review.googlesource.com); Gerrit upload
    requires that you have signed a
-   [Contributor License Agreement](https://cla.developers.google.com/).
-4. Complete a code review with a core contributor.
+   [Contributor License Agreement](https://cla.developers.google.com/). See the [Gerrit
+   documentation](https://gerrit-review.googlesource.com/Documentation/user-upload.html) for
+   instructions on uploading your commit.
+4. Complete a code review with a
+   [core contributor](http://bazel.io/docs/governance.html#core-contributors).
 5. An engineer at Google applies the patch to our internal version control
    system.
 6. The patch is exported as a Git commit, at which point the Gerrit code review
    is closed.
-
-**We do not currently accept pull requests on GitHub.**
 
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see
 [Is Bazel developed fully in the open?](governance.md#isbazelopen)).
 
 
-## Setting-up your coding environment
+## Setting up your coding environment
 
 For now we only have partial support for the Eclipse IDE for Java. We don't have
 IDE support for others languages in Bazel right now.
@@ -39,7 +43,7 @@ scripts/setup-eclipse.sh` and it will create the `.project` and the `.classpath`
 files (if a `.project` file is present, only the `.classpath` will get
 overwritten). You can then import the project in Eclipse.
 
-_You might see some errors in Eclipse concerning Truth assertions_
+_You might see some errors in Eclipse concerning Truth assertions._
 
 ### Compiling Bazel {#compile-bazel}
 
@@ -102,7 +106,7 @@ Bazel has support for debugging its Java code:
   on the Bazel command-line.
 * Run Bazel with debugging option `--host_jvm_debug` before the
   command (e.g., `bazel --batch --host_jvm_debug build //src:bazel`).
-* Attach a debugger to the port 5005. With `jdb` for instance, just
+* Attach a debugger to the port 5005. With `jdb` for instance,
   run `jdb -attach localhost:5005`. From within Eclipse, use the
   [remote Java application launch
   configuration](http://help.eclipse.org/luna/index.jsp?topic=%2Forg.eclipse.jdt.doc.user%2Ftasks%2Ftask-remotejava_launch_config.htm).
