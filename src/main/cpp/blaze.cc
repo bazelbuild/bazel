@@ -791,7 +791,7 @@ static void ActuallyExtractData(const string &argv0,
       pdie(blaze_exit_code::INTERNAL_ERROR,
            "couldn't create '%s'", path.c_str());
     }
-    int fd = open(path.c_str(), O_CREAT | O_WRONLY, archive_entry_perm(entry));
+    int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0755);
     if (fd < 0) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nFailed to open extraction file: %s", strerror(errno));
