@@ -375,7 +375,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // TODO(bazel-team): remove this hack for a more principled solution.
     try {
       rule.get("srcs", Type.LABEL_LIST);
-    } catch (ClassCastException e) {
+    } catch (IllegalArgumentException e) {
       // "srcs" is actually a configurable selector. Assume object files are possible somewhere.
       return false;
     }

@@ -58,7 +58,14 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     }
-    return type.cast(value);
+    try {
+      return type.cast(value);
+    } catch (ClassCastException e) {
+      // getIndexWithTypeCheck checks the type is right, but unexpected configurable attributes
+      // can still trigger cast exceptions.
+      throw new IllegalArgumentException(
+          "wrong type for attribute \"" + attributeName + "\" in rule " + ruleLabel, e);
+    }
   }
 
   /**
@@ -174,7 +181,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
     if (((Type.Selector<?>) attrValue).getOriginalType() != type) {
       throw new IllegalArgumentException("Attribute " + attributeName
-          + " is not of type " + type + " in rule " + ruleLabel.getName());
+          + " is not of type " + type + " in rule " + ruleLabel);
     }
     return (Type.Selector<T>) attrValue;
   }
@@ -192,7 +199,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Attribute attr = ruleClass.getAttribute(index);
     if (attr.getType() != type) {
       throw new IllegalArgumentException("Attribute " + attrName
-          + " is not of type " + type + " in rule " + ruleLabel.getName());
+          + " is not of type " + type + " in rule " + ruleLabel);
     }
     return index;
   }

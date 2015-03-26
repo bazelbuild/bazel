@@ -112,11 +112,9 @@ public class PackageSerializer {
     result.setRuleClass(rule.getRuleClass());
     result.setParseableLocation(serializeLocation(rule.getLocation()));
     for (Attribute attribute : rule.getAttributes()) {
-      if (!RawAttributeMapper.of(rule).isNull(attribute.getName(), attribute.getType())) {
-        PackageSerializer.addAttributeToProto(result, attribute,
-            getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
+      PackageSerializer.addAttributeToProto(result, attribute,
+          getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
           rule.isAttributeValueExplicitlySpecified(attribute), true);
-      }
     }
 
     return result.build();

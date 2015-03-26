@@ -159,8 +159,8 @@ public class PackageDeserializer {
           location.hasStartOffset() && location.hasEndOffset() ? location.getStartOffset() : 0,
           location.hasStartOffset() && location.hasEndOffset() ? location.getEndOffset() : 0);
       this.path = path.asFragment();
-      if (location.hasStartLine() && location.hasStartColumn() &&
-          location.hasEndLine() && location.hasEndColumn()) {
+      if (location.hasStartLine() && location.hasStartColumn()
+          && location.hasEndLine() && location.hasEndColumn()) {
         this.startLine = location.getStartLine();
         this.startColumn = location.getStartColumn();
         this.endLine = location.getEndLine();
@@ -282,8 +282,8 @@ public class PackageDeserializer {
       List<Label> files =
           filesetPb.getFilesPresent() ? deserializeLabels(filesetPb.getFileList()) : null;
       List<String> excludes =
-          filesetPb.getExcludeList().isEmpty() ?
-              null : ImmutableList.copyOf(filesetPb.getExcludeList());
+          filesetPb.getExcludeList().isEmpty()
+              ? null : ImmutableList.copyOf(filesetPb.getExcludeList());
       String destDir = filesetPb.getDestinationDirectory();
       FilesetEntry.SymlinkBehavior symlinkBehavior =
           pbToSymlinkBehavior(filesetPb.getSymlinkBehavior());
@@ -442,10 +442,12 @@ public class PackageDeserializer {
       throws PackageDeserializationException {
     switch (attrPb.getType()) {
       case INTEGER:
-        return new Integer(attrPb.getIntValue());
+        return attrPb.hasIntValue() ? new Integer(attrPb.getIntValue()) : null;
 
       case STRING:
-        if (expectedType == Type.NODEP_LABEL) {
+        if (!attrPb.hasStringValue()) {
+          return null;
+        } else if (expectedType == Type.NODEP_LABEL) {
           return deserializeLabel(attrPb.getStringValue());
         } else {
           return attrPb.getStringValue();
@@ -453,7 +455,7 @@ public class PackageDeserializer {
 
       case LABEL:
       case OUTPUT:
-        return deserializeLabel(attrPb.getStringValue());
+        return attrPb.hasStringValue() ? deserializeLabel(attrPb.getStringValue()) : null;
 
       case STRING_LIST:
         if (expectedType == Type.NODEP_LABEL_LIST) {
@@ -470,7 +472,7 @@ public class PackageDeserializer {
         return deserializeDistribs(attrPb.getStringListValueList());
 
       case LICENSE:
-        return deserializeLicense(attrPb.getLicense());
+        return attrPb.hasLicense() ? deserializeLicense(attrPb.getLicense()) : null;
 
       case STRING_DICT: {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
@@ -508,10 +510,10 @@ public class PackageDeserializer {
       }
 
       case BOOLEAN:
-        return attrPb.getBooleanValue();
+        return attrPb.hasBooleanValue() ? attrPb.getBooleanValue() : null;
 
       case TRISTATE:
-        return deserializeTriStateValue(attrPb.getStringValue());
+        return attrPb.hasStringValue() ? deserializeTriStateValue(attrPb.getStringValue()) : null;
 
       default:
           throw new PackageDeserializationException("Invalid discriminator: " + attrPb.getType());
