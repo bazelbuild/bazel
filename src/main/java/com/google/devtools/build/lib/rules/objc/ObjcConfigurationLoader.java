@@ -47,7 +47,7 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     }
 
     Label defaultProvisioningProfileLabel = null;
-    if (Platform.forArch(objcOptions.iosCpu) == Platform.DEVICE) {
+    if (getPlatform(objcOptions) == Platform.DEVICE) {
       defaultProvisioningProfileLabel = forceLoad(env, "//tools/objc:default_provisioning_profile");
     }
 
@@ -60,11 +60,19 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     return ObjcConfiguration.class;
   }
 
+  private Platform getPlatform(ObjcCommandLineOptions objcOptions) {
+    for (String architecture : objcOptions.iosMultiCpus) {
+      if (Platform.forArch(architecture) == Platform.DEVICE) {
+        return Platform.DEVICE;
+      }
+    }
+    return Platform.forArch(objcOptions.iosCpu);
+  }
+
   private static Label forceLoad(ConfigurationEnvironment env, String target)
       throws InvalidConfigurationException {
-    Label label = null;
     try {
-      label = Label.parseAbsolute(target);
+      Label label = Label.parseAbsolute(target);
       env.getTarget(label);
       return label;
     } catch (Label.SyntaxException | NoSuchPackageException | NoSuchTargetException e) {

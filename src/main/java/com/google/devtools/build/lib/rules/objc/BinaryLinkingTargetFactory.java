@@ -87,7 +87,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .validateAttributes();
 
     Optional<XcTestAppProvider> xcTestAppProvider;
-    Optional<RunfilesSupport> maybeRunfilesSupport = Optional.<RunfilesSupport>absent();
+    Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
     switch (hasReleaseBundlingSupport) {
       case YES:
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
@@ -100,8 +100,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addFilesToBuild(filesToBuild)
             .validateResources()
             .validateAttributes();
+
+        ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
         xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
-        if (ObjcRuleClasses.objcConfiguration(ruleContext).getPlatform() == Platform.SIMULATOR) {
+        if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
           Artifact runnerScript = intermediateArtifacts.runnerScript();
           Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
           releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);

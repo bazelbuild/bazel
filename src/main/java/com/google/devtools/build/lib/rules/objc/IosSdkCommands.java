@@ -67,14 +67,17 @@ public class IosSdkCommands {
     throw new UnsupportedOperationException("static-only");
   }
 
+  private static String getPlatformPlistName(ObjcConfiguration configuration) {
+    return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
+  }
+
   private static String platformDir(ObjcConfiguration configuration) {
-    return DEVELOPER_DIR + "/Platforms/" + configuration.getPlatform().getNameInPlist()
-        + ".platform";
+    return DEVELOPER_DIR + "/Platforms/" + getPlatformPlistName(configuration) + ".platform";
   }
 
   public static String sdkDir(ObjcConfiguration configuration) {
     return platformDir(configuration) + "/Developer/SDKs/"
-        + configuration.getPlatform().getNameInPlist() + configuration.getIosSdkVersion() + ".sdk";
+        + getPlatformPlistName(configuration) + configuration.getIosSdkVersion() + ".sdk";
   }
 
   public static String frameworkDir(ObjcConfiguration configuration) {
@@ -92,7 +95,7 @@ public class IosSdkCommands {
   public static List<String> commonLinkAndCompileArgsForClang(
       ObjcProvider provider, ObjcConfiguration configuration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    if (configuration.getPlatform() == Platform.SIMULATOR) {
+    if (Platform.forArch(configuration.getIosCpu()) == Platform.SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + configuration.getMinimumOs());
     } else {
       builder.add("-miphoneos-version-min=" + configuration.getMinimumOs());
@@ -125,7 +128,7 @@ public class IosSdkCommands {
   }
 
   private static List<String> platformSpecificCompileArgsForClang(ObjcConfiguration configuration) {
-    switch (configuration.getPlatform()) {
+    switch (Platform.forArch(configuration.getIosCpu())) {
       case DEVICE:
         return ImmutableList.of();
       case SIMULATOR:

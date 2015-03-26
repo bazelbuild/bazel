@@ -50,7 +50,8 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
   protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext,
       ReleaseBundlingSupport releaseBundlingSupport) {
     // If this is an application built for the simulator, make it runnable.
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).getPlatform() == Platform.SIMULATOR) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
       Artifact runnerScript = ObjcRuleClasses.intermediateArtifacts(ruleContext).runnerScript();
       Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
       releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);

@@ -224,7 +224,7 @@ public final class ReleaseBundlingSupport {
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(IPA);
 
     Artifact maybeSignedIpa;
-    if (objcConfiguration.getPlatform() == Platform.SIMULATOR) {
+    if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
       maybeSignedIpa = ipaOutput;
     } else if (attributes.provisioningProfile() == null) {
       throw new IllegalStateException(DEVICE_NO_PROVISIONING_PROFILE);
@@ -371,7 +371,7 @@ public final class ReleaseBundlingSupport {
       String bundleDirFormat) {
     ImmutableList<BundleableFile> extraBundleFiles;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    if (objcConfiguration.getPlatform() == Platform.DEVICE) {
+    if (objcConfiguration.getBundlingPlatform() == Platform.DEVICE) {
       extraBundleFiles = ImmutableList.of(new BundleableFile(
           new Attributes(ruleContext).provisioningProfile(),
           PROVISIONING_PROFILE_BUNDLE_FILE));

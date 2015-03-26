@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
@@ -28,14 +27,12 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Action;
@@ -55,8 +52,6 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 import javax.annotation.CheckReturnValue;
 
@@ -278,62 +273,6 @@ final class ObjcActionsBuilder {
     }
   }
 
-  void registerActoolzipAction(
-      ObjcRuleClasses.Tools tools,
-      ObjcProvider provider,
-      Artifact zipOutput,
-      Artifact partialInfoPlist,
-      ExtraActoolArgs extraActoolArgs,
-      Set<TargetDeviceFamily> families) {
-    // TODO(bazel-team): Do not use the deploy jar explicitly here. There is currently a bug where
-    // we cannot .setExecutable({java_binary target}) and set REQUIRES_DARWIN in the execution info.
-    // Note that below we set the archive root to the empty string. This means that the generated
-    // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
-    // entry when merging it with the final .ipa file.
-    register(spawnJavaOnDarwinActionBuilder(tools.actoolzipDeployJar())
-        .setMnemonic("AssetCatalogCompile")
-        .addTransitiveInputs(provider.get(ASSET_CATALOG))
-        .addOutput(zipOutput)
-        .addOutput(partialInfoPlist)
-        .setCommandLine(actoolzipCommandLine(
-            objcConfiguration,
-            provider,
-            zipOutput,
-            partialInfoPlist,
-            extraActoolArgs,
-            ImmutableSet.copyOf(families)))
-        .build(context));
-  }
-
-  private static CommandLine actoolzipCommandLine(
-      final ObjcConfiguration objcConfiguration,
-      final ObjcProvider provider,
-      final Artifact zipOutput,
-      final Artifact partialInfoPlist,
-      final ExtraActoolArgs extraActoolArgs,
-      final ImmutableSet<TargetDeviceFamily> families) {
-    return new CommandLine() {
-      @Override
-      public Iterable<String> arguments() {
-        ImmutableList.Builder<String> args = new ImmutableList.Builder<String>()
-            // The next three arguments are positional, i.e. they don't have flags before them.
-            .add(zipOutput.getExecPathString())
-            .add("") // archive root
-            .add(IosSdkCommands.ACTOOL_PATH)
-            .add("--platform")
-            .add(objcConfiguration.getPlatform().getLowerCaseNameInPlist())
-            .add("--output-partial-info-plist").add(partialInfoPlist.getExecPathString())
-            .add("--minimum-deployment-target").add(objcConfiguration.getMinimumOs());
-        for (TargetDeviceFamily targetDeviceFamily : families) {
-          args.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
-        }
-        return args
-            .addAll(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
-            .addAll(extraActoolArgs)
-            .build();
-      }
-    };
-  }
 
   private static final String FRAMEWORK_SUFFIX = ".framework";
 

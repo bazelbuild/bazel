@@ -845,7 +845,7 @@ public class ObjcRuleClasses {
                 public Label getDefault(Rule rule, BuildConfiguration configuration) {
                   ObjcConfiguration objcConfiguration =
                       configuration.getFragment(ObjcConfiguration.class);
-                  if (objcConfiguration.getPlatform() != Platform.DEVICE) {
+                  if (objcConfiguration.getBundlingPlatform() != Platform.DEVICE) {
                     return null;
                   }
                   if (rule.isAttributeValueExplicitlySpecified("provisioning_profile")) {
@@ -948,10 +948,6 @@ public class ObjcRuleClasses {
 
     Tools(RuleContext ruleContext) {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
-    }
-
-    Artifact actoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
     }
 
     FilesToRunProvider xcodegen() {

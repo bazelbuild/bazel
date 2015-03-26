@@ -121,7 +121,24 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return iosCpu;
   }
 
-  public Platform getPlatform() {
+  /**
+   * Returns the platform of the configuration for the current bundle, based on configured
+   * architectures (for example, {@code i386} maps to {@link Platform#SIMULATOR}).
+   *
+   * <p>If {@link #getIosMultiCpus()} is set, returns {@link Platform#DEVICE} if any of the
+   * architectures matches it, otherwise returns the mapping for {@link #getIosCpu()}.
+   *
+   * <p>Note that this method should not be used to determine the platform for code compilation.
+   * Derive the platform from {@link #getIosCpu()} instead.
+   */
+  // TODO(bazel-team): This method should be enabled to return multiple values once all call sites
+  // (in particular actool, bundlemerge, momc) have been upgraded to support multiple values.
+  public Platform getBundlingPlatform() {
+    for (String architecture : getIosMultiCpus()) {
+      if (Platform.forArch(architecture) == Platform.DEVICE) {
+        return Platform.DEVICE;
+      }
+    }
     return Platform.forArch(getIosCpu());
   }
 
@@ -237,6 +254,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     if (generateDebugSymbols && !iosMultiCpus.isEmpty()) {
       reporter.handle(Event.error(
           "--objc_generate_debug_symbols is not supported when --ios_multi_cpus is set"));
+    }
+
+    // TODO(bazel-team): Remove this constraint once getBundlingPlatform can return multiple values.
+    Platform platform = null;
+    for (String architecture : iosMultiCpus) {
+      if (platform == null) {
+        platform = Platform.forArch(architecture);
+      } else if (platform != Platform.forArch(architecture)) {
+        reporter.handle(Event.error(
+            String.format("--ios_multi_cpus does not currently allow values for both simulator and "
+                + "device builds but was %s", iosMultiCpus)));
+      }
     }
   }
 }
