@@ -26,6 +26,7 @@
 // Java SE 8 Edition:
 // http://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4
 
+#define __STDC_FORMAT_MACROS 1
 #define __STDC_LIMIT_MACROS 1
 #include <inttypes.h> // for PRIx32
 #include <stddef.h>
