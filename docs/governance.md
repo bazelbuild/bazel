@@ -26,7 +26,7 @@ list), but this will hopefully change over time.
 1. We require all contributors to sign [Google's Contributor License
    Agreement](https://cla.developers.google.com/).
 2. We accept well-written, well-tested contributions of rules written in
-   [Skylark](docs/skylark/concepts.md), in a `contrib/` directory or similar with clearly documented
+   [Skylark](skylark/concepts.md), in a `contrib/` directory or similar with clearly documented
    support policies.
 3. We accept well-written, well-tested cleanup and refactoring changes.
 4. We accept well-written, well-tested bug fixes to built-in rules.
