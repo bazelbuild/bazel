@@ -4,4 +4,8 @@ before_script:
   - sudo apt-get install -y protobuf-compiler libarchive-dev
 compiler:
   - clang
-script: ./compile.sh
+jdk:
+  - oraclejdk8
+script:
+  - jdk_switcher use oraclejdk8
+  - ./compile.sh
