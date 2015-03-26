@@ -1528,31 +1528,6 @@ static string GetMountpoint(string dir) {
   return "/";
 }
 
-// Issue a warning if disk has less than 10% free blocks or inodes.
-static void WarnIfFullDisk() {
-  struct statvfs buf;
-  if (statvfs(globals->options.output_base.c_str(), &buf) < 0) {
-    fprintf(stderr, "WARNING: couldn't get file system information for '%s': "
-            "%s\n", globals->options.output_base.c_str(), strerror(errno));
-    return;
-  }
-
-  if (10LL * buf.f_favail < buf.f_files) {
-    fprintf(stderr,
-            "WARNING: build volume %s is nearly full "
-            "(%llu inodes remain).\n",
-            GetMountpoint(globals->options.output_base).c_str(),
-            static_cast<int64>(buf.f_favail));
-  }
-  if (10LL * buf.f_bavail < buf.f_blocks) {
-    fprintf(stderr,
-            "WARNING: build volume %s is nearly full "
-            "(%.1fGB remain).\n",
-            GetMountpoint(globals->options.output_base).c_str(),
-            (1.0 * buf.f_bavail) * buf.f_frsize / 1E9);
-  }
-}
-
 void SetupStreams() {
   // Line-buffer stderr, since we always flush at the end of a server
   // message.  This saves lots of single-char calls to write(2).
@@ -1671,7 +1646,6 @@ int main(int argc, const char *argv[]) {
 
   AcquireLock();
 
-  WarnIfFullDisk();
   WarnFilesystemType(globals->options.output_base);
   EnsureFiniteStackLimit();
 
