@@ -781,10 +781,6 @@ cc_binary(<a href="#cc_binary.name">name</a>,
              any rule it transitively depends on. A stricter layering check is currently being
              rolled out.</li>
           </ul>
-          <p>If a rule does not specify the hdrs_check attribute, the
-          <code><a href="#package.default_hdrs_check">default_hdrs_check</a></code>
-          attribute of the <code><a href="#package">package</a></code> statement
-          in the BUILD file containing the rule is used.</p>
 </li>
 <li id="cc_binary.includes"><code>includes</code>:
           List of include dirs to be added to the compile line.
@@ -2133,7 +2129,7 @@ sh_binary(<a href="#sh_binary.name">name</a>,
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
           See general comments about <code>deps</code>
-          at <a href="#common-attributes.deps">Attributes common to all build rules</a>.
+          at <a href="#common.deps">Attributes common to all build rules</a>.
           <p>
             This attribute should be used to list other <code>sh_library</code> rules that provide
             interpreted program source code depended on by the code in <code>srcs</code>. The files
@@ -2420,10 +2416,6 @@ cc_library(<a href="#cc_library.name">name</a>,
              any rule it transitively depends on. A stricter layering check is currently being
              rolled out.</li>
           </ul>
-          <p>If a rule does not specify the hdrs_check attribute, the
-          <code><a href="#package.default_hdrs_check">default_hdrs_check</a></code>
-          attribute of the <code><a href="#package">package</a></code> statement
-          in the BUILD file containing the rule is used.</p>
 </li>
 <li id="cc_library.includes"><code>includes</code>:
           List of include dirs to be added to the compile line.
@@ -2640,7 +2632,6 @@ java_import(<a href="#java_import.name">name</a>,
         Extra constraints imposed on this rule as a Java library.
         <i>(List of strings; optional)</i><br/>
 
-        See <a href="#java_library.constraints">java_library.constraints</a>.
 </li>
 <li id="java_import.exports"><code>exports</code>:
         Targets to make available to users of this rule.
@@ -3677,7 +3668,7 @@ sh_library(<a href="#sh_library.name">name</a>,
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
           See general comments about <code>deps</code>
-          at <a href="#common-attributes.deps">Attributes common to all build rules</a>.
+          at <a href="#common.deps">Attributes common to all build rules</a>.
           <p>
             This attribute should be used to list other <code>sh_library</code> rules that provide
             interpreted program source code depended on by the code in <code>srcs</code>. The files
@@ -3935,10 +3926,6 @@ cc_test(<a href="#cc_test.name">name</a>,
              any rule it transitively depends on. A stricter layering check is currently being
              rolled out.</li>
           </ul>
-          <p>If a rule does not specify the hdrs_check attribute, the
-          <code><a href="#package.default_hdrs_check">default_hdrs_check</a></code>
-          attribute of the <code><a href="#package">package</a></code> statement
-          in the BUILD file containing the rule is used.</p>
 </li>
 <li id="cc_test.includes"><code>includes</code>:
           List of include dirs to be added to the compile line.
@@ -4662,7 +4649,7 @@ sh_test(<a href="#sh_test.name">name</a>,
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
           See general comments about <code>deps</code>
-          at <a href="#common-attributes.deps">Attributes common to all build rules</a>.
+          at <a href="#common.deps">Attributes common to all build rules</a>.
           <p>
             This attribute should be used to list other <code>sh_library</code> rules that provide
             interpreted program source code depended on by the code in <code>srcs</code>. The files
