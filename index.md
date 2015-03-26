@@ -2,7 +2,7 @@
 layout: default
 ---
 
-# [Bazel (Alpha)](http://bazel.io)
+# [Bazel](http://bazel.io) ([Alpha](http://bazel.io/docs/roadmap.html#alpha))
 
 *{Fast, Correct} - Choose two*
 
