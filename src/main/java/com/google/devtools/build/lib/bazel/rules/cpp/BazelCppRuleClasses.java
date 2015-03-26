@@ -506,10 +506,6 @@ public class BazelCppRuleClasses {
              any rule it transitively depends on. A stricter layering check is currently being
              rolled out.</li>
           </ul>
-          <p>If a rule does not specify the hdrs_check attribute, the
-          <code><a href="#package.default_hdrs_check">default_hdrs_check</a></code>
-          attribute of the <code><a href="#package">package</a></code> statement
-          in the BUILD file containing the rule is used.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs_check", STRING).value("strict"))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkstatic) -->

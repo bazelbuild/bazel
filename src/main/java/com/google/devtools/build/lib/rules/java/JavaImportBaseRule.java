@@ -67,7 +67,6 @@ public class JavaImportBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(constraints) -->
         Extra constraints imposed on this rule as a Java library.
         ${SYNOPSIS}
-        See <a href="#java_library.constraints">java_library.constraints</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("constraints", STRING_LIST)
             .orderIndependent()
