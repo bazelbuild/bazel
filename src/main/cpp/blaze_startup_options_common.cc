@@ -33,7 +33,10 @@ void BlazeStartupOptions::Init() {
     output_root = GetOutputRoot();
   }
 
-  output_user_root = output_root + "/_blaze_" + GetUserName();
+  string product = GetProductName();
+  blaze_util::ToLower(&product);
+  output_user_root = blaze_util::JoinPath(
+      output_root, "_" + product + "_" + GetUserName());
   block_for_lock = true;
   host_jvm_debug = false;
   host_javabase = "";
