@@ -342,7 +342,18 @@ No, but we should. Stay tuned.
 I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
 --------------------------------------------------------------
 
-We currently have no IDE integration API.
+We currently have no IDE integration API as such but the iOS rules generate Xcode
+projects based on the bazel BUILD targets (see below).
+
+How does Bazel interact with Xcode?
+-----------------------------------
+
+Bazel generates Xcode projects that you can use to work with any inputs and
+dependencies for the target, build apps from Xcode directly and deploy to the
+simulator and devices. To use this, open the project file whose path is printed
+by Bazel after building any iOS target. There is no support to invoke Bazel from
+Xcode (for example to re-generate generated sources such as Objc files based on
+protos), nor to open Xcode from Bazel directly.
 
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
