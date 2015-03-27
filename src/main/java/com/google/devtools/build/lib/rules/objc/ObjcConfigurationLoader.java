@@ -20,9 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * A loader that creates ObjcConfiguration instances based on Objective-C configurations and
@@ -35,49 +32,11 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
 
-    // TODO(danielwh): Replace these labels with something from an objc_toolchain when it exists
-    Label gcovLabel = null;
-    if (options.collectCodeCoverage) {
-      gcovLabel = forceLoad(env, "//third_party/gcov:gcov_for_xcode");
-    }
-
-    Label dumpSymsLabel = null;
-    if (objcOptions.generateDebugSymbols) {
-      dumpSymsLabel = forceLoad(env, "//tools/objc:dump_syms");
-    }
-
-    Label defaultProvisioningProfileLabel = null;
-    if (getPlatform(objcOptions) == Platform.DEVICE) {
-      defaultProvisioningProfileLabel = forceLoad(env, "//tools/objc:default_provisioning_profile");
-    }
-
-    return new ObjcConfiguration(
-        objcOptions, options, gcovLabel, dumpSymsLabel, defaultProvisioningProfileLabel);
+    return new ObjcConfiguration(objcOptions, options);
   }
 
   @Override
   public Class<? extends BuildConfiguration.Fragment> creates() {
     return ObjcConfiguration.class;
-  }
-
-  private Platform getPlatform(ObjcCommandLineOptions objcOptions) {
-    for (String architecture : objcOptions.iosMultiCpus) {
-      if (Platform.forArch(architecture) == Platform.DEVICE) {
-        return Platform.DEVICE;
-      }
-    }
-    return Platform.forArch(objcOptions.iosCpu);
-  }
-
-  private static Label forceLoad(ConfigurationEnvironment env, String target)
-      throws InvalidConfigurationException {
-    try {
-      Label label = Label.parseAbsolute(target);
-      env.getTarget(label);
-      return label;
-    } catch (Label.SyntaxException | NoSuchPackageException | NoSuchTargetException e) {
-      throw new InvalidConfigurationException("Error parsing or loading " + target + ": "
-          + e.getMessage(), e);
-    }
   }
 }

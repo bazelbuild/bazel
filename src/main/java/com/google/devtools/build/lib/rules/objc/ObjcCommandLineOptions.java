@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -29,8 +30,7 @@ import java.util.List;
 /**
  * Command-line options for building Objective-C targets.
  */
-public class
-    ObjcCommandLineOptions extends FragmentOptions {
+public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(name = "ios_sdk_version",
       defaultValue = DEFAULT_SDK_VERSION,
       category = "build",
@@ -109,11 +109,40 @@ public class
           "Don't set this value from the command line - it is derived from  ios_multi_cpus only.")
   public String iosSplitCpu;
 
+  @Option(name = "objc_dump_syms_binary",
+      defaultValue = "//tools/objc:dump_syms",
+      category = "undocumented",
+      converter = LabelConverter.class)
+  public Label dumpSyms;
+
+  @Option(name = "default_ios_provisiong_profile",
+      defaultValue = "//tools/objc:default_provisioning_profile",
+      category = "undocumented",
+      converter = LabelConverter.class)
+  public Label defaultProvisioningProfile;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "i386";
 
   @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {}
+  public void addAllLabels(Multimap<String, Label> labelMap) {
+    if (generateDebugSymbols) {
+      labelMap.put("dump_syms", dumpSyms);
+    }
+
+    if (getPlatform() == Platform.DEVICE) {
+      labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
+    }
+  }
+
+  private Platform getPlatform() {
+    for (String architecture : iosMultiCpus) {
+      if (Platform.forArch(architecture) == Platform.DEVICE) {
+        return Platform.DEVICE;
+      }
+    }
+    return Platform.forArch(iosCpu);
+  }
 
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
