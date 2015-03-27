@@ -25,7 +25,8 @@ import com.google.devtools.build.skyframe.SkyValue;
  *
  * <p>Package lookups will always produce a value. On success, the {@code #getRoot} returns the
  * package path root under which the package resides and the package's BUILD file is guaranteed to
- * exist; on failure, {@code #getErrorReason} and {@code #getErrorMsg} describe why the package
+ * exist (unless this is looking up a WORKSPACE file, in which case the underlying file may or may
+ * not exist. On failure, {@code #getErrorReason} and {@code #getErrorMsg} describe why the package
  * doesn't exist.
  *
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
@@ -54,6 +55,10 @@ abstract class PackageLookupValue implements SkyValue {
     return new SuccessfulPackageLookupValue(root);
   }
 
+  public static PackageLookupValue workspace(Path root) {
+    return new WorkspacePackageLookupValue(root);
+  }
+
   public static PackageLookupValue noBuildFile() {
     return NoBuildFilePackageLookupValue.INSTANCE;
   }
@@ -68,6 +73,10 @@ abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue deletedPackage() {
     return DeletedPackageLookupValue.INSTANCE;
+  }
+
+  public boolean isExternalPackage() {
+    return false;
   }
 
   /**
@@ -142,6 +151,27 @@ abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return root.hashCode();
+    }
+  }
+
+  // TODO(kchodorow): fix these semantics.  This class should not exist, WORKSPACE lookup should
+  // just return success/failure like a "normal" package.
+  private static class WorkspacePackageLookupValue extends SuccessfulPackageLookupValue {
+
+    private WorkspacePackageLookupValue(Path root) {
+      super(root);
+    }
+
+    // TODO(kchodorow): get rid of this, the semantics are wrong (successful package lookup should
+    // mean the package exists).
+    @Override
+    public boolean packageExists() {
+      return getRoot().exists();
+    }
+
+    @Override
+    public boolean isExternalPackage() {
+      return true;
     }
   }
 
