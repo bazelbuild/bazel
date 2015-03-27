@@ -57,11 +57,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -190,7 +188,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *     otherwise it's an asect)
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @return an attribute -&gt; direct dependency multimap
-   * @throws ConfiguredTargetFunctionException
    */
   @Nullable
   static ListMultimap<Attribute, ConfiguredTarget> computeDependencies(
@@ -276,7 +273,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     for (Dependency dep : deps) {
       SkyKey depKey = TO_KEYS.apply(dep);
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
-      List<AspectValue> aspects = new ArrayList<>();
       for (Class<? extends ConfiguredAspectFactory> depAspect : dep.getAspects()) {
         if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect)) {
           continue;
@@ -317,50 +313,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     return true;
-  }
-
-  /**
-   * Returns which aspects are computable based on the precise set of providers direct dependencies
-   * publish (and not the upper estimate in their rule definition).
-   *
-   * <p>An aspect is computable for a particular configured target if the configured target supplies
-   * all the providers the aspect requires.
-   *
-   * @param upperEstimate a multimap from attribute to the upper estimates computed by
-   *     {@link com.google.devtools.build.lib.analysis.DependencyResolver}.
-   * @param configuredTargetDeps a multimap from attribute to the directly dependent configured
-   *     targets
-   * @return a multimap from attribute to the more precise {@link Dependency} objects
-   */
-  private static ListMultimap<Attribute, Dependency> getComputableAspects(
-      ListMultimap<Attribute, Dependency> upperEstimate,
-      Map<SkyKey, ConfiguredTarget> configuredTargetDeps) {
-    ListMultimap<Attribute, Dependency> result = ArrayListMultimap.create();
-    for (Map.Entry<Attribute, Dependency> entry : upperEstimate.entries()) {
-      ConfiguredTarget dep =
-          configuredTargetDeps.get(TO_KEYS.apply(entry.getValue()));
-      List<Class<? extends ConfiguredAspectFactory>> depAspects = new ArrayList<>();
-      for (Class<? extends ConfiguredAspectFactory> candidate : entry.getValue().getAspects()) {
-        boolean ok = true;
-        for (Class<?> requiredProvider :
-            AspectFactory.Util.create(candidate).getDefinition().getRequiredProviders()) {
-          if (dep.getProvider((Class<? extends TransitiveInfoProvider>) requiredProvider) == null) {
-            ok = false;
-            break;
-          }
-        }
-
-        if (ok) {
-          depAspects.add(candidate);
-        }
-      }
-
-      result.put(entry.getKey(), new Dependency(
-          entry.getValue().getLabel(), entry.getValue().getConfiguration(),
-          ImmutableSet.copyOf(depAspects)));
-    }
-
-    return result;
   }
 
   /**
