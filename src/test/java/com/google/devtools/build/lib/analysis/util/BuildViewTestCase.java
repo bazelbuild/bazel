@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -1385,5 +1387,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     return basenames.build();
+  }
+
+  /**
+   * Finds an artifact in the transitive closure of a set of other artifacts by following a path
+   * based on artifact name suffixes.
+   *
+   * <p>This selects the first artifact in the input set that matches the first suffix, then selects
+   * the first artifact in the inputs of its generating action that matches the second suffix etc.,
+   * and repeats this until the supplied suffixes run out.
+   */
+  protected Artifact artifactByPath(Iterable<Artifact> artifacts, String... suffixes) {
+    Artifact artifact = getFirstArtifactEndingWith(artifacts, suffixes[0]);
+
+    for (int i = 1; i < suffixes.length; i++) {
+      artifacts = getGeneratingAction(artifact).getInputs();
+      artifact = getFirstArtifactEndingWith(artifacts, suffixes[i]);
+    }
+
+    return artifact;
   }
 }
