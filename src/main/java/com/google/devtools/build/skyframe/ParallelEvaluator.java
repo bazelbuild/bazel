@@ -353,8 +353,10 @@ public final class ParallelEvaluator implements Evaluator {
         }
 
         if (bubbleErrorInfo != null) {
-          // Set interrupted status, so that calling SkyFunction doesn't try anything fancy after
-          // this.
+          // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
+          // fancy after this. SkyFunctions executed during error bubbling are supposed to
+          // (quickly) rethrow errors or return a value/null (but there's currently no way to
+          // enforce this).
           Thread.currentThread().interrupt();
         }
         if (errorInfo.getException() != null) {
