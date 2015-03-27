@@ -13,7 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -21,6 +26,14 @@ import java.util.TreeSet;
 
 /** {@link NotifyingInMemoryGraph} that returns reverse deps ordered alphabetically. */
 public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
+  private static final Comparator<SkyKey> ALPHABETICAL_SKYKEY_COMPARATOR =
+      new Comparator<SkyKey>() {
+    @Override
+    public int compare(SkyKey o1, SkyKey o2) {
+      return o1.toString().compareTo(o2.toString());
+    }
+  };
+
   public DeterministicInMemoryGraph(Listener listener) {
     super(listener);
   }
@@ -43,16 +56,10 @@ public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
       super(myKey);
     }
 
-    final Comparator<SkyKey> valueEntryComparator = new Comparator<SkyKey>() {
-      @Override
-      public int compare(SkyKey o1, SkyKey o2) {
-        return o1.toString().compareTo(o2.toString());
-      }
-    };
     @SuppressWarnings("unchecked")
     @Override
     public synchronized Iterable<SkyKey> getReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
+      TreeSet<SkyKey> result = new TreeSet<SkyKey>(ALPHABETICAL_SKYKEY_COMPARATOR);
       if (reverseDeps instanceof List) {
         result.addAll((Collection<? extends SkyKey>) reverseDeps);
       } else {
@@ -63,9 +70,26 @@ public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
 
     @Override
     public synchronized Set<SkyKey> getInProgressReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
+      TreeSet<SkyKey> result = new TreeSet<SkyKey>(ALPHABETICAL_SKYKEY_COMPARATOR);
       result.addAll(buildingState.getReverseDepsToSignal());
       return result;
+    }
+
+    @Override
+    public synchronized void addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
+      GroupedList<SkyKey> groupedList = new GroupedList<>();
+      groupedList.append(helper);
+      GroupedListHelper<SkyKey> orderedHelper = new GroupedListHelper<>();
+      for (Iterable<SkyKey> group : groupedList) {
+        orderedHelper.startGroup();
+        List<SkyKey> orderedGroup = Lists.newArrayList(group);
+        Collections.sort(orderedGroup, ALPHABETICAL_SKYKEY_COMPARATOR);
+        for (SkyKey dep : orderedGroup) {
+          orderedHelper.add(dep);
+        }
+        orderedHelper.endGroup();
+      }
+      super.addTemporaryDirectDeps(orderedHelper);
     }
   }
 }

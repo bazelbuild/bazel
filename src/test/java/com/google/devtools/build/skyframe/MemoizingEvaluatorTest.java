@@ -1363,14 +1363,14 @@ public class MemoizingEvaluatorTest {
     // Value to be built. It will be signaled to rebuild before it has finished checking its deps.
     final SkyKey top = GraphTester.toSkyKey("top");
     // Dep that blocks before it acknowledges being added as a dep by top, so the firstKey value has
-    // time to signal top.
-    final SkyKey slowAddingDep = GraphTester.toSkyKey("dep");
+    // time to signal top. (Importantly its key is alphabetically after 'firstKey').
+    final SkyKey slowAddingDep = GraphTester.toSkyKey("slowDep");
     // Don't perform any blocking on the first build.
     final AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
     final CountDownLatch topSignaled = new CountDownLatch(1);
     final CountDownLatch topRestartedBuild = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
-    setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
+    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
       @Override
       public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!delayTopSignaling.get()) {
