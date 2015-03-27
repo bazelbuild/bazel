@@ -44,6 +44,9 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelIosTestRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
@@ -88,6 +91,8 @@ import com.google.devtools.build.lib.rules.objc.ObjcOptionsRule;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
+import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
+import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.workspace.BindRule;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -171,6 +176,7 @@ public class BazelRuleClassProvider {
           BuildConfiguration.Options.class,
           CppOptions.class,
           JavaOptions.class,
+          PythonOptions.class,
           ObjcCommandLineOptions.class
       );
 
@@ -225,9 +231,13 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcTestRule());
-
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryRule());
+
+    builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
+    builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
+    builder.addRuleDefinition(new BazelPyLibraryRule());
+    builder.addRuleDefinition(new BazelPyBinaryRule());
 
     builder.addWorkspaceFile(BazelJavaRuleClasses.getDefaultWorkspace());
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
@@ -286,6 +296,7 @@ public class BazelRuleClassProvider {
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
     builder.addConfigurationFragment(new CppConfigurationLoader(
         Functions.<String>identity()));
+    builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
     builder.addConfigurationFragment(new JvmConfigurationLoader(JAVA_CPU_SUPPLIER));
     builder.addConfigurationFragment(new JavaConfigurationLoader(JAVA_CPU_SUPPLIER));
     builder.addConfigurationFragment(new ObjcConfigurationLoader());
