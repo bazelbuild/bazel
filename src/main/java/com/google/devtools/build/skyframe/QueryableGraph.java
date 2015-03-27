@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.util.Map;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
 /**
  * A graph that exposes its entries and structure, for use by classes that must traverse it.
  */
@@ -20,5 +25,12 @@ public interface QueryableGraph {
   /**
    * Returns the node with the given name, or {@code null} if the node does not exist.
    */
+  @Nullable
   NodeEntry get(SkyKey key);
+
+  /**
+   * Fetches all the given nodes. Returns a map {@code m} such that {@code m.get(k).equals(e)} for
+   * all {@code k} such that {@code get(k) == e} and {@code e != null}.
+   */
+  Map<SkyKey, NodeEntry> getBatch(Set<SkyKey> keys);
 }

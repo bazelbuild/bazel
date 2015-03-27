@@ -17,11 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
@@ -54,6 +56,18 @@ public class InMemoryGraph implements ProcessableGraph {
   @Override
   public NodeEntry get(SkyKey skyKey) {
     return nodeMap.get(skyKey);
+  }
+
+  @Override
+  public Map<SkyKey, NodeEntry> getBatch(Set<SkyKey> keys) {
+    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
+    for (SkyKey key : keys) {
+      NodeEntry entry = get(key);
+      if (entry != null) {
+        builder.put(key, entry);
+      }
+    }
+    return builder.build();
   }
 
   @Override

@@ -285,75 +285,91 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
-    /** Get a child of the value being evaluated, for use by the value builder. */
-    private ValueOrUntypedException getValueOrUntypedException(SkyKey depKey) {
+    private ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+        Set<SkyKey> depKeys) {
       checkActive();
-      depKey = KEY_CANONICALIZER.intern(depKey);  // Canonicalize SkyKeys to save memory.
-      ValueWithMetadata value = getValueMaybeFromError(depKey, bubbleErrorInfo);
-      if (value == null) {
-        // If this entry is not yet done then (optionally) record the missing dependency and return
-        // null.
-        valuesMissing = true;
+      Set<SkyKey> keys = new LinkedHashSet<>();
+      for (SkyKey depKey : depKeys) {
+        // Canonicalize SkyKeys to save memory.
+        keys.add(KEY_CANONICALIZER.intern(depKey));
+      }
+      depKeys = keys;
+      Map<SkyKey, ValueWithMetadata> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
+      ImmutableMap.Builder<SkyKey, ValueOrUntypedException> builder = ImmutableMap.builder();
+      for (SkyKey depKey : depKeys) {
+        ValueWithMetadata value = values.get(depKey);
+        if (value == null) {
+          // If this entry is not yet done then (optionally) record the missing dependency and
+          // return null.
+          valuesMissing = true;
+          if (bubbleErrorInfo != null) {
+            // Values being built just for their errors don't get to request new children.
+            builder.put(depKey, ValueOrExceptionUtils.ofNull());
+            continue;
+          }
+          Preconditions.checkState(!directDeps.contains(depKey), "%s %s %s", skyKey, depKey,
+              value);
+          addDep(depKey);
+          valuesMissing = true;
+          builder.put(depKey, ValueOrExceptionUtils.ofNull());
+          continue;
+        }
+
+        if (!directDeps.contains(depKey)) {
+          // If this child is done, we will return it, but also record that it was newly requested
+          // so that the dependency can be properly registered in the graph.
+          addDep(depKey);
+        }
+
+        replayingNestedSetEventVisitor.visit(value.getTransitiveEvents());
+        ErrorInfo errorInfo = value.getErrorInfo();
+
+        if (errorInfo != null) {
+          childErrorInfos.add(errorInfo);
+        }
+
+        if (value.getValue() != null && (keepGoing || errorInfo == null)) {
+          // If the dep did compute a value, it is given to the caller if we are in keepGoing mode
+          // or if we are in noKeepGoingMode and there were no errors computing it.
+          builder.put(depKey, ValueOrExceptionUtils.ofValueUntyped(value.getValue()));
+          continue;
+        }
+
+        // There was an error building the value, which we will either report by throwing an
+        // exception or insulate the caller from by returning null.
+        Preconditions.checkNotNull(errorInfo, "%s %s %s", skyKey, depKey, value);
+
+        if (!keepGoing && errorInfo.getException() != null && bubbleErrorInfo == null) {
+          // Child errors should not be propagated in noKeepGoing mode (except during error
+          // bubbling). Instead we should fail fast.
+
+          // We arbitrarily record the first child error.
+          if (depErrorKey == null) {
+            depErrorKey = depKey;
+          }
+          valuesMissing = true;
+          builder.put(depKey, ValueOrExceptionUtils.ofNull());
+          continue;
+        }
+
         if (bubbleErrorInfo != null) {
-          // Values being built just for their errors don't get to request new children.
-          return ValueOrExceptionUtils.ofNull();
+          // Set interrupted status, so that calling SkyFunction doesn't try anything fancy after
+          // this.
+          Thread.currentThread().interrupt();
         }
-        Preconditions.checkState(!directDeps.contains(depKey), "%s %s %s", skyKey, depKey, value);
-        addDep(depKey);
-        valuesMissing = true;
-        return ValueOrExceptionUtils.ofNull();
-      }
-
-      if (!directDeps.contains(depKey)) {
-        // If this child is done, we will return it, but also record that it was newly requested so
-        // that the dependency can be properly registered in the graph.
-        addDep(depKey);
-      }
-
-      replayingNestedSetEventVisitor.visit(value.getTransitiveEvents());
-      ErrorInfo errorInfo = value.getErrorInfo();
-
-      if (errorInfo != null) {
-        childErrorInfos.add(errorInfo);
-      }
-
-      if (value.getValue() != null && (keepGoing || errorInfo == null)) {
-        // The caller is given the value of the value if there was no error computing the value, or
-        // if this is a keepGoing build (in which case each value should get child values even if
-        // there are also errors).
-        return ValueOrExceptionUtils.ofValueUntyped(value.getValue());
-      }
-
-      // There was an error building the value, which we will either report by throwing an exception
-      // or insulate the caller from by returning null.
-      Preconditions.checkNotNull(errorInfo, "%s %s %s", skyKey, depKey, value);
-
-      if (!keepGoing && errorInfo.getException() != null && bubbleErrorInfo == null) {
-        // Child errors should not be propagated in noKeepGoing mode (except during error bubbling).
-        // Instead we should fail fast.
-
-        // We arbitrarily record the first child error.
-        if (depErrorKey == null) {
-          depErrorKey = depKey;
+        if (errorInfo.getException() != null) {
+          // Give builder a chance to handle this exception.
+          Exception e = errorInfo.getException();
+          builder.put(depKey, ValueOrExceptionUtils.ofExn(e));
+          continue;
         }
+        // In a cycle.
+        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s %s %s",
+            skyKey, depKey, errorInfo, value);
         valuesMissing = true;
-        return ValueOrExceptionUtils.ofNull();
+        builder.put(depKey, ValueOrExceptionUtils.ofNull());
       }
-
-      if (bubbleErrorInfo != null) {
-        // Set interrupted status, so that builder doesn't try anything fancy after this.
-        Thread.currentThread().interrupt();
-      }
-      if (errorInfo.getException() != null) {
-        // Give builder a chance to handle this exception.
-        Exception e = errorInfo.getException();
-        return ValueOrExceptionUtils.ofExn(e);
-      }
-      // In a cycle.
-      Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s %s %s", skyKey,
-          depKey, errorInfo, value);
-      valuesMissing = true;
-      return ValueOrExceptionUtils.ofNull();
+      return builder.build();
     }
 
     private <E extends Exception> ValueOrException<E> getValueOrException(SkyKey depKey,
@@ -380,32 +396,56 @@ public final class ParallelEvaluator implements Evaluator {
         E4 extends Exception> ValueOrException4<E1, E2, E3, E4> getValueOrException(SkyKey depKey,
         Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
         Class<E4> exceptionClass4) {
+      return getValueOrExceptions(ImmutableSet.of(depKey), exceptionClass1, exceptionClass2,
+          exceptionClass3, exceptionClass4).get(depKey);
+    }
+
+    private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
+        E4 extends Exception> Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValueOrExceptions(
+        Set<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
+        Class<E3> exceptionClass3, Class<E4> exceptionClass4) {
       SkyFunctionException.validateExceptionType(exceptionClass1);
       SkyFunctionException.validateExceptionType(exceptionClass2);
       SkyFunctionException.validateExceptionType(exceptionClass3);
       SkyFunctionException.validateExceptionType(exceptionClass4);
-      ValueOrUntypedException voe = getValueOrUntypedException(depKey);
-      SkyValue value = voe.getValue();
-      if (value != null) {
-        return ValueOrExceptionUtils.ofValue(value);
+      Map<SkyKey, ValueOrUntypedException> valueOrExceptions =
+          getValueOrUntypedExceptions(depKeys);
+      ImmutableMap.Builder<SkyKey, ValueOrException4<E1, E2, E3, E4>> builder =
+          ImmutableMap.builder();
+      for (SkyKey depKey : depKeys) {
+        ValueOrUntypedException voe = valueOrExceptions.get(depKey);
+        SkyValue value = voe.getValue();
+        if (value != null) {
+          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofValue(value));
+          continue;
+        }
+        Exception e = voe.getException();
+        if (e != null) {
+          if (exceptionClass1.isInstance(e)) {
+            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn1(
+                exceptionClass1.cast(e)));
+            continue;
+          }
+          if (exceptionClass2.isInstance(e)) {
+            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn2(
+                exceptionClass2.cast(e)));
+            continue;
+          }
+          if (exceptionClass3.isInstance(e)) {
+            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn3(
+                exceptionClass3.cast(e)));
+            continue;
+          }
+          if (exceptionClass4.isInstance(e)) {
+            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn4(
+                exceptionClass4.cast(e)));
+            continue;
+          }
+        }
+        valuesMissing = true;
+        builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofNullValue());
       }
-      Exception e = voe.getException();
-      if (e != null) {
-        if (exceptionClass1.isInstance(e)) {
-          return ValueOrExceptionUtils.ofExn1(exceptionClass1.cast(e));
-        }
-        if (exceptionClass2.isInstance(e)) {
-          return ValueOrExceptionUtils.ofExn2(exceptionClass2.cast(e));
-        }
-        if (exceptionClass3.isInstance(e)) {
-          return ValueOrExceptionUtils.ofExn3(exceptionClass3.cast(e));
-        }
-        if (exceptionClass4.isInstance(e)) {
-          return ValueOrExceptionUtils.ofExn4(exceptionClass4.cast(e));
-        }
-      }
-      valuesMissing = true;
-      return ValueOrExceptionUtils.ofNullValue();
+      return builder.build();
     }
 
     @Override
@@ -485,15 +525,10 @@ public final class ParallelEvaluator implements Evaluator {
         E4 extends Exception> Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
         Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
         Class<E3> exceptionClass3, Class<E4> exceptionClass4) {
-      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> result = new HashMap<>();
+      Set<SkyKey> keys = ImmutableSet.copyOf(depKeys);
       newlyRequestedDeps.startGroup();
-      for (SkyKey depKey : depKeys) {
-        if (result.containsKey(depKey)) {
-          continue;
-        }
-        result.put(depKey, getValueOrException(depKey, exceptionClass1, exceptionClass2,
-            exceptionClass3, exceptionClass4));
-      }
+      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> result = getValueOrExceptions(keys,
+          exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
       newlyRequestedDeps.endGroup();
       return Collections.unmodifiableMap(result);
     }
@@ -1761,16 +1796,35 @@ public final class ParallelEvaluator implements Evaluator {
     return entry;
   }
 
-  private ValueWithMetadata getValueMaybeFromError(SkyKey key,
+  private ValueWithMetadata maybeWrapValueFromError(SkyKey key, @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
     SkyValue value = bubbleErrorInfo == null ? null : bubbleErrorInfo.get(key);
-    NodeEntry entry = graph.get(key);
     if (value != null) {
       Preconditions.checkNotNull(entry,
           "Value cannot have error before evaluation started", key, value);
       return ValueWithMetadata.wrapWithMetadata(value);
     }
     return isDoneForBuild(entry) ? entry.getValueWithMetadata() : null;
+  }
+
+  @Nullable
+  private ValueWithMetadata getValueMaybeFromError(SkyKey key,
+      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
+    return maybeWrapValueFromError(key, graph.get(key), bubbleErrorInfo);
+  }
+
+  private Map<SkyKey, ValueWithMetadata> getValuesMaybeFromError(Iterable<SkyKey> keys,
+      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
+    Map<SkyKey, NodeEntry> entries = graph.getBatch(ImmutableSet.copyOf(keys));
+    ImmutableMap.Builder<SkyKey, ValueWithMetadata> builder = ImmutableMap.builder();
+    for (SkyKey key : keys) {
+      ValueWithMetadata valueWithMetadata = maybeWrapValueFromError(key, entries.get(key),
+          bubbleErrorInfo);
+      if (valueWithMetadata != null) {
+        builder.put(key, valueWithMetadata);
+      }
+    }
+    return builder.build();
   }
 
   /**
