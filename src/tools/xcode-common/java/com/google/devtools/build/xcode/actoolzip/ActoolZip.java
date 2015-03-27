@@ -15,12 +15,15 @@
 package com.google.devtools.build.xcode.actoolzip;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.xcode.zippingoutput.Arguments;
 import com.google.devtools.build.xcode.zippingoutput.Wrapper;
 import com.google.devtools.build.xcode.zippingoutput.Wrappers;
+import com.google.devtools.build.xcode.zippingoutput.Wrappers.CommandFailedException;
+import com.google.devtools.build.xcode.zippingoutput.Wrappers.OutErr;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,8 +74,16 @@ public class ActoolZip implements Wrapper {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    replaceInfoPlistPath(args);
-    Wrappers.execute(args, new ActoolZip());
+    Optional<File> infoPlistPath = replaceInfoPlistPath(args);
+    try {
+      OutErr outErr = Wrappers.executeCapturingOutput(args, new ActoolZip());
+      if (infoPlistPath.isPresent() && !infoPlistPath.get().exists()) {
+        outErr.print();
+        System.exit(1);
+      }
+    } catch (CommandFailedException e) {
+      Wrappers.handleException(e);
+    }
   }
 
   /**
@@ -84,24 +95,30 @@ public class ActoolZip implements Wrapper {
    * file doesn't exist at the time of flag parsing.
    *
    * <p>Modifies args in-place.
+   *
+   * @return new value of the output-partial-info-plist flag.
    */
-  private static void replaceInfoPlistPath(String[] args) {
+  private static Optional<File> replaceInfoPlistPath(String[] args) {
     String flag = "output-partial-info-plist";
     Set<String> flagOptions = ImmutableSet.of(
         "-" + flag,
         "--" + flag);
+    Optional<File> newPath = Optional.absent();
     for (int i = 0; i < args.length; ++i) {
       for (String flagOption : flagOptions) {
         String arg = args[i];
         String flagEquals = flagOption + "=";
         if (arg.startsWith(flagEquals)) {
-          args[i] = flagEquals + new File(arg.substring(flagEquals.length())).getAbsolutePath();
+          newPath = Optional.of(new File(arg.substring(flagEquals.length())));
+          args[i] = flagEquals + newPath.get().getAbsolutePath();
         }
         if (arg.equals(flagOption) && i + 1 < args.length) {
-          args[i + 1] = new File(args[i + 1]).getAbsolutePath();
+          newPath = Optional.of(new File(args[i + 1]));
+          args[i + 1] = newPath.get().getAbsolutePath();
         }
       }
     }
+    return newPath;
   }
 
   @Override

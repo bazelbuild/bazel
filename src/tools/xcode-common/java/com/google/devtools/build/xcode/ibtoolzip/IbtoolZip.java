@@ -48,7 +48,7 @@ public class IbtoolZip implements Wrapper {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    Wrappers.execute(args, new IbtoolZip());
+    Wrappers.executePipingOutput(args, new IbtoolZip());
   }
 
   @Override

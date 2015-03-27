@@ -46,7 +46,7 @@ public class MomcZip implements Wrapper {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    Wrappers.execute(args, new MomcZip());
+    Wrappers.executePipingOutput(args, new MomcZip());
   }
 
   @Override
