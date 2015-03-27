@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
 
 import java.io.File;
@@ -82,20 +81,19 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
       new ConcurrentHashMap<>();
   private final Set<Artifact> injectedArtifacts = Sets.newConcurrentHashSet();
   private final ImmutableSet<Artifact> outputs;
-  @Nullable private final SkyFunction.Environment env;
   private final TimestampGranularityMonitor tsgm;
 
   private static final Interner<ByteString> BYTE_INTERNER = Interners.newWeakInterner();
 
+  @VisibleForTesting
   public FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
-      Iterable<Artifact> outputs, @Nullable SkyFunction.Environment env,
+      Iterable<Artifact> outputs,
       TimestampGranularityMonitor tsgm) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.expandedInputMiddlemen = Preconditions.checkNotNull(expandedInputMiddlemen);
     this.execRoot = Preconditions.checkNotNull(execRoot);
     this.outputs = ImmutableSet.copyOf(outputs);
-    this.env = env;
     this.tsgm = tsgm;
   }
 
@@ -131,47 +129,10 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
 
   @Nullable
   private FileArtifactValue getInputFileArtifactValue(ActionInput input) {
-    FileArtifactValue value = inputArtifactData.get(input);
-    if (value != null) {
-      return value;
-    }
-    if (outputs.contains(input)) {
-      // When this method is called to calculate the metadata of an artifact, the artifact may be an
-      // output artifact. Don't try to do anything then.
+    if (outputs.contains(input) || !(input instanceof Artifact)) {
       return null;
     }
-    if (!(input instanceof Artifact)) {
-      // Maybe we're being asked for some strange constructed ActionInput coming from runfiles or
-      // similar. We have no information about such things.
-      return null;
-    }
-    // TODO(bazel-team): Remove this codepath once Skyframe has native input discovery, so all
-    // inputs will already have metadata known.
-    // ActionExecutionFunction may have passed in null environment if this action does not
-    // discover inputs. In which case we should not have gotten here.
-    Preconditions.checkNotNull(env, input);
-    Artifact artifact = (Artifact) input;
-    if (artifact.isSourceArtifact()) {
-      // We might have no artifact data for discovered source inputs, and it's not worth storing
-      // it in this cache, because it won't be reused across actions -- while we could request an
-      // artifact from the graph, we would have to be tolerant to it not yet being present in the
-      // graph yet, which adds complexity. Instead, we let the undeclared inputs handler stat it, so
-      // it can be reused.
-      return null;
-    } else {
-      // This getValue call is not expected to return null, because if the artifact is a
-      // transitive dependency of this action (as it should be), it will already have been built,
-      // so this call will return a value.
-      // This getValue call is theoretically less efficient for a subsequent incremental build
-      // than it would be to do a bulk getValues call after action execution, as is done for
-      // source inputs. However, since almost all nodes requested here are transitive deps of an
-      // already-declared dependency, change pruning will request these values serially, but they
-      // will already have been built. So the only penalty is restarting ParallelEvaluator#run, as
-      // opposed to traversing the entire downward transitive closure on a single thread.
-      value = (FileArtifactValue) env.getValue(
-          FileArtifactValue.key(artifact, /*argument ignored for derived artifacts*/false));
-      return value;
-    }
+    return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 
   /**

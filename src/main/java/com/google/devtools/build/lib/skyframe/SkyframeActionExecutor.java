@@ -50,9 +50,6 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
-import com.google.devtools.build.lib.actions.cache.Digest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
@@ -65,7 +62,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -104,7 +100,6 @@ public final class SkyframeActionExecutor {
   private Executor executorEngine;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
-  private ConcurrentMap<Artifact, Metadata> undeclaredInputsMetadata = new ConcurrentHashMap<>();
   private final Profiler profiler = Profiler.instance();
   private boolean explain;
 
@@ -183,102 +178,6 @@ public final class SkyframeActionExecutor {
     // TODO(bazel-team): Move badActions() and findAndStoreArtifactConflicts() to SkyframeBuildView
     // now that it's done in the analysis phase.
     return badActionMap;
-  }
-
-  /**
-   * Basic implementation of {@link MetadataHandler} that delegates to Skyframe for metadata and
-   * caches missing source artifacts (which must be undeclared inputs: discovered headers) to avoid
-   * excessive filesystem access. The discovered-header cache is available across actions.
-   */
-  // TODO(bazel-team): remove when include scanning is skyframe-native.
-  private static class UndeclaredInputHandler implements MetadataHandler {
-    private final ConcurrentMap<Artifact, Metadata> undeclaredInputsMetadata;
-    private final MetadataHandler perActionHandler;
-
-    UndeclaredInputHandler(MetadataHandler perActionHandler,
-        ConcurrentMap<Artifact, Metadata> undeclaredInputsMetadata) {
-      // Shared across all UndeclaredInputHandlers in this build.
-      this.undeclaredInputsMetadata = undeclaredInputsMetadata;
-      this.perActionHandler = perActionHandler;
-    }
-
-    @Override
-    public Metadata getMetadataMaybe(Artifact artifact) {
-      try {
-        return getMetadata(artifact);
-      } catch (IOException e) {
-        return null;
-      }
-    }
-
-    @Override
-    public Metadata getMetadata(Artifact artifact) throws IOException {
-      Metadata metadata = perActionHandler.getMetadata(artifact);
-      if (metadata != null) {
-        return metadata;
-      }
-      // Skyframe stats all generated artifacts, because either they are outputs of the action being
-      // executed or they are generated files already present in the graph.
-      Preconditions.checkState(artifact.isSourceArtifact(), artifact);
-      metadata = undeclaredInputsMetadata.get(artifact);
-      if (metadata != null) {
-        return metadata;
-      }
-      FileStatus stat = artifact.getPath().stat();
-      if (DigestUtils.useFileDigest(artifact, stat.isFile(), stat.getSize())) {
-        metadata = new Metadata(Preconditions.checkNotNull(
-            DigestUtils.getDigestOrFail(artifact.getPath(), stat.getSize()), artifact));
-      } else {
-        metadata = new Metadata(stat.getLastModifiedTime());
-      }
-      // Cache for other actions that may also include without declaring.
-      Metadata oldMetadata = undeclaredInputsMetadata.put(artifact, metadata);
-      FileAndMetadataCache.checkInconsistentData(artifact, oldMetadata, metadata);
-      return metadata;
-    }
-
-    @Override
-    public void setDigestForVirtualArtifact(Artifact artifact, Digest digest) {
-      perActionHandler.setDigestForVirtualArtifact(artifact, digest);
-    }
-
-    @Override
-    public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
-      perActionHandler.injectDigest(output, statNoFollow, digest);
-    }
-
-    @Override
-    public boolean artifactExists(Artifact artifact) {
-      return perActionHandler.artifactExists(artifact);
-    }
-
-    @Override
-    public boolean isRegularFile(Artifact artifact) {
-      return perActionHandler.isRegularFile(artifact);
-    }
-
-    @Override
-    public boolean isInjected(Artifact artifact) throws IOException {
-      return perActionHandler.isInjected(artifact);
-    }
-
-    @Override
-    public void discardMetadata(Collection<Artifact> artifactList) {
-      // This input handler only caches undeclared inputs, which never need to be discarded
-      // intra-build.
-      perActionHandler.discardMetadata(artifactList);
-    }
-
-    @Override
-    public void markOmitted(ActionInput output) {
-      perActionHandler.markOmitted(output);
-    }
-
-    @Override
-    public boolean artifactOmitted(Artifact artifact) {
-      return perActionHandler.artifactOmitted(artifact);
-    }
-
   }
 
   /**
@@ -440,7 +339,6 @@ public final class SkyframeActionExecutor {
     this.hadExecutionError = false;
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
-    undeclaredInputsMetadata = new ConcurrentHashMap<>();
     this.explain = explain;
   }
 
@@ -525,14 +423,14 @@ public final class SkyframeActionExecutor {
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  ActionExecutionContext constructActionExecutionContext(final FileAndMetadataCache graphFileCache,
-      MetadataHandler metadataHandler) {
+  ActionExecutionContext constructActionExecutionContext(
+      final FileAndMetadataCache graphFileCache) {
     // TODO(bazel-team): this should be closed explicitly somewhere.
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
-        metadataHandler,
+        graphFileCache,
         fileOutErr,
         new MiddlemanExpander() {
           @Override
@@ -550,24 +448,16 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Returns a MetadataHandler for use when executing a particular action. The caller can pass the
-   * returned handler in whenever a MetadataHandler is needed in the course of executing the action.
-   */
-  MetadataHandler constructMetadataHandler(MetadataHandler graphFileCache) {
-    return new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);
-  }
-
-  /**
    * Checks the action cache to see if {@code action} needs to be executed, or is up to date.
    * Returns a token with the semantics of {@link ActionCacheChecker#getTokenIfNeedToExecute}: null
    * if the action is up to date, and non-null if it needs to be executed, in which case that token
    * should be provided to the ActionCacheChecker after execution.
    */
   Token checkActionCache(Action action, MetadataHandler metadataHandler,
-      PackageRootResolver resolver, long actionStartTime) {
+      long actionStartTime, Iterable<Artifact> resolvedCacheArtifacts) {
     profiler.startTask(ProfilerTask.ACTION_CHECK, action);
     Token token = actionCacheChecker.getTokenIfNeedToExecute(
-        action, explain ? reporter : null, metadataHandler, resolver);
+        action, resolvedCacheArtifacts, explain ? reporter : null, metadataHandler);
     profiler.completeTask(ProfilerTask.ACTION_CHECK);
     if (token == null) {
       boolean eventPosted = false;
@@ -601,6 +491,11 @@ public final class SkyframeActionExecutor {
           "failed to update action cache for " + action.prettyPrint()
               + ", but all outputs should already have been checked", e);
     }
+  }
+
+  @Nullable
+  Iterable<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver) {
+    return actionCacheChecker.getCachedInputs(action, resolver);
   }
 
   /**
