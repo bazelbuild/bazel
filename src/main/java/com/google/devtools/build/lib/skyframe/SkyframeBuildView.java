@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.Aspect;
@@ -178,8 +179,6 @@ public final class SkyframeBuildView {
     } finally {
       enableAnalysis(false);
     }
-    // For Skyframe m1, note that we already reported action conflicts during action registration
-    // in the legacy action graph.
     ImmutableMap<Action, ConflictException> badActions = skyframeExecutor.findArtifactConflicts();
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
@@ -229,6 +228,9 @@ public final class SkyframeBuildView {
           errorInfo);
       String errorMsg = "Analysis of target '" + ConfiguredTargetValue.extractLabel(topLevel)
           + "' failed; build aborted";
+      if (cause instanceof ActionConflictException) {
+        ((ActionConflictException) cause).reportTo(skyframeExecutor.getReporter());
+      }
       throw new ViewCreationFailedException(errorMsg);
     }
 
@@ -254,6 +256,10 @@ public final class SkyframeBuildView {
           root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
         }
         if (warningListener != null) {
+          Exception cause = errorInfo.getException();
+          if (cause instanceof ActionConflictException) {
+            ((ActionConflictException) cause).reportTo(warningListener);
+          }
           warningListener.handle(Event.warn("errors encountered while analyzing target '"
               + label + "': it will not be built"));
         }
@@ -318,8 +324,8 @@ public final class SkyframeBuildView {
     if (cause != null) {
       // We should only be trying to configure targets when the loading phase succeeds, meaning
       // that the only errors should be analysis errors.
-      Preconditions.checkState(cause instanceof ConfiguredValueCreationException,
-          "%s -> %s", key, errorInfo);
+      Preconditions.checkState(cause instanceof ConfiguredValueCreationException
+          || cause instanceof ActionConflictException, "%s -> %s", key, errorInfo);
     }
   }
 

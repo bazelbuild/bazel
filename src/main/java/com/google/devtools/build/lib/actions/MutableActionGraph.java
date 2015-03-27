@@ -111,7 +111,8 @@ public interface MutableActionGraph extends ActionGraph {
       } else {
         if (!diffA.isEmpty() && !diffB.isEmpty()) {
           sb.append("attempted action contains artifacts not in previous action and "
-              + "previous action contains artifacts not in attempted action.");
+              + "previous action contains artifacts not in attempted action: "
+              + diffA + ", " + diffB);
         } else if (!diffA.isEmpty()) {
           sb.append("attempted action contains artifacts not in previous action: ");
           sb.append(StringUtil.joinEnglishList(diffA, "and"));
@@ -141,6 +142,7 @@ public interface MutableActionGraph extends ActionGraph {
       addStringDetail(sb, "Configuration", aNull ? null : aOwner.getConfigurationName(),
           bNull ? null : bOwner.getConfigurationName());
       addStringDetail(sb, "Mnemonic", a.getMnemonic(), b.getMnemonic());
+      addStringDetail(sb, "Progress message", a.getProgressMessage(), b.getProgressMessage());
 
       addListDetail(sb, "MandatoryInputs", a.getMandatoryInputs(), b.getMandatoryInputs());
       addListDetail(sb, "Outputs", a.getOutputs(), b.getOutputs());

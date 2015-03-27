@@ -18,12 +18,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyKey;
+
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -43,10 +46,11 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   // separate variable in order to save memory.
   @Nullable private volatile Iterable<Action> actions;
 
-  ConfiguredTargetValue(ConfiguredTarget configuredTarget, Iterable<Action> actions) {
-    super(actions);
+  ConfiguredTargetValue(ConfiguredTarget configuredTarget,
+      Map<Artifact, Action> generatingActionMap) {
+    super(generatingActionMap);
     this.configuredTarget = configuredTarget;
-    this.actions = actions;
+    this.actions = generatingActionMap.values();
   }
 
   @VisibleForTesting

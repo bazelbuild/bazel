@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -35,21 +35,26 @@ import java.util.Map;
 public class ActionLookupValue implements SkyValue {
   protected final ImmutableMap<Artifact, Action> generatingActionMap;
 
-  ActionLookupValue(Iterable<Action> actions) {
-    // Duplicate/shared actions get passed in all the time. Blaze is weird. We can't double-register
-    // the generated artifacts in an immutable map builder, so we double-register them in a more
-    // forgiving map, and then use that map to create the immutable one.
-    Map<Artifact, Action> generatingActions = new HashMap<>();
-    for (Action action : actions) {
-      for (Artifact artifact : action.getOutputs()) {
-        generatingActions.put(artifact, action);
-      }
+  private static Map<Artifact, Action> filterSharedActionsAndThrowRuntimeIfConflict(
+      Iterable<Action> actions) {
+    try {
+      return ConfiguredTargetFunction.filterSharedActionsAndThrowIfConflict(actions);
+    } catch (ActionConflictException e) {
+      // Programming bug.
+      throw new IllegalStateException(e);
     }
-    generatingActionMap = ImmutableMap.copyOf(generatingActions);
+  }
+
+  ActionLookupValue(Iterable<Action> actions) {
+    this(filterSharedActionsAndThrowRuntimeIfConflict(actions));
   }
 
   ActionLookupValue(Action action) {
     this(ImmutableList.of(action));
+  }
+
+  ActionLookupValue(Map<Artifact, Action> generatingActionMap) {
+    this.generatingActionMap = ImmutableMap.copyOf(generatingActionMap);
   }
 
   Action getGeneratingAction(Artifact artifact) {

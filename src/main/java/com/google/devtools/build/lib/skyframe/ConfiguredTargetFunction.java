@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -494,8 +497,27 @@ final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    return new ConfiguredTargetValue(configuredTarget,
-        ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()));
+    try {
+      return new ConfiguredTargetValue(configuredTarget,
+          filterSharedActionsAndThrowIfConflict(analysisEnvironment.getRegisteredActions()));
+    } catch (ActionConflictException e) {
+      throw new ConfiguredTargetFunctionException(e);
+    }
+  }
+
+  static Map<Artifact, Action> filterSharedActionsAndThrowIfConflict(Iterable<Action> actions)
+      throws ActionConflictException {
+    Map<Artifact, Action> generatingActions = new HashMap<>();
+    for (Action action : actions) {
+      for (Artifact artifact : action.getOutputs()) {
+        Action previousAction = generatingActions.put(artifact, action);
+        if (previousAction != null && previousAction != action
+            && !Actions.canBeShared(previousAction, action)) {
+          throw new ActionConflictException(artifact, previousAction, action);
+        }
+      }
+    }
+    return generatingActions;
   }
 
   /**
@@ -521,6 +543,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
     private ConfiguredTargetFunctionException(ConfiguredValueCreationException error) {
       super(error, Transience.PERSISTENT);
     };
+
+    private ConfiguredTargetFunctionException(ActionConflictException e) {
+      super(e, Transience.PERSISTENT);
+    }
 
     private ConfiguredTargetFunctionException(
         @Nullable SkyKey childKey, Exception transitiveError) {
