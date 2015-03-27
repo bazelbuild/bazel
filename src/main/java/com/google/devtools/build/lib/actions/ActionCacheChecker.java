@@ -81,6 +81,12 @@ public class ActionCacheChecker {
     return null;
   }
 
+  private void removeCacheEntry(Action action) {
+    for (Artifact output : action.getOutputs()) {
+      actionCache.remove(output.getExecPathString());
+    }
+  }
+
   /**
    * Validate metadata state for action input or output artifacts.
    *
@@ -166,6 +172,9 @@ public class ActionCacheChecker {
       }
     }
     if (mustExecute(action, entry, handler, metadataHandler, actionInputs)) {
+      if (entry != null) {
+        removeCacheEntry(action);
+      }
       return new Token(getKeyString(action));
     }
 
@@ -207,6 +216,10 @@ public class ActionCacheChecker {
       throws IOException {
     Preconditions.checkArgument(token != null);
     String key = token.cacheKey;
+    if (actionCache.get(key) != null) {
+      // This cache entry has already been updated by a shared action. We don't need to do it again.
+      return;
+    }
     ActionCache.Entry entry = actionCache.createEntry(action.getKey());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.

@@ -470,7 +470,7 @@ public final class SkyframeActionExecutor {
    * <p>For use from {@link ArtifactFunction} only.
    */
   ActionExecutionValue executeAction(Action action, FileAndMetadataCache graphFileCache,
-      Token token, long actionStartTime,
+      long actionStartTime,
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
@@ -480,7 +480,7 @@ public final class SkyframeActionExecutor {
     }
     Artifact primaryOutput = action.getPrimaryOutput();
     FutureTask<ActionExecutionValue> actionTask =
-        new FutureTask<>(new ActionRunner(action, graphFileCache, token,
+        new FutureTask<>(new ActionRunner(action, graphFileCache,
             actionStartTime, actionExecutionContext));
     // Check to see if another action is already executing/has executed this value.
     Pair<Action, FutureTask<ActionExecutionValue>> oldAction =
@@ -591,6 +591,18 @@ public final class SkyframeActionExecutor {
     return token;
   }
 
+  void afterExecution(Action action, MetadataHandler metadataHandler, Token token) {
+    try {
+      actionCacheChecker.afterExecution(action, token, metadataHandler);
+    } catch (IOException e) {
+      // Skyframe has already done all the filesystem access needed for outputs, and swallows
+      // IOExceptions for inputs. So an IOException is impossible here.
+      throw new IllegalStateException(
+          "failed to update action cache for " + action.prettyPrint()
+              + ", but all outputs should already have been checked", e);
+    }
+  }
+
   /**
    * Perform dependency discovery for action, which must discover its inputs.
    *
@@ -636,16 +648,14 @@ public final class SkyframeActionExecutor {
   private class ActionRunner implements Callable<ActionExecutionValue> {
     private final Action action;
     private final FileAndMetadataCache graphFileCache;
-    private Token token;
     private long actionStartTime;
     private ActionExecutionContext actionExecutionContext;
 
-    ActionRunner(Action action, FileAndMetadataCache graphFileCache, Token token,
+    ActionRunner(Action action, FileAndMetadataCache graphFileCache,
         long actionStartTime,
         ActionExecutionContext actionExecutionContext) {
       this.action = action;
       this.graphFileCache = graphFileCache;
-      this.token = token;
       this.actionStartTime = actionStartTime;
       this.actionExecutionContext = actionExecutionContext;
     }
@@ -673,8 +683,7 @@ public final class SkyframeActionExecutor {
 
         createOutputDirectories(action);
 
-        prepareScheduleExecuteAndCompleteAction(action, token,
-            actionExecutionContext, actionStartTime);
+        prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
             graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
       } finally {
@@ -743,17 +752,15 @@ public final class SkyframeActionExecutor {
    * action cache.
    *
    * @param action  The action to execute
-   * @param token  The non-null token returned by dependencyChecker.getTokenIfNeedToExecute()
    * @param context services in the scope of the action
    * @param actionStartTime time when we started the first phase of the action execution.
    * @throws ActionExecutionException if the execution of the specified action
    *   failed for any reason.
    * @throws InterruptedException if the thread was interrupted.
    */
-  private void prepareScheduleExecuteAndCompleteAction(Action action, Token token,
+  private void prepareScheduleExecuteAndCompleteAction(Action action,
       ActionExecutionContext context, long actionStartTime)
       throws ActionExecutionException, InterruptedException {
-    Preconditions.checkNotNull(token, action);
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
     context.getMetadataHandler().discardMetadata(action.getOutputs());
     // Delete the outputs before executing the action, just to ensure that
@@ -776,7 +783,7 @@ public final class SkyframeActionExecutor {
         resourceManager.acquireResources(action, estimate);
       }
       boolean outputDumped = executeActionTask(action, context);
-      completeAction(action, token, context.getMetadataHandler(),
+      completeAction(action, context.getMetadataHandler(),
           context.getFileOutErr(), outputDumped);
     } finally {
       if (estimate != null) {
@@ -856,7 +863,7 @@ public final class SkyframeActionExecutor {
     return false;
   }
 
-  private void completeAction(Action action, Token token, MetadataHandler metadataHandler,
+  private void completeAction(Action action, MetadataHandler metadataHandler,
       FileOutErr fileOutErr, boolean outputAlreadyDumped) throws ActionExecutionException {
     try {
       Preconditions.checkState(action.inputsKnown(),
@@ -875,15 +882,6 @@ public final class SkyframeActionExecutor {
           setOutputsReadOnlyAndExecutable(action, metadataHandler);
         } catch (IOException e) {
           reportError("failed to set outputs read-only", e, action, null);
-        }
-        try {
-          actionCacheChecker.afterExecution(action, token, metadataHandler);
-        } catch (IOException e) {
-          // Skyframe does all the filesystem access needed during the previous calls, and if those
-          // calls failed, we should already have thrown. So an IOException is impossible here.
-          throw new IllegalStateException(
-              "failed to update action cache for " + action.prettyPrint()
-                  + ", but all outputs should already have been checked", e);
         }
       } finally {
         profiler.completeTask(ProfilerTask.ACTION_COMPLETE);
