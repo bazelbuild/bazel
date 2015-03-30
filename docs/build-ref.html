@@ -384,7 +384,7 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-    //my/app/main:app_binary
+//my/app/main:app_binary
 </pre>
 
 <p>
@@ -398,8 +398,8 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-    //my/app
-    //my/app:app
+//my/app
+//my/app:app
 </pre>
 
 <p>
@@ -421,10 +421,10 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-   //my/app:app
-   //my/app
-   :app
-   app
+//my/app:app
+//my/app
+:app
+app
 </pre>
 
 <p>
@@ -440,8 +440,8 @@ src/my/app/tests/test.cc
 
 
 <pre>
-   generate.cc
-   testdata/input.txt
+generate.cc
+testdata/input.txt
 </pre>
 
 <p>
@@ -463,8 +463,8 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-   <span style="text-decoration: line-through">testdata/testdepot.zip</span>                    # Wrong: testdata is a different package.
-   //my/app/testdata:testdepot.zip   # Right.
+<span style="text-decoration: line-through">testdata/testdepot.zip</span>  # Wrong: testdata is a different package.
+//my/app/testdata:testdepot.zip   # Right.
 </pre>
 
 <p>
@@ -798,43 +798,42 @@ src/my/app/tests/test.cc
 </p>
 
 <pre style='font-size: 90%; font-style: bold;'>
-    file_input ::= (simple_stmt? '\n')*
+file_input ::= (simple_stmt? '\n')*
 
-    simple_stmt ::= small_stmt (';' small_stmt)* ';'?
+simple_stmt ::= small_stmt (';' small_stmt)* ';'?
 
-    small_stmt ::= expr
-                 | assign_stmt
+small_stmt ::= expr
+             | assign_stmt
 
-    assign_stmt ::= IDENTIFIER '=' expr
+assign_stmt ::= IDENTIFIER '=' expr
 
-    expr ::= INTEGER
-           | STRING+
-           | IDENTIFIER
-           | IDENTIFIER '(' arg_list? ')'
-           | expr '.' IDENTIFIER
-           | expr '.' IDENTIFIER '(' arg_list? ')'
-           | '[' expr_list? ']'
-           | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
-           | '(' expr_list? ')'
-           | '{' dict_entry_list? '}'
-           | expr '+' expr
-           | expr '-' expr
-           | expr '%' expr
-           | '-' expr
-           | expr '[' expr? ':' expr? ']'
-           | expr '[' expr ']'
+expr ::= INTEGER
+       | STRING+
+       | IDENTIFIER
+       | IDENTIFIER '(' arg_list? ')'
+       | expr '.' IDENTIFIER
+       | expr '.' IDENTIFIER '(' arg_list? ')'
+       | '[' expr_list? ']'
+       | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
+       | '(' expr_list? ')'
+       | '{' dict_entry_list? '}'
+       | expr '+' expr
+       | expr '-' expr
+       | expr '%' expr
+       | '-' expr
+       | expr '[' expr? ':' expr? ']'
+       | expr '[' expr ']'
 
-    expr_list ::= (expr ',')* expr ','?
+expr_list ::= (expr ',')* expr ','?
 
-    dict_entry_list ::= (dict_entry ',')* dict_entry ','?
+dict_entry_list ::= (dict_entry ',')* dict_entry ','?
 
-    dict_entry ::= expr ':' expr
+dict_entry ::= expr ':' expr
 
-    arg_list ::= (arg ',')* arg ','?
+arg_list ::= (arg ',')* arg ','?
 
-    arg ::= IDENTIFIER '=' expr
-          | expr
-
+arg ::= IDENTIFIER '=' expr
+      | expr
 </pre>
 
 <p>
