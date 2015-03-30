@@ -58,8 +58,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -298,6 +296,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         pkgFactory.getRuleClassProvider(), pkgFactory));
     map.put(SkyFunctions.GLOB, new GlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
+    map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction());
     map.put(SkyFunctions.PACKAGE, new PackageFunction(
         reporter, pkgFactory, packageManager, showLoadingProgress, packageFunctionCache,
@@ -1176,12 +1175,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * For internal use in queries: performs two graph updates to make sure the transitive closure of
+   * For internal use in queries: performs a graph update to make sure the transitive closure of
    * the specified target {@code patterns} is present in the graph, and returns a traversable view
    * of the graph.
    *
-   * <p>The graph updates here are unconditionally done in keep-going mode, so that the query is
-   * guaranteed a complete graph to work on.
+   * <p>The graph update is unconditionally done in keep-going mode, so that the query is guaranteed
+   * a complete graph to work on.
    */
   @Override
   public WalkableGraph prepareAndGet(Collection<String> patterns, int numThreads,
@@ -1190,26 +1189,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         (SkyframeTargetPatternEvaluator) packageManager.getTargetPatternEvaluator();
     String offset = patternEvaluator.getOffset();
     FilteringPolicy policy = TargetPatternEvaluator.DEFAULT_FILTERING_POLICY;
-    Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(patterns, policy, offset);
-    ResolvedTargets<Target> result;
-    try {
-      result = patternEvaluator.parseTargetPatternKeys(patternSkyKeys, /*numThreads=*/numThreads,
-        /*keepGoing=*/true, eventHandler);
-    } catch (TargetParsingException e) {
-      // Can't happen, since we ran with keepGoing.
-      throw new IllegalStateException(e);
-    }
-    List<SkyKey> targetKeys = new ArrayList<>();
-    for (Target target : result.getTargets()) {
-      targetKeys.add(TransitiveTargetValue.key(target.getLabel()));
-    }
-    // We request all the keys here, even the ones that were already evaluated, because we want a
-    // single graph that contains all these keys, and if the evaluator keys graphs based on
-    // top-level keys, we must request the union of all our desired keys in a single evaluate call.
-    Iterable<SkyKey> allKeys = ImmutableList.copyOf(Iterables.concat(patternSkyKeys, targetKeys));
-    return Preconditions.checkNotNull(
-        buildDriver.evaluate(allKeys, true, numThreads, eventHandler).getWalkableGraph(),
-        patterns);
+    SkyKey skyKey = PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), policy, offset);
+    EvaluationResult<SkyValue> evaluationResult =
+        buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
+    return Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
   }
 
   /**

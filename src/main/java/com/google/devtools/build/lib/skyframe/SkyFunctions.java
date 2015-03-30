@@ -40,6 +40,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName PACKAGE = SkyFunctionName.computed("PACKAGE");
   public static final SkyFunctionName TARGET_MARKER = SkyFunctionName.computed("TARGET_MARKER");
   public static final SkyFunctionName TARGET_PATTERN = SkyFunctionName.computed("TARGET_PATTERN");
+  public static final SkyFunctionName PREPARE_DEPS_OF_PATTERNS =
+      SkyFunctionName.computed("PREPARE_DEPS_OF_PATTERNS");
   public static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.computed("RECURSIVE_PKG");
   public static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.computed("TRANSITIVE_TARGET");
