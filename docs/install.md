@@ -99,10 +99,14 @@ To build Bazel on Mac OS X:
 
 ## Running Bazel
 
-The Bazel executable is located at `output/bazel`, under the source
-tree root.
 
-You must run Bazel from within source code tree, which is properly
+The Bazel executable is located at `output/bazel` in the bazel directory.
+It's a good idea to add this path to your default paths, like so (you
+can also add this command to your `~/.bashrc`):
+
+    $ export PATH="$PATH:$HOME/bazel/output/bazel"
+
+You must run Bazel from within a source code tree that is properly
 configured for use with Bazel. We call such a tree a _workspace
 directory_. Bazel provides a default workspace directory with sample
 `BUILD` files and source code in `base_workspace`. The default
@@ -116,7 +120,7 @@ Build a sample Java application:
 
         $ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
         $ cd $HOME/my_workspace
-        $ $HOME/bazel/output/bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
+        $ bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
 
 The build output is located in `$HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/`.
 
