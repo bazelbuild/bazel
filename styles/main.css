@@ -98,16 +98,21 @@ body {
   margin: 64px auto 0 auto;
   padding: 0px 16px 0 16px;
   text-align: right;
-  color: #336600;
+  color: #360;
 }
 code, var, pre {
   font-size: 13px;
   color: #488f26;
+  background-color: #eee;
+  border-radius: 6px;
+}
+p > code, li > code {
+  padding: 0.25em;
 }
 pre {
   padding: 16px;
   line-height: 1.5;
-  background-color: #eeeeee;
+  background-color: #eee;
   border: 1px solid #e7f0d7;
 }
 a, a:visited {

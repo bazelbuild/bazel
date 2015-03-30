@@ -2,9 +2,9 @@
 layout: default
 ---
 
-# Compiling Bazel
+# Installing Bazel
 
-This file contains instructions for building and running Bazel.
+This file contains instructions for downloading, building and running Bazel.
 
 ## System Requirements
 
@@ -31,21 +31,40 @@ Java:
 To build Bazel on Ubuntu:
 
 1. Install JDK 8:
-  * On Ubuntu Trusty (14.04LTS), no OpenJDK 8 is available and the
+  * Ubuntu Trusty (14.04LTS): OpenJDK 8 is not available so the
     fastest way is to install the Oracle JDK 8:
 
             $ sudo add-apt-repository ppa:webupd8team/java
             $ sudo apt-get update
             $ sudo apt-get install oracle-java8-installer
-  * On Ubuntu Utopic (14.10):
+  * Ubuntu Utopic (14.10): you can install OpenJDK 8 like this:
 
             $ sudo apt-get install openjdk-8-jdk
 
-2. Install required packages:
+2. Set the `JAVA_HOME` environment variable.
+
+   Check if it's already set:
+
+       $ echo $JAVA_HOME
+
+   If this prints the path to the JDK 8 root, you can proceed to the next step.
+
+   Otherwise you'll need to set this to the root of the JDK. Use `which javac`
+   to find the path to the JDK's `bin` directory. Use `javac -version` to verify
+   that you're dealing with the right JDK version.
+
+   For example the path could be `/usr/lib/jvm/jdk1.8.0/bin/javac`. Set the
+   `JAVA_HOME` variable to `/usr/lib/jvm/jdk1.8.0` then, using:
+
+       $ export JAVA_HOME=/usr/lib/jvm/jdk1.8.0
+
+   You can also add this line to your `~/.bashrc` file.
+
+3. Install required packages:
 
         $ sudo apt-get install libarchive-dev pkg-config zip g++ zlib1g-dev
 
-3. Build Bazel:
+4. Build Bazel:
 
         $ cd bazel
         $ ./compile.sh
@@ -59,7 +78,7 @@ Using Bazel on Mac OS X requires:
   [Apple's developer site](https://developer.apple.com/xcode/downloads/).
 * MacPorts or Homebrew for installing required packages.
 * An installation of JDK 8.
-* (optional) For objc\_\* and ios\_\* rule support: An installed copy of
+* (optional) For `objc_*` and `ios_*` rule support: An installed copy of
   Xcode 6.1 or later with iOS SDK 8.1.
 
 To build Bazel on Mac OS X:
@@ -84,10 +103,14 @@ To build Bazel on Mac OS X:
 
 ## Running Bazel
 
-The Bazel executable is located at `output/bazel`, under the source
-tree root.
 
-You must run Bazel from within source code tree, which is properly
+The Bazel executable is located at `output/bazel` in the bazel directory.
+It's a good idea to add this path to your default paths, like so (you
+can also add this command to your `~/.bashrc`):
+
+    $ export PATH="$PATH:$HOME/bazel/output/bazel"
+
+You must run Bazel from within a source code tree that is properly
 configured for use with Bazel. We call such a tree a _workspace
 directory_. Bazel provides a default workspace directory with sample
 `BUILD` files and source code in `base_workspace`. The default
@@ -101,7 +124,7 @@ Build a sample Java application:
 
         $ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
         $ cd $HOME/my_workspace
-        $ $HOME/bazel/output/bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
+        $ bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
 
 The build output is located in `$HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/`.
 

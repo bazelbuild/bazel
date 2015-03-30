@@ -91,6 +91,14 @@ layout: default
 <td></td>
 </tr>
 <tr>
+<td class="lang">Python</td>
+<td><a href="#py_binary">py_binary</a></td>
+<td><a href="#py_library">py_library</a></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
 <td class="lang">Shell</td>
 <td><a href="#sh_binary">sh_binary</a></td>
 <td><a href="#sh_library">sh_library</a></td>
@@ -2093,6 +2101,166 @@ you should define them on <code>ios_application</code> instead. They will be rem
 </ul>
 
 
+<h3 id="py_binary">py_binary</h3>
+
+
+<p class="rule-signature">
+py_binary(<a href="#py_binary.name">name</a>,
+<a href="#py_binary.deps">deps</a>,
+<a href="#py_binary.srcs">srcs</a>,
+<a href="#py_binary.data">data</a>,
+<a href="#binary.args">args</a>,
+<a href="#py_binary.default_python_version">default_python_version</a>,
+<a href="#common.deprecation">deprecation</a>,
+<a href="#common.distribs">distribs</a>,
+<a href="#common.licenses">licenses</a>,
+<a href="#py_binary.main">main</a>,
+<a href="#binary.output_licenses">output_licenses</a>,
+<a href="#py_binary.srcs_version">srcs_version</a>,
+<a href="#py_binary.stamp">stamp</a>,
+<a href="#common.tags">tags</a>,
+<a href="#common.testonly">testonly</a>,
+<a href="#common.visibility">visibility</a>)
+</p>
+
+
+<p>
+  A <code>py_binary</code> is an executable Python program consisting
+  of a collection of <code>.py</code> source files (possibly belonging
+  to other <code>py_library</code> rules), a <code>*.runfiles</code>
+  directory tree containing all the code and data needed by the
+  program at run-time, and a stub script that starts up the program with
+  the correct initial environment and data.
+</p>
+
+${IMPLICIT_OUTPUTS}
+
+<h4 id="py_binary_args">Arguments</h4>
+<ul>
+<li id="py_binary.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i>    <br/>If <code>main</code> is unspecified, this should be the same as the name
+    of the source file that is the main entry point of the application,
+    minus the extension.  For example, if your entry point is called
+    <code>main.py</code>, then your name should be <code>main</code>.
+</li>
+<li id="py_binary.deps"><code>deps</code>:
+          The list of other libraries to be linked in to the binary target.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          See general comments about <code>deps</code>
+          at <a href="#common-attributes">Attributes common to all build rules</a>.
+          These can be
+          <a href="#py_binary"><code>py_binary</code></a> rules,
+          <a href="#py_library"><code>py_library</code></a> rules or
+          <a href="#cc_library"><code>cc_library</code></a> rules,
+</li>
+<li id="py_binary.srcs"><code>srcs</code>:
+          The list of source files that are processed to create the target.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i><br/>
+
+          This includes all your checked-in code and any
+          generated source files.  The line between <code>srcs</code> and
+          <code>deps</code> is loose. The <code>.py</code> files
+          probably belong in <code>srcs</code> and library targets probably belong
+          in <code>deps</code>, but don't worry about it too much.
+</li>
+<li id="py_binary.data"><code>data</code>:
+         The list of files needed by this binary at runtime.
+         <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+         See general comments about <code>data</code>
+         at <a href="#common-attributes">Attributes common to all build rules</a>.
+         Also see the <a href="#py_library.data"><code>data</code></a> argument of
+         the <a href="#py_library"><code>py_library</code></a> rule for details.
+</li>
+<li id="py_binary.default_python_version"><code>default_python_version</code>:
+          A string specifying the default Python major version to use when building this binary and
+          all of its <code>deps</code>.
+          <i>(String; optional; default is "PY2")</i><br/>
+
+          Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
+          Python 3 support is experimental.
+</li>
+<li id="py_binary.main"><code>main</code>:
+          The name of the source file that is the main entry point of the application.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+          This file must also be listed in <code>srcs</code>. If left unspecified,
+          <code>name</code> is used instead (see above). If <code>name</code> does not
+          match any filename in <code>srcs</code>, <code>main</code> must be specified.
+</li>
+<li id="py_binary.srcs_version"><code>srcs_version</code>:
+          A string specifying the Python major version(s) that the <code>.py</code> source
+          files listed in the <code>srcs</code> of this rule are compatible with.
+          <i>(String; optional; default is "PY2")</i><br/>
+
+          Valid values are:<br/>
+          <code>"PY2ONLY"</code> -
+            Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
+          <code>"PY2"</code> -
+            Python 2 code that is expected to work when run through <code>2to3</code>.<br/>
+          <code>"PY2AND3"</code> -
+            Code that is compatible with both Python 2 and 3 without
+            <code>2to3</code> conversion.<br/>
+          <code>"PY3"</code> -
+            Python 3 code that will not run on Python 2.<br/>
+          <br/>
+</li>
+<li id="py_binary.stamp"><code>stamp</code>:
+          Enable link stamping.
+          <i>(Integer; optional; default is -1)</i><br/>
+
+          Whether to encode build information into the binary. Possible values:
+          <ul>
+            <li><code>stamp = 1</code>: Stamp the build information into the
+              binary. Stamped binaries are only rebuilt when their dependencies
+              change. Use this if there are tests that depend on the build
+              information.</li>
+            <li><code>stamp = 0</code>: Always replace build information by constant
+              values. This gives good build result caching.</li>
+            <li><code>stamp = -1</code>: Embedding of build information is controlled
+              by the <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> Bazel
+              flag.</li>
+          </ul>
+</li>
+</ul>
+
+
+<h4 id="py_binary_examples">Examples</h4>
+
+<pre class="code">
+py_binary(
+    name = "foo",
+    srcs = ["foo.py"],
+    data = [":transform"],  # a cc_binary which we invoke at run time
+    deps = [
+        "//pyglib",
+        ":foolib",  # a py_library
+    ],
+)
+</pre>
+
+<p>If you want to run a <code>py_binary</code> from within another binary or
+   test (for example, running a python binary to set up some mock resource from
+   within a java_test) then the correct approach is to make the other binary or
+   test depend on the <code>py_binary</code> in its data section. The other
+   binary can then locate the <code>py_binary</code> relative to the source
+   directory.
+</p>
+
+<pre class="code">
+py_binary(
+    name = "test_main",
+    srcs = ["test_main.py"],
+    deps = [":testlib"],
+)
+
+java_library(
+    name = "testing",
+    srcs = glob(["*.java"]),
+    data = [":test_main"]
+)
+</pre>
 <h3 id="sh_binary">sh_binary</h3>
 
 
@@ -3613,6 +3781,71 @@ options file.</p>
         If true, output C++ rather than ObjC.
         <i>(Boolean; optional; default is 0)</i><br/>
 
+</li>
+</ul>
+
+
+<h3 id="py_library">py_library</h3>
+
+
+<p class="rule-signature">
+py_library(<a href="#py_library.name">name</a>,
+<a href="#py_library.deps">deps</a>,
+<a href="#py_library.srcs">srcs</a>,
+<a href="#py_library.data">data</a>,
+<a href="#common.deprecation">deprecation</a>,
+<a href="#common.distribs">distribs</a>,
+<a href="#common.licenses">licenses</a>,
+<a href="#py_library.srcs_version">srcs_version</a>,
+<a href="#common.tags">tags</a>,
+<a href="#common.testonly">testonly</a>,
+<a href="#common.visibility">visibility</a>)
+</p>
+
+
+<h4 id="py_library_args">Arguments</h4>
+<ul>
+<li id="py_library.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="py_library.deps"><code>deps</code>:
+        The list of other libraries to be linked in to the library target.
+        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+        See general comments about <code>deps</code>
+        at <a href="#common-attributes">Attributes common to all build rules</a>.
+        In practice, these arguments are treated like those in <code>srcs</code>;
+        you may move items between these lists willy-nilly.  It's probably more
+        readable to keep your <code>.py</code> files in your <code>srcs</code>.
+</li>
+<li id="py_library.srcs"><code>srcs</code>:
+        The list of source files that are processed to create the target.
+        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+        This includes all your checked-in code and any generated source files.
+</li>
+<li id="py_library.data"><code>data</code>:
+        The list of files needed by this library at runtime.
+        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+        See general comments about <code>data</code>
+        at <a href="#common-attributes">Attributes common to all build rules</a>.
+</li>
+<li id="py_library.srcs_version"><code>srcs_version</code>:
+          A string specifying the Python major version(s) that the <code>.py</code> source
+          files listed in the <code>srcs</code> of this rule are compatible with.
+          <i>(String; optional; default is "PY2")</i><br/>
+
+          Valid values are:<br/>
+          <code>"PY2ONLY"</code> -
+            Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
+          <code>"PY2"</code> -
+            Python 2 code that is expected to work when run through <code>2to3</code>.<br/>
+          <code>"PY2AND3"</code> -
+            Code that is compatible with both Python 2 and 3 without
+            <code>2to3</code> conversion.<br/>
+          <code>"PY3"</code> -
+            Python 3 code that will not run on Python 2.<br/>
+          <br/>
 </li>
 </ul>
 
