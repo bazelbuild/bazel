@@ -106,4 +106,47 @@ EOF
     expect_log "EXTRA ACTION FILE"
 }
 
+function test_with_arguments() {
+  mkdir -p mypkg
+  cat > mypkg/BUILD <<EOF
+sh_test(
+    name = "expected_arg_test",
+    srcs = ["check_expected_argument.sh"],
+    args = ["expected_value"],
+)
+
+sh_test(
+    name = "unexpected_arg_test",
+    srcs = ["check_expected_argument.sh"],
+    args = ["unexpected_value"],
+)
+EOF
+  cat > mypkg/check_expected_argument.sh <<EOF
+#!/bin/sh
+[ "expected_value" = "\$1" ] || exit 1
+EOF
+
+  chmod +x mypkg/check_expected_argument.sh
+
+  assert_test_ok //mypkg:expected_arg_test
+  assert_test_fails //mypkg:unexpected_arg_test
+}
+
+function test_top_level_test() {
+  cat > BUILD <<EOF
+sh_test(
+    name = "trivial_test",
+    srcs = ["true.sh"],
+)
+EOF
+  cat > true.sh <<EOF
+#!/bin/sh
+exit 0
+EOF
+
+  chmod +x true.sh
+
+  assert_test_ok //:trivial_test
+}
+
 run_suite "rules test"

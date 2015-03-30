@@ -13,4 +13,4 @@ DIR="$TEST_SRCDIR"
 # have direct access to their declared dependencies.
 cd "$DIR" || { echo "Could not chdir $DIR"; exit 1; }
 
-"$@"
+"./$@"
