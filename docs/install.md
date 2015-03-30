@@ -1,6 +1,6 @@
-# Compiling Bazel
+# Installing Bazel
 
-This file contains instructions for building and running Bazel.
+This file contains instructions for downloading, building and running Bazel.
 
 ## System Requirements
 
