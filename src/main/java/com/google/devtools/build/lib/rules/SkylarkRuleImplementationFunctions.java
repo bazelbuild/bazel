@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -88,7 +87,6 @@ public class SkylarkRuleImplementationFunctions {
           doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
-      @Param(name = "command_line", doc = "a command line to execute"),
       @Param(name = "progress_message", type = String.class,
           doc = "progress message to show to the user during the build, e.g. \"Compiling foo.cc to"
           + " create foo.o\""),
@@ -147,10 +145,6 @@ public class SkylarkRuleImplementationFunctions {
           throw new EvalException(loc, "expected string or list of strings for "
               + "command instead of " + EvalUtils.getDataTypeName(command));
         }
-      }
-      if (params.containsKey("command_line")) {
-        builder.setCommandLine(CommandLine.ofCharSequences(ImmutableList.copyOf(castList(
-            params.get("command_line"), CharSequence.class, "command line"))));
       }
       if (params.containsKey("mnemonic")) {
         builder.setMnemonic((String) params.get("mnemonic"));
