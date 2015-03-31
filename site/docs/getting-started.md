@@ -8,10 +8,8 @@ Getting Started with Bazel
 Setup
 -----
 
-Every Bazel project is contained in a directory called a _build root_,
-which holds the inputs, outputs, and build rules for the project. To create a
-Bazel project, first clone the [GitHub repo](https://github.com/google/bazel)
-and build Bazel (follow the [installation instructions](install.html) to install
+To use Bazel, first clone the [Github repo](https://github.com/google/bazel)
+and build Bazel (follow the instructions in the [README](install.html) to install
 prerequisites):
 
 ```bash
@@ -20,13 +18,32 @@ $ cd bazel
 $ ./compile.sh
 ```
 
-`./compile.sh` populates the _base_workspace_ subdirectory
-with the tools Bazel needs to do builds.
+`./compile.sh` creates the `bazel` executable in `output/bazel`.
+It also pre-populates a `base_workspace/` subdirectory with the tools
+Bazel needs to do builds, which you can copy and use as a starting
+point for new workspaces.
+
+_**Note:** Bazel may support a binary installation at a later time._
+
+Using a workspace
+-----------------
+
+Bazel is oriented around a workspace &ndash; a directory which contains the
+tools and libraries it needs and projects it builds.  A workspace is
+any directory that contains a WORKSPACE file (marking the directory as a
+workspace root) and contains its toolchain, third-party libraries, project
+subdirectories, etc. The workspace is also the directory where build outputs
+can be easily accessed. Bazel creates `bazel-out`, `bazel-bin` and others in
+the workspace root, which are symbolic links to the real output directories.
+
+One workspace can be shared among multiple projects, if desired.  To get
+started, we'll focus on a simple example with one project.
 
 Suppose that you have an existing project in a directory, say,
-_~/gitroot/my-project/_. Recursively copy _base_workspace/_ and
-all of its contents to wherever you'd like your build root and then move
-_my-project/_ to be a subdirectory of _base_workspace/_:
+`~/gitroot/my-project/`. Copy `base_workspace/` (produced
+by `compile.sh`) and all of its contents to wherever you'd like your
+build root and then move `my-project/` to be a subdirectory of
+`base_workspace/`:
 
 ```bash
 $ cp -R ~/gitroot/bazel/base_workspace ~/gitroot
@@ -40,16 +57,20 @@ base_workspace/
   examples/
   my-project/
   tools/
+  third_party/
   WORKSPACE
 ```
 
-You can rename _base_workspace/_ to something more descriptive, if you prefer.
+You can rename `base_workspace/` to something more descriptive, if you prefer.
+The `tools/` and `third_party/` directories can be symbolically linked into the
+workspace, or they can be copied in whole, but must be named `tools/` and
+`third_party/` respectively.
 
 Sanity Check: Building an Example
 ---------------------------------
 
 To make sure everything is set up correctly in your build root, build one of the
-examples from the _examples/_ directory.
+examples from the `examples/` directory.
 
 ```bash
 $ cd ~/gitroot/base_workspace
@@ -65,14 +86,14 @@ $ bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 Hello world
 ```
 
-Bazel puts binaries it has built under _bazel-bin/_.  Note that you can
+Bazel puts binaries it has built under `bazel-bin/`.  Note that you can
 always look at the `build` command's output to find output file paths.
 
 Creating Your Own Build File
 ----------------------------
 
-Now you can create your own BUILD file and start adding build rules. This example assumes that
-_my-project/_ is a Java project.  See the
+Now you can create your own BUILD file and start adding build rules. This
+example assumes that `my-project/` is a Java project.  See the
 [build encyclopedia](build-encyclopedia.html)
 for advice on adding build rules for other languages.
 
@@ -85,7 +106,7 @@ BUILD file defines rules about how Bazel should build things in this
 subdirectory.
 
 Thus, to add build rules to my-project, create a file named `BUILD` in the
-_my-project/_ directory.  Add the following lines to this BUILD file:
+`my-project/` directory.  Add the following lines to this BUILD file:
 
 ```python
 # ~/gitroot/base_workspace/my-project/BUILD
@@ -163,7 +184,7 @@ parallelize more of the build steps.
 
 To break up a project, create separate rules for each subcomponent and then
 make them depend on each other. For the example above, add the following rules
-to the _my-project/BUILD_ file:
+to the `my-project/BUILD` file:
 
 ```python
 java_binary(
@@ -194,7 +215,7 @@ Hi!
 ```
 
 If you edit _ProjectRunner.java_ and rebuild `my-other-runner`, only
-_ProjectRunner.java_ needs to be rebuilt (<code>greeter</code> is unchanged).
+`ProjectRunner.java` needs to be rebuilt (<code>greeter</code> is unchanged).
 
 Using Multiple Packages
 -----------------------
@@ -202,7 +223,7 @@ Using Multiple Packages
 For larger projects, you will often be dealing with several directories. You
 can refer to targets defined in other BUILD files using the syntax
 `//package-name:target-name`.  For example, suppose
-_my-project/java/com/example/_ has a _cmdline/_ subdirectory with the following
+`my-project/java/com/example/` has a `cmdline/` subdirectory with the following
 file:
 
 ```bash
@@ -220,7 +241,7 @@ public class Runner {
 EOF
 ```
 
-We could add a BUILD file at _my-project/java/com/example/cmdline/BUILD_
+We could add a `BUILD` file at `my-project/java/com/example/cmdline/BUILD`
 that contained the following rule:
 
 ```python
