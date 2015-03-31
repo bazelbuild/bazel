@@ -32,7 +32,7 @@ public @interface SkylarkSignature {
 
   String name();
 
-  String doc();
+  String doc() default "";
 
   Param[] mandatoryPositionals() default {};
 
@@ -71,7 +71,7 @@ public @interface SkylarkSignature {
 
     String name();
 
-    String doc();
+    String doc() default "";
 
     String defaultValue() default "";
 

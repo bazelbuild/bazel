@@ -52,17 +52,22 @@ public class SkylarkSignatureProcessor {
     ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
     HashMap<String, SkylarkType> enforcedTypes = enforcedTypesList == null
         ? null : new HashMap<String, SkylarkType>();
+
     HashMap<String, String> doc = new HashMap<>();
+    boolean undocumented = annotation.undocumented();
+    if (annotation.doc().isEmpty() && !undocumented) {
+      throw new RuntimeException(String.format("function %s is undocumented", name));
+    }
 
     Iterator<Object> defaultValuesIterator = defaultValues == null
         ? null : defaultValues.iterator();
     try {
       for (Param param : annotation.mandatoryPositionals()) {
-        paramList.add(getParameter(name, param, doc, enforcedTypes,
+        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
                 /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
       }
       for (Param param : annotation.optionalPositionals()) {
-        paramList.add(getParameter(name, param, doc, enforcedTypes,
+        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/false,
                 /*defaultValue=*/getDefaultValue(param, defaultValuesIterator)));
       }
@@ -74,22 +79,22 @@ public class SkylarkSignatureProcessor {
           Preconditions.checkArgument(annotation.extraPositionals().length == 1);
           starParam = annotation.extraPositionals()[0];
         }
-        paramList.add(getParameter(name, starParam, doc, enforcedTypes,
+        paramList.add(getParameter(name, starParam, enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/true, /*starStar=*/false, /*defaultValue=*/null));
       }
       for (Param param : annotation.optionalNamedOnly()) {
-        paramList.add(getParameter(name, param, doc, enforcedTypes,
+        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/false,
                 /*defaultValue=*/getDefaultValue(param, defaultValuesIterator)));
       }
       for (Param param : annotation.mandatoryNamedOnly()) {
-        paramList.add(getParameter(name, param, doc, enforcedTypes,
+        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
                 /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
       }
       if (annotation.extraKeywords().length > 0) {
         Preconditions.checkArgument(annotation.extraKeywords().length == 1);
         paramList.add(
-            getParameter(name, annotation.extraKeywords()[0], doc, enforcedTypes,
+            getParameter(name, annotation.extraKeywords()[0], enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/true, /*defaultValue=*/null));
       }
       FunctionSignature.WithValues<Object, SkylarkType> signature =
@@ -117,8 +122,9 @@ public class SkylarkSignatureProcessor {
   // process it? (builtin function call not allowed when evaluating values, but more complex
   // values are possible by referencing variables in some definition environment).
   // Then the only per-parameter information needed is a documentation string.
-  private static Parameter<Object, SkylarkType> getParameter(String name,
-      Param param, Map<String, String> paramDoc, Map<String, SkylarkType> enforcedTypes,
+  private static Parameter<Object, SkylarkType> getParameter(
+      String name, Param param, Map<String, SkylarkType> enforcedTypes,
+      Map<String, String> paramDoc, boolean undocumented,
       boolean mandatory, boolean star, boolean starStar, @Nullable Object defaultValue)
       throws FunctionSignature.SignatureException {
 
@@ -159,6 +165,9 @@ public class SkylarkSignatureProcessor {
     }
     if (enforcedTypes != null) {
       enforcedTypes.put(param.name(), enforcedType);
+    }
+    if (param.doc().isEmpty() && !undocumented) {
+      throw new RuntimeException(String.format("parameter %s is undocumented", name));
     }
     if (paramDoc != null) {
       paramDoc.put(param.name(), param.doc());

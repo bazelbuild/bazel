@@ -154,10 +154,10 @@ public class BuiltinFunction extends BaseFunction {
           || e instanceof ClassCastException
           || e instanceof ExecutionException
           || e instanceof IllegalStateException) {
-        throw new EvalException(loc, e.getMessage(), e);
+        throw new EvalException(loc, e);
       } else if (e instanceof IllegalArgumentException) {
         // Assume it was thrown by SkylarkType.cast and has a good message.
-        throw new EvalException(loc, String.format("%s\nin call to %s", e.getMessage(), this), e);
+        throw new EvalException(loc, "Illegal argument in call to " + getName(), e);
       } else {
         throw badCallException(loc, e, args);
       }
@@ -168,12 +168,12 @@ public class BuiltinFunction extends BaseFunction {
         final Class<?>[] types = invokeMethod.getParameterTypes();
         for (int i = 0; i < args.length; i++) {
           if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
-            final String paramName = i < len
+            String paramName = i < len
                 ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
             throw new EvalException(loc, String.format(
                 "expected %s for '%s' while calling %s but got %s instead",
                 EvalUtils.getDataTypeNameFromClass(types[i]), paramName, getName(),
-                EvalUtils.getDataTypeName(args[i])), e);
+                EvalUtils.getDataTypeName(args[i])));
           }
         }
         throw badCallException(loc, e, args);
@@ -209,7 +209,7 @@ public class BuiltinFunction extends BaseFunction {
     for (Method method : this.getClass().getDeclaredMethods()) {
       method.setAccessible(true);
       if (name.equals(method.getName())) {
-        if (method != null) {
+        if (found != null) {
           throw new IllegalArgumentException(String.format(
               "function %s has more than one method named %s", getName(), name));
         }
