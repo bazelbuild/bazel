@@ -1,7 +1,7 @@
 Rules
 =====
 
-**Status: Experimental**
+**Status: Experimental**. Expect some breaking changes in the API.
 
 [TOC]
 
