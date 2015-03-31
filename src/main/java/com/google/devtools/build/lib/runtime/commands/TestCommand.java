@@ -57,10 +57,16 @@ import java.util.List;
 public class TestCommand implements BlazeCommand {
   private AnsiTerminalPrinter printer;
 
+  /** Returns the name of the command to ask the project file for. */
+  // TODO(hdm): move into BlazeRuntime?  It feels odd to duplicate the annotation here.
+  protected String commandName() {
+    return "test";
+  }
+
   @Override
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
       throws AbruptExitException {
-    ProjectFileSupport.handleProjectFiles(runtime, optionsParser, "test");
+    ProjectFileSupport.handleProjectFiles(runtime, optionsParser, commandName());
 
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
