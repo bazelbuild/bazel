@@ -383,7 +383,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("xyce", env.lookup("v2"));
     assertEquals("xyzf", env.lookup("v3"));
     UserDefinedFunction foo = (UserDefinedFunction) env.lookup("foo");
-    assertEquals("foo(a, b = \"b\", *, d = \"d\", c)", foo.toString());
+    assertEquals("foo(a, b = \"b\", *, c, d = \"d\")", foo.toString());
   }
 
   @Test

@@ -230,8 +230,6 @@ public abstract class BaseFunction implements Function {
     int numPositionalParams = numMandatoryPositionalParams + numOptionalPositionalParams;
     int numNamedOnlyParams = numMandatoryNamedOnlyParams + numOptionalNamedOnlyParams;
     int numNamedParams = numPositionalParams + numNamedOnlyParams;
-    int numOptionalParams = numOptionalPositionalParams + numOptionalNamedOnlyParams;
-    int endOptionalParams = numMandatoryPositionalParams + numOptionalParams;
     int kwParamIndex = names.size() - 1; // only valid if hasKwParam
 
     // (1) handle positional arguments
@@ -271,9 +269,11 @@ public abstract class BaseFunction implements Function {
         throw new EvalException(loc, String.format(
             "missing mandatory keyword arguments in call to %s", this));
       }
-      // Fill in defaults for missing optional parameters, that were conveniently grouped together.
+      // Fill in defaults for missing optional parameters, that were conveniently grouped together,
+      // thanks to the absence of mandatory named-only parameters as checked above.
       if (defaultValues != null) {
         int j = numPositionalArgs - numMandatoryPositionalParams;
+        int endOptionalParams = numPositionalParams + numOptionalNamedOnlyParams;
         for (int i = numPositionalArgs; i < endOptionalParams; i++) {
           arguments[i] = defaultValues.get(j++);
         }
@@ -337,26 +337,31 @@ public abstract class BaseFunction implements Function {
         if (arguments[i] == null) {
           throw new EvalException(loc, String.format(
               "missing mandatory positional argument '%s' while calling %s",
-              names.get(i), toString()));
+              names.get(i), this));
         }
       }
 
-      for (int i = numNamedParams - numMandatoryNamedOnlyParams; i < numNamedParams; i++) {
+      int endMandatoryNamedOnlyParams = numPositionalParams + numMandatoryNamedOnlyParams;
+      for (int i = numPositionalParams; i < endMandatoryNamedOnlyParams; i++) {
         if (arguments[i] == null) {
           throw new EvalException(loc, String.format(
               "missing mandatory named-only argument '%s' while calling %s",
-              names.get(i), toString()));
+              names.get(i), this));
         }
       }
 
       // Get defaults for those parameters that weren't passed.
       if (defaultValues != null) {
-        for (int j = numPositionalArgs > numMandatoryPositionalParams
-                 ? numPositionalArgs - numMandatoryPositionalParams : 0;
-             j < numOptionalParams; j++) {
-          int i = j + numMandatoryPositionalParams;
+        for (int i = Math.max(numPositionalArgs, numMandatoryPositionalParams);
+             i < numPositionalParams; i++) {
           if (arguments[i] == null) {
-            arguments[i] = defaultValues.get(j);
+            arguments[i] = defaultValues.get(i - numMandatoryPositionalParams);
+          }
+        }
+        int numMandatoryParams = numMandatoryPositionalParams + numMandatoryNamedOnlyParams;
+        for (int i = numMandatoryParams + numOptionalPositionalParams; i < numNamedParams; i++) {
+          if (arguments[i] == null) {
+            arguments[i] = defaultValues.get(i - numMandatoryParams);
           }
         }
       }
@@ -442,11 +447,11 @@ public abstract class BaseFunction implements Function {
    * Render this object in the form of an equivalent Python function signature.
    */
   public String toString() {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append(getName());
     if (signature != null) {
       sb.append('(');
-      signature.toStringBuffer(sb);
+      signature.toStringBuilder(sb);
       sb.append(')');
     } // if unconfigured, don't even output parentheses
     return sb.toString();

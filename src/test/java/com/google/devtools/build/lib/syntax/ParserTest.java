@@ -1018,9 +1018,9 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(statements.get(0)).isInstanceOf(FunctionDefStatement.class);
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
     FunctionSignature sig = stmt.getArgs().getSignature();
-    // Note the reordering of mandatory named-only at the end.
+    // Note the reordering of optional named-only at the end.
     assertThat(sig.getNames()).isEqualTo(ImmutableList.<String>of(
-        "a", "b1", "b2", "d", "c1", "c2"));
+        "a", "b1", "b2", "c1", "c2", "d"));
     FunctionSignature.Shape shape = sig.getShape();
     assertThat(shape.getMandatoryPositionals()).isEqualTo(1);
     assertThat(shape.getOptionalPositionals()).isEqualTo(2);

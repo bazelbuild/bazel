@@ -80,6 +80,7 @@ public class BaseFunctionTest extends AbstractEvaluationTestCase {
     "mixed(1, 2, 3)",
     "mixed(1, 2, wiz=3, quux=4)",
     "mixed(foo=1)",
+    "mixed(bar=2)",
     "mixed(foo=1, bar=2)",
     "mixed(bar=2, foo=1)",
     "mixed(2, foo=1)",
@@ -111,6 +112,7 @@ public class BaseFunctionTest extends AbstractEvaluationTestCase {
         "too many (3) positional arguments in call to mixed(foo, bar = ?)",
         "unexpected keywords 'quux', 'wiz' in call to mixed(foo, bar = ?)",
         "[1, null]",
+        "missing mandatory positional argument 'foo' while calling mixed(foo, bar = ?)",
         "[1, 2]",
         "[1, 2]",
         "argument 'foo' passed both by position and by name in call to mixed(foo, bar = ?)",
@@ -119,17 +121,18 @@ public class BaseFunctionTest extends AbstractEvaluationTestCase {
 
   @Test
   public void testOnlyNamedArguments() throws Exception {
-    checkBaseFunctions(true, "mixed(*, foo = ?, bar)",
-        "missing mandatory keyword arguments in call to mixed(*, foo = ?, bar)",
-        "mixed(*, foo = ?, bar) does not accept positional arguments, but got 1",
-        "mixed(*, foo = ?, bar) does not accept positional arguments, but got 2",
-        "mixed(*, foo = ?, bar) does not accept positional arguments, but got 3",
-        "mixed(*, foo = ?, bar) does not accept positional arguments, but got 2",
-        "missing mandatory named-only argument 'bar' while calling mixed(*, foo = ?, bar)",
+    checkBaseFunctions(true, "mixed(*, foo, bar = ?)",
+        "missing mandatory keyword arguments in call to mixed(*, foo, bar = ?)",
+        "mixed(*, foo, bar = ?) does not accept positional arguments, but got 1",
+        "mixed(*, foo, bar = ?) does not accept positional arguments, but got 2",
+        "mixed(*, foo, bar = ?) does not accept positional arguments, but got 3",
+        "mixed(*, foo, bar = ?) does not accept positional arguments, but got 2",
+        "[1, null]",
+        "missing mandatory named-only argument 'foo' while calling mixed(*, foo, bar = ?)",
         "[1, 2]",
         "[1, 2]",
-        "mixed(*, foo = ?, bar) does not accept positional arguments, but got 1",
-        "unexpected keyword 'wiz' in call to mixed(*, foo = ?, bar)");
+        "mixed(*, foo, bar = ?) does not accept positional arguments, but got 1",
+        "unexpected keyword 'wiz' in call to mixed(*, foo, bar = ?)");
   }
 
   @Test
