@@ -50,10 +50,9 @@ fi
 
 function md5_outputs() {
   [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output
-  # genproto does not strip out timestamp, let skip it for now
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
-  for i in $(find bazel-bin/ -type f -a \! -name 'libproto_*.jar' -a \! -name MANIFEST -a \! -name '*.runfiles_manifest' -a \! -name '*.a'); do
+  for i in $(find bazel-bin/ -type f -a \! -name MANIFEST -a \! -name '*.runfiles_manifest' -a \! -name '*.a'); do
     md5_file $i
   done
   for i in $(find bazel-genfiles/ -type f); do

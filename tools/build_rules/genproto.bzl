@@ -16,11 +16,18 @@
 # only supports Java.
 
 
-# TODO(bazel-team): unify the OSS Java rules and load from another
-# file.
 jar_filetype = FileType([".jar"])
 
 proto_filetype = FileType([".proto"])
+
+def java_compile_command(ctx, classdir, classpath, output):
+  java = ctx.file._java.path
+  langtools = ctx.file._java_langtools.path
+  javabuilder = ctx.file._javabuilder.path
+  return ("%s -Xbootclasspath/p:%s -jar %s " % (java, langtools, javabuilder) +
+          "--classdir %s --classpath %s " % (classdir, classpath) +
+          "--output %s " % (output) +
+          "--javacopts -source 1.8 -target 1.8 --compress_jar --sources ${JAVA_FILES}")
 
 def genproto_impl(ctx):
   src = ctx.file.src
@@ -28,6 +35,7 @@ def genproto_impl(ctx):
   proto_dep = ctx.file._proto_dep
   class_jar = ctx.outputs.java
   proto_output = class_jar.path + ".proto_output"
+  build_output = class_jar.path + ".build_output"
   build_output = class_jar.path + ".build_output"
 
   inputs = [src, proto_dep, proto_compiler]
@@ -42,9 +50,8 @@ def genproto_impl(ctx):
          proto_compiler_path + " --java_out=" +
          proto_output +" " + src.path + "\n" +
          "JAVA_FILES=$(find " + proto_output + " -name '*.java')\n" +
-         javapath + "javac" + " -classpath " + proto_dep.path +
-         " ${JAVA_FILES} -d " + build_output + "\n" +
-         javapath + "jar cf " + class_jar.path + "  -C " + build_output + " .\n")
+         java_compile_command(ctx, build_output, proto_dep.path, class_jar.path))
+
   ctx.action(
       inputs = inputs,
       outputs = [class_jar],
@@ -71,6 +78,18 @@ genproto = rule(genproto_impl,
            default=Label("//third_party:protobuf"),
            single_file=True,
            allow_files=jar_filetype,
+           ),
+       "_javabuilder": attr.label(
+           default=Label("//tools/defaults:javabuilder"),
+           single_file=True,
+           ),
+       "_java_langtools": attr.label(
+           default=Label("//tools/defaults:java_langtools"),
+           single_file=True,
+           ),
+       "_java": attr.label(
+           default=Label("//tools/jdk:java"),
+           single_file=True,
            ),
    },
    outputs = {"java": "lib%{name}.jar"},
