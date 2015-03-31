@@ -57,7 +57,7 @@ def py_binary_impl(ctx):
   outdir = deploy_zip.path + ".out"
 
   # Add __init__.py files and the __main__.py driver.
-  main_cmd = ("mkdir %s && " % outdir +
+  main_cmd = ("mkdir -p %s && " % outdir +
               " cp %s %s/__main__.py && " % (main_file.path, outdir) +
               " cp %s %s/main.zip && " % (deploy_zip_nomain.path, outdir) +
               " (cd %s && " % outdir +

@@ -106,6 +106,14 @@ function test_python() {
   ./bazel-bin/examples/py/bin >& $TEST_log \
     || fail "//examples/py:bin execution failed"
   expect_log "Fib(5)=8"
+
+  # Mutate //examples/py:bin so that it needs to build again.
+  echo "print 'Hello'" > ./examples/py/bin.py
+  # Ensure that we can rebuild //examples/py::bin without error.
+  assert_build "//examples/py:bin"
+  ./bazel-bin/examples/py/bin >& $TEST_log \
+    || fail "//examples/py:bin 2nd build execution failed"
+  expect_log "Hello"
 }
 
 function test_java_skylark() {
