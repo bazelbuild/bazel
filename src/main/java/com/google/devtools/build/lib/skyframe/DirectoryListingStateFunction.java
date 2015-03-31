@@ -39,12 +39,15 @@ public class DirectoryListingStateFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingStateFunctionException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
-    externalFilesHelper.maybeAddDepOnBuildId(dirRootedPath, env);
-    if (env.valuesMissing()) {
-      return null;
-    }
+
     try {
+      externalFilesHelper.maybeHandleExternalFile(dirRootedPath, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
       return DirectoryListingStateValue.create(dirRootedPath);
+    } catch (FileOutsidePackageRootsException e) {
+      throw new DirectoryListingStateFunctionException(e);
     } catch (IOException e) {
       throw new DirectoryListingStateFunctionException(e);
     }
@@ -63,6 +66,10 @@ public class DirectoryListingStateFunction implements SkyFunction {
       extends SkyFunctionException {
     public DirectoryListingStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
+    }
+
+    public DirectoryListingStateFunctionException(FileOutsidePackageRootsException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

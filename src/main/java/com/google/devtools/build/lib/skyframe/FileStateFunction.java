@@ -42,12 +42,15 @@ public class FileStateFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws FileStateFunctionException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
-    externalFilesHelper.maybeAddDepOnBuildId(rootedPath, env);
-    if (env.valuesMissing()) {
-      return null;
-    }
+
     try {
+      externalFilesHelper.maybeHandleExternalFile(rootedPath, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
       return FileStateValue.create(rootedPath, tsgm);
+    } catch (FileOutsidePackageRootsException e) {
+      throw new FileStateFunctionException(e);
     } catch (IOException e) {
       throw new FileStateFunctionException(e);
     } catch (InconsistentFilesystemException e) {
@@ -71,6 +74,10 @@ public class FileStateFunction implements SkyFunction {
 
     public FileStateFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
+    }
+
+    public FileStateFunctionException(FileOutsidePackageRootsException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

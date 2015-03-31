@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Path;
@@ -27,14 +28,32 @@ class ExternalFilesHelper {
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final Set<Path> immutableDirs;
+  private final boolean errorOnExternalFiles;
 
+  @VisibleForTesting
   ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator) {
-    this(pkgLocator, ImmutableSet.<Path>of());
+    this(pkgLocator, ImmutableSet.<Path>of(), /*errorOnExternalFiles=*/false);
   }
 
-  ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator, Set<Path> immutableDirs) {
+  @VisibleForTesting
+  ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator,
+      boolean errorOnExternalFiles) {
+    this(pkgLocator, ImmutableSet.<Path>of(), errorOnExternalFiles);
+  }
+
+  /**
+   * @param pkgLocator an {@link AtomicReference} to a {@link PathPackageLocator} used to
+   *    determine what files are internal
+   * @param immutableDirs directories whose contents may be considered unchangeable
+   * @param errorOnExternalFiles whether or not to allow references to files outside of
+   *    the directories provided by pkgLocator or immutableDirs. See
+   *    {@link #maybeHandleExternalFile(RootedPath, SkyFunction.Environment)} for more details.
+   */
+  ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator, Set<Path> immutableDirs,
+      boolean errorOnExternalFiles) {
     this.pkgLocator = pkgLocator;
     this.immutableDirs = immutableDirs;
+    this.errorOnExternalFiles = errorOnExternalFiles;
   }
 
   private enum FileType {
@@ -69,29 +88,45 @@ class ExternalFilesHelper {
     return getFileType(rootedPath) == FileType.EXTERNAL_IMMUTABLE_FILE;
   }
 
-  public void maybeAddDepOnBuildId(RootedPath rootedPath, SkyFunction.Environment env) {
-   if (getFileType(rootedPath) == FileType.EXTERNAL_MUTABLE_FILE) {
-      // For files outside the package roots that are not assumed to be immutable, add a dependency
-      // on the build_id. This is sufficient for correctness; all other files will be handled by
-      // diff awareness of their respective package path, but these files need to be addressed
-      // separately.
-      //
-      // Using the build_id here seems to introduce a performance concern because the upward
-      // transitive closure of these external files will get eagerly invalidated on each
-      // incremental build (e.g. if every file had a transitive dependency on the filesystem root,
-      // then we'd have a big performance problem). But this a non-issue by design:
-      // - We don't add a dependency on the parent directory at the package root boundary, so the
-      // only transitive dependencies from files inside the package roots to external files are
-      // through symlinks. So the upwards transitive closure of external files is small.
-      // - The only way external source files get into the skyframe graph in the first place is
-      // through symlinks outside the package roots, which we neither want to encourage nor
-      // optimize for since it is not common. So the set of external files is small.
-      //
-      // The above reasoning doesn't hold for bazel, because external repositories
-      // (e.g. new_local_repository) cause lots of external symlinks to be present in the build.
-      // So bazel pretends that these external repositories are immutable to avoid the performance
-      // penalty described above.
-      PrecomputedValue.dependOnBuildId(env);
+  /**
+   * Potentially adds a dependency on build_id to env if this instance is configured
+   * with errorOnExternalFiles=false and rootedPath is an external mutable file.
+   * If errorOnExternalFiles=true and rootedPath is an external mutable file then
+   * a FileOutsidePackageRootsException is thrown. This method is a no-op for any
+   * rootedPaths that fall within the known package roots.
+   *
+   * @param rootedPath
+   * @param env
+   * @throws FileOutsidePackageRootsException
+   */
+  public void maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
+      throws FileOutsidePackageRootsException {
+    if (getFileType(rootedPath) == FileType.EXTERNAL_MUTABLE_FILE) {
+      if (!errorOnExternalFiles) {
+        // For files outside the package roots that are not assumed to be immutable, add a
+        // dependency on the build_id. This is sufficient for correctness; all other files
+        // will be handled by diff awareness of their respective package path, but these
+        // files need to be addressed separately.
+        //
+        // Using the build_id here seems to introduce a performance concern because the upward
+        // transitive closure of these external files will get eagerly invalidated on each
+        // incremental build (e.g. if every file had a transitive dependency on the filesystem root,
+        // then we'd have a big performance problem). But this a non-issue by design:
+        // - We don't add a dependency on the parent directory at the package root boundary, so the
+        // only transitive dependencies from files inside the package roots to external files are
+        // through symlinks. So the upwards transitive closure of external files is small.
+        // - The only way external source files get into the skyframe graph in the first place is
+        // through symlinks outside the package roots, which we neither want to encourage nor
+        // optimize for since it is not common. So the set of external files is small.
+        //
+        // The above reasoning doesn't hold for bazel, because external repositories
+        // (e.g. new_local_repository) cause lots of external symlinks to be present in the build.
+        // So bazel pretends that these external repositories are immutable to avoid the performance
+        // penalty described above.
+        PrecomputedValue.dependOnBuildId(env);
+      } else {
+        throw new FileOutsidePackageRootsException(rootedPath);
+      }
     }
   }
 }
