@@ -64,7 +64,7 @@ function copy_tools_directory() {
 # Copy the examples of the base workspace
 function copy_examples() {
   EXAMPLE="$TEST_SRCDIR/examples"
-  cp -R ${EXAMPLE} .
+  cp -RL ${EXAMPLE} .
   chmod -R +w .
 }
 
