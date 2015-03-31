@@ -20,7 +20,7 @@ the attributes and their type when you define a rule.
 ```python
 sum = rule(
   implementation=impl,
-  attr = {
+  attrs = {
       "number": attr.int(default = 1),
       "deps": attr.label_list(),
   },
