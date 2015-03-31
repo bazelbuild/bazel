@@ -4,18 +4,11 @@ layout: default
 
 # Governance
 
-## Is Bazel developed fully in the open? {#isbazelopen}
-
-Unfortunately not. We have a significant amount of code that is not open source, mostly rules,
-unit tests and interfaces to internal Google systems. Initially we are open sourcing only ~10% of
-the build rules used internally at Google. We did an experiment over the course of a few weeks
-where we marked all changes that crossed the internal and external code bases, only to discover
-that a lot of our changes still affect both.
-
-This complicates the development process and means that some changes will simply appear in the Bazel
-repository without clear explanation. At the same time, it is difficult to collaborate or get actual
-users without actually having the code in the open. Therefore, we are opening up the code, even
-though some of the development is still happening internal to Google.
+The Bazel project is led by a core group of contributors, initially Googlers, and managed by the
+community. The group of core contributors is self-managing - core contributors are added by two
+supporting votes from core contributors on the mailing list and no veto within four business days.
+We expect that new contributors will submit a number of patches before they become core
+contributors.
 
 ## Accepting Contributions
 
@@ -62,24 +55,38 @@ list), but this will hopefully change over time.
     extension points if they do not run counter to the internal requirements of any of the core
     contributors.
 
-### Core Contributors
+## Are you done open sourcing Bazel? {#isbazelopen}
 
-The group of core contributors is self-managing - core contributors are added by two supporting
-votes from core contributors on the mailing list and no veto within four business days. We expect
-that new contributors will submit a number of patches before they become core contributors.
+Open sourcing Bazel is a work-in-progress. In particular, we're still working on open sourcing:
+
+* Many of our unit and integration tests (which should make contributing patches easier).
+* Development tools, such as IDE integration and command-line completion.
+
+Beyond code, we'd like to eventually have all code reviews, bug tracking, and design decisions
+happen publicly, with the Bazel community involved. We are not there yet, so some changes will
+simply appear in the Bazel repository without clear explanation. Despite this lack of
+transparency, we want to support external developers and collaborate. Thus, we are opening up the
+code, even though some of the development is still happening internal to Google. Please let us know
+if anything seems unclear or unjustified as we transition to an open model.
+
+## Are there parts of Bazel that will never be open sourced?
+
+Yes, some of the code base either integrates with Google-specific technology or we have been looking
+for an excuse to get rid of (or is some combination of the two). These parts of the code base are
+not available on GitHub and probably never will be.
+
+### Core Contributors
 
 __Contact the core team at bazel-discuss@googlegroups.com.__
 
 The current group is:
 
-`@google.com`
-
- - `dmarting`
- - `hanwen`
- - `jfield`
- - `kchodorow`
- - `laszlocsomor`
- - `laurentlb`
- - `lberki`
- - `philwo`
- - `ulfjack`
+ - [damienmg](https://github.com/damienmg)
+ - [hanwen](https://github.com/hanwen)
+ - [jhfield](https://github.com/jhfield)
+ - [kchodorow](https://github.com/kchodorow)
+ - [laszlocsomor](https://github.com/laszlocsomor)
+ - [laurentlb](https://github.com/laurentlb)
+ - [lberki](https://github.com/lberki)
+ - [philwo](https://github.com/philwo)
+ - [ulfjack](https://github.com/ulfjack)
