@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
@@ -68,6 +69,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipException;
+
+import javax.annotation.Nullable;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration},
@@ -190,6 +193,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
   /**
+   * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
+   */
+  private static final PathFragment BUILT_IN_INCLUDE_PATH_FRAGMENT =
+      new PathFragment("include/stdc-predef.h");
+
+  /**
    * Represents an optional flag that can be toggled using the package features mechanism.
    */
   @VisibleForTesting
@@ -286,6 +295,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final PathFragment sysroot;
   private final PathFragment runtimeSysroot;
   private final List<PathFragment> builtInIncludeDirectories;
+  private Artifact builtInIncludeFile;
 
   private final Map<String, PathFragment> toolPaths;
   private final PathFragment ldExecutable;
@@ -1095,6 +1105,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns the built-in header automatically included by the toolchain compiler. All C++ files
+   * may implicitly include this file. May be null if {@link #getSysroot} is null.
+   */
+  @Nullable
+  public Artifact getBuiltInIncludeFile() {
+    return builtInIncludeFile;
+  }
+
+  /**
    * Returns the sysroot to be used. If the toolchain compiler does not support
    * different sysroots, or the sysroot is the same as the default sysroot, then
    * this method returns <code>null</code>.
@@ -1725,6 +1744,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public void prepareHook(Path execRoot, ArtifactFactory artifactFactory, PathFragment genfilesPath,
       PackageRootResolver resolver) throws ViewCreationFailedException {
+    // TODO(bazel-team): Remove the "relative" guard. sysroot should always be relative, and this
+    // should be enforced in the creation of CppConfiguration.
+    if (getSysroot() != null && !getSysroot().isAbsolute()) {
+      Root sysrootRoot = Iterables.getOnlyElement(
+          resolver.findPackageRoots(ImmutableList.of(getSysroot())).entrySet()).getValue();
+      builtInIncludeFile = Preconditions.checkNotNull(artifactFactory.getSourceArtifact(
+              sysroot.getRelative(BUILT_IN_INCLUDE_PATH_FRAGMENT), sysrootRoot),
+          "%s %s", sysrootRoot, sysroot);
+    }
     try {
       getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
     } catch (ZipException e) {

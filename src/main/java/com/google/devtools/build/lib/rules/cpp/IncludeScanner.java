@@ -92,6 +92,10 @@ public interface IncludeScanner {
       Path execRoot = executor.getExecRoot();
 
       final List<Path> absoluteBuiltInIncludeDirs = new ArrayList<>();
+      Artifact builtInInclude = action.getBuiltInIncludeFile();
+      if (builtInInclude != null) {
+        includes.add(builtInInclude);
+      }
 
       Profiler profiler = Profiler.instance();
       try {

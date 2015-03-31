@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 /**
  * To be implemented by actions (such as C++ compilation steps) whose inputs
  * can be scanned to discover other implicit inputs (such as C++ header files).
@@ -66,6 +68,13 @@ public interface IncludeScannable {
    * been quote-included at the beginning of each source file.
    */
   List<String> getCmdlineIncludes();
+
+  /**
+   * Returns an artifact that the compiler may unconditionally include, even if the source file
+   * does not mention it.
+   */
+  @Nullable
+  Artifact getBuiltInIncludeFile();
 
   /**
    * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted. 

@@ -152,8 +152,7 @@ public final class BuildConfiguration implements Serializable {
      * The fragment may use this hook to perform I/O and read data into memory that is used during
      * analysis. During the analysis phase disk I/O operations are disallowed.
      *
-     * <p>This hook is only called for the top-level configuration after the loading phase is
-     * complete.
+     * <p>This hook is called for all configurations after the loading phase is complete.
      */
     @SuppressWarnings("unused")
     public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
@@ -1873,6 +1872,9 @@ public final class BuildConfiguration implements Serializable {
    * phase is generally not allowed to perform disk I/O. This code is here because it is
    * conceptually part of the analysis phase, and it needs to happen when the loading phase is
    * complete.
+   *
+   * <p>C++ also requires this to resolve artifacts that are unconditionally included in every
+   * compilation.</p>
    */
   public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
       PackageRootResolver resolver) throws ViewCreationFailedException {
