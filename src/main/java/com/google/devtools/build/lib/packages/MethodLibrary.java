@@ -571,6 +571,31 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "get", objectType = DictModule.class,
+      doc = "Return the value for <code>key</code> if <code>key</code> is in the dictionary, "
+          + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
+          + "<code>None</code>, so that this method never throws an error.",
+      mandatoryParams = {
+        @Param(name = "key", doc = "The key to look for.")},
+      optionalParams = {
+        @Param(name = "default",
+            doc = "The default value to use (instead of None) if the key is not found.")})
+  private static Function get =
+      new MixedModeFunction("get", ImmutableList.of("this", "key", "default"), 2, false) {
+    @Override
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      Map<?, ?> dict = (Map<?, ?>) args[0];
+      Object key = args[1];
+      if (dict.containsKey(key)) {
+        return dict.get(key);
+      }
+      if (args[2] == null) {
+        return Environment.NONE;
+      }
+      return args[2];
+    }
+  };
+
   // TODO(bazel-team): Use the same type for both Skylark and BUILD files.
   @SuppressWarnings("unchecked")
   private static Iterable<Object> convert(Collection<?> list, Environment env, Location loc)
@@ -1074,6 +1099,7 @@ public class MethodLibrary {
   public static final Map<Function, SkylarkType> dictFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       .put(items, SkylarkType.of(List.class))
+      .put(get, SkylarkType.UNKNOWN)
       .put(keys, SkylarkType.of(Set.class))
       .put(values, SkylarkType.of(List.class))
       .build();
