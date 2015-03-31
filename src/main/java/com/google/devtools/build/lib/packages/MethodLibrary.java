@@ -108,7 +108,7 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "join", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a string in which the string elements of the argument have been "
           + "joined by this string as a separator. Example:<br>"
-          + "<pre class=language-python>\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>",
+          + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>",
       mandatoryParams = {
       @Param(name = "elements", type = SkylarkList.class, doc = "The objects to join.")})
   private static Function join = new MixedModeFunction("join",
@@ -525,7 +525,9 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "values", objectType = DictModule.class, returnType = SkylarkList.class,
-      doc = "Return the list of values.")
+      doc = "Return the list of values. Dictionaries are always sorted by their keys:"
+          + "<pre class=\"language-python\">"
+          + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n")
   private static Function values = new NoArgFunction("values") {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
@@ -537,7 +539,10 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "items", objectType = DictModule.class, returnType = SkylarkList.class,
-      doc = "Return the list of key-value tuples.")
+      doc = "Return the list of key-value tuples. Dictionaries are always sorted by their keys:"
+          + "<pre class=\"language-python\">"
+          + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(1, \"c\"), (2, \"a\"), (4, \"b\")]"
+          + "</pre>\n")
   private static Function items = new NoArgFunction("items") {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
@@ -554,7 +559,9 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "keys", objectType = DictModule.class, returnType = SkylarkList.class,
-      doc = "Return the list of keys.")
+      doc = "Return the list of keys. Dictionaries are always sorted by their keys:"
+          + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [1, 2, 4]"
+          + "</pre>\n")
   private static Function keys = new NoArgFunction("keys") {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
@@ -586,7 +593,10 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "list", returnType = SkylarkList.class,
-      doc = "Converts a collection (e.g. set or dictionary) to a list.",
+      doc = "Converts a collection (e.g. set or dictionary) to a list."
+        + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
+        + "list(set([2, 3, 2])) == [2, 3]\n"
+        + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
       mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
     private static Function list = new MixedModeFunction("list",
         ImmutableList.of("list"), 1, false) {
@@ -641,7 +651,7 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as fields. It is used to group "
       + "multiple values together.Example:<br>"
-      + "<pre class=language-python>s = struct(x = 2, y = 3)\n"
+      + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
       + "return s.x + s.y  # returns 5</pre>")
   private static Function struct = new AbstractFunction("struct") {
 
@@ -659,7 +669,7 @@ public class MethodLibrary {
       doc = "Creates a set from the <code>items</code>. The set supports nesting other sets of the"
       + " same element type in it. For this reason sets are also referred to as <i>nested sets</i>"
       + " (all Skylark sets are nested sets). A desired iteration order can also be specified.<br>"
-      + " Examples:<br><pre class=language-python>set([1, set([2, 3]), 2])\n"
+      + " Examples:<br><pre class=\"language-python\">set([1, set([2, 3]), 2])\n"
       + "set([1, 2, 3], order=\"compile\")</pre>",
       optionalParams = {
       @Param(name = "items", type = SkylarkList.class,
@@ -684,7 +694,7 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "enumerate",  returnType = SkylarkList.class,
       doc = "Return a list of pairs (two-element lists), with the index (int) and the item from"
-          + " the input list.\n<pre class=language-python>"
+          + " the input list.\n<pre class=\"language-python\">"
           + "enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>\n",
       mandatoryParams = {
       @Param(name = "list", type = SkylarkList.class,
@@ -712,7 +722,7 @@ public class MethodLibrary {
       doc = "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
           + "range from 0 to that element."
-          + "<pre class=language-python>range(4) == [0, 1, 2, 3]\n"
+          + "<pre class=\"language-python\">range(4) == [0, 1, 2, 3]\n"
           + "range(3, 9, 2) == [3, 5, 7]\n"
           + "range(3, 0, -1) == [3, 2, 1]</pre>",
       mandatoryParams = {
@@ -786,7 +796,7 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "hasattr", returnType = Boolean.class,
       doc = "Returns True if the object <code>x</code> has a field of the given <code>name</code>, "
           + "otherwise False. Example:<br>"
-          + "<pre class=language-python>hasattr(ctx.attr, \"myattr\")</pre>",
+          + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       mandatoryParams = {
       @Param(name = "object", doc = "The object to check."),
       @Param(name = "name", type = String.class, doc = "The name of the field.")})
@@ -821,7 +831,7 @@ public class MethodLibrary {
           + " if specified, otherwise rasies an error. For example, <code>getattr(x, \"foobar\")"
           + "</code> is equivalent to <code>x.foobar</code>."
           + "Example:<br>"
-          + "<pre class=language-python>getattr(ctx.attr, \"myattr\")\n"
+          + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
      mandatoryParams = {
      @Param(name = "object", doc = "The struct which's field is accessed."),
@@ -957,7 +967,7 @@ public class MethodLibrary {
           + "the i-th element from each of the argument sequences or iterables. The list has the "
           + "size of the shortest input. With a single iterable argument, it returns a list of "
           + "1-tuples. With no arguments, it returns an empty list. Examples:"
-          + "<pre class=language-python>"
+          + "<pre class=\"language-python\">"
           + "zip()  # == []\n"
           + "zip([1, 2])  # == [(1,), (2,)]\n"
           + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
@@ -997,7 +1007,7 @@ public class MethodLibrary {
   @SkylarkModule(name = "string", doc =
       "A language built-in type to support strings. "
       + "Examples of string literals:<br>"
-      + "<pre class=language-python>a = 'abc\\ndef'\n"
+      + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
       + "b = \"ab'cd\"\n"
       + "c = \"\"\"multiline string\"\"\"\n"
       + "\n"
@@ -1006,9 +1016,9 @@ public class MethodLibrary {
       + "y = \"hello\"[1:-1]  # \"ell\"\n"
       + "z = \"hello\"[:4]  # \"hell\"</pre>"
       + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
-      + "<pre class=language-python>\"a\" in \"abc\"   # evaluates as True\n"
+      + "<pre class=\"language-python\">\"a\" in \"abc\"   # evaluates as True\n"
       + "x = []\n"
-      + "for s in \"abc\":\n"
+     + "for s in \"abc\":\n"
       + "  x += [s]     # x == [\"a\", \"b\", \"c\"]</pre>")
   public static final class StringModule {}
 
@@ -1018,21 +1028,22 @@ public class MethodLibrary {
   @SkylarkModule(name = "dict", doc =
       "A language built-in type to support dicts. "
       + "Example of dict literal:<br>"
-      + "<pre class=language-python>d = {\"a\": 2, \"b\": 5}</pre>"
-      + "Accessing elements works just like in Python:<br>"
-      + "<pre class=language-python>e = d[\"a\"]   # e == 2</pre>"
+      + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
+      + "Use brackets to access elements:<br>"
+      + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
       + "Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple "
       + "keys the second one overrides the first one. Examples:<br>"
-      + "<pre class=language-python>"
+      + "<pre class=\"language-python\">"
       + "d = {\"a\" : 1} + {\"b\" : 2}   # d == {\"a\" : 1, \"b\" : 2}\n"
       + "d += {\"c\" : 3}              # d == {\"a\" : 1, \"b\" : 2, \"c\" : 3}\n"
       + "d = d + {\"c\" : 5}           # d == {\"a\" : 1, \"b\" : 2, \"c\" : 5}</pre>"
       + "Since the language doesn't have mutable objects <code>d[\"a\"] = 5</code> automatically "
       + "translates to <code>d = d + {\"a\" : 5}</code>.<br>"
-      + "Dicts are iterable, the iteration works on their keyset.<br>"
+      + "Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>"
       + "Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. "
       + "Example:<br>"
-      + "<pre class=language-python>\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True</pre>")
+      + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True"
+      + "</pre>")
   public static final class DictModule {}
 
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap

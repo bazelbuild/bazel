@@ -71,7 +71,6 @@ public class SkylarkRuleImplementationFunctions {
    *         arguments = [argument1, argument2, ...],
    *         mnemonic = 'mnemonic',
    *         command = 'command',
-   *         register = 1
    *     )
    */
   @SkylarkBuiltin(name = "action",
