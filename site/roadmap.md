@@ -29,7 +29,7 @@ repositories:
     containing only the Bazel code.
 
 We anticipate making the external repository *primary* in the future, that is,
-code from Google and non-Google contributors will committed and tested in the
+code from Google and non-Google contributors will be committed and tested in the
 external repository first, then imported into the internal repository. For
 the alpha and beta releases, however, the internal repository will be primary.
 Changes to Bazel code will be frequently pushed from the internal to
