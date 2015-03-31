@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Contributing to Bazel
 
 *Please do not send us pull requests on GitHub!* We welcome contributions
@@ -5,7 +9,7 @@
 
 ## How can I contribute to Bazel?
 
-You should first read the [Bazel governance plan](governance.md). Then you can
+You should first read the [Bazel governance plan](governance.html). Then you can
 read this page that explains how to submit a patch to Bazel, as well as how to set-up
 and work on the Bazel code.
 
@@ -20,7 +24,7 @@ and work on the Bazel code.
    documentation](https://gerrit-review.googlesource.com/Documentation/user-upload.html) for
    instructions on uploading your commit.
 4. Complete a code review with a
-   [core contributor](http://bazel.io/docs/governance.html#core-contributors).
+   [core contributor](governance.html#core-contributors).
 5. An engineer at Google applies the patch to our internal version control
    system.
 6. The patch is exported as a Git commit, at which point the Gerrit code review
@@ -28,7 +32,7 @@ and work on the Bazel code.
 
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see
-[Is Bazel developed fully in the open?](governance.md#isbazelopen)).
+[Is Bazel developed fully in the open?](governance.html#isbazelopen)).
 
 
 ## Setting up your coding environment
@@ -123,10 +127,11 @@ Bazel is organized in several parts:
   command-line interface. Its code is in `src/main/cpp`.
 * Protocol buffers in `src/main/protobuf`.
 * The server code in Java (in `src/main/java` and `src/test/java`)
-  * Core code which is mostly composed of [SkyFrame](skyframe.md) and some
+  * Core code which is mostly composed of [SkyFrame](docs/skyframe.html) and some
     utilities.
-  * [Skylark](skylark/index.md) rules are defined in `tools/build_rules`. If you
-    want to add rules, consider using [Skylark](skylark/index.md) first.
+  * [Skylark](docs/skylark/index.html) rules are defined in `tools/build_rules`.
+    If you want to add rules, consider using [Skylark](docs/skylark/index.html)
+    first.
   * Builtin rules in `com.google.devtools.build.lib.rules` and in
     `com.google.devtools.build.lib.bazel.rules`.
 * Java native interfaces in `src/main/native`.

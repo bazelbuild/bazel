@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 Building Bazel on Windows
 =========================
 

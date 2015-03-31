@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Bazel Feature Roadmap
 
 Author: [The Bazel Team](https://groups.google.com/forum/#!forum/bazel-discuss)
@@ -47,7 +51,7 @@ releases until the beta. We will accept code contributions, but may need to
 reject or defer code contributions related to beta features still under
 development. Some features will be fully supported
 henceforward, others are still experimental or partially supported;
-see our [feature support document](support.md) for details.
+see our [feature support document](support.html) for details.
 
 The following features/capabilities will be available in the alpha:
 
@@ -93,5 +97,3 @@ features/capabilities will be available:
 *   Support for the Go language
 *   Support for Javascript
 *   Android Studio interoperability
-
-

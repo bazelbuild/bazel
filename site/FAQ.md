@@ -1,3 +1,6 @@
+---
+layout: default
+---
 
 What is Bazel?
 -------------
@@ -188,7 +191,7 @@ What about Windows?
 -------------------
 
 We have experimented with a Windows port
-[using MinGW/MSYS](windows.md), but have no plans to invest in this
+[using MinGW/MSYS](docs/windows.html), but have no plans to invest in this
 port right now. Due to its Unix heritage, porting Bazel is significant
 work. For example, Bazel uses symlinks extensively, which has varying
 levels of support across Windows versions.
@@ -223,7 +226,7 @@ versions multiple times every month.
 In short, except for features marked as experimental, at any point in
 time, Bazel should Just Work. Changes to non-experimental rules will
 be backward compatible. A more detailed list of feature support
-statuses can be found in our [support document](support.md).
+statuses can be found in our [support document](support.html).
 
 
 How stable is Bazel as a binary?
@@ -236,7 +239,7 @@ should also hold for our open-source codebase.
 How can I start using Bazel?
 ----------------------------
 
-See our [getting started document](getting-started.md).
+See our [getting started document](docs/getting-started.html).
 
 
 Why do I need to have a tools/ directory in my source tree?
@@ -364,7 +367,7 @@ fails, and this should be enough for basic CI integration.  Since
 Bazel does not need clean builds for correctness, the CI system can
 be configured to not clean before starting a build/test run.
 
-Further details on exit codes are in the [User Manual](bazel-user-manual.html).
+Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
 
 What future features can we expect in Bazel?
 --------------------------------------------
@@ -373,7 +376,7 @@ Our initial goal is to work on Google's internal use-cases. This
 includes Google's principal languages (C++, Java, Go) and major
 platforms (Linux, Android, iOS).  For practical reasons, not all of
 these are currently open-sourced. For more details see our
-[roadmap](roadmap.md).
+[roadmap](roadmap.html).
 
 
 What about Python?
@@ -412,7 +415,7 @@ Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 We have an extension mechanism that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see [here](skylark/index.md).
+For documentation: see [here](docs/skylark/index.html).
 
 At present, the extension mechanism is experimental though.
 
@@ -428,7 +431,7 @@ the mailing list for advice: <bazel-discuss@googlegroups.com>.
 Can I contribute to the Bazel code base?
 ----------------------------------------
 
-See our [contribution guidelines](contributing.md).
+See our [contribution guidelines](contributing.html).
 
 
 Why isn't all development done in the open?
@@ -436,7 +439,7 @@ Why isn't all development done in the open?
 
 We still have to refactor the interfaces between the public code in
 Bazel and our internal extensions frequently. This makes it hard to do
-much development in the open. See our [governance plan](governance.md)
+much development in the open. See our [governance plan](governance.html)
 for more details.
 
 

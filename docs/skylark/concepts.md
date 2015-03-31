@@ -1,8 +1,7 @@
 # Concepts
 
 Skylark is the code name of the extension mechanism. It lets you write custom
-build rules as well as compose existing ones into
-[macros](docs/skylark/macros.md).
+build rules as well as compose existing ones into [macros](macros.md).
 
 ## Loading a Skylark module
 

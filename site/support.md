@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Support Policy
 
 We generally avoid making backwards-incompatible changes. At Google, we
@@ -158,4 +162,3 @@ or up-to-date.
     </td>
   </tr>
 </table>
-

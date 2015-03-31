@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Installing Bazel
 
 This file contains instructions for downloading, building and running Bazel.
@@ -128,4 +132,4 @@ Run the sample application:
 
     $ $HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 
-For more information, see [Getting started](getting-started.md).
+For more information, see [Getting started](getting-started.html).

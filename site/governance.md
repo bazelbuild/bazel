@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Governance
 
 ## Is Bazel developed fully in the open? {#isbazelopen}
@@ -15,7 +19,7 @@ though some of the development is still happening internal to Google.
 
 ## Accepting Contributions
 
-Please also see our [contribution guidelines](contributing.md).
+Please also see our [contribution guidelines](contributing.html).
 
 ### Policy
 
@@ -29,7 +33,7 @@ list), but this will hopefully change over time.
    Agreement](https://cla.developers.google.com/).
 
 2. We accept well-written, well-tested contributions of rules written in
-   [Skylark](skylark/concepts.md), in a `contrib/` directory or similar with clearly documented
+   [Skylark](docs/skylark/concepts.html), in a `contrib/` directory or similar with clearly documented
    support policies.
 
 3. We accept well-written, well-tested cleanup and refactoring changes.
