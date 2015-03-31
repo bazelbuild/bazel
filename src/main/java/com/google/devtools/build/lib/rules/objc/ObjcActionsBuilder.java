@@ -122,8 +122,8 @@ final class ObjcActionsBuilder {
       commandLine.add("-stdlib=libc++");
     }
     commandLine
-        .add(IosSdkCommands.compileArgsForClang(objcConfiguration))
-        .add(IosSdkCommands.commonLinkAndCompileArgsForClang(
+        .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
+        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(
             objcProvider, objcConfiguration))
         .add(objcConfiguration.getCoptsForCompilationMode())
         .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
@@ -280,7 +280,7 @@ final class ObjcActionsBuilder {
    * All framework names to pass to the linker using {@code -framework} flags. For a framework in
    * the directory foo/bar.framework, the name is "bar". Each framework is found without using the
    * full path by means of the framework search paths. The search paths are added by
-   * {@link IosSdkCommands#commonLinkAndCompileArgsForClang(ObjcProvider, ObjcConfiguration)}).
+   * {@link IosSdkCommands#commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration)}).
    *
    * <p>It's awful that we can't pass the full path to the framework and avoid framework search
    * paths, but this is imposed on us by clang. clang does not support passing the full path to the
@@ -359,7 +359,7 @@ final class ObjcActionsBuilder {
           .add(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS.toString() : CLANG.toString())
           .addAll(objcProvider.is(USES_CPP)
               ? ImmutableList.of("-stdlib=libc++") : ImmutableList.<String>of())
-          .addAll(IosSdkCommands.commonLinkAndCompileArgsForClang(objcProvider, objcConfiguration))
+          .addAll(IosSdkCommands.commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration))
           .add("-Xlinker", "-objc_abi_version")
           .add("-Xlinker", "2")
           .add("-fobjc-link-runtime")

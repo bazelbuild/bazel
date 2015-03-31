@@ -32,7 +32,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -396,6 +395,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         .addAllHeaderSearchPath(headerSearchPaths)
         .addAllSupportFile(Artifact.toExecPaths(headers))
         .addAllCopt(compilationModeCopts)
+        .addAllCopt(IosSdkCommands.DEFAULT_COMPILER_FLAGS)
         .addAllCopt(Interspersing.prependEach("-D", objcProvider.get(DEFINE)))
         .addAllCopt(copts)
         .addAllLinkopt(
