@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -181,6 +182,10 @@ public final class SkylarkNestedSet implements Iterable<Object> {
             EvalUtils.getDataTypeNameFromClass(type),
             contentType));
     return (NestedSet<T>) set;
+  }
+
+  public Set<?> expandedSet() {
+    return set.toSet();
   }
 
   // For some reason this cast is unsafe in Java

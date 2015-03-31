@@ -471,60 +471,24 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
   }
 
   @Test
-  public void testInOnListContains() throws Exception {
+  public void testInOperator() throws Exception {
     assertEquals(Boolean.TRUE, eval("'b' in ['a', 'b']"));
-  }
-
-  @Test
-  public void testInOnListDoesNotContain() throws Exception {
     assertEquals(Boolean.FALSE, eval("'c' in ['a', 'b']"));
-  }
-
-  @Test
-  public void testInOnTupleContains() throws Exception {
     assertEquals(Boolean.TRUE, eval("'b' in ('a', 'b')"));
-  }
-
-  @Test
-  public void testInOnTupleDoesNotContain() throws Exception {
     assertEquals(Boolean.FALSE, eval("'c' in ('a', 'b')"));
-  }
-
-  @Test
-  public void testInOnDictContains() throws Exception {
     assertEquals(Boolean.TRUE, eval("'b' in {'a' : 1, 'b' : 2}"));
-  }
-
-  @Test
-  public void testInOnDictDoesNotContainKey() throws Exception {
     assertEquals(Boolean.FALSE, eval("'c' in {'a' : 1, 'b' : 2}"));
-  }
-
-  @Test
-  public void testInOnDictDoesNotContainVal() throws Exception {
     assertEquals(Boolean.FALSE, eval("1 in {'a' : 1, 'b' : 2}"));
-  }
-
-  @Test
-  public void testInOnStringContains() throws Exception {
     assertEquals(Boolean.TRUE, eval("'b' in 'abc'"));
-  }
-
-  @Test
-  public void testInOnStringDoesNotContain() throws Exception {
     assertEquals(Boolean.FALSE, eval("'d' in 'abc'"));
   }
 
   @Test
-  public void testInOnStringLeftNotString() throws Exception {
+  public void testInFail() throws Exception {
     checkEvalError("1 in '123'",
         "in operator only works on strings if the left operand is also a string");
-  }
-
-  @Test
-  public void testInFailsOnNonIterable() throws Exception {
     checkEvalError("'a' in 1",
-        "in operator only works on lists, tuples, dictionaries and strings");
+        "in operator only works on lists, tuples, sets, dicts and strings");
   }
 
   @Test

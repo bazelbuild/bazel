@@ -36,9 +36,7 @@ public final class BinaryOperatorExpression extends Expression {
 
   private final Operator operator;
 
-  public BinaryOperatorExpression(Operator operator,
-                                  Expression lhs,
-                                  Expression rhs) {
+  public BinaryOperatorExpression(Operator operator, Expression lhs, Expression rhs) {
     this.lhs = lhs;
     this.rhs = rhs;
     this.operator = operator;
@@ -250,6 +248,8 @@ public final class BinaryOperatorExpression extends Expression {
           return ((Collection<?>) rval).contains(lval);
         } else if (rval instanceof Map<?, ?>) {
           return ((Map<?, ?>) rval).containsKey(lval);
+        } else if (rval instanceof SkylarkNestedSet) {
+          return ((SkylarkNestedSet) rval).expandedSet().contains(lval);
         } else if (rval instanceof String) {
           if (lval instanceof String) {
             return ((String) rval).contains((String) lval);
@@ -259,7 +259,7 @@ public final class BinaryOperatorExpression extends Expression {
           }
         } else {
           throw new EvalException(getLocation(),
-              "in operator only works on lists, tuples, dictionaries and strings");
+              "in operator only works on lists, tuples, sets, dicts and strings");
         }
       }
 

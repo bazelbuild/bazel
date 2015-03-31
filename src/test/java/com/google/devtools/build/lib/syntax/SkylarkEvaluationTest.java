@@ -534,6 +534,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testInSet() throws Exception {
+    assertEquals(Boolean.TRUE, eval("'b' in set(['a', 'b'])"));
+    assertEquals(Boolean.FALSE, eval("'c' in set(['a', 'b'])"));
+    assertEquals(Boolean.FALSE, eval("1 in set(['a', 'b'])"));
+  }
+
+  @Test
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     env.update("mock", new MockClassObject());
     checkEvalError(parseFileForSkylark("v = mock.nset", MOCK_TYPES), env,
