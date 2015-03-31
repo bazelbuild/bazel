@@ -54,11 +54,6 @@ public class SkylarkFileType {
     return ImmutableList.copyOf(FileType.filter(files, fileType));
   }
 
-  @SkylarkCallable(doc = "Returns <code>True</code> if the parameter matches the FileType.")
-  public boolean matches(String fileName) {
-    return fileType.apply(fileName);
-  }
-
   @VisibleForTesting
   public Object getExtensions() {
     return fileType.getExtensions();
