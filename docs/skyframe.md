@@ -186,4 +186,3 @@ This is a rough overview of some of the `SkyFunction` implementations Bazel uses
    contrary to the concept that sky keys should be small. We are working on solving this
    discrepancy (note that `ActionExecutionValue` and `ArtifactValue` are unused if we do not run the
    execution phase on Skyframe).
-

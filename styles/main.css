@@ -127,3 +127,6 @@ td, th {
   text-align: left;
   border: 1px solid #eeeeee;
 }
+.discouraged, .deprecated {
+  text-decoration: line-through;
+}

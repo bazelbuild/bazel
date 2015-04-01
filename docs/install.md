@@ -108,7 +108,7 @@ The Bazel executable is located at `output/bazel` in the bazel directory.
 It's a good idea to add this path to your default paths, like so (you
 can also add this command to your `~/.bashrc`):
 
-    $ export PATH="$PATH:$HOME/bazel/output/bazel"
+    $ export PATH="$PATH:$HOME/bazel/output"
 
 You must run Bazel from within a source code tree that is properly
 configured for use with Bazel. We call such a tree a _workspace

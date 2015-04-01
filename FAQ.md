@@ -2,7 +2,6 @@
 layout: default
 ---
 
-
 What is Bazel?
 -------------
 
@@ -192,7 +191,7 @@ What about Windows?
 -------------------
 
 We have experimented with a Windows port
-[using MinGW/MSYS](windows.html), but have no plans to invest in this
+[using MinGW/MSYS](docs/windows.html), but have no plans to invest in this
 port right now. Due to its Unix heritage, porting Bazel is significant
 work. For example, Bazel uses symlinks extensively, which has varying
 levels of support across Windows versions.
@@ -240,7 +239,7 @@ should also hold for our open-source codebase.
 How can I start using Bazel?
 ----------------------------
 
-See our [getting started document](getting-started.html).
+See our [getting started document](docs/getting-started.html).
 
 
 Why do I need to have a tools/ directory in my source tree?
@@ -368,7 +367,7 @@ fails, and this should be enough for basic CI integration.  Since
 Bazel does not need clean builds for correctness, the CI system can
 be configured to not clean before starting a build/test run.
 
-Further details on exit codes are in the [User Manual](bazel-user-manual.html).
+Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
 
 What future features can we expect in Bazel?
 --------------------------------------------
@@ -416,7 +415,7 @@ Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 We have an extension mechanism that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see [here](skylark/index.html).
+For documentation: see [here](docs/skylark/index.html).
 
 At present, the extension mechanism is experimental though.
 

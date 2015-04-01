@@ -58,7 +58,7 @@ Returns a list strings: the names of the fields and methods of the parameter obj
 <li><h3 id="modules._top_level.enumerate">enumerate</h3>
 <code><a class="anchor" href="#modules.list">list</a> enumerate(list)</code><br>
 Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
-<pre class=language-python>enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>
+<pre class="language-python">enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>
 
 <h4>Parameters</h4>
 <ul>
@@ -81,7 +81,7 @@ Raises an error (the execution stops), except if the <code>when</code> condition
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
 <code>unknown getattr(object, name, default?)</code><br>
-Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise rasies an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.Example:<br><pre class=language-python>getattr(ctx.attr, "myattr")
+Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise rasies an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.Example:<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
 <ul>
@@ -96,7 +96,7 @@ getattr(ctx.attr, "myattr", "mydefault")</pre>
 </ul>
 <li><h3 id="modules._top_level.hasattr">hasattr</h3>
 <code><a class="anchor" href="#modules._top_level.bool">bool</a> hasattr(object, name)</code><br>
-Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class=language-python>hasattr(ctx.attr, "myattr")</pre>
+Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.hasattr.object"><code>object</code>: The object to check.
@@ -114,7 +114,9 @@ Returns the length of a string, list, tuple, set, or dictionary.
 </ul>
 <li><h3 id="modules._top_level.list">list</h3>
 <code><a class="anchor" href="#modules.list">list</a> list(x)</code><br>
-Converts a collection (e.g. set or dictionary) to a list.
+Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
+list(set([2, 3, 2])) == [2, 3]
+list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.list.x"><code>x</code>: The object to convert.
@@ -144,7 +146,7 @@ Returns the transitive info provider provided by the target.
 </ul>
 <li><h3 id="modules._top_level.range">range</h3>
 <code><a class="anchor" href="#modules.list">list</a> range(start, stop?, step?)</code><br>
-Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class=language-python>range(4) == [0, 1, 2, 3]
+Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
 range(3, 9, 2) == [3, 5, 7]
 range(3, 0, -1) == [3, 2, 1]</pre>
 <h4>Parameters</h4>
@@ -186,7 +188,7 @@ Creates a SelectorValue from the dict parameter.
 </ul>
 <li><h3 id="modules._top_level.set">set</h3>
 <code><a class="anchor" href="#modules.set">set</a> set(items?, order?)</code><br>
-Creates a set from the <code>items</code>. The set supports nesting other sets of the same element type in it. For this reason sets are also referred to as <i>nested sets</i> (all Skylark sets are nested sets). A desired iteration order can also be specified.<br> Examples:<br><pre class=language-python>set([1, set([2, 3]), 2])
+Creates a set from the <code>items</code>. The set supports nesting other sets of the same element type in it. For this reason sets are also referred to as <i>nested sets</i> (all Skylark sets are nested sets). A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set([1, set([2, 3]), 2])
 set([1, 2, 3], order="compile")</pre>
 <h4>Parameters</h4>
 <ul>
@@ -205,7 +207,7 @@ Converts any object to string. This is useful for debugging.
 </ul>
 <li><h3 id="modules._top_level.struct">struct</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> struct()</code><br>
-Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class=language-python>s = struct(x = 2, y = 3)
+Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
 return s.x + s.y  # returns 5</pre>
 <br/>
 <li><h3 id="modules._top_level.type">type</h3>
@@ -218,7 +220,7 @@ Returns the type name of its argument.
 </ul>
 <li><h3 id="modules._top_level.zip">zip</h3>
 <code><a class="anchor" href="#modules.list">list</a> zip()</code><br>
-Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class=language-python>zip()  # == []
+Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
 zip([1, 2])  # == [(1,), (2,)]
 zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
 zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
@@ -238,9 +240,6 @@ File type for file filtering. Can be used to filter collections of labels for ce
 <ul><li><h3 id="modules.FileType.filter">filter</h3>
 <code><a class="anchor" href="#modules.list">list</a> FileType.filter(Iterable)</code><br>
 Returns a list created from the elements of the parameter containing all the <a href="#modules.File"><code>File</code></a>s that match the FileType. The parameter must be a <a href="#modules.set"><code>set</code></a> or a <a href="#modules.list"><code>list</code></a>.
-<li><h3 id="modules.FileType.matches">matches</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> FileType.matches(<a class="anchor" href="#modules.string">string</a>)</code><br>
-Returns <code>True</code> if the parameter matches the FileType.
 </ul><hr><h2 id="modules.Label">Label</h2>
 A BUILD target identifier.
 <ul><li><h3 id="modules.Label.name">name</h3>
@@ -476,7 +475,7 @@ Returns the separator for PATH environment variable, which is ':' on Unix.
 </ul><hr><h2 id="modules.ctx">ctx</h2>
 The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
 <ul><li><h3 id="modules.ctx.action">action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(outputs, inputs?, executable?, arguments?, mnemonic?, command?, command_line?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(outputs, inputs?, executable?, arguments?, mnemonic?, command?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
 Creates an action that runs an executable or a shell command.
 <h4>Parameters</h4>
 <ul>
@@ -493,8 +492,6 @@ Creates an action that runs an executable or a shell command.
 	<li id="modules.ctx.action.mnemonic"><code>mnemonic (<a class="anchor" href="#modules.string">string</a>)</code>: mnemonic
 	</li>
 	<li id="modules.ctx.action.command"><code>command</code>: shell command to execute
-	</li>
-	<li id="modules.ctx.action.command_line"><code>command_line</code>: a command line to execute
 	</li>
 	<li id="modules.ctx.action.progress_message"><code>progress_message (<a class="anchor" href="#modules.string">string</a>)</code>: progress message to show to the user during the build, e.g. "Compiling foo.cc to create foo.o"
 	</li>
@@ -616,20 +613,35 @@ Dictionary (String to String) of configuration variables
 <code><a class="anchor" href="#modules.string">string</a> ctx.workspace_name</code><br>
 Returns the workspace name as defined in the WORKSPACE file.
 </ul><hr><h2 id="modules.dict">dict</h2>
-A language built-in type to support dicts. Example of dict literal:<br><pre class=language-python>d = {"a": 2, "b": 5}</pre>Accessing elements works just like in Python:<br><pre class=language-python>e = d["a"]   # e == 2</pre>Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple keys the second one overrides the first one. Examples:<br><pre class=language-python>d = {"a" : 1} + {"b" : 2}   # d == {"a" : 1, "b" : 2}
+A language built-in type to support dicts. Example of dict literal:<br><pre class="language-python">d = {"a": 2, "b": 5}</pre>Use brackets to access elements:<br><pre class="language-python">e = d["a"]   # e == 2</pre>Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple keys the second one overrides the first one. Examples:<br><pre class="language-python">d = {"a" : 1} + {"b" : 2}   # d == {"a" : 1, "b" : 2}
 d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
-d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Dicts are iterable, the iteration works on their keyset.<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class=language-python>"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
-<ul><li><h3 id="modules.dict.items">items</h3>
+d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
+<ul><li><h3 id="modules.dict.get">get</h3>
+<code>unknown dict.get(key, default?)</code><br>
+Return the value for <code>key</code> if <code>key</code> is in the dictionary, else <code>default</code>. If <code>default</code> is not given, it defaults to <code>None</code>, so that this method never throws an error.
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.dict.get.key"><code>key</code>: The key to look for.
+	</li>
+</ul>
+<ul>
+	<li id="modules.dict.get.default"><code>default</code>: The default value to use (instead of None) if the key is not found.
+	</li>
+</ul>
+<li><h3 id="modules.dict.items">items</h3>
 <code><a class="anchor" href="#modules.list">list</a> dict.items()</code><br>
-Return the list of key-value tuples.
+Return the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
+
 <br/>
 <li><h3 id="modules.dict.keys">keys</h3>
 <code><a class="anchor" href="#modules.list">list</a> dict.keys()</code><br>
-Return the list of keys.
+Return the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
+
 <br/>
 <li><h3 id="modules.dict.values">values</h3>
 <code><a class="anchor" href="#modules.list">list</a> dict.values()</code><br>
-Return the list of values.
+Return the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
+
 <br/>
 </ul><hr><h2 id="modules.list">list</h2>
 A language built-in type to support lists. Example of list literal:<br><pre class=language-python>x = [1, 2, 3]</pre>Accessing elements is possible using indexing (starts from <code>0</code>):<br><pre class=language-python>e = x[1]   # e == 2</pre>Lists support the <code>+</code> operator to concatenate two lists. Example:<br><pre class=language-python>x = [1, 2] + [3, 4]   # x == [1, 2, 3, 4]
@@ -692,14 +704,14 @@ A language built-in type that supports (nested) sets. Sets can be created using 
 s += [3]           # s == {1, 2, 3}
 s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>Note that in these examples <code>{..}</code> is not a valid literal to create sets. Sets have a fixed generic type, so <code>set([1]) + ["a"]</code> or <code>set([1]) + set(["a"])</code> results in an error.
 <ul></ul><hr><h2 id="modules.string">string</h2>
-A language built-in type to support strings. Examples of string literals:<br><pre class=language-python>a = 'abc\ndef'
+A language built-in type to support strings. Examples of string literals:<br><pre class="language-python">a = 'abc\ndef'
 b = "ab'cd"
 c = """multiline string"""
 
 # Strings support slicing (negative index starts from the end):
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
-z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class=language-python>"a" in "abc"   # evaluates as True
+z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"a" in "abc"   # evaluates as True
 x = []
 for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>
@@ -761,7 +773,7 @@ Returns the first index where <code>sub</code> is found, or throw an error if no
 </ul>
 <li><h3 id="modules.string.join">join</h3>
 <code><a class="anchor" href="#modules.string">string</a> string.join(elements)</code><br>
-Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class=language-python>"|".join(["a", "b", "c"]) == "a|b|c"</pre>
+Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.join.elements"><code>elements (<a class="anchor" href="#modules.list">list</a>)</code>: The objects to join.

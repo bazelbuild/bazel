@@ -24,7 +24,7 @@ and work on the Bazel code.
    documentation](https://gerrit-review.googlesource.com/Documentation/user-upload.html) for
    instructions on uploading your commit.
 4. Complete a code review with a
-   [core contributor](http://bazel.io/docs/governance.html#core-contributors).
+   [core contributor](governance.html#core-contributors).
 5. An engineer at Google applies the patch to our internal version control
    system.
 6. The patch is exported as a Git commit, at which point the Gerrit code review
@@ -127,10 +127,11 @@ Bazel is organized in several parts:
   command-line interface. Its code is in `src/main/cpp`.
 * Protocol buffers in `src/main/protobuf`.
 * The server code in Java (in `src/main/java` and `src/test/java`)
-  * Core code which is mostly composed of [SkyFrame](skyframe.html) and some
+  * Core code which is mostly composed of [SkyFrame](docs/skyframe.html) and some
     utilities.
-  * [Skylark](skylark/index.html) rules are defined in `tools/build_rules`. If you
-    want to add rules, consider using [Skylark](skylark/index.html) first.
+  * [Skylark](docs/skylark/index.html) rules are defined in `tools/build_rules`.
+    If you want to add rules, consider using [Skylark](docs/skylark/index.html)
+    first.
   * Builtin rules in `com.google.devtools.build.lib.rules` and in
     `com.google.devtools.build.lib.bazel.rules`.
 * Java native interfaces in `src/main/native`.

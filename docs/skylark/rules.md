@@ -5,7 +5,7 @@ layout: default
 Rules
 =====
 
-**Status: Experimental**
+**Status: Experimental**. Expect some breaking changes in the API.
 
 
 
@@ -24,7 +24,7 @@ the attributes and their type when you define a rule.
 ```python
 sum = rule(
   implementation=impl,
-  attr = {
+  attrs = {
       "number": attr.int(default = 1),
       "deps": attr.label_list(),
   },
