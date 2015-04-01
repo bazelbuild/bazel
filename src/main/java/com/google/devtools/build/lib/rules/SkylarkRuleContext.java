@@ -184,7 +184,7 @@ public final class SkylarkRuleContext {
     artifactLabelMap = artifactLabelMapBuilder.build();
     outputsObject = new SkylarkClassObject(outputsBuilder, "No such output '%s'");
 
-    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> executableBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder =
         new ImmutableMap.Builder<>();
@@ -195,10 +195,10 @@ public final class SkylarkRuleContext {
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       Type<?> type = a.getType();
       Object val = ruleContext.attributes().get(a.getName(), type);
-      builder.put(attributeToSkylark(a.getName()), val == null ? Environment.NONE
-          // Attribute values should be type safe
-          : SkylarkType.convertToSkylark(val, null));
       if (type != Type.LABEL && type != Type.LABEL_LIST) {
+        attrBuilder.put(attributeToSkylark(a.getName()), val == null ? Environment.NONE
+            // Attribute values should be type safe
+            : SkylarkType.convertToSkylark(val, null));
         continue;
       }
       String skyname = attributeToSkylark(a.getName());
@@ -224,18 +224,21 @@ public final class SkylarkRuleContext {
         }
       }
       filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode).list());
-      targetsBuilder.put(skyname, SkylarkList.list(
-          ruleContext.getPrerequisites(a.getName(), mode), TransitiveInfoCollection.class));
+      List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), mode);
+      targetsBuilder.put(skyname, SkylarkList.list(allPrereq, TransitiveInfoCollection.class));
       if (type == Type.LABEL) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), mode);
-        if (prereq != null) {
-          targetBuilder.put(skyname, prereq);
-        } else {
-          targetBuilder.put(skyname, Environment.NONE);
+        if (prereq == null) {
+          prereq = Environment.NONE;
         }
+        targetBuilder.put(skyname, prereq);
+        attrBuilder.put(skyname, prereq);
+      } else {
+        // Type.LABEL_LIST
+        attrBuilder.put(skyname, SkylarkList.list(allPrereq, TransitiveInfoCollection.class));
       }
     }
-    attrObject = new SkylarkClassObject(builder.build(), "No such attribute '%s'");
+    attrObject = new SkylarkClassObject(attrBuilder.build(), "No such attribute '%s'");
     executableObject = new SkylarkClassObject(executableBuilder.build(), "No such executable. "
         + "Make sure there is a '%s' label type attribute marked as 'executable'");
     fileObject = new SkylarkClassObject(fileBuilder.build(),
