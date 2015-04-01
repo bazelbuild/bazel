@@ -35,9 +35,7 @@
 #include "util/md5.h"
 #include "unix_jni.h"
 
-namespace {
-  const int kMd5DigestLength = 16;
-}
+using blaze_util::Md5Digest;
 
 ////////////////////////////////////////////////////////////////////////
 // Latin1 <--> java.lang.String conversion functions.
@@ -776,10 +774,11 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_lgetxattr(JNIEnv *env,
 
 
 // Computes MD5 digest of "file", writes result in "result", which
-// must be of length kMd5DigestLength.  Returns zero on success, or
+// must be of length Md5Digest::kDigestLength.  Returns zero on success, or
 // -1 (and sets errno) otherwise.
-static int md5sumAsBytes(const char *file, jbyte result[kMd5DigestLength]) {
-  blaze_util::Md5Digest digest;
+static int md5sumAsBytes(const char *file,
+                         jbyte result[Md5Digest::kDigestLength]) {
+  Md5Digest digest;
   // OPT: Using a 32k buffer would give marginally better performance,
   // but what is the stack size here?
   jbyte buf[4096];
@@ -815,11 +814,11 @@ extern "C" JNIEXPORT jbyteArray JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_md5sumAsBytes(
     JNIEnv *env, jclass clazz, jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-  jbyte value[kMd5DigestLength];
+  jbyte value[Md5Digest::kDigestLength];
   jbyteArray result = NULL;
   if (md5sumAsBytes(path_chars, value) == 0) {
-    result = env->NewByteArray(kMd5DigestLength);
-    env->SetByteArrayRegion(result, 0, kMd5DigestLength, value);
+    result = env->NewByteArray(Md5Digest::kDigestLength);
+    env->SetByteArrayRegion(result, 0, Md5Digest::kDigestLength, value);
   } else {
     ::PostFileException(env, errno, path_chars);
   }
