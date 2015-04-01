@@ -89,7 +89,9 @@ public final class Attribute implements Comparable<Attribute> {
    * label list attribute.
    */
   @SkylarkModule(name = "ConfigurationTransition", doc =
-      "Declares how the configuration should change when following a dependency.")
+      "Declares how the configuration should change when following a dependency. "
+    + "It can be either <a href=\"#modules._top_level.DATA_CFG\">DATA_CFG</a> or "
+    + "<a href=\"#modules._top_level.HOST_CFG\">HOST_CFG</a>.")
   public enum ConfigurationTransition implements Transition {
     /** No transition, i.e., the same configuration as the current. */
     NONE,
