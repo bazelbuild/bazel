@@ -54,7 +54,6 @@ public class HttpDownloadFunction implements SkyFunction {
     FileValue repositoryValue = RepositoryFunction.getRepositoryDirectory(
         descriptor.outputDirectory, env);
     if (repositoryValue == null) {
-      System.out.println("Returning null");
       return null;
     }
 
