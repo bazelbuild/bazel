@@ -34,7 +34,8 @@ public class TestConstants {
   /**
    * Location in the bazel repo where embedded binaries come from.
    */
-  public static final String EMBEDDED_SCRIPTS_PATH = "DOES-NOT-WORK-YET";
+  public static final ImmutableList<String> EMBEDDED_SCRIPTS_PATHS = ImmutableList.of(
+      "DOES-NOT-WORK-YET");
 
   /**
    * Path within runfiles tree for finding everything else.
