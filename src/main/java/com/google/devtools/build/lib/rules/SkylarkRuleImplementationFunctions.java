@@ -311,7 +311,7 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  @SkylarkBuiltin(name = "command_helper", doc = "Creates a command helper class.",
+  @SkylarkBuiltin(name = "command_helper", doc = "Experimental. Creates a command helper class.",
       objectType = SkylarkRuleContext.class,
       returnType = CommandHelper.class,
       mandatoryParams = {
