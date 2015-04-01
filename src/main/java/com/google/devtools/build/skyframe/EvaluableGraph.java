@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+
 /**
  * Interface between a single version of the graph and the evaluator. Supports mutation of that
  * single version of the graph.
  */
+@ThreadSafe
 interface EvaluableGraph extends QueryableGraph {
   /**
    * Creates a new node with the specified key if it does not exist yet. Returns the node entry
