@@ -99,10 +99,11 @@ EOF
 
       elif [[ -e $macports_header ]]; then
         # For use with Macports.
+        archive_dir=$(dirname $(dirname $macports_header))
         rm -f fromhost/*.[ah]
         touch fromhost/empty.c
-        cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
-        cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
+        cp "${archive_dir}"/include/{archive.h,archive_entry.h} fromhost/
+        cp "${archive_dir}"/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
           fromhost/
         cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
@@ -143,7 +144,7 @@ darwin)
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
 
   homebrew_header=$(ls -1 $(brew --prefix libarchive 2>/dev/null)/include/archive.h 2>/dev/null | head -n1)
-  macports_header=/opt/local/include/archive.h
+  macports_header=$(port contents libarchive 2>/dev/null | grep /archive.h$ | xargs)
   if [[ -e $homebrew_header ]]; then
       # For use with Homebrew.
       archive_dir=$(dirname $(dirname $homebrew_header))
