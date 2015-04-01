@@ -5,12 +5,17 @@ layout: default
 Getting Started with Bazel
 ==========================
 
+Prerequisites
+-------------
+
+Be sure you have installed all of the prerequisites for your platform, as
+outlined in the [installation instructions](install.html).
+
 Setup
 -----
 
 To use Bazel, first clone the [Github repo](https://github.com/google/bazel)
-and build Bazel (follow the instructions in the [README](install.html) to install
-prerequisites):
+and build Bazel:
 
 ```bash
 $ git clone https://github.com/google/bazel.git
