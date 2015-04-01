@@ -15,7 +15,23 @@
 #ifndef MACROS_H__
 #define MACROS_H__
 
-// TODO(bazel-team): Use the proper annotation for clang.
+// GXX_EXPERIMENTAL_CXX0X is defined by gcc and clang up to at least
+// gcc-4.7 and clang-3.1 (2011-12-13).  __cplusplus was defined to 1
+// in gcc before 4.7 and clang before 3.1, but is defined according
+// to the language version in effect thereafter.
+#if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
+// When compiled with clang c++11 standard with warning on switch
+// fallthrough, tell the compiler not to complain when it was intended.
+#if defined(__clang__) && defined(__has_warning)
+#if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
+#define FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
+#endif
+#endif
+#endif
+
+
+#ifndef FALLTHROUGH_INTENDED
 #define FALLTHROUGH_INTENDED do { } while (0)
+#endif
 
 #endif // MACROS_H__
