@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.events.Event;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -679,6 +680,24 @@ public class ValidationTests extends AbstractParserTestCase {
     checkError("Path 'pkg/extension.bzl' is not valid. It should either start with "
         + "a slash or refer to a file in the current directory.",
         "load('pkg/extension', 'a')\n");
+  }
+
+  @Test
+  public void testDollarErrorDoesNotLeak() throws Exception {
+    syntaxEvents.setFailFast(false);
+    String content = Joiner.on("\n").join(
+        "def GenerateMapNames():",
+        "  a = 2",
+        "  b = [3, 4]",
+        "  if a not b:",
+        "    print(a)");
+    parseFileForSkylark(content);
+    syntaxEvents.assertContainsEvent("syntax error at 'not': expected :");
+    // Parser uses "$error" symbol for error recovery.
+    // It should not be used in error messages.
+    for (Event event : syntaxEvents.collector()) {
+      assertThat(event.getMessage()).doesNotContain("$error$");
+    }
   }
 
   @Test
