@@ -83,6 +83,11 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> SOURCE = new Key<>(STABLE_ORDER);
 
   /**
+   * Contains all coverage instrumented source files.
+   */
+  public static final Key<Artifact> INSTRUMENTED_SOURCE = new Key<>(STABLE_ORDER);
+
+  /**
    * Contains all .gcno files one for every source file if in coverage mode.
    * It contains information to reconstruct the basic block graphs and assign source line numbers 
    * to blocks.

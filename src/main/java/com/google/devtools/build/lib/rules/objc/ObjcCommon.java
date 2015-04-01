@@ -29,6 +29,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INSTRUMENTED_SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.HashSet;
@@ -379,8 +381,12 @@ public final class ObjcCommon {
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
         objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
         objcProvider.addAll(SOURCE, allSources);
-        if (context.getConfiguration().isCodeCoverageEnabled()) {
+        BuildConfiguration configuration = context.getConfiguration();
+        RegexFilter filter = configuration.getInstrumentationFilter();
+        if (configuration.isCodeCoverageEnabled()
+            && filter.isIncluded(context.getLabel().toString())) {
           for (Artifact source : allSources) {
+            objcProvider.add(INSTRUMENTED_SOURCE, source);
             objcProvider.add(GCNO, intermediateArtifacts.gcnoFile(source));
           }
         }

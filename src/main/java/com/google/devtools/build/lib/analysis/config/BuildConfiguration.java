@@ -497,9 +497,11 @@ public final class BuildConfiguration implements Serializable {
     public boolean stampBinaries;
 
     // TODO(bazel-team): delete from OSS tree
+    // This value is always overwritten in the case of "blaze coverage" by :
+    // CoverageCommand.setDefaultInstrumentationFilter()
     @Option(name = "instrumentation_filter",
         converter = RegexFilter.RegexFilterConverter.class,
-        defaultValue = "-javatests,-_test$",
+        defaultValue = "-javatests,-_test$,-Tests$",
         category = "semantics",
         help = "When coverage is enabled, only rules with names included by the "
             + "specified regex-based filter will be instrumented. Rules prefixed "
