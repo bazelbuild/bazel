@@ -72,6 +72,12 @@ public class ZipCombinerTest {
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
   @Rule public ExpectedException thrown = ExpectedException.none();
 
+  private InputStream sampleZipStream() {
+    ZipFactory factory = new ZipFactory();
+    factory.addFile("hello.txt", "Hello World!");
+    return factory.toInputStream();
+  }
+
   private File sampleZip() throws IOException {
     ZipFactory factory = new ZipFactory();
     factory.addFile("hello.txt", "Hello World!");
@@ -138,6 +144,15 @@ public class ZipCombinerTest {
   private void assertEntry(ZipInputStream zipInput, String filename, Date date, String content)
       throws IOException {
     assertEntry(zipInput, filename, date.getTime(), content.getBytes(ISO_8859_1));
+  }
+
+  @Test public void testInputStreamZip() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (ZipCombiner zipCombiner = new ZipCombiner(out)) {
+      zipCombiner.addZip(sampleZipStream());
+    }
+    FakeZipFile expectedResult = new FakeZipFile().addEntry("hello.txt", "Hello World!", true);
+    expectedResult.assertSame(out.toByteArray());
   }
 
   @Test public void testCompressedDontCare() throws IOException {

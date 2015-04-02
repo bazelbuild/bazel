@@ -32,6 +32,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -410,6 +412,22 @@ public class ZipCombiner implements AutoCloseable {
     copyStream(in, uncompressed);
 
     writeEntryFromBuffer(new ZipFileEntry(entry), uncompressed.toByteArray());
+  }
+
+  /**
+   * Adds the contents of a ZIP file to the combined ZIP file using the specified
+   * {@link ZipEntryFilter} to determine the appropriate action for each file. 
+   *
+   * @param in the InputStream of the ZIP file to add to the combined ZIP file
+   * @throws IOException if there is an error reading the ZIP file or writing entries to the
+   *     combined ZIP file
+   */
+  @Deprecated
+  public void addZip(InputStream in) throws IOException {
+    File file = Files.createTempFile(null, null).toFile();
+    Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    addZip(file);
+    file.deleteOnExit();
   }
 
   /**
