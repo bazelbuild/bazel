@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
@@ -595,6 +596,29 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testParserRecovery() throws Exception {
+    syntaxEvents.setFailFast(false);
+    List<Statement> statements = parseFileForSkylark(Joiner.on("\n").join(
+        "def foo():",
+        "  a = 2 not 4",  // parse error
+        "  b = [3, 4]",
+        "",
+        "d = 4 ada",  // parse error
+        "",
+        "def bar():",
+        "  a = [3, 4]",
+        "  b = 2 + + 5",  // parse error
+        ""));
+
+    assertThat(syntaxEvents.collector()).hasSize(4);
+    syntaxEvents.assertContainsEvent("syntax error at 'not': expected newline");
+    syntaxEvents.assertContainsEvent("syntax error at 'ada': expected newline");
+    syntaxEvents.assertContainsEvent("syntax error at '+': expected expression");
+    syntaxEvents.assertContainsEvent("contains syntax error(s)");
+    assertThat(statements).hasSize(3);
+  }
+
+  @Test
   public void testParserContainsErrorsIfSyntaxException() throws Exception {
     syntaxEvents.setFailFast(false);
     parseExpr("'foo' %%");
@@ -631,7 +655,7 @@ public class ParserTest extends AbstractParserTestCase {
       + "" + '\n'
     );
     syntaxEvents.assertContainsEvent("syntax error at 'error'");
-    assertThat(stmts).hasSize(2);
+    assertThat(stmts).hasSize(1);
   }
 
   @Test

@@ -250,8 +250,10 @@ class Parser {
     }
   }
 
-  // Consumes the current token.  If it is not of the specified (expected)
-  // kind, reports a syntax error.
+  /**
+   * Consumes the current token. If it is not of the specified (expected)
+   * kind, reports a syntax error.
+   */
   private boolean expect(TokenKind kind) {
     boolean expected = token.kind == kind;
     if (!expected) {
@@ -259,6 +261,15 @@ class Parser {
     }
     nextToken();
     return expected;
+  }
+
+  /**
+   * Same as expect, but stop the recovery mode if the token was expected.
+   */
+  private void expectAndRecover(TokenKind kind) {
+    if (expect(kind)) {
+      recoveryMode = false;
+    }
   }
 
   /**
@@ -979,7 +990,12 @@ class Parser {
     List<Statement> list =  new ArrayList<>();
     while (token.kind != TokenKind.EOF) {
       if (token.kind == TokenKind.NEWLINE) {
-        expect(TokenKind.NEWLINE);
+        expectAndRecover(TokenKind.NEWLINE);
+      } else if (recoveryMode) {
+        // If there was a parse error, we want to recover here
+        // before starting a new top-level statement.
+        syncTo(STATEMENT_TERMINATOR_SET);
+        recoveryMode = false;
       } else {
         parseTopLevelStatement(list);
       }
@@ -1067,10 +1083,7 @@ class Parser {
       }
       parseSmallStatementOrPass(list);
     }
-    expect(TokenKind.NEWLINE);
-    // This is a safe place to recover: There is a new line at top-level
-    // and the parser is at the end of a statement.
-    recoveryMode = false;
+    expectAndRecover(TokenKind.NEWLINE);
   }
 
   //     small_stmt ::= assign_stmt
@@ -1259,7 +1272,7 @@ class Parser {
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
         parseStatement(list, false);
       }
-      expect(TokenKind.OUTDENT);
+      expectAndRecover(TokenKind.OUTDENT);
     } else {
       parseSimpleStatement(list);
     }
