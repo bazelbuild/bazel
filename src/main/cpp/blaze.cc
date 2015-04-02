@@ -76,9 +76,6 @@ using std::vector;
 
 namespace blaze {
 
-// Enable messages mostly of interest to developers.
-static const bool SPAM = getenv("VERBOSE_BLAZE_CLIENT") != NULL;
-
 // Blaze is being run by a test.
 static const bool TESTING = getenv("TEST_TMPDIR") != NULL;
 

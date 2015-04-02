@@ -105,6 +105,7 @@ bool GetNullaryOption(const char *arg, const char *key);
 blaze_exit_code::ExitCode CheckValidPort(
     const string &str, const string &option, string *error);
 
+// Enable messages mostly of interest to developers.
 bool VerboseLogging();
 
 // Read the JVM version from a file descriptor. The fd should point
