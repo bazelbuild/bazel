@@ -291,6 +291,11 @@ public abstract class ImplicitOutputsFunction {
       return singleton(rule.get(attrName, Type.STRING));
     } else if (Type.STRING_LIST == attrType) {
       return Sets.newLinkedHashSet(rule.get(attrName, Type.STRING_LIST));
+    } else if (Type.LABEL == attrType) {
+      // Labels are most often used to change the extension,
+      // e.g. %.foo -> %.java, so we return the basename w/o extension.
+      Label label = rule.get(attrName, Type.LABEL);
+      return singleton(FileSystemUtils.removeExtension(label.getName()));
     } else if (Type.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
