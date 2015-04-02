@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -438,7 +439,7 @@ public final class Rule implements Target {
    *     result iff (the predicate returned {@code true} and the labels are not outputs)
    */
   public Collection<Label> getLabels(final BinaryPredicate<Rule, Attribute> predicate) {
-    return getTransitions(predicate).values();
+    return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
   }
 
   /**
