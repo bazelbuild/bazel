@@ -673,6 +673,24 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "int", returnType = Integer.class, doc = "Converts a string to int, "
+      + "using base 10. It raises an error if the conversion fails."
+      + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
+      mandatoryParams = {@Param(name = "x", type = String.class, doc = "The string to convert.")})
+  private static Function int_ =
+      new MixedModeFunction("int", ImmutableList.of("x"), 1, false) {
+        @Override
+        public Object call(Object[] args, FuncallExpression ast)
+            throws EvalException, ConversionException {
+          String str = Type.STRING.convert(args[0], "'int' operand");
+          try {
+            return Integer.parseInt(str);
+          } catch (NumberFormatException e) {
+            throw new EvalException(ast.getLocation(), "invalid literal for int(): " + str);
+          }
+        }
+      };
+
   @SkylarkBuiltin(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as fields. It is used to group "
       + "multiple values together.Example:<br>"
@@ -1109,11 +1127,12 @@ public class MethodLibrary {
       // TODO(bazel-team): String methods are added two times, because there are
       // a lot of cases when they are used as global functions in the depot. Those
       // should be cleaned up first.
+      .put(bool, SkylarkType.BOOL)
+      .put(int_, SkylarkType.INT)
+      .put(len, SkylarkType.INT)
       .put(minus, SkylarkType.INT)
       .put(select, SkylarkType.of(SelectorValue.class))
-      .put(len, SkylarkType.INT)
       .put(str, SkylarkType.STRING)
-      .put(bool, SkylarkType.BOOL)
       .build();
 
   private static final Map<Function, SkylarkType> skylarkGlobalFunctions = ImmutableMap
