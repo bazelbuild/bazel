@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
@@ -334,35 +332,6 @@ public class SkylarkRuleImplementationFunctions {
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.
               // The best way to fix this probably is to convert CommandHelper to Skylark.
               ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) params.get("label_dict")));
-        }
-      };
-
-  // Deprecated function.
-  // Use the new ctx.var field, which is a dictionary.
-  // TODO(bazel-team): Remove function when user code has been updated.
-  @SkylarkBuiltin(name = "var",
-      doc = "get the value bound to a configuration variable in the context",
-      hidden = true,
-      objectType = SkylarkRuleContext.class,
-      mandatoryParams = {
-        @Param(name = "name", type = String.class, doc = "the name of the variable")
-      },
-      returnType = String.class)
-  private static final SkylarkFunction configurationMakeVariableContext =
-      new SimpleSkylarkFunction("var") {
-        @SuppressWarnings("unchecked")
-        @Override
-        protected Object call(Map<String, Object> params, Location loc)
-            throws ConversionException, EvalException {
-          SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
-          String name = (String) params.get("name");
-          try {
-            return ctx.getRuleContext().getConfigurationMakeVariableContext()
-                .lookupMakeVariable(name);
-          } catch (MakeVariableExpander.ExpansionException e) {
-            throw new EvalException(loc, "configuration variable "
-                + ShellEscaper.escapeString(name) + " not defined");
-          }
         }
       };
 }
