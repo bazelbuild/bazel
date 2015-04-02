@@ -37,6 +37,11 @@ public final class JavaIoFileSystem implements SimpleFileSystem {
   }
 
   @Override
+  public File getFile(String filename) throws IOException {
+    return new File(filename);
+  }
+
+  @Override
   public boolean delete(String filename) {
     return new File(filename).delete();
   }

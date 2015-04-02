@@ -455,7 +455,7 @@ chmod 755 output/bazel
 
 log "Creating objc helper tools..."
 
-zip_common="src/tools/xcode-common/java/com/google/devtools/build/xcode/zip src/tools/xcode-common/java/com/google/devtools/build/xcode/util src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipCombiner.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipEntryFilter.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ExtraData.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/CopyEntryFilter.java"
+zip_common="src/tools/xcode-common/java/com/google/devtools/build/xcode/zip src/tools/xcode-common/java/com/google/devtools/build/xcode/util src/java_tools/singlejar/java/com/google/devtools/build/zip src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipCombiner.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipEntryFilter.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/CopyEntryFilter.java"
 
 java_compilation "actoolzip" "src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/actoolzip"
 create_deploy_jar "precomp_actoolzip_deploy" "com.google.devtools.build.xcode.actoolzip.ActoolZip" "output/actoolzip"

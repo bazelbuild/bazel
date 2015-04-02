@@ -1,0 +1,2 @@
+Zip is a library for reading and writing zip files, allowing more advanced manipulation than the
+JDK equivalents by providing detailed zip entry data and raw file access.

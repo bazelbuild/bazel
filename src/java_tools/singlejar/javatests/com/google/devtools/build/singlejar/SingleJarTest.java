@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -78,7 +79,7 @@ public class SingleJarTest {
     private final List<String> manifestLines;
 
     public ManifestValidator(List<String> manifestLines) {
-      this.manifestLines = new ArrayList<String>(manifestLines);
+      this.manifestLines = new ArrayList<>(manifestLines);
       Collections.sort(this.manifestLines);
     }
 
@@ -146,7 +147,7 @@ public class SingleJarTest {
 
   private void assertStripFirstLine(String expected, String testCase) {
     byte[] result = SingleJar.stripFirstLine(testCase.getBytes(StandardCharsets.UTF_8));
-    assertEquals(expected, new String(result));
+    assertEquals(expected, new String(result, UTF_8));
   }
 
   @Test
@@ -428,7 +429,7 @@ public class SingleJarTest {
 
     MockSimpleFileSystem mockFs = new MockSimpleFileSystem("output.jar");
     SingleJar singleJar = new SingleJar(mockFs);
-    List<String> args = new ArrayList<String>();
+    List<String> args = new ArrayList<>();
     args.add("--output");
     args.add("output.jar");
     args.addAll(infoPropertyArguments(buildInfo));
@@ -591,8 +592,8 @@ public class SingleJarTest {
       singleJar.run(ImmutableList.of("--output", "output.jar", "--exclude_build_data",
           "--resources", "a/b/c", "a/b/c"));
       fail();
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("already contains a file named a/b/c"));
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage()).contains("already contains a file named 'a/b/c'.");
     }
   }
 
@@ -616,19 +617,20 @@ public class SingleJarTest {
   public void testCanAddPreamble() throws IOException {
     MockSimpleFileSystem mockFs = new MockSimpleFileSystem("output.jar");
     String preamble = "WeThePeople";
-    mockFs.addFile(preamble, preamble.getBytes());
+    mockFs.addFile(preamble, preamble.getBytes(UTF_8));
     SingleJar singleJar = new SingleJar(mockFs);
     singleJar.run(ImmutableList.of("--output", "output.jar",
         "--java_launcher", preamble,
         "--main_class", "SomeClass"));
-    FakeZipFile expectedResult = new FakeZipFile()
-        .addPreamble(preamble.getBytes())
-        .addEntry("META-INF/", EXTRA_FOR_META_INF)
-        .addEntry(JarFile.MANIFEST_NAME, new ManifestValidator(
-            "Manifest-Version: 1.0",
-            "Created-By: blaze-singlejar",
-            "Main-Class: SomeClass"))
-        .addEntry("build-data.properties", redactedBuildData("output.jar", "SomeClass"));
+    FakeZipFile expectedResult =
+        new FakeZipFile()
+            .addPreamble(preamble.getBytes(UTF_8))
+            .addEntry("META-INF/", EXTRA_FOR_META_INF)
+            .addEntry(
+                JarFile.MANIFEST_NAME,
+                new ManifestValidator("Manifest-Version: 1.0", "Created-By: blaze-singlejar",
+                    "Main-Class: SomeClass"))
+            .addEntry("build-data.properties", redactedBuildData("output.jar", "SomeClass"));
     expectedResult.assertSame(mockFs.toByteArray());
   }
 }
