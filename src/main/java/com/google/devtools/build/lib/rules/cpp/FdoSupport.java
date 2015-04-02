@@ -454,6 +454,7 @@ public class FdoSupport implements Serializable {
     // Instrumentation phase
     if (fdoInstrument != null) {
       fdoCopts.add("-fprofile-generate=" + fdoInstrument.getPathString());
+      fdoCopts.add("-fno-data-sections");
       if (lipoMode != LipoMode.OFF) {
         fdoCopts.add("-fripa");
       }
