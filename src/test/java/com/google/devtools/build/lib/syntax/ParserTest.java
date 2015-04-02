@@ -610,11 +610,10 @@ public class ParserTest extends AbstractParserTestCase {
         "  b = 2 + + 5",  // parse error
         ""));
 
-    assertThat(syntaxEvents.collector()).hasSize(4);
+    assertThat(syntaxEvents.collector()).hasSize(3);
     syntaxEvents.assertContainsEvent("syntax error at 'not': expected newline");
     syntaxEvents.assertContainsEvent("syntax error at 'ada': expected newline");
     syntaxEvents.assertContainsEvent("syntax error at '+': expected expression");
-    syntaxEvents.assertContainsEvent("contains syntax error(s)");
     assertThat(statements).hasSize(3);
   }
 
