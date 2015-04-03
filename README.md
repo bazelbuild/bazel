@@ -35,7 +35,7 @@ Find more background about Bazel in our [FAQ](docs/FAQ.md)
 
 * About the Bazel project:
 
-  * How to [contribute to Bazel](http://bazel.io/docs/contributing.html)
-  * Our [governance plan](http://bazel.io/docs/governance.html)
-  * Future plans are in the [roadmap](http://bazel.io/docs/roadmap.html)
-  * For each feature, which level of [support](http://bazel.io/docs/support.html) to expect.
+  * How to [contribute to Bazel](http://bazel.io/contributing.html)
+  * Our [governance plan](http://bazel.io/governance.html)
+  * Future plans are in the [roadmap](http://bazel.io/roadmap.html)
+  * For each feature, which level of [support](http://bazel.io/support.html) to expect.
