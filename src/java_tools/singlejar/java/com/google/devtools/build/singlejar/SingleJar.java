@@ -19,7 +19,6 @@ import com.google.devtools.build.singlejar.ZipCombiner.OutputMode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -81,10 +80,10 @@ public class SingleJar {
   protected boolean includeBuildData = true;
 
   /** List of build information properties files */
-  protected List<String> buildInformationFiles = new ArrayList<>();
+  protected List<String> buildInformationFiles = new ArrayList<String>();
 
   /** Extraneous build informations (key=value) */
-  protected List<String> buildInformations = new ArrayList<>();
+  protected List<String> buildInformations = new ArrayList<String>();
 
   /** The (optional) native executable that will be prepended to this JAR. */
   private String launcherBin = null;
@@ -224,8 +223,21 @@ public class SingleJar {
 
       // Copy the jars into the jar file.
       for (String inputJar : inputJars) {
-        File jar = fileSystem.getFile(inputJar);
-        combiner.addZip(jar);
+        InputStream in = fileSystem.getInputStream(inputJar);
+        try {
+          combiner.addZip(inputJar, in);
+          InputStream inToClose = in;
+          in = null;
+          inToClose.close();
+        } finally {
+          if (in != null) {
+            try {
+              in.close();
+            } catch (IOException e) {
+              // Preserve original exception.
+            }
+          }
+        }
       }
 
       // Close the output file. If something goes wrong here, delete the file.

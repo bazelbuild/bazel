@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.singlejar;
 
-import com.google.devtools.build.zip.ExtraData;
-
 import java.io.IOException;
 import java.util.Date;
 

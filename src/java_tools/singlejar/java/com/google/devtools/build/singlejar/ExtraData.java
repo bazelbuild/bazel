@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.zip;
+package com.google.devtools.build.singlejar;
 
 /**
  * A holder class for extra data in a ZIP entry.
@@ -21,7 +21,7 @@ package com.google.devtools.build.zip;
  * byte array passed into this class or returned from this class may not be
  * modified.
  */
-public final class ExtraData {
+final class ExtraData {
 
   private final short id;
   private final byte[] data;
