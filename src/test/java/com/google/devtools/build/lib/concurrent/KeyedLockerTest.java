@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker;
 import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker.IllegalUnlockException;
@@ -39,14 +40,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Base class for tests for {@link KeyedLocker} implementations. */
 public abstract class KeyedLockerTest {
-  private static final int NUM_EXECUTOR_THREADS = 1000;
+  private static final int NUM_EXECUTOR_THREADS = 2;
   private KeyedLocker<String> locker;
-  private ExecutorService executorService;
+  protected ExecutorService executorService;
 
   protected abstract KeyedLocker<String> makeFreshLocker();
 
   @Before
-  public void setUp() {
+  public void setUp_KeyedLockerTest() {
     locker = makeFreshLocker();
     executorService = Executors.newFixedThreadPool(NUM_EXECUTOR_THREADS);
   }
@@ -58,20 +59,42 @@ public abstract class KeyedLockerTest {
         TimeUnit.SECONDS);
   }
 
-  @Test
-  public void simpleSingleThreaded_NoUnlocks() {
-    locker.lock("cat");
-    locker.lock("dog");
-    locker.lock("cat");
-    locker.lock("dog");
+  private Supplier<AutoUnlocker> makeLockInvoker(final String key) {
+    return new Supplier<KeyedLocker.AutoUnlocker>() {
+      @Override
+      public AutoUnlocker get() {
+        return locker.lock(key);
+      }
+    };
+  }
+
+  private Supplier<AutoUnlocker> makeLockFn1() {
+    return makeLockInvoker("1");
+  }
+
+  private Supplier<AutoUnlocker> makeLockFn2() {
+    return makeLockInvoker("2");
+  }
+
+  protected void runSimpleSingleThreaded_NoUnlocks(Supplier<AutoUnlocker> lockFn1,
+      Supplier<AutoUnlocker> lockFn2) {
+    lockFn1.get();
+    lockFn2.get();
+    lockFn1.get();
+    lockFn2.get();
   }
 
   @Test
-  public void simpleSingleThreaded_WithUnlocks() {
-    try (AutoUnlocker unlockerCat1 = locker.lock("cat")) {
-      try (AutoUnlocker unlockerDog1 = locker.lock("dog")) {
-        try (AutoUnlocker unlockerCat2 = locker.lock("cat")) {
-          try (AutoUnlocker unlockerDog2 = locker.lock("dog")) {
+  public void simpleSingleThreaded_NoUnlocks() {
+    runSimpleSingleThreaded_NoUnlocks(makeLockFn1(), makeLockFn2());
+  }
+
+  protected void runSimpleSingleThreaded_WithUnlocks(final Supplier<AutoUnlocker> lockFn1,
+      final Supplier<AutoUnlocker> lockFn2) {
+    try (AutoUnlocker unlockerCat1 = lockFn1.get()) {
+      try (AutoUnlocker unlockerDog1 = lockFn2.get()) {
+        try (AutoUnlocker unlockerCat2 = lockFn1.get()) {
+          try (AutoUnlocker unlockerDog2 = lockFn2.get()) {
           }
         }
       }
@@ -79,8 +102,12 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void doubleUnlockOnSameAutoUnlockerNotAllowed() {
-    AutoUnlocker unlocker = locker.lock("cat");
+  public void simpleSingleThreaded_WithUnlocks() {
+    runSimpleSingleThreaded_WithUnlocks(makeLockFn1(), makeLockFn2());
+  }
+
+  protected void runDoubleUnlockOnSameAutoUnlockerNotAllowed(final Supplier<AutoUnlocker> lockFn) {
+    AutoUnlocker unlocker = lockFn.get();
     unlocker.close();
     try {
       unlocker.close();
@@ -90,30 +117,39 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void unlockOnDifferentAutoUnlockersAllowed() {
-    AutoUnlocker unlocker1 = locker.lock("cat");
-    AutoUnlocker unlocker2 = locker.lock("cat");
+  public void doubleUnlockOnSameAutoUnlockerNotAllowed() {
+    runDoubleUnlockOnSameAutoUnlockerNotAllowed(makeLockFn1());
+  }
+
+  protected void runUnlockOnDifferentAutoUnlockersAllowed(final Supplier<AutoUnlocker> lockFn) {
+    AutoUnlocker unlocker1 = lockFn.get();
+    AutoUnlocker unlocker2 = lockFn.get();
     unlocker1.close();
     unlocker2.close();
   }
 
   @Test
-  public void threadLocksMultipleTimesBeforeUnlocking() throws Exception {
+  public void unlockOnDifferentAutoUnlockersAllowed() {
+    runUnlockOnDifferentAutoUnlockersAllowed(makeLockFn1());
+  }
+
+  public void runThreadLocksMultipleTimesBeforeUnlocking(final Supplier<AutoUnlocker> lockFn)
+      throws Exception {
     final AtomicReference<Long> currentThreadIdRef = new AtomicReference<>(new Long(-1L));
     final AtomicInteger count = new AtomicInteger(0);
     Runnable runnable = new Runnable() {
       @Override
       public void run() {
-        try (AutoUnlocker unlocker1 = locker.lock("cat")) {
-          Long currentThreadId = Thread.currentThread().getId();
+        Long currentThreadId = Thread.currentThread().getId();
+        try (AutoUnlocker unlocker1 = lockFn.get()) {
           currentThreadIdRef.set(currentThreadId);
-          try (AutoUnlocker unlocker2 = locker.lock("cat")) {
+          try (AutoUnlocker unlocker2 = lockFn.get()) {
             assertEquals(currentThreadId, currentThreadIdRef.get());
-            try (AutoUnlocker unlocker3 = locker.lock("cat")) {
+            try (AutoUnlocker unlocker3 = lockFn.get()) {
               assertEquals(currentThreadId, currentThreadIdRef.get());
-              try (AutoUnlocker unlocker4 = locker.lock("cat")) {
+              try (AutoUnlocker unlocker4 = lockFn.get()) {
                 assertEquals(currentThreadId, currentThreadIdRef.get());
-                try (AutoUnlocker unlocker5 = locker.lock("cat")) {
+                try (AutoUnlocker unlocker5 = lockFn.get()) {
                   assertEquals(currentThreadId, currentThreadIdRef.get());
                   count.incrementAndGet();
                 }
@@ -135,7 +171,12 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void unlockOnOtherThreadNotAllowed() throws Exception {
+  public void threadLocksMultipleTimesBeforeUnlocking() throws Exception {
+    runThreadLocksMultipleTimesBeforeUnlocking(makeLockFn1());
+  }
+
+  protected void runUnlockOnOtherThreadNotAllowed(final Supplier<AutoUnlocker> lockFn)
+      throws Exception {
     final AtomicReference<AutoUnlocker> unlockerRef = new AtomicReference<>();
     final CountDownLatch unlockerRefSetLatch = new CountDownLatch(1);
     final AtomicBoolean runnableInterrupted = new AtomicBoolean(false);
@@ -143,7 +184,7 @@ public abstract class KeyedLockerTest {
     Runnable runnable1 = new Runnable() {
       @Override
       public void run() {
-        unlockerRef.set(locker.lock("cat"));
+        unlockerRef.set(lockFn.get());
         unlockerRefSetLatch.countDown();
       }
     };
@@ -174,17 +215,26 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void refCountingSanity() {
+  public void unlockOnOtherThreadNotAllowed() throws Exception {
+    runUnlockOnOtherThreadNotAllowed(makeLockFn1());
+  }
+
+  protected void runRefCountingSanity(final Supplier<AutoUnlocker> lockFn) {
     Set<AutoUnlocker> unlockers = new HashSet<>();
     for (int i = 0; i < 1000; i++) {
-      try (AutoUnlocker unlocker = locker.lock("cat")) {
+      try (AutoUnlocker unlocker = lockFn.get()) {
         assertTrue(unlockers.add(unlocker));
       }
     }
   }
 
   @Test
-  public void simpleMultiThreaded_MutualExclusion() throws InterruptedException {
+  public void refCountingSanity() {
+    runRefCountingSanity(makeLockFn1());
+  }
+
+  protected void runSimpleMultiThreaded_MutualExclusion(final Supplier<AutoUnlocker> lockFn)
+      throws InterruptedException {
     final CountDownLatch runnableLatch = new CountDownLatch(NUM_EXECUTOR_THREADS);
     final AtomicInteger mutexCounter = new AtomicInteger(0);
     final AtomicInteger runnableCounter = new AtomicInteger(0);
@@ -199,7 +249,7 @@ public abstract class KeyedLockerTest {
         } catch (InterruptedException e) {
           runnableInterrupted.set(true);
         }
-        try (AutoUnlocker unlocker = locker.lock("cat")) {
+        try (AutoUnlocker unlocker = lockFn.get()) {
           runnableCounter.incrementAndGet();
           assertEquals(1, mutexCounter.incrementAndGet());
           assertEquals(0, mutexCounter.decrementAndGet());
@@ -215,5 +265,10 @@ public abstract class KeyedLockerTest {
       throw new InterruptedException();
     }
     assertEquals(NUM_EXECUTOR_THREADS, runnableCounter.get());
+  }
+
+  @Test
+  public void simpleMultiThreaded_MutualExclusion() throws Exception {
+    runSimpleMultiThreaded_MutualExclusion(makeLockFn1());
   }
 }

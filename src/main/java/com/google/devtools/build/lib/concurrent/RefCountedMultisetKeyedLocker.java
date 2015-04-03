@@ -15,21 +15,26 @@ package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ConcurrentHashMultiset;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.Striped;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.annotation.Nullable;
+
 /**
  * An implementation of {@link KeyedLocker} that uses ref counting to efficiently only store locks
  * that are live.
  */
-@ThreadSafe
-public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
+public class RefCountedMultisetKeyedLocker<K> implements BatchedKeyedLocker<K> {
   // Multiset of keys that have threads waiting on a lock or using a lock.
   private final ConcurrentHashMultiset<K> waiters = ConcurrentHashMultiset.<K>create();
 
@@ -41,10 +46,44 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
   // Map of key to current lock, for keys that have at least one waiting or live thread.
   private final ConcurrentMap<K, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-  private class RefCountedAutoUnlocker implements AutoUnlocker {
+  // Used to enforce a consistent ordering in lockBatch.
+  @Nullable
+  private final Comparator<K> comparator;
+
+  private RefCountedMultisetKeyedLocker(Comparator<K> comparator) {
+    this.comparator = comparator;
+  }
+
+  /** Factory for {@link RefCountedMultisetKeyedLocker} instances. */ 
+  public static class Factory<K> implements BatchedKeyedLocker.Factory<K> {
+    @Override
+    public BatchedKeyedLocker<K> create(Comparator<K> comparator) {
+      return new RefCountedMultisetKeyedLocker<>(comparator);
+    }
+
+    public KeyedLocker<K> create() {
+      return new RefCountedMultisetKeyedLocker<>(/*comparator=*/null);
+    }
+  }
+
+  private abstract static class AtMostOnceAutoUnlockerBase<K> implements AutoUnlocker {
+    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
+
+    @Override
+    public final void close() {
+      if (closeCalled.getAndSet(true)) {
+        String msg = "'close' can be called at most once per AutoUnlocker instance";
+        throw new IllegalUnlockException(msg);
+      }
+      doClose();
+    }
+
+    protected abstract void doClose();
+  }
+
+  private class RefCountedAutoUnlocker extends AtMostOnceAutoUnlockerBase<K> {
     private final K key;
     private final ReentrantLock lock;
-    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
 
     private RefCountedAutoUnlocker(K key, ReentrantLock lock) {
       this.key = key;
@@ -52,12 +91,7 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
     }
 
     @Override
-    public void close() {
-      if (closeCalled.getAndSet(true)) {
-        String msg = String.format("For key %s, 'close' can be called at most once per "
-            + "AutoUnlocker instance", key);
-        throw new IllegalUnlockException(msg);
-      }
+    protected void doClose() {
       if (!lock.isHeldByCurrentThread()) {
         String msg = String.format("For key %s, the calling thread to 'close' must be the one "
             + "that acquired the AutoUnlocker", key);
@@ -112,5 +146,41 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
     }
     // We won the race, so the current lock for 'key' is the one we locked and inserted.
     return new RefCountedAutoUnlocker(key, newLock);
+  }
+
+  private static void unlockAll(Iterable<KeyedLocker.AutoUnlocker> unlockers) {
+    // Note that order doesn't matter here because we always acquire locks in a consistent order.
+    for (KeyedLocker.AutoUnlocker unlocker : unlockers) {
+      unlocker.close();
+    }
+  }
+
+  @Override
+  public AutoUnlocker lockBatch(Set<K> keys) {
+    // This indicates the client did some unsafe casting - not our problem.
+    Preconditions.checkNotNull(comparator);
+    // We acquire locks in a consistent order. This prevents a deadlock that would otherwise occur
+    // on two concurrent calls to lockBatch(keys(k1, k2)) if the callers acquired the locks in a
+    // different order.
+    ImmutableSortedSet<K> sortedKeys = ImmutableSortedSet.copyOf(comparator, keys);
+    final List<KeyedLocker.AutoUnlocker> unlockers = new ArrayList<>(sortedKeys.size());
+    boolean success = false;
+    try {
+      for (K key : sortedKeys) {
+        unlockers.add(lock(key));
+      }
+      success = true;
+      return new AtMostOnceAutoUnlockerBase<K>() {
+        @Override
+        public void doClose() {
+          unlockAll(unlockers);
+        }
+      };
+    } finally {
+      // Just in case we encounter a crash, e.g. if there is a bug in #lock.
+      if (!success) {
+        unlockAll(unlockers);
+      }
+    }
   }
 }
