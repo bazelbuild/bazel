@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -76,6 +77,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   public Collection<Artifact> addExtraAction(RuleContext owningRule,
       Action actionToShadow) {
     Collection<Artifact> extraActionOutputs = new LinkedHashSet<>();
+    Collection<Artifact> protoOutputs = new ArrayList<>();
     NestedSetBuilder<Artifact> extraActionInputs = NestedSetBuilder.stableOrder();
 
     ActionOwner owner = actionToShadow.getOwner();
@@ -105,7 +107,10 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     // It is up to each action being shadowed to decide what contents to store here.
     Artifact extraActionInfoFile = getExtraActionOutputArtifact(owningRule, actionToShadow,
         owner, "$(ACTION_ID).xa");
-    extraActionOutputs.add(extraActionInfoFile);
+    owningRule.registerAction(new ExtraActionInfoFileWriteAction(
+        actionToShadow.getOwner(), extraActionInfoFile, actionToShadow));
+    extraActionInputs.add(extraActionInfoFile);
+    protoOutputs.add(extraActionInfoFile);
 
     // Expand extra_action specific variables from the provided command-line.
     // See {@link #createExpandedCommand} for list of supported variables.
@@ -125,7 +130,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         actionToShadow.getOwner(),
         ImmutableSet.copyOf(extraActionInputs.build()),
         manifests,
-        extraActionInfoFile,
         extraActionOutputs,
         actionToShadow,
         createDummyOutput,
@@ -134,7 +138,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         commandMessage,
         label.getName()));
 
-    return extraActionOutputs;
+    return ImmutableSet.<Artifact>builder().addAll(extraActionOutputs).addAll(protoOutputs).build();
   }
 
   /**

@@ -15,18 +15,14 @@
 package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -36,7 +32,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -46,9 +41,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,7 +54,6 @@ import javax.annotation.Nullable;
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
-  private final Artifact extraActionInfoFile;
   private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
   private final ImmutableSet<Artifact> extraActionInputs;
   private boolean inputsKnown;
@@ -69,7 +61,6 @@ public final class ExtraAction extends SpawnAction {
   public ExtraAction(ActionOwner owner,
       ImmutableSet<Artifact> extraActionInputs,
       Map<PathFragment, Artifact> runfilesManifests,
-      Artifact extraActionInfoFile,
       Collection<Artifact> outputs,
       Action shadowedAction,
       boolean createDummyOutput,
@@ -89,7 +80,6 @@ public final class ExtraAction extends SpawnAction {
         mnemonic,
         false,
         null);
-    this.extraActionInfoFile = extraActionInfoFile;
     this.shadowedAction = shadowedAction;
     this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
     this.createDummyOutput = createDummyOutput;
@@ -97,8 +87,8 @@ public final class ExtraAction extends SpawnAction {
     this.extraActionInputs = extraActionInputs;
     inputsKnown = shadowedAction.inputsKnown();
     if (createDummyOutput) {
-      // extra action file & dummy file
-      Preconditions.checkArgument(outputs.size() == 2);
+      // Expecting just a single dummy file in the outputs.
+      Preconditions.checkArgument(outputs.size() == 1, outputs);
     }
   }
 
@@ -185,18 +175,6 @@ public final class ExtraAction extends SpawnAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    // PHASE 1: generate .xa file containing protocol buffer describing
-    // the action being shadowed
-
-    // We call the getExtraActionInfo command only at execution time
-    // so actions can store information only known at execution time into the
-    // protocol buffer.
-    ExtraActionInfo info = shadowedAction.getExtraActionInfo().build();
-    try (OutputStream out = extraActionInfoFile.getPath().getOutputStream()) {
-      info.writeTo(out);
-    } catch (IOException e) {
-      throw new ActionExecutionException(e.getMessage(), e, this, false);
-    }
     Executor executor = actionExecutionContext.getExecutor();
 
     // PHASE 2: execution of extra_action.
@@ -239,20 +217,6 @@ public final class ExtraAction extends SpawnAction {
   private Spawn getExtraActionSpawn() {
     final Spawn base = super.getSpawn();
     return new DelegateSpawn(base) {
-      @Override public Iterable<? extends ActionInput> getInputFiles() {
-        return Iterables.concat(base.getInputFiles(), ImmutableSet.of(extraActionInfoFile));
-      }
-
-      @Override public List<? extends ActionInput> getOutputFiles() {
-        return Lists.newArrayList(
-            Iterables.filter(getOutputs(), new Predicate<Artifact>() {
-              @Override
-              public boolean apply(Artifact item) {
-                return item != extraActionInfoFile;
-              }
-            }));
-      }
-
       @Override public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
         ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
         builder.putAll(super.getRunfilesManifests());
