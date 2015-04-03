@@ -42,7 +42,7 @@ public class ActionExecutionValue implements SkyValue {
    * @param artifactData Map from Artifacts to corresponding FileValues.
    * @param additionalOutputData Map from Artifacts to values if the FileArtifactValue for this
    *     artifact cannot be derived from the corresponding FileValue (see {@link
-   *     FileAndMetadataCache#getAdditionalOutputData} for when this is necessary).
+   *     ActionMetadataHandler#getAdditionalOutputData} for when this is necessary).
    */
   ActionExecutionValue(Map<Artifact, FileValue> artifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData) {
@@ -53,7 +53,7 @@ public class ActionExecutionValue implements SkyValue {
   /**
    * Returns metadata for a given artifact, if that metadata cannot be inferred from the
    * corresponding {@link #getData} call for that Artifact. See {@link
-   * FileAndMetadataCache#getAdditionalOutputData} for when that can happen.
+   * ActionMetadataHandler#getAdditionalOutputData} for when that can happen.
    */
   @Nullable
   FileArtifactValue getArtifactValue(Artifact artifact) {

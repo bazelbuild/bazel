@@ -214,7 +214,7 @@ class FilesystemValueChecker {
           SkyKey key = keyAndValue.getFirst();
           FileValue lastKnownData = actionValue.getAllOutputArtifactData().get(artifact);
           try {
-            FileValue newData = FileAndMetadataCache.fileValueFromArtifact(artifact, stat, tsgm);
+            FileValue newData = ActionMetadataHandler.fileValueFromArtifact(artifact, stat, tsgm);
             if (!newData.equals(lastKnownData)) {
               updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
               modifiedOutputFilesCounter.getAndIncrement();
@@ -272,7 +272,7 @@ class FilesystemValueChecker {
       Artifact artifact = entry.getKey();
       FileValue lastKnownData = entry.getValue();
       try {
-        FileValue fileValue = FileAndMetadataCache.fileValueFromArtifact(artifact, null, tsgm);
+        FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(artifact, null, tsgm);
         if (!fileValue.equals(lastKnownData)) {
           updateIntraBuildModifiedCounter(fileValue.exists()
               ? fileValue.realRootedPath().asPath().getLastModifiedTime()

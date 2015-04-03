@@ -17,12 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.common.collect.Sets;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -35,12 +31,9 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.protobuf.ByteString;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -67,12 +60,9 @@ import javax.annotation.Nullable;
  * versions of the data for a value (see {@link #getAdditionalOutputData} for more.
  */
 @VisibleForTesting
-public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
+public class ActionMetadataHandler implements MetadataHandler {
   /** This should never be read directly. Use {@link #getInputFileArtifactValue} instead. */
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
-  private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
-  private final File execRoot;
-  private final Map<ByteString, Artifact> reverseMap = new ConcurrentHashMap<>();
   private final ConcurrentMap<Artifact, FileValue> outputArtifactData =
       new ConcurrentHashMap<>();
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -83,16 +73,11 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   private final ImmutableSet<Artifact> outputs;
   private final TimestampGranularityMonitor tsgm;
 
-  private static final Interner<ByteString> BYTE_INTERNER = Interners.newWeakInterner();
-
   @VisibleForTesting
-  public FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
-      Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
+  public ActionMetadataHandler(Map<Artifact, FileArtifactValue> inputArtifactData,
       Iterable<Artifact> outputs,
       TimestampGranularityMonitor tsgm) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
-    this.expandedInputMiddlemen = Preconditions.checkNotNull(expandedInputMiddlemen);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.tsgm = tsgm;
   }
@@ -188,14 +173,6 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
     return maybeStoreAdditionalData(artifact, fileValue, null);
   }
 
-  /** Expands one of the input middlemen artifacts of the corresponding action. */
-  public Collection<Artifact> expandInputMiddleman(Artifact middlemanArtifact) {
-    Preconditions.checkState(middlemanArtifact.isMiddlemanArtifact(), middlemanArtifact);
-    Collection<Artifact> result = expandedInputMiddlemen.get(middlemanArtifact);
-    // Note that result may be null for non-aggregating middlemen.
-    return result == null ? ImmutableSet.<Artifact>of() : result;
-  }
-
   /**
    * Check that the new {@code data} we just calculated for an {@code artifact} agrees with the
    * {@code oldData} (presumably calculated concurrently), if it was present.
@@ -283,7 +260,7 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
           // should throw, since all filesystem access has already been done.
           throw new IllegalStateException(
               "Filesystem should not have been accessed while injecting data for "
-          + artifact.prettyPrint(), e);
+                  + artifact.prettyPrint(), e);
         }
         // Ignore exceptions for empty files, as above.
       }
@@ -361,50 +338,9 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
     return additionalOutputData;
   }
 
-  @Override
-  public long getSizeInBytes(ActionInput input) throws IOException {
-    FileArtifactValue metadata = getInputFileArtifactValue(input);
-    if (metadata != null) {
-      return metadata.getSize();
-    }
-    return -1;
-  }
-
-  @Nullable
-  @Override
-  public File getFileFromDigest(ByteString digest) throws IOException {
-    Artifact artifact = reverseMap.get(digest);
-    if (artifact != null) {
-      String relPath = artifact.getExecPathString();
-      return relPath.startsWith("/") ? new File(relPath) : new File(execRoot, relPath);
-    }
-    return null;
-  }
-
-  @Nullable
-  @Override
-  public ByteString getDigest(ActionInput input) throws IOException {
-    FileArtifactValue value = getInputFileArtifactValue(input);
-    if (value != null) {
-      byte[] bytes = value.getDigest();
-      if (bytes != null) {
-        ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
-            .getBytes(StandardCharsets.US_ASCII));
-        reverseMap.put(BYTE_INTERNER.intern(digest), (Artifact) input);
-        return digest;
-      }
-    }
-    return null;
-  }
-
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return reverseMap.containsKey(digest);
-  }
-
   static FileValue fileValueFromArtifact(Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow, TimestampGranularityMonitor tsgm)
-          throws IOException {
+      throws IOException {
     Path path = artifact.getPath();
     RootedPath rootedPath =
         RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
