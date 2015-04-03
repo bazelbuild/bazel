@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -21,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker;
+import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker.IllegalUnlockException;
 import com.google.devtools.build.lib.testutil.TestUtils;
 
 import org.junit.After;
@@ -59,7 +59,7 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void simpleSingleThreaded() {
+  public void simpleSingleThreaded_NoUnlocks() {
     locker.lock("cat");
     locker.lock("dog");
     locker.lock("cat");
@@ -67,20 +67,75 @@ public abstract class KeyedLockerTest {
   }
 
   @Test
-  public void doubleUnlock() {
+  public void simpleSingleThreaded_WithUnlocks() {
+    try (AutoUnlocker unlockerCat1 = locker.lock("cat")) {
+      try (AutoUnlocker unlockerDog1 = locker.lock("dog")) {
+        try (AutoUnlocker unlockerCat2 = locker.lock("cat")) {
+          try (AutoUnlocker unlockerDog2 = locker.lock("dog")) {
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void doubleUnlockOnSameAutoUnlockerNotAllowed() {
     AutoUnlocker unlocker = locker.lock("cat");
     unlocker.close();
     try {
       unlocker.close();
       fail();
-    } catch (IllegalStateException e) {
-      String expectedMessage = "'close' can be called at most once";
-      assertThat(e.getMessage()).contains(expectedMessage);
+    } catch (IllegalUnlockException expected) {
     }
   }
 
   @Test
-  public void unlockOnOtherThread() throws Exception {
+  public void unlockOnDifferentAutoUnlockersAllowed() {
+    AutoUnlocker unlocker1 = locker.lock("cat");
+    AutoUnlocker unlocker2 = locker.lock("cat");
+    unlocker1.close();
+    unlocker2.close();
+  }
+
+  @Test
+  public void threadLocksMultipleTimesBeforeUnlocking() throws Exception {
+    final AtomicReference<Long> currentThreadIdRef = new AtomicReference<>(new Long(-1L));
+    final AtomicInteger count = new AtomicInteger(0);
+    Runnable runnable = new Runnable() {
+      @Override
+      public void run() {
+        try (AutoUnlocker unlocker1 = locker.lock("cat")) {
+          Long currentThreadId = Thread.currentThread().getId();
+          currentThreadIdRef.set(currentThreadId);
+          try (AutoUnlocker unlocker2 = locker.lock("cat")) {
+            assertEquals(currentThreadId, currentThreadIdRef.get());
+            try (AutoUnlocker unlocker3 = locker.lock("cat")) {
+              assertEquals(currentThreadId, currentThreadIdRef.get());
+              try (AutoUnlocker unlocker4 = locker.lock("cat")) {
+                assertEquals(currentThreadId, currentThreadIdRef.get());
+                try (AutoUnlocker unlocker5 = locker.lock("cat")) {
+                  assertEquals(currentThreadId, currentThreadIdRef.get());
+                  count.incrementAndGet();
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    for (int i = 0; i < NUM_EXECUTOR_THREADS; i++) {
+      executorService.submit(runnable);
+    }
+    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+      throw new InterruptedException();
+    }
+    assertEquals(NUM_EXECUTOR_THREADS, count.get());
+  }
+
+  @Test
+  public void unlockOnOtherThreadNotAllowed() throws Exception {
     final AtomicReference<AutoUnlocker> unlockerRef = new AtomicReference<>();
     final CountDownLatch unlockerRefSetLatch = new CountDownLatch(1);
     final AtomicBoolean runnableInterrupted = new AtomicBoolean(false);
@@ -103,10 +158,7 @@ public abstract class KeyedLockerTest {
         try {
           Preconditions.checkNotNull(unlockerRef.get()).close();
           fail();
-        } catch (IllegalStateException e) {
-          String expectedMessage = "the calling thread must be the one that acquired the "
-              + "AutoUnlocker";
-          assertThat(e.getMessage()).contains(expectedMessage);
+        } catch (IllegalUnlockException expected) {
           runnable2Executed.set(true);
         }
       }

@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.concurrent;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.util.concurrent.Striped;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -26,6 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * An implementation of {@link KeyedLocker} that uses ref counting to efficiently only store locks
  * that are live.
  */
+@ThreadSafe
 public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
   // Multiset of keys that have threads waiting on a lock or using a lock.
   private final ConcurrentHashMultiset<K> waiters = ConcurrentHashMultiset.<K>create();
@@ -36,19 +39,30 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
   private final Striped<Lock> waitersLocks = Striped.lazyWeakLock(NUM_STRIPES);
 
   // Map of key to current lock, for keys that have at least one waiting or live thread.
-  private final ConcurrentMap<K, RefCountedLockImpl> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<K, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-  private class RefCountedLockImpl extends ReentrantLock implements AutoUnlocker {
+  private class RefCountedAutoUnlocker implements AutoUnlocker {
     private final K key;
+    private final ReentrantLock lock;
+    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
 
-    private RefCountedLockImpl(K key) {
+    private RefCountedAutoUnlocker(K key, ReentrantLock lock) {
       this.key = key;
+      this.lock = lock;
     }
 
     @Override
     public void close() {
-      Preconditions.checkState(isHeldByCurrentThread(), "For key %s, 'close' can be called at most "
-          + "once and the calling thread must be the one that acquired the AutoUnlocker", key);
+      if (closeCalled.getAndSet(true)) {
+        String msg = String.format("For key %s, 'close' can be called at most once per "
+            + "AutoUnlocker instance", key);
+        throw new IllegalUnlockException(msg);
+      }
+      if (!lock.isHeldByCurrentThread()) {
+        String msg = String.format("For key %s, the calling thread to 'close' must be the one "
+            + "that acquired the AutoUnlocker", key);
+        throw new IllegalUnlockException(msg);
+      }
       try {
         Lock waitersLock = waitersLocks.get(key);
         try {
@@ -57,42 +71,46 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
           // count is 0.
           waiters.remove(key);
           if (waiters.count(key) == 0) {
-            // No other thread is waiting to access this key, so we garbage collect the lock.
-            Preconditions.checkState(locks.remove(key, this), key);
+            // No other thread is waiting to access this key, nor does the current thread have
+            // another AutoUnlocker instance, so we garbage collect the lock.
+            Preconditions.checkState(locks.remove(key, lock), key);
           }
         } finally {
           waitersLock.unlock();
         }
       } finally {
-        unlock();
+        lock.unlock();
       }
     }
   }
 
   @Override
   public AutoUnlocker lock(K key) {
-    RefCountedLockImpl newLock = new RefCountedLockImpl(key);
+    ReentrantLock newLock = new ReentrantLock();
     // Pre-lock our fresh lock, in case we win the race to get access to 'key'.
     newLock.lock();
     Lock waitersLock = waitersLocks.get(key);
     try {
       waitersLock.lock();
       // Add us to the set of waiters, so that in case we lose the race to access 'key', the winner
-      // will know that we are waiting.
+      // will know that we are waiting. If we already have access to 'key', this simply bumps up
+      // the ref count.
       waiters.add(key);
     } finally {
       waitersLock.unlock();
     }
-    RefCountedLockImpl lock;
+    ReentrantLock lock;
     lock = locks.putIfAbsent(key, newLock);
     if (lock != null) {
-      // Another thread won the race to get access to 'key', so we wait for our turn.
       Preconditions.checkState(lock != newLock);
       newLock.unlock();
+      // Either another thread won the race to get access to 'key', or we already have exclusive
+      // access to 'key'. Either way, we lock; in the former case we wait for our turn and in the
+      // latter case the lock's implicit counter is incremented.
       lock.lock();
-      return lock;
+      return new RefCountedAutoUnlocker(key, lock);
     }
     // We won the race, so the current lock for 'key' is the one we locked and inserted.
-    return newLock;
+    return new RefCountedAutoUnlocker(key, newLock);
   }
 }

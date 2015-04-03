@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /** A keyed store of locks. */
 @ThreadSafe
@@ -21,12 +21,21 @@ public interface KeyedLocker<K> {
   /** Used to yield access to the implicit lock granted by {@link #lock}. */
   @ThreadSafe
   interface AutoUnlocker extends AutoCloseable {
+    /** Exception used to indicate illegal use of {@link AutoUnlocker#close}. */
+    public static class IllegalUnlockException extends RuntimeException {
+      public IllegalUnlockException(String msg) {
+        super(msg);
+      }
+    }
+
     /**
-     * If this was returned by {@code lock(k)}, yields exclusive access to {@code k}.
+     * Closes the {@link AutoUnlocker} instance. If this instance was the last unclosed one
+     * returned by {@code lock(k)} owned by then the current thread, then exclusive access to
+     * {@code k} is yielded.
      *
-     * <p>This method should be called at most once, and may only be called by the same thread that
-     * acquired the {@link AutoUnlocker} via {@link #lock}. Implementations are free to do anything
-     * if this is violated.
+     * <p>This method may only be called at most once per {@link AutoUnlocker} instance and must
+     * be called by the same thread that acquired the {@link AutoUnlocker} via {@link #lock}.
+     * Otherwise, an {@link IllegalUnlockException} is thrown.
      */
     @Override
     void close();
@@ -34,14 +43,41 @@ public interface KeyedLocker<K> {
 
   /**
    * Blocks the current thread until it has exclusive access to do things with {@code k} and
-   * returns a {@link AutoUnlocker} instance for yielding the implicit lock. The intended usage
-   * is:
+   * returns a {@link AutoUnlocker} instance for yielding the implicit lock.
+   *
+   * <p>Notably, this means that a thread is allowed to call {@code lock(k)} again before calling
+   * {@link AutoUnlocker#close} for the first call to {@code lock(k)}. Each call to {@link #lock}
+   * will return a different {@link AutoUnlocker} instance.
+   *
+   * <p>The intended usage is:
    *
    * <pre>
    * {@code
    * try (AutoUnlocker unlocker = locker.lock(k)) {
    *   // Your code here.
    * }
+   * }
+   * </pre>
+   *
+   * <p>Note that the usual caveats about mutexes apply here, e.g. the following may deadlock:
+   *
+   * <pre>
+   * {@code
+   * // Thread A
+   * try (AutoUnlocker unlocker = locker.lock(k1)) {
+   *   // This will deadlock if Thread A already acquired a lock for k2.
+   *   try (AutoUnlocker unlocker = locker.lock(k2)) {
+   *   }
+   * }
+   * // end Thread A
+   *
+   * // Thread B
+   * try (AutoUnlocker unlocker = locker.lock(k2)) {
+   *   // This will deadlock if Thread A already acquired a lock for k1.
+   *   try (AutoUnlocker unlocker = locker.lock(k1)) {
+   *   }
+   * }
+   * // end Thread B
    * }
    * </pre>
    */
