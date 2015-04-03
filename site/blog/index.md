@@ -13,3 +13,5 @@ _{{ post.date | date_to_long_string }}_
 {{ post.content }}
 
 {% endfor %}
+
+[Subscribe](feed.xml)
