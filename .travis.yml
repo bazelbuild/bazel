@@ -1,11 +1,18 @@
+# Allow sudo for running apt-get/brew
+sudo: required
+os:
+  - linux
+  - osx
 language: cpp
-before_script:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y protobuf-compiler libarchive-dev
 compiler:
   - clang
 jdk:
   - oraclejdk8
 script:
+  - .travis/setup-env.sh
   - jdk_switcher use oraclejdk8
   - ./compile.sh
+
+# Upload to S3.
+addons:
+  artifacts: true
