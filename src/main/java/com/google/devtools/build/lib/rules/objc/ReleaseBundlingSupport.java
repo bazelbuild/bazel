@@ -22,7 +22,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -232,12 +234,37 @@ public final class ReleaseBundlingSupport {
       maybeSignedIpa = registerBundleSigningActions(ipaOutput);
     }
     
+    registerEmbedLabelPlistAction();
+
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
         bundling, maybeSignedIpa, objcConfiguration, families);
     registerBundleMergeActions(
         maybeSignedIpa, bundling.getBundleContentArtifacts(), bundleMergeControlBytes);
 
     return this;
+  }
+
+  private void registerEmbedLabelPlistAction() {
+    Artifact buildInfo = Iterables.getOnlyElement(
+        ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, ObjcBuildInfoFactory.KEY));
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setMnemonic("ObjcVersionPlist")
+        .setExecutable(new PathFragment("/bin/bash"))
+        .setCommandLine(new CustomCommandLine.Builder()
+            .add("-c")
+            .add(
+                "VERSION=\"$("
+                + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo.getExecPathString()
+                + " | cut -d' ' -f2- | sed -e 's#\"#\\\"#g')\" && "
+                + " for KEY in CFBundleVersion CFBundleShortVersionString; do"
+                + "   echo \"${KEY}=\\\"${VERSION}\\\";\" >> "
+                + getGeneratedVersionPlist().getExecPathString()
+                + " ; done"
+            )
+            .build())
+        .addInput(buildInfo)
+        .addOutput(getGeneratedVersionPlist())
+        .build(ruleContext));
   }
 
   private Artifact registerBundleSigningActions(Artifact ipaOutput) {
@@ -366,7 +393,7 @@ public final class ReleaseBundlingSupport {
     return new ExtraActoolArgs(extraArgs.build());
   }
 
-  private static Bundling bundling(
+  private Bundling bundling(
       RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
       String bundleDirFormat) {
     ImmutableList<BundleableFile> extraBundleFiles;
@@ -396,7 +423,8 @@ public final class ReleaseBundlingSupport {
         .addExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)
         .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider))
+            BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider,
+                new BundleSupport.ExtraMergePlists(getGeneratedVersionPlist())))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)
@@ -610,6 +638,11 @@ public final class ReleaseBundlingSupport {
         fingerprintCommand,
         entitlements.getExecPathString(),
         appDir);
+  }
+
+  private Artifact getGeneratedVersionPlist() {
+    return ruleContext.getRelatedArtifact(
+        ruleContext.getUniqueDirectory("plists"), "-version.plist");
   }
 
   /**

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -36,28 +37,35 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionsBase;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Workspace status information for Bazel.
- *
- * <p>Currently only a stub.
+ * Provides information about the workspace (e.g. source control context, current machine, current
+ * user, etc).
  */
 public class BazelWorkspaceStatusModule extends BlazeModule {
   private static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
+    private final AtomicReference<Options> options;
 
     private BazelWorkspaceStatusAction(
-        Artifact stableStatus, Artifact volatileStatus) {
+        AtomicReference<WorkspaceStatusAction.Options> options,
+        Artifact stableStatus,
+        Artifact volatileStatus) {
       super(BuildInfoHelper.BUILD_INFO_ACTION_OWNER, Artifact.NO_ARTIFACTS,
           ImmutableList.of(stableStatus, volatileStatus));
+      this.options = options;
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
     }
@@ -71,7 +79,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     public void execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        FileSystemUtils.writeContent(stableStatus.getPath(), new byte[] {});
+        String embedLabelLine = String.format("BUILD_EMBED_LABEL %s\n", options.get().embedLabel);
+        FileSystemUtils.writeContent(
+            stableStatus.getPath(), embedLabelLine.getBytes(StandardCharsets.UTF_8));
         FileSystemUtils.writeContent(volatileStatus.getPath(), new byte[] {});
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, true);
@@ -111,6 +121,16 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
+    public boolean executeUnconditionally() {
+      return true;
+    }
+
+    @Override
+    public boolean isVolatile() {
+      return true;
+    }
+
+    @Override
     public Artifact getVolatileStatus() {
       return volatileStatus;
     }
@@ -137,7 +157,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Artifact volatileArtifact = factory.getConstantMetadataArtifact(
           new PathFragment("volatile-status.txt"), root, artifactOwner);
 
-      return new BazelWorkspaceStatusAction(stableArtifact, volatileArtifact);
+      return new BazelWorkspaceStatusAction(options, stableArtifact, volatileArtifact);
     }
   }
 
@@ -178,10 +198,24 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   private BlazeRuntime runtime;
+  private AtomicReference<WorkspaceStatusAction.Options> options = new AtomicReference<>();
 
   @Override
   public void beforeCommand(BlazeRuntime runtime, Command command) {
     this.runtime = runtime;
+    runtime.getEventBus().register(this);
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return command.builds()
+        ? ImmutableList.<Class<? extends OptionsBase>>of(WorkspaceStatusAction.Options.class)
+        : ImmutableList.<Class<? extends OptionsBase>>of();
+  }
+
+  @Subscribe
+  public void gotOptionsEvent(GotOptionsEvent event) {
+    options.set(event.getOptions().getOptions(WorkspaceStatusAction.Options.class));
   }
 
   @Override

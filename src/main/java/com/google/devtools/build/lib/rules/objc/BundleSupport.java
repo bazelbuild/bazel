@@ -48,6 +48,13 @@ import java.util.Set;
  * <p>Methods on this class can be called in any order without impacting the result.
  */
 final class BundleSupport {
+
+  static class ExtraMergePlists extends IterableWrapper<Artifact> {
+    ExtraMergePlists(Artifact... inputs) {
+      super(inputs);
+    }
+  }
+
   private final RuleContext ruleContext;
   private final Set<TargetDeviceFamily> targetDeviceFamilies;
   private final ExtraActoolArgs extraActoolArgs;
@@ -62,17 +69,22 @@ final class BundleSupport {
    *    rule's
    * @param optionsProvider provider containing options and plist settings for this rule and its
    *    dependencies
+   * @param extraMergePlists additional plist files to merge
    */
-  static InfoplistMerging infoPlistMerging(RuleContext ruleContext,
-      ObjcProvider objcProvider, OptionsProvider optionsProvider) {
+  static InfoplistMerging infoPlistMerging(
+      RuleContext ruleContext,
+      ObjcProvider objcProvider,
+      OptionsProvider optionsProvider,
+      ExtraMergePlists extraMergePlists) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    
+
     return new InfoplistMerging.Builder(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(optionsProvider.getInfoplists())
             .addAll(actoolPartialInfoplist(ruleContext, objcProvider).asSet())
+            .addAll(extraMergePlists)
             .build())
         .setPlmerge(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
         .build();
@@ -280,6 +292,15 @@ final class BundleSupport {
           .addOutput(bundled)
           .build(ruleContext));
     }
+  }
+
+  /**
+   * Validates any rule attributes and dependencies related to this bundle.
+   *
+   * @return this bundle support
+   */
+  BundleSupport validateAttributes() {
+    return this;
   }
 
   private void registerMergeInfoplistAction() {

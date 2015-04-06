@@ -88,7 +88,8 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .setBundleDirFormat("%s.bundle")
         .setObjcProvider(common.getObjcProvider())
         .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(), optionsProvider))
+            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(), optionsProvider,
+                new BundleSupport.ExtraMergePlists()))
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
   }

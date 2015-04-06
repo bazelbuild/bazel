@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
 import com.google.devtools.build.lib.rules.objc.IosExtensionBinaryRule;
 import com.google.devtools.build.lib.rules.objc.IosExtensionRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleRule;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions;
@@ -192,6 +193,7 @@ public class BazelRuleClassProvider {
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder
         .addBuildInfoFactory(new BazelJavaBuildInfoFactory())
+        .addBuildInfoFactory(new ObjcBuildInfoFactory())
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
         .setPrerequisiteValidator(new BazelPrerequisiteValidator())
         .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);

@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -47,6 +49,17 @@ import java.util.UUID;
  * that does not significantly affect the build, e.g. the current time.
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
+
+  /**
+   * Options controlling the workspace status command.
+   */
+  public static class Options extends OptionsBase {
+    @Option(name = "embed_label",
+        defaultValue = "",
+        category = "misc",
+        help = "Embed source control revision or release label in binary")
+    public String embedLabel;
+  }
 
   /**
    * The type of a workspace status action key.
