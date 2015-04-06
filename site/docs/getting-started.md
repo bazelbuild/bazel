@@ -5,17 +5,12 @@ layout: default
 Getting Started with Bazel
 ==========================
 
-Prerequisites
--------------
-
-Be sure you have installed all of the prerequisites for your platform, as
-outlined in the [installation instructions](install.html).
-
 Setup
 -----
 
 To use Bazel, first clone the [Github repo](https://github.com/google/bazel)
-and build Bazel:
+and build Bazel (follow the instructions in the [README](install.html) to install
+prerequisites):
 
 ```bash
 $ git clone https://github.com/google/bazel.git
@@ -24,9 +19,6 @@ $ ./compile.sh
 ```
 
 `./compile.sh` creates the `bazel` executable in `output/bazel`.
-It also pre-populates a `base_workspace/` subdirectory with the tools
-Bazel needs to do builds, which you can copy and use as a starting
-point for new workspaces.
 
 _**Note:** Bazel may support a binary installation at a later time._
 
@@ -45,31 +37,8 @@ One workspace can be shared among multiple projects, if desired.  To get
 started, we'll focus on a simple example with one project.
 
 Suppose that you have an existing project in a directory, say,
-`~/gitroot/my-project/`. Copy `base_workspace/` (produced
-by `compile.sh`) and all of its contents to wherever you'd like your
-build root and then move `my-project/` to be a subdirectory of
-`base_workspace/`:
-
-```bash
-$ cp -R ~/gitroot/bazel/base_workspace ~/gitroot
-$ mv ~/gitroot/my-project ~/gitroot/base_workspace
-```
-
-At this point, you should have the following directory structure:
-
-```
-base_workspace/
-  examples/
-  my-project/
-  tools/
-  third_party/
-  WORKSPACE
-```
-
-You can rename `base_workspace/` to something more descriptive, if you prefer.
-The `tools/` and `third_party/` directories can be symbolically linked into the
-workspace, or they can be copied in whole, but must be named `tools/` and
-`third_party/` respectively.
+`~/gitroot/my-project/`. Create an empty file at
+`~/gitroot/my-project/WORKSPACE` to show Bazel where your project's root is.
 
 Sanity Check: Building an Example
 ---------------------------------
@@ -78,7 +47,7 @@ To make sure everything is set up correctly in your build root, build one of the
 examples from the `examples/` directory.
 
 ```bash
-$ cd ~/gitroot/base_workspace
+$ cd ~/gitroot/my-project
 $ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
 Extracting Bazel installation...
 ...........

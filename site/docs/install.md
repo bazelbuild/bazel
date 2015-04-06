@@ -134,30 +134,4 @@ $ export PATH="$PATH:$HOME/bazel/output/bazel"
 
 You can also add this command to your `~/.bashrc` file.
 
-You must run the Bazel from within a directory that is properly configured for
-use with the application. We call this directory a _workspace directory_.
-Bazel provides a default workspace directory with sample `BUILD` files and
-source code at `base_workspace` in the Bazel home directory. This directory
-contains files and subdirectories that must be present in order for Bazel to
-work. If you want to build from source outside the default workspace directory,
-copy the entire `base_workspace` directory to the new location before adding
-your `BUILD` and source files.
-
-To run Bazel and build a sample Java application:
-
-```
-$ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
-$ cd $HOME/my_workspace
-$ bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
-```
-
-The build output is located in
-`$HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/`.
-
-To run the sample application:
-
-```
-$ $HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
-```
-
 For more information, see [Getting started](getting-started.md).
