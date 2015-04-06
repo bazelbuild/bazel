@@ -16,14 +16,9 @@
 
 set -eux
 
-if [ -z "${TRAVIS_OS_NAME+x}" ]; then
-    echo "TRAVIS_OS_NAME not set, set it to 'linux' or 'osx' to run locally."
-    exit 1
-fi
-
-if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
-    brew install protobuf libarchive
-else
-    sudo apt-get update -qq
-    sudo apt-get install -y protobuf-compiler libarchive-dev
-fi
+# Remove all of the files the build generated that we don't want uploaded
+# to S3.
+# TODO(kchodorow): change this to the bootstrapped binary.
+mv output/bazel bazel
+rm -rf output
+rm -rf bazel-*

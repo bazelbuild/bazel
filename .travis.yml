@@ -8,10 +8,13 @@ compiler:
   - clang
 jdk:
   - oraclejdk8
-script:
+before_script:
   - .travis/setup-env.sh
+script:
   - jdk_switcher use oraclejdk8
   - ./compile.sh
+after_script:
+  - .travis/teardown-env.sh
 
 # Upload to S3.
 addons:
