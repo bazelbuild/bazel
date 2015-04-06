@@ -238,7 +238,7 @@ public interface NodeEntry {
   Set<SkyKey> markClean();
 
   /**
-   * Forces this node to be reevaluated, even if none of its dependencies are known to have
+   * Forces this node to be re-evaluated, even if none of its dependencies are known to have
    * changed.
    *
    * <p>Used when an external caller has reason to believe that re-evaluating may yield a new
