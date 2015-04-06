@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
@@ -22,10 +26,13 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkInputs;
@@ -50,6 +57,10 @@ final class CompilationSupport {
   @VisibleForTesting
   static final ImmutableList<String> LINKER_COVERAGE_FLAGS = ImmutableList.<String>of(
       "-ftest-coverage", "-fprofile-arcs");
+
+  @VisibleForTesting
+  static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
+      ImmutableList.of("-fprofile-arcs", "-ftest-coverage", "-fprofile-dir=./coverage_output");
 
   /**
    * Returns information about the given rule's compilation artifacts.
@@ -90,11 +101,132 @@ final class CompilationSupport {
   CompilationSupport registerCompileAndArchiveActions(
       ObjcCommon common, OptionsProvider optionsProvider) {
     if (common.getCompilationArtifacts().isPresent()) {
-      ObjcRuleClasses.actionsBuilder(ruleContext).registerCompileAndArchiveActions(
-          common.getCompilationArtifacts().get(), common.getObjcProvider(), optionsProvider,
+      registerCompileAndArchiveActions(
+          common.getCompilationArtifacts().get(),
+          ObjcRuleClasses.intermediateArtifacts(ruleContext),
+          common.getObjcProvider(), optionsProvider,
           ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
     return this;
+  }
+
+  /**
+   * Creates actions to compile each source file individually, and link all the compiled object
+   * files into a single archive library.
+   */
+  private void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
+      IntermediateArtifacts intermediateArtifacts,
+      ObjcProvider objcProvider, OptionsProvider optionsProvider, boolean isCodeCoverageEnabled) {
+    ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
+    for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
+      Artifact objFile = intermediateArtifacts.objFile(sourceFile);
+      objFiles.add(objFile);
+      registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
+          objcProvider, intermediateArtifacts, ImmutableList.of("-fobjc-arc"), optionsProvider,
+          isCodeCoverageEnabled);
+    }
+    for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
+      Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
+      objFiles.add(objFile);
+      registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
+          objcProvider, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"), optionsProvider,
+          isCodeCoverageEnabled);
+    }
+    for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
+      registerArchiveActions(intermediateArtifacts, objFiles, archive);
+    }
+  }
+
+  private void registerCompileAction(
+      Artifact sourceFile,
+      Artifact objFile,
+      Optional<Artifact> pchFile,
+      ObjcProvider objcProvider,
+      IntermediateArtifacts intermediateArtifacts,
+      Iterable<String> otherFlags,
+      OptionsProvider optionsProvider,
+      boolean isCodeCoverageEnabled) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
+    if (isCodeCoverageEnabled) {
+      coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
+      gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
+    }
+    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
+    if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
+      commandLine.add("-stdlib=libc++");
+    }
+    commandLine
+        .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
+        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(
+            objcProvider, objcConfiguration))
+        .add(objcConfiguration.getCoptsForCompilationMode())
+        .addBeforeEachPath(
+            "-iquote", ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .addBeforeEachExecPath("-include", pchFile.asSet())
+        .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
+        .add(otherFlags)
+        .addFormatEach("-D%s", objcProvider.get(DEFINE))
+        .add(coverageFlags.build())
+        .add(objcConfiguration.getCopts())
+        .add(optionsProvider.getCopts())
+        .addExecPath("-c", sourceFile)
+        .addExecPath("-o", objFile);
+
+    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+        .setMnemonic("ObjcCompile")
+        .setExecutable(ObjcRuleClasses.CLANG)
+        .setCommandLine(commandLine.build())
+        .addInput(sourceFile)
+        .addOutput(objFile)
+        .addOutputs(gcnoFiles.build())
+        .addTransitiveInputs(objcProvider.get(HEADER))
+        .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
+        .addInputs(pchFile.asSet())
+        .build(ruleContext));
+  }
+
+  private void registerArchiveActions(IntermediateArtifacts intermediateArtifacts,
+      ImmutableList.Builder<Artifact> objFiles, Artifact archive) {
+    for (Action action : archiveActions(ruleContext, objFiles.build(), archive,
+        ObjcRuleClasses.objcConfiguration(ruleContext),
+        intermediateArtifacts.objList())) {
+      ruleContext.registerAction(action);
+    }
+  }
+
+  private static Iterable<Action> archiveActions(
+      ActionConstructionContext context,
+      Iterable<Artifact> objFiles,
+      Artifact archive,
+      ObjcConfiguration objcConfiguration,
+      Artifact objList) {
+
+    ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
+
+    actions.add(new FileWriteAction(
+        context.getActionOwner(),
+        objList,
+        Artifact.joinExecPaths("\n", objFiles),
+        /*makeExecutable=*/ false));
+
+    actions.add(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+        .setMnemonic("ObjcLink")
+        .setExecutable(ObjcRuleClasses.LIBTOOL)
+        .setCommandLine(new CustomCommandLine.Builder()
+            .add("-static")
+            .add("-filelist").add(objList.getExecPathString())
+            .add("-arch_only").add(objcConfiguration.getIosCpu())
+            .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
+            .add("-o").add(archive.getExecPathString())
+            .build())
+        .addInputs(objFiles)
+        .addInput(objList)
+        .addOutput(archive)
+        .build(context));
+
+    return actions.build();
   }
 
   /**
@@ -149,15 +281,8 @@ final class CompilationSupport {
           .setIntermediateArtifacts(intermediateArtifacts)
           .setPchFile(Optional.<Artifact>absent())
           .build();
-      ObjcActionsBuilder actionBuilder = new ObjcActionsBuilder(
-          ruleContext,
-          intermediateArtifacts,
-          ObjcRuleClasses.objcConfiguration(ruleContext),
-          ruleContext.getConfiguration(),
-          ruleContext);
-      actionBuilder
-          .registerCompileAndArchiveActions(compilationArtifact, objcProvider, optionsProvider,
-               ruleContext.getConfiguration().isCodeCoverageEnabled());
+      registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
+          optionsProvider, ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
 
     return this;

@@ -54,6 +54,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public class ObjcRuleClasses {
 
+  // TODO(danielwh): Replace these with actual Artifact references
+  private static final String BIN_DIR =
+      IosSdkCommands.DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/bin";
+  static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
+  static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
+  static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
+  static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
+  static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
+
   private ObjcRuleClasses() {
     throw new UnsupportedOperationException("static-only");
   }
@@ -164,8 +173,10 @@ public class ObjcRuleClasses {
         ruleContext,
         intermediateArtifacts(ruleContext),
         ObjcRuleClasses.objcConfiguration(ruleContext),
-        ruleContext.getConfiguration(),
-        ruleContext);
+        ruleContext,
+        CLANG,
+        CLANG_PLUSPLUS,
+        DSYMUTIL);
   }
 
   public static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {

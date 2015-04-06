@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -41,11 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 
@@ -59,20 +51,44 @@ import javax.annotation.CheckReturnValue;
  * Object that creates actions used by Objective-C rules.
  */
 final class ObjcActionsBuilder {
+
+  private static final Joiner COMMAND_JOINER = Joiner.on(' ');
+
   private final ActionConstructionContext context;
   private final IntermediateArtifacts intermediateArtifacts;
   private final ObjcConfiguration objcConfiguration;
-  private final BuildConfiguration buildConfiguration;
   private final ActionRegistry actionRegistry;
+  private final PathFragment clang;
+  private final PathFragment clangPlusPlus;
+  private final PathFragment dsymutil;
 
-  ObjcActionsBuilder(ActionConstructionContext context, IntermediateArtifacts intermediateArtifacts,
-      ObjcConfiguration objcConfiguration, BuildConfiguration buildConfiguration,
-      ActionRegistry actionRegistry) {
+  /**
+   * @param context {@link ActionConstructionContext} of the rule
+   * @param intermediateArtifacts provides intermediate output paths for this rule
+   * @param objcConfiguration configuration for this rule
+   * @param actionRegistry registry with which to register new actions
+   * @param clang path to clang binary to use for compilation. This will soon be deprecated, and
+   *     replaced with an Artifact from an objc_toolchain.
+   * @param clangPlusPlus path to clang++ binary to use for compilation. This will soon be
+   *     deprecated and replaced with an Artifact from an objc_toolchain.
+   * @param dsymutil path to the dsymutil binary to use when generating debug symbols. This will
+   *     soon be deprecated and replaced with an Aritifact from an objc_toolchain.
+   */
+  ObjcActionsBuilder(
+      ActionConstructionContext context,
+      IntermediateArtifacts intermediateArtifacts,
+      ObjcConfiguration objcConfiguration,
+      ActionRegistry actionRegistry,
+      PathFragment clang,
+      PathFragment clangPlusPlus,
+      PathFragment dsymutil) {
     this.context = Preconditions.checkNotNull(context);
     this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
     this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
-    this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
+    this.clang = clang;
+    this.clangPlusPlus = clangPlusPlus;
+    this.dsymutil = dsymutil;
   }
 
   /**
@@ -85,14 +101,7 @@ final class ObjcActionsBuilder {
   }
 
   static final PathFragment JAVA = new PathFragment("/usr/bin/java");
-  static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
-  static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
-  static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
-  static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
-  static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
-  static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
-      ImmutableList.of("-fprofile-arcs", "-ftest-coverage", "-fprofile-dir=./coverage_output");
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
@@ -103,124 +112,8 @@ final class ObjcActionsBuilder {
         .addInput(deployJarArtifact);
   }
 
-  private void registerCompileAction(
-      Artifact sourceFile,
-      Artifact objFile,
-      Optional<Artifact> pchFile,
-      ObjcProvider objcProvider,
-      Iterable<String> otherFlags,
-      OptionsProvider optionsProvider,
-      boolean isCodeCoverageEnabled) {
-    ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
-    ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
-    if (isCodeCoverageEnabled) {
-      coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
-      gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
-    }
-    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
-    if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
-      commandLine.add("-stdlib=libc++");
-    }
-    commandLine
-        .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
-        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(
-            objcProvider, objcConfiguration))
-        .add(objcConfiguration.getCoptsForCompilationMode())
-        .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
-        .addBeforeEachExecPath("-include", pchFile.asSet())
-        .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
-        .add(otherFlags)
-        .addFormatEach("-D%s", objcProvider.get(DEFINE))
-        .add(coverageFlags.build())
-        .add(objcConfiguration.getCopts())
-        .add(optionsProvider.getCopts())
-        .addExecPath("-c", sourceFile)
-        .addExecPath("-o", objFile);
-
-    register(spawnOnDarwinActionBuilder()
-        .setMnemonic("ObjcCompile")
-        .setExecutable(CLANG)
-        .setCommandLine(commandLine.build())
-        .addInput(sourceFile)
-        .addOutput(objFile)
-        .addOutputs(gcnoFiles.build())
-        .addTransitiveInputs(objcProvider.get(HEADER))
-        .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-        .addInputs(pchFile.asSet())
-        .build(context));
-  }
-
-  private static final ImmutableList<String> ARC_ARGS = ImmutableList.of("-fobjc-arc");
-  private static final ImmutableList<String> NON_ARC_ARGS = ImmutableList.of("-fno-objc-arc");
-
-  /**
-   * Creates actions to compile each source file individually, and link all the compiled object
-   * files into a single archive library.
-   */
-  void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider, OptionsProvider optionsProvider, boolean isCodeCoverageEnabled) {
-    ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
-    for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
-      Artifact objFile = intermediateArtifacts.objFile(sourceFile);
-      objFiles.add(objFile);
-      registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, ARC_ARGS, optionsProvider, isCodeCoverageEnabled);
-    }
-    for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
-      Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
-      objFiles.add(objFile);
-      registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, NON_ARC_ARGS, optionsProvider, isCodeCoverageEnabled);
-    }
-    for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
-      registerAll(archiveActions(context, objFiles.build(), archive, objcConfiguration,
-          intermediateArtifacts.objList()));
-    }
-  }
-
-  private static Iterable<Action> archiveActions(
-      ActionConstructionContext context,
-      final Iterable<Artifact> objFiles,
-      final Artifact archive,
-      final ObjcConfiguration objcConfiguration,
-      final Artifact objList) {
-
-    ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
-
-    actions.add(new FileWriteAction(
-        context.getActionOwner(), objList, joinExecPaths(objFiles), /*makeExecutable=*/ false));
-
-    actions.add(spawnOnDarwinActionBuilder()
-        .setMnemonic("ObjcLink")
-        .setExecutable(LIBTOOL)
-        .setCommandLine(new CommandLine() {
-            @Override
-            public Iterable<String> arguments() {
-              return new ImmutableList.Builder<String>()
-                  .add("-static")
-                  .add("-filelist").add(objList.getExecPathString())
-                  .add("-arch_only").add(objcConfiguration.getIosCpu())
-                  .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
-                  .add("-o").add(archive.getExecPathString())
-                  .build();
-            }
-          })
-        .addInputs(objFiles)
-        .addInput(objList)
-        .addOutput(archive)
-        .build(context));
-
-    return actions.build();
-  }
-
   private void register(Action... action) {
     actionRegistry.registerAction(action);
-  }
-
-  private void registerAll(Iterable<? extends Action> actions) {
-    for (Action action : actions) {
-      actionRegistry.registerAction(action);
-    }
   }
 
   private static ByteSource xcodegenControlFileBytes(
@@ -323,17 +216,14 @@ final class ObjcActionsBuilder {
     }
   }
 
-  private static final class LinkCommandLine extends CommandLine {
-    private static final Joiner commandJoiner = Joiner.on(' ');
+  private final class LinkCommandLine extends CommandLine {
     private final ObjcProvider objcProvider;
-    private final ObjcConfiguration objcConfiguration;
     private final Artifact linkedBinary;
     private final Optional<Artifact> dsymBundle;
     private final ExtraLinkArgs extraLinkArgs;
 
-    LinkCommandLine(ObjcConfiguration objcConfiguration, ExtraLinkArgs extraLinkArgs,
+    LinkCommandLine(ExtraLinkArgs extraLinkArgs,
         ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle) {
-      this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
       this.extraLinkArgs = Preconditions.checkNotNull(extraLinkArgs);
       this.objcProvider = Preconditions.checkNotNull(objcProvider);
       this.linkedBinary = Preconditions.checkNotNull(linkedBinary);
@@ -355,8 +245,8 @@ final class ObjcActionsBuilder {
 
       Iterable<String> archiveExecPaths = Artifact.toExecPaths(
           Iterables.concat(objcProvider.get(LIBRARY), objcProvider.get(IMPORTED_LIBRARY)));
-      commandJoiner.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
-          .add(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS.toString() : CLANG.toString())
+      COMMAND_JOINER.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
+          .add(objcProvider.is(USES_CPP) ? clangPlusPlus.toString() : clang.toString())
           .addAll(objcProvider.is(USES_CPP)
               ? ImmutableList.of("-stdlib=libc++") : ImmutableList.<String>of())
           .addAll(IosSdkCommands.commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration))
@@ -379,9 +269,9 @@ final class ObjcActionsBuilder {
       // absolute paths to archive files, which are only valid in the link action.
       for (Artifact justDsymBundle : dsymBundle.asSet()) {
         argumentStringBuilder.append(" ");
-        commandJoiner.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
+        COMMAND_JOINER.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
             .add("&&")
-            .add(DSYMUTIL.toString())
+            .add(dsymutil.toString())
             .add(linkedBinary.getExecPathString())
             .add("-o").add(justDsymBundle.getExecPathString())
             .build());
@@ -404,8 +294,7 @@ final class ObjcActionsBuilder {
         .setMnemonic("ObjcLink")
         .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
         .setCommandLine(
-            new LinkCommandLine(objcConfiguration, extraLinkArgs, objcProvider, linkedBinary,
-                dsymBundle))
+            new LinkCommandLine(extraLinkArgs, objcProvider, linkedBinary, dsymBundle))
         .addOutput(linkedBinary)
         .addOutputs(dsymBundle.asSet())
         .addTransitiveInputs(objcProvider.get(LIBRARY))
@@ -413,14 +302,5 @@ final class ObjcActionsBuilder {
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .addInputs(extraLinkInputs)
         .build(context));
-  }
-
-  static LazyString joinExecPaths(final Iterable<Artifact> artifacts) {
-    return new LazyString() {
-      @Override
-      public String toString() {
-        return Artifact.joinExecPaths("\n", artifacts);
-      }
-    };
   }
 }

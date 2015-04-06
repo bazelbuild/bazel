@@ -411,7 +411,7 @@ public final class ReleaseBundlingSupport {
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(linkedBinaries)
         .addOutput(resultingLinkedBinary)
-        .setExecutable(ObjcActionsBuilder.LIPO)
+        .setExecutable(ObjcRuleClasses.LIPO)
         .setCommandLine(CustomCommandLine.builder()
             .addExecPaths("-create", linkedBinaries)
             .addExecPath("-o", resultingLinkedBinary)
