@@ -20,9 +20,9 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -39,7 +39,6 @@ import javax.annotation.Nullable;
  */
 class PerActionFileCache implements ActionInputFileCache {
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
-  private final File execRoot;
   // Populated lazily, on calls to #getDigest.
   private final Map<ByteString, Artifact> reverseMap = new ConcurrentHashMap<>();
 
@@ -47,13 +46,9 @@ class PerActionFileCache implements ActionInputFileCache {
 
   /**
    * @param inputArtifactData Map from artifact to metadata, used to return metadata upon request.
-   * @param execRoot Path to the execution root, used to convert Artifacts' relative paths into
-   * absolute ones in the execution root.
    */
-  PerActionFileCache(Map<Artifact, FileArtifactValue> inputArtifactData,
-      File execRoot) {
+  PerActionFileCache(Map<Artifact, FileArtifactValue> inputArtifactData) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
   }
 
   @Nullable
@@ -75,13 +70,13 @@ class PerActionFileCache implements ActionInputFileCache {
 
   @Nullable
   @Override
-  public File getFileFromDigest(ByteString digest) throws IOException {
-    Artifact artifact = reverseMap.get(digest);
-    if (artifact != null) {
-      String relPath = artifact.getExecPathString();
-      return new File(execRoot, relPath);
-    }
-    return null;
+  public Artifact getInputFromDigest(ByteString digest) throws IOException {
+    return reverseMap.get(digest);
+  }
+
+  @Override
+  public Path getInputPath(ActionInput input) {
+    return ((Artifact) input).getPath();
   }
 
   @Nullable

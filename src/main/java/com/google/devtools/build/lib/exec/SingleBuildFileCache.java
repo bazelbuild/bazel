@@ -99,9 +99,13 @@ public class SingleBuildFileCache implements ActionInputFileCache {
 
   @Nullable
   @Override
-  public File getFileFromDigest(ByteString digest) {
-    ActionInput relPath = digestToPath.get(digest);
-    return relPath == null ? null : new File(fullPath(relPath));
+  public ActionInput getInputFromDigest(ByteString digest) {
+    return digestToPath.get(digest);
+  }
+
+  @Override
+  public Path getInputPath(ActionInput input) {
+    return fs.getPath(fullPath(input));
   }
 
   @Override
