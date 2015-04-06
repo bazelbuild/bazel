@@ -215,7 +215,6 @@ public final class ParallelEvaluator implements Evaluator {
       this.skyKey = skyKey;
       this.directDeps = Collections.unmodifiableSet(directDeps);
       this.bubbleErrorInfo = bubbleErrorInfo;
-      this.childErrorInfos.addAll(childErrorInfos);
       this.visitor = visitor;
     }
 
