@@ -62,5 +62,4 @@ Third, you need to set some Bazel options. It's easiest to put them into your
 
 This should be enough to run Bazel:
 
-    cd base_workspace &&
-    ../output/bazel build //cpp:hello-world
+    ./output/bazel build //examples/cpp:hello-world

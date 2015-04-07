@@ -5,7 +5,7 @@ layout: default
 <h2 id="modules._top_level">Global objects, functions and modules</h2>
 Objects, functions and modules registered in the global environment.
 <ul><li><h3 id="modules._top_level.DATA_CFG">DATA_CFG</h3>
-<code><a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a></code><br>The default runfiles collection state.
+<code><a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a></code><br>Experimental. Specifies a transition to the data configuration.
 <br/>
 <li><h3 id="modules._top_level.False">False</h3>
 <code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Literal for the boolean false.
@@ -19,7 +19,7 @@ Creates a file filter from a list of strings. For example, to match files ending
 	</li>
 </ul>
 <li><h3 id="modules._top_level.HOST_CFG">HOST_CFG</h3>
-<code><a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a></code><br>The default runfiles collection state.
+<code><a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a></code><br>Specifies a transition to the host configuration.
 <br/>
 <li><h3 id="modules._top_level.Label">Label</h3>
 <code><a class="anchor" href="#modules.Label">Label</a> Label(label_string)</code><br>
@@ -102,6 +102,14 @@ Returns True if the object <code>x</code> has a field of the given <code>name</c
 	<li id="modules._top_level.hasattr.object"><code>object</code>: The object to check.
 	</li>
 	<li id="modules._top_level.hasattr.name"><code>name (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the field.
+	</li>
+</ul>
+<li><h3 id="modules._top_level.int">int</h3>
+<code>int int(x)</code><br>
+Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
+<h4>Parameters</h4>
+<ul>
+	<li id="modules._top_level.int.x"><code>x (<a class="anchor" href="#modules.string">string</a>)</code>: The string to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.len">len</h3>
@@ -226,7 +234,7 @@ zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
 zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
 <br/>
 </ul><hr><h2 id="modules.ConfigurationTransition">ConfigurationTransition</h2>
-Declares how the configuration should change when following a dependency.
+Declares how the configuration should change when following a dependency. It can be either <a href="#modules._top_level.DATA_CFG">DATA_CFG</a> or <a href="#modules._top_level.HOST_CFG">HOST_CFG</a>.
 <ul></ul><hr><h2 id="modules.File">File</h2>
 This type represents a file used by the build system. It can be either a source file or a derived file produced by a rule.
 <ul><li><h3 id="modules.File.path">path</h3>
@@ -442,19 +450,19 @@ Transforms a set of files to a list of strings using the template string.
 	</li>
 </ul>
 </ul><hr><h2 id="modules.command_helper">command_helper</h2>
-A helper class to create shell commands.
+Experimental. The API will change in the future.<br>A helper class to create shell commands.
 <ul><li><h3 id="modules.command_helper.build_command_line">build_command_line</h3>
 <code><a class="anchor" href="#modules.list">list</a> command_helper.build_command_line(<a class="anchor" href="#modules.string">string</a>, <a class="anchor" href="#modules.list">list</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-
+Experimental.
 <li><h3 id="modules.command_helper.resolve_command_and_expand_labels">resolve_command_and_expand_labels</h3>
 <code><a class="anchor" href="#modules.string">string</a> command_helper.resolve_command_and_expand_labels(<a class="anchor" href="#modules._top_level.bool">bool</a>, <a class="anchor" href="#modules._top_level.bool">bool</a>)</code><br>
-
+Experimental.
 <li><h3 id="modules.command_helper.resolved_tools">resolved_tools</h3>
 <code><a class="anchor" href="#modules.list">list</a> command_helper.resolved_tools</code><br>
-
+Experimental.
 <li><h3 id="modules.command_helper.runfiles_manifests">runfiles_manifests</h3>
 <code><a class="anchor" href="#modules.dict">dict</a> command_helper.runfiles_manifests</code><br>
-
+Experimental.
 </ul><hr><h2 id="modules.configuration">configuration</h2>
 Data required for the analysis of a target that comes from targets that depend on it and not targets that it depends on.
 <ul><li><h3 id="modules.configuration.bin_dir">bin_dir</h3>
@@ -509,7 +517,7 @@ Creates an action that runs an executable or a shell command.
 A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
 <li><h3 id="modules.ctx.command_helper">command_helper</h3>
 <code><a class="anchor" href="#modules.command_helper">command_helper</a> ctx.command_helper(tools, label_dict)</code><br>
-Creates a command helper class.
+Experimental. Creates a command helper class.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.ctx.command_helper.tools"><code>tools (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Target">Target</a>s)</code>: list of tools (list of targets)
@@ -586,10 +594,10 @@ Creates a runfiles object.
 </ul>
 <li><h3 id="modules.ctx.target">target</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.target</code><br>
-A <code>struct</code> containing prerequisite targets defined in label type attributes. The struct fields correspond to the attribute names. The struct value is always a <a href="#modules.Target"><code>Target</code></a> or <code>None</code>. If an optional attribute is not specified in the rule, the corresponding struct value is <code>None</code>.
+<b>Deprecated, use <code>ctx.attr</code> instead.</b> A <code>struct</code> containing prerequisite targets defined in label type attributes. The struct fields correspond to the attribute names. The struct value is always a <a href="#modules.Target"><code>Target</code></a> or <code>None</code>. If an optional attribute is not specified in the rule, the corresponding struct value is <code>None</code>.
 <li><h3 id="modules.ctx.targets">targets</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.targets</code><br>
-A <code>struct</code> containing prerequisite targets defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <a href="#modules.Target"><code>Target</code></a>s. If an optional attribute is not specified in the rule, an empty list is generated.
+<b>Deprecated, use <code>ctx.attr</code> instead.</b> A <code>struct</code> containing prerequisite targets defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <a href="#modules.Target"><code>Target</code></a>s. If an optional attribute is not specified in the rule, an empty list is generated.
 <li><h3 id="modules.ctx.template_action">template_action</h3>
 <code><a class="anchor" href="#modules._top_level.None">None</a> ctx.template_action(template, output, substitutions, executable?)</code><br>
 Creates a template expansion action.

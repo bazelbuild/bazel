@@ -242,8 +242,8 @@ How can I start using Bazel?
 See our [getting started document](docs/getting-started.html).
 
 
-Why do I need to have a tools/ directory in my source tree?
-----------------------------------------------------
+Why do I need to have a tools/ directory in my package path?
+------------------------------------------------------------
 
 Your project never works in isolation. Typically, it builds with a
 certain version of the JDK/C++ compiler, with a certain test driver
@@ -259,9 +259,9 @@ the configuration data for this (where is the JDK, where is the C++
 compiler?) still needs to be somewhere, and that place is also the
 `tools/` directory.
 
-Bazel comes with a `base_workspace/` directory, containing a minimal set
-of configuration files, suitable for running toolchains from standard
-system directories, e.g., `/usr/bin/`.
+Bazel's `compile.sh` script builds a minimal set of configuration files,
+suitable for running toolchains from standard system directories, e.g.,
+`/usr/bin/`.
 
 
 Doesn't Docker solve the reproducibility problems?

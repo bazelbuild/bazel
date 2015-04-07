@@ -1,11 +1,7 @@
----
-layout: default
----
-
 Skylark cookbook
 ================
 
-
+[TOC]
 
 ## <a name="macro_native"></a>Macro creating a native rule
 
