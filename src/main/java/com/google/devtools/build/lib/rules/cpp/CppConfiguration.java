@@ -1749,9 +1749,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     if (getSysroot() != null && !getSysroot().isAbsolute()) {
       Root sysrootRoot = Iterables.getOnlyElement(
           resolver.findPackageRoots(ImmutableList.of(getSysroot())).entrySet()).getValue();
-      builtInIncludeFile = Preconditions.checkNotNull(artifactFactory.getSourceArtifact(
-              sysroot.getRelative(BUILT_IN_INCLUDE_PATH_FRAGMENT), sysrootRoot),
-          "%s %s", sysrootRoot, sysroot);
+      PathFragment sysrootExecPath = sysroot.getRelative(BUILT_IN_INCLUDE_PATH_FRAGMENT);
+      if (sysrootRoot.getPath().getRelative(sysrootExecPath).exists()) {
+        builtInIncludeFile = Preconditions.checkNotNull(
+            artifactFactory.getSourceArtifact(sysrootExecPath, sysrootRoot),
+            "%s %s", sysrootRoot, sysroot);
+      }
     }
     try {
       getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
