@@ -1,11 +1,16 @@
-load("/tools/build_rules/java_rules_skylark", "java_test")
+load("/tools/build_rules/java_rules_skylark", "java_library", "java_test")
+
+java_library(
+    name = "junit4",
+    jars = ["//third_party:junit4-jars"],
+)
 
 java_test(
     name = "pass",
     srcs = ["TestHello.java"],
     deps = [
+        ":junit4",
         "//examples/java-skylark/src/main/java/com/example/myproject:hello-lib",
-        "//third_party:junit4-skylark",
     ],
 )
 

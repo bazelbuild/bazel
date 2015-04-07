@@ -42,6 +42,7 @@ java_library(
         "//src/tools/xcode-common",
         "//third_party:aether",
         "//third_party:apache_commons_compress",
+        "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:joda_time",

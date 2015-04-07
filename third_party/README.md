@@ -10,10 +10,17 @@ a minimal set of extra dependencies.
 * License: Eclipse Public License
 
 
+[apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
+----------------------------
+
+* Version: 3.2.1
+* License: Apache License 2.0.
+
+
 [apache_commons_logging](http://commons.apache.org/proper/commons-logging/)
 ------------------------
 
-* Version: 1.1.1.
+* Version: 1.1.1
 * License: Apache License 2.0.
 
 
@@ -28,6 +35,29 @@ a minimal set of extra dependencies.
 -----------------
 
 * Version: 4.2.4
+* License: Apache License 2.0
+
+
+[apache_velocity](http://velocity.apache.org/)
+-----------------
+
+* Version: 1.7
+* License: Apache License 2.0.
+
+
+[asm](https://asm.ow2.org)
+-----
+
+* Version: 5.0.3
+* License: 3-clause revised BSD
+
+
+[auto](https://github.com/google/auto)
+------
+
+* [auto_common](https://github.com/google/auto/tree/master/common) (version 0.3)
+* [auto_service](https://github.com/google/auto/tree/master/service) (version 1.0-rc2)
+* [auto_value](https://github.com/google/auto/tree/master/value) (version 1.0)
 * License: Apache License 2.0
 
 
@@ -79,6 +109,13 @@ a minimal set of extra dependencies.
 * Version: 2.3
 * License: Apache License 2.0
 
+
+[jsr250](https://repository.apache.org/content/repositories/orgapachetomcat-002)
+--------
+* Version: 8.0.5
+* License: Apache License 2.0
+
+
 [jsr305](https://code.google.com/p/jsr-305/)
 --------
 
@@ -122,6 +159,20 @@ a minimal set of extra dependencies.
 Testing
 =======
 
+[hamcrest](https://code.google.com/p/hamcrest/)
+----------
+
+* Version: 1.3
+* License: New BSD License
+
+
+[iossim](https://code.google.com/p/google-toolbox-for-mac/source/browse/trunk/UnitTesting/iossim?r=701)
+--------
+
+* Version: Revision 701
+* License: 3-clause BSD
+
+
 [junit](http://junit.org/)
 -------
 
@@ -136,21 +187,3 @@ Testing
 * License: Apache License 2.0
 
 
-[hamcrest](https://code.google.com/p/hamcrest/)
-----------
-
-* Version: 1.3
-* License: New BSD License
-
-
-[asm](https://asm.ow2.org)
------
-
-* Version: 5.0.3
-* License: 3-clause revised BSD
-
-[iossim](https://code.google.com/p/google-toolbox-for-mac/source/browse/trunk/UnitTesting/iossim?r=701)
---------
-
-* Version: Revision 701
-* License: 3-clause BSD

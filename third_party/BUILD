@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/java_rules_skylark", "java_library")
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -34,6 +32,11 @@ java_import(
 )
 
 java_import(
+    name = "apache_commons_collections",
+    jars = ["apache_commons_collections/commons-collections-3.2.1.jar"],
+)
+
+java_import(
     name = "apache_commons_compress",
     jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
 )
@@ -51,6 +54,85 @@ java_import(
 java_import(
     name = "apache_httpcore",
     jars = ["apache_httpcore/httpcore-4.2.4.jar"],
+)
+
+java_import(
+    name = "apache_velocity",
+    jars = ["apache_velocity/velocity-1.7.jar"],
+)
+
+java_import(
+    name = "asm",
+    jars = ["asm/asm-5.0.3.jar"],
+)
+
+java_plugin(
+    name = "auto_annotation_plugin",
+    processor_class = "com.google.auto.value.processor.AutoAnnotationProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service",
+        ":auto_value_value",
+        ":guava",
+        ":jsr305",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_import(
+    name = "auto_common",
+    jars = ["auto/auto-common-0.3.jar"],
+)
+
+java_import(
+    name = "auto_service",
+    jars = ["auto/auto-service-1.0-rc2.jar"],
+)
+
+java_plugin(
+    name = "auto_service_plugin",
+    processor_class = "com.google.auto.service.processor.AutoServiceProcessor",
+    deps = [
+        ":auto_common",
+        ":auto_service",
+        ":guava",
+    ],
+)
+
+java_plugin(
+    name = "auto_value_plugin",
+    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service",
+        ":auto_value_value",
+        ":guava",
+        ":jsr305",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_library(
+    name = "auto_value",
+    exported_plugins = [
+        ":auto_annotation_plugin",
+        ":auto_value_plugin",
+    ],
+    exports = [
+        ":auto_value_value",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_import(
+    name = "auto_value_value",
+    jars = ["auto/auto-value-1.0.jar"],
 )
 
 java_import(
@@ -84,7 +166,6 @@ java_import(
         "maven_model/maven-aether-provider-3.2.3.jar",
         "maven_model/maven-model-3.2.3.jar",
         "maven_model/maven-model-builder-3.2.3.jar",
-        "maven_model/maven-repository-metadata-3.2.3.jar",
     ],
 )
 
@@ -101,6 +182,11 @@ java_import(
 java_import(
     name = "protobuf",
     jars = ["protobuf/protobuf-2.5.0.jar"],
+)
+
+java_import(
+    name = "tomcat_annotations_api",
+    jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
 )
 
 # Testing
@@ -128,18 +214,13 @@ java_import(
     jars = ["truth/truth-0.24+.jar"],
 )
 
-# For the java-skylark example.
-java_library(
-    name = "junit4-skylark",
-    jars = [
+# To be used by the skylark example.
+filegroup(
+    name = "junit4-jars",
+    srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.11.jar",
     ],
-)
-
-java_import(
-    name = "asm",
-    jars = ["asm/asm-5.0.3.jar"],
 )
 
 config_setting(

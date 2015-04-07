@@ -83,11 +83,9 @@ EOF
 function setup_skylark_javatest_support() {
   setup_javatest_common
   cat <<EOF >>third_party/BUILD
-load("/tools/build_rules/java_rules_skylark", "java_library")
-
-java_library(
-    name = "junit4-skylark",
-    jars = [
+filegroup(
+    name = "junit4-jars",
+    srcs = [
         "junit.jar",
         "hamcrest.jar",
     ],
