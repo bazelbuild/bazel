@@ -13,8 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
+import com.google.common.collect.Lists;
+
+import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -58,12 +64,15 @@ import javax.annotation.Nullable;
  * key-only mandatory arguments (if any), key-only optional arguments (if any),
  * then star argument (if any), then star_star argument (if any).
  */
+@AutoValue
 public abstract class FunctionSignature implements Serializable {
 
   /**
    * The shape of a FunctionSignature, without names
    */
+  @AutoValue
   public abstract static class Shape implements Serializable {
+    private static final Interner<Shape> interner = Interners.newWeakInterner();
 
     /** Create a function signature */
     public static Shape create(
@@ -76,9 +85,9 @@ public abstract class FunctionSignature implements Serializable {
       Preconditions.checkArgument(
           0 <= mandatoryPositionals && 0 <= optionalPositionals
           && 0 <= mandatoryNamedOnly && 0 <= optionalNamedOnly);
-      return new AutoValueFunctionSignatureShape(
+      return interner.intern(new AutoValue_FunctionSignature_Shape(
           mandatoryPositionals, optionalPositionals,
-          mandatoryNamedOnly, optionalNamedOnly, starArg, kwArg);
+          mandatoryNamedOnly, optionalNamedOnly, starArg, kwArg));
     }
 
     // These abstract getters specify the actual argument count fields to be defined by AutoValue.
@@ -124,6 +133,25 @@ public abstract class FunctionSignature implements Serializable {
   }
 
   /**
+   * Names of a FunctionSignature
+   */
+  private static Interner<ImmutableList<String>> namesInterner = Interners.newWeakInterner();
+
+  /** Intern a list of names */
+  public static ImmutableList<String> names(List<String> names) {
+    return namesInterner.intern(ImmutableList.<String>copyOf(
+        Lists.transform(names, StringCanonicalizer.INTERN)));
+  }
+
+  /** Intern a list of names */
+  public static ImmutableList<String> names(String... names) {
+    return names(ImmutableList.<String>copyOf(names));
+  }
+
+  // Interner
+  private static Interner<FunctionSignature> signatureInterner = Interners.newWeakInterner();
+
+  /**
    * Signatures proper.
    *
    * <p>A signature is a Shape and an ImmutableList of argument variable names
@@ -131,8 +159,10 @@ public abstract class FunctionSignature implements Serializable {
    */
   public static FunctionSignature create(Shape shape, ImmutableList<String> names) {
     Preconditions.checkArgument(names.size() == shape.getArguments());
-    return new AutoValueFunctionSignature(shape, names);
+    return signatureInterner.intern(new AutoValue_FunctionSignature(shape, names(names)));
   }
+
+
 
   // Field definition (details filled in by AutoValue)
   /** The shape */
@@ -166,6 +196,7 @@ public abstract class FunctionSignature implements Serializable {
    * When parsing a function definition at compile-time, they are &lt;Expression, Expression&gt;;
    * when processing a @SkylarkBuiltin annotation at build-time, &lt;Object, SkylarkType&gt;.
    */
+  @AutoValue
   public abstract static class WithValues<V, T> implements Serializable {
 
     // The fields
@@ -184,6 +215,7 @@ public abstract class FunctionSignature implements Serializable {
      */
     @Nullable public abstract List<T> getTypes();
 
+
     /**
      * Create a signature with (default and type) values.
      * If you supply mutable List's, we trust that you won't modify them afterwards.
@@ -195,7 +227,7 @@ public abstract class FunctionSignature implements Serializable {
           || defaultValues.size() == shape.getOptionals());
       Preconditions.checkArgument(types == null
           || types.size() == shape.getArguments());
-      return new AutoValueFunctionSignatureWithValues<>(signature, defaultValues, types);
+      return new AutoValue_FunctionSignature_WithValues<>(signature, defaultValues, types);
     }
 
     public static <V, T> WithValues<V, T> create(FunctionSignature signature,
@@ -499,70 +531,4 @@ public abstract class FunctionSignature implements Serializable {
   /** A ready-made signature to allow only keyword arguments and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =
       FunctionSignature.of(0, 0, 0, false, true, "kwargs");
-
-
-  // Minimal boilerplate to get things running in absence of AutoValue
-  // TODO(bazel-team): actually migrate to AutoValue when possible,
-  // which importantly for future plans will define .equals() and .hashCode() (also toString()).
-  // Then, intern Shape, name list, FunctionSignature and WithDefaults, so that
-  // comparison can be done with == and more memory and caches can be shared between functions.
-  // Later, this can lead to further optimizations of function call by using tables matching
-  // a FunctionSignature and a CallerSignature. (struct access can be similarly sped up
-  // by interning the list of names.)
-  private static class AutoValueFunctionSignatureShape extends Shape {
-    private int mandatoryPositionals;
-    private int optionalPositionals;
-    private int mandatoryNamedOnly;
-    private int optionalNamedOnly;
-    private boolean starArg;
-    private boolean kwArg;
-
-    @Override public int getMandatoryPositionals() { return mandatoryPositionals; }
-    @Override public int getOptionalPositionals() { return optionalPositionals; }
-    @Override public int getMandatoryNamedOnly() { return mandatoryNamedOnly; }
-    @Override public int getOptionalNamedOnly() { return optionalNamedOnly; }
-    @Override public boolean hasStarArg() { return starArg; }
-    @Override public boolean hasKwArg() { return kwArg; }
-
-    public AutoValueFunctionSignatureShape(
-        int mandatoryPositionals, int optionalPositionals,
-        int mandatoryNamedOnly, int optionalNamedOnly, boolean starArg, boolean kwArg) {
-      this.mandatoryPositionals = mandatoryPositionals;
-      this.optionalPositionals = optionalPositionals;
-      this.mandatoryNamedOnly = mandatoryNamedOnly;
-      this.optionalNamedOnly = optionalNamedOnly;
-      this.starArg = starArg;
-      this.kwArg = kwArg;
-    }
-  }
-
-  private static class AutoValueFunctionSignature extends FunctionSignature  {
-    private Shape shape;
-    private ImmutableList<String> names;
-
-    @Override public Shape getShape() { return shape; }
-    @Override public ImmutableList<String> getNames() { return names; }
-
-    public AutoValueFunctionSignature(Shape shape, ImmutableList<String> names) {
-      this.shape = shape;
-      this.names = names;
-    }
-  }
-
-  private static class AutoValueFunctionSignatureWithValues<V, T> extends WithValues<V, T> {
-    private FunctionSignature signature;
-    private List<V> defaultValues;
-    private List<T> types;
-
-    @Override public FunctionSignature getSignature() { return signature; }
-    @Override public List<V> getDefaultValues() { return defaultValues; }
-    @Override public List<T> getTypes() { return types; }
-
-    public AutoValueFunctionSignatureWithValues(
-        FunctionSignature signature, List<V> defaultValues, List<T> types) {
-      this.signature = signature;
-      this.defaultValues = defaultValues;
-      this.types = types;
-    }
-  }
 }
