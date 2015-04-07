@@ -76,9 +76,6 @@ using std::vector;
 
 namespace blaze {
 
-// Blaze is being run by a test.
-static const bool TESTING = getenv("TEST_TMPDIR") != NULL;
-
 extern char **environ;
 
 ////////////////////////////////////////////////////////////////////////
@@ -1403,7 +1400,7 @@ static void CheckEnvironment() {
     unsetenv("_JAVA_OPTIONS");
   }
 
-  if (TESTING) {
+  if (getenv("TEST_TMPDIR") != NULL) {
     fprintf(stderr, "INFO: $TEST_TMPDIR defined: output root default is "
                     "'%s'.\n", globals->options.output_root.c_str());
   }
