@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Skylark
 
 #### A simple way to write custom build rules
@@ -27,7 +31,7 @@ rules or macros (composition of rules and macros).
 
 ## Getting started
 
-Read the [concepts](concepts.md) behind Skylark and try the
-[cookbook examples](cookbook.md). To go further, read about the
+Read the [concepts](concepts.html) behind Skylark and try the
+[cookbook examples](cookbook.html). To go further, read about the
 [standard library](library.html).
 

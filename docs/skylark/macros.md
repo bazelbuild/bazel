@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 Macros
 ======
 
@@ -22,9 +26,9 @@ macro), use the constant `PACKAGE_NAME`.
 Examples
 --------
 
-* [Macro creating native rules](cookbook.md#macro_native).
+* [Macro creating native rules](cookbook.html#macro_native).
 
-* [Macro creating Skylark rules](cookbook.md#macro_skylark).
+* [Macro creating Skylark rules](cookbook.html#macro_skylark).
 
 Debugging
 ---------

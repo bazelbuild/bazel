@@ -1,7 +1,11 @@
+---
+layout: default
+---
+
 # Concepts
 
 Skylark is the code name of the extension mechanism. It lets you write custom
-build rules as well as compose existing ones into [macros](macros.md).
+build rules as well as compose existing ones into [macros](macros.html).
 
 ## Loading a Skylark module
 
@@ -25,13 +29,13 @@ Symbols starting with `_` are private and cannot be loaded from other files.
 
 ## Macros and rules
 
-A [macro](macros.md) in Skylark is a function that instantiates rules. The
+A [macro](macros.html) in Skylark is a function that instantiates rules. The
 function is evaluated as soon as the BUILD file is read. Bazel has little
 information about macros: if your macro generates a `genrule`, Bazel will behave
 as if you wrote the `genrule`. As a result, `bazel query` will only list the
 generated genrule.
 
-A [rule](rules.md) in Skylark is more powerful than a macro, as it can access
+A [rule](rules.html) in Skylark is more powerful than a macro, as it can access
 Bazel internals and have full control over what is going on. It may for example
 pass information to other rules. A rule defined in Skylark will behave in a
 similar way as a native rule.
