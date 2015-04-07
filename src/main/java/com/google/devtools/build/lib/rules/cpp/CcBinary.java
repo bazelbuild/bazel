@@ -303,7 +303,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(
             CppDebugPackageProvider.class,
-            new CppDebugPackageProvider(strippedFile, executable, explicitDwpFile))
+            new CppDebugPackageProvider(
+                ruleContext.getLabel(), strippedFile, executable, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, executable)
         .addProvider(LipoContextProvider.class, new LipoContextProvider(
             cppCompilationContext, ImmutableMap.copyOf(scannableMap)))

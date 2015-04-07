@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.Label;
 
 import javax.annotation.Nullable;
 
@@ -29,19 +30,29 @@ import javax.annotation.Nullable;
 @Immutable
 public final class CppDebugPackageProvider implements TransitiveInfoProvider {
 
+  private final Label targetLabel;
   private final Artifact strippedArtifact;
   private final Artifact unstrippedArtifact;
   @Nullable private final Artifact dwpArtifact;
 
   public CppDebugPackageProvider(
+      Label targetLabel,
       Artifact strippedArtifact,
       Artifact unstrippedArtifact,
       @Nullable Artifact dwpArtifact) {
     Preconditions.checkNotNull(strippedArtifact);
     Preconditions.checkNotNull(unstrippedArtifact);
+    this.targetLabel = targetLabel;
     this.strippedArtifact = strippedArtifact;
     this.unstrippedArtifact = unstrippedArtifact;
     this.dwpArtifact = dwpArtifact;
+  }
+
+  /**
+   * Returns the label for the cc_binary target.
+   */
+  public final Label getTargetLabel() {
+    return targetLabel;
   }
 
   /**
