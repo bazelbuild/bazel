@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <sstream>
 
+#include "util/file.h"
 #include "util/numbers.h"
 #include "util/strings.h"
 
@@ -89,23 +90,62 @@ string MakeAbsolute(string path) {
   return cwdbuf + separator + path;
 }
 
-// mkdir -p path.  Returns -1 on failure, sets errno.
-int MakeDirectories(string path, int mode) {
-  path.push_back('\0');
-  char *buf = &path[0];
-  for (char *slash = strchr(buf + 1, '/'); slash != NULL;
-       slash = strchr(slash + 1, '/')) {
-    *slash = '\0';
-    if (mkdir(buf, mode) == -1 && errno != EEXIST) {
-      return -1;
-    }
-    *slash = '/';
-  }
-  // TODO(bazel-team):  EEXIST does not prove that it's a directory!
-  if (mkdir(buf, mode) == -1 && errno != EEXIST) {
+static int MakeDirectories_(string path, int mode, bool childmost) {
+  if (path.empty() || path == "/") {
+    errno = EACCES;
     return -1;
   }
-  return 0;
+
+  struct stat filestat = {};
+  if (stat(path.c_str(), &filestat) == 0) {
+    if (S_ISDIR(filestat.st_mode)) {
+      // Only check permissions if this is the actual directory we're trying to
+      // create.
+      if (childmost) {
+        // If this is a symlink, run checks on the link. (If we did lstat above
+        // then it would return false for ISDIR).
+        struct stat linkstat = {};
+        if (lstat(path.c_str(), &linkstat) != 0) {
+          return -1;
+        }
+        if (linkstat.st_uid != geteuid()) {
+          // The directory isn't owned by me.
+          errno = EACCES;
+          return -1;
+        }
+        if ((filestat.st_mode & 0777) != mode
+            && chmod(path.c_str(), mode) == -1) {
+          // errno set by chmod.
+          return -1;
+        }
+      }
+      return 0;
+    } else {
+      errno = ENOTDIR;
+      return -1;
+    }
+  }
+
+  if (errno == ENOENT) {
+    // Path does not exist, attempt to create its parents, then it.
+    string parent = blaze_util::Dirname(path);
+    if (MakeDirectories_(parent, mode, false) == 0
+        && mkdir(path.c_str(), mode) == 0) {
+      return 0;
+    }
+  }
+
+  // errno set by stat.
+  return -1;
+}
+
+// mkdir -p path. Returns 0 if the path was created or already exists and could
+// be chmod-ed to exactly the given permissions. If final part of the path is a
+// symlink, this ensures that the destination of the symlink has the desired
+// permissions. It also checks that the directory or symlink is owned by us.
+// On failure, this returns -1 and sets errno.
+int MakeDirectories(string path, int mode) {
+  return MakeDirectories_(path, mode, true);
 }
 
 // Replaces 'contents' with contents of 'fd' file descriptor.
