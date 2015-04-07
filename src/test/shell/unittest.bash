@@ -193,7 +193,7 @@ function warn() {
     echo "$TEST_name WARNING: $1." >&2
     __show_stack
 
-    if [ -n "$TEST_WARNINGS_OUTPUT_FILE" ]; then
+    if [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       echo "$TEST_name WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
     fi
 }
@@ -488,7 +488,7 @@ function run_suite() {
     # working set), use them all.
     if [ ${#TESTS[@]} = 0 ]; then
       TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
-    elif [ -n "$TEST_WARNINGS_OUTPUT_FILE" ]; then
+    elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       if grep -q "TESTS=" "$TEST_script" ; then
         echo "TESTS variable overridden in Blaze sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
