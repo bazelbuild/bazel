@@ -79,6 +79,10 @@ public abstract class FoundationTestCase extends TestCase {
         "bind(",
         "  name = 'objc_proto_lib',",
         "  actual = '//objcproto:ProtocolBuffers_lib',",
+        ")",
+        "bind(",
+        "  name = 'objc_proto_cpp_lib',",
+        "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
         ")");
     copySkylarkFilesIfExist();
     actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
