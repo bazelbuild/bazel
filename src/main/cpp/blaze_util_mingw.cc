@@ -90,7 +90,7 @@ string GetProcessCWD(int pid) {
   return string(server_cwd);
 }
 
-bool IsSharedLibrary(string filename) {
+bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".dll");
 }
 

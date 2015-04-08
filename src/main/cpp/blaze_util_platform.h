@@ -47,7 +47,7 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 // Returns the cwd for a process.
 std::string GetProcessCWD(int pid);
 
-bool IsSharedLibrary(std::string filename);
+bool IsSharedLibrary(const std::string& filename);
 
 // Return the default path to the JDK used to run Blaze itself
 // (must be an absolute directory).
