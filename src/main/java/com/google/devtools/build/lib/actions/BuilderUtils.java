@@ -23,8 +23,7 @@ public final class BuilderUtils {
   /**
    * Figure out why an action's execution failed and rethrow the right kind of exception.
    */
-  public static void rethrowCause(Exception e) throws BuildFailedException, TestExecException {
-    Throwable cause = e.getCause();
+  public static void rethrow(Throwable cause) throws BuildFailedException, TestExecException {
     Throwable innerCause = cause.getCause();
     if (innerCause instanceof TestExecException) {
       throw (TestExecException) innerCause;
@@ -35,7 +34,7 @@ public final class BuilderUtils {
       String message =
           (actionExecutionCause.getLocation() != null) ?
           (actionExecutionCause.getLocation().print() + " " + cause.getMessage()) :
-          e.getMessage();
+          cause.getMessage();
       throw new BuildFailedException(message, actionExecutionCause.isCatastrophe(),
           actionExecutionCause.getAction(), actionExecutionCause.getRootCauses(),
           /*errorAlreadyShown=*/ !actionExecutionCause.showError());
@@ -46,10 +45,9 @@ public final class BuilderUtils {
     } else if (cause instanceof Error) {
       throw (Error) cause;
     } else {
-      /*
-       * This should never happen - we should only get exceptions listed in the exception
-       * specification for ExecuteBuildAction.call().
-       */
+      // We encountered an exception we don't think we should have encountered. This can indicate
+      // a bug in our code, such as lower level exceptions not being properly handled, or in our
+      // expectations in this method.
       throw new IllegalArgumentException("action terminated with "
           + "unexpected exception: " + cause.getMessage(), cause);
     }
