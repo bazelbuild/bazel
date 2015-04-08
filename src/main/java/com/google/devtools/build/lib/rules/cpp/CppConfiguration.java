@@ -861,7 +861,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     List<String> result = new ArrayList<>();
     result.addAll(commonLinkOptions);
 
-    result.add("-B" + ldExecutable.getParentDirectory().getPathString());
     if (stripBinaries) {
       result.add("-Wl,-S");
     }
@@ -988,7 +987,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
   }
-  
+
   /**
    * Returns the configured current compilation mode. Rules should not call this directly, but
    * instead use {@code CcToolchainProvider.getCompilationMode}.
