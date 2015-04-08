@@ -10,8 +10,8 @@ before_script:
 script:
   - jdk_switcher use oraclejdk8
   - ./compile.sh
-after_script:
-  - .travis/teardown-env.sh
+before_deploy:
+  - .travis/prepare-for-deploy.sh
 
 # Upload to Google Cloud Storage.
 deploy:

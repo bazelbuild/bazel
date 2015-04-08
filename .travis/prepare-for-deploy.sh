@@ -16,9 +16,10 @@
 
 set -eux
 
-# Remove all of the files the build generated that we don't want uploaded
-# to S3.
-# TODO(kchodorow): change this to the bootstrapped binary.
+# Remove all of the files that we don't want uploaded to GCS. Shuffle the bazel
+# binary around so it ends up being the only thing uploaded.
+# TODO(kchodorow): change this to clean up everything except bazel-bin when we
+# can upload a bootstrapped binary.
 mv output/bazel bazel
-rm -rf output
-rm -rf bazel-*
+rm -rf output/* bazel-* src third_party tools examples fromhost scripts site
+mv bazel output/bazel
