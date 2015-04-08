@@ -393,8 +393,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     boolean ok = !env.valuesMissing();
     String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
-    // TODO(bazel-team): maybe having a two-exception argument is better than typing a generic
-    // Exception here.
     Map<SkyKey, ValueOrException2<NoSuchTargetException,
         NoSuchPackageException>> depValuesOrExceptions = env.getValuesOrThrow(depKeys,
             NoSuchTargetException.class, NoSuchPackageException.class);
