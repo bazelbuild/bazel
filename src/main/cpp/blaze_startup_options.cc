@@ -95,10 +95,7 @@ string BlazeStartupOptions::GetWorkspace(const string &cwd) {
     }
     workspace = blaze_util::Dirname(workspace);
   } while (!workspace.empty() && workspace != "/");
-
-  fprintf(stderr, "Could not find WORKSPACE file at or above %s.\n"
-          "Is your current directory in a Bazel source tree?\n", cwd.c_str());
-  exit(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR);
+  return "";
 }
 
 blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArgExtra(
