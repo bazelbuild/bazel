@@ -1370,16 +1370,6 @@ static void ComputeBaseDirectories(const string self_path) {
 }
 
 static void CheckEnvironment() {
-  char pthread_impl[512];
-#ifndef _CS_GNU_LIBPTHREAD_VERSION
-#define _CS_GNU_LIBPTHREAD_VERSION 3
-#endif
-  if (confstr(_CS_GNU_LIBPTHREAD_VERSION, pthread_impl, sizeof pthread_impl) &&
-      strprefix(pthread_impl, "linuxthreads")) {
-    fprintf(stderr, "Warning: LinuxThreads detected.  NPTL is preferred.\n"
-                    "  (Perhaps unset LD_ASSUME_KERNEL or LD_LIBRARY_PATH.)\n");
-  }
-
   if (getenv("LD_ASSUME_KERNEL") != NULL) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
