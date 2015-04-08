@@ -205,7 +205,10 @@ public class SkylarkRuleClassFunctions {
           + "returning such a dictionary."),
       @Param(name = "executable", type = Boolean.class,
           doc = "whether this rule always outputs an executable of the same name or not. If True, "
-          + "there must be an action that generates <code>ctx.outputs.executable</code>.")})
+          + "there must be an action that generates <code>ctx.outputs.executable</code>."),
+      @Param(name = "output_to_genfiles", type = Boolean.class,
+          doc = "If true, the files will be generated in the genfiles directory instead of the "
+          + "bin directory. This is used for compatibility with existing rules.")})
   private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
@@ -252,6 +255,11 @@ public class SkylarkRuleClassFunctions {
                   toMap(castMap(arguments.get("outputs"), String.class, String.class,
                   "implicit outputs of the rule class"))));
             }
+          }
+
+          if (arguments.containsKey("output_to_genfiles")
+              && (Boolean) arguments.get("output_to_genfiles")) {
+            builder.setOutputToGenfiles();
           }
 
           builder.setConfiguredTargetFunction(
