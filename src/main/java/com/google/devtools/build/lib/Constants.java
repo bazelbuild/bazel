@@ -30,6 +30,8 @@ public class Constants {
   public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
   public static final String DEFAULT_RUNFILES_PREFIX = "";
 
+  public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
+
   public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
 
   public static final String PRELUDE_FILE_DEPOT_RELATIVE_PATH = "tools/build_rules/prelude_bazel";
