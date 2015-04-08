@@ -436,6 +436,17 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc = "Creates a file object with the given filename. " + DOC_NEW_FILE_TAIL)
+  public Artifact newFile(String filename) {
+    PathFragment fragment = ruleContext.getLabel().getPackageFragment();
+    for (String pathFragmentString : filename.split("/")) {
+      fragment = fragment.getRelative(pathFragmentString);
+    }
+    Root root = ruleContext.getBinOrGenfilesDirectory();
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+  }
+
+  // Kept for compatibility with old code.
+  @SkylarkCallable(hidden = true, doc = "")
   public Artifact newFile(Root root, String filename) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : filename.split("/")) {
@@ -446,6 +457,15 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc = "Creates a new file object, derived from the given file and suffix. "
       + DOC_NEW_FILE_TAIL)
+  public Artifact newFile(Artifact baseArtifact, String suffix) {
+    PathFragment original = baseArtifact.getRootRelativePath();
+    PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
+    Root root = ruleContext.getBinOrGenfilesDirectory();
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+  }
+
+  // Kept for compatibility with old code.
+  @SkylarkCallable(hidden = true, doc = "")
   public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
