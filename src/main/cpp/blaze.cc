@@ -66,6 +66,7 @@
 #include "archive.h"
 #include "archive_entry.h"
 
+using blaze_util::Md5Digest;
 using std::set;
 using std::vector;
 
@@ -159,8 +160,8 @@ void InitGlobals() {
 // string. The resulting dir is composed of the root + md5(hashable)
 static string GetHashedBaseDir(const string &root,
                                const string &hashable) {
-  unsigned char buf[17];
-  blaze_util::Md5Digest digest;
+  unsigned char buf[Md5Digest::kDigestLength];
+  Md5Digest digest;
   digest.Update(hashable.data(), hashable.size());
   digest.Finish(buf);
   return root + "/" + digest.String();
