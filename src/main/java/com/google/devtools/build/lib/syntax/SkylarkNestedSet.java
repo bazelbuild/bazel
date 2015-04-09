@@ -35,15 +35,17 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "set",
     doc = "A language built-in type that supports (nested) sets. "
-        + "Sets can be created using the global <code>set</code> function, and they "
-        + "support the <code>+</code> operator to extend the set with more elements or to nest "
-        + "other sets inside of it. Examples:<br>"
+        + "Sets can be created using the <a href=\"#modules._top_level.set\">set</a> function, and "
+        + "they support the <code>+</code> operator to extend the set with more elements or "
+        + "to nest other sets inside of it. Examples:<br>"
         + "<pre class=language-python>s = set([1, 2])\n"
         + "s += [3]           # s == {1, 2, 3}\n"
         + "s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>"
         + "Note that in these examples <code>{..}</code> is not a valid literal to create sets. "
         + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
-        + "<code>set([1]) + set([\"a\"])</code> results in an error.")
+        + "<code>set([1]) + set([\"a\"])</code> results in an error.<br>"
+        + "When aggregating data from providers, nested sets can take significantly less "
+        + "memory than other types as the subsets can be shared.")
 @Immutable
 public final class SkylarkNestedSet implements Iterable<Object> {
 

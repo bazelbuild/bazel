@@ -709,10 +709,10 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "set", returnType = SkylarkNestedSet.class,
-      doc = "Creates a set from the <code>items</code>. The set supports nesting other sets of the"
-      + " same element type in it. For this reason sets are also referred to as <i>nested sets</i>"
-      + " (all Skylark sets are nested sets). A desired iteration order can also be specified.<br>"
-      + " Examples:<br><pre class=\"language-python\">set([1, set([2, 3]), 2])\n"
+      doc = "Creates a <a href=\"#modules.set\">set</a> from the <code>items</code>."
+      + " The set supports nesting other sets of the same element"
+      + " type in it. A desired iteration order can also be specified.<br>"
+      + " Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
       + "set([1, 2, 3], order=\"compile\")</pre>",
       optionalParams = {
       @Param(name = "items", type = SkylarkList.class,
