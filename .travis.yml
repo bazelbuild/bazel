@@ -21,5 +21,5 @@ deploy:
   secret_access_key:
     secure: KXlQaKk1G527mZ7hC+m8rblBZrOWQJr6uPX9M5S3XpSAehBDBQ26/pwvDutbQBolsvUfd+WgsXU28JINk89B1qA4HpNax0ucveM5C1K4mC5fR5EmtCThV4MDsmirzfVmAxUMOXowUjpyYX39+f+Yy2Y6GHhftIe9WaueCYJyg0I=
   bucket: bucket-o-bazel
-addons:
-  artifacts: true
+  local-dir: output
+  acl: public-read
