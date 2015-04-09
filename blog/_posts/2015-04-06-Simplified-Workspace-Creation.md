@@ -32,5 +32,5 @@ See the [getting started]({{ site_root }}/docs/getting-started.html) docs for mo
 setting up your workspace.
 
 Let us know if you have any questions or issues on the
-[mailing list](groups.google.com/forum/#!forum/bazel-discuss) or
+[mailing list](https://groups.google.com/forum/#!forum/bazel-discuss) or
 [GitHub](https://github.com/google/bazel).
