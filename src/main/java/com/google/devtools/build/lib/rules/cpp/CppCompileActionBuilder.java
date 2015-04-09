@@ -262,9 +262,9 @@ public class CppCompileActionBuilder {
     if (fake) {
       return new FakeCppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
           sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile, tempOutputFile,
-          dotdFile, configuration, cppConfiguration, context, ImmutableList.copyOf(copts),
-          ImmutableList.copyOf(pluginOpts), getNocoptPredicate(nocopts),
-          extraSystemIncludePrefixes, fdoBuildStamp, ruleContext);
+          dotdFile, configuration, cppConfiguration, context, actionContext,
+          ImmutableList.copyOf(copts), ImmutableList.copyOf(pluginOpts),
+          getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 

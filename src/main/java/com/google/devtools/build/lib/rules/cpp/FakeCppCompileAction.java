@@ -71,6 +71,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       BuildConfiguration configuration,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
+      Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       ImmutableList<String> pluginOpts,
       Predicate<String> nocopts,
@@ -87,8 +88,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         // cc_fake_binary and for the negative compilation tests that depend on
         // the cc_fake_binary, and the runfiles must be determined at analysis
         // time, so they can't depend on the contents of the ".d" file.)
-        CppCompilationContext.disallowUndeclaredHeaders(context), null, copts, pluginOpts, nocopts,
-        extraSystemIncludePrefixes, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
+        CppCompilationContext.disallowUndeclaredHeaders(context), actionContext, copts, pluginOpts,
+        nocopts, extraSystemIncludePrefixes, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
         ImmutableList.<IncludeScannable>of(),
         GUID, /*usePic=*/false, ruleContext);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
@@ -100,11 +101,10 @@ public class FakeCppCompileAction extends CppCompileAction {
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
 
-    // First, do an normal compilation, to generate the ".d" file. The generated
-    // object file is built to a temporary location (tempOutputFile) and ignored
-    // afterwards.
+    // First, do a normal compilation, to generate the ".d" file. The generated object file is built
+    // to a temporary location (tempOutputFile) and ignored afterwards.
     LOG.info("Generating " + getDotdFile());
-    CppCompileActionContext context = executor.getContext(CppCompileActionContext.class);
+    CppCompileActionContext context = executor.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
       // We delegate stdout/stderr to nowhere, i.e. same as redirecting to /dev/null.
@@ -203,11 +203,6 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(CppCompileActionContext.class).estimateResourceConsumption(this);
-  }
-
-  @Override
-  protected boolean needsIncludeScanning(Executor executor) {
-    return false;
+    return executor.getContext(actionContext).estimateResourceConsumption(this);
   }
 }
