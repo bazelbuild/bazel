@@ -68,6 +68,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -483,15 +485,31 @@ public final class SkyframeActionExecutor {
     return token;
   }
 
-  void afterExecution(Action action, MetadataHandler metadataHandler, Token token) {
+  void afterExecution(Action action, ActionMetadataHandler metadataHandler, Token token) {
     try {
       actionCacheChecker.afterExecution(action, token, metadataHandler);
     } catch (IOException e) {
+      List<StackTraceElement[]> stackTraceElements = new ArrayList<>();
+      for (Artifact output : action.getOutputs()) {
+        StackTraceElement[] stackTraceElement =
+            metadataHandler.getInsertionOfMissingArtifactForDebugging(output);
+        if (stackTraceElement != null) {
+          stackTraceElements.add(stackTraceElement);
+        }
+      }
+      String stackTraces = "";
+      if (stackTraceElements.isEmpty()) {
+        stackTraces = "no missing artifacts found?";
+      } else {
+        for (StackTraceElement[] elt : stackTraceElements) {
+          stackTraces += "\n" + Arrays.toString(elt);
+        }
+      }
       // Skyframe has already done all the filesystem access needed for outputs, and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
       throw new IllegalStateException(
           "failed to update action cache for " + action.prettyPrint()
-              + ", but all outputs should already have been checked", e);
+              + ", but all outputs should already have been checked (" + stackTraces + ")", e);
     }
   }
 
