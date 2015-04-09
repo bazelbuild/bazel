@@ -83,7 +83,7 @@ public final class TopLevelArtifactHelper {
   /**
    * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
    */
-  public static ArtifactsToBuild  getAllArtifactsToBuild(
+  public static ArtifactsToBuild getAllArtifactsToBuild(
       Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> importantArtifacts = NestedSetBuilder.stableOrder();
@@ -127,12 +127,10 @@ public final class TopLevelArtifactHelper {
         results.addTransitive(outputGroupProvider.getOutputGroup(outputGroup));
       }
 
-      if (results != null) {
-        if (outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
-          allBuilder.addTransitive(results.build());
-        } else {
-          importantBuilder.addTransitive(results.build());
-        }
+      if (outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
+        allBuilder.addTransitive(results.build());
+      } else {
+        importantBuilder.addTransitive(results.build());
       }
     }
 
