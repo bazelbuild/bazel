@@ -126,7 +126,7 @@ linux)
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java 8 installation.
   JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
-  PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
+  PROTOC=${PROTOC:-third_party/protobuf/protoc.linux-i686}
   ;;
 
 darwin)
