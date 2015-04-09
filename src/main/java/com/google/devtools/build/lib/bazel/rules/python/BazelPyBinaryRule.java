@@ -59,8 +59,6 @@ ${ATTRIBUTE_SIGNATURE}
   the correct initial environment and data.
 </p>
 
-${IMPLICIT_OUTPUTS}
-
 ${ATTRIBUTE_DEFINITION}
 
 <h4 id="py_binary_examples">Examples</h4>
