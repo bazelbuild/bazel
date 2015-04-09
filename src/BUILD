@@ -80,7 +80,10 @@ genrule(
     cmd = "cat $(location //src/main/cpp:client) package-zip > $@ && zip -qA $@",
     executable = 1,
     output_to_bindir = 1,
-    visibility = ["//src/test:__subpackages__"],  # For integration tests
+    visibility = [
+        "//scripts:__pkg__",  # For bash completion generation
+        "//src/test:__subpackages__",  # For integration tests
+    ],
 )
 
 filegroup(
