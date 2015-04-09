@@ -78,6 +78,7 @@ import java.util.List;
          help = "resource:run.txt",
          allowResidue = true,
          binaryStdOut = true,
+         completion = "label-bin",
          binaryStdErr = true)
 public class RunCommand implements BlazeCommand  {
 

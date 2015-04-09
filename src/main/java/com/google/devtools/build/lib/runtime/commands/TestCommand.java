@@ -53,6 +53,7 @@ import java.util.List;
          options = { TestSummaryOptions.class },
          shortDescription = "Builds and runs the specified test targets.",
          help = "resource:test.txt",
+         completion = "label-test",
          allowResidue = true)
 public class TestCommand implements BlazeCommand {
   private AnsiTerminalPrinter printer;

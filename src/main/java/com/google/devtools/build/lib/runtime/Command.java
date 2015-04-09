@@ -105,4 +105,13 @@ public @interface Command {
    */
   boolean canRunInOutputDirectory() default false;
 
+  /**
+   * Returns the type completion help for this command, that is the type arguments that this command
+   * expects. It can be a whitespace separated list if the command take several arguments. The type
+   * of each arguments can be <code>label</code>, <code>path</code>, <code>string</code>, ...
+   * It can also be a comma separated list of values, e.g. <code>{value1,value2}<code>. If a command
+   * accept several argument types, they can be combined with |, e.g <code>label|path</code>.
+   */
+  String completion() default "";
+
 }

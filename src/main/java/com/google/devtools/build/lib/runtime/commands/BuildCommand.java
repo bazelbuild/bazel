@@ -46,6 +46,7 @@ import java.util.List;
          usesConfigurationOptions = true,
          shortDescription = "Builds the specified targets.",
          allowResidue = true,
+         completion = "label",
          help = "resource:build.txt")
 public final class BuildCommand implements BlazeCommand {
 

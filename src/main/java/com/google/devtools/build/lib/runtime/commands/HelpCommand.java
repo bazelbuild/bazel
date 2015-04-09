@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The 'blaze help' command, which prints all available commands as well as
@@ -48,8 +50,11 @@ import java.util.Map;
          allowResidue = true,
          mustRunInWorkspace = false,
          shortDescription = "Prints help for commands, or the index.",
+         completion = "command|{startup_options,target-syntax,info-keys}",
          help = "resource:help.txt")
 public final class HelpCommand implements BlazeCommand {
+  private static final Joiner SPACE_JOINER = Joiner.on(" ");
+
   public static class Options extends OptionsBase {
 
     @Option(name = "help_verbosity",
@@ -151,6 +156,9 @@ public final class HelpCommand implements BlazeCommand {
     } else if (helpSubject.equals("info-keys")) {
       emitInfoKeysHelp(runtime, outErr);
       return ExitCode.SUCCESS;
+    } else if (helpSubject.equals("completion")) {
+      emitCompletionHelp(runtime, outErr);
+      return ExitCode.SUCCESS;
     }
 
     BlazeCommand command = runtime.getCommandMap().get(helpSubject);
@@ -193,6 +201,42 @@ public final class HelpCommand implements BlazeCommand {
             BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()),
             optionCategories,
         helpVerbosity));
+  }
+
+  private void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
+    // First startup_options
+    Iterable<BlazeModule> blazeModules = runtime.getBlazeModules();
+    ConfiguredRuleClassProvider ruleClassProvider = runtime.getRuleClassProvider();
+    Map<String, BlazeCommand> commandsByName = runtime.getCommandMap();
+    Set<String> commands = commandsByName.keySet();
+
+    outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commands) + "\"");
+
+    outErr.printOutLn("BAZEL_INFO_KEYS=\"");
+    for (InfoKey key : InfoKey.values()) {
+        outErr.printOutLn(key.getName());
+    }
+    outErr.printOutLn("\"");
+
+    outErr.printOutLn("BAZEL_STARTUP_OPTIONS=\"");
+    Iterable<Class<? extends OptionsBase>> options =
+        BlazeCommandUtils.getStartupOptions(blazeModules);
+    outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
+    outErr.printOutLn("\"");
+
+    for (String name : commands) {
+      BlazeCommand command = commandsByName.get(name);
+      String varName = name.toUpperCase().replace("-", "_");
+      Command annotation = command.getClass().getAnnotation(Command.class);
+      if (!annotation.completion().isEmpty()) {
+        outErr.printOutLn("BAZEL_COMMAND_" + varName + "_ARGUMENT=\""
+            + annotation.completion() + "\"");
+      }
+      options = BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider);
+      outErr.printOutLn("BAZEL_COMMAND_" + varName + "_FLAGS=\"");
+      outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
+      outErr.printOutLn("\"");
+    }
   }
 
   private void emitTargetSyntaxHelp(OutErr outErr, ImmutableMap<String, String> optionCategories) {

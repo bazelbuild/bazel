@@ -417,6 +417,29 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
+   * Returns a string listing the possible flag completion for this command along with the command
+   * completion if any. See {@link OptionsUsage#getCompletion(Field, StringBuilder)} for more
+   * details on the format for the flag completion.
+   */
+  public String getOptionsCompletion() {
+    StringBuilder desc = new StringBuilder();
+
+    // List all options
+    List<Field> allFields = Lists.newArrayList();
+    for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
+      allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    }
+    for (Field optionField : allFields) {
+      String category = optionField.getAnnotation(Option.class).category();
+      if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
+        OptionsUsage.getCompletion(optionField, desc);
+      }
+    }
+
+    return desc.toString();
+  }
+
+  /**
    * Returns a description of the option value set by the last previous call to
    * {@link #parse(OptionPriority, String, List)} that successfully set the given
    * option. If the option is of type {@link List}, the description will

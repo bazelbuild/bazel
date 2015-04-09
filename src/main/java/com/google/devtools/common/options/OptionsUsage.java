@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.devtools.common.options.OptionsParserImpl.findConverter;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -31,6 +32,7 @@ import java.util.List;
 class OptionsUsage {
 
   private static final Splitter NEWLINE_SPLITTER = Splitter.on('\n');
+  private static final Joiner COMMA_JOINER = Joiner.on(",");
 
   /**
    * Given an options class, render the usage string into the usage,
@@ -121,6 +123,57 @@ class OptionsUsage {
       }
       usage.append(paragraphFill(expandsMsg.toString(), 4, 80)); // (indent, width)
       usage.append('\n');
+    }
+  }
+
+  /**
+   * Returns the available completion for the given option field. The completions are the exact
+   * command line option (with the prepending '--') that one should pass. It is suitable for
+   * completion script to use. If the option expect an argument, the kind of argument is given
+   * after the equals. If the kind is a enum, the various enum values are given inside an accolade
+   * in a comma separated list. For other special kind, the type is given as a name (e.g.,
+   * <code>label</code>, <code>float</ode>, <code>path</code>...). Example outputs of this
+   * function are for, respectively, a tristate flag <code>tristate_flag</code>, a enum
+   * flag <code>enum_flag</code> which can take <code>value1</code>, <code>value2</code> and
+   * <code>value3</code>, a path fragment flag <code>path_flag</code>, a string flag
+   * <code>string_flag</code> and a void flag <code>void_flag</code>:
+   * <pre>
+   *   --tristate_flag={auto,yes,no}
+   *   --notristate_flag
+   *   --enum_flag={value1,value2,value3}
+   *   --path_flag=path
+   *   --string_flag=
+   *   --void_flag
+   * </pre>
+   *
+   * @param field The field to return completion for
+   * @param builder the string builder to store the completion values
+   */
+  static void getCompletion(Field field, StringBuilder builder) {
+    // Return the list of possible completions for this option
+    String flagName = field.getAnnotation(Option.class).name();
+    Class<?> fieldType = field.getType();
+    builder.append("--").append(flagName);
+    if (fieldType.equals(boolean.class)) {
+      builder.append("\n");
+      builder.append("--no").append(flagName).append("\n");
+    } else if (fieldType.equals(TriState.class)) {
+      builder.append("={auto,yes,no}\n");
+      builder.append("--no").append(flagName).append("\n");
+    } else if (fieldType.isEnum()) {
+      builder.append("={")
+          .append(COMMA_JOINER.join(fieldType.getEnumConstants()).toLowerCase()).append("}\n");
+    } else if (fieldType.getSimpleName().equals("Label")) {
+      // String comparison so we don't introduce a dependency to com.google.devtools.build.lib.
+      builder.append("=label\n");
+    } else if (fieldType.getSimpleName().equals("PathFragment")) {
+      builder.append("=path\n");
+    } else if (Void.class.isAssignableFrom(fieldType)) {
+      builder.append("\n");
+    } else {
+      // TODO(bazel-team): add more types. Maybe even move the completion type
+      // to the @Option annotation?
+      builder.append("=\n");
     }
   }
 

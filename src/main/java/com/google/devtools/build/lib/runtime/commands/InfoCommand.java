@@ -73,6 +73,7 @@ import java.util.TreeMap;
          help = "resource:info.txt",
          shortDescription = "Displays runtime info about the %{product} server.",
          options = { InfoCommand.Options.class },
+         completion = "info-key",
          // We have InfoCommand inherit from {@link BuildCommand} because we want all
          // configuration defaults specified in ~/.blazerc for {@code build} to apply to
          // {@code info} too, even though it doesn't actually do a build.
