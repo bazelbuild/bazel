@@ -134,4 +134,4 @@ $ export PATH="$PATH:$HOME/bazel/output/bazel"
 
 You can also add this command to your `~/.bashrc` file.
 
-For more information, see [Getting started](getting-started.md).
+For more information, see [Getting started](getting-started.html).
