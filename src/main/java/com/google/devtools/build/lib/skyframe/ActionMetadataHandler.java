@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Level;
 
 import javax.annotation.Nullable;
 
@@ -297,6 +299,10 @@ public class ActionMetadataHandler implements MetadataHandler {
     outputArtifactData.keySet().removeAll(artifactList);
     additionalOutputData.keySet().removeAll(artifactList);
     missingArtifacts.keySet().removeAll(artifactList);
+    if (!outputArtifactData.isEmpty()) {
+      LoggingUtil.logToRemote(Level.SEVERE, "Not all outputs cleared: " + outputArtifactData,
+          new IllegalStateException());
+    }
   }
 
   StackTraceElement[] getInsertionOfMissingArtifactForDebugging(Artifact artifact) {

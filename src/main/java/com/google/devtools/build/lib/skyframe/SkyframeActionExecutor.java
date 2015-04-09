@@ -598,6 +598,8 @@ public final class SkyframeActionExecutor {
 
         createOutputDirectories(action);
 
+        Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
+            "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
             metadataHandler.getOutputData(), metadataHandler.getAdditionalOutputData());
