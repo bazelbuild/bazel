@@ -98,12 +98,9 @@ def impl(ctx):
   # This prints the labels of the deps attribute.
   print("There are %d deps" % len(ctx.attr.deps))
   for i in ctx.attr.deps:
-    print("- %s (name %s, from package %s)" % (i, i.name, i.package))
-
-  # Print the list of files in the deps attribute.
-  # A label can represent any number of files (possibly 0).
-  for i in ctx.files.deps:
-    print(i.path)
+    print("- %s" % i.label)
+    # A label can represent any number of files (possibly 0).
+    print("  files = %s" % [f.path for f in i.files])
 
 printer = rule(
     implementation=impl,
