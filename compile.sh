@@ -118,6 +118,13 @@ EOF
   esac
 }
 
+# Create symlinks so we can use tools and examples from the base_workspace.
+base_workspace=$(pwd)/base_workspace
+mkdir -p $base_workspace
+rm -f $base_workspace/tools && ln -s "$(pwd)/tools" $base_workspace/tools
+rm -f $base_workspace/third_party && ln -s "$(pwd)/third_party" $base_workspace/third_party
+rm -f $base_workspace/examples && ln -s "$(pwd)/examples" $base_workspace/examples
+
 case "${PLATFORM}" in
 linux)
   # Sorry, no static linking on linux for now.
@@ -472,16 +479,16 @@ create_deploy_jar "precomp_xcodegen_deploy" "com.google.devtools.build.xcode.xco
 
 cp -f output/actoolzip/precomp_actoolzip_deploy.jar output/ibtoolzip/precomp_ibtoolzip_deploy.jar output/momczip/precomp_momczip_deploy.jar output/bundlemerge/precomp_bundlemerge_deploy.jar output/plmerge/precomp_plmerge_deploy.jar output/xcodegen/precomp_xcodegen_deploy.jar tools/objc/
 
-# Create a bazelrc file with this directory in the package path.
-package_path="build --package_path %workspace%:$(pwd)"
+# Create a bazelrc file with the base_workspace directory in the package path.
+package_path="build --package_path %workspace%:$base_workspace"
 if [ ! -f $HOME/.bazelrc ]; then
-  log "Creating a .bazelrc pointing to this directory"
+  log "Creating a .bazelrc pointing to $base_workspace"
   cat > $HOME/.bazelrc <<EOF
 $package_path
 EOF
 else
-  warning="You already have a .bazelrc. please modify it to add $(pwd) "
-  warning="$warning to your build package path."
+  warning="You already have a .bazelrc. please modify it to add "
+  warning="$warning $base_workspace to your build package path."
   old_line=$(fgrep "build --package_path " ~/.bazelrc) || true
   [[ $package_path != $old_line ]] && log "$warning"
 fi
