@@ -256,10 +256,27 @@ public final class ReleaseBundlingSupport {
                 "VERSION=\"$("
                 + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo.getExecPathString()
                 + " | cut -d' ' -f2- | sed -e 's#\"#\\\"#g')\" && "
-                + " for KEY in CFBundleVersion CFBundleShortVersionString; do"
-                + "   echo \"${KEY}=\\\"${VERSION}\\\";\" >> "
-                + getGeneratedVersionPlist().getExecPathString()
-                + " ; done"
+                + "cat >" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
+                + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+                + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+                + "<plist version=\"1.0\">\n"
+                + "<dict>\n"
+                + "EOF\n"
+
+                + "if [[ -n \"${VERSION}\" ]]; then\n"
+                + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
+                + "    echo \"  <key>${KEY}</key>\n\" >> "
+                + getGeneratedVersionPlist().getExecPathString() + "\n"
+                + "    echo \"  <string>${VERSION}</string>\n\" >> "
+                + getGeneratedVersionPlist().getExecPathString() + "\n"
+                + "  done\n"
+                + "fi\n"
+
+                + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
+                + "</dict>\n"
+                + "</plist>\n"
+                + "EOF\n"
             )
             .build())
         .addInput(buildInfo)
