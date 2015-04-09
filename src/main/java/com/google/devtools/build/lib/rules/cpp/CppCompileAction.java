@@ -340,7 +340,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     Executor executor = actionExecutionContext.getExecutor();
     Collection<Artifact> initialResult;
     try {
-      initialResult = executor.getContext(CppCompileActionContext.class)
+      initialResult = executor.getContext(actionContext)
           .findAdditionalInputs(this, actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException("Include scanning of rule '" + getOwner().getLabel() + "'",
