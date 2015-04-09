@@ -234,6 +234,8 @@ public abstract class EvalUtils {
       return "function";
     } else if (c.equals(FilesetEntry.class)) {
       return "FilesetEntry";
+    } else if (c.equals(SelectorValue.class)) {
+      return "select";
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
       return "set";
     } else if (ClassObject.SkylarkClassObject.class.isAssignableFrom(c)) {
