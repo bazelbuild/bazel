@@ -96,6 +96,12 @@ sh_test(
 )
 
 sh_test(
+    name = "location_test",
+    srcs = ["location_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_sandboxing_test",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],

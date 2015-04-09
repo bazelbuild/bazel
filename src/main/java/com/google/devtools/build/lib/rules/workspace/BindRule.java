@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Binds an existing target to a target in the virtual //external package.
@@ -37,7 +38,7 @@ public final class BindRule implements RuleDefinition {
 
         <p>This target must exist, but can be any type of rule (including bind).</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("actual", LABEL).allowedFileTypes())
+        .add(attr("actual", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
         .setWorkspaceOnly()
         .build();
   }

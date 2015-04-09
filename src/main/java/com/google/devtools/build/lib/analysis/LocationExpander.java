@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -29,7 +32,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -60,26 +62,25 @@ public class LocationExpander {
   private static final String LOCATION = "$(location";
   private final RuleContext ruleContext;
   private final ImmutableSet<Options> options;
-  private Map<Label, Collection<Artifact>> locationMap;
 
   /**
-   * Creates location expander helper bound to specific target and with default
-   * location map.
-   *
-   * @param ruleContext BUILD rule
+   * This is a Map, not a Multimap, because we need to distinguish between the cases of "empty
+   * value" and "absent key."
    */
-  public LocationExpander(RuleContext ruleContext) {
-    this(ruleContext, Options.EXEC_PATHS);
-  }
+  private Map<Label, Collection<Artifact>> locationMap;
+  private ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap;
 
   /**
    * Creates location expander helper bound to specific target and with default location map.
    *
    * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts.
    * @param allowDataAttributeEntriesInLabel set to true if the <code>data</code> attribute should
    *        be used too.
    */
-  public LocationExpander(RuleContext ruleContext, boolean allowDataAttributeEntriesInLabel) {
+  public LocationExpander(
+      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
+      boolean allowDataAttributeEntriesInLabel) {
     this.ruleContext = ruleContext;
     ImmutableSet.Builder<Options> builder = ImmutableSet.builder();
     builder.add(Options.EXEC_PATHS);
@@ -87,6 +88,7 @@ public class LocationExpander {
       builder.add(Options.ALLOW_DATA);
     }
     this.options = builder.build();
+    this.labelMap = labelMap;
   }
 
   /**
@@ -113,7 +115,7 @@ public class LocationExpander {
 
   public Map<Label, Collection<Artifact>> getLocationMap() {
     if (locationMap == null) {
-      locationMap = buildLocationMap(ruleContext, options.contains(Options.ALLOW_DATA));
+      locationMap = buildLocationMap(ruleContext, labelMap, options.contains(Options.ALLOW_DATA));
     }
     return locationMap;
   }
@@ -219,11 +221,18 @@ public class LocationExpander {
    * Extracts all possible target locations from target specification.
    *
    * @param ruleContext BUILD target object
+   * @param labelMap map of labels to build artifacts
    * @return map of all possible target locations
    */
-  private static Map<Label, Collection<Artifact>> buildLocationMap(RuleContext ruleContext,
+  private static Map<Label, Collection<Artifact>> buildLocationMap(
+      RuleContext ruleContext, Map<Label, ? extends Collection<Artifact>> labelMap,
       boolean allowDataAttributeEntriesInLabel) {
-    Map<Label, Collection<Artifact>> locationMap = new HashMap<>();
+    Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
+    if (labelMap != null) {
+      for (Map.Entry<Label, ? extends Collection<Artifact>> entry : labelMap.entrySet()) {
+        mapGet(locationMap, entry.getKey()).addAll(entry.getValue());
+      }
+    }
 
     // Add all destination locations.
     for (OutputFile out : ruleContext.getRule().getOutputFiles()) {

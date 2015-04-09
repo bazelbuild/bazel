@@ -170,7 +170,7 @@ public final class CommandHelper {
   public String resolveCommandAndExpandLabels(Boolean supportLegacyExpansion,
       Boolean allowDataInLabel) {
     String command = ruleContext.attributes().get("cmd", Type.STRING);
-    command = new LocationExpander(ruleContext, allowDataInLabel).expand("cmd", command);
+    command = new LocationExpander(ruleContext, labelMap, allowDataInLabel).expand("cmd", command);
 
     if (supportLegacyExpansion) {
       command = expandLabels(command, labelMap);
