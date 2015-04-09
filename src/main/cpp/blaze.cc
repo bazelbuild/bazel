@@ -306,6 +306,10 @@ static vector<string> GetArgumentArray() {
   if (!globals->options.skyframe.empty()) {
     result.push_back("--skyframe=" + globals->options.skyframe);
   }
+  if (globals->options.blaze_cpu) {
+    result.push_back("--blaze_cpu=true");
+  }
+
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
   }

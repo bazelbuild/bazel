@@ -42,6 +42,7 @@ void BlazeStartupOptions::Init() {
   host_javabase = "";
   batch = false;
   batch_cpu_scheduling = false;
+  blaze_cpu = false;
   allow_configurable_attributes = false;
   fatal_event_bus_exceptions = false;
   io_nice_level = -1;
@@ -76,6 +77,7 @@ void BlazeStartupOptions::Copy(
   lhs->io_nice_level = rhs.io_nice_level;
   lhs->max_idle_secs = rhs.max_idle_secs;
   lhs->skyframe = rhs.skyframe;
+  lhs->blaze_cpu = rhs.blaze_cpu;
   lhs->webstatus_port = rhs.webstatus_port;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
@@ -130,6 +132,8 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
     }
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--blaze_cpu")) != NULL) {
+    blaze_cpu = true;
+    option_sources["blaze_cpu"] = rcfile;
     fprintf(stderr, "WARNING: The --blaze_cpu startup option is now ignored "
             "and will be removed in a future release\n");
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
