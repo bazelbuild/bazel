@@ -121,6 +121,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       converter = LabelConverter.class)
   public Label defaultProvisioningProfile;
 
+  @Option(name = "objc_per_proto_includes",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Whether to add include path entries for every individual proto file.")
+  public boolean perProtoIncludes;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "i386";
 

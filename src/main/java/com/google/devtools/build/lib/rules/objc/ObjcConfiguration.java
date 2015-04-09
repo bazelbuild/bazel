@@ -57,6 +57,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final CompilationMode compilationMode;
   private final List<String> iosMultiCpus;
   private final String iosSplitCpu;
+  private final boolean perProtoIncludes;
 
   // We only load these labels if the mode which uses them is enabled. That is know as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -86,6 +87,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.defaultProvisioningProfileLabel = objcOptions.defaultProvisioningProfile;
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
+    this.perProtoIncludes = objcOptions.perProtoIncludes;
   }
 
   public String getIosSdkVersion() {
@@ -262,5 +264,12 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
                 + "device builds but was %s", iosMultiCpus)));
       }
     }
+  }
+
+  /**
+   * @return whether to add include path entries for every proto file's containing directory.
+   */
+  public boolean perProtoIncludes() {
+    return this.perProtoIncludes;
   }
 }
