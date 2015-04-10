@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -44,7 +42,6 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
-import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -161,9 +158,8 @@ public final class ParallelEvaluator implements Evaluator {
   /**
    * A suitable {@link SkyFunction.Environment} implementation.
    */
-  class SkyFunctionEnvironment implements SkyFunction.Environment {
+  class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     private boolean building = true;
-    private boolean valuesMissing = false;
     private SkyKey depErrorKey = null;
     private final SkyKey skyKey;
     private SkyValue value = null;
@@ -284,8 +280,9 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
-    private ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Set<SkyKey> depKeys) {
+    @Override
+    protected ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+        Iterable<SkyKey> depKeys) {
       checkActive();
       Set<SkyKey> keys = new LinkedHashSet<>();
       for (SkyKey depKey : depKeys) {
@@ -373,165 +370,16 @@ public final class ParallelEvaluator implements Evaluator {
       return builder.build();
     }
 
-    private <E extends Exception> ValueOrException<E> getValueOrException(SkyKey depKey,
-        Class<E> exceptionClass) {
-      return ValueOrExceptionUtils.downcovert(getValueOrException(depKey, exceptionClass,
-          BottomException.class), exceptionClass);
-    }
-
-    private <E1 extends Exception, E2 extends Exception> ValueOrException2<E1, E2>
-        getValueOrException(SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) {
-      return ValueOrExceptionUtils.downconvert(getValueOrException(depKey, exceptionClass1,
-          exceptionClass2, BottomException.class), exceptionClass1, exceptionClass2);
-    }
-
-    private <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-    ValueOrException3<E1, E2, E3> getValueOrException(SkyKey depKey, Class<E1> exceptionClass1,
-            Class<E2> exceptionClass2, Class<E3> exceptionClass3) {
-      return ValueOrExceptionUtils.downconvert(getValueOrException(depKey, exceptionClass1,
-          exceptionClass2, exceptionClass3, BottomException.class), exceptionClass1,
-          exceptionClass2, exceptionClass3);
-    }
-
-    private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-        E4 extends Exception> ValueOrException4<E1, E2, E3, E4> getValueOrException(SkyKey depKey,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
-        Class<E4> exceptionClass4) {
-      return getValueOrExceptions(ImmutableSet.of(depKey), exceptionClass1, exceptionClass2,
-          exceptionClass3, exceptionClass4).get(depKey);
-    }
-
-    private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-        E4 extends Exception> Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValueOrExceptions(
-        Set<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
-        Class<E3> exceptionClass3, Class<E4> exceptionClass4) {
-      SkyFunctionException.validateExceptionType(exceptionClass1);
-      SkyFunctionException.validateExceptionType(exceptionClass2);
-      SkyFunctionException.validateExceptionType(exceptionClass3);
-      SkyFunctionException.validateExceptionType(exceptionClass4);
-      Map<SkyKey, ValueOrUntypedException> valueOrExceptions =
-          getValueOrUntypedExceptions(depKeys);
-      ImmutableMap.Builder<SkyKey, ValueOrException4<E1, E2, E3, E4>> builder =
-          ImmutableMap.builder();
-      for (SkyKey depKey : depKeys) {
-        ValueOrUntypedException voe = valueOrExceptions.get(depKey);
-        SkyValue value = voe.getValue();
-        if (value != null) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofValue(value));
-          continue;
-        }
-        Exception e = voe.getException();
-        if (e != null) {
-          if (exceptionClass1.isInstance(e)) {
-            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn1(
-                exceptionClass1.cast(e)));
-            continue;
-          }
-          if (exceptionClass2.isInstance(e)) {
-            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn2(
-                exceptionClass2.cast(e)));
-            continue;
-          }
-          if (exceptionClass3.isInstance(e)) {
-            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn3(
-                exceptionClass3.cast(e)));
-            continue;
-          }
-          if (exceptionClass4.isInstance(e)) {
-            builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofExn4(
-                exceptionClass4.cast(e)));
-            continue;
-          }
-        }
-        valuesMissing = true;
-        builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4>ofNullValue());
-      }
-      return builder.build();
-    }
-
-    @Override
-    @Nullable
-    public SkyValue getValue(SkyKey depKey) {
-      try {
-        return getValueOrThrow(depKey, BottomException.class);
-      } catch (BottomException e) {
-        throw new IllegalStateException("shouldn't reach here");
-      }
-    }
-
-    @Override
-    @Nullable
-    public <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
-        throws E {
-      return getValueOrException(depKey, exceptionClass).get();
-    }
-
-    @Override
-    @Nullable
-    public <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(SkyKey depKey,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
-      return getValueOrException(depKey, exceptionClass1, exceptionClass2).get();
-    }
-
-    @Override
-    @Nullable
-    public <E1 extends Exception, E2 extends Exception,
-        E3 extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
-        Class<E2> exceptionClass2, Class<E3> exceptionClass3) throws E1, E2, E3 {
-      return getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3).get();
-    }
-
-    @Override
-    public <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-        E4 extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
-        Class<E2> exceptionClass2, Class<E3> exceptionClass3, Class<E4> exceptionClass4) throws E1,
-        E2, E3, E4 {
-      return getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3,
-          exceptionClass4).get();
-    }
-
-    @Override
-    public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) {
-      return Maps.transformValues(getValuesOrThrow(depKeys, BottomException.class),
-          GET_VALUE_FROM_VOE);
-    }
-
-    @Override
-    public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-        Iterable<SkyKey> depKeys, Class<E> exceptionClass) {
-      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass, BottomException.class),
-          makeSafeDowncastToVOEFunction(exceptionClass));
-    }
-
-    @Override
-    public <E1 extends Exception,
-        E2 extends Exception> Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
-        Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2) {
-      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2,
-          BottomException.class), makeSafeDowncastToVOE2Function(exceptionClass1,
-              exceptionClass2));
-    }
-
-    @Override
-    public <E1 extends Exception, E2 extends Exception, E3 extends Exception> Map<SkyKey,
-        ValueOrException3<E1, E2, E3>> getValuesOrThrow(Iterable<SkyKey> depKeys,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3) {
-      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2,
-          exceptionClass3, BottomException.class), makeSafeDowncastToVOE3Function(exceptionClass1,
-              exceptionClass2, exceptionClass3));
-    }
-
     @Override
     public <E1 extends Exception, E2 extends Exception, E3 extends Exception,
         E4 extends Exception> Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
         Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
         Class<E3> exceptionClass3, Class<E4> exceptionClass4) {
-      Set<SkyKey> keys = ImmutableSet.copyOf(depKeys);
       newlyRequestedDeps.startGroup();
-      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> result = getValueOrExceptions(keys,
-          exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> result = super.getValuesOrThrow(
+          depKeys, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
       newlyRequestedDeps.endGroup();
-      return Collections.unmodifiableMap(result);
+      return result;
     }
 
     private void addDep(SkyKey key) {
@@ -539,11 +387,6 @@ public final class ParallelEvaluator implements Evaluator {
         // dep may have been requested already this evaluation. If not, add it.
         newlyRequestedDeps.add(key);
       }
-    }
-
-    @Override
-    public boolean valuesMissing() {
-      return valuesMissing;
     }
 
     /**
@@ -648,53 +491,6 @@ public final class ParallelEvaluator implements Evaluator {
     public boolean inErrorBubblingForTesting() {
       return bubbleErrorInfo != null;
     }
-  }
-
-  private static final Function<ValueOrException<BottomException>, SkyValue> GET_VALUE_FROM_VOE =
-      new Function<ValueOrException<BottomException>, SkyValue>() {
-    @Override
-    public SkyValue apply(ValueOrException<BottomException> voe) {
-      return ValueOrExceptionUtils.downcovert(voe);
-    }
-  };
-
-  private static <E extends Exception>
-      Function<ValueOrException2<E, BottomException>, ValueOrException<E>>
-      makeSafeDowncastToVOEFunction(final Class<E> exceptionClass) {
-    return new Function<ValueOrException2<E, BottomException>, ValueOrException<E>>() {
-      @Override
-      public ValueOrException<E> apply(ValueOrException2<E, BottomException> voe) {
-        return ValueOrExceptionUtils.downcovert(voe, exceptionClass);
-      }
-    };
-  }
-
-  private static <E1 extends Exception, E2 extends Exception>
-      Function<ValueOrException3<E1, E2, BottomException>, ValueOrException2<E1, E2>>
-      makeSafeDowncastToVOE2Function(final Class<E1> exceptionClass1,
-      final Class<E2> exceptionClass2) {
-    return new Function<ValueOrException3<E1, E2, BottomException>,
-        ValueOrException2<E1, E2>>() {
-      @Override
-      public ValueOrException2<E1, E2> apply(ValueOrException3<E1, E2, BottomException> voe) {
-        return ValueOrExceptionUtils.downconvert(voe, exceptionClass1, exceptionClass2);
-      }
-    };
-  }
-
-  private static <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-      Function<ValueOrException4<E1, E2, E3, BottomException>, ValueOrException3<E1, E2, E3>>
-      makeSafeDowncastToVOE3Function(final Class<E1> exceptionClass1,
-          final Class<E2> exceptionClass2, final Class<E3> exceptionClass3) {
-    return new Function<ValueOrException4<E1, E2, E3, BottomException>,
-        ValueOrException3<E1, E2, E3>>() {
-      @Override
-      public ValueOrException3<E1, E2, E3> apply(ValueOrException4<E1, E2, E3,
-          BottomException> voe) {
-        return ValueOrExceptionUtils.downconvert(voe, exceptionClass1, exceptionClass2,
-            exceptionClass3);
-      }
-    };
   }
 
   private class ValueVisitor extends AbstractQueueVisitor {
@@ -923,7 +719,7 @@ public final class ParallelEvaluator implements Evaluator {
       GroupedListHelper<SkyKey> newDirectDeps = env.newlyRequestedDeps;
 
       if (value != null) {
-        Preconditions.checkState(!env.valuesMissing,
+        Preconditions.checkState(!env.valuesMissing(),
             "%s -> %s, ValueEntry: %s", skyKey, newDirectDeps, state);
         env.setValue(value);
         registerNewlyDiscoveredDepsForDoneEntry(skyKey, state, env);
