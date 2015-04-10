@@ -380,7 +380,7 @@ public class XcodeprojGeneration {
     }
 
     PBXProject project = new PBXProject(outputPath.getProjectName());
-    project.getMainGroup().setPath(workspaceRoot.toString());
+    project.getMainGroup().setPath("$(WORKSPACE_ROOT)");
     try {
       project
           .getBuildConfigurationList()
