@@ -157,6 +157,14 @@ public abstract class FoundationTestCase extends TestCase {
   }
 
   /**
+   * Create a scratch directory in the scratch filesystem, with the given pathName. The method
+   * returns a Path instance for the scratch directory.
+   */
+  protected Path scratchDir(String pathName) throws IOException {
+    return scratch.dir(workspaceRelative(pathName));
+  }
+
+  /**
    * Like {@code scratchFile}, but the file is first deleted if it already
    * exists.
    */
