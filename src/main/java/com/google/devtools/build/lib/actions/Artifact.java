@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -68,7 +69,25 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "File",
     doc = "This type represents a file used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.")
-public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput {
+public class Artifact implements FileType.HasFilename, ActionInput {
+
+  /**
+   * Compares artifact according to their exec paths. Sorts null values first.
+   */
+  public static final Comparator<Artifact> EXEC_PATH_COMPARATOR = new Comparator<Artifact>() {
+    @Override
+    public int compare(Artifact a, Artifact b) {
+      if (a == b) {
+        return 0;
+      } else if (a == null) {
+        return -1;
+      } else if (b == null) {
+        return -1;
+      } else {
+        return a.execPath.compareTo(b.execPath);
+      }
+    }
+  };
 
   /** An object that can expand middleman artifacts. */
   public interface MiddlemanExpander {
@@ -366,16 +385,9 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
       return false;
     }
     // We don't bother to check root in the equivalence relation, because we
-    // assume that 'root' is an ancestor of 'path', and that all possible roots
-    // are disjoint, so unless things are really screwed up, it's ok.
+    // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
     return this.path.equals(that.path);
-  }
-
-  @Override
-  public final int compareTo(Artifact o) {
-    // The artifact factory ensures that there is a unique artifact for a given path.
-    return this.path.compareTo(o.path);
   }
 
   @Override

@@ -85,10 +85,10 @@ public class ArtifactTest {
     PathFragment bPath = new PathFragment("src/b");
     Artifact aArtifact = new Artifact(aPath, rootDir);
     Artifact bArtifact = new Artifact(bPath, rootDir);
-    assertEquals(-1, aArtifact.compareTo(bArtifact));
-    assertEquals(0, aArtifact.compareTo(aArtifact));
-    assertEquals(0, bArtifact.compareTo(bArtifact));
-    assertEquals(1, bArtifact.compareTo(aArtifact));
+    assertEquals(-1, Artifact.EXEC_PATH_COMPARATOR.compare(aArtifact, bArtifact));
+    assertEquals(0, Artifact.EXEC_PATH_COMPARATOR.compare(aArtifact, aArtifact));
+    assertEquals(0, Artifact.EXEC_PATH_COMPARATOR.compare(bArtifact, bArtifact));
+    assertEquals(1, Artifact.EXEC_PATH_COMPARATOR.compare(bArtifact, aArtifact));
   }
 
   @Test
