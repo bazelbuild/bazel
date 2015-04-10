@@ -632,7 +632,7 @@ public abstract class EvalUtils {
       return toCollection(o, loc);
     } else {
       throw new EvalException(loc,
-          "type '" + getDataTypeName(o) + "' is not an iterable");
+          "type '" + getDataTypeName(o) + "' is not iterable");
     }
   }
 

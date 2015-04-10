@@ -391,6 +391,7 @@ public final class BinaryOperatorExpression extends Expression {
       case IN: {
         if (rtype.isList()
             || rtype.isSet()
+            || rtype.isNset()
             || rtype.isDict()
             || rtype == SkylarkType.STRING) {
           return SkylarkType.BOOL;

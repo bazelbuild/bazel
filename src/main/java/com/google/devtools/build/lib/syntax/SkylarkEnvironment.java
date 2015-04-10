@@ -187,16 +187,6 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   }
 
   /**
-   * Updates the value of variable "varname" in the environment, corresponding
-   * to an AssignmentStatement.
-   */
-  @Override
-  public void update(String varname, Object value) {
-    Preconditions.checkNotNull(value, "update(value == null)");
-    env.put(varname, value);
-  }
-
-  /**
    * Returns the class of the variable or null if the variable does not exist. This function
    * works only in the local Environment, it doesn't check the global Environment.
    */

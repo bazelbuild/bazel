@@ -28,121 +28,107 @@ import org.junit.runners.JUnit4;
  * Tests of Environment.
  */
 @RunWith(JUnit4.class)
-public class EnvironmentTest extends AbstractEvaluationTestCase {
+public class EnvironmentTest extends EvaluationTestCase {
+
+  @Override
+  public EvaluationContext newEvaluationContext() {
+    return EvaluationContext.newBuildContext(getEventHandler());
+  }
 
   // Test the API directly
   @Test
   public void testLookupAndUpdate() throws Exception {
-    Environment env = new Environment();
-
     try {
-      env.lookup("foo");
+      lookup("foo");
       fail();
     } catch (Environment.NoSuchVariableException e) {
       assertThat(e).hasMessage("no such variable: foo");
     }
-
-    env.update("foo", "bar");
-
-    assertEquals("bar", env.lookup("foo"));
+    update("foo", "bar");
+    assertEquals("bar", lookup("foo"));
   }
 
   @Test
   public void testLookupWithDefault() throws Exception {
-    Environment env = new Environment();
-    assertEquals(21, env.lookup("VERSION", 21));
-    env.update("VERSION", 42);
-    assertEquals(42, env.lookup("VERSION", 21));
+    assertEquals(21, getEnvironment().lookup("VERSION", 21));
+    update("VERSION", 42);
+    assertEquals(42, getEnvironment().lookup("VERSION", 21));
   }
 
   @Test
   public void testDoubleUpdateSucceeds() throws Exception {
-    Environment env = new Environment();
-    env.update("VERSION", 42);
-    assertEquals(42, env.lookup("VERSION"));
-    env.update("VERSION", 43);
-    assertEquals(43, env.lookup("VERSION"));
+    update("VERSION", 42);
+    assertEquals(42, lookup("VERSION"));
+    update("VERSION", 43);
+    assertEquals(43, lookup("VERSION"));
   }
 
   // Test assign through interpreter, lookup through API:
   @Test
   public void testAssign() throws Exception {
-    Environment env = new Environment();
-
     try {
-      env.lookup("foo");
+      lookup("foo");
       fail();
     } catch (Environment.NoSuchVariableException e) {
       assertThat(e).hasMessage("no such variable: foo");
     }
-
-    exec(parseStmt("foo = 'bar'"), env);
-
-    assertEquals("bar", env.lookup("foo"));
+    eval("foo = 'bar'");
+    assertEquals("bar", lookup("foo"));
   }
 
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
-    Environment env = new Environment();
-
     try {
-      eval(parseExpr("foo"), env);
+      eval("foo");
       fail();
     } catch (EvalException e) {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
-
-    env.update("foo", "bar");
-
-    assertEquals("bar", eval(parseExpr("foo"), env));
+    update("foo", "bar");
+    assertEquals("bar", eval("foo"));
   }
 
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
-    Environment env = new Environment();
-
     try {
-      eval(parseExpr("foo"), env);
+      eval("foo");
       fail();
     } catch (EvalException e) {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
-
-    exec(parseStmt("foo = 'bar'"), env);
-
-    assertEquals("bar", eval(parseExpr("foo"), env));
+    eval("foo = 'bar'");
+    assertEquals("bar", eval("foo"));
   }
 
   @Test
   public void testGetVariableNames() throws Exception {
-    Environment env = new Environment();
-    env.update("foo", "bar");
-    env.update("wiz", 3);
+    update("foo", "bar");
+    update("wiz", 3);
 
-    Environment nestedEnv = new Environment(env);
+    Environment nestedEnv = new Environment(getEnvironment());
     nestedEnv.update("foo", "bat");
     nestedEnv.update("quux", 42);
 
-    assertEquals(Sets.newHashSet("True", "False", "None", "foo", "wiz"), env.getVariableNames());
+    assertEquals(Sets.newHashSet("True", "False", "None", "foo", "wiz"),
+        getEnvironment().getVariableNames());
     assertEquals(Sets.newHashSet("True", "False", "None", "foo", "wiz", "quux"),
         nestedEnv.getVariableNames());
   }
 
   @Test
   public void testToString() throws Exception {
-    Environment env = new Environment();
-    env.update("subject", new StringLiteral("Hello, 'world'.", '\''));
-    env.update("from", new StringLiteral("Java", '"'));
+    update("subject", new StringLiteral("Hello, 'world'.", '\''));
+    update("from", new StringLiteral("Java", '"'));
     assertEquals("Environment{False -> false, None -> None, True -> true, from -> \"Java\", "
-        + "subject -> 'Hello, \\'world\\'.', }", env.toString());
+        + "subject -> 'Hello, \\'world\\'.', }", getEnvironment().toString());
   }
 
   @Test
   public void testBindToNullThrowsException() throws Exception {
     try {
-      new Environment().update("some_name", null);
+      update("some_name", null);
       fail();
     } catch (NullPointerException e) {
       assertThat(e).hasMessage("update(value == null)");

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
@@ -30,11 +29,11 @@ import java.util.Arrays;
  * Tests for the validation process of Skylark files.
  */
 @RunWith(JUnit4.class)
-public class ValidationTests extends AbstractParserTestCase {
+public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testIncompatibleLiteralTypesStringInt() {
-    checkError("bad variable 'a': int is incompatible with string at /some/file.txt",
+    checkError("bad variable 'a': int is incompatible with string at 3:3",
         "def foo():\n",
         "  a = '1'",
         "  a = 1");
@@ -42,7 +41,7 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testIncompatibleLiteralTypesDictString() {
-    checkError("bad variable 'a': int is incompatible with dict of ints at /some/file.txt:3:3",
+    checkError("bad variable 'a': int is incompatible with dict of ints at 3:3",
         "def foo():\n",
         "  a = {1 : 'x'}",
         "  a = 1");
@@ -50,7 +49,7 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testIncompatibleLiteralTypesInIf() {
-    checkError("bad variable 'a': int is incompatible with string at /some/file.txt",
+    checkError("bad variable 'a': int is incompatible with string at 4:5",
         "def foo():\n",
         "  if 1:",
         "    a = 'a'",
@@ -60,41 +59,41 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testAssignmentNotValidLValue() {
-    checkError("can only assign to variables, not to ''a''", "'a' = 1");
+    checkError("can only assign to variables and tuples, not to ''a''", "'a' = 1");
   }
 
   @Test
   public void testForNotIterable() throws Exception {
     checkError("type 'int' is not iterable",
-          "def func():\n"
-        + "  for i in 5: a = i\n");
+        "def func():\n",
+        "  for i in 5: a = i\n");
   }
 
   @Test
   public void testForIterableWithUknownArgument() throws Exception {
-    parse("def func(x=None):\n"
-        + "  for i in x: a = i\n");
+    parse("def func(x=None):\n",
+        "  for i in x: a = i\n");
   }
 
   @Test
   public void testForNotIterableBinaryExpression() throws Exception {
     checkError("type 'int' is not iterable",
-          "def func():\n"
-        + "  for i in 1 + 1: a = i\n");
+        "def func():\n",
+        "  for i in 1 + 1: a = i\n");
   }
 
   @Test
   public void testOptionalArgument() throws Exception {
     checkError("type 'int' is not iterable",
-          "def func(x=5):\n"
-        + "  for i in x: a = i\n");
+        "def func(x=5):",
+        "  for i in x: a = i\n");
   }
 
   @Test
   public void testOptionalArgumentHasError() throws Exception {
     checkError("unsupported operand type(s) for +: 'int' and 'string'",
-          "def func(x=5+'a'):\n"
-        + "  return 0\n");
+        "def func(x=5+'a'):",
+        "  return 0\n");
   }
 
   @Test
@@ -109,7 +108,7 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testTwoReturnTypes() throws Exception {
-    checkError("bad return type of foo: string is incompatible with int at /some/file.txt:3:5",
+    checkError("bad return type of foo: string is incompatible with int at 3:5",
         "def foo(x):",
         "  if x:",
         "    return 1",
@@ -128,7 +127,7 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testDynamicTypeCheck() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at /some/file.txt:2:3",
+    checkError("bad variable 'a': string is incompatible with int at 2:3",
         "def foo():",
         "  a = 1",
         "  a = '1'");
@@ -166,10 +165,10 @@ public class ValidationTests extends AbstractParserTestCase {
   @Test
   public void testLocalValidationEnvironmentsAreSeparated() throws Exception {
     parse(
-          "def func1():\n"
-        + "  a = 1\n"
-        + "def func2():\n"
-        + "  a = 'abc'\n");
+        "def func1():",
+        "  a = 1",
+        "def func2():",
+        "  a = 'abc'\n");
   }
 
   @Test
@@ -213,108 +212,106 @@ public class ValidationTests extends AbstractParserTestCase {
   @Test
   public void testSkylarkGlobalVariablesAreReadonly() throws Exception {
     checkError("Variable a is read only",
-        "a = 1\n"
-        + "a = 2");
+        "a = 1",
+        "a = 2");
   }
 
   @Test
   public void testFunctionDefRecursion() throws Exception {
     checkError("function 'func' does not exist",
-        "def func():\n"
-      + "  func()\n");
+        "def func():",
+        "  func()\n");
   }
 
   @Test
   public void testMutualRecursion() throws Exception {
     checkError("function 'bar' does not exist",
-        "def foo(i):\n"
-      + "  bar(i)\n"
-      + "def bar(i):\n"
-      + "  foo(i)\n"
-      + "foo(4)");
+        "def foo(i):",
+        "  bar(i)",
+        "def bar(i):",
+        "  foo(i)",
+        "foo(4)");
   }
 
   @Test
   public void testFunctionReturnValue() {
     checkError("unsupported operand type(s) for +: 'int' and 'string'",
-          "def foo(): return 1\n"
-        + "a = foo() + 'a'\n");
+        "def foo(): return 1",
+        "a = foo() + 'a'\n");
   }
 
   @Test
   public void testFunctionReturnValueInFunctionDef() {
     checkError("unsupported operand type(s) for +: 'int' and 'string'",
-          "def foo(): return 1\n"
-        + "def bar(): a = foo() + 'a'\n");
+        "def foo(): return 1",
+        "def bar(): a = foo() + 'a'\n");
   }
 
   @Test
   public void testFunctionDoesNotExistInFunctionDef() {
     checkError("function 'foo' does not exist",
-          "def bar(): a = foo() + 'a'\n"
-        + "def foo(): return 1\n");
+        "def bar(): a = foo() + 'a'",
+        "def foo(): return 1\n");
   }
 
   @Test
   public void testStructMembersAreImmutable() {
-    checkError("can only assign to variables, not to 's.x'",
-        "s = struct(x = 'a')\n"
-      + "s.x = 'b'\n");
+    checkError("can only assign to variables and tuples, not to 's.x'",
+        "s = struct(x = 'a')",
+        "s.x = 'b'\n");
   }
 
   @Test
   public void testStructDictMembersAreImmutable() {
-    checkError("can only assign to variables, not to 's.x['b']'",
-        "s = struct(x = {'a' : 1})\n"
-      + "s.x['b'] = 2\n");
+    checkError("can only assign to variables and tuples, not to 's.x['b']'",
+        "s = struct(x = {'a' : 1})",
+        "s.x['b'] = 2\n");
   }
 
   @Test
   public void testTupleAssign() throws Exception {
     // TODO(bazel-team): fix our code so 'tuple' not 'list' gets printed.
     checkError("unsupported operand type(s) for +: 'list' and 'dict of ints'",
-        "d = (1, 2)\n"
-      + "d[0] = 2\n");
+        "d = (1, 2)",
+        "d[0] = 2\n");
   }
 
   @Test
   public void testAssignOnNonCollection() throws Exception {
     checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
-        "d = 'abc'\n"
-      + "d[0] = 2");
+        "d = 'abc'",
+        "d[0] = 2");
   }
 
   @Test
   public void testNsetBadRightOperand() throws Exception {
-    checkError("can only concatenate nested sets with other nested sets or list of items, "
-        + "not 'string'", "set() + 'a'");
+    checkError("can only concatenate nested sets with other nested sets or list of items, ",
+        "not 'string'", "set() + 'a'");
   }
 
   @Test
   public void testNsetBadItemType() throws Exception {
-    checkError("bad nested set: set of ints is incompatible with set of strings "
-        + "at /some/file.txt:1:1",
+    checkError("bad nested set: set of ints is incompatible with set of strings at 1:1",
         "(set() + ['a']) + [1]");
   }
 
   @Test
   public void testNsetBadNestedItemType() throws Exception {
-    checkError("bad nested set: set of ints is incompatible with set of strings "
-        + "at /some/file.txt:1:1",
+    checkError("bad nested set: set of ints is incompatible with set of strings at 1:1",
         "(set() + ['b']) + (set() + [1])");
   }
 
   @Test
   public void testTypeInferenceForMethodLibraryFunction() throws Exception {
-    checkError("bad variable 'l': string is incompatible with int at /some/file.txt:2:3",
-          "def foo():\n"
-        + "  l = len('abc')\n"
-        + "  l = 'a'");
+    checkError("bad variable 'l': string is incompatible with int at 2:3",
+        "def foo():",
+        "  l = len('abc')",
+        "  l = 'a'");
   }
 
   @Test
   public void testListLiteralBadTypes() throws Exception {
-    checkError("bad list literal: int is incompatible with string at /some/file.txt:1:1",
+    checkError("bad list literal: int is incompatible with string at 1:1",
         "['a', 1]");
   }
 
@@ -325,7 +322,7 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testDictLiteralBadKeyTypes() throws Exception {
-    checkError("bad dict literal: int is incompatible with string at /some/file.txt:1:1",
+    checkError("bad dict literal: int is incompatible with string at 1:1",
         "{'a': 1, 1: 2}");
   }
 
@@ -336,15 +333,13 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testListConcatBadTypes() throws Exception {
-    checkError("bad list concatenation: list of ints is incompatible with list of strings"
-        + " at /some/file.txt:1:1",
+    checkError("bad list concatenation: list of ints is incompatible with list of strings at 1:1",
         "['a'] + [1]");
   }
 
   @Test
   public void testDictConcatBadKeyTypes() throws Exception {
-    checkError("bad dict concatenation: dict of ints is incompatible with dict of strings "
-        + "at /some/file.txt:1:1",
+    checkError("bad dict concatenation: dict of ints is incompatible with dict of strings at 1:1",
         "{'a': 1} + {1: 2}");
   }
 
@@ -365,13 +360,13 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testAndDifferentTypes() throws Exception {
-    checkError("bad and operator: int is incompatible with string at /some/file.txt:1:1",
+    checkError("bad and operator: int is incompatible with string at 1:1",
         "'ab' and 3");
   }
 
   @Test
   public void testOrDifferentTypes() throws Exception {
-    checkError("bad or operator: int is incompatible with string at /some/file.txt:1:1",
+    checkError("bad or operator: int is incompatible with string at 1:1",
         "'ab' or 3");
   }
 
@@ -382,20 +377,20 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testNoneAssignment() throws Exception {
-    parse("def func():\n"
-        + "  a = None\n"
-        + "  a = 2\n"
-        + "  a = None\n");
+    parse("def func():",
+        "  a = None",
+        "  a = 2",
+        "  a = None\n");
   }
 
   @Test
   public void testNoneAssignmentError() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at /some/file.txt",
-          "def func():\n"
-        + "  a = None\n"
-        + "  a = 2\n"
-        + "  a = None\n"
-        + "  a = 'b'\n");
+    checkError("bad variable 'a': string is incompatible with int at 4:3",
+        "def func():",
+        "  a = None",
+        "  a = 2",
+        "  a = None",
+        "  a = 'b'\n");
   }
 
   @Test
@@ -409,14 +404,11 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testSlice() throws Exception {
-    parse("def f(): "
-        + "a = 'abc'; a = 'abcd'[2:]");
-    parse("def f(): "
-        + "b = ['abc']; b = ['abcd'][1:]");
-    parse("def f(): "
-        + "c = 'ab'; c = ['ab'][1:]");
+    parse("def f(): a = 'abc'; a = 'abcd'[2:]");
+    parse("def g(): b = ['abc']; b = ['abcd'][1:]");
+    parse("def h(): c = 'ab'; c = ['ab'][1:]");
     checkError("bad variable 'c': string is incompatible with list of strings",
-        "def f(): c = ['xy']; c = 'cx'[1:]");
+        "def i(): c = ['xy']; c = 'cx'[1:]");
   }
 
   @Test
@@ -426,80 +418,80 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testTypeInferenceForUserDefinedFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at /some/file.txt",
-          "def func():\n"
-        + "  return 'a'\n"
-        + "def foo():\n"
-        + "  a = 1\n"
-        + "  a = func()\n");
+    checkError("bad variable 'a': string is incompatible with int at 4:3",
+        "def func():",
+        "  return 'a'",
+        "def foo():",
+        "  a = 1",
+        "  a = func()\n");
   }
 
   @Test
   public void testCallingNonFunction() {
     checkError("a is not a function",
-        "a = '1':\n"
-      + "a()\n");
+        "a = '1':",
+        "a()\n");
   }
 
   @Test
   public void testFuncallArgument() {
     checkError("unsupported operand type(s) for +: 'int' and 'string'",
-        "def foo(x): return x\n"
-      + "a = foo(1 + 'a')");
+        "def foo(x): return x",
+        "a = foo(1 + 'a')");
   }
 
   // Skylark built-in functions specific tests
 
   @Test
   public void testTypeInferenceForSkylarkBuiltinGlobalFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with function at /some/file.txt:3:3",
-          "def impl(ctx): return None\n"
-        + "def foo():\n"
-        + "  a = rule(impl)\n"
-        + "  a = 'a'\n");
+    checkError("bad variable 'a': string is incompatible with function at 3:3",
+        "def impl(ctx): return None",
+        "def foo():",
+        "  a = rule(impl)",
+        "  a = 'a'\n");
   }
 
   @Test
   public void testTypeInferenceForSkylarkBuiltinObjectFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with Attribute at /some/file.txt",
-        "def foo():\n"
-        + "  a = attr.int()\n"
-        + "  a = 'a'\n");
+    checkError("bad variable 'a': string is incompatible with Attribute at 2:3",
+        "def foo():",
+        "  a = attr.int()",
+        "  a = 'a'\n");
   }
 
   @Test
   public void testFuncReturningDictAssignmentAsLValue() throws Exception {
-    checkError("can only assign to variables, not to 'dict([])['b']'",
-          "def dict():\n"
-        + "  return {'a': 1}\n"
-        + "def func():\n"
-        + "  dict()['b'] = 2\n"
-        + "  return d\n");
+    checkError("can only assign to variables and tuples, not to 'dict([])['b']'",
+        "def dict():",
+        "  return {'a': 1}",
+        "def func():",
+        "  dict()['b'] = 2",
+        "  return d\n");
   }
 
   @Test
   public void testListIndexAsLValue() {
     checkError("unsupported operand type(s) for +: 'list of ints' and 'dict of ints'",
-        "def func():\n"
-      + "  l = [1]\n"
-      + "  l[0] = 2\n"
-      + "  return l\n");
+        "def func():",
+        "  l = [1]",
+        "  l[0] = 2",
+        "  return l\n");
   }
 
   @Test
   public void testStringIndexAsLValue() {
     checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
-        "def func():\n"
-      + "  s = 'abc'\n"
-      + "  s[0] = 'd'\n"
-      + "  return s\n");
+        "def func():",
+        "  s = 'abc'",
+        "  s[0] = 'd'",
+        "  return s\n");
   }
 
   @Test
   public void testEmptyLiteralGenericIsSetInLaterConcatWorks() {
-    parse("def func():\n"
-        + "  s = {}\n"
-        + "  s['a'] = 'b'\n");
+    parse("def func():",
+        "  s = {}",
+        "  s['a'] = 'b'\n");
   }
 
   @Test
@@ -510,117 +502,117 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testReadOnlyWorksForSimpleBranching() {
-    parse("if 1:\n"
-        + "  v = 'a'\n"
-        + "else:\n"
-        + "  v = 'b'");
+    parse("if 1:",
+        "  v = 'a'",
+        "else:",
+        "  v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksForNestedBranching() {
-    parse("if 1:\n"
-        + "  if 0:\n"
-        + "    v = 'a'\n"
-        + "  else:\n"
-        + "    v = 'b'\n"
-        + "else:\n"
-        + "  if 0:\n"
-        + "    v = 'c'\n"
-        + "  else:\n"
-        + "    v = 'd'\n");
+    parse("if 1:",
+        "  if 0:",
+        "    v = 'a'",
+        "  else:",
+        "    v = 'b'",
+        "else:",
+        "  if 0:",
+        "    v = 'c'",
+        "  else:",
+        "    v = 'd'\n");
   }
 
   @Test
   public void testTypeCheckWorksForSimpleBranching() {
-    checkError("bad variable 'v': int is incompatible with string at /some/file.txt:2:3",
-          "if 1:\n"
-        + "  v = 'a'\n"
-        + "else:\n"
-        + "  v = 1");
+    checkError("bad variable 'v': int is incompatible with string at 2:3",
+        "if 1:",
+        "  v = 'a'",
+        "else:",
+        "  v = 1");
   }
 
   @Test
   public void testTypeCheckWorksForNestedBranching() {
-    checkError("bad variable 'v': int is incompatible with string at /some/file.txt:5:5",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  if 0:\n"
-      + "    v = 'b'\n"
-      + "  else:\n"
-      + "    v = 1\n");
+    checkError("bad variable 'v': int is incompatible with string at 5:5",
+        "if 1:",
+        "  v = 'a'",
+        "else:",
+        "  if 0:",
+        "    v = 'b'",
+        "  else:",
+        "    v = 1\n");
   }
 
   @Test
   public void testTypeCheckWorksForDifferentLevelBranches() {
-    checkError("bad variable 'v': int is incompatible with string at /some/file.txt:2:3",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  if 0:\n"
-      + "    v = 1\n");
+    checkError("bad variable 'v': int is incompatible with string at 2:3",
+        "if 1:",
+        "  v = 'a'",
+        "else:",
+        "  if 0:",
+        "    v = 1\n");
   }
 
   @Test
   public void testReadOnlyWorksForDifferentLevelBranches() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  if 1:\n"
-      + "    v = 'a'\n"
-      + "  v = 'b'\n");
+        "if 1:",
+        "  if 1:",
+        "    v = 'a'",
+        "  v = 'b'\n");
   }
 
   @Test
   public void testReadOnlyWorksWithinSimpleBranch() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  v = 'b'\n"
-      + "  v = 'c'\n");
+        "if 1:",
+        "  v = 'a'",
+        "else:",
+        "  v = 'b'",
+        "  v = 'c'\n");
   }
 
   @Test
   public void testReadOnlyWorksWithinNestedBranch() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  if 1:\n"
-      + "    v = 'b'\n"
-      + "  else:\n"
-      + "    v = 'c'\n"
-      + "    v = 'd'\n");
+        "if 1:",
+      "  v = 'a'",
+      "else:",
+      "  if 1:",
+      "    v = 'b'",
+      "  else:",
+      "    v = 'c'",
+      "    v = 'd'\n");
   }
 
   @Test
   public void testReadOnlyWorksAfterSimpleBranch() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  w = 'a'\n"
-      + "v = 'b'");
+        "if 1:",
+      "  v = 'a'",
+      "else:",
+      "  w = 'a'",
+      "v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksAfterNestedBranch() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  if 1:\n"
-      + "    v = 'a'\n"
-      + "v = 'b'");
+        "if 1:",
+        "  if 1:",
+        "    v = 'a'",
+        "v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksAfterNestedBranch2() {
     checkError("Variable v is read only",
-        "if 1:\n"
-      + "  v = 'a'\n"
-      + "else:\n"
-      + "  if 0:\n"
-      + "    w = 1\n"
-      + "v = 'b'\n");
+        "if 1:",
+        "  v = 'a'",
+        "else:",
+        "  if 0:",
+        "    w = 1",
+        "v = 'b'\n");
   }
 
   @Test
@@ -684,18 +676,16 @@ public class ValidationTests extends AbstractParserTestCase {
 
   @Test
   public void testDollarErrorDoesNotLeak() throws Exception {
-    syntaxEvents.setFailFast(false);
-    String content = Joiner.on("\n").join(
-        "def GenerateMapNames():",
+    setFailFast(false);
+    parseFile("def GenerateMapNames():",
         "  a = 2",
         "  b = [3, 4]",
         "  if a not b:",
         "    print(a)");
-    parseFileForSkylark(content);
-    syntaxEvents.assertContainsEvent("syntax error at 'not': expected :");
+    assertContainsEvent("syntax error at 'not': expected :");
     // Parser uses "$error" symbol for error recovery.
     // It should not be used in error messages.
-    for (Event event : syntaxEvents.collector()) {
+    for (Event event : getEventCollector()) {
       assertThat(event.getMessage()).doesNotContain("$error$");
     }
   }
@@ -782,13 +772,13 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   private void parse(String... lines) {
-    parseFileForSkylark(Joiner.on("\n").join(lines));
-    syntaxEvents.assertNoEvents();
+    parseFile(lines);
+    assertNoEvents();
   }
 
   private void checkError(String errorMsg, String... lines) {
-    syntaxEvents.setFailFast(false);
-    parseFileForSkylark(Joiner.on("\n").join(lines));
-    syntaxEvents.assertContainsEvent(errorMsg);
+    setFailFast(false);
+    parseFile(lines);
+    assertContainsEvent(errorMsg);
   }
 }

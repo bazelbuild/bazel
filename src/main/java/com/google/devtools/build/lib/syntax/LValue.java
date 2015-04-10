@@ -126,7 +126,7 @@ public class LValue implements Serializable {
       return;
     }
     throw new EvalException(loc,
-        "can only assign to variables, not to '" + expr + "'");
+        "can only assign to variables and tuples, not to '" + expr + "'");
   }
 
   @Override

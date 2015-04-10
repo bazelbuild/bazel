@@ -29,13 +29,7 @@ import java.util.Arrays;
  * Tests for {@link MixedModeFunction}.
  */
 @RunWith(JUnit4.class)
-public class MixedModeFunctionTest extends AbstractEvaluationTestCase {
-
-  private Environment singletonEnv(String id, Object value) {
-    Environment env = new Environment();
-    env.update(id, value);
-    return env;
-  }
+public class MixedModeFunctionTest extends EvaluationTestCase {
 
   /**
    * Handy implementation of {@link MixedModeFunction} that just tuples up its args and returns
@@ -56,14 +50,15 @@ public class MixedModeFunctionTest extends AbstractEvaluationTestCase {
   private void checkMixedMode(Function func,
                               String callExpression,
                               String expectedOutput) throws Exception {
-    Environment env = singletonEnv(func.getName(), func);
+    setUp();
+    update(func.getName(), func);
 
     if (expectedOutput.charAt(0) == '[') { // a tuple => expected to pass
       assertEquals(expectedOutput,
-                   eval(callExpression, env).toString());
+                   eval(callExpression).toString());
     } else { // expected to fail with an exception
       try {
-        eval(callExpression, env);
+        eval(callExpression);
         fail();
       } catch (EvalException e) {
         assertThat(e).hasMessage(expectedOutput);

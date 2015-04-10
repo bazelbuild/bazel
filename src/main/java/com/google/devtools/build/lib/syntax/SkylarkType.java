@@ -107,7 +107,7 @@ public abstract class SkylarkType {
 
   /** @return true if any object of this SkylarkType can be cast to that Java class */
   public boolean canBeCastTo(Class<?> type) {
-    return Simple.of(type).includes(this);
+    return SkylarkType.of(type).includes(this);
   }
 
   /** @return true if some non-null objects of that Java class can be cast to this SkylarkType
@@ -498,6 +498,8 @@ public abstract class SkylarkType {
       return LIST;
     } else if (SkylarkNestedSet.class.isAssignableFrom(type)) {
       return SET;
+    } else if (Function.class.isAssignableFrom(type)) {
+      return new SkylarkFunctionType("unknown", TOP);
     } else {
       return Simple.of(type);
     }
@@ -776,11 +778,7 @@ public abstract class SkylarkType {
   /** Build a map of the given key, value types from an Iterable of Map.Entry-s */
   public static <KEY_TYPE, VALUE_TYPE> ImmutableMap<KEY_TYPE, VALUE_TYPE> toMap(
       Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> obj) {
-    ImmutableMap.Builder<KEY_TYPE, VALUE_TYPE> builder = ImmutableMap.builder();
-    for (Map.Entry<KEY_TYPE, VALUE_TYPE> entry : obj) {
-      builder.put(entry.getKey(), entry.getValue());
-    }
-    return builder.build();
+    return ImmutableMap.copyOf(obj);
   }
 
   /**

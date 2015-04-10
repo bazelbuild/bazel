@@ -106,7 +106,7 @@ public class ValidationEnvironment {
   /**
    * Updates the variable type if the new type is "stronger" then the old one.
    * The old and the new vartype has to be compatible, otherwise an EvalException is thrown.
-   * The new type is stronger if the old one doesn't exist or unknown.
+   * The new type is stronger if the old one doesn't exist or is unknown.
    */
   public void update(String varname, SkylarkType newVartype, Location location)
       throws EvalException {
@@ -192,8 +192,9 @@ public class ValidationEnvironment {
       SkylarkType functionType = functions.get(funcName);
       if (functionType != null && functionType != SkylarkType.UNKNOWN) {
         if (!(functionType instanceof SkylarkFunctionType)) {
-          throw new EvalException(loc, (objectType == SkylarkType.GLOBAL ? "" : objectType + ".")
-              + funcName + " is not a function");
+          throw new EvalException(loc, String.format("%s%s is not a function but a(n) %s",
+                  (objectType == SkylarkType.GLOBAL ? "" : objectType + "."),
+                  funcName, functionType));
         }
         return ((SkylarkFunctionType) functionType).getReturnType();
       }
