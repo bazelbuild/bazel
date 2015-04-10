@@ -34,7 +34,7 @@ public @interface SkylarkBuiltin {
 
   Param[] optionalParams() default {};
 
-  boolean hidden() default false;
+  boolean documented() default true;
 
   Class<?> objectType() default Object.class;
 

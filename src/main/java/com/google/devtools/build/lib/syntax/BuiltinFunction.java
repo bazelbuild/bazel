@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -231,7 +232,9 @@ public class BuiltinFunction extends BaseFunction {
     int arguments = signature.getSignature().getShape().getArguments();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
-    Preconditions.checkArgument(innerArgumentCount == parameterTypes.length, getName());
+    Preconditions.checkArgument(innerArgumentCount == parameterTypes.length,
+        "bad argument count for %s: method has %s arguments, type list has %s",
+        getName(), innerArgumentCount, parameterTypes.length);
 
     // TODO(bazel-team): also grab the returnType from the annotations,
     // and check it against method return type
@@ -240,10 +243,12 @@ public class BuiltinFunction extends BaseFunction {
         SkylarkType enforcedType = enforcedArgumentTypes.get(i);
         if (enforcedType != null) {
           Class<?> parameterType = parameterTypes[i];
-          String msg = String.format("fun %s, param %s, enforcedType: %s (%s); parameterType: %s",
-              getName(), signature.getSignature().getNames().get(i),
+          String msg = String.format(
+              "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
+              getName(), signature, signature.getSignature().getNames().get(i),
               enforcedType, enforcedType.getClass(), parameterType);
-          if (enforcedType instanceof SkylarkType.Simple) {
+          if (enforcedType instanceof SkylarkType.Simple
+              || enforcedType instanceof SkylarkFunctionType) {
             Preconditions.checkArgument(
                 enforcedType == SkylarkType.of(parameterType), msg);
             // No need to enforce Simple types on the Skylark side, the JVM will do it for us.

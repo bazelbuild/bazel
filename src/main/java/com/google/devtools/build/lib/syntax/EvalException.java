@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 
 import java.util.logging.Level;
 
-
 /**
  * Exceptions thrown during evaluation of BUILD ASTs or Skylark extensions.
  *
@@ -72,7 +71,7 @@ public class EvalException extends Exception {
       message = "";
     }
     if (cause != null) {
-      message = message + (message.isEmpty() ? "" : "\n") + cause.getMessage();
+      message = message + (message.isEmpty() ? "" : ": ") + cause.getMessage();
     }
     if (message.isEmpty()) {
       LoggingUtil.logToRemote(Level.SEVERE, "Invalid EvalException", cause);

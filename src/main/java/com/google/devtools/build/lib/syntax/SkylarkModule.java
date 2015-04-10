@@ -30,7 +30,7 @@ public @interface SkylarkModule {
 
   String doc();
 
-  boolean hidden() default false;
+  boolean documented() default true;
 
   boolean namespace() default false;
 

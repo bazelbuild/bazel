@@ -300,6 +300,7 @@ public final class BuildConfiguration implements Serializable {
     }
   }
 
+  /** TODO(bazel-team): document this */
   public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
     @Override
     public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
@@ -318,6 +319,7 @@ public final class BuildConfiguration implements Serializable {
     }
   }
 
+  /** TODO(bazel-team): document this */
   public static class RunsPerTestConverter extends PerLabelOptions.PerLabelOptionsConverter {
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
@@ -1640,7 +1642,7 @@ public final class BuildConfiguration implements Serializable {
   /**
    * Returns a configuration fragment instances of the given class.
    */
-  @SkylarkCallable(name = "fragment", hidden = true,
+  @SkylarkCallable(name = "fragment", documented = false,
       doc = "Returns a configuration fragment using the key.")
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));

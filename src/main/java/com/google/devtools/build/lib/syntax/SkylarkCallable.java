@@ -26,9 +26,9 @@ import java.lang.annotation.Target;
 public @interface SkylarkCallable {
   String name() default "";
 
-  String doc();
+  String doc() default ""; // only allowed to be empty if documented() is false.
 
-  boolean hidden() default false;
+  boolean documented() default true;
 
   boolean structField() default false;
 

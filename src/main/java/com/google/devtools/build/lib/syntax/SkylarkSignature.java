@@ -46,7 +46,7 @@ public @interface SkylarkSignature {
 
   Param[] extraKeywords() default {};
 
-  boolean undocumented() default false;
+  boolean documented() default true;
 
   Class<?> objectType() default Object.class;
 

@@ -114,7 +114,7 @@ public class SkylarkDocumentationProcessor {
     SkylarkModuleDoc topLevelModule = modules.remove(getTopLevelModule().name());
     generateModuleDoc(topLevelModule, sb);
     for (SkylarkModuleDoc module : modules.values()) {
-      if (!module.getAnnotation().hidden()) {
+      if (module.getAnnotation().documented()) {
         sb.append("<hr>");
         generateModuleDoc(module, sb);
       }
@@ -162,7 +162,7 @@ public class SkylarkDocumentationProcessor {
   private void generateBuiltinItemDoc(
       String moduleId, SkylarkBuiltinMethod method, StringBuilder sb) {
     SkylarkBuiltin annotation = method.annotation;
-    if (annotation.hidden()) {
+    if (!annotation.documented()) {
       return;
     }
     sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n",
@@ -194,8 +194,12 @@ public class SkylarkDocumentationProcessor {
 
   private void generateDirectJavaMethodDoc(String objectName, String methodName,
       Method method, SkylarkCallable annotation, StringBuilder sb) {
-    if (annotation.hidden()) {
+    if (!annotation.documented()) {
       return;
+    }
+    if (annotation.doc().isEmpty()) {
+      throw new RuntimeException(String.format(
+          "empty SkylarkCallable.doc() for object %s, method %s", objectName, methodName));
     }
 
     sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n%s\n",
@@ -325,7 +329,7 @@ public class SkylarkDocumentationProcessor {
     for (SkylarkModuleDoc doc : collectBuiltinModules().values()) {
       if (doc.getAnnotation() == getTopLevelModule()) {
         for (Map.Entry<String, SkylarkBuiltinMethod> entry : doc.getBuiltinMethods().entrySet()) {
-          if (!entry.getValue().annotation.hidden()) {
+          if (entry.getValue().annotation.documented()) {
             modules.put(entry.getKey(),
                 DocgenConsts.toCommandLineFormat(entry.getValue().annotation.doc()));
           }

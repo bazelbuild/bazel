@@ -416,7 +416,7 @@ public class MethodLibrary {
       };
 
   // slice operator
-  @SkylarkBuiltin(name = "$slice", hidden = true,
+  @SkylarkBuiltin(name = "$slice", documented = false,
       doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.")
   private static Function slice = new MixedModeFunction("$slice",
       ImmutableList.of("this", "start", "end"), 3, false) {
@@ -446,7 +446,7 @@ public class MethodLibrary {
   };
 
   // supported list methods
-  @SkylarkBuiltin(name = "append", hidden = true,
+  @SkylarkBuiltin(name = "append", documented = false,
       doc = "Adds an item to the end of the list.")
   private static Function append = new MixedModeFunction("append",
       ImmutableList.of("this", "x"), 2, false) {
@@ -459,7 +459,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "extend", hidden = true,
+  @SkylarkBuiltin(name = "extend", documented = false,
       doc = "Adds all items to the end of the list.")
   private static Function extend = new MixedModeFunction("extend",
           ImmutableList.of("this", "x"), 2, false) {
@@ -474,7 +474,7 @@ public class MethodLibrary {
   };
 
   // dictionary access operator
-  @SkylarkBuiltin(name = "$index", hidden = true,
+  @SkylarkBuiltin(name = "$index", documented = false,
       doc = "Returns the nth element of a list or string, "
           + "or looks up a value in a dictionary.")
   private static Function indexOperator = new MixedModeFunction("$index",
@@ -608,7 +608,7 @@ public class MethodLibrary {
   }
 
   // unary minus
-  @SkylarkBuiltin(name = "-", hidden = true, doc = "Unary minus operator.")
+  @SkylarkBuiltin(name = "-", documented = false, doc = "Unary minus operator.")
   private static Function minus = new MixedModeFunction("-", ImmutableList.of("this"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws ConversionException {

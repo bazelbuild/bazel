@@ -407,7 +407,7 @@ public final class SkylarkRuleContext {
     return ruleContext.getLabel().toString();
   }
 
-  @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", hidden = true)
+  @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", documented = false)
   public List<String> tokenize(String optionString) throws FuncallException {
     List<String> options = new ArrayList<>();
     try {
@@ -421,7 +421,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(doc =
       "Expands all references to labels embedded within a string for all files using a mapping "
     + "from definition labels (i.e. the label in the output type attribute) to files. Deprecated.",
-      hidden = true)
+      documented = false)
   public String expand(@Nullable String expression,
       List<Artifact> artifacts, Label labelResolver) throws FuncallException {
     try {
@@ -446,7 +446,7 @@ public final class SkylarkRuleContext {
   }
 
   // Kept for compatibility with old code.
-  @SkylarkCallable(hidden = true, doc = "")
+  @SkylarkCallable(documented = false)
   public Artifact newFile(Root root, String filename) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : filename.split("/")) {
@@ -465,19 +465,19 @@ public final class SkylarkRuleContext {
   }
 
   // Kept for compatibility with old code.
-  @SkylarkCallable(hidden = true, doc = "")
+  @SkylarkCallable(documented = false)
   public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 
-  @SkylarkCallable(doc = "", hidden = true)
+  @SkylarkCallable(documented = false)
   public NestedSet<Artifact> middleMan(String attribute) {
     return AnalysisUtils.getMiddlemanFor(ruleContext, attribute);
   }
 
-  @SkylarkCallable(doc = "", hidden = true)
+  @SkylarkCallable(documented = false)
   public boolean checkPlaceholders(String template, List<String> allowedPlaceholders) {
     List<String> actualPlaceHolders = new LinkedList<>();
     Set<String> allowedPlaceholderSet = ImmutableSet.copyOf(allowedPlaceholders);
@@ -527,14 +527,14 @@ public final class SkylarkRuleContext {
     return executableRunfilesMap.get(executable);
   }
 
-  @SkylarkCallable(name = "info_file", structField = true, hidden = true,
+  @SkylarkCallable(name = "info_file", structField = true, documented = false,
       doc = "Returns the file that is used to hold the non-volatile workspace status for the " 
           + "current build request.")
   public Artifact getStableWorkspaceStatus() {
     return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();
   }
 
-  @SkylarkCallable(name = "version_file", structField = true, hidden = true,
+  @SkylarkCallable(name = "version_file", structField = true, documented = false,
       doc = "Returns the file that is used to hold the volatile workspace status for the "
           + "current build request.")
   public Artifact getVolatileWorkspaceStatus() {
