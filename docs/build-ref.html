@@ -69,6 +69,10 @@ layout: default
   subdirectories beneath it, except those which themselves contain a BUILD
   file.
 </p>
+<p>
+  For example, in the following directory tree:
+</p>
+
 <pre>
 src/my/app/BUILD
 src/my/app/app.cc
@@ -258,14 +262,10 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-    //my/app/main:app_binary
+//my/app/main:app_binary
 </pre>
 
 <p>
-
-  (Don't let the similarity with Piper filespecs confuse you; both
-  start with a leading <code>//</code> but they are quite different
-  things.)
 
   Each label has two parts, a package name (<code>my/app/main</code>)
   and a target name (<code>app_binary</code>).  Every label uniquely
@@ -276,8 +276,8 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-    //my/app
-    //my/app:app
+//my/app
+//my/app:app
 </pre>
 
 <p>
@@ -299,10 +299,10 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-   //my/app:app
-   //my/app
-   :app
-   app
+//my/app:app
+//my/app
+:app
+app
 </pre>
 
 <p>
@@ -318,8 +318,8 @@ src/my/app/tests/test.cc
 
 
 <pre>
-   generate.cc
-   testdata/input.txt
+generate.cc
+testdata/input.txt
 </pre>
 
 <p>
@@ -341,8 +341,8 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-   <span style="text-decoration: line-through">testdata/testdepot.zip</span>                    # Wrong: testdata is a different package.
-   //my/app/testdata:testdepot.zip   # Right.
+<span class="discouraged">testdata/testdepot.zip</span>  # Wrong: testdata is a different package.
+//my/app/testdata:testdepot.zip   # Right.
 </pre>
 
 <p>
@@ -423,11 +423,16 @@ src/my/app/tests/test.cc
 </p>
 
 <p>
-  The empty string is also a valid package name (e.g., //:foo). Generally
-  projects should attempt to use more descriptively named packages, though.
+  For a language with a directory structure that is significant
+  to its module system (e.g. Java), it is important to choose directory names
+  that are valid identifiers in the language.
 </p>
 
-
+<p>
+  Although Bazel allows a package at the build root (e.g. <code>//:foo</code>), this
+  is not advised and projects should attempt to use more descriptively named
+  packages.
+</p>
 <p>
   Package names may not contain the substring <code>//</code>, nor
   end with a slash.
@@ -670,44 +675,43 @@ src/my/app/tests/test.cc
   is defined as for Python.
 </p>
 
-<pre style='font-size: 90%; font-style: bold;'>
-    file_input ::= (simple_stmt? '\n')*
+<pre>
+file_input ::= (simple_stmt? '\n')*
 
-    simple_stmt ::= small_stmt (';' small_stmt)* ';'?
+simple_stmt ::= small_stmt (';' small_stmt)* ';'?
 
-    small_stmt ::= expr
-                 | assign_stmt
+small_stmt ::= expr
+             | assign_stmt
 
-    assign_stmt ::= IDENTIFIER '=' expr
+assign_stmt ::= IDENTIFIER '=' expr
 
-    expr ::= INTEGER
-           | STRING+
-           | IDENTIFIER
-           | IDENTIFIER '(' arg_list? ')'
-           | expr '.' IDENTIFIER
-           | expr '.' IDENTIFIER '(' arg_list? ')'
-           | '[' expr_list? ']'
-           | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
-           | '(' expr_list? ')'
-           | '{' dict_entry_list? '}'
-           | expr '+' expr
-           | expr '-' expr
-           | expr '%' expr
-           | '-' expr
-           | expr '[' expr? ':' expr? ']'
-           | expr '[' expr ']'
+expr ::= INTEGER
+       | STRING+
+       | IDENTIFIER
+       | IDENTIFIER '(' arg_list? ')'
+       | expr '.' IDENTIFIER
+       | expr '.' IDENTIFIER '(' arg_list? ')'
+       | '[' expr_list? ']'
+       | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
+       | '(' expr_list? ')'
+       | '{' dict_entry_list? '}'
+       | expr '+' expr
+       | expr '-' expr
+       | expr '%' expr
+       | '-' expr
+       | expr '[' expr? ':' expr? ']'
+       | expr '[' expr ']'
 
-    expr_list ::= (expr ',')* expr ','?
+expr_list ::= (expr ',')* expr ','?
 
-    dict_entry_list ::= (dict_entry ',')* dict_entry ','?
+dict_entry_list ::= (dict_entry ',')* dict_entry ','?
 
-    dict_entry ::= expr ':' expr
+dict_entry ::= expr ':' expr
 
-    arg_list ::= (arg ',')* arg ','?
+arg_list ::= (arg ',')* arg ','?
 
-    arg ::= IDENTIFIER '=' expr
-          | expr
-
+arg ::= IDENTIFIER '=' expr
+      | expr
 </pre>
 
 <p>
@@ -721,10 +725,6 @@ src/my/app/tests/test.cc
     tuple</code> forms are supported.  Only the <code>%s</code>
     and <code>%d</code> format specifiers may be
     used; <code>%(var)s</code> is illegal.</li>
-
-  <li>the <code>dict</code> datatype is absent.  The <code>{key:value,
-    ...}</code> literal syntax exists, but unlike Python, it defines a
-    list of tuples <code>[(key, value), ...]</code>.</li>
 
 </ul>
 

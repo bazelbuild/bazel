@@ -2,7 +2,6 @@
 layout: default
 ---
 
-
 What is Bazel?
 -------------
 
@@ -67,9 +66,10 @@ Why doesn't Google use ...?
   Gradle's, letting Bazel understand exactly what each action does.
   This allows for more parallelism and better reproducibility.
 
-* Buck, Pants: Both tools were created by ex-Googlers at Twitter and
-  Facebook. They have been modeled on Bazel, but their feature set
-  has not caught up to Bazel, so it's not an alternative for us.
+* Pants, Buck: Both tools were created and developed by ex-Googlers at
+  Twitter and Foursquare, and Facebook respectively. They have been modeled
+  after Bazel, but their feature sets are different, so they aren't viable
+  alternatives for us.
 
 
 What is Bazel's origin?
@@ -146,8 +146,8 @@ Why would I want to use Bazel?
   the files that need to be recompiled. Similarly, it can skip
   re-running tests it knows haven't changed.
 
-* Bazel produces deterministic results. This eliminates skews
-  between incremental vs clean builds, laptop vs CI system, etc.
+* Bazel produces deterministic results. This eliminates skew
+  between incremental and clean builds, laptop and CI system, etc.
 
 * Bazel can build different client and server apps with the same tool
   from the same workspace. For example, you can change a client/server
@@ -161,7 +161,7 @@ Can I see examples?
 
 Yes, for a simple example, see
 
-  <https://github.com/google/bazel/blob/master/base_workspace/examples/cpp/BUILD>
+  <https://github.com/google/bazel/blob/master/examples/cpp/BUILD>
 
 The bazel source code itself provides more complex examples, eg.
 
@@ -191,7 +191,7 @@ What about Windows?
 -------------------
 
 We have experimented with a Windows port
-[using MinGW/MSYS](windows.html), but have no plans to invest in this
+[using MinGW/MSYS](docs/windows.html), but have no plans to invest in this
 port right now. Due to its Unix heritage, porting Bazel is significant
 work. For example, Bazel uses symlinks extensively, which has varying
 levels of support across Windows versions.
@@ -239,11 +239,11 @@ should also hold for our open-source codebase.
 How can I start using Bazel?
 ----------------------------
 
-See our [getting started document](getting-started.html).
+See our [getting started document](docs/getting-started.html).
 
 
-Why do I need to have a tools/ directory in my source tree?
-----------------------------------------------------
+Why do I need to have a tools/ directory in my package path?
+------------------------------------------------------------
 
 Your project never works in isolation. Typically, it builds with a
 certain version of the JDK/C++ compiler, with a certain test driver
@@ -259,9 +259,9 @@ the configuration data for this (where is the JDK, where is the C++
 compiler?) still needs to be somewhere, and that place is also the
 `tools/` directory.
 
-Bazel comes with a `base_workspace/` directory, containing a minimal set
-of configuration files, suitable for running toolchains from standard
-system directories, e.g., `/usr/bin/`.
+Bazel's `compile.sh` script builds a minimal set of configuration files,
+suitable for running toolchains from standard system directories, e.g.,
+`/usr/bin/`.
 
 
 Doesn't Docker solve the reproducibility problems?
@@ -345,7 +345,18 @@ No, but we should. Stay tuned.
 I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
 --------------------------------------------------------------
 
-We currently have no IDE integration API.
+We currently have no IDE integration API as such but the iOS rules generate Xcode
+projects based on the bazel BUILD targets (see below).
+
+How does Bazel interact with Xcode?
+-----------------------------------
+
+Bazel generates Xcode projects that you can use to work with any inputs and
+dependencies for the target, build apps from Xcode directly and deploy to the
+simulator and devices. To use this, open the project file whose path is printed
+by Bazel after building any iOS target. There is no support to invoke Bazel from
+Xcode (for example to re-generate generated sources such as Objc files based on
+protos), nor to open Xcode from Bazel directly.
 
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
@@ -356,7 +367,7 @@ fails, and this should be enough for basic CI integration.  Since
 Bazel does not need clean builds for correctness, the CI system can
 be configured to not clean before starting a build/test run.
 
-Further details on exit codes are in the [User Manual](bazel-user-manual.html).
+Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
 
 What future features can we expect in Bazel?
 --------------------------------------------
@@ -375,8 +386,8 @@ It is possible to write Python rules as extensions (see below). See
 the following files for an example of generating self-contained zip
 files for python:
 
-  <https://github.com/google/bazel/blob/master/base_workspace/tools/build_rules/py_rules.bzl>\\
-  <https://github.com/google/bazel/tree/master/base_workspace/examples/py>
+  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
+  <https://github.com/google/bazel/tree/master/examples/py>
 
 We are working on opening up a subset of our internal Python rules, so
 they can be used as helper scripts as part of a build.
@@ -385,6 +396,18 @@ We currently have no plans to provide packaging up of self-contained
 Python binaries.
 
 
+What about Go?
+--------------
+
+If your codebase is 100% Go, the `go` tool has excellent support for
+building and testing, and Bazel will not bring you much benefit.
+
+The server code written in Go at Google is built with Bazel. However,
+the rules that accomplish this are rather complex due to their
+interactions with our C++ libraries, and are incompatible with the
+conventions of the `go` tool.  For this reason, we'd rather not open
+them up in their current form.
+
 
 Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 -----------------------------------------------
@@ -392,7 +415,7 @@ Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 We have an extension mechanism that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see [here](skylark/index.html).
+For documentation: see [here](docs/skylark/index.html).
 
 At present, the extension mechanism is experimental though.
 
@@ -401,15 +424,14 @@ I need more functionality; can I add rules that are compiled into Bazel?
 ---------------------------------------------
 
 If our extension mechanism is insufficient for your use case, email
-the mailing list for advice: bazel-discuss@googlegroups.com.
+the mailing list for advice: <bazel-discuss@googlegroups.com>.
 
 
 
 Can I contribute to the Bazel code base?
 ----------------------------------------
 
-You can propose patches to Bazel. You can find all the details in the
-[contribution guidelines](contributing.html).
+See our [contribution guidelines](contributing.html).
 
 
 Why isn't all development done in the open?
@@ -424,14 +446,14 @@ for more details.
 How do I contact the team?
 --------------------------
 
-We are reachable at bazel-discuss@googlegroups.com.
+We are reachable at <bazel-discuss@googlegroups.com>.
 
 
 Where do I report bugs?
 -----------------------
 
-Send e-mail to bazel-discuss@googlegroups.com, or file a bug at
-[on github](https://github.com/google/bazel/issues).
+Send e-mail to <bazel-discuss@googlegroups.com> or file a bug
+[on GitHub](https://github.com/google/bazel/issues).
 
 
 

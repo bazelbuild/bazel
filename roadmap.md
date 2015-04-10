@@ -29,7 +29,7 @@ repositories:
     containing only the Bazel code.
 
 We anticipate making the external repository *primary* in the future, that is,
-code from Google and non-Google contributors will committed and tested in the
+code from Google and non-Google contributors will be committed and tested in the
 external repository first, then imported into the internal repository. For
 the alpha and beta releases, however, the internal repository will be primary.
 Changes to Bazel code will be frequently pushed from the internal to
@@ -37,7 +37,7 @@ the external repository.
 
 ## Near-term Plans
 
-### Alpha release (2015-03)
+### <a name="alpha"></a>Alpha release (2015-03)
 
 This release is intended to
 
@@ -70,7 +70,7 @@ The following features/capabilities will be available in the alpha:
 *   Support for referencing remote source repositories via HTTP
 *   Support for extensibility via an interpreted Python subset (Skylark)
 
-### Beta release (target date: 2015-06)
+### <a name="beta"></a>Beta release (target date: 2015-06)
 
 The beta release will add support for additional languages and platform and
 various other fully supported features. In particular, the following
@@ -97,5 +97,3 @@ features/capabilities will be available:
 *   Support for the Go language
 *   Support for Javascript
 *   Android Studio interoperability
-
-

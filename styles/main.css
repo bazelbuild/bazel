@@ -51,6 +51,7 @@ body {
   color: #f7ffee;
 }
 #download a {
+  margin-right: 32px;
   color: #f7ffee;
   text-decoration: underline;
 }
@@ -69,7 +70,6 @@ body {
   border: 1px solid #fff;
 }
 #main h1, h2, h3, h4 {
-  font-weight: 200;
   color: #000;
 }
 #main p, li, td, th {
@@ -98,16 +98,21 @@ body {
   margin: 64px auto 0 auto;
   padding: 0px 16px 0 16px;
   text-align: right;
-  color: #336600;
+  color: #360;
 }
 code, var, pre {
   font-size: 13px;
   color: #488f26;
+  background-color: #eee;
+  border-radius: 6px;
+}
+p > code, li > code {
+  padding: 0.25em;
 }
 pre {
   padding: 16px;
   line-height: 1.5;
-  background-color: #eeeeee;
+  background-color: #eee;
   border: 1px solid #e7f0d7;
 }
 a, a:visited {
@@ -121,4 +126,7 @@ td, th {
   padding: 2px 4px 2px 4px;
   text-align: left;
   border: 1px solid #eeeeee;
+}
+.discouraged, .deprecated {
+  text-decoration: line-through;
 }

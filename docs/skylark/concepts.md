@@ -2,11 +2,12 @@
 layout: default
 ---
 
-Concepts
-========
+# Concepts
 
-Loading a Skylark module
-------------------------
+Skylark is the code name of the extension mechanism. It lets you write custom
+build rules as well as compose existing ones into [macros](macros.html).
+
+## Loading a Skylark module
 
 Use the `load` statement to import a symbol from a Skylark module.
 
@@ -26,13 +27,12 @@ to make a Skylark file visible.
 
 Symbols starting with `_` are private and cannot be loaded from other files.
 
-Macros and rules
-----------------
+## Macros and rules
 
 A [macro](macros.html) in Skylark is a function that instantiates rules. The
 function is evaluated as soon as the BUILD file is read. Bazel has little
-information about macros: If your macro generates a genrule, Bazel will behave
-as if you wrote the genrule. As a result, `bazel query` will only list the
+information about macros: if your macro generates a `genrule`, Bazel will behave
+as if you wrote the `genrule`. As a result, `bazel query` will only list the
 generated genrule.
 
 A [rule](rules.html) in Skylark is more powerful than a macro, as it can access
@@ -42,8 +42,7 @@ similar way as a native rule.
 
 If a macro becomes complex, it is often a good idea to make it a rule.
 
-Evaluation model
-----------------
+## Evaluation model
 
 A build consists of three phases.
 
@@ -61,8 +60,7 @@ A build consists of three phases.
   required. If a file is missing or if a command fails to generate one output,
   the build fails. Tests are run during this phase, as they are actions.
 
-Language
---------
+## Language
 
 Skylark is a superset of the core build language and its syntax is a subset of
 Python. The following constructs have been added to the core build language:
@@ -104,7 +102,6 @@ The following Python features are not supported:
 * `while`, `yield`, `break`, `continue`
 * `lambda`
 * `try`, `raise`, `except`, `finally` (see `fail` for fatal errors).
-* `*args`, `**kwargs`
 * most builtin functions, most methods
 
 
