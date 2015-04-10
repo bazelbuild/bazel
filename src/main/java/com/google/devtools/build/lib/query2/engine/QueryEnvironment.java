@@ -271,6 +271,11 @@ public interface QueryEnvironment<T> {
     String getLabel(T target);
 
     /**
+     * Returns the label of the target's package as a string, e.g. {@code //some/package}
+     */
+    String getPackage(T target);
+
+    /**
      * Returns whether the given target is a rule.
      */
     boolean isRule(T target);
@@ -331,6 +336,12 @@ public interface QueryEnvironment<T> {
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */
     Iterable<String> getAttrAsString(T target, String attrName);
+
+    /**
+     * Returns the set of package specifications the given target is visible from, represented as
+     * {@link QueryVisibility}s.
+     */
+    Set<QueryVisibility<T>> getVisibility(T from) throws QueryException;
   }
 
   /** List of the default query functions. */
@@ -346,6 +357,7 @@ public interface QueryEnvironment<T> {
           new SomePathFunction(),
           new TestsFunction(),
           new DepsFunction(),
-          new RdepsFunction()
+          new RdepsFunction(),
+          new VisibleFunction()
           );
 }

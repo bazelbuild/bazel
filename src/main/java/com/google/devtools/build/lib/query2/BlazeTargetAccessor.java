@@ -18,10 +18,16 @@ import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
+import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -29,10 +35,12 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Implementation of {@link TargetAccessor&lt;Target&gt;} that uses an
@@ -54,6 +62,11 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
   @Override
   public String getLabel(Target target) {
     return target.getLabel().toString();
+  }
+
+  @Override
+  public String getPackage(Target target) {
+    return target.getPackage().getNameFragment().toString();
   }
 
   @Override
@@ -150,5 +163,56 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
   @Override
   public boolean isTestSuite(Target target) {
     return TargetUtils.isTestSuiteRule(target);
+  }
+
+  @Override
+  public Set<QueryVisibility<Target>> getVisibility(Target target) throws QueryException {
+    ImmutableSet.Builder<QueryVisibility<Target>> result = ImmutableSet.builder();
+    result.add(QueryVisibility.samePackage(target, this));
+    convertVisibility(result, target);
+    return result.build();
+  }
+
+  // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
+  private void convertVisibility(
+      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
+      Target target)
+      throws QueryException {
+   RuleVisibility ruleVisibility = target.getVisibility();
+   if (ruleVisibility instanceof ConstantRuleVisibility) {
+     if (((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()) {
+       packageSpecifications.add(QueryVisibility.<Target>everything());
+     }
+     return;
+   } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
+     PackageGroupsRuleVisibility packageGroupsVisibility =
+         (PackageGroupsRuleVisibility) ruleVisibility;
+     for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
+       try {
+         convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(groupLabel),
+             packageSpecifications);
+       } catch (TargetNotFoundException e) {
+         throw new QueryException(e.getMessage());
+       }
+     }
+     for (PackageSpecification spec : packageGroupsVisibility.getDirectPackages()) {
+       packageSpecifications.add(new BlazeQueryVisibility(spec));
+     }
+     return;
+   } else {
+     throw new IllegalStateException("unknown visibility: " + ruleVisibility.getClass());
+   }
+  }
+
+  private void convertGroupVisibility(
+      PackageGroup group, ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications)
+      throws QueryException, TargetNotFoundException {
+    for (Label include : group.getIncludes()) {
+      convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(include),
+          packageSpecifications);
+    }
+    for (PackageSpecification spec : group.getPackageSpecifications()) {
+      packageSpecifications.add(new BlazeQueryVisibility(spec));
+    }
   }
 }
