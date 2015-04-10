@@ -82,14 +82,14 @@ public class SkylarkSignatureProcessor {
         paramList.add(getParameter(name, starParam, enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/true, /*starStar=*/false, /*defaultValue=*/null));
       }
+      for (Param param : annotation.mandatoryNamedOnly()) {
+        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
+                /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
+      }
       for (Param param : annotation.optionalNamedOnly()) {
         paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/false,
                 /*defaultValue=*/getDefaultValue(param, defaultValuesIterator)));
-      }
-      for (Param param : annotation.mandatoryNamedOnly()) {
-        paramList.add(getParameter(name, param, enforcedTypes, doc, undocumented,
-                /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
       }
       if (annotation.extraKeywords().length > 0) {
         Preconditions.checkArgument(annotation.extraKeywords().length == 1);
@@ -190,13 +190,11 @@ public class SkylarkSignatureProcessor {
       return Environment.NONE;
     } else {
       try {
-        // TODO(bazel-team): when we have Evaluation, remove the throw and uncomment the return.
-        throw new RuntimeException("Not Implemented Yet!");
-        // return new Evaluation ().eval(param.defaultValue());
+        return EvaluationContext.SKYLARK_INITIALIZATION.evalExpression(param.defaultValue());
       } catch (Exception e) {
         throw new RuntimeException(String.format(
-            "Exception while processing @SkylarkSignature.Param %s, default value %s: %s",
-            param.name(), param.defaultValue(), e.getMessage()), e);
+            "Exception while processing @SkylarkSignature.Param %s, default value %s",
+            param.name(), param.defaultValue()), e);
       }
     }
   }

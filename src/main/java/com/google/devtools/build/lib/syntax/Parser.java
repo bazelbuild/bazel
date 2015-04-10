@@ -212,7 +212,13 @@ class Parser {
   @VisibleForTesting
   public static Statement parseStatement(
       Lexer lexer, EventHandler eventHandler) {
-    return new Parser(lexer, eventHandler, null).parseSmallStatement();
+    Parser parser = new Parser(lexer, eventHandler, null);
+    Statement result = parser.parseSmallStatement();
+    while (parser.token.kind == TokenKind.NEWLINE) {
+      parser.nextToken();
+    }
+    parser.expect(TokenKind.EOF);
+    return result;
   }
 
   /**

@@ -164,7 +164,8 @@ public final class Lexer {
 
     @Override
     public PathFragment getPath() {
-      return lineNumberTable.getPath(getStartOffset()).asFragment();
+      Path path = lineNumberTable.getPath(getStartOffset());
+      return path != null ? path.asFragment() : null;
     }
 
     @Override

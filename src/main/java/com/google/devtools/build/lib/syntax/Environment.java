@@ -135,14 +135,18 @@ public class Environment {
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
   }
 
+  public EventHandler getEventHandler() {
+    return eventHandler;
+  }
+
   // Sets up the global environment
   private void setupGlobal() {
     // In Python 2.x, True and False are global values and can be redefined by the user.
     // In Python 3.x, they are keywords. We implement them as values, for the sake of
     // simplicity. We define them as Boolean objects.
-    env.put("False", FALSE);
-    env.put("True", TRUE);
-    env.put("None", NONE);
+    update("False", FALSE);
+    update("True", TRUE);
+    update("None", NONE);
   }
 
   public boolean isSkylarkEnabled() {

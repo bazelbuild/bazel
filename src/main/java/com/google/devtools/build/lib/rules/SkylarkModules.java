@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvaluationContext;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -38,7 +39,7 @@ import java.util.Map;
 /**
  * A class to handle all Skylark modules, to create and setup Validation and regular Environments.
  */
-// TODO(bazel-team): move that to syntax/ and
+// TODO(bazel-team): move that to the syntax package and
 // let each extension register itself in a static { } statement.
 public class SkylarkModules {
 
@@ -136,6 +137,11 @@ public class SkylarkModules {
     }
     global.putAll(extraObjects);
     return new ValidationEnvironment(CollectionUtils.toImmutable(builtIn));
+  }
+
+  public static EvaluationContext newEvaluationContext(EventHandler eventHandler) {
+    return EvaluationContext.newSkylarkContext(
+        getNewEnvironment(eventHandler), getValidationEnvironment());
   }
 
   /**
