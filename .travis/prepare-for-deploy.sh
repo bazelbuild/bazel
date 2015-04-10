@@ -32,11 +32,11 @@ function create_zip() {
   cp output/bazel $bazel_dir
   sha256sum $bazel_dir/bazel > $bazel_dir/sha256.txt
   cat > $bazel_dir/README.md <<EOF
-Build ID: $TRAVIS_BUILD_ID
-Build Number: $TRAVIS_BUILD_NUMBER
-Job ID: $TRAVIS_JOB_ID
-Job Number: $TRAVIS_JOB_NUMBER
-From repo $TRAVIS_REPO_SLUG at commit $git_hash.
+Bazel binary built by Travis CI
+-------------------------------
+
+* [Build log](https://travis-ci.org/google/bazel/builds/$TRAVIS_BUILD_ID
+* [Commit](https://github.com/$TRAVIS_REPO_SLUG/commit/$git_hash)
 EOF
   bazel_zip=bazel-${git_hash}.zip
   echo "Creating $bazel_zip"

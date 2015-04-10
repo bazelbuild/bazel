@@ -39,3 +39,5 @@ Find more background about Bazel in our [FAQ](docs/FAQ.md)
   * Our [governance plan](http://bazel.io/governance.html)
   * Future plans are in the [roadmap](http://bazel.io/roadmap.html)
   * For each feature, which level of [support](http://bazel.io/support.html) to expect.
+
+[![Build Status](https://travis-ci.org/google/bazel.svg?branch=master)](https://travis-ci.org/google/bazel)
