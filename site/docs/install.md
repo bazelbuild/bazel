@@ -136,13 +136,13 @@ You can also add this command to your `~/.bashrc` file.
 
 ## Getting bash completion
 
-Bazel come with a bash completion script. To install it:
+Bazel comes with a bash completion script. To install it:
 
 1. Build it with Bazel: `bazel build //scripts:bazel-complete.bash`.
 2. Copy the script `bazel-bin/scripts/bazel-complete.bash` to your
    completion folder (`/etc/bash_completion.d` directory under Ubuntu).
    If you don't have a completion folder, you can copy it wherever suits
    you and simply insert `source /path/to/bazel-complete.bash` in your
-   `~/.bashrc` file (under OS X, put it in your ~/.bash_profile file).
+   `~/.bashrc` file (under OS X, put it in your `~/.bash_profile` file).
 
 For more information, see [Getting started](getting-started.html).
