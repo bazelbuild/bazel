@@ -1273,6 +1273,27 @@ genrule(
   3 characters long due to the <code>//</code> and <code>:</code>).
 </p>
 
+<h3 id="visible">Rule visibility filtering: visible</h3>
+<pre>expr ::= visible(<var>expr</var>, <var>expr</var>) </pre>
+<p>
+  The <code>visible(<var>predicate</var>, <var>input</var>)</code> operator
+  applies a filter to a set of targets, and discards targets without the
+  required visibility.
+</p>
+
+<p>
+  The first argument, <var>predicate</var>, is a set of targets that all targets
+  in the output must be visible to. A <var>visible</var> expression
+  evaluates to the set containing all targets <var>x</var> such that <var>x</var>
+  is a member of the set <var>input</var>, and for all targets <var>y</var> in
+  <var>predicate</var> <var>x</var> is visible to <var>y</var>. For example:
+</p>
+<pre>visible(//foo, //bar:*)</pre>
+<p>
+  will select all targets in the package <code>//bar</code> that <code>//foo</code>
+  can depend on without violating visibility restrictions.
+</p>
+
 <h3 id="labels">Evaluation of rule attributes of type label: labels</h3>
 <pre>expr ::= labels(<var>word</var>, <var>expr</var>) </pre>
 <p>
