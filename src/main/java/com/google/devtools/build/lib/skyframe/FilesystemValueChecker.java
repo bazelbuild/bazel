@@ -216,7 +216,8 @@ class FilesystemValueChecker {
           try {
             FileValue newData = ActionMetadataHandler.fileValueFromArtifact(artifact, stat, tsgm);
             if (!newData.equals(lastKnownData)) {
-              updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
+              updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1,
+                  lastKnownData.isSymlink(), newData.isSymlink());
               modifiedOutputFilesCounter.getAndIncrement();
               dirtyKeys.add(key);
             }
@@ -230,8 +231,11 @@ class FilesystemValueChecker {
     };
   }
 
-  private void updateIntraBuildModifiedCounter(long time) throws IOException {
-    if (lastExecutionTimeRange != null && lastExecutionTimeRange.contains(time)) {
+  private void updateIntraBuildModifiedCounter(long time, boolean oldWasSymlink,
+      boolean newIsSymlink) throws IOException {
+    if (lastExecutionTimeRange != null
+        && lastExecutionTimeRange.contains(time)
+        && !(oldWasSymlink && newIsSymlink)) {
       modifiedOutputFilesIntraBuildCounter.incrementAndGet();
     }
   }
@@ -276,7 +280,7 @@ class FilesystemValueChecker {
         if (!fileValue.equals(lastKnownData)) {
           updateIntraBuildModifiedCounter(fileValue.exists()
               ? fileValue.realRootedPath().asPath().getLastModifiedTime()
-              : -1);
+              : -1, lastKnownData.isSymlink(), fileValue.isSymlink());
           modifiedOutputFilesCounter.getAndIncrement();
           isDirty = true;
         }
