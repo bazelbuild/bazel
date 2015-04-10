@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.ProcMeminfoParser;
+import com.google.devtools.build.lib.util.GetResources;
 
 import java.io.File;
 import java.io.IOException;
@@ -126,8 +127,10 @@ public final class LocalHostCapacity {
   static boolean isDisabled;
 
   // If /proc/* information is not available, assume 3000 MB and 2 CPUs.
-  private static ResourceSet DEFAULT_RESOURCES = ResourceSet.create(3000.0, 2.0, 1.0,
-      Integer.MAX_VALUE);
+  private static GetResources localResources = new GetResources();
+  private static long memoryAvailable = localResources.MemoryAvailable();
+  private static int numProcessors = localResources.NumProcessors();
+  private static ResourceSet DEFAULT_RESOURCES = ResourceSet.create(memoryAvailable, numProcessors, 1.0, Integer.MAX_VALUE);
 
   private LocalHostCapacity() {}
 

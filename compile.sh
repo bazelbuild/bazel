@@ -238,6 +238,7 @@ src/main/native/localsocket.cc
 src/main/native/process.cc
 src/main/native/unix_jni.cc
 src/main/native/unix_jni_${PLATFORM}.cc
+src/main/native/GetResources.cc
 )
 
 IJAR_CC_FILES=(
