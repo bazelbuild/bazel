@@ -370,12 +370,12 @@ public class CommandTest {
     for (int exit : new int[] { -1, -2, -3 }) {
       int expected = 256 + exit;
       try {
-        String args[] = { "/bin/sh", "-c", "exit " + exit };
+        String args[] = { "/bin/bash", "-c", "exit " + exit };
         new Command(args).execute();
         fail("Should have exited with status " + expected);
       } catch (BadExitStatusException e) {
         assertThat(e).hasMessage("Process exited with status " + expected);
-        checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
+        checkCommandElements(e, "/bin/bash", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertFalse(status.success());
         assertTrue(status.exited());
