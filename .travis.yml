@@ -7,13 +7,9 @@ sudo: required
 language: cpp
 compiler:
   - clang
-jdk:
-  - oraclejdk8
-before_script:
-  - .travis/setup-env.sh
 script:
-  - jdk_switcher use oraclejdk8
-  - ./compile.sh
+  - .travis/build.sh
+
 before_deploy:
   - .travis/prepare-for-deploy.sh
 
