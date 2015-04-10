@@ -8,9 +8,6 @@ using std::string;
 
 namespace hello {
 
-HelloLib::HelloLib() : HelloLib("Hello") {
-}
-
 HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
 }
 

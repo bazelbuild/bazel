@@ -8,8 +8,6 @@ namespace hello {
 
 class HelloLib {
  public:
-  HelloLib();
-
   explicit HelloLib(const std::string &greeting);
 
   void greet(const std::string &thing);

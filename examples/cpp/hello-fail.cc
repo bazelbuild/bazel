@@ -11,7 +11,7 @@ using std::string;
  * "test" has failed.
  */
 int main(int argc, char** argv) {
-  HelloLib lib;
+  HelloLib lib("Hello");
   string thing = "barf";
   if (argc > 1) {
     thing = argv[1];
