@@ -798,7 +798,7 @@ static void ActuallyExtractData(const string &argv0,
 
     const void *buf;
     size_t size;
-    off_t offset;
+    int64_t offset;
     while (true) {
       retval = archive_read_data_block(blaze_zip, &buf, &size, &offset);
       if (retval == ARCHIVE_EOF) {
