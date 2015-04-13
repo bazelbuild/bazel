@@ -235,8 +235,7 @@ public final class CommandHelper {
    */
   public List<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix) {
-    return buildCommandLine(command, inputs, scriptPostFix,
-        ruleContext.getConfiguration().getShExecutable());
+    return buildCommandLine(command, inputs, scriptPostFix, ImmutableMap.<String, String>of());
   }
 
   /**
@@ -244,11 +243,15 @@ public final class CommandHelper {
    * if the command line is longer than the allowed maximum {@link #maxCommandLength}.
    * Fixes up the input artifact list with the created bash script when required.
    *
-   * @param shellPath path to the shell that should invoke this command
+   * @param executionInfo an execution info map of the action associated with the command line to be
+   *     built.
    */
   public List<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix,
-      PathFragment shellPath) {
+      Map<String, String> executionInfo) {
+    // Use vanilla /bin/bash for actions running on mac machines.
+    PathFragment shellPath = executionInfo.containsKey("requires-darwin")
+        ? new PathFragment("/bin/bash") : ruleContext.getConfiguration().getShExecutable();
     Pair<List<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, scriptPostFix, shellPath);
     if (argvAndScriptFile.second != null) {

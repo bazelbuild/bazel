@@ -66,6 +66,7 @@ public final class ExtraAction extends SpawnAction {
       boolean createDummyOutput,
       CommandLine argv,
       Map<String, String> environment,
+      Map<String, String> executionInfo,
       String progressMessage,
       String mnemonic) {
     super(owner,
@@ -74,7 +75,7 @@ public final class ExtraAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         ImmutableMap.copyOf(environment),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.copyOf(executionInfo),
         progressMessage,
         getManifests(shadowedAction),
         mnemonic,

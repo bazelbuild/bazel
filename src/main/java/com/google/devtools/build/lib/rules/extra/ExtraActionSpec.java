@@ -46,6 +46,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final ImmutableMap<PathFragment, Artifact> manifests;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
+  private final ImmutableMap<String, String> executionInfo;
   private final String command;
   private final boolean requiresActionOutput;
   private final Label label;
@@ -57,6 +58,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Iterable<String> outputTemplates,
       String command,
       Label label,
+      Map<String, String> executionInfo,
       boolean requiresActionOutput) {
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
     this.manifests = ImmutableMap.copyOf(manifests);
@@ -64,6 +66,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
     this.command = command;
     this.label = label;
+    this.executionInfo = ImmutableMap.copyOf(executionInfo);
     this.requiresActionOutput = requiresActionOutput;
   }
 
@@ -123,7 +126,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         ImmutableMap.<Label, Iterable<Artifact>>of());
 
     List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
-        ".extra_action_script.sh");
+        ".extra_action_script.sh", executionInfo);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(new ExtraAction(
@@ -135,6 +138,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         createDummyOutput,
         CommandLine.of(argv, false),
         env,
+        executionInfo,
         commandMessage,
         label.getName()));
 

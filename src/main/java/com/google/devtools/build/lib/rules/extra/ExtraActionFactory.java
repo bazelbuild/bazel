@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Label;
@@ -81,8 +82,8 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
         outputTemplates,
         command,
         context.getLabel(),
+        TargetUtils.getExecutionInfo(context.getRule()),
         requiresActionOutput);
-
     return new RuleConfiguredTargetBuilder(context)
         .addProvider(ExtraActionSpec.class, spec)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
