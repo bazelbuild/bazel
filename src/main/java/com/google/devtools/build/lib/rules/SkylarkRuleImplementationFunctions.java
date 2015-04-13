@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
-import static com.google.devtools.build.lib.syntax.SkylarkType.toMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -148,8 +147,8 @@ public class SkylarkRuleImplementationFunctions {
         builder.setMnemonic((String) params.get("mnemonic"));
       }
       if (params.containsKey("env")) {
-        builder.setEnvironment(
-            toMap(castMap(params.get("env"), String.class, String.class, "env")));
+        builder.setEnvironment(ImmutableMap.copyOf(
+            castMap(params.get("env"), String.class, String.class, "env")));
       }
       if (params.containsKey("progress_message")) {
         builder.setProgressMessage((String) params.get("progress_message"));
@@ -159,12 +158,13 @@ public class SkylarkRuleImplementationFunctions {
         builder.useDefaultShellEnvironment();
       }
       if (params.containsKey("execution_requirements")) {
-        builder.setExecutionInfo(toMap(castMap(params.get("execution_requirements"),
-                    String.class, String.class, "execution_requirements")));
+        builder.setExecutionInfo(ImmutableMap.copyOf(castMap(
+            params.get("execution_requirements"),
+            String.class, String.class, "execution_requirements")));
       }
       if (params.containsKey("input_manifests")) {
         for (Map.Entry<PathFragment, Artifact> entry : castMap(params.get("input_manifests"),
-            PathFragment.class, Artifact.class, "input manifest file map")) {
+            PathFragment.class, Artifact.class, "input manifest file map").entrySet()) {
           builder.addInputManifest(entry.getValue(), entry.getKey());
         }
       }
@@ -224,8 +224,8 @@ public class SkylarkRuleImplementationFunctions {
         ConversionException {
       SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       ImmutableList.Builder<Substitution> substitutions = ImmutableList.builder();
-      for (Map.Entry<String, String> substitution
-          : castMap(params.get("substitutions"), String.class, String.class, "substitutions")) {
+      for (Map.Entry<String, String> substitution : castMap(
+          params.get("substitutions"), String.class, String.class, "substitutions").entrySet()) {
         substitutions.add(Substitution.of(substitution.getKey(), substitution.getValue()));
       }
 

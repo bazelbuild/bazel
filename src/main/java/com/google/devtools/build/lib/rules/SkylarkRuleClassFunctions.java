@@ -24,13 +24,13 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
-import static com.google.devtools.build.lib.syntax.SkylarkType.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -227,8 +227,8 @@ public class SkylarkRuleClassFunctions {
               ? new RuleClass.Builder("", type, true, testBaseRule)
               : new RuleClass.Builder("", type, true, baseRule);
 
-          for (Map.Entry<String, Attribute.Builder> attr : castMap(
-              arguments.get("attrs"), String.class, Attribute.Builder.class, "attrs")) {
+          for (Map.Entry<String, Attribute.Builder> attr : castMap(arguments.get("attrs"),
+              String.class, Attribute.Builder.class, "attrs").entrySet()) {
             Attribute.Builder<?> attrBuilder = attr.getValue();
             String attrName = attributeToNative(attr.getKey(), loc,
                 attrBuilder.hasLateBoundValue());
@@ -252,8 +252,8 @@ public class SkylarkRuleClassFunctions {
                   new SkylarkImplicitOutputsFunctionWithCallback(callback, loc));
             } else {
               builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunctionWithMap(
-                  toMap(castMap(arguments.get("outputs"), String.class, String.class,
-                  "implicit outputs of the rule class"))));
+                  ImmutableMap.copyOf(castMap(arguments.get("outputs"), String.class, String.class,
+                      "implicit outputs of the rule class"))));
             }
           }
 

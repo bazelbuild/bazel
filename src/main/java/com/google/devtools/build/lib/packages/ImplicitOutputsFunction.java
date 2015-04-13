@@ -98,7 +98,7 @@ public abstract class ImplicitOutputsFunction {
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : castMap(callback.call(attrs),
-            String.class, String.class, "implicit outputs function return value")) {
+            String.class, String.class, "implicit outputs function return value").entrySet()) {
           Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
           if (!Iterables.isEmpty(substitutions)) {
             builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));

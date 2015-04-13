@@ -775,17 +775,6 @@ public abstract class SkylarkType {
     });
   }
 
-  /** Build a map of the given key, value types from an Iterable of Map.Entry-s */
-  public static <KEY_TYPE, VALUE_TYPE> ImmutableMap<KEY_TYPE, VALUE_TYPE> toMap(
-      Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> obj) {
-    ImmutableMap.Builder<KEY_TYPE, VALUE_TYPE> result = ImmutableMap.builder();
-    for (Map.Entry<KEY_TYPE, VALUE_TYPE> entry : obj) {
-      result.put(entry);
-    }
-
-    return result.build();
-  }
-
   /**
    * Cast a Map object into an Iterable of Map entries of the given key, value types.
    * @param obj the Map object, where null designates an empty map
@@ -793,35 +782,30 @@ public abstract class SkylarkType {
    * @param valueType the class of map values
    * @param what a string indicating what this is about, to include in case of error
    */
-  public static <KEY_TYPE, VALUE_TYPE> Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> castMap(Object obj,
-      final Class<KEY_TYPE> keyType, final Class<VALUE_TYPE> valueType, final String what) {
+  @SuppressWarnings("unchecked")
+  public static <KEY_TYPE, VALUE_TYPE> Map<KEY_TYPE, VALUE_TYPE> castMap(Object obj,
+      Class<KEY_TYPE> keyType, Class<VALUE_TYPE> valueType, String what) {
     if (obj == null) {
-      return ImmutableList.of();
+      return ImmutableMap.of();
     }
     if (!(obj instanceof Map<?, ?>)) {
       throw new IllegalArgumentException(String.format(
           "expected a dictionary for %s but got %s instead",
           what, EvalUtils.getDataTypeName(obj)));
     }
-    return Iterables.transform(((Map<?, ?>) obj).entrySet(),
-        new com.google.common.base.Function<Map.Entry<?, ?>, Map.Entry<KEY_TYPE, VALUE_TYPE>>() {
-          // This is safe. We check the type of the key-value pairs for every entry in the Map.
-          // In Map.Entry the key always has the type of the first generic parameter, the
-          // value has the second.
-          @SuppressWarnings("unchecked")
-            @Override
-            public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
-            if (keyType.isAssignableFrom(input.getKey().getClass())
-                && valueType.isAssignableFrom(input.getValue().getClass())) {
-              return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-            }
-            throw new IllegalArgumentException(String.format(
-                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-                keyType.getSimpleName(), valueType.getSimpleName(), what,
-                EvalUtils.getDataTypeName(input.getKey()),
-                EvalUtils.getDataTypeName(input.getValue())));
-          }
-        });
+
+    for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
+      if (!keyType.isAssignableFrom(input.getKey().getClass())
+          || !valueType.isAssignableFrom(input.getValue().getClass())) {
+        throw new IllegalArgumentException(String.format(
+            "expected <%s, %s> type for '%s' but got <%s, %s> instead",
+            keyType.getSimpleName(), valueType.getSimpleName(), what,
+            EvalUtils.getDataTypeName(input.getKey()),
+            EvalUtils.getDataTypeName(input.getValue())));
+      }
+    }
+
+    return (Map<KEY_TYPE, VALUE_TYPE>) obj;
   }
 
   private static Class<?> getGenericTypeFromMethod(Method method) {
