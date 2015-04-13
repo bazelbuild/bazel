@@ -64,6 +64,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     SET_VALUE,
     MARK_DIRTY,
     IS_CHANGED,
+    GET_VALUE_WITH_METADATA,
     IS_DIRTY
   }
 
@@ -123,6 +124,12 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     public boolean isDirty() {
       graphListener.accept(myKey, EventType.IS_DIRTY, Order.BEFORE, this);
       return super.isDirty();
+    }
+
+    @Override
+    public ValueWithMetadata getValueWithMetadata() {
+      graphListener.accept(myKey, EventType.GET_VALUE_WITH_METADATA, Order.BEFORE, this);
+      return super.getValueWithMetadata();
     }
   }
 }

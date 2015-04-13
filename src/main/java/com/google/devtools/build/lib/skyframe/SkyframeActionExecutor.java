@@ -358,6 +358,12 @@ public final class SkyframeActionExecutor {
     return buildActionMap.containsKey(action.getPrimaryOutput());
   }
 
+  private boolean actionReallyExecuted(Action action) {
+    Pair<Action, ?> cachedRun = Preconditions.checkNotNull(
+        buildActionMap.get(action.getPrimaryOutput()), action);
+    return action == cachedRun.first;
+  }
+
   /**
    * Executes the provided action on the current thread. Returns the ActionExecutionValue with the
    * result, either computed here or already computed on another thread.
@@ -486,6 +492,12 @@ public final class SkyframeActionExecutor {
   }
 
   void afterExecution(Action action, ActionMetadataHandler metadataHandler, Token token) {
+    if (!actionReallyExecuted(action)) {
+      // If an action shared with this one executed, then we need not update the action cache, since
+      // the other action will do it. Moreover, this action is not aware of metadata acquired
+      // during execution, so its metadata handler is likely unusable anyway.
+      return;
+    }
     try {
       actionCacheChecker.afterExecution(action, token, metadataHandler);
     } catch (IOException e) {
