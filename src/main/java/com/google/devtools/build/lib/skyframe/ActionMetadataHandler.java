@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -41,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
 
 import javax.annotation.Nullable;
 
@@ -72,8 +70,6 @@ public class ActionMetadataHandler implements MetadataHandler {
   private final ConcurrentMap<Artifact, FileArtifactValue> additionalOutputData =
       new ConcurrentHashMap<>();
   private final Set<Artifact> injectedArtifacts = Sets.newConcurrentHashSet();
-  private boolean metadataDiscarded = false;
-  private final Map<Artifact, StackTraceElement[]> missingArtifacts = new ConcurrentHashMap<>();
   private final ImmutableSet<Artifact> outputs;
   private final TimestampGranularityMonitor tsgm;
 
@@ -174,9 +170,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     fileValue = fileValueFromArtifact(artifact, null, tsgm);
     FileValue oldFileValue = outputArtifactData.putIfAbsent(artifact, fileValue);
     checkInconsistentData(artifact, oldFileValue, value);
-    if (metadataDiscarded && !fileValue.exists()) {
-      missingArtifacts.put(artifact, new Throwable().getStackTrace());
-    }
     return maybeStoreAdditionalData(artifact, fileValue, null);
   }
 
@@ -250,9 +243,6 @@ public class ActionMetadataHandler implements MetadataHandler {
         byte[] fileDigest = fileValue.getDigest();
         Preconditions.checkState(fileDigest == null || Arrays.equals(digest, fileDigest),
             "%s %s %s", artifact, digest, fileDigest);
-        if (!fileValue.exists()) {
-          missingArtifacts.put(artifact, new Throwable().getStackTrace());
-        }
         outputArtifactData.put(artifact, fileValue);
       } catch (IOException e) {
         // Do nothing - we just failed to inject metadata. Real error handling will be done later,
@@ -295,18 +285,8 @@ public class ActionMetadataHandler implements MetadataHandler {
   public void discardMetadata(Collection<Artifact> artifactList) {
     Preconditions.checkState(injectedArtifacts.isEmpty(),
         "Artifacts cannot be injected before action execution: %s", injectedArtifacts);
-    metadataDiscarded = true;
     outputArtifactData.keySet().removeAll(artifactList);
     additionalOutputData.keySet().removeAll(artifactList);
-    missingArtifacts.keySet().removeAll(artifactList);
-    if (!outputArtifactData.isEmpty()) {
-      LoggingUtil.logToRemote(Level.SEVERE, "Not all outputs cleared: " + outputArtifactData,
-          new IllegalStateException());
-    }
-  }
-
-  StackTraceElement[] getInsertionOfMissingArtifactForDebugging(Artifact artifact) {
-    return missingArtifacts.get(artifact);
   }
 
   @Override
