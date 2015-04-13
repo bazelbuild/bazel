@@ -257,6 +257,10 @@ public class CppHelper {
       Iterable<Artifact> prerequisites) {
     Map<Artifact, Artifact> extractions = new HashMap<>();
     for (Artifact prerequisite : prerequisites) {
+      if (extractions.containsKey(prerequisite)) {
+        // Don't create duplicate actions just because user specified same header file twice.
+        continue;
+      }
       Artifact scanned = createExtractInclusions(ruleContext, prerequisite);
       if (scanned != null) {
         extractions.put(prerequisite, scanned);
