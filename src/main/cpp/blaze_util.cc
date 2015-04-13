@@ -29,32 +29,16 @@
 #include <unistd.h>
 #include <sstream>
 
+#include "util/errors.h"
 #include "util/file.h"
 #include "util/numbers.h"
 #include "util/strings.h"
 
+using blaze_util::die;
+using blaze_util::pdie;
 using std::vector;
 
 namespace blaze {
-
-void die(const int exit_status, const char *format, ...) {
-  va_list ap;
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-  fputc('\n', stderr);
-  exit(exit_status);
-}
-
-void pdie(const int exit_status, const char *format, ...) {
-  fprintf(stderr, "Error: ");
-  va_list ap;
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-  fprintf(stderr, ": %s\n", strerror(errno));
-  exit(exit_status);
-}
 
 string GetUserName() {
   const char *user = getenv("USER");

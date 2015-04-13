@@ -225,11 +225,12 @@ src/main/cpp/blaze_util.cc
 src/main/cpp/blaze_util_${PLATFORM}.cc
 src/main/cpp/blaze.cc
 src/main/cpp/option_processor.cc
-src/main/cpp/util/port.cc
-src/main/cpp/util/strings.cc
+src/main/cpp/util/errors.cc
 src/main/cpp/util/file.cc
 src/main/cpp/util/md5.cc
 src/main/cpp/util/numbers.cc
+src/main/cpp/util/port.cc
+src/main/cpp/util/strings.cc
 )
 
 NATIVE_CC_FILES=(

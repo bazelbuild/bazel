@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "blaze_exit_code.h"
-#include "blaze_util.h"
+#include "util/errors.h"
 #include "util/strings.h"
 
 using std::pair;
@@ -76,8 +76,8 @@ string JoinPath(const string &path1, const string &path2) {
 string Which(const string &executable) {
   string path(getenv("PATH"));
   if (path.empty()) {
-    blaze::die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-               "Could not get PATH to find %s", executable.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not get PATH to find %s", executable.c_str());
   }
 
   std::vector<std::string> pieces = blaze_util::Split(path, ':');

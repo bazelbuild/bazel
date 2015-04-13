@@ -1,11 +1,15 @@
 cc_library(
     name = "util",
     srcs = [
+        "util/errors.cc",
+        "util/file.cc",
         "util/numbers.cc",
         "util/port.cc",
         "util/strings.cc",
     ],
     hdrs = [
+        "util/errors.h",
+        "util/file.h",
         "util/numbers.h",
         "util/port.h",
         "util/strings.h",
@@ -40,7 +44,6 @@ cc_binary(
         "blaze_startup_options_common.cc",
         "blaze_util.cc",
         "option_processor.cc",
-        "util/file.cc",
         ":blaze_util_os",
     ],
     copts = [

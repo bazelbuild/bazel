@@ -36,13 +36,6 @@ namespace blaze {
 
 using std::string;
 
-// Prints the specified error message and exits nonzero.
-void die(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
-    PRINTF_ATTRIBUTE(2, 3);
-// Prints "Error: <formatted-message>: <strerror(errno)>\n",  and exits nonzero.
-void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
-    PRINTF_ATTRIBUTE(2, 3);
-
 string GetUserName();
 
 // Return the path to the JVM launcher.

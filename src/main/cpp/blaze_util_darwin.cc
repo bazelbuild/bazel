@@ -22,11 +22,14 @@
 #include "blaze_exit_code.h"
 #include "blaze_util.h"
 #include "blaze_util_platform.h"
+#include "util/errors.h"
 #include "util/file.h"
 #include "util/strings.h"
 
 namespace blaze {
 
+using blaze_util::die;
+using blaze_util::pdie;
 using std::string;
 
 string GetOutputRoot() {

@@ -58,6 +58,7 @@
 #include "blaze_util.h"
 #include "blaze_util_platform.h"
 #include "option_processor.h"
+#include "util/errors.h"
 #include "util/file.h"
 #include "util/md5.h"
 #include "util/numbers.h"
@@ -67,6 +68,8 @@
 #include "archive_entry.h"
 
 using blaze_util::Md5Digest;
+using blaze_util::die;
+using blaze_util::pdie;
 using std::set;
 using std::vector;
 
