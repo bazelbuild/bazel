@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 
 import java.io.BufferedReader;
@@ -31,14 +33,21 @@ class SkylarkShell {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
+  public static final EventHandler PRINT_HANDLER = new EventHandler() {
+      @Override
+      public void handle(Event event) {
+        System.out.println(event.getMessage());
+      }
+    };
+
   private final BufferedReader reader = new BufferedReader(
       new InputStreamReader(System.in, Charset.defaultCharset()));
   private final EvaluationContext ev =
-      SkylarkModules.newEvaluationContext(EvaluationContext.PRINT_HANDLER);
+      SkylarkModules.newEvaluationContext(PRINT_HANDLER);
 
   public String read() {
     StringBuilder input = new StringBuilder();
-    ev.print(START_PROMPT);
+    System.out.print(START_PROMPT);
     try {
       while (true) {
         String line = reader.readLine();
@@ -49,7 +58,7 @@ class SkylarkShell {
           return input.toString();
         }
         input.append("\n").append(line);
-        ev.print(CONTINUATION_PROMPT);
+        System.out.print(CONTINUATION_PROMPT);
       }
     } catch (IOException io) {
       io.printStackTrace();
@@ -61,7 +70,10 @@ class SkylarkShell {
     String input;
     while ((input = read()) != null) {
       try {
-        ev.println(EvalUtils.prettyPrintValue(ev.eval(input)));
+        Object result = ev.eval(input);
+        if (result != null) {
+          System.out.println(EvalUtils.prettyPrintValue(result));
+        }
       } catch (Exception e) {
         e.printStackTrace();
       }

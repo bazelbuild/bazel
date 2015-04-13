@@ -57,13 +57,6 @@ public final class EvaluationContext {
       }
     };
 
-  public static final EventHandler PRINT_HANDLER = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        System.out.print(event.getMessage());
-      }
-    };
-
   public static EvaluationContext newBuildContext(EventHandler eventHandler, Environment env,
       boolean parsePython) {
     return new EvaluationContext(eventHandler, env, null, parsePython);
@@ -86,20 +79,13 @@ public final class EvaluationContext {
     return newSkylarkContext(new SkylarkEnvironment(eventHandler), new ValidationEnvironment());
   }
 
+  /** Base context for Skylark evaluation for internal use only, while initializing builtins */
+  static final EvaluationContext SKYLARK_INITIALIZATION = newSkylarkContext(FAIL_FAST_HANDLER);
+
+  @VisibleForTesting
   public Environment getEnvironment() {
     return env;
   }
-
-  public EventHandler getEventHandler() {
-    return eventHandler;
-  }
-
-  public ValidationEnvironment getValidationEnvironment() {
-    return validationEnv;
-  }
-
-  /** Base context for Skylark evaluation for internal use only, while initializing builtins */
-  static final EvaluationContext SKYLARK_INITIALIZATION = newSkylarkContext(FAIL_FAST_HANDLER);
 
   /** Mock package locator */
   private static final class EmptyPackageLocator implements CachingPackageLocator {
@@ -199,20 +185,6 @@ public final class EvaluationContext {
   /** Lookup a variable in the environment */
   public Object lookup(String varname) throws NoSuchVariableException {
     return env.lookup(varname);
-  }
-
-  /** Print a String in this context */
-  public void print(String msg) {
-    if (msg != null) {
-      eventHandler.handle(new Event(EventKind.STDOUT, null, msg));
-    }
-  }
-
-  /** Print a String in this context */
-  public void println(String msg) {
-    if (msg != null) {
-      print(msg + "\n");
-    }
   }
 
   /** Evaluate a series of statements */
