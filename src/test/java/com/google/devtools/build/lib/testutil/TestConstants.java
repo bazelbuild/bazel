@@ -53,11 +53,6 @@ public class TestConstants {
    */
   public static final String JAVATESTS_ROOT = "src/test/java/";
 
-  /**
-   * The directory in InMemoryFileSystem where workspaces created during unit tests reside.
-   */
-  public static final String TEST_WORKSPACE_DIRECTORY = "bazel";
-
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();

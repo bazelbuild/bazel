@@ -74,7 +74,7 @@ public abstract class FoundationTestCase extends TestCase {
     super.setUp();
     scratch = new Scratch(createFileSystem());
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
-    rootDirectory = scratch.dir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
+    rootDirectory = scratch.dir("/workspace");
     scratchFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
         "bind(",
         "  name = 'objc_proto_lib',",
@@ -142,7 +142,7 @@ public abstract class FoundationTestCase extends TestCase {
 
   private String workspaceRelative(String pathName) {
     if (!pathName.startsWith("/")) {
-      return "/" + TestConstants.TEST_WORKSPACE_DIRECTORY + "/" + pathName;
+      return "/workspace/" + pathName;
     }
     return pathName;
   }

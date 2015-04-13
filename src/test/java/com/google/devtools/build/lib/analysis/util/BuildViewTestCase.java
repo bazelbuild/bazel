@@ -612,7 +612,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
-    scratchFile("/" + TestConstants.TEST_WORKSPACE_DIRECTORY + "/" + packageName + "/BUILD", lines);
+    scratchFile(packageName + "/BUILD", lines);
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
   }
 
@@ -745,9 +745,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.getArtifactFactory().getSourceArtifact(rootRelativePath, root);
   }
 
-  protected Artifact getSourceArtifact(String name) throws IOException {
-    return getSourceArtifact(new PathFragment(name),
-        Root.asSourceRoot(scratch.dir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY)));
+  protected Artifact getSourceArtifact(String name) {
+    return getSourceArtifact(new PathFragment(name), Root.asSourceRoot(rootDirectory));
   }
 
   /**
