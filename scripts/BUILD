@@ -8,12 +8,16 @@ genrule(
     name = "bash_completion",
     srcs = ["bazel-complete-template.bash"],
     outs = ["bazel-complete.bash"],
-    cmd = "set +x; cat $(SRCS) > $@\n" +
-          "touch WORKSPACE err.log\n" +
-          "trap \"rm WORKSPACE err.log\" EXIT\n" +
-          "$(location //src:bazel) help completion 2>err.log >>$@ || { cat err.log; exit 1; }",
+    cmd = "cat $(SRCS) > $@\n" +
+          "touch err.log\n" +
+          "trap \"rm err.log\" EXIT\n" +
+          "$(location //src:bazel) --host_javabase=$(JAVABASE) " +
+          "    help completion 2>err.log >>$@ || { cat err.log; exit 1; }",
     output_to_bindir = 1,
-    tools = ["//src:bazel"],
+    tools = [
+        "//src:bazel",
+        "//tools/defaults:jdk",
+    ],
 )
 
 sh_test(
