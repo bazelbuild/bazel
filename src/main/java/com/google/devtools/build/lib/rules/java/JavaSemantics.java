@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -88,7 +89,8 @@ public interface JavaSemantics {
   /**
    * Name of the output group used for source jars.
    */
-  public static final String SOURCE_JARS_OUTPUT_GROUP = "source_jars";
+  public static final String SOURCE_JARS_OUTPUT_GROUP =
+      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /**
    * Label of a pseudo-filegroup that contains all jdk files for all
