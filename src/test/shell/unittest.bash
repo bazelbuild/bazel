@@ -390,7 +390,7 @@ function __update_shards() {
     TESTS=$(for test in "${TESTS[@]}"; do echo "$test"; done |
       awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX")
 
-    [ -n "$TEST_SHARD_STATUS_FILE" ] && touch "$TEST_SHARD_STATUS_FILE"
+    [ -z "${TEST_SHARD_STATUS_FILE-}" ] || touch "$TEST_SHARD_STATUS_FILE"
 }
 
 # Usage: __test_terminated <signal-number>
