@@ -53,7 +53,7 @@ public final class RedirectChaser {
      */
     public <T> T getAndValidate(String attributeName, Type<T> type)
         throws InvalidConfigurationException {
-      if (getSelector(attributeName, type) != null) {
+      if (getSelectorList(attributeName, type) != null) {
         throw new InvalidConfigurationException
             ("The value of '" + attributeName + "' cannot be configuration-dependent");
       }

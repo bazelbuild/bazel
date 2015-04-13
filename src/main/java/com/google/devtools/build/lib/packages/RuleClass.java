@@ -1278,13 +1278,9 @@ public final class RuleClass {
 
     Set<Label> configLabels = new LinkedHashSet<>();
     for (Attribute attr : rule.getAttributes()) {
-      Type.Selector<?> selector = attributes.getSelector(attr.getName(), attr.getType());
-      if (selector != null) {
-        for (Label label : selector.getEntries().keySet()) {
-          if (!Type.Selector.isReservedLabel(label)) {
-            configLabels.add(label);
-          }
-        }
+      Type.SelectorList<?> selectors = attributes.getSelectorList(attr.getName(), attr.getType());
+      if (selectors != null) {
+        configLabels.addAll(selectors.getKeyLabels());
       }
     }
 
@@ -1444,7 +1440,7 @@ public final class RuleClass {
       String what = "attribute '" + attrName + "' in '" + name + "' rule";
       converted = attr.getType().selectableConvert(attrVal, what, rule.getLabel());
 
-      if ((converted instanceof Type.Selector<?>) && !attr.isConfigurable()) {
+      if ((converted instanceof Type.SelectorList<?>) && !attr.isConfigurable()) {
         rule.reportError(rule.getLabel() + ": attribute \"" + attr.getName()
             + "\" is not configurable", eventHandler);
         return null;

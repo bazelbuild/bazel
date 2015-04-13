@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
+import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -829,7 +830,7 @@ public class MethodLibrary {
           throw new EvalException(ast.getLocation(),
               "select({...}) argument isn't a dictionary");
         }
-        return new SelectorValue((Map<?, ?>) dict);
+        return SelectorList.of(new SelectorValue((Map<?, ?>) dict));
       }
     };
 

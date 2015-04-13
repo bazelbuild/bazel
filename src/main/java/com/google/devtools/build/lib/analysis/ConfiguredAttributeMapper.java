@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -97,12 +99,21 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * can't be resolved due to intrinsic contradictions in the configuration.
    */
   private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException  {
-    Type.Selector<T> selector = getSelector(attributeName, type);
-    if (selector == null) {
+    Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    if (selectorList == null) {
       // This is a normal attribute.
       return super.get(attributeName, type);
     }
 
+    List<T> resolvedList = new ArrayList<>();
+    for (Type.Selector<T> selector : selectorList.getSelectors()) {
+      resolvedList.add(resolveSelector(attributeName, selector));
+    }
+    return resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList);
+  }
+
+  private <T> T resolveSelector(String attributeName, Type.Selector<T> selector)
+      throws EvalException {
     ConfigMatchingProvider matchingCondition = null;
     T matchingValue = null;
 

@@ -161,29 +161,30 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   protected abstract <T> Iterable<T> visitAttribute(String attributeName, Type<T> type);
 
   /**
-   * Returns a {@link Type.Selector} for the given attribute if the attribute is configurable
+   * Returns a {@link Type.SelectorList} for the given attribute if the attribute is configurable
    * for this rule, null otherwise.
    *
-   * @return a {@link Type.Selector} if the attribute takes the form
+   * @return a {@link Type.SelectorList} if the attribute takes the form
    *     "attrName = { 'a': value1_of_type_T, 'b': value2_of_type_T }") for this rule, null
    *     if it takes the form "attrName = value_of_type_T", null if it doesn't exist
    * @throws IllegalArgumentException if the attribute is configurable but of the wrong type
    */
   @Nullable
-  protected <T> Type.Selector<T> getSelector(String attributeName, Type<T> type) {
+  @SuppressWarnings("unchecked")
+  protected <T> Type.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
     Integer index = ruleClass.getAttributeIndex(attributeName);
     if (index == null) {
       return null;
     }
     Object attrValue = attributes.getAttributeValue(index);
-    if (!(attrValue instanceof Type.Selector<?>)) {
+    if (!(attrValue instanceof Type.SelectorList)) {
       return null;
     }
-    if (((Type.Selector<?>) attrValue).getOriginalType() != type) {
+    if (((Type.SelectorList) attrValue).getOriginalType() != type) {
       throw new IllegalArgumentException("Attribute " + attributeName
           + " is not of type " + type + " in rule " + ruleLabel);
     }
-    return (Type.Selector<T>) attrValue;
+    return (Type.SelectorList<T>) attrValue;
   }
 
   /**

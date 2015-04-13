@@ -65,12 +65,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     super.visitLabels(observer);
     for (String attrName : getAttributeNames()) {
       Attribute attribute = getAttributeDefinition(attrName);
-      Type.Selector<?> selector = getSelector(attrName, attribute.getType());
-      if (selector != null) {
-        for (Label configLabel : selector.getEntries().keySet()) {
-          if (!Type.Selector.isReservedLabel(configLabel)) {
-            observer.acceptLabelAttribute(configLabel, attribute);
-          }
+      Type.SelectorList<?> selectorList = getSelectorList(attrName, attribute.getType());
+      if (selectorList != null) {
+        for (Label configLabel : selectorList.getKeyLabels()) {
+          observer.acceptLabelAttribute(configLabel, attribute);
         }
       }
     }
@@ -82,12 +80,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   @Override
   public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
     // If this attribute value is configurable, visit all possible values.
-    Type.Selector<T> selector = getSelector(attributeName, type);
-    if (selector != null) {
+    Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    if (selectorList != null) {
       ImmutableList.Builder<T> builder = ImmutableList.builder();
-      for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
-        builder.add(entry.getValue());
-      }
+      visitConfigurableAttribute(selectorList.getSelectors(), type, null, builder);
       return builder.build();
     }
 
@@ -113,6 +109,33 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // For any other attribute, just return its direct value.
     T value = get(attributeName, type);
     return value == null ? ImmutableList.<T>of() : ImmutableList.of(value);
+  }
+
+  /**
+   * Determines all possible values a configurable attribute can take and places each one into
+   * valuesBuilder.
+   */
+  private <T> void visitConfigurableAttribute(List<Type.Selector<T>> selectors, Type<T> type,
+      T currentValueSoFar, ImmutableList.Builder<T> valuesBuilder) {
+
+    // TODO(bazel-team): minimize or eliminate uses of this interface. It necessarily grows
+    // exponentially with the number of selects in the attribute. Is that always necessary?
+    // For example, dependency resolution just needs to know every possible label an attribute
+    // might reference, but it doesn't need to know the exact combination of labels that make
+    // up a value.
+    if (selectors.isEmpty()) {
+      valuesBuilder.add(Preconditions.checkNotNull(currentValueSoFar));
+    } else {
+      Type.Selector<T> firstSelector = selectors.get(0);
+      List<Type.Selector<T>> remainingSelectors = selectors.subList(1, selectors.size());
+      for (T branchedValue : firstSelector.getEntries().values()) {
+        visitConfigurableAttribute(remainingSelectors, type,
+            currentValueSoFar == null
+                ? branchedValue
+                : type.concat(ImmutableList.of(currentValueSoFar, branchedValue)),
+            valuesBuilder);
+      }
+    }
   }
 
   /**

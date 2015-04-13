@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.Iterables;
+
 import java.util.Map;
 
 /**
@@ -28,14 +30,20 @@ import java.util.Map;
  * </pre>
  */
 public final class SelectorValue {
-  Map<?, ?> dictionary;
+  private final Map<?, ?> dictionary;
+  private final Class<?> type;
 
   public SelectorValue(Map<?, ?> dictionary) {
     this.dictionary = dictionary;
+    this.type = dictionary.isEmpty() ? null : Iterables.get(dictionary.values(), 0).getClass();
   }
 
   public Map<?, ?> getDictionary() {
     return dictionary;
+  }
+
+  Class<?> getType() {
+    return type;
   }
 
   @Override

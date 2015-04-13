@@ -550,10 +550,11 @@ sh_binary(
     considered to match if no other condition matches. If this condition
     is left out, some other rule must match to avoid an error.
   </li>
-  <li><code>select</code> cannot currently be embedded <i>within</i> an
-    attribute assignment. In other words, <code>srcs = ["common.sh"]
-    + select({ "conditionA": ["myrule_a.sh"], ...})</code> does not
-    currently work.
+  <li><code>select</code> can be embedded <i>inside</i> a larger
+    attribute assignment. So <code>srcs = ["common.sh"]
+    + select({ ":conditionA": ["myrule_a.sh"], ...})</code> and <code>
+    srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
+    ["b.sh"]})</code> are valid expressions.
   </li>
   <li><code>select</code> works with most, but not all, attributes.
 
