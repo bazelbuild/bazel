@@ -673,7 +673,7 @@ public final class SkyframeActionExecutor {
       ActionExecutionContext context, long actionStartTime)
       throws ActionExecutionException, InterruptedException {
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
-    context.getMetadataHandler().discardMetadata(action.getOutputs());
+    context.getMetadataHandler().discardOutputMetadata();
     // Delete the outputs before executing the action, just to ensure that
     // the action really does produce the outputs.
     try {

@@ -138,8 +138,8 @@ public class ActionCacheChecker {
    * {@link Token} if the action needs to be executed, and null otherwise.
    *
    * <p>If this method returns non-null, indicating that the action will be executed, the
-   * metadataHandler's {@link MetadataHandler#discardMetadata} method must be called, so that it
-   * does not serve stale metadata for the action's outputs after the action is executed.
+   * metadataHandler's {@link MetadataHandler#discardOutputMetadata} method must be called, so that
+   * it does not serve stale metadata for the action's outputs after the action is executed.
    */
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.

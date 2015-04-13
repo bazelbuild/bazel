@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 
 import java.io.IOException;
-import java.util.Collection;
 
 /** Retrieves {@link Metadata} of {@link Artifact}s, and inserts virtual metadata as well. */
 public interface MetadataHandler {
@@ -85,7 +84,11 @@ public interface MetadataHandler {
    */
   boolean isInjected(Artifact artifact) throws IOException;
 
-  /** Discards all metadata for the given artifacts, presumably because they will be modified. */
-  void discardMetadata(Collection<Artifact> artifactList);
+  /**
+   * Discards all known output artifact metadata, presumably because outputs will be modified.
+   * May only be called before any metadata is injected using {@link #injectDigest} or
+   * {@link #markOmitted};
+   */
+  void discardOutputMetadata();
 
 }
