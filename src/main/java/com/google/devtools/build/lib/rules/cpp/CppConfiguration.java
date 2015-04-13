@@ -1723,7 +1723,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     // TODO(bazel-team): delete all of these.
     globalMakeEnvBuilder.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-    globalMakeEnvBuilder.put("GNU_TARGET", targetSystemName);
 
     globalMakeEnvBuilder.putAll(getAdditionalMakeVariables());
 
