@@ -15,11 +15,8 @@ package com.google.devtools.build.lib.actions;
 
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
@@ -127,10 +124,6 @@ public class LocalHostCapacityTest {
         );
     String meminfoFile =
         scratch.file("test_meminfo_nonht", meminfoContent).getPathString();
-    String stat1File =
-      scratch.file("proc_stat_1", stat1Content).getPathString();
-    String stat2File =
-      scratch.file("proc_stat_2", stat2Content).getPathString();
     assertEquals(1, LocalHostCapacity.getLogicalCpuCount(cpuinfoContent));
     assertEquals(1, LocalHostCapacity.getPhysicalCpuCount(cpuinfoContent, 1));
     assertEquals(1, LocalHostCapacity.getCoresPerCpu(cpuinfoContent));
@@ -140,41 +133,6 @@ public class LocalHostCapacityTest {
     assertEquals(3091.732, capacity.getMemoryMb(), 0.1); // +/- 0.1MB
     LocalHostCapacity.setLocalHostCapacity(capacity);
     assertSame(capacity, LocalHostCapacity.getLocalHostCapacity());
-    Clock mockedClock = new Clock() {
-      private int callCount = 0;
-
-      @Override
-      public long currentTimeMillis() {
-        throw new AssertionError("unexpected method call");
-      }
-
-      @Override
-      public long nanoTime() {
-        callCount++;
-        if (callCount == 1) {
-          return 0;
-        } else if (callCount == 2) {
-          return 100 * 1000000;
-        } else if (callCount == 3) {
-          return 200 * 1000000;
-        } else {
-          throw new AssertionError("unexpected method call");
-        }
-      }
-    };
-    LocalHostCapacity.FreeResources freeStats =
-      LocalHostCapacity.getFreeResources(mockedClock, meminfoFile, stat1File, null);
-    assertNotNull(freeStats);
-    assertEquals(2356.756, freeStats.getFreeMb(), 0.001);
-    assertEquals(0.0, freeStats.getAvgFreeCpu(), 0);
-    // The next call to the mock clock returns a timestamp as if 100 ms have passed.
-    assertTrue(freeStats.getReadingAge() > 50);
-    // Fake another 100 ms going by for the next call.
-    freeStats = LocalHostCapacity.getFreeResources(mockedClock, meminfoFile, stat2File, freeStats);
-    assertNotNull(freeStats);
-    assertEquals(2356.756, freeStats.getFreeMb(), 0.001);
-    assertTrue(freeStats.getInterval() > 100);
-    assertEquals(0.95, freeStats.getAvgFreeCpu(), 0.001);
   }
 
   @Test

@@ -417,8 +417,6 @@ public class ExecutionTool {
           skyframeExecutor.getOutputDirtyFilesAndClear(),
           skyframeExecutor.getModifiedFilesDuringPreviousBuildAndClear()));
 
-      // Disable system load polling (noop if it was not enabled).
-      ResourceManager.instance().setAutoSensing(false);
       executor.executionPhaseEnding();
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         actionContextProvider.executionPhaseEnding();
@@ -763,11 +761,6 @@ public class ExecutionTool {
     } else {
       resources = LocalHostCapacity.getLocalHostCapacity();
       resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
-      if (options.useResourceAutoSense) {
-        getReporter().handle(
-            Event.warn("Not using resource autosense due to known responsiveness issues"));
-      }
-      ResourceManager.instance().setAutoSensing(/*autosense=*/false);
     }
 
     resourceMgr.setAvailableResources(ResourceSet.create(

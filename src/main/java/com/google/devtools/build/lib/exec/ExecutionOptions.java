@@ -152,15 +152,10 @@ public class ExecutionOptions extends OptionsBase {
         + "to use its default timeouts for that category.")
   public Map<TestTimeout, Integer> testTimeout;
 
-
   @Option(name = "resource_autosense",
       defaultValue = "false",
       category = "strategy",
-      help = "Periodically (every 3 seconds) poll system CPU load and available memory "
-      + "and allow execution of build commands if system has sufficient idle CPU and "
-      + "free RAM resources. By default this option is disabled, and Blaze will rely on "
-      + "approximation algorithms based on the total amount of available memory and number "
-      + "of CPU cores.")
+      help = "This flag has no effect, and is deprecated")
   public boolean useResourceAutoSense;
 
   @Option(name = "ram_utilization_factor",
@@ -176,7 +171,6 @@ public class ExecutionOptions extends OptionsBase {
       + "higher or much lower than specified. "
       + "Note also that this option does not affect the amount of memory that the Blaze "
       + "server itself will use. "
-      + "Also, this option has no effect if --resource_autosense is enabled."
       )
   public int ramUtilizationPercentage;
 
@@ -188,7 +182,7 @@ public class ExecutionOptions extends OptionsBase {
       + "and number of CPU cores available for the locally executed build actions. It would also "
       + "assume default I/O capabilities of the local workstation (1.0). This options allows to "
       + "explicitly set all 3 values. Note, that if this option is used, Blaze will ignore "
-      + "both --ram_utilization_factor and --resource_autosense values.",
+      + "--ram_utilization_factor.",
       converter = ResourceSet.ResourceSetConverter.class
       )
   public ResourceSet availableResources;

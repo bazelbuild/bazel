@@ -1890,9 +1890,6 @@ the compilation of binaries during the build.
   higher or much lower than specified. Note also that this option does not
   affect the amount of memory that the Bazel server itself will use.
 </p>
-<p>
-  This option has no effect if --resource_autosense is enabled.
-</p>
 
 <h4 id='flag--local_resources'><code class='flag'>--local_resources</code> <var>availableRAM,availableCPU,availableIO</var></h4>
 <p>
@@ -1905,8 +1902,7 @@ workstation). By default Bazel will estimate amount of RAM and number of CPU
 cores directly from system configuration and will assume 1.0 I/O resource.
 </p>
 <p>
-  If this option is used, Bazel will ignore both --ram_utilization_factor and
-  --resource_autosense options.
+  If this option is used, Bazel will ignore both --ram_utilization_factor.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
@@ -1973,27 +1969,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   unless <code class='flag'>--keep_going</code> is specified, in which case the
   build will proceed to the execution phase, but only for the targets
   that were successfully analyzed.
-</p>
-
-<h4 id='flag--resource_autosense'><code class='flag'>--[no]resource_autosense</code></h4>
-<p>
-  Bazel's default scheduling algorithm is based on fixed estimates of
-  the available CPU/memory resources of the workstation.  It does not
-  account for the load of any unrelated jobs that happen to be running
-  on your machine, such as another Bazel build in a different
-  workspace.
-</p>
-<p>
-  The <code class='flag'>--resource_autosense</code> option enables a different
-  scheduling algorithm for the execution of build steps.  It causes
-  Bazel to poll the system CPU load and available memory periodically.
-  This data is used to limit the number of commands executed
-  simultaneously on the workstation, ensuring that the system remains
-  responsive, especially when other jobs are running on the machine.
-</p>
-<p>
-  (Note, neither algorithm takes into account the actual (dynamic)
-  cost of each build step.)
 </p>
 
 <h4 id='flag--thin_archives'><code class='flag'>--[no]thin_archives</code></h4>
