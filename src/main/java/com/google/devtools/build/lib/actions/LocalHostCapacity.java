@@ -32,8 +32,13 @@ import java.util.Set;
 @ThreadCompatible
 public final class LocalHostCapacity {
 
-  // If /proc/* information is not available, assume 3000 MB and 2 CPUs.
-  private static ResourceSet DEFAULT_RESOURCES = ResourceSet.create(3000.0, 2.0, 1.0,
+  /* If /proc/* information is not available, guess based on what the JVM thinks.  Anecdotally,
+   * the JVM picks 0.22 the total available memory as maxMemory (tested on a standard Mac), so
+   * multiply by 3, and divide by 2^20 because we want megabytes.
+   */
+  private static final ResourceSet DEFAULT_RESOURCES = ResourceSet.create(
+      3.0 * (double) (Runtime.getRuntime().maxMemory() >> 20),
+      Runtime.getRuntime().availableProcessors(), 1.0,
       Integer.MAX_VALUE);
 
   private LocalHostCapacity() {}
