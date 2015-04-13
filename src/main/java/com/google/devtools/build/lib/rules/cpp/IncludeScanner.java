@@ -54,9 +54,9 @@ public interface IncludeScanner {
    * interpreted.
    */
   public void process(Artifact mainSource, Collection<Artifact> sources,
-      Map<Artifact, Path> legalOutputPaths, List<String> cmdlineIncludes, Set<Artifact> includes,
-      ActionExecutionContext actionExecutionContext) throws IOException, ExecException,
-      InterruptedException;
+      Map<Artifact, Artifact> legalOutputPaths, List<String> cmdlineIncludes,
+      Set<Artifact> includes, ActionExecutionContext actionExecutionContext)
+      throws IOException, ExecException, InterruptedException;
 
   /** Supplies IncludeScanners upon request. */
   interface IncludeScannerSupplier {
@@ -107,7 +107,7 @@ public interface IncludeScanner {
         for (IncludeScannable scannable :
           Iterables.concat(ImmutableList.of(action), action.getAuxiliaryScannables())) {
 
-          Map<Artifact, Path> legalOutputPaths = scannable.getLegalGeneratedScannerFileMap();
+          Map<Artifact, Artifact> legalOutputPaths = scannable.getLegalGeneratedScannerFileMap();
           List<PathFragment> includeDirs = new ArrayList<>(scannable.getIncludeDirs());
           List<PathFragment> quoteIncludeDirs = scannable.getQuoteIncludeDirs();
           List<String> cmdlineIncludes = scannable.getCmdlineIncludes();

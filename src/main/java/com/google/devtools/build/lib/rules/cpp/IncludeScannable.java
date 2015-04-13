@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
@@ -96,11 +95,12 @@ public interface IncludeScannable {
   Iterable<IncludeScannable> getAuxiliaryScannables();
 
   /**
-   * Returns a map of generated files:files grepped for headers which may be reached during include
-   * scanning. Generated files which are reached, but not in the key set, must be ignored.
+   * Returns a map of (generated header:.includes file listing the header's includes) which may be
+   * reached during include scanning. Generated files which are reached, but not in the key set,
+   * must be ignored.
    *
    * <p>If grepping of output files is not enabled via --extract_generated_inclusions, keys
    * should just map to null.
    */
-  Map<Artifact, Path> getLegalGeneratedScannerFileMap();
+  Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
 }

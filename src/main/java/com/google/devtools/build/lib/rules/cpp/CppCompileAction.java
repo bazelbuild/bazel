@@ -419,8 +419,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public Map<Artifact, Path> getLegalGeneratedScannerFileMap() {
-    Map<Artifact, Path> legalOuts = new HashMap<>();
+  public Map<Artifact, Artifact> getLegalGeneratedScannerFileMap() {
+    Map<Artifact, Artifact> legalOuts = new HashMap<>();
 
     for (Artifact a : context.getDeclaredIncludeSrcs()) {
       if (!a.isSourceArtifact()) {
@@ -430,7 +430,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (Pair<Artifact, Artifact> pregreppedSrcs : context.getPregreppedHeaders()) {
       Artifact hdr = pregreppedSrcs.getFirst();
       Preconditions.checkState(!hdr.isSourceArtifact(), hdr);
-      legalOuts.put(hdr, pregreppedSrcs.getSecond().getPath());
+      legalOuts.put(hdr, pregreppedSrcs.getSecond());
     }
     return Collections.unmodifiableMap(legalOuts);
   }
