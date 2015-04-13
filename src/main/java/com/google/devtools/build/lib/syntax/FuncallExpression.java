@@ -556,15 +556,11 @@ public final class FuncallExpression extends Expression {
     }
 
     if (obj != null) {
-      // TODO(bazel-team): validate function calls on objects too.
-      return env.getReturnType(obj.validate(env), func.getName(), getLocation());
-    } else {
-      // TODO(bazel-team): Imported functions are not validated properly.
-      if (!env.hasSymbolInEnvironment(func.getName())) {
-        throw new EvalException(getLocation(),
-            String.format("function '%s' does not exist", func.getName()));
-      }
-      return env.getReturnType(func.getName(), getLocation());
+      obj.validate(env);
+    } else if (!env.hasSymbolInEnvironment(func.getName())) {
+      throw new EvalException(getLocation(),
+          String.format("function '%s' does not exist", func.getName()));
     }
+    return SkylarkType.UNKNOWN;
   }
 }

@@ -107,21 +107,20 @@ public class LValue implements Serializable {
     env.update(ident.getName(), result);
   }
 
-  void validate(ValidationEnvironment env, Location loc, SkylarkType rvalueType)
-      throws EvalException {
-    validate(env, loc, expr, rvalueType);
+  void validate(ValidationEnvironment env, Location loc) throws EvalException {
+    validate(env, loc, expr);
   }
 
-  private static void validate(ValidationEnvironment env, Location loc, Expression expr,
-      SkylarkType rvalueType) throws EvalException {
+  private static void validate(ValidationEnvironment env, Location loc, Expression expr)
+      throws EvalException {
     if (expr instanceof Ident) {
       Ident ident = (Ident) expr;
-      env.update(ident.getName(), rvalueType, loc);
+      env.declare(ident.getName(), loc);
       return;
     }
     if (expr instanceof ListLiteral) {
       for (Expression e : ((ListLiteral) expr).getElements()) {
-        validate(env, loc, e, SkylarkType.UNKNOWN);
+        validate(env, loc, e);
       }
       return;
     }

@@ -191,8 +191,7 @@ public final class EvaluationContext {
   public EvaluationContext update(String varname, Object value) throws EvalException {
     env.update(varname, value);
     if (validationEnv != null) {
-      validationEnv.update(
-          varname, SkylarkType.typeForInference(SkylarkType.of(value.getClass())), null);
+      validationEnv.declare(varname, null);
     }
     return this;
   }

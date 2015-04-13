@@ -32,68 +32,8 @@ import java.util.Arrays;
 public class ValidationTests extends EvaluationTestCase {
 
   @Test
-  public void testIncompatibleLiteralTypesStringInt() {
-    checkError("bad variable 'a': int is incompatible with string at 3:3",
-        "def foo():\n",
-        "  a = '1'",
-        "  a = 1");
-  }
-
-  @Test
-  public void testIncompatibleLiteralTypesDictString() {
-    checkError("bad variable 'a': int is incompatible with dict of ints at 3:3",
-        "def foo():\n",
-        "  a = {1 : 'x'}",
-        "  a = 1");
-  }
-
-  @Test
-  public void testIncompatibleLiteralTypesInIf() {
-    checkError("bad variable 'a': int is incompatible with string at 4:5",
-        "def foo():\n",
-        "  if 1:",
-        "    a = 'a'",
-        "  else:",
-        "    a = 1");
-  }
-
-  @Test
   public void testAssignmentNotValidLValue() {
     checkError("can only assign to variables and tuples, not to ''a''", "'a' = 1");
-  }
-
-  @Test
-  public void testForNotIterable() throws Exception {
-    checkError("type 'int' is not iterable",
-        "def func():\n",
-        "  for i in 5: a = i\n");
-  }
-
-  @Test
-  public void testForIterableWithUknownArgument() throws Exception {
-    parse("def func(x=None):\n",
-        "  for i in x: a = i\n");
-  }
-
-  @Test
-  public void testForNotIterableBinaryExpression() throws Exception {
-    checkError("type 'int' is not iterable",
-        "def func():\n",
-        "  for i in 1 + 1: a = i\n");
-  }
-
-  @Test
-  public void testOptionalArgument() throws Exception {
-    checkError("type 'int' is not iterable",
-        "def func(x=5):",
-        "  for i in x: a = i\n");
-  }
-
-  @Test
-  public void testOptionalArgumentHasError() throws Exception {
-    checkError("unsupported operand type(s) for +: 'int' and 'string'",
-        "def func(x=5+'a'):",
-        "  return 0\n");
   }
 
   @Test
@@ -123,14 +63,6 @@ public class ValidationTests extends EvaluationTestCase {
         "  return 1",
         "def foo(x, y):",
         "  return 1");
-  }
-
-  @Test
-  public void testDynamicTypeCheck() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at 2:3",
-        "def foo():",
-        "  a = 1",
-        "  a = '1'");
   }
 
   @Test
@@ -169,18 +101,6 @@ public class ValidationTests extends EvaluationTestCase {
         "  a = 1",
         "def func2():",
         "  a = 'abc'\n");
-  }
-
-  @Test
-  public void testListComprehensionNotIterable() throws Exception {
-    checkError("type 'int' is not iterable",
-        "[i for i in 1 for j in [2]]");
-  }
-
-  @Test
-  public void testListComprehensionNotIterable2() throws Exception {
-    checkError("type 'int' is not iterable",
-        "[i for i in [1] for j in 123]");
   }
 
   @Test
@@ -234,20 +154,6 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testFunctionReturnValue() {
-    checkError("unsupported operand type(s) for +: 'int' and 'string'",
-        "def foo(): return 1",
-        "a = foo() + 'a'\n");
-  }
-
-  @Test
-  public void testFunctionReturnValueInFunctionDef() {
-    checkError("unsupported operand type(s) for +: 'int' and 'string'",
-        "def foo(): return 1",
-        "def bar(): a = foo() + 'a'\n");
-  }
-
-  @Test
   public void testFunctionDoesNotExistInFunctionDef() {
     checkError("function 'foo' does not exist",
         "def bar(): a = foo() + 'a'",
@@ -266,47 +172,6 @@ public class ValidationTests extends EvaluationTestCase {
     checkError("can only assign to variables and tuples, not to 's.x['b']'",
         "s = struct(x = {'a' : 1})",
         "s.x['b'] = 2\n");
-  }
-
-  @Test
-  public void testTupleAssign() throws Exception {
-    // TODO(bazel-team): fix our code so 'tuple' not 'list' gets printed.
-    checkError("unsupported operand type(s) for +: 'list' and 'dict of ints'",
-        "d = (1, 2)",
-        "d[0] = 2\n");
-  }
-
-  @Test
-  public void testAssignOnNonCollection() throws Exception {
-    checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
-        "d = 'abc'",
-        "d[0] = 2");
-  }
-
-  @Test
-  public void testNsetBadRightOperand() throws Exception {
-    checkError("can only concatenate nested sets with other nested sets or list of items, ",
-        "not 'string'", "set() + 'a'");
-  }
-
-  @Test
-  public void testNsetBadItemType() throws Exception {
-    checkError("bad nested set: set of ints is incompatible with set of strings at 1:1",
-        "(set() + ['a']) + [1]");
-  }
-
-  @Test
-  public void testNsetBadNestedItemType() throws Exception {
-    checkError("bad nested set: set of ints is incompatible with set of strings at 1:1",
-        "(set() + ['b']) + (set() + [1])");
-  }
-
-  @Test
-  public void testTypeInferenceForMethodLibraryFunction() throws Exception {
-    checkError("bad variable 'l': string is incompatible with int at 2:3",
-        "def foo():",
-        "  l = len('abc')",
-        "  l = 'a'");
   }
 
   @Test
@@ -384,16 +249,6 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testNoneAssignmentError() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at 4:3",
-        "def func():",
-        "  a = None",
-        "  a = 2",
-        "  a = None",
-        "  a = 'b'\n");
-  }
-
-  @Test
   public void testNoneIsAnyType() throws Exception {
     parse("None + None");
     parse("2 == None");
@@ -403,34 +258,8 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testSlice() throws Exception {
-    parse("def f(): a = 'abc'; a = 'abcd'[2:]");
-    parse("def g(): b = ['abc']; b = ['abcd'][1:]");
-    parse("def h(): c = 'ab'; c = ['ab'][1:]");
-    checkError("bad variable 'c': string is incompatible with list of strings",
-        "def i(): c = ['xy']; c = 'cx'[1:]");
-  }
-
-  @Test
   public void testDictComprehensionNotOnList() throws Exception {
     checkError("Dict comprehension elements must be a list", "{k : k for k in 'abc'}");
-  }
-
-  @Test
-  public void testTypeInferenceForUserDefinedFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with int at 4:3",
-        "def func():",
-        "  return 'a'",
-        "def foo():",
-        "  a = 1",
-        "  a = func()\n");
-  }
-
-  @Test
-  public void testCallingNonFunction() {
-    checkError("a is not a function",
-        "a = '1':",
-        "a()\n");
   }
 
   @Test
@@ -443,23 +272,6 @@ public class ValidationTests extends EvaluationTestCase {
   // Skylark built-in functions specific tests
 
   @Test
-  public void testTypeInferenceForSkylarkBuiltinGlobalFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with function at 3:3",
-        "def impl(ctx): return None",
-        "def foo():",
-        "  a = rule(impl)",
-        "  a = 'a'\n");
-  }
-
-  @Test
-  public void testTypeInferenceForSkylarkBuiltinObjectFunction() throws Exception {
-    checkError("bad variable 'a': string is incompatible with Attribute at 2:3",
-        "def foo():",
-        "  a = attr.int()",
-        "  a = 'a'\n");
-  }
-
-  @Test
   public void testFuncReturningDictAssignmentAsLValue() throws Exception {
     checkError("can only assign to variables and tuples, not to 'dict([])['b']'",
         "def dict():",
@@ -470,34 +282,10 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testListIndexAsLValue() {
-    checkError("unsupported operand type(s) for +: 'list of ints' and 'dict of ints'",
-        "def func():",
-        "  l = [1]",
-        "  l[0] = 2",
-        "  return l\n");
-  }
-
-  @Test
-  public void testStringIndexAsLValue() {
-    checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
-        "def func():",
-        "  s = 'abc'",
-        "  s[0] = 'd'",
-        "  return s\n");
-  }
-
-  @Test
   public void testEmptyLiteralGenericIsSetInLaterConcatWorks() {
     parse("def func():",
         "  s = {}",
         "  s['a'] = 'b'\n");
-  }
-
-  @Test
-  public void testTypeIsInferredForStructs() {
-    checkError("unsupported operand type(s) for +: 'struct' and 'string'",
-        "(struct(a = 1) + struct(b = 1)) + 'x'");
   }
 
   @Test
@@ -520,37 +308,6 @@ public class ValidationTests extends EvaluationTestCase {
         "    v = 'c'",
         "  else:",
         "    v = 'd'\n");
-  }
-
-  @Test
-  public void testTypeCheckWorksForSimpleBranching() {
-    checkError("bad variable 'v': int is incompatible with string at 2:3",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  v = 1");
-  }
-
-  @Test
-  public void testTypeCheckWorksForNestedBranching() {
-    checkError("bad variable 'v': int is incompatible with string at 5:5",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  if 0:",
-        "    v = 'b'",
-        "  else:",
-        "    v = 1\n");
-  }
-
-  @Test
-  public void testTypeCheckWorksForDifferentLevelBranches() {
-    checkError("bad variable 'v': int is incompatible with string at 2:3",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  if 0:",
-        "    v = 1\n");
   }
 
   @Test

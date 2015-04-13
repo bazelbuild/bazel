@@ -869,7 +869,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testNotCallInt() throws Exception {
     eval("sum = 123456");
     assertEquals(123456, lookup("sum"));
-    checkEvalError("ERROR 1:1: sum is not a function but a(n) int", "sum(1, 2, 3, 4, 5, 6)");
+    checkEvalError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)");
     assertEquals(123456, eval("sum"));
   }
 

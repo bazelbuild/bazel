@@ -87,9 +87,8 @@ public final class ForStatement extends Statement {
           "'For' is not allowed as a top level statement");
     }
     // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
-    SkylarkType type = collection.validate(env);
-    env.checkIterable(type, getLocation());
-    variable.validate(env, getLocation(), SkylarkType.UNKNOWN);
+    collection.validate(env);
+    variable.validate(env, getLocation());
     for (Statement stmt : block) {
       stmt.validate(env);
     }

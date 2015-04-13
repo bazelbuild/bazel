@@ -104,11 +104,9 @@ public class ValidationEnvironment {
   }
 
   /**
-   * Updates the variable type if the new type is "stronger" then the old one.
-   * The old and the new vartype has to be compatible, otherwise an EvalException is thrown.
-   * The new type is stronger if the old one doesn't exist or is unknown.
+   * Declare a variable and add it to the environment.
    */
-  public void update(String varname, SkylarkType newVartype, Location location)
+  public void declare(String varname, Location location)
       throws EvalException {
     checkReadonly(varname, location);
     if (parent == null) {  // top-level values are immutable
@@ -118,12 +116,7 @@ public class ValidationEnvironment {
         futureReadOnlyVariables.peek().add(varname);
       }
     }
-    SkylarkType oldVartype = variableTypes.get(SkylarkType.GLOBAL).get(varname);
-    if (oldVartype != null) {
-      newVartype = oldVartype.infer(newVartype, "variable '" + varname + "'",
-          location, variableLocations.get(varname));
-    }
-    variableTypes.get(SkylarkType.GLOBAL).put(varname, newVartype);
+    variableTypes.get(SkylarkType.GLOBAL).put(varname, SkylarkType.UNKNOWN);
     variableLocations.put(varname, location);
     clonable = false;
   }
@@ -131,19 +124,6 @@ public class ValidationEnvironment {
   private void checkReadonly(String varname, Location location) throws EvalException {
     if (readOnlyVariables.contains(varname)) {
       throw new EvalException(location, String.format("Variable %s is read only", varname));
-    }
-  }
-
-  public void checkIterable(SkylarkType type, Location loc) throws EvalException {
-    if (type == SkylarkType.UNKNOWN) {
-      // Until all the language is properly typed, we ignore Object types.
-      return;
-    }
-    if (!Iterable.class.isAssignableFrom(type.getType())
-        && !Map.class.isAssignableFrom(type.getType())
-        && !String.class.equals(type.getType())) {
-      throw new EvalException(loc,
-          "type '" + EvalUtils.getDataTypeNameFromClass(type.getType()) + "' is not iterable");
     }
   }
 
@@ -169,37 +149,6 @@ public class ValidationEnvironment {
 
   public SkylarkFunctionType getCurrentFunction() {
     return currentFunction;
-  }
-
-  /**
-   * Returns the return type of the function.
-   */
-  public SkylarkType getReturnType(String funcName, Location loc) throws EvalException {
-    return getReturnType(SkylarkType.GLOBAL, funcName, loc);
-  }
-
-  /**
-   * Returns the return type of the object function.
-   */
-  public SkylarkType getReturnType(SkylarkType objectType, String funcName, Location loc)
-      throws EvalException {
-    // All functions are registered in the top level ValidationEnvironment.
-    Map<String, SkylarkType> functions = topLevel().variableTypes.get(objectType);
-    // TODO(bazel-team): eventually not finding the return type should be a validation error,
-    // because it means the function doesn't exist. First we have to make sure that we register
-    // every possible function before.
-    if (functions != null) {
-      SkylarkType functionType = functions.get(funcName);
-      if (functionType != null && functionType != SkylarkType.UNKNOWN) {
-        if (!(functionType instanceof SkylarkFunctionType)) {
-          throw new EvalException(loc, String.format("%s%s is not a function but a(n) %s",
-                  (objectType == SkylarkType.GLOBAL ? "" : objectType + "."),
-                  funcName, functionType));
-        }
-        return ((SkylarkFunctionType) functionType).getReturnType();
-      }
-    }
-    return SkylarkType.UNKNOWN;
   }
 
   private ValidationEnvironment topLevel() {

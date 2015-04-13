@@ -63,6 +63,7 @@ public final class AssignmentStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    lvalue.validate(env, getLocation(), expression.validate(env));
+    expression.validate(env);
+    lvalue.validate(env, getLocation());
   }
 }

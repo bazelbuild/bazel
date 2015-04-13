@@ -67,8 +67,7 @@ public class DictComprehension extends Expression {
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
     SkylarkType elementsType = listExpression.validate(env);
-    SkylarkType listElementType = SkylarkType.getGenericArgType(elementsType);
-    loopVar.validate(env, getLocation(), listElementType);
+    loopVar.validate(env, getLocation());
     SkylarkType keyType = keyExpression.validate(env);
     if (!keyType.isSimple()) {
       // TODO(bazel-team): this is most probably dead code but it's better to have it here
