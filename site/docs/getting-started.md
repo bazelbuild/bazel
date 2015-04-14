@@ -2,15 +2,14 @@
 layout: default
 ---
 
-Getting Started with Bazel
-==========================
+# Getting Started with Bazel
 
-Setup
------
+## Setup
 
-To use Bazel, first clone the [Github repo](https://github.com/google/bazel)
-and build Bazel (follow the instructions in the [README](install.html) to install
-prerequisites):
+Clone the Bazel [Github repo](https://github.com/google/bazel) and run the
+provided compile script. Make sure that you are running Bazel on a supported
+platform and that you have installed other required software as described in the
+[installation guide](install.html).
 
 ```bash
 $ git clone https://github.com/google/bazel.git
@@ -22,26 +21,23 @@ $ ./compile.sh
 
 _**Note:** Bazel may support a binary installation at a later time._
 
-Using a workspace
------------------
+## Using a workspace
 
-Bazel is oriented around a workspace &ndash; a directory which contains the
-tools and libraries it needs and projects it builds.  A workspace is
-any directory that contains a WORKSPACE file (marking the directory as a
-workspace root) and contains its toolchain, third-party libraries, project
-subdirectories, etc. The workspace is also the directory where build outputs
-can be easily accessed. Bazel creates `bazel-out`, `bazel-bin` and others in
-the workspace root, which are symbolic links to the real output directories.
+A *workspace* is a directory on your filesystem that contains source code for
+the software you want to build, as well symbolic links to directories that
+contain the build outputs (for example, `bazel-bin` and `bazel-out`). The
+location of the workspace directory is not significant, but it must contain an
+empty file called `WORKSPACE` in the top-level directory. This file marks the
+directory as the workspace root.
 
-One workspace can be shared among multiple projects, if desired.  To get
+One workspace can be shared among multiple projects if desired.  To get
 started, we'll focus on a simple example with one project.
 
 Suppose that you have an existing project in a directory, say,
 `~/gitroot/my-project/`. Create an empty file at
 `~/gitroot/my-project/WORKSPACE` to show Bazel where your project's root is.
 
-Sanity Check: Building an Example
----------------------------------
+## Sanity Check: Building an Example
 
 To make sure everything is set up correctly in your build root, build one of the
 examples from the `examples/` directory.
@@ -63,8 +59,7 @@ Hello world
 Bazel puts binaries it has built under `bazel-bin/`.  Note that you can
 always look at the `build` command's output to find output file paths.
 
-Creating Your Own Build File
-----------------------------
+## Creating Your Own Build File
 
 Now you can create your own BUILD file and start adding build rules. This
 example assumes that `my-project/` is a Java project.  See the
@@ -147,8 +142,7 @@ Hi!
 
 Congratulations, you've created your first Bazel BUILD file!
 
-Adding Dependencies
--------------------
+## Adding Dependencies
 
 Creating one rule to build your entire project may be sufficient for small
 projects, but as projects get larger it's important to break up the build into
@@ -191,8 +185,7 @@ Hi!
 If you edit _ProjectRunner.java_ and rebuild `my-other-runner`, only
 `ProjectRunner.java` needs to be rebuilt (<code>greeter</code> is unchanged).
 
-Using Multiple Packages
------------------------
+## Using Multiple Packages
 
 For larger projects, you will often be dealing with several directories. You
 can refer to targets defined in other BUILD files using the syntax
@@ -273,8 +266,7 @@ Hi!
 
 See the [build encyclopedia](build-encyclopedia.html) for more visibility options.
 
-Deploying
----------
+## Deploying
 
 If you look at the contents of
 _bazel-bin/my-project/java/com/example/cmdline/runner.jar_, you can see that it
@@ -303,8 +295,7 @@ INFO: Elapsed time: 1.700s, Critical Path: 0.23s
 
 `runner_deploy.jar` will contain all of its dependencies.
 
-Next Steps
-----------
+## Next Steps
 
 You can now create your own targets and compose them.  See the [build
 encyclopedia](build-encyclopedia.html)
