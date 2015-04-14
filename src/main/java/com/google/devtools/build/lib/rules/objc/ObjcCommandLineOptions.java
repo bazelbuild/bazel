@@ -48,7 +48,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSimulatorVersion;
 
   @Option(name = "ios_simulator_device",
-      defaultValue = "iPhone 6",
+      defaultValue = "iPhone 5s",
       category = "run",
       help = "The device to simulate when running an iOS application in the simulator, e.g. "
           + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list devicetypes' "

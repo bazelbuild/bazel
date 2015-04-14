@@ -373,11 +373,13 @@ public final class ReleaseBundlingSupport {
   ReleaseBundlingSupport registerGenerateRunnerScriptAction(Artifact runnerScript,
       Artifact ipaInput) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    String escapedSimDevice = ShellUtils.shellEscape(objcConfiguration.getIosSimulatorDevice());
+    String escapedSdkVersion = ShellUtils.shellEscape(objcConfiguration.getIosSimulatorVersion());
     ImmutableList<Substitution> substitutions = ImmutableList.of(
         Substitution.of("%app_name%", ruleContext.getLabel().getName()),
         Substitution.of("%ipa_file%", ipaInput.getRootRelativePath().getPathString()),
-        Substitution.of("%sim_device%", objcConfiguration.getIosSimulatorDevice()),
-        Substitution.of("%sdk_version%", objcConfiguration.getIosSimulatorVersion()),
+        Substitution.of("%sim_device%", escapedSimDevice),
+        Substitution.of("%sdk_version%", escapedSdkVersion),
         Substitution.of("%iossim%", attributes.iossim().getRootRelativePath().getPathString()));
 
     ruleContext.registerAction(
