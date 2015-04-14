@@ -74,12 +74,13 @@ string JoinPath(const string &path1, const string &path2) {
 }
 
 string Which(const string &executable) {
-  string path(getenv("PATH"));
-  if (path.empty()) {
+  char *path_cstr = getenv("PATH");
+  if (path_cstr == NULL || path_cstr[0] == '\0') {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Could not get PATH to find %s", executable.c_str());
+               "Could not get PATH to find %s", executable.c_str());
   }
 
+  string path(path_cstr);
   std::vector<std::string> pieces = blaze_util::Split(path, ':');
   for (auto piece : pieces) {
     if (piece.empty()) {
