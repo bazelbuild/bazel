@@ -232,4 +232,59 @@ function test_default_ws() {
   bazel build //external:java >& $TEST_log || fail "Failed to build java"
 }
 
+function test_external_hdrs() {
+  local external_ws=$TEST_TMPDIR/path/to/my/lib
+  mkdir -p $external_ws
+  touch $external_ws/WORKSPACE
+  cat > $external_ws/greet_lib.h <<EOF
+void greet();
+EOF
+  cat > $external_ws/greet_lib.cc <<EOF
+#include <stdio.h>
+void greet() {
+  printf("Hello");
+}
+EOF
+  cat > $external_ws/BUILD <<EOF
+cc_library(
+    name = "greet_lib",
+    srcs = ["greet_lib.cc"],
+    hdrs = ["greet_lib.h"],
+    includes = [
+        ".",
+    ],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > greeter.cc <<EOF
+#include "greet_lib.h"
+
+int main() {
+  greet();
+  return 0;
+}
+EOF
+  cat > BUILD <<EOF
+cc_binary(
+    name = "greeter",
+    srcs = ["greeter.cc"],
+    deps = ["//external:greet-lib"],
+)
+EOF
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "greet-ws",
+    path = "$external_ws",
+)
+bind(
+    name = "greet-lib",
+    actual = "@greet-ws//:greet_lib"
+)
+EOF
+
+  bazel run //:greeter >& $TEST_log || fail "Failed to run greeter"
+  expect_log "Hello"
+}
+
 run_suite "local repository tests"
