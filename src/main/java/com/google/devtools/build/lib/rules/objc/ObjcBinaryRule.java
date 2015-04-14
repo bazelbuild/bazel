@@ -76,6 +76,9 @@ ${ATTRIBUTE_SIGNATURE}
 you should define them on <code>ios_application</code> instead. They will be removed from
 <code>objc_binary</code> soon.</p>
 
+<p>Until the migration to <code>ios_application</code> is complete, this rule requires at least one
+source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</code></p>.
+
 ${IMPLICIT_OUTPUTS}
 
 ${ATTRIBUTE_DEFINITION}
