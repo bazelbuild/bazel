@@ -1090,38 +1090,15 @@ public class MethodLibrary {
       + "</pre>")
   public static final class DictModule {}
 
-  public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
-      .<Function, SkylarkType>builder()
-      .put(join, SkylarkType.STRING)
-      .put(lower, SkylarkType.STRING)
-      .put(upper, SkylarkType.STRING)
-      .put(replace, SkylarkType.STRING)
-      .put(split, SkylarkType.of(List.class, String.class))
-      .put(rfind, SkylarkType.INT)
-      .put(find, SkylarkType.INT)
-      .put(rindex, SkylarkType.INT)
-      .put(index, SkylarkType.INT)
-      .put(endswith, SkylarkType.BOOL)
-      .put(startswith, SkylarkType.BOOL)
-      .put(strip, SkylarkType.STRING)
-      .put(slice, SkylarkType.STRING)
-      .put(count, SkylarkType.INT)
-      .build();
+  public static final List<Function> stringFunctions = ImmutableList.of(
+      count, endswith, find, index, join, lower, replace, rfind,
+      rindex, slice, split, startswith, strip, upper);
 
-  public static final Map<Function, SkylarkType> listPureFunctions = ImmutableMap
-      .<Function, SkylarkType>builder()
-      .put(slice, SkylarkType.LIST)
-      .build();
+  public static final List<Function> listPureFunctions = ImmutableList.of(slice);
 
   public static final List<Function> listFunctions = ImmutableList.of(append, extend);
 
-  public static final Map<Function, SkylarkType> dictFunctions = ImmutableMap
-      .<Function, SkylarkType>builder()
-      .put(items, SkylarkType.of(List.class))
-      .put(get, SkylarkType.UNKNOWN)
-      .put(keys, SkylarkType.of(Set.class))
-      .put(values, SkylarkType.of(List.class))
-      .build();
+  public static final List<Function> dictFunctions = ImmutableList.of(items, get, keys, values);
 
   private static final Map<Function, SkylarkType> pureGlobalFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
@@ -1158,11 +1135,11 @@ public class MethodLibrary {
    */
   public static void setupMethodEnvironment(Environment env) {
     env.registerFunction(Map.class, indexOperator.getName(), indexOperator);
-    setupMethodEnvironment(env, Map.class, dictFunctions.keySet());
+    setupMethodEnvironment(env, Map.class, dictFunctions);
     env.registerFunction(String.class, indexOperator.getName(), indexOperator);
-    setupMethodEnvironment(env, String.class, stringFunctions.keySet());
-    setupMethodEnvironment(env, List.class, listPureFunctions.keySet());
-    setupMethodEnvironment(env, SkylarkList.class, listPureFunctions.keySet());
+    setupMethodEnvironment(env, String.class, stringFunctions);
+    setupMethodEnvironment(env, List.class, listPureFunctions);
+    setupMethodEnvironment(env, SkylarkList.class, listPureFunctions);
     if (env.isSkylarkEnabled()) {
       env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
       setupMethodEnvironment(env, skylarkGlobalFunctions.keySet());
@@ -1172,7 +1149,7 @@ public class MethodLibrary {
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);
-      setupMethodEnvironment(env, stringFunctions.keySet());
+      setupMethodEnvironment(env, stringFunctions);
       setupMethodEnvironment(env, pureGlobalFunctions.keySet());
     }
   }
@@ -1198,21 +1175,17 @@ public class MethodLibrary {
     }
   }
 
+  /**
+   * Collect global functions for the validation environment.
+   */
   public static void setupValidationEnvironment(
       Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
     Map<String, SkylarkType> global = builtIn.get(SkylarkType.GLOBAL);
-    setupValidationEnvironment(skylarkGlobalFunctions, global);
 
-    Map<String, SkylarkType> dict = new HashMap<>();
-    setupValidationEnvironment(dictFunctions, dict);
-    builtIn.put(SkylarkType.of(Map.class), dict);
-
-    Map<String, SkylarkType> string = new HashMap<>();
-    setupValidationEnvironment(stringFunctions, string);
-    builtIn.put(SkylarkType.STRING, string);
-
-    Map<String, SkylarkType> list = new HashMap<>();
-    setupValidationEnvironment(listPureFunctions, list);
-    builtIn.put(SkylarkType.LIST, list);
+    // TODO(bazel-team): To be simplified (we need only the names, not the types).
+    for (Map.Entry<Function, SkylarkType> function : skylarkGlobalFunctions.entrySet()) {
+      String name = function.getKey().getName();
+      global.put(name, SkylarkFunctionType.of(name, function.getValue()));
+    }
   }
 }
