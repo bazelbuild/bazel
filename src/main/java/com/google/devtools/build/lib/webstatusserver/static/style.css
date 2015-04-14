@@ -1,0 +1,39 @@
+a {
+  color: #666
+}
+body {
+  font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, sans-serif;
+}
+.test-case {
+  outline:1px solid #eeeeee;
+  display:block;
+  padding:5px
+}
+.test-case:nth-child(odd) {
+  background: #eee
+}
+.test-case:nth-child(even) {
+  background: #fff
+}
+.test-detail {
+  display:inline-block;
+  min-width:10px;
+  padding-left:5px;
+  padding-right:5px
+}
+.info-cell {
+  padding:5px;
+  background: #eee;
+  outline:1px solid #fff;
+  display:block
+}
+.info-detail {
+  padding-right:5px;
+  padding-left:5px;
+  display:inline-block
+}
+.button {
+  cursor:pointer;
+  color:#666;
+  float:right
+}
