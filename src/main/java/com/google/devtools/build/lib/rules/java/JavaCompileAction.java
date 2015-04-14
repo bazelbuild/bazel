@@ -646,7 +646,8 @@ public class JavaCompileAction extends AbstractAction {
       Label label = getTargetName(jar);
       builder.add(label.getPackageIdentifier().getRepository().isDefault()
           ? label.toString()
-          : label.toPathFragment().toString());
+          // Escape '@' prefix for .params file.
+          : "@" + label.toString());
     }
     return builder.build();
   }

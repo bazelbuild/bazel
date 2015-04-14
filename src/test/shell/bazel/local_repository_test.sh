@@ -287,4 +287,83 @@ EOF
   expect_log "Hello"
 }
 
+# Creates an indirect dependency on X from A and make sure the error message
+# refers to the correct label.
+function test_indirect_dep_message() {
+  local external_dir=$TEST_TMPDIR
+  mkdir -p a b $external_dir/x
+  cat > a/A.java <<EOF
+package a;
+
+import x.X;
+
+public class A {
+  public static void main(String args[]) {
+    X.print();
+  }
+}
+EOF
+  cat > a/BUILD <<EOF
+java_binary(
+    name = "a",
+    main_class = "a.A",
+    srcs = ["A.java"],
+    deps = ["//b"],
+)
+EOF
+
+
+  cat > b/B.java <<EOF
+package b;
+
+public class B {
+  public static void print() {
+     System.out.println("B");
+  }
+}
+EOF
+  cat > b/BUILD <<EOF
+java_library(
+    name = "b",
+    srcs = ["B.java"],
+    deps = ["//external:x"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  touch $external_dir/WORKSPACE
+  cat > $external_dir/x/X.java <<EOF
+package x;
+
+public class X {
+  public static void print() {
+    System.out.println("X");
+  }
+}
+EOF
+  cat > $external_dir/x/BUILD <<EOF
+java_library(
+    name = "x",
+    srcs = ["X.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "x-repo",
+    path = "$external_dir",
+)
+
+bind(
+    name = "x",
+    actual = "@x-repo//x",
+)
+EOF
+
+  bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
+  expect_log "** Please add the following dependencies:"
+  expect_log "@x-repo//x  to //a:a"
+}
+
 run_suite "local repository tests"

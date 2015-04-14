@@ -359,6 +359,12 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     if (replacement != null) {
       return replacement;
     }
+    int atIndex = target.indexOf('@');
+    if (atIndex != -1) {
+      // target starts with @@repo ('@' is escaped for the params file parsing) so one @ needs to
+      // be stripped.
+      target = target.substring(1);
+    }
     int colonIndex = target.indexOf(':');
     if (colonIndex == -1) {
       // No ':' in target, nothing to do.
