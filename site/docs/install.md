@@ -129,7 +129,7 @@ The Bazel executable is located at `output/bazel` in the Bazel home directory.
 It's a good idea to add this path to your default paths, as follows:
 
 ```
-$ export PATH="$PATH:$HOME/bazel/output/bazel"
+$ export PATH="$PATH:$HOME/bazel/output"
 ```
 
 You can also add this command to your `~/.bashrc` file.
