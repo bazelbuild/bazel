@@ -1167,25 +1167,14 @@ public class MethodLibrary {
     }
   }
 
-  private static void setupValidationEnvironment(
-      Map<Function, SkylarkType> functions, Map<String, SkylarkType> result) {
-    for (Map.Entry<Function, SkylarkType> function : functions.entrySet()) {
-      String name = function.getKey().getName();
-      result.put(name, SkylarkFunctionType.of(name, function.getValue()));
-    }
-  }
-
   /**
    * Collect global functions for the validation environment.
    */
-  public static void setupValidationEnvironment(
-      Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
-    Map<String, SkylarkType> global = builtIn.get(SkylarkType.GLOBAL);
-
+  public static void setupValidationEnvironment(Map<String, SkylarkType> builtIn) {
     // TODO(bazel-team): To be simplified (we need only the names, not the types).
     for (Map.Entry<Function, SkylarkType> function : skylarkGlobalFunctions.entrySet()) {
       String name = function.getKey().getName();
-      global.put(name, SkylarkFunctionType.of(name, function.getValue()));
+      builtIn.put(name, SkylarkFunctionType.of(name, function.getValue()));
     }
   }
 }
