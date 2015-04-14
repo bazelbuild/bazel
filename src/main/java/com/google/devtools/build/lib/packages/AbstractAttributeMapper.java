@@ -135,30 +135,27 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   public void visitLabels(AcceptsLabelAttribute observer) {
     for (Attribute attribute : ruleClass.getAttributes()) {
       Type<?> type = attribute.getType();
-      // TODO(bazel-team): This is incoherent: we shouldn't have to special-case these types
-      // for our visitation policy. But this is the semantics the calling code requires. Audit
-      // exactly which calling code expects what and clean up this interface.
-      if (type == Type.OUTPUT || type == Type.OUTPUT_LIST
-              || type == Type.NODEP_LABEL || type == Type.NODEP_LABEL_LIST) {
-        continue;
-      }
-      for (Object value : visitAttribute(attribute.getName(), type)) {
-        if (value == null) {
-          // This is particularly possible for computed defaults.
-          continue;
-        }
-        for (Label label : type.getLabels(value)) {
-          observer.acceptLabelAttribute(label, attribute);
-        }
+      // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
+      // special-case these types.
+      if (type != Type.OUTPUT && type != Type.OUTPUT_LIST
+          && type != Type.NODEP_LABEL && type != Type.NODEP_LABEL_LIST) {
+        visitLabels(attribute, observer);
       }
     }
   }
 
   /**
-   * Implementations should provide policy-appropriate mappings when an attribute is requested in
-   * the context of a rule visitation.
+   * Visits all labels reachable from the given attribute.
    */
-  protected abstract <T> Iterable<T> visitAttribute(String attributeName, Type<T> type);
+  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer) {
+    Type<?> type = attribute.getType();
+    Object value = get(attribute.getName(), type);
+    if (value != null) { // null values are particularly possible for computed defaults.
+      for (Label label : type.getLabels(value)) {
+        observer.acceptLabelAttribute(label, attribute);
+      }
+    }
+  }
 
   /**
    * Returns a {@link Type.SelectorList} for the given attribute if the attribute is configurable

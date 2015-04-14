@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 /**
  * {@link AttributeMap} implementation that triggers an {@link IllegalStateException} if called
@@ -46,11 +45,5 @@ public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
     Preconditions.checkState(!getAttributeDefinition(attributeName).isConfigurable(),
         "Attribute '%s' is potentially configurable - not allowed here", attributeName);
     return super.get(attributeName, type);
-  }
-
-  @Override
-  protected <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
-    T value = get(attributeName, type);
-    return value == null ? ImmutableList.<T>of() : ImmutableList.of(value);
   }
 }

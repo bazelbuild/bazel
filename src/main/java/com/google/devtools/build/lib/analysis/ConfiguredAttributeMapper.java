@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
@@ -168,11 +167,5 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       throw new IllegalStateException(
           "lookup failed on attribute " + attributeName + ": " + e.getMessage());
     }
-  }
-
-  @Override
-  protected <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
-    T value = get(attributeName, type);
-    return value == null ? ImmutableList.<T>of() : ImmutableList.of(value);
   }
 }

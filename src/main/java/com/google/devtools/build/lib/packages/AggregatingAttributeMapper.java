@@ -59,25 +59,68 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Override that also visits the rule's configurable attribute keys (which are
    * themselves labels).
+   *
+   * <p>Note that we directly parse the selectors rather than just calling {@link #visitAttribute}
+   * to iterate over all possible values. That's because {@link #visitAttribute} can grow
+   * exponentially with respect to the number of selects (e.g. if an attribute uses three selects
+   * with three conditions each, it can take nine possible values). So we want to avoid that code
+   * path whenever actual value iteration isn't specifically needed.
    */
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) {
-    super.visitLabels(observer);
-    for (String attrName : getAttributeNames()) {
-      Attribute attribute = getAttributeDefinition(attrName);
-      Type.SelectorList<?> selectorList = getSelectorList(attrName, attribute.getType());
-      if (selectorList != null) {
-        for (Label configLabel : selectorList.getKeyLabels()) {
-          observer.acceptLabelAttribute(configLabel, attribute);
+  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer) {
+    Type<?> type = attribute.getType();
+    Type.SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
+    if (selectorList == null) {
+      if (getComputedDefault(attribute.getName(), attribute.getType()) != null) {
+        // Computed defaults are a special pain: we have no choice but to iterate through their
+        // (computed) values and look for labels.
+        for (Object value : visitAttribute(attribute.getName(), attribute.getType())) {
+          if (value != null) {
+            for (Label label : type.getLabels(value)) {
+              observer.acceptLabelAttribute(label, attribute);
+            }
+          }
+        }
+      } else {
+        super.visitLabels(attribute, observer);
+      }
+    } else {
+      for (Type.Selector<?> selector : selectorList.getSelectors()) {
+        for (Map.Entry<Label, ?> selectorEntry : selector.getEntries().entrySet()) {
+          if (!Type.Selector.isReservedLabel(selectorEntry.getKey())) {
+            observer.acceptLabelAttribute(selectorEntry.getKey(), attribute);
+          }
+          for (Label value : type.getLabels(selectorEntry.getValue())) {
+            observer.acceptLabelAttribute(value, attribute);
+          }
         }
       }
     }
   }
 
   /**
-   * Returns a list of all possible values an attribute can take for this rule.
+   * Returns all labels reachable via the given attribute.
+   *
+   * <p>Use this over {@link #visitAttribute} when this is sufficient, since the latter grows
+   * exponentially with respect to the number of selects in the attribute.
    */
-  @Override
+  public Iterable<Label> getReachableLabels(String attributeName) {
+    final ImmutableList.Builder<Label> builder = ImmutableList.builder();
+    visitLabels(getAttributeDefinition(attributeName), new AcceptsLabelAttribute() {
+      @Override
+      public void acceptLabelAttribute(Label label, Attribute attribute) {
+        builder.add(label);
+      }
+    });
+    return builder.build();
+  }
+
+  /**
+   * Returns a list of all possible values an attribute can take for this rule.
+   *
+   * <p>Note that when an attribute uses multiple selects, it can potentially take on many
+   * values. So be cautious about unnecessarily relying on this method.
+   */
   public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
     // If this attribute value is configurable, visit all possible values.
     Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);

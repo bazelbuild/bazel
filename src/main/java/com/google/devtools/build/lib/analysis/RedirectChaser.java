@@ -59,11 +59,6 @@ public final class RedirectChaser {
       }
       return super.get(attributeName, type);
     }
-
-    @Override
-    protected <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
-      throw new IllegalStateException("Attribute visitation not supported redirect resolution");
-    }
   }
 
   /**

@@ -40,12 +40,6 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
         rule.getAttributeContainer());
   }
 
-  @Override
-  protected <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
-    T value = get(attributeName, type);
-    return value == null ? ImmutableList.<T>of() : ImmutableList.of(value);
-  }
-
   /**
    * Variation of {@link #get} that merges the values of configurable lists together (with
    * duplicates removed).
