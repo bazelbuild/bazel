@@ -1,4 +1,4 @@
-java_library(
+filegroup(
     name = "stub_application",
     srcs = [
         "IncrementalClassLoader.java",
@@ -6,7 +6,7 @@ java_library(
     ],
 )
 
-java_library(
+filegroup(
     name = "split_stub_application",
     srcs = ["Placeholder.java"],
 )
