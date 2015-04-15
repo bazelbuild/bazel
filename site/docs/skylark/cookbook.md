@@ -1,8 +1,6 @@
 Skylark cookbook
 ================
 
-[TOC]
-
 ## <a name="macro_native"></a>Macro creating a native rule
 
 An example of a macro creating a native rule. Native rules are accessed using

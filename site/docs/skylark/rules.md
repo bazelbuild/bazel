@@ -3,8 +3,6 @@ Rules
 
 **Status: Experimental**. Expect some breaking changes in the API.
 
-[TOC]
-
 Rule creation
 -------------
 
