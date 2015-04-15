@@ -151,7 +151,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // I just bumped this to 200 to get reasonable execution phase performance; that may cause
   // significant overhead for CPU-bound processes (i.e. analysis). [skyframe-analysis]
   @VisibleForTesting
-  public static final int DEFAULT_THREAD_COUNT = 200;
+  public static final int DEFAULT_THREAD_COUNT =
+      // Reduce thread count while running tests of Bazel. Test cases are typically small, and large
+      // thread pools vying for a relatively small number of CPU cores may induce non-optimal
+      // performance.
+      System.getenv("TEST_TMPDIR") == null ? 200 : 5;
 
   // Stores Packages between reruns of the PackageFunction (because of missing dependencies,
   // within the same evaluate() run) to avoid loading the same package twice (first time loading
