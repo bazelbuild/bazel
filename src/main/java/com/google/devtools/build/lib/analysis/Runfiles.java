@@ -232,7 +232,6 @@ public final class Runfiles {
    * Returns the artifacts that are unconditionally included in the runfiles (as opposed to
    * pruning manifest candidates, which may or may not be included).
    */
-  @VisibleForTesting
   public NestedSet<Artifact> getUnconditionalArtifacts() {
     return unconditionalArtifacts;
   }
@@ -248,9 +247,8 @@ public final class Runfiles {
 
   /**
    * Returns the collection of runfiles as artifacts, including both unconditional artifacts
-   * and pruning manifest candidates.
+   * and pruning manifest candidates, but not including any artifacts produced by expansion.
    */
-  @VisibleForTesting
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts.addAll(unconditionalArtifacts.toCollection());
@@ -289,7 +287,8 @@ public final class Runfiles {
    * @param workingManifest Manifest to be checked for obscuring symlinks.
    * @return map of source file names mapped to their location on disk.
    */
-  public static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
+  @VisibleForTesting
+  static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
       EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
     Map<PathFragment, Artifact> newManifest = new HashMap<>();
 
@@ -362,6 +361,7 @@ public final class Runfiles {
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
     manifest.putAll(manifestExpander.apply(manifest));
+
     PathFragment path = new PathFragment(suffix);
     Map<PathFragment, Artifact> result = new HashMap<>();
     for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
@@ -409,7 +409,7 @@ public final class Runfiles {
   /**
    * Returns the symlinks expander specified for this runfiles tree.
    */
-  public Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getSymlinkExpander() {
+  private Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getSymlinkExpander() {
     return manifestExpander;
   }
 
