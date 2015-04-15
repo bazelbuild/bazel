@@ -408,7 +408,7 @@ Add these arguments to the <code>--test_arg</code>
 when executed by <code>bazel test</code>.
 <i>(List of strings; optional; subject to
 <a href="#location">$(location)</a> and
-<a href="#make_variables">"Make variable"</a> substitution, and 
+<a href="#make_variables">"Make variable"</a> substitution, and
 <a href="#sh-tokenization">Bourne shell tokenization</a>)</i><br/>
 These arguments are passed before the <code>--test_arg</code> values
 specified on the <code>bazel test</code> command line.
@@ -1805,6 +1805,9 @@ objc_binary(<a href="#objc_binary.name">name</a>,
 <p>Any application-related attributes (infoplist, app_icon, ...) on this rule are deprecated and
 you should define them on <code>ios_application</code> instead. They will be removed from
 <code>objc_binary</code> soon.</p>
+
+<p>Until the migration to <code>ios_application</code> is complete, this rule requires at least one
+source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</code></p>.
 
 <h4 id="objc_binary_implicit_outputs">Implicit output targets</h4>
         <ul>
@@ -7433,10 +7436,11 @@ sh_binary(
     considered to match if no other condition matches. If this condition
     is left out, some other rule must match to avoid an error.
   </li>
-  <li><code>select</code> cannot currently be embedded <i>within</i> an
-    attribute assignment. In other words, <code>srcs = ["common.sh"]
-    + select({ "conditionA": ["myrule_a.sh"], ...})</code> does not
-    currently work.
+  <li><code>select</code> can be embedded <i>inside</i> a larger
+    attribute assignment. So <code>srcs = ["common.sh"]
+    + select({ ":conditionA": ["myrule_a.sh"], ...})</code> and <code>
+    srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
+    ["b.sh"]})</code> are valid expressions.
   </li>
   <li><code>select</code> works with most, but not all, attributes.
 
