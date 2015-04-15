@@ -191,7 +191,7 @@ What about Windows?
 -------------------
 
 We have experimented with a Windows port
-[using MinGW/MSYS](docs/windows.html), but have no plans to invest in this
+[using MinGW/MSYS](docs/windows.md), but have no plans to invest in this
 port right now. Due to its Unix heritage, porting Bazel is significant
 work. For example, Bazel uses symlinks extensively, which has varying
 levels of support across Windows versions.
