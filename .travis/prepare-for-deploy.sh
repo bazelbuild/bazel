@@ -38,7 +38,7 @@ EOF
   bazel_zip=bazel-${git_hash}.zip
   echo "Creating $bazel_zip"
   zip -r -qq $bazel_zip $bazel_dir
-  rm -r $bazel_dir
+  rm -rf $bazel_dir
 }
 
 # Put the bazel zip in an uploaded dir.
