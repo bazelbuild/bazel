@@ -510,11 +510,9 @@ public abstract class SkylarkType {
   /**
    * A class representing the type of a Skylark function.
    */
-  // TODO(bazel-team): move the side-effect out of the type object, into the validation environment?
   public static final class SkylarkFunctionType extends SkylarkType {
     private final String name;
     @Nullable private SkylarkType returnType;
-    @Nullable private Location returnTypeLoc;
 
     @Override public SkylarkType intersectWith(SkylarkType other) {
       // This gives the wrong result if both return types are incompatibly updated later!
@@ -562,24 +560,6 @@ public abstract class SkylarkType {
 
     public SkylarkType getReturnType() {
       return returnType;
-    }
-
-    /**
-     * Sets the return type of the function type if it's compatible with the existing return type.
-     */
-    public void setReturnType(SkylarkType newReturnType, Location newLoc) throws EvalException {
-      if (returnType == null) {
-        returnType = newReturnType;
-        returnTypeLoc = newLoc;
-      } else if (newReturnType != SkylarkType.NONE) {
-        // At validation-time, we allow NONE in any type, just like null in Java.
-        SkylarkType intersectionType =
-            returnType.infer(newReturnType, "return type of " + name, newLoc, returnTypeLoc);
-        if (!returnType.equals(intersectionType)) {
-          returnType = intersectionType;
-          returnTypeLoc = newLoc;
-        }
-      }
     }
   }
 

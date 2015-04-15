@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,9 +43,6 @@ public class ValidationEnvironment {
   // A stack of variable-sets which are read only but can be assigned in different
   // branches of if-else statements.
   private Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
-
-  // The function we are currently validating.
-  private SkylarkFunctionType currentFunction;
 
   // Whether this validation environment is not modified therefore clonable or not.
   private boolean clonable;
@@ -85,11 +81,10 @@ public class ValidationEnvironment {
   /**
    * Creates a local ValidationEnvironment to validate user defined function bodies.
    */
-  public ValidationEnvironment(ValidationEnvironment parent, SkylarkFunctionType currentFunction) {
+  public ValidationEnvironment(ValidationEnvironment parent) {
     // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
     this.variableTypes = new HashMap<String, SkylarkType>();
-    this.currentFunction = currentFunction;
     this.clonable = false;
   }
 
@@ -132,37 +127,8 @@ public class ValidationEnvironment {
         || topLevel().variableTypes.containsKey(varname);
   }
 
-  /**
-   * Returns the type of the existing variable.
-   */
-  public SkylarkType getVartype(String varname) {
-    SkylarkType type = variableTypes.get(varname);
-    if (type == null && parent != null) {
-      type = parent.getVartype(varname);
-    }
-    return Preconditions.checkNotNull(type,
-        String.format("Variable %s is not found in the validation environment", varname));
-  }
-
-  public SkylarkFunctionType getCurrentFunction() {
-    return currentFunction;
-  }
-
   private ValidationEnvironment topLevel() {
     return Preconditions.checkNotNull(parent == null ? this : parent);
-  }
-
-  /**
-   * Adds a user defined function to the validation environment is not exists.
-   */
-  public void updateFunction(String name, SkylarkFunctionType type, Location loc)
-      throws EvalException {
-    checkReadonly(name, loc);
-    if (variableTypes.containsKey(name)) {
-      throw new EvalException(loc, "function " + name + " already exists");
-    }
-    variableTypes.put(name, type);
-    clonable = false;
   }
 
   /**
