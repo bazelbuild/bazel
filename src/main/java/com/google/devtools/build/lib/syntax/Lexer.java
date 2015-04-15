@@ -685,6 +685,10 @@ public final class Lexer {
         addToken(new Token(TokenKind.PERCENT, pos - 1, pos));
         break;
       }
+      case '/': {
+        addToken(new Token(TokenKind.SLASH, pos - 1, pos));
+        break;
+      }
       case ';': {
         addToken(new Token(TokenKind.SEMI, pos - 1, pos));
         break;

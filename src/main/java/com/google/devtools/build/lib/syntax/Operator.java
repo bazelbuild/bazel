@@ -19,6 +19,7 @@ package com.google.devtools.build.lib.syntax;
 public enum Operator {
 
   AND("and"),
+  DIVIDE("/"),
   EQUALS_EQUALS("=="),
   GREATER(">"),
   GREATER_EQUALS(">="),

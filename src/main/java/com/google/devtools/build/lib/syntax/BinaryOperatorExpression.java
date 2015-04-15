@@ -184,13 +184,37 @@ public final class BinaryOperatorExpression extends Expression {
         break;
       }
 
+      case DIVIDE: {
+        // int / int
+        if (lval instanceof Integer && rval instanceof Integer) {
+          if (rval.equals(0)) {
+            throw new EvalException(getLocation(), "integer division by zero");
+          }
+          // Integer division doesn't give the same result in Java and in Python 2 with
+          // negative numbers.
+          // Java:   -7/3 = -2
+          // Python: -7/3 = -3
+          // We want to follow Python semantics, so we use float division and round down.
+          return (int) Math.floor(new Double((Integer) lval) / (Integer) rval);
+        }
+      }
+
       case PERCENT: {
         // int % int
         if (lval instanceof Integer && rval instanceof Integer) {
           if (rval.equals(0)) {
             throw new EvalException(getLocation(), "integer modulo by zero");
           }
-          return ((Integer) lval).intValue() % ((Integer) rval).intValue();
+          // Python and Java implement division differently, wrt negative numbers.
+          // In Python, sign of the result is the sign of the divisor.
+          int div = (Integer) rval;
+          int result = ((Integer) lval).intValue() % Math.abs(div);
+          if (result > 0 && div < 0) {
+            result += div;  // make the result negative
+          } else if (result < 0 && div > 0) {
+            result += div;  // make the result positive
+          }
+          return result;
         }
 
         // string % tuple, string % dict, string % anything-else

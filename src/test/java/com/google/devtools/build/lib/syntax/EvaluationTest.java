@@ -252,6 +252,9 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(eval("6 % 2")).isEqualTo(0);
     assertThat(eval("6 % 4")).isEqualTo(2);
     assertThat(eval("3 % 6")).isEqualTo(3);
+    assertThat(eval("7 % -4")).isEqualTo(-1);
+    assertThat(eval("-7 % 4")).isEqualTo(1);
+    assertThat(eval("-7 % -4")).isEqualTo(-3);
     checkEvalError("integer modulo by zero", "5 % 0");
   }
 
@@ -262,6 +265,25 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals("ababab", eval("3 * 'ab'"));
     assertEquals("", eval("0 * 'ab'"));
     assertEquals("100000", eval("'1' + '0' * 5"));
+  }
+
+  @Test
+  public void testDivision() throws Exception {
+    assertThat(eval("6 / 2")).isEqualTo(3);
+    assertThat(eval("6 / 4")).isEqualTo(1);
+    assertThat(eval("3 / 6")).isEqualTo(0);
+    assertThat(eval("7 / -2")).isEqualTo(-4);
+    assertThat(eval("-7 / 2")).isEqualTo(-4);
+    assertThat(eval("-7 / -2")).isEqualTo(3);
+    assertThat(eval("2147483647 / 2")).isEqualTo(1073741823);
+    checkEvalError("integer division by zero", "5 / 0");
+  }
+
+  @Test
+  public void testOperatorPrecedence() throws Exception {
+    assertThat(eval("2 + 3 * 4")).isEqualTo(14);
+    assertThat(eval("2 + 3 / 4")).isEqualTo(2);
+    assertThat(eval("2 * 3 + 4 / -2")).isEqualTo(4);
   }
 
   @Test
