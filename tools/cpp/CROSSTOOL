@@ -83,6 +83,8 @@ toolchain {
   cxx_builtin_include_directory: "/opt/local/include"
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
+  cxx_builtin_include_directory: "/System/Library/Frameworks"
+  cxx_builtin_include_directory: "/Library/Frameworks"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }
   tool_path { name: "nm" path: "/usr/bin/nm" }
