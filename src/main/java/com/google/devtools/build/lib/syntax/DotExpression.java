@@ -102,9 +102,7 @@ public final class DotExpression extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+  void validate(ValidationEnvironment env) throws EvalException {
     obj.validate(env);
-    // TODO(bazel-team): check existance of field
-    return SkylarkType.UNKNOWN;
   }
 }

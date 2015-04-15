@@ -120,12 +120,11 @@ public final class ListComprehension extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+  void validate(ValidationEnvironment env) throws EvalException {
     for (Map.Entry<LValue, Expression> list : lists) {
       list.getValue().validate(env);
       list.getKey().validate(env, getLocation());
     }
     elementExpression.validate(env);
-    return SkylarkType.LIST;
   }
 }

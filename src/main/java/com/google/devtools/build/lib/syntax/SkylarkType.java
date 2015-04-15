@@ -172,12 +172,6 @@ public abstract class SkylarkType {
   public static final Simple NONE = Simple.of(Environment.NoneType.class);
 
   private static final class Global {}
-  /**
-   * placeholder type for the namespace that global methods are relative to,
-   * used in the validation environment only.
-   */
-  public static final Simple GLOBAL = Simple.of(Global.class);
-
   /** The STRING type, for strings */
   public static final Simple STRING = Simple.of(String.class);
 

@@ -63,13 +63,13 @@ public final class Ident extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    if (env.hasSymbolInEnvironment(name)) {
-      return env.getVartype(name);
-    } else if (name.equals("$error$")) {
-      throw new EvalException(getLocation(), "contains syntax error(s)", true);
-    } else {
-      throw new EvalException(getLocation(), "name '" + name + "' is not defined");
+  void validate(ValidationEnvironment env) throws EvalException {
+    if (!env.hasSymbolInEnvironment(name)) {
+      if (name.equals("$error$")) {
+        throw new EvalException(getLocation(), "contains syntax error(s)", true);
+      } else {
+        throw new EvalException(getLocation(), "name '" + name + "' is not defined");
+      }
     }
   }
 }

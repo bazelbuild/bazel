@@ -65,20 +65,10 @@ public class DictComprehension extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    SkylarkType elementsType = listExpression.validate(env);
+  void validate(ValidationEnvironment env) throws EvalException {
+    listExpression.validate(env);
     loopVar.validate(env, getLocation());
-    SkylarkType keyType = keyExpression.validate(env);
-    if (!keyType.isSimple()) {
-      // TODO(bazel-team): this is most probably dead code but it's better to have it here
-      // in case we enable e.g. list of lists or we validate function calls on Java objects
-      throw new EvalException(getLocation(), "Dict comprehension key must be of a simple type");
-    }
-    valueExpression.validate(env);
-    if (elementsType != SkylarkType.UNKNOWN && !elementsType.isList()) {
-      throw new EvalException(getLocation(), "Dict comprehension elements must be a list");
-    }
-    return SkylarkType.of(SkylarkType.MAP, keyType);
+    keyExpression.validate(env);
   }
 
   @Override

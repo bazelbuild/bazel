@@ -47,16 +47,6 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testTwoReturnTypes() throws Exception {
-    checkError("bad return type of foo: string is incompatible with int at 3:5",
-        "def foo(x):",
-        "  if x:",
-        "    return 1",
-        "  else:",
-        "    return 'a'");
-  }
-
-  @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
     checkError("function foo already exists",
         "def foo():",
@@ -101,27 +91,6 @@ public class ValidationTests extends EvaluationTestCase {
         "  a = 1",
         "def func2():",
         "  a = 'abc'\n");
-  }
-
-  @Test
-  public void testListIsNotComparable() {
-    checkError("list of strings is not comparable", "['a'] > 1");
-  }
-
-  @Test
-  public void testStringCompareToInt() {
-    checkError("bad comparison: int is incompatible with string", "'a' > 1");
-  }
-
-  @Test
-  public void testInOnInt() {
-    checkError("operand 'in' only works on strings, dictionaries, "
-        + "lists, sets or tuples, not on a(n) int", "1 in 2");
-  }
-
-  @Test
-  public void testUnsupportedOperator() {
-    checkError("unsupported operand type(s) for -: 'string' and 'int'", "'a' - 1");
   }
 
   @Test
@@ -175,69 +144,13 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
-  public void testListLiteralBadTypes() throws Exception {
-    checkError("bad list literal: int is incompatible with string at 1:1",
-        "['a', 1]");
-  }
-
-  @Test
   public void testTupleLiteralWorksForDifferentTypes() throws Exception {
     parse("('a', 1)");
   }
 
   @Test
-  public void testDictLiteralBadKeyTypes() throws Exception {
-    checkError("bad dict literal: int is incompatible with string at 1:1",
-        "{'a': 1, 1: 2}");
-  }
-
-  @Test
   public void testDictLiteralDifferentValueTypeWorks() throws Exception {
     parse("{'a': 1, 'b': 'c'}");
-  }
-
-  @Test
-  public void testListConcatBadTypes() throws Exception {
-    checkError("bad list concatenation: list of ints is incompatible with list of strings at 1:1",
-        "['a'] + [1]");
-  }
-
-  @Test
-  public void testDictConcatBadKeyTypes() throws Exception {
-    checkError("bad dict concatenation: dict of ints is incompatible with dict of strings at 1:1",
-        "{'a': 1} + {1: 2}");
-  }
-
-  @Test
-  public void testDictLiteralBadKeyType() throws Exception {
-    checkError("Dict cannot contain composite type 'list of strings' as key", "{['a']: 1}");
-  }
-
-  @Test
-  public void testAndTypeInfer() throws Exception {
-    checkError("unsupported operand type(s) for +: 'string' and 'int'", "('a' and 'b') + 1");
-  }
-
-  @Test
-  public void testOrTypeInfer() throws Exception {
-    checkError("unsupported operand type(s) for +: 'string' and 'int'", "('' or 'b') + 1");
-  }
-
-  @Test
-  public void testAndDifferentTypes() throws Exception {
-    checkError("bad and operator: int is incompatible with string at 1:1",
-        "'ab' and 3");
-  }
-
-  @Test
-  public void testOrDifferentTypes() throws Exception {
-    checkError("bad or operator: int is incompatible with string at 1:1",
-        "'ab' or 3");
-  }
-
-  @Test
-  public void testOrNone() throws Exception {
-    parse("a = None or 3");
   }
 
   @Test
@@ -255,18 +168,6 @@ public class ValidationTests extends EvaluationTestCase {
     parse("None > 'a'");
     parse("[] in None");
     parse("5 * None");
-  }
-
-  @Test
-  public void testDictComprehensionNotOnList() throws Exception {
-    checkError("Dict comprehension elements must be a list", "{k : k for k in 'abc'}");
-  }
-
-  @Test
-  public void testFuncallArgument() {
-    checkError("unsupported operand type(s) for +: 'int' and 'string'",
-        "def foo(x): return x",
-        "a = foo(1 + 'a')");
   }
 
   // Skylark built-in functions specific tests
@@ -388,12 +289,6 @@ public class ValidationTests extends EvaluationTestCase {
   public void testBuiltinGlobalFunctionsReadOnlyAsFuncDefArg() {
     parse("def func(rule):",
         "  return rule");
-  }
-
-  @Test
-  public void testFilesModulePlusStringErrorMessage() throws Exception {
-    checkError("unsupported operand type(s) for +: 'cmd_helper (a language module)' and 'string'",
-        "cmd_helper += 'a'");
   }
 
   @Test

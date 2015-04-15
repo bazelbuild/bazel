@@ -47,5 +47,5 @@ public abstract class Expression extends ASTNode {
    *
    * @see Statement
    */
-  abstract SkylarkType validate(ValidationEnvironment env) throws EvalException;
+  abstract void validate(ValidationEnvironment env) throws EvalException;
 }

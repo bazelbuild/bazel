@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 /**
  * A wrapper Statement class for return expressions.
@@ -64,12 +63,9 @@ public class ReturnStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    // TODO(bazel-team): save the return type in the environment, to type-check functions.
-    SkylarkFunctionType fct = env.getCurrentFunction();
-    if (fct == null) {
+    if (env.getCurrentFunction() == null) {
       throw new EvalException(getLocation(), "Return statements must be inside a function");
     }
-    SkylarkType resultType = returnExpression.validate(env);
-    fct.setReturnType(resultType, getLocation());
+    returnExpression.validate(env);
   }
 }

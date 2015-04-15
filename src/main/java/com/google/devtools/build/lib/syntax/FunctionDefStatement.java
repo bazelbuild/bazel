@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Syntax node for a function definition.
@@ -92,30 +91,17 @@ public class FunctionDefStatement extends Statement {
     int namedOnly = shape.getNamedOnly();
     int mandatoryNamedOnly = shape.getMandatoryNamedOnly();
     boolean starArg = shape.hasStarArg();
-    boolean hasStar = starArg || (namedOnly > 0);
     boolean kwArg = shape.hasKwArg();
     int named = positionals + namedOnly;
     int args = named + (starArg ? 1 : 0) + (kwArg ? 1 : 0);
     int startOptionals = mandatoryPositionals;
     int endOptionals = named - mandatoryNamedOnly;
-    int iStarArg = named;
-    int iKwArg = args - 1;
 
     int j = 0; // index for the defaultExpressions
     for (int i = 0; i < args; i++) {
       String name = names.get(i);
-      SkylarkType argType = SkylarkType.UNKNOWN;
-      if (hasStar && i == iStarArg) {
-        argType = SkylarkType.of(SkylarkList.class, Object.class);
-      } else if (kwArg && i == iKwArg) {
-        argType = SkylarkType.of(Map.class, Object.class);
-      } else {
-        if (startOptionals <= i && i < endOptionals) {
-          argType = defaultExpressions.get(j++).validate(env);
-          if (argType.equals(SkylarkType.NONE)) {
-            argType = SkylarkType.UNKNOWN;
-          }
-        }
+      if (startOptionals <= i && i < endOptionals) {
+        defaultExpressions.get(j++).validate(env);
       }
       localEnv.declare(name, getLocation());
     }

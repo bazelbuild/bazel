@@ -62,9 +62,9 @@ public final class ConditionalExpression extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+  void validate(ValidationEnvironment env) throws EvalException {
     condition.validate(env);
-    return thenCase.validate(env)
-        .infer(elseCase.validate(env), "else case", thenCase.getLocation(), elseCase.getLocation());
+    thenCase.validate(env);
+    elseCase.validate(env);
   }
 }

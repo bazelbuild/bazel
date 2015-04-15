@@ -28,7 +28,6 @@ public final class IntegerLiteral extends Literal<Integer> {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    return SkylarkType.INT;
+  void validate(ValidationEnvironment env) throws EvalException {
   }
 }

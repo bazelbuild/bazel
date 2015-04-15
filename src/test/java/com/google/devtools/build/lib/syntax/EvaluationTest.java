@@ -86,19 +86,15 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(1, eval("1 or 0 and 3"));
 
     assertEquals(Environment.NONE, eval("None and 1"));
+    assertEquals(9, eval("\"\" or 9"));
+    assertEquals("abc", eval("\"abc\" or 9"));
 
     if (isSkylark()) {
       checkEvalError("ERROR 1:6: name 'foo' is not defined", "8 or foo");
       checkEvalError("ERROR 1:7: name 'foo' is not defined", "0 and foo");
-      checkEvalError("ERROR 1:7: bad or operator: int is incompatible with string at 1:1",
-          "\"\" or 9");
-      checkEvalError("ERROR 1:10: bad or operator: int is incompatible with string at 1:1",
-          "\"abc\" or 9");
     } else {
       assertEquals(8, eval("8 or foo")); // check that 'foo' is not evaluated
       assertEquals(0, eval("0 and foo")); // check that 'foo' is not evaluated
-      assertEquals(9, eval("\"\" or 9"));
-      assertEquals("abc", eval("\"abc\" or 9"));
     }
   }
 
@@ -112,12 +108,6 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testNotWithLogicOperators() throws Exception {
     assertEquals(true, eval("not (0 and 0)"));
     assertEquals(false, eval("not (1 or 0)"));
-
-    if (isSkylark()) {
-      checkEvalError(
-          "ERROR 1:7: bad and operator: bool is incompatible with int at 1:1", "0 and not 0");
-      return;
-    }
 
     assertEquals(0, eval("0 and not 0"));
     assertEquals(0, eval("not 0 and 0"));
@@ -148,14 +138,8 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(true, eval("'hello' == 'hel' + 'lo'"));
     assertEquals(false, eval("'hello' == 'bye'"));
     assertEquals(true, eval("None == None"));
-
-    if (isSkylark()) {
-      checkEvalError("ERROR 1:1: list of ints is not comparable", "[1, 2] == [1, 2]");
-      checkEvalError("ERROR 1:1: list of ints is not comparable", "[1, 2] == [2, 1]");
-    } else {
-      assertEquals(true, eval("[1, 2] == [1, 2]"));
-      assertEquals(false, eval("[1, 2] == [2, 1]"));
-    }
+    assertEquals(true, eval("[1, 2] == [1, 2]"));
+    assertEquals(false, eval("[1, 2] == [2, 1]"));
   }
 
   @Test
@@ -164,13 +148,8 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(true, eval("1 != 2"));
     assertEquals(false, eval("'hello' != 'hel' + 'lo'"));
     assertEquals(true, eval("'hello' != 'bye'"));
-    if (isSkylark()) {
-      checkEvalError("ERROR 1:1: list of ints is not comparable", "[1, 2] != [1, 2]");
-      checkEvalError("ERROR 1:1: list of ints is not comparable", "[1, 2] != [2, 1]");
-    } else {
-      assertEquals(false, eval("[1, 2] != [1, 2]"));
-      assertEquals(true, eval("[1, 2] != [2, 1]"));
-    }
+    assertEquals(false, eval("[1, 2] != [1, 2]"));
+    assertEquals(true, eval("[1, 2] != [2, 1]"));
   }
 
   @Test
@@ -178,15 +157,8 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(true, eval("1 + 3 == 2 + 2"));
     assertEquals(true, eval("not 1 == 2"));
     assertEquals(false, eval("not 1 != 2"));
-    if (isSkylark()) {
-      checkEvalError("ERROR 1:7: bad and operator: bool is incompatible with int at 1:1",
-          "2 and 3 == 3 or 1");
-      checkEvalError("ERROR 1:17: bad and operator: int is incompatible with bool at 1:6",
-          "2 or 3 == 3 and 1");
-    } else {
-      assertEquals(true, eval("2 and 3 == 3 or 1"));
-      assertEquals(2, eval("2 or 3 == 3 and 1"));
-    }
+    assertEquals(true, eval("2 and 3 == 3 or 1"));
+    assertEquals(2, eval("2 or 3 == 3 and 1"));
   }
 
   @Test
@@ -368,6 +340,15 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testHeterogeneousDict() throws Exception {
+    eval("d = {'str': 1, 2: 3}\n"
+         + "a = d['str']\n"
+         + "b = d[2]");
+    assertThat(lookup("a")).isEqualTo(1);
+    assertThat(lookup("b")).isEqualTo(3);
+  }
+
+  @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     eval("((a, b), (c, d)) = [(1, 2), (3, 4)]");
     assertThat(lookup("a")).isEqualTo(1);
@@ -400,6 +381,13 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(ImmutableMap.of("k_a", "v_a", "k_b", "v_b"),
         eval("{'k_' + e : 'v_' + e for e in ['a', 'b']}"));
     assertEquals(ImmutableMap.of(5, 6), eval("{x+y : x*y for x, y in [[2, 3]]}"));
+  }
+
+  @Test
+  public void testDictComprehensionOnNonIterable() throws Exception {
+    checkEvalError(
+        "type 'int' is not iterable",
+        "{k : k for k in 3}");
   }
 
   @Test
@@ -481,9 +469,6 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testInCompositeForPrecedence() throws Exception {
-    if (isSkylark()) {
-      return;
-    }
     assertEquals(0, eval("not 'a' in ['a'] or 0"));
   }
 

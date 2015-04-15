@@ -827,21 +827,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testInFail() throws Exception {
     checkEvalError("in operator only works on strings if the left operand is also a string",
         "1 in '123'");
-    checkEvalError("ERROR 1:1: operand 'in' only works on "
-        + "strings, dictionaries, lists, sets or tuples, not on a(n) int",
+    checkEvalError("in operator only works on lists, tuples, sets, dicts and strings",
         "'a' in 1");
   }
 
   @Override
   @Test
   public void testCompareStringInt() throws Exception {
-    checkEvalError("ERROR 1:1: bad comparison: int is incompatible with string at 1:8", "'a' >= 1");
+    checkEvalError("Cannot compare string with int", "'a' >= 1");
   }
 
   @Override
   @Test
   public void testNotComparable() throws Exception {
-    checkEvalError("ERROR 1:1: list of ints is not comparable", "[1, 2] < [1, 3]");
+    checkEvalError("[1, 2] is not comparable", "[1, 2] < [1, 3]");
   }
 
   @Override
@@ -883,12 +882,5 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testConditionalExpressionInFunction() throws Exception {
     eval("def foo(a, b, c): return a+b if c else a-b\n");
     assertEquals(18, eval("foo(23, 5, 0)"));
-  }
-
-  @Test
-  public void testBadConditionalExpressionInFunction() throws Exception {
-    setFailFast(false);
-    parseFile("def foo(a): return [] if a else 0\n");
-    assertContainsEvent("bad else case: int is incompatible with list at 1:33");
   }
 }

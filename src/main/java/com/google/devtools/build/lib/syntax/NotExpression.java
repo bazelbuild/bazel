@@ -44,9 +44,7 @@ public class NotExpression extends Expression {
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    // Don't need type check here since EvalUtils.toBoolean() converts everything.
+  void validate(ValidationEnvironment env) throws EvalException {
     expression.validate(env);
-    return SkylarkType.BOOL;
   }
 }
