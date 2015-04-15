@@ -248,6 +248,14 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testModulo() throws Exception {
+    assertThat(eval("6 % 2")).isEqualTo(0);
+    assertThat(eval("6 % 4")).isEqualTo(2);
+    assertThat(eval("3 % 6")).isEqualTo(3);
+    checkEvalError("integer modulo by zero", "5 % 0");
+  }
+
+  @Test
   public void testMult() throws Exception {
     assertEquals(42, eval("6 * 7"));
 
