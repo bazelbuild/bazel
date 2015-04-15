@@ -66,7 +66,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     } else {
       runfilesBuilder.addTransitiveArtifacts(filesToBuild);
     }
-    runfilesBuilder.setManifestExpander(PythonUtils.GET_INIT_PY_FILES);
+    runfilesBuilder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     runfilesBuilder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
 

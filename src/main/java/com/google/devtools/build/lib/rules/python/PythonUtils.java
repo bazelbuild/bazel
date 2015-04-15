@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,12 +39,11 @@ public final class PythonUtils {
 
   private static final FileType REQUIRES_INIT_PY = FileType.of(".py", ".so", ".pyc");
 
-  public static final Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>>
-      GET_INIT_PY_FILES = new Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>>()
-      {
+  public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
+      new Runfiles.EmptyFilesSupplier() {
     @Override
-    public Map<PathFragment, Artifact> apply(Map<PathFragment, Artifact> input) {
-      return getInitDotPyFiles(input);
+    public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
+      return getInitPyFiles(manifestPaths);
     }
   };
 
@@ -62,41 +61,19 @@ public final class PythonUtils {
 
     for (PathFragment source : manifestFiles) {
       // If we have a python or .so file at this level...
-      if (!REQUIRES_INIT_PY.matches(source)) {
-        continue;
-      }
-      // ...then record that we need an __init__.py in this directory...
-      while (source.segmentCount() > 1) {
-        source = source.getParentDirectory();
-        PathFragment initpy = source.getRelative(INIT_PY);
-        if (!manifestFiles.contains(initpy)) {
-          result.add(initpy);
+      if (REQUIRES_INIT_PY.matches(source)) {
+        // ...then record that we need an __init__.py in this directory...
+        while (source.segmentCount() > 1) {
+          source = source.getParentDirectory();
+          PathFragment initpy = source.getRelative(INIT_PY);
+          if (!manifestFiles.contains(initpy)) {
+            result.add(initpy);
+          }
         }
       }
     }
 
     return ImmutableSet.copyOf(result);
-  }
-
-  /**
-   * Creates a new map that contains all the <code>__init__.py</code> files that are necessary for
-   * Python to find the <code>.py</code> and <code>.so</code> files in it.
-   *
-   * @param inputManifest The input mapping of source files to absolute paths on disk.
-   * @return The revised mapping. Contains <code>null</code> values for the added
-   * <code>__init.py__</code> files.
-   */
-  private static Map<PathFragment, Artifact> getInitDotPyFiles(
-      Map<PathFragment, Artifact> inputManifest) {
-    Map<PathFragment, Artifact> newManifest = new HashMap<>();
-
-    for (PathFragment initpy : getInitPyFiles(inputManifest.keySet())) {
-      if (newManifest.get(initpy) == null) {
-        newManifest.put(initpy, null);
-      }
-    }
-
-    return newManifest;
   }
 
   /**

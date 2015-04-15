@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -349,12 +348,11 @@ public class SourceManifestAction extends AbstractFileWriteAction {
     }
 
     /**
-     * Set an expander function for the symlinks.
+     * Set the empty files supplier for the manifest, see {@link Runfiles.EmptyFilesSupplier}
+     * for more details.
      */
-    @VisibleForTesting
-    Builder setSymlinksExpander(
-        Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> expander) {
-      runfilesBuilder.setManifestExpander(expander);
+    public Builder setEmptyFilesSupplier(Runfiles.EmptyFilesSupplier supplier) {
+      runfilesBuilder.setEmptyFilesSupplier(supplier);
       return this;
     }
 

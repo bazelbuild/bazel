@@ -100,7 +100,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     }
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
-    builder.setManifestExpander(PythonUtils.GET_INIT_PY_FILES);
+    builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     return builder;
   }
 
