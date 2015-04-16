@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
@@ -23,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -68,6 +71,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    */
   @Override
   protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer) {
+    visitLabels(attribute, true, observer);
+  }
+
+  private void visitLabels(Attribute attribute, boolean includeSelectKeys,
+    AcceptsLabelAttribute observer) {
     Type<?> type = attribute.getType();
     Type.SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
     if (selectorList == null) {
@@ -87,7 +95,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     } else {
       for (Type.Selector<?> selector : selectorList.getSelectors()) {
         for (Map.Entry<Label, ?> selectorEntry : selector.getEntries().entrySet()) {
-          if (!Type.Selector.isReservedLabel(selectorEntry.getKey())) {
+          if (includeSelectKeys && !Type.Selector.isReservedLabel(selectorEntry.getKey())) {
             observer.acceptLabelAttribute(selectorEntry.getKey(), attribute);
           }
           for (Label value : type.getLabels(selectorEntry.getValue())) {
@@ -99,20 +107,54 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Returns all labels reachable via the given attribute.
+   * Returns all labels reachable via the given attribute. If a label is listed multiple times,
+   * each instance appears in the returned list.
    *
-   * <p>Use this over {@link #visitAttribute} when this is sufficient, since the latter grows
-   * exponentially with respect to the number of selects in the attribute.
+   * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public Iterable<Label> getReachableLabels(String attributeName) {
+  public List<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
     final ImmutableList.Builder<Label> builder = ImmutableList.builder();
-    visitLabels(getAttributeDefinition(attributeName), new AcceptsLabelAttribute() {
-      @Override
-      public void acceptLabelAttribute(Label label, Attribute attribute) {
-        builder.add(label);
-      }
-    });
+    visitLabels(getAttributeDefinition(attributeName), includeSelectKeys,
+        new AcceptsLabelAttribute() {
+          @Override
+          public void acceptLabelAttribute(Label label, Attribute attribute) {
+            builder.add(label);
+          }
+        });
     return builder.build();
+  }
+
+  /**
+   * Returns the labels that might appear multiple times in the same attribute value.
+   */
+  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+    String attrName = attribute.getName();
+    Type<?> attrType = attribute.getType();
+
+    Type.SelectorList<?> selectorList = getSelectorList(attribute.getName(), attrType);
+    if (selectorList == null || selectorList.getSelectors().size() == 1) {
+      // Three possible scenarios:
+      //  1) Plain old attribute (no selects). Without selects, visitAttribute runs efficiently.
+      //  2) Computed default, possibly depending on other attributes using select. In this case,
+      //     visitAttribute might be inefficient. But we have no choice but to iterate over all
+      //     possible values (since we have to compute them), so we take the efficiency hit.
+      //  3) "attr = select({...})". With just a single select, visitAttribute runs efficiently.
+      ImmutableSet.Builder<Label> duplicates = ImmutableSet.builder();
+      for (Object value : visitAttribute(attrName, attrType)) {
+        if (value != null) {
+          duplicates.addAll(CollectionUtils.duplicatedElementsOf(
+              ImmutableList.copyOf(attrType.getLabels(value))));
+        }
+      }
+      return duplicates.build();
+    } else {
+      // Multiple selects concatenated together. It's expensive to iterate over every possible
+      // value, so instead collect all labels across all the selects and check for duplicates.
+      // This is overly strict, since this counts duplicates across values. We can presumably
+      // relax this if necessary, but doing so would incur the value iteration expense this
+      // code path avoids.
+      return CollectionUtils.duplicatedElementsOf(getReachableLabels(attrName, false));
+    }
   }
 
   /**

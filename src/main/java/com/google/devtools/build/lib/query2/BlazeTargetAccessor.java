@@ -83,16 +83,12 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
       // Return an empty list if the attribute isn't defined for this rule.
       return ImmutableList.of();
     }
-    for (Object value : attrMap.visitAttribute(attrName, attrType)) {
-      // Computed defaults may have null values.
-      if (value != null) {
-        for (Label label : attrType.getLabels(value)) {
-          try {
-            result.add(queryEnvironment.getTarget(label));
-          } catch (TargetNotFoundException e) {
-            queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
-          }
-        }
+
+    for (Label label : attrMap.getReachableLabels(attrName, false)) {
+      try {
+        result.add(queryEnvironment.getTarget(label));
+      } catch (TargetNotFoundException e) {
+        queryEnvironment.reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
       }
     }
 

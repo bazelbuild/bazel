@@ -26,7 +26,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Argument;
@@ -1345,19 +1344,11 @@ public final class RuleClass {
    */
   private static void checkForDuplicateLabels(Rule rule, Attribute attribute,
        EventHandler eventHandler) {
-    final String attrName = attribute.getName();
-    // This attribute may be selectable, so iterate over each selection possibility in turn.
-    // TODO(bazel-team): merge '*' condition into all lists when implemented.
-    AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
-    for (List<Label> labels : attributeMap.visitAttribute(attrName, Type.LABEL_LIST)) {
-      if (!labels.isEmpty()) {
-        Set<Label> duplicates = CollectionUtils.duplicatedElementsOf(labels);
-        for (Label label : duplicates) {
-          rule.reportError(
-              String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
-              label, attrName, rule.getName()), eventHandler);
-        }
-      }
+    Set<Label> duplicates = AggregatingAttributeMapper.of(rule).checkForDuplicateLabels(attribute);
+    for (Label label : duplicates) {
+      rule.reportError(
+          String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
+          label, attribute.getName(), rule.getName()), eventHandler);
     }
   }
 
