@@ -154,10 +154,20 @@ public class ObjcRuleClasses {
     boolean hasProtos = currentSource.isPresent()
         && currentSource.get().getSourceType() == J2ObjcSource.SourceType.PROTO;
 
-    for (J2ObjcSrcsProvider provider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcSrcsProvider.class)) {
-      builder.addTransitive(provider.getSrcs());
-      hasProtos |= provider.hasProtos();
+    if (ruleContext.attributes().has("deps", Type.LABEL_LIST)) {
+      for (J2ObjcSrcsProvider provider :
+          ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcSrcsProvider.class)) {
+        builder.addTransitive(provider.getSrcs());
+        hasProtos |= provider.hasProtos();
+      }
+    }
+
+    if (ruleContext.attributes().has("exports", Type.LABEL_LIST)) {
+      for (J2ObjcSrcsProvider provider :
+          ruleContext.getPrerequisites("exports", Mode.TARGET, J2ObjcSrcsProvider.class)) {
+        builder.addTransitive(provider.getSrcs());
+        hasProtos |= provider.hasProtos();
+      }
     }
 
     return new J2ObjcSrcsProvider(builder.build(), hasProtos);
