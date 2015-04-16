@@ -137,8 +137,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     }
   }
 
-  protected BuildConfigurationCollection createCollection(ConfigurationFactory factory,
-      String... args) throws Exception {
+  protected BuildConfigurationCollection createCollection(String... args) throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(
         ImmutableList.<Class<? extends OptionsBase>>builder()
         .addAll(buildOptionClasses)
@@ -148,27 +147,17 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);
 
-    factory.forbidSanityCheck();
+    configurationFactory.forbidSanityCheck();
     BuildOptions buildOptions = BuildOptions.of(buildOptionClasses, parser);
     BuildConfigurationCollection collection =
-        skyframeExecutor.createConfigurations(factory,
+        skyframeExecutor.createConfigurations(configurationFactory,
         new BuildConfigurationKey(buildOptions,
         new BlazeDirectories(outputBase, outputBase, workspace), clientEnv, multiCpu));
     return collection;
   }
 
-  protected BuildConfigurationCollection createCollection(String... args) throws Exception {
-    return createCollection(configurationFactory, args);
-  }
-
-  protected BuildConfiguration create(ConfigurationFactory factory, String... args)
-      throws Exception {
-    return Iterables.getOnlyElement(createCollection(factory, args).getTargetConfigurations());
-  }
-
-  protected BuildConfiguration create(String... args)
-      throws Exception {
-    return create(configurationFactory, args);
+  protected BuildConfiguration create(String... args) throws Exception {
+    return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
   }
 
   protected BuildConfiguration createHost(String... args) throws Exception {
