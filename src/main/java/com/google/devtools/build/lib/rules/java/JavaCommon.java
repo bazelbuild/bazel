@@ -126,6 +126,22 @@ public class JavaCommon {
         ClasspathType.BOTH, bothDeps);
   }
 
+  /**
+   * Validates that the packages listed under "deps" all have the given constraint. If a package
+   * does not have this attribute, an error is generated.
+   */
+  public static final void validateConstraint(RuleContext ruleContext,
+      String constraint, Iterable<? extends TransitiveInfoCollection> targets) {
+    for (JavaConstraintProvider constraintProvider :
+        AnalysisUtils.getProviders(targets, JavaConstraintProvider.class)) {
+      if (!constraintProvider.getJavaConstraints().contains(constraint)) {
+        ruleContext.attributeError("deps",
+            String.format("%s: does not have constraint '%s'",
+                constraintProvider.getLabel(), constraint));
+      }
+    }
+  }
+
   public void setClassPathFragment(ClasspathConfiguredFragment classpathFragment) {
     this.classpathFragment = classpathFragment;
   }

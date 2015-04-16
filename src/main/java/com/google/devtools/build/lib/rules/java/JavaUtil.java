@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /**
  * Utility methods for use by Java-related parts of the build system.
  */
-public abstract class JavaUtil {
+public final class JavaUtil {
 
   private JavaUtil() {}
 
@@ -144,4 +144,5 @@ public abstract class JavaUtil {
     }
     return null;
   }
+
 }
