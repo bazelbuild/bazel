@@ -99,7 +99,7 @@ runner otherwise detects prohibited behavior, it may choose to kill the test
 and treat the run as a failure.  The runner must not report the test as passing
 after sending a signal to the test process or any children thereof.</p>
 
-<p id="size">The whole test target (not individual methods or tests) is given a
+<p id="timeout">The whole test target (not individual methods or tests) is given a
 limited amount of time to run to completion. The time limit for a test is based
 on its timeout attribute according to the following table:</p>
 <table>
@@ -110,7 +110,7 @@ on its timeout attribute according to the following table:</p>
   <tr><td><code>eternal</code></td><td>3600</td></tr>
 </table>
 
-<p>Tests which do not explicitly specify a timeout have one implied based on the
+<p id="size">Tests which do not explicitly specify a timeout have one implied based on the
 test's <code>size</code> as follows:</p>
 <table>
   <tr><th>size</th><th>Implied timeout label</th></tr>
@@ -179,6 +179,7 @@ test unless the user explicitly requests it.</p>
   <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
   <tr><td><code>TEST_RANDOM_SEED</code></td><td>See <a href="bazel-user-manual.html#other_options_for_blaze_test">this table</a>.</td><td>optional</td></tr>
   <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
+  <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
   <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
   <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
   <tr><td><code>TEST_TIMEOUT</code></td><td><code>300</code></td><td>optional</td></tr>
