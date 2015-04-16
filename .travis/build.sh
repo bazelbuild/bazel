@@ -25,7 +25,7 @@ if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
     brew install protobuf libarchive
 else
     sudo apt-get update -qq
-    sudo apt-get install -y protobuf-compiler libarchive-dev bc netcat-traditional
+    sudo apt-get install -y protobuf-compiler libarchive-dev netcat-traditional
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"

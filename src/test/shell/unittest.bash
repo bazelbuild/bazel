@@ -461,13 +461,20 @@ function __finish_test_report() {
 if [ "$(uname -s | tr 'A-Z' 'a-z')" = "darwin" ]; then
     function timestamp() {
       # OS X does not have %N so python is the best we can do
-      python -c 'import time; print time.time()'
+      python -c 'import time; print int(round(time.time() * 1000))'
     }
 else
     function timestamp() {
-      date +%s.%N
+      echo $(($(date +%s%N)/1000000))
     }
 fi
+
+function get_run_time() {
+  local ts_start=$1
+  local ts_end=$2
+  run_time_ms=$((${ts_end}-${ts_start}))
+  echo $(($run_time_ms/1000)).${run_time_ms: -3}
+}
 
 # Usage: run_tests <suite-comment>
 # Must be called from the end of the user's test suite.
@@ -536,7 +543,7 @@ function run_suite() {
         # Calculate run time for the testcase.
         local ts_start=$(cat $TEST_TMPDIR/__ts_start)
         local ts_end=$(cat $TEST_TMPDIR/__ts_end)
-        run_time=$(echo "${ts_end}-${ts_start}" | bc)
+        run_time=$(get_run_time $ts_start $ts_end)
 
         # Eventually restore exit handlers.
         if [ -n "$SAVED_ATEXIT" ]; then

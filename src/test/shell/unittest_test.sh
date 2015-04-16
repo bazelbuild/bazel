@@ -28,4 +28,12 @@ function test_2() {
   echo "Everything is okay in test_2"
 }
 
+function test_timestamp() {
+  local ts=$(timestamp)
+  [[ $ts =~ ^[0-9]{13}$ ]] || fail "timestamp wan't valid: $ts"
+
+  local time_diff=$(get_run_time 100000 223456)
+  assert_equals $time_diff 123.456
+}
+
 run_suite "unittests Tests"
