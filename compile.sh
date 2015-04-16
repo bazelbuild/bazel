@@ -99,8 +99,7 @@ EOF
 
       elif [[ -e $macports_header ]]; then
         # For use with Macports.
-        archive_dir=$(dirname $(dirname $macports_header))
-        rm -f fromhost/*.[ah]
+        archive_dir=$(dirname $(dirname $macports_header)) rm -f fromhost/*.[ah]
         touch fromhost/empty.c
         cp "${archive_dir}"/include/{archive.h,archive_entry.h} fromhost/
         cp "${archive_dir}"/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
@@ -132,7 +131,7 @@ linux)
   JNILIB="libunix.so"
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java 8 installation.
-  JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
+  JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
   PROTOC=${PROTOC:-third_party/protobuf/protoc.linux-i686}
   ;;
 
@@ -140,7 +139,7 @@ darwin)
   JNILIB="libunix.dylib"
   MD5SUM="md5"
   if [[ -z "$JAVA_HOME" ]]; then
-    JAVA_HOME=$(/usr/libexec/java_home -v 1.8+ 2> /dev/null) \
+    JAVA_HOME="$(/usr/libexec/java_home -v 1.8+ 2> /dev/null)" \
       || fail "Could not find JAVA_HOME, please ensure a JDK (version 1.8+) is installed."
   fi
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
@@ -209,10 +208,10 @@ rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
 
 JAVAC="${JAVA_HOME}/bin/javac"
 
-[[ -x $JAVAC ]] \
+[[ -x "${JAVAC}" ]] \
     || fail "JAVA_HOME ($JAVA_HOME) is not a path to a working JDK."
 
-JAVAC_VERSION=$($JAVAC -version 2>&1)
+JAVAC_VERSION=$("${JAVAC}" -version 2>&1)
 [[ "$JAVAC_VERSION" =~ ^"javac 1"\.([89]|[1-9][0-9]).*$ ]] \
     || fail "JDK version is lower than 1.8, please set \$JAVA_HOME."
 
