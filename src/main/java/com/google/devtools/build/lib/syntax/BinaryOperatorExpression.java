@@ -62,8 +62,29 @@ public final class BinaryOperatorExpression extends Expression {
     return lhs + " " + operator + " " + rhs;
   }
 
+  /**
+   * Compares two lists, following on Python semantics.
+   *
+   * <p>Elements are compared until two elements are not equal or we reach the end of a list.
+   */
+  private int compareLists(SkylarkList lval, SkylarkList rval) throws EvalException {
+    for (int i = 0; i < Math.min(lval.size(), rval.size()); i++) {
+      int cmp = compare(lval.get(i), rval.get(i));
+      if (cmp != 0) {
+        return cmp;
+      }
+    }
+    return Integer.compare(lval.size(), rval.size());
+  }
+
   @SuppressWarnings("unchecked")
   private int compare(Object lval, Object rval) throws EvalException {
+    lval = SkylarkType.convertToSkylark(lval, getLocation());
+    rval = SkylarkType.convertToSkylark(rval, getLocation());
+
+    if (lval instanceof SkylarkList && rval instanceof SkylarkList) {
+      return compareLists((SkylarkList) lval, (SkylarkList) rval);
+    }
     if (!(lval instanceof Comparable)) {
       throw new EvalException(getLocation(), lval + " is not comparable");
     }

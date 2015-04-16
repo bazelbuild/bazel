@@ -190,13 +190,33 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testCompareStringInt() throws Exception {
-    checkEvalError("Cannot compare string with int", "'a' >= 1");
+  public void testListComparison() throws Exception {
+    assertThat(eval("[] < [1]")).isEqualTo(true);
+    assertThat(eval("[1] < [1, 1]")).isEqualTo(true);
+    assertThat(eval("[1, 1] < [1, 2]")).isEqualTo(true);
+    assertThat(eval("[1, 2] < [1, 2, 3]")).isEqualTo(true);
+    assertThat(eval("[1, 2, 3] <= [1, 2, 3]")).isEqualTo(true);
+
+    assertThat(eval("['a', 'b'] > ['a']")).isEqualTo(true);
+    assertThat(eval("['a', 'b'] >= ['a']")).isEqualTo(true);
+    assertThat(eval("['a', 'b'] < ['a']")).isEqualTo(false);
+    assertThat(eval("['a', 'b'] <= ['a']")).isEqualTo(false);
+
+    assertThat(eval("('a', 'b') > ('a', 'b')")).isEqualTo(false);
+    assertThat(eval("('a', 'b') >= ('a', 'b')")).isEqualTo(true);
+    assertThat(eval("('a', 'b') < ('a', 'b')")).isEqualTo(false);
+    assertThat(eval("('a', 'b') <= ('a', 'b')")).isEqualTo(true);
+
+    assertThat(eval("[[1, 1]] > [[1, 1], []]")).isEqualTo(false);
+    assertThat(eval("[[1, 1]] < [[1, 1], []]")).isEqualTo(true);
+
+    checkEvalError("Cannot compare int with string", "[1] < ['a']");
+    checkEvalError("[1] is not comparable", "[1] < 1");
   }
 
   @Test
-  public void testNotComparable() throws Exception {
-    checkEvalError("[1, 2] is not comparable", "[1, 2] < [1, 3]");
+  public void testCompareStringInt() throws Exception {
+    checkEvalError("Cannot compare string with int", "'a' >= 1");
   }
 
   @Test

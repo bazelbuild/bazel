@@ -839,12 +839,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Override
   @Test
-  public void testNotComparable() throws Exception {
-    checkEvalError("[1, 2] is not comparable", "[1, 2] < [1, 3]");
-  }
-
-  @Override
-  @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
     checkEvalError("lvalue has length 3, but rvalue has has length 2",
         "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
