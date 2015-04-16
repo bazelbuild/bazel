@@ -142,6 +142,23 @@ public class JavaCommon {
     }
   }
 
+  /**
+   * Creates an action to aggregate all metadata artifacts into a single
+   * &lt;target_name&gt;_instrumented.jar file.
+   */
+  public static void createInstrumentedJarAction(RuleContext ruleContext, JavaSemantics semantics,
+      List<Artifact> metadataArtifacts, Artifact instrumentedJar, String mainClass) {
+    // In Jacoco's setup, metadata artifacts are real jars.
+    new DeployArchiveBuilder(semantics, ruleContext)
+        .setOutputJar(instrumentedJar)
+        // We need to save the original mainClass because we're going to run inside CoverageRunner
+        .setJavaStartClass(mainClass)
+        .setAttributes(new JavaTargetAttributes.Builder(semantics).build())
+        .addRuntimeJars(ImmutableList.copyOf(metadataArtifacts))
+        .setCompression(DeployArchiveBuilder.Compression.UNCOMPRESSED)
+        .build();
+  }
+
   public void setClassPathFragment(ClasspathConfiguredFragment classpathFragment) {
     this.classpathFragment = classpathFragment;
   }
