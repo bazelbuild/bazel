@@ -39,7 +39,7 @@ public enum TestTimeout {
   /**
    * Default --test_timeout flag, used when collecting code coverage.
    */
-  public static String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
+  public static final String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
 
   private final Integer rangeMin;
   private final Integer rangeMax;
