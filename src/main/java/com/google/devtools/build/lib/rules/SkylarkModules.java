@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
@@ -27,13 +28,12 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A class to handle all Skylark modules, to create and setup Validation and regular Environments.
@@ -112,27 +112,25 @@ public class SkylarkModules {
    * Returns a new ValidationEnvironment with the elements of the Skylark modules.
    */
   public static ValidationEnvironment getValidationEnvironment() {
-    return getValidationEnvironment(ImmutableMap.<String, SkylarkType>of());
+    return getValidationEnvironment(ImmutableSet.<String>of());
   }
 
   /**
    * Returns a new ValidationEnvironment with the elements of the Skylark modules and extraObjects.
    */
-  public static ValidationEnvironment getValidationEnvironment(
-      ImmutableMap<String, SkylarkType> extraObjects) {
-    Map<String, SkylarkType> builtIn = new HashMap<>();
+  public static ValidationEnvironment getValidationEnvironment(ImmutableSet<String> extraObjects) {
+    Set<String> builtIn = new HashSet<>();
     collectSkylarkTypesFromFields(Environment.class, builtIn);
     for (Class<?> moduleClass : MODULES) {
       if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-        builtIn.put(moduleClass.getAnnotation(SkylarkModule.class).name(),
-            SkylarkType.of(moduleClass));
+        builtIn.add(moduleClass.getAnnotation(SkylarkModule.class).name());
       }
     }
     MethodLibrary.setupValidationEnvironment(builtIn);
     for (Class<?> module : MODULES) {
       collectSkylarkTypesFromFields(module, builtIn);
     }
-    builtIn.putAll(extraObjects);
+    builtIn.addAll(extraObjects);
     return new ValidationEnvironment(builtIn);
   }
 
@@ -175,21 +173,17 @@ public class SkylarkModules {
    * Collects the SkylarkFunctions from the fields of the class of the object parameter
    * and adds their class and their corresponding return value to the builder.
    */
-  private static void collectSkylarkTypesFromFields(Class<?> classObject,
-      Map<String, SkylarkType> builtIn) {
+  private static void collectSkylarkTypesFromFields(Class<?> classObject, Set<String> builtIn) {
     for (Field field : classObject.getDeclaredFields()) {
       if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
         SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
         if (SkylarkFunction.class.isAssignableFrom(field.getType())) {
           // Ignore non-global values.
           if (annotation.objectType().equals(Object.class)) {
-            builtIn.put(annotation.name(), SkylarkType.UNKNOWN);
+            builtIn.add(annotation.name());
           }
-        } else if (Function.class.isAssignableFrom(field.getType())) {
-          builtIn.put(annotation.name(),
-              SkylarkFunctionType.of(annotation.name(), SkylarkType.UNKNOWN));
         } else {
-          builtIn.put(annotation.name(), SkylarkType.of(field.getType()));
+          builtIn.add(annotation.name());
         }
       }
     }

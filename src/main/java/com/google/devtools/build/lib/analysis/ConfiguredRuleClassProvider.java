@@ -291,9 +291,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.prerequisiteValidator = prerequisiteValidator;
     this.skylarkAccessibleJavaClasses = skylarkAccessibleJavaClasses;
     this.skylarkValidationEnvironment = SkylarkModules.getValidationEnvironment(
-        ImmutableMap.<String, SkylarkType>builder()
-            .putAll(skylarkAccessibleJavaClasses)
-            .build());
+        skylarkAccessibleJavaClasses.keySet());
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {

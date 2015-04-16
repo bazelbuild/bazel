@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.HashMap;
@@ -34,7 +34,7 @@ public class ValidationEnvironment {
 
   private final ValidationEnvironment parent;
 
-  private Map<String, SkylarkType> variableTypes = new HashMap<>();
+  private Set<String> variables = new HashSet<>();
 
   private Map<String, Location> variableLocations = new HashMap<>();
 
@@ -47,26 +47,22 @@ public class ValidationEnvironment {
   // Whether this validation environment is not modified therefore clonable or not.
   private boolean clonable;
 
-  public ValidationEnvironment(Map<String, SkylarkType> builtinVariableTypes) {
+  public ValidationEnvironment(Set<String> builtinVariables) {
     parent = null;
-    variableTypes = new HashMap<>(builtinVariableTypes);
-    readOnlyVariables.addAll(builtinVariableTypes.keySet());
+    variables.addAll(builtinVariables);
+    readOnlyVariables.addAll(builtinVariables);
     clonable = true;
   }
 
-  private ValidationEnvironment(Map<String, SkylarkType> builtinVariableTypes,
-      Set<String> readOnlyVariables) {
+  private ValidationEnvironment(Set<String> builtinVariables, Set<String> readOnlyVariables) {
     parent = null;
-    this.variableTypes = new HashMap<>(builtinVariableTypes);
+    this.variables = new HashSet<>(builtinVariables);
     this.readOnlyVariables = new HashSet<>(readOnlyVariables);
     clonable = false;
   }
 
   // ValidationEnvironment for a new Environment()
-  private static ImmutableMap<String, SkylarkType> globalTypes =
-      new ImmutableMap.Builder<String, SkylarkType> ()
-      .put("False", SkylarkType.BOOL).put("True", SkylarkType.BOOL)
-      .put("None", SkylarkType.TOP).build();
+  private static ImmutableSet<String> globalTypes = ImmutableSet.of("False", "True", "None");
 
   public ValidationEnvironment() {
     this(globalTypes);
@@ -75,7 +71,7 @@ public class ValidationEnvironment {
   @Override
   public ValidationEnvironment clone() {
     Preconditions.checkState(clonable);
-    return new ValidationEnvironment(variableTypes, readOnlyVariables);
+    return new ValidationEnvironment(variables, readOnlyVariables);
   }
 
   /**
@@ -84,7 +80,6 @@ public class ValidationEnvironment {
   public ValidationEnvironment(ValidationEnvironment parent) {
     // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
-    this.variableTypes = new HashMap<String, SkylarkType>();
     this.clonable = false;
   }
 
@@ -108,7 +103,7 @@ public class ValidationEnvironment {
         futureReadOnlyVariables.peek().add(varname);
       }
     }
-    variableTypes.put(varname, SkylarkType.UNKNOWN);
+    variables.add(varname);
     variableLocations.put(varname, location);
     clonable = false;
   }
@@ -123,8 +118,7 @@ public class ValidationEnvironment {
    * Returns true if the symbol exists in the validation environment.
    */
   public boolean hasSymbolInEnvironment(String varname) {
-    return variableTypes.containsKey(varname)
-        || topLevel().variableTypes.containsKey(varname);
+    return variables.contains(varname) || topLevel().variables.contains(varname);
   }
 
   private ValidationEnvironment topLevel() {

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -45,8 +44,6 @@ import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1100,34 +1097,24 @@ public class MethodLibrary {
 
   public static final List<Function> dictFunctions = ImmutableList.of(items, get, keys, values);
 
-  private static final Map<Function, SkylarkType> pureGlobalFunctions = ImmutableMap
-      .<Function, SkylarkType>builder()
-      // TODO(bazel-team): String methods are added two times, because there are
-      // a lot of cases when they are used as global functions in the depot. Those
-      // should be cleaned up first.
-      .put(bool, SkylarkType.BOOL)
-      .put(int_, SkylarkType.INT)
-      .put(len, SkylarkType.INT)
-      .put(minus, SkylarkType.INT)
-      .put(select, SkylarkType.of(SelectorValue.class))
-      .put(str, SkylarkType.STRING)
-      .build();
+  private static final List<Function> pureGlobalFunctions =
+      ImmutableList.of(bool, int_, len, minus, select, str);
 
-  private static final Map<Function, SkylarkType> skylarkGlobalFunctions = ImmutableMap
-      .<Function, SkylarkType>builder()
-      .putAll(pureGlobalFunctions)
-      .put(list, SkylarkType.of(SkylarkList.class))
-      .put(struct, SkylarkType.of(ClassObject.SkylarkClassObject.class))
-      .put(hasattr, SkylarkType.BOOL)
-      .put(getattr, SkylarkType.UNKNOWN)
-      .put(set, SkylarkType.of(SkylarkNestedSet.class))
-      .put(dir, SkylarkType.of(SkylarkList.class, String.class))
-      .put(enumerate, SkylarkType.of(SkylarkList.class))
-      .put(range, SkylarkType.of(SkylarkList.class, Integer.class))
-      .put(type, SkylarkType.of(String.class))
-      .put(fail, SkylarkType.NONE)
-      .put(print, SkylarkType.NONE)
-      .put(zip, SkylarkType.LIST)
+  private static final List<Function> skylarkGlobalFunctions = ImmutableList
+      .<Function>builder()
+      .addAll(pureGlobalFunctions)
+      .add(list)
+      .add(struct)
+      .add(hasattr)
+      .add(getattr)
+      .add(set)
+      .add(dir)
+      .add(enumerate)
+      .add(range)
+      .add(type)
+      .add(fail)
+      .add(print)
+      .add(zip)
       .build();
 
   /**
@@ -1142,7 +1129,7 @@ public class MethodLibrary {
     setupMethodEnvironment(env, SkylarkList.class, listPureFunctions);
     if (env.isSkylarkEnabled()) {
       env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
-      setupMethodEnvironment(env, skylarkGlobalFunctions.keySet());
+      setupMethodEnvironment(env, skylarkGlobalFunctions);
     } else {
       env.registerFunction(List.class, indexOperator.getName(), indexOperator);
       env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
@@ -1150,7 +1137,7 @@ public class MethodLibrary {
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);
       setupMethodEnvironment(env, stringFunctions);
-      setupMethodEnvironment(env, pureGlobalFunctions.keySet());
+      setupMethodEnvironment(env, pureGlobalFunctions);
     }
   }
 
@@ -1170,11 +1157,9 @@ public class MethodLibrary {
   /**
    * Collect global functions for the validation environment.
    */
-  public static void setupValidationEnvironment(Map<String, SkylarkType> builtIn) {
-    // TODO(bazel-team): To be simplified (we need only the names, not the types).
-    for (Map.Entry<Function, SkylarkType> function : skylarkGlobalFunctions.entrySet()) {
-      String name = function.getKey().getName();
-      builtIn.put(name, SkylarkFunctionType.of(name, function.getValue()));
+  public static void setupValidationEnvironment(Set<String> builtIn) {
+    for (Function function : skylarkGlobalFunctions) {
+      builtIn.add(function.getName());
     }
   }
 }
