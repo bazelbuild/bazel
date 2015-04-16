@@ -211,7 +211,7 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(eval("[[1, 1]] < [[1, 1], []]")).isEqualTo(true);
 
     checkEvalError("Cannot compare int with string", "[1] < ['a']");
-    checkEvalError("[1] is not comparable", "[1] < 1");
+    checkEvalError("Cannot compare list with int", "[1] < 1");
   }
 
   @Test

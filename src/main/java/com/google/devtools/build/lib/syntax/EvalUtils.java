@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Formattable;
 import java.util.Formatter;
 import java.util.IllegalFormatException;
@@ -44,6 +45,57 @@ import java.util.Set;
  * Utilities used by the evaluator.
  */
 public abstract class EvalUtils {
+
+  /**
+   * The exception that SKYLARK_COMPARATOR might throw. This is an unchecked exception
+   * because Comparator doesn't let us declare exceptions. It should normally be caught
+   * and wrapped in an EvalException.
+   */
+  public static class ComparisonException extends RuntimeException {
+    public ComparisonException(String msg) {
+      super(msg);
+    }
+  }
+
+  /**
+   * Compare two Skylark objects.
+   *
+   * <p> It may throw an unchecked exception ComparisonException that should be wrapped in
+   * an EvalException.
+   */
+  public static final Comparator<Object> SKYLARK_COMPARATOR = new Comparator<Object>() {
+    private int compareLists(SkylarkList o1, SkylarkList o2) {
+      for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
+        int cmp = compare(o1.get(i), o2.get(i));
+        if (cmp != 0) {
+          return cmp;
+        }
+      }
+      return Integer.compare(o1.size(), o2.size());
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public int compare(Object o1, Object o2) {
+      Location loc = null;
+      try {
+        o1 = SkylarkType.convertToSkylark(o1, loc);
+        o2 = SkylarkType.convertToSkylark(o2, loc);
+      } catch (EvalException e) {
+        throw new ComparisonException(e.getMessage());
+      }
+
+      if (o1 instanceof SkylarkList && o2 instanceof SkylarkList) {
+        return compareLists((SkylarkList) o1, (SkylarkList) o2);
+      }
+      try {
+        return ((Comparable<Object>) o1).compareTo(o2);
+      } catch (ClassCastException e) {
+        throw new ComparisonException(
+            "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
+      }
+    }
+  };
 
   // TODO(bazel-team): Yet an other hack committed in the name of Skylark. One problem is that the
   // syntax package cannot depend on actions so we have to have this until Actions are immutable.
@@ -609,7 +661,11 @@ public abstract class EvalUtils {
       Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) o;
       // For dictionaries we iterate through the keys only
       // For determinism, we sort the keys.
-      return Ordering.natural().sortedCopy(dict.keySet());
+      try {
+        return Ordering.from(SKYLARK_COMPARATOR).sortedCopy(dict.keySet());
+      } catch (ComparisonException e) {
+        throw new EvalException(loc, e);
+      }
     } else if (o instanceof SkylarkNestedSet) {
       return ((SkylarkNestedSet) o).toCollection();
     } else {
