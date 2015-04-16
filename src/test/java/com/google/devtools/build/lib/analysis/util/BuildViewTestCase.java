@@ -174,6 +174,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     binTools = BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS);
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     mock.setupMockClient(mockToolsConfig);
+    mock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+
     configurationFactory = mock.createConfigurationFactory();
     packageCacheOptions = parsePackageCacheOptions();
     workspaceStatusActionFactory =

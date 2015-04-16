@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +40,7 @@ public class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockClient(MockToolsConfig config) throws IOException {
+    config.create("WORKSPACE");
     config.create("tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_toolchain(name = 'toolchain', encoding = 'UTF-8', source_version = '8', ",
@@ -62,6 +65,13 @@ public class BazelAnalysisMock extends AnalysisMock {
         "  linker_files = ':empty',",
         "objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',)");
     config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
+  }
+
+  @Override
+  public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
+    Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
+    FileSystemUtils.createDirectoryAndParents(jdkWorkspacePath.getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
   }
 
   public static String readFromResources(String filename) {

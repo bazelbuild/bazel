@@ -219,12 +219,13 @@ java_library(
     ],
 )
 
-java_library(
+java_test(
     name = "analysis_actions_test",
     srcs = glob([
         "com/google/devtools/build/lib/analysis/actions/*.java",
+        "com/google/devtools/build/lib/analysis/BazelAnalysisMock.java",
     ]),
-    #     args = ["com.google.devtools.build.lib.AllTests"],
+    args = ["com.google.devtools.build.lib.AllTests"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",

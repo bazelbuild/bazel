@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -32,6 +33,12 @@ public abstract class AnalysisMock {
    * configuration.
    */
   public abstract void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException;
+
+  /**
+   * This is called from test setup to create any necessary mock workspace files in the
+   * <code>_embedded_binaries</code> directory.
+   */
+  public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
   public abstract ConfigurationFactory createConfigurationFactory();
 
@@ -51,6 +58,11 @@ public abstract class AnalysisMock {
     @Override
     public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
       delegate.setupMockClient(mockToolsConfig);
+    }
+
+    @Override
+    public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
+      delegate.setupMockWorkspaceFiles(embeddedBinariesRoot);
     }
 
     @Override
