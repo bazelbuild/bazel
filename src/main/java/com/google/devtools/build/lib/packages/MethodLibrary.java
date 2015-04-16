@@ -444,6 +444,22 @@ public class MethodLibrary {
   };
 
   // supported list methods
+  @SkylarkBuiltin(name = "sorted", doc = "Sort a collection.")
+  private static Function sorted = new MixedModeFunction("sorted",
+      ImmutableList.of("this"), 1, false) {
+    @Override
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
+        throws EvalException, ConversionException {
+      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'sorted' operand");
+      try {
+        thiz = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(thiz);
+      } catch (EvalUtils.ComparisonException e) {
+        throw new EvalException(ast.getLocation(), e);
+      }
+      return convert(thiz, env, ast.getLocation());
+    }
+  };
+
   @SkylarkBuiltin(name = "append", documented = false,
       doc = "Adds an item to the end of the list.")
   private static Function append = new MixedModeFunction("append",
@@ -1098,7 +1114,7 @@ public class MethodLibrary {
   public static final List<Function> dictFunctions = ImmutableList.of(items, get, keys, values);
 
   private static final List<Function> pureGlobalFunctions =
-      ImmutableList.of(bool, int_, len, minus, select, str);
+      ImmutableList.of(bool, int_, len, minus, select, sorted, str);
 
   private static final List<Function> skylarkGlobalFunctions = ImmutableList
       .<Function>builder()
