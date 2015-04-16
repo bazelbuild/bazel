@@ -198,6 +198,9 @@ msys*|mingw*)
   done
 esac
 
+[[ -x "${PROTOC-}" ]] \
+    || fail "Protobuf compiler not found in ${PROTOC-}"
+
 mkdir -p fromhost
 if [ ! -f fromhost/BUILD ]; then
   write_fromhost_build
