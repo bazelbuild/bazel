@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -55,6 +56,8 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 
 import java.lang.reflect.Field;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -170,5 +173,22 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   protected BuildConfiguration createHost(String... args) throws Exception {
     return create(args).getConfiguration(ConfigurationTransition.HOST);
+  }
+
+  public void assertConfigurationsHaveUniqueOutputDirectories(
+      BuildConfigurationCollection configCollection) throws Exception {
+    Collection<BuildConfiguration> allConfigs = configCollection.getAllConfigurations();
+    Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
+    for (BuildConfiguration config : allConfigs) {
+      if (config.isActionsEnabled()) {
+        BuildConfiguration otherConfig = outputPaths.get(config.getOutputDirectory());
+        if (otherConfig != null) {
+          throw new IllegalStateException("The output path '" + config.getOutputDirectory()
+              + "' is the same for configurations '" + config + "' and '" + otherConfig + "'");
+        } else {
+          outputPaths.put(config.getOutputDirectory(), config);
+        }
+      }
+    }
   }
 }
