@@ -127,7 +127,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .addXcodeSettings(xcodeProviderBuilder, objcProvider, productType)
         .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
         .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
+        .addNonPropagatedDependencies(
+            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
         .addFilesToBuild(filesToBuild);
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     xcodeSupport.registerActions(xcodeProvider);
