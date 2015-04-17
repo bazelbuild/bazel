@@ -122,7 +122,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Nullable
   private Target transformToValue(SkyKey key) {
     SkyFunctionName functionName = key.functionName();
-    if (functionName != SkyFunctions.TRANSITIVE_TARGET) {
+    if (!functionName.equals(SkyFunctions.TRANSITIVE_TARGET)) {
       return null;
     }
     try {
