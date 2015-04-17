@@ -195,6 +195,7 @@ java_library(
         "com/google/devtools/build/lib/exec/util/*.java",
         "com/google/devtools/build/lib/packages/util/*.java",
         "com/google/devtools/build/lib/skyframe/util/*.java",
+        "com/google/devtools/build/lib/analysis/BazelAnalysisMock.java",
     ]),
     data = [
         "//src/main/native:libunix.dylib",
@@ -223,7 +224,29 @@ java_test(
     name = "analysis_actions_test",
     srcs = glob([
         "com/google/devtools/build/lib/analysis/actions/*.java",
-        "com/google/devtools/build/lib/analysis/BazelAnalysisMock.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "analysis_config_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/analysis/config/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
     deps = [

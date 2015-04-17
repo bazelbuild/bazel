@@ -56,4 +56,6 @@ public class TestConstants {
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
+
+  public static final boolean THIS_IS_BAZEL = true;
 }

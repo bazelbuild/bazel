@@ -55,15 +55,22 @@ public class BazelAnalysisMock extends AnalysisMock {
         "               'JavaBuilderCanary_deploy.jar', 'ijar'])");
     config.create("tools/cpp/BUILD",
         "filegroup(name = 'toolchain', srcs = [':cc-compiler-local', ':empty'])",
-        "cc_toolchain(name = 'cc-compiler-local', all_files = ':empty', compiler_files = ':empty',",
-        "cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
-        "  linker_files = ':empty',",
-        "objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',)",
+        "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",
+        "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    linker_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")",
+        "cc_toolchain(name = 'cc-compiler-piii', all_files = ':empty', compiler_files = ':empty',",
+        "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    linker_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")",
         "cc_toolchain(name = 'cc-compiler-darwin', all_files = ':empty', ",
-        "  compiler_files = ':empty',",
-        "cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
-        "  linker_files = ':empty',",
-        "objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',)");
+        "    compiler_files = ':empty',",
+        "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    linker_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")");
     config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
   }
 
@@ -105,6 +112,6 @@ public class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
-    throw new UnsupportedOperationException();
+    return BazelRuleClassProvider.BUILD_OPTIONS;
   }
 }
