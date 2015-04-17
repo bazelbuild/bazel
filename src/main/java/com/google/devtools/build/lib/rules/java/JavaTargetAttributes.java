@@ -18,7 +18,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -580,13 +579,7 @@ public class JavaTargetAttributes {
     }
     inputs.add(getResources());
     inputs.add(getClassPathResources());
-    if (getExcludedArtifacts().isEmpty()) {
-      return inputs.build();
-    } else {
-      Set<Artifact> excludedJars = Sets.newHashSet(getExcludedArtifacts());
-      return ImmutableList.copyOf(Iterables.filter(
-          inputs.build(), Predicates.not(Predicates.in(excludedJars))));
-    }
+    return inputs.build();
   }
 
   public String getRuleKind() {
