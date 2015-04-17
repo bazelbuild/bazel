@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -114,13 +115,16 @@ public abstract class TestStrategy implements TestActionContext {
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
   private final boolean statusServerRunning;
+  protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
 
   public TestStrategy(OptionsClassProvider requestOptionsProvider,
-      OptionsClassProvider startupOptionsProvider, BinTools binTools) {
+      OptionsClassProvider startupOptionsProvider, BinTools binTools,
+      Map<String, String> clientEnv) {
     this.executionOptions = requestOptionsProvider.getOptions(ExecutionOptions.class);
     this.binTools = binTools;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
     BlazeServerStartupOptions startupOptions =
         startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
     statusServerRunning = startupOptions != null && startupOptions.useWebStatusServer > 0;
@@ -209,7 +213,7 @@ public abstract class TestStrategy implements TestActionContext {
    */
   public Map<String, String> getAdmissibleShellEnvironment(BuildConfiguration config,
       Iterable<String> variables) {
-    return getMapping(variables, config.getClientEnv());
+    return getMapping(variables, clientEnv);
   }
 
   /*

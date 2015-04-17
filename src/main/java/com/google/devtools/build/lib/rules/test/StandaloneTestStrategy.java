@@ -59,8 +59,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     */
 
   public StandaloneTestStrategy(OptionsClassProvider requestOptions,
-      OptionsClassProvider startupOptions, BinTools binTools) {
-    super(requestOptions, startupOptions, binTools);
+      OptionsClassProvider startupOptions, BinTools binTools, Map<String, String> clientEnv) {
+    super(requestOptions, startupOptions, binTools, clientEnv);
   }
 
   private static final String TEST_SETUP = "tools/test/test-setup.sh";

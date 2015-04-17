@@ -225,6 +225,29 @@ public final class BlazeRuntime {
 
   private final ProjectFile.Provider projectFileProvider;
 
+  /**
+   * Returns user-specified test environment variables and their values, as
+   * set by the --test_env options.
+   *
+   * @param envOverrides The --test_env flag values.
+   * @param clientEnvironment The full client environment.
+   */
+  private static Map<String, String> computeTestEnv(List<Map.Entry<String, String>> envOverrides,
+      Map<String, String> clientEnvironment) {
+    Map<String, String> testEnv = new HashMap<>();
+    for (Map.Entry<String, String> var : envOverrides) {
+      if (var.getValue() != null) {
+        testEnv.put(var.getKey(), var.getValue());
+      } else {
+        String value = clientEnvironment.get(var.getKey());
+        if (value != null) {
+          testEnv.put(var.getKey(), value);
+        }
+      }
+    }
+    return testEnv;
+  }
+
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
     public Path getFileFromDepot(Label label)
@@ -961,7 +984,10 @@ public final class BlazeRuntime {
    */
   public BuildConfigurationKey getBuildConfigurationKey(BuildOptions buildOptions,
       ImmutableSortedSet<String> multiCpu) {
-    return new BuildConfigurationKey(buildOptions, directories, clientEnv, multiCpu);
+    Map<String, String> testEnv = computeTestEnv(
+        buildOptions.get(BuildConfiguration.Options.class).testEnvironment,
+        clientEnv);
+    return new BuildConfigurationKey(buildOptions, directories, testEnv, multiCpu);
   }
 
   /**

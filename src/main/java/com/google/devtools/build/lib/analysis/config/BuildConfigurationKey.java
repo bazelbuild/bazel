@@ -32,7 +32,7 @@ public final class BuildConfigurationKey {
 
   private final BuildOptions buildOptions;
   private final BlazeDirectories directories;
-  private final Map<String, String> clientEnv;
+  private final Map<String, String> testEnv;
   private final ImmutableSortedSet<String> multiCpu;
 
   /**
@@ -41,16 +41,16 @@ public final class BuildConfigurationKey {
    * Note that the BuildConfiguration.Options instance must not contain unresolved relative paths.
    */
   public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv, Set<String> multiCpu) {
+      Map<String, String> testEnv, Set<String> multiCpu) {
     this.buildOptions = Preconditions.checkNotNull(buildOptions);
     this.directories = Preconditions.checkNotNull(directories);
-    this.clientEnv = ImmutableMap.copyOf(clientEnv);
+    this.testEnv = ImmutableMap.copyOf(testEnv);
     this.multiCpu = ImmutableSortedSet.copyOf(multiCpu);
   }
 
   public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv) {
-    this(buildOptions, directories, clientEnv, ImmutableSet.<String>of());
+      Map<String, String> testEnv) {
+    this(buildOptions, directories, testEnv, ImmutableSet.<String>of());
   }
 
   public BuildOptions getBuildOptions() {
@@ -61,8 +61,8 @@ public final class BuildConfigurationKey {
     return directories;
   }
 
-  public Map<String, String> getClientEnv() {
-    return clientEnv;
+  public Map<String, String> getTestEnv() {
+    return testEnv;
   }
 
   public ImmutableSortedSet<String> getMultiCpu() {
@@ -81,12 +81,12 @@ public final class BuildConfigurationKey {
     BuildConfigurationKey k = (BuildConfigurationKey) o;
     return buildOptions.equals(k.buildOptions)
         && directories.equals(k.directories)
-        && clientEnv.equals(k.clientEnv)
+        && testEnv.equals(k.testEnv)
         && multiCpu.equals(k.multiCpu);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, directories, clientEnv, multiCpu);
+    return Objects.hash(buildOptions, directories, testEnv, multiCpu);
   }
 }

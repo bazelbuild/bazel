@@ -44,15 +44,15 @@ import javax.annotation.Nullable;
 public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
-  private final Supplier<Map<String, String>> clientEnv;
+  private final Supplier<Map<String, String>> testEnv;
   private final Supplier<Set<Package>> configurationPackages;
 
   public ConfigurationCollectionFunction(
       Supplier<ConfigurationFactory> configurationFactory,
-      Supplier<Map<String, String>> clientEnv,
+      Supplier<Map<String, String>> testEnv,
       Supplier<Set<Package>> configurationPackages) {
     this.configurationFactory = configurationFactory;
-    this.clientEnv = clientEnv;
+    this.testEnv = testEnv;
     this.configurationPackages = configurationPackages;
   }
 
@@ -61,8 +61,6 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       ConfigurationCollectionFunctionException {
     ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
-      // We are not using this value, because test_environment can be created from clientEnv. But
-      // we want ConfigurationCollection to be recomputed each time when test_environment changes.
       PrecomputedValue.TEST_ENVIRONMENT_VARIABLES.get(env);
       BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
       if (env.valuesMissing()) {
@@ -72,7 +70,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       BuildConfigurationCollection result =
           getConfigurations(env.getListener(),
           new SkyframePackageLoaderWithValueEnvironment(env, configurationPackages.get()),
-          new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, clientEnv.get(),
+          new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, testEnv.get(),
               collectionKey.getMultiCpu()));
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
