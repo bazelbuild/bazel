@@ -97,6 +97,12 @@ function test_genrule_and_genquery() {
   }
 }
 
+function test_native_python() {
+  assert_build "//examples/py_native:bin"
+  assert_test_ok "//examples/py_native:test"
+  assert_test_fails "//examples/py_native:fail"
+}
+
 #
 # Skylark rules
 #

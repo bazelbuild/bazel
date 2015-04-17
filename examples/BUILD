@@ -10,5 +10,6 @@ filegroup(
         "//examples/objc:srcs",
         "//examples/proto:srcs",
         "//examples/py:srcs",
+        "//examples/py_native:srcs",
     ],
 )

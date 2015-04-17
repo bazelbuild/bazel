@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.bazel.rules.objc.BazelIosTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
@@ -240,6 +241,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
     builder.addRuleDefinition(new BazelPyLibraryRule());
     builder.addRuleDefinition(new BazelPyBinaryRule());
+    builder.addRuleDefinition(new BazelPyTestRule());
 
     builder.addWorkspaceFile(BazelJavaRuleClasses.getDefaultWorkspace());
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
