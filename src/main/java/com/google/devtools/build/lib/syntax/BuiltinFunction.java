@@ -246,11 +246,11 @@ public class BuiltinFunction extends BaseFunction {
           String msg = String.format(
               "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
               getName(), signature, signature.getSignature().getNames().get(i),
-              enforcedType, enforcedType.getClass(), parameterType);
+              enforcedType, enforcedType.getType(), parameterType);
           if (enforcedType instanceof SkylarkType.Simple
               || enforcedType instanceof SkylarkFunctionType) {
             Preconditions.checkArgument(
-                enforcedType == SkylarkType.of(parameterType), msg);
+                enforcedType.getType() == parameterType, msg);
             // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
             enforcedArgumentTypes.set(i, null);
           } else if (enforcedType instanceof SkylarkType.Combination) {

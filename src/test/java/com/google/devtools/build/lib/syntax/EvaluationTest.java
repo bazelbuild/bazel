@@ -221,17 +221,17 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSumFunction() throws Exception {
-    Function sum = new AbstractFunction("sum") {
-        @Override
-        public Object call(List<Object> args, Map<String, Object> kwargs,
-            FuncallExpression ast, Environment env) {
-          int sum = 0;
-          for (Object arg : args) {
-            sum += (Integer) arg;
-          }
-          return sum;
+    BaseFunction sum = new BaseFunction("sum") {
+      @Override
+      public Object call(List<Object> args, Map<String, Object> kwargs,
+          FuncallExpression ast, Environment env) {
+        int sum = 0;
+        for (Object arg : args) {
+          sum += (Integer) arg;
         }
-      };
+        return sum;
+      }
+    };
 
     update(sum.getName(), sum);
     assertEquals(21, eval("sum(1, 2, 3, 4, 5, 6)"));
@@ -250,16 +250,16 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testKeywordArgs() throws Exception {
 
-    // This function returns the map of keyword-argument keys or values,
-    Function kwargs = new AbstractFunction("kwargs") {
-        @Override
-        public Object call(List<Object> args,
-                           final Map<String, Object> kwargs,
-                           FuncallExpression ast,
-                           Environment env) {
-          return kwargs;
-        }
-      };
+    // This function returns the map of keyword arguments passed to it.
+    BaseFunction kwargs = new BaseFunction("kwargs") {
+      @Override
+      public Object call(List<Object> args,
+          final Map<String, Object> kwargs,
+          FuncallExpression ast,
+          Environment env) {
+        return kwargs;
+      }
+    };
 
     update(kwargs.getName(), kwargs);
 
@@ -558,7 +558,26 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    checkEvalError("Invalid number of arguments (expected 0)", "{'a': 1}.keys('abc')");
-    checkEvalError("Invalid number of arguments (expected 0)", "{'a': 1}.keys(arg='abc')");
+    checkEvalError("Invalid number of arguments (expected 0)",
+        "{'a': 1}.keys('abc')");
+  }
+
+  @Test
+  public void testDictKeysTooManyKeyArgs() throws Exception {
+    checkEvalError("Invalid number of arguments (expected 0)",
+        "{'a': 1}.keys(arg='abc')");
+  }
+
+  @Test
+  public void testDictKeysDuplicateKeyArgs() throws Exception {
+    checkEvalError("duplicate keywords 'arg', 'k' in call to keys",
+        "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
+  }
+
+  @Test
+  public void testArgBothPosKey() throws Exception {
+    checkEvalError("replace(this, old, new, maxsplit = null) got multiple values "
+        + "for keyword argument 'new'",
+        "'banana'.replace('a', 'o', old=3, new=4)");
   }
 }

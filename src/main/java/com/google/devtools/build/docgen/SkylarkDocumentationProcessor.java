@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Files;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuiltinMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
@@ -36,10 +37,10 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -70,7 +71,8 @@ public class SkylarkDocumentationProcessor {
   public void generateDocumentation(String outputPath) throws IOException,
       BuildEncyclopediaDocException {
     File skylarkDocPath = new File(outputPath);
-    try (BufferedWriter bw = new BufferedWriter(new FileWriter(skylarkDocPath))) {
+    try (BufferedWriter bw = new BufferedWriter(
+        Files.newWriter(skylarkDocPath, StandardCharsets.UTF_8))) {
       if (USE_TEMPLATE) {
         bw.write(SourceFileReader.readTemplateContents(DocgenConsts.SKYLARK_BODY_TEMPLATE,
             ImmutableMap.<String, String>of(
@@ -130,7 +132,7 @@ public class SkylarkDocumentationProcessor {
       .append(annotation.doc())
       .append("\n");
     sb.append("<ul>");
-    // Sort Java and SkylarkBuiltin methods together. The map key is only used for sorting.
+    // Sort Java and Skylark builtin methods together. The map key is only used for sorting.
     TreeMap<String, Object> methodMap = new TreeMap<>();
     for (SkylarkJavaMethod method : module.getJavaMethods()) {
       methodMap.put(method.name + method.method.getParameterTypes().length, method);
@@ -291,13 +293,13 @@ public class SkylarkDocumentationProcessor {
                 ? " (" + getTypeAnchor(param.type()) + ")"
                 : " (" + getTypeAnchor(param.type(), param.generic1()) + ")");
         sb.append(String.format("\t<li id=\"modules.%s.%s.%s\"><code>%s%s</code>: ",
-            moduleId,
-            methodName,
-            param.name(),
-            param.name(),
-            paramType))
-          .append(param.doc())
-          .append("\n\t</li>\n");
+                moduleId,
+                methodName,
+                param.name(),
+                param.name(),
+                paramType))
+            .append(param.doc())
+            .append("\n\t</li>\n");
       }
       sb.append("</ul>\n");
     }

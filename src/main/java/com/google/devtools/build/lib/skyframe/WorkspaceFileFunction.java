@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.syntax.Environment.NONE;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ExternalPackage.Binding;
 import com.google.devtools.build.lib.packages.ExternalPackage.Builder;
@@ -28,16 +28,15 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -134,16 +133,16 @@ public class WorkspaceFileFunction implements SkyFunction {
     return null;
   }
 
-  private static Function newWorkspaceNameFunction(final Builder builder) {
-    List<String> params = ImmutableList.of("name");
-    return new MixedModeFunction("workspace", params, 1, true) {
-      @Override
-      public Object call(Object[] namedArgs, FuncallExpression ast) throws EvalException,
-          ConversionException, InterruptedException {
-        String name = Type.STRING.convert(namedArgs[0], "'name' argument");
+  // TODO(bazel-team): use @SkylarkSignature annotations on a BuiltinFunction.Factory
+  // for signature + documentation of this and other functions in this file.
+  private static BuiltinFunction newWorkspaceNameFunction(final Builder builder) {
+    return new BuiltinFunction("workspace",
+        FunctionSignature.namedOnly("name"), BuiltinFunction.USE_LOC) {
+      public Object invoke(String name,
+          Location loc) throws EvalException {
         String errorMessage = LabelValidator.validateTargetName(name);
         if (errorMessage != null) {
-          throw new EvalException(ast.getLocation(), errorMessage);
+          throw new EvalException(loc, errorMessage);
         }
         builder.setWorkspaceName(name);
         return NONE;
@@ -151,24 +150,19 @@ public class WorkspaceFileFunction implements SkyFunction {
     };
   }
 
-  private static Function newBindFunction(final Builder builder) {
-    List<String> params = ImmutableList.of("name", "actual");
-    return new MixedModeFunction(BIND, params, 2, true) {
-      @Override
-      public Object call(Object[] namedArgs, FuncallExpression ast)
-              throws EvalException, ConversionException {
-        String name = Type.STRING.convert(namedArgs[0], "'name' argument");
-        String actual = Type.STRING.convert(namedArgs[1], "'actual' argument");
-
+  private static BuiltinFunction newBindFunction(final Builder builder) {
+    return new BuiltinFunction(BIND,
+        FunctionSignature.namedOnly("name", "actual"), BuiltinFunction.USE_LOC) {
+      public Object invoke(String name, String actual,
+          Location loc) throws EvalException, ConversionException, InterruptedException {
         Label nameLabel = null;
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
           builder.addBinding(
-              nameLabel, new Binding(Label.parseRepositoryLabel(actual), ast.getLocation()));
+              nameLabel, new Binding(Label.parseRepositoryLabel(actual), loc));
         } catch (SyntaxException e) {
-          throw new EvalException(ast.getLocation(), e.getMessage());
+          throw new EvalException(loc, e.getMessage());
         }
-
         return NONE;
       }
     };
@@ -178,18 +172,12 @@ public class WorkspaceFileFunction implements SkyFunction {
    * Returns a function-value implementing the build rule "ruleClass" (e.g. cc_library) in the
    * specified package context.
    */
-  private static Function newRuleFunction(final RuleFactory ruleFactory,
+  private static BuiltinFunction newRuleFunction(final RuleFactory ruleFactory,
       final Builder builder, final String ruleClassName) {
-    return new AbstractFunction(ruleClassName) {
-      @Override
-      public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-          com.google.devtools.build.lib.syntax.Environment env)
-          throws EvalException {
-        if (!args.isEmpty()) {
-          throw new EvalException(ast.getLocation(),
-              "build rules do not accept positional parameters");
-        }
-
+    return new BuiltinFunction(ruleClassName,
+        FunctionSignature.KWARGS, BuiltinFunction.USE_AST) {
+      public Object invoke(Map<String, Object> kwargs,
+          FuncallExpression ast) throws EvalException {
         try {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           builder.createAndAddRepositoryRule(ruleClass, kwargs, ast);

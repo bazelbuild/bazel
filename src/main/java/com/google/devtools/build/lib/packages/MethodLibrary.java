@@ -68,7 +68,7 @@ public class MethodLibrary {
   // Convert string index in the same way Python does.
   // If index is negative, starts from the end.
   // If index is outside bounds, it is restricted to the valid range.
-  private static int getClampedIndex(int index, int length) {
+  private static int clampIndex(int index, int length) {
     if (index < 0) {
       index += length;
     }
@@ -77,14 +77,22 @@ public class MethodLibrary {
 
   // Emulate Python substring function
   // It converts out of range indices, and never fails
-  private static String getPythonSubstring(String str, int start, int end) {
-    start = getClampedIndex(start, str.length());
-    end = getClampedIndex(end, str.length());
-    if (start > end) {
-      return "";
-    } else {
-      return str.substring(start, end);
+  private static String pythonSubstring(String str, int start, Object end, String msg)
+      throws ConversionException {
+    if (start == 0 && EvalUtils.isNullOrNone(end)) {
+      return str;
     }
+    start = clampIndex(start, str.length());
+    int stop;
+    if (EvalUtils.isNullOrNone(end)) {
+      stop = str.length();
+    } else {
+      stop = clampIndex(Type.INTEGER.convert(end, msg), str.length());
+    }
+    if (start >= stop) {
+      return "";
+    }
+    return str.substring(start, stop);
   }
 
   public static int getListIndex(Object key, int listSize, FuncallExpression ast)
@@ -193,12 +201,24 @@ public class MethodLibrary {
       int maxsplit = args[2] != null
           ? Type.INTEGER.convert(args[2], "'split' argument") + 1 // last is remainder
           : -1;
-      String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(thiz,
-                                                                maxsplit);
+      String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(thiz, maxsplit);
       List<String> result = java.util.Arrays.asList(ss);
       return env.isSkylarkEnabled() ? SkylarkList.list(result, String.class) : result;
     }
   };
+
+  /**
+   * Common implementation for find, rfind, index, rindex.
+   * @param forward true if we want to return the last matching index.
+   */
+  private static int stringFind(boolean forward,
+      String self, String sub, int start, Object end, String msg)
+      throws ConversionException {
+    String substr = pythonSubstring(self, start, end, msg);
+    int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
+    start = clampIndex(start, self.length());
+    return subpos < 0 ? subpos : subpos + start;
+  }
 
   // Common implementation for find, rfind, index, rindex.
   // forward is true iff we want to return the last matching index.
@@ -207,17 +227,10 @@ public class MethodLibrary {
     String thiz = Type.STRING.convert(args[0], functionName + " operand");
     String sub = Type.STRING.convert(args[1], functionName + " argument");
     int start = 0;
-    if (args[2] != null) {
+    if (!EvalUtils.isNullOrNone(args[2])) {
       start = Type.INTEGER.convert(args[2], functionName + " argument");
     }
-    int end = thiz.length();
-    if (args[3] != null) {
-      end = Type.INTEGER.convert(args[3], functionName + " argument");
-    }
-    String substr = getPythonSubstring(thiz, start, end);
-    int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = getClampedIndex(start, thiz.length());
-    return subpos < 0 ? subpos : subpos + start;
+    return stringFind(forward, thiz, sub, start, args[3], functionName + " argument");
   }
 
   @SkylarkBuiltin(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
@@ -275,7 +288,8 @@ public class MethodLibrary {
           int res = stringFind("rindex", false, args);
           if (res < 0) {
             throw new EvalException(ast.getLocation(),
-                "substring '" + args[1] + "' not found in '" + args[0] + "'");
+                "substring " + EvalUtils.prettyPrintValue(args[1])
+                + " not found in " + EvalUtils.prettyPrintValue(args[0]));
           }
           return res;
         }
@@ -299,7 +313,8 @@ public class MethodLibrary {
           int res = stringFind("index", true, args);
           if (res < 0) {
             throw new EvalException(ast.getLocation(),
-                "substring '" + args[1] + "' not found in '" + args[0] + "'");
+                "substring " + EvalUtils.prettyPrintValue(args[1])
+                + " not found in " + EvalUtils.prettyPrintValue(args[0]));
           }
           return res;
         }
@@ -325,11 +340,7 @@ public class MethodLibrary {
           if (args[2] != null) {
             start = Type.INTEGER.convert(args[2], "'count' argument");
           }
-          int end = thiz.length();
-          if (args[3] != null) {
-            end = Type.INTEGER.convert(args[3], "'count' argument");
-          }
-          String str = getPythonSubstring(thiz, start, end);
+          String str = pythonSubstring(thiz, start, args[3], "'end' argument to 'count'");
           if (sub.isEmpty()) {
             return str.length() + 1;
           }
@@ -363,12 +374,8 @@ public class MethodLibrary {
           if (args[2] != null) {
             start = Type.INTEGER.convert(args[2], "'endswith' argument");
           }
-          int end = thiz.length();
-          if (args[3] != null) {
-            end = Type.INTEGER.convert(args[3], "");
-          }
-
-          return getPythonSubstring(thiz, start, end).endsWith(sub);
+          return pythonSubstring(thiz, start, args[3], "'end' argument to 'endswith'")
+              .endsWith(sub);
         }
       };
 
@@ -391,11 +398,8 @@ public class MethodLibrary {
       if (args[2] != null) {
         start = Type.INTEGER.convert(args[2], "'startswith' argument");
       }
-      int end = thiz.length();
-      if (args[3] != null) {
-        end = Type.INTEGER.convert(args[3], "'startswith' argument");
-      }
-      return getPythonSubstring(thiz, start, end).startsWith(sub);
+      return pythonSubstring(thiz, start, args[3], "'end' argument to 'startswith'")
+          .startsWith(sub);
     }
   };
 
@@ -427,13 +431,13 @@ public class MethodLibrary {
       // Substring
       if (args[0] instanceof String) {
         String thiz = Type.STRING.convert(args[0], "substring operand");
-        return getPythonSubstring(thiz, left, right);
+        return pythonSubstring(thiz, left, right, "");
       }
 
       // List slice
       List<Object> list = Type.OBJECT_LIST.convert(args[0], "list operand");
-      left = getClampedIndex(left, list.size());
-      right = getClampedIndex(right, list.size());
+      left = clampIndex(left, list.size());
+      right = clampIndex(right, list.size());
 
       List<Object> result = Lists.newArrayList();
       for (int i = left; i < right; i++) {
@@ -502,7 +506,8 @@ public class MethodLibrary {
       if (collectionCandidate instanceof Map<?, ?>) {
         Map<?, ?> dictionary = (Map<?, ?>) collectionCandidate;
         if (!dictionary.containsKey(key)) {
-          throw new EvalException(ast.getLocation(), "Key '" + key + "' not found in dictionary");
+          throw new EvalException(ast.getLocation(),
+              "Key " + EvalUtils.prettyPrintValue(key) + " not found in dictionary");
         }
         return dictionary.get(key);
       } else if (collectionCandidate instanceof List<?>) {
@@ -578,6 +583,8 @@ public class MethodLibrary {
           + "</pre>\n")
   private static Function keys = new NoArgFunction("keys") {
     @Override
+    @SuppressWarnings("unchecked") // Skylark will only call this on a dict; and
+    // allowed keys are all Comparable... if not mutually, it's OK to get a runtime exception.
     public Object call(Object self, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
       Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) self;
@@ -700,7 +707,8 @@ public class MethodLibrary {
           try {
             return Integer.parseInt(str);
           } catch (NumberFormatException e) {
-            throw new EvalException(ast.getLocation(), "invalid literal for int(): " + str);
+            throw new EvalException(ast.getLocation(),
+                "invalid literal for int(): " + EvalUtils.prettyPrintValue(str));
           }
         }
       };
