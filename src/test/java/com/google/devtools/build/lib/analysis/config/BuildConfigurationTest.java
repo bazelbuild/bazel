@@ -106,18 +106,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         hostConfig.getFragment(CppConfiguration.class).getCcToolchainRuleLabel());
   }
 
-  public void testTestEnvironment() throws Exception {
-    clientEnv.put("MY_VAR1", "1");
-    clientEnv.put("MY_VAR2", "1");
-    BuildConfiguration config = create(
-        "--test_env=MY_VAR1", "--test_env=MY_VAR2=2",
-        "--test_env=MY_VAR3=3", "--test_env=NO_SUCH_VAR");
-    assertThat(config.getTestEnv()).containsEntry("MY_VAR1", "1");
-    assertThat(config.getTestEnv()).containsEntry("MY_VAR2", "2");
-    assertThat(config.getTestEnv()).containsEntry("MY_VAR3", "3");
-    assertThat(config.getTestEnv()).doesNotContainKey("NO_SUCH_VAR");
-  }
-
   public void testMakeEnvFlags() throws Exception {
     BuildConfiguration config = create();
     assertThat(config.getMakeEnvironment().get("STRIP")).contains("strip");
