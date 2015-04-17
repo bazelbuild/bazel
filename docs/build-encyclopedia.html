@@ -94,7 +94,7 @@ layout: default
 <td class="lang">Python</td>
 <td><a href="#py_binary">py_binary</a></td>
 <td><a href="#py_library">py_library</a></td>
-<td></td>
+<td><a href="#py_test">py_test</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -4848,6 +4848,137 @@ java_test(
         ":tests",
         "//util/mysql",
     ],
+)
+</pre>
+
+<h3 id="py_test">py_test</h3>
+
+
+<p class="rule-signature">
+py_test(<a href="#py_test.name">name</a>,
+<a href="#py_test.deps">deps</a>,
+<a href="#py_test.srcs">srcs</a>,
+<a href="#py_test.data">data</a>,
+<a href="#test.args">args</a>,
+<a href="#py_test.default_python_version">default_python_version</a>,
+<a href="#common.deprecation">deprecation</a>,
+<a href="#common.distribs">distribs</a>,
+<a href="#test.flaky">flaky</a>,
+<a href="#common.licenses">licenses</a>,
+<a href="#py_test.main">main</a>,
+<a href="#test.size">size</a>,
+<a href="#py_test.srcs_version">srcs_version</a>,
+<a href="#py_test.stamp">stamp</a>,
+<a href="#common.tags">tags</a>,
+<a href="#common.testonly">testonly</a>,
+<a href="#test.timeout">timeout</a>,
+<a href="#common.visibility">visibility</a>)
+</p>
+
+
+<p>
+A <code>py_test()</code> rule compiles a test.  A test is a binary wrapper
+ around some test code.</p>
+
+<h4 id="py_test_args">Arguments</h4>
+<ul>
+<li id="py_test.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="py_test.deps"><code>deps</code>:
+          The list of other libraries to be linked in to the binary target.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          See general comments about <code>deps</code>
+          at <a href="#common-attributes">Attributes common to all build rules</a>.
+          These can be
+          <a href="#py_binary"><code>py_binary</code></a> rules,
+          <a href="#py_library"><code>py_library</code></a> rules or
+          <a href="#cc_library"><code>cc_library</code></a> rules,
+</li>
+<li id="py_test.srcs"><code>srcs</code>:
+          The list of source files that are processed to create the target.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i><br/>
+
+          This includes all your checked-in code and any
+          generated source files.  The line between <code>srcs</code> and
+          <code>deps</code> is loose. The <code>.py</code> files
+          probably belong in <code>srcs</code> and library targets probably belong
+          in <code>deps</code>, but don't worry about it too much.
+</li>
+<li id="py_test.data"><code>data</code>:
+         The list of files needed by this binary at runtime.
+         <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+         See general comments about <code>data</code>
+         at <a href="#common-attributes">Attributes common to all build rules</a>.
+         Also see the <a href="#py_library.data"><code>data</code></a> argument of
+         the <a href="#py_library"><code>py_library</code></a> rule for details.
+</li>
+<li id="py_test.default_python_version"><code>default_python_version</code>:
+          A string specifying the default Python major version to use when building this binary and
+          all of its <code>deps</code>.
+          <i>(String; optional; default is "PY2")</i><br/>
+
+          Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
+          Python 3 support is experimental.
+</li>
+<li id="py_test.main"><code>main</code>:
+          The name of the source file that is the main entry point of the application.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+          This file must also be listed in <code>srcs</code>. If left unspecified,
+          <code>name</code> is used instead (see above). If <code>name</code> does not
+          match any filename in <code>srcs</code>, <code>main</code> must be specified.
+</li>
+<li id="py_test.srcs_version"><code>srcs_version</code>:
+          A string specifying the Python major version(s) that the <code>.py</code> source
+          files listed in the <code>srcs</code> of this rule are compatible with.
+          <i>(String; optional; default is "PY2")</i><br/>
+
+          Valid values are:<br/>
+          <code>"PY2ONLY"</code> -
+            Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
+          <code>"PY2"</code> -
+            Python 2 code that is expected to work when run through <code>2to3</code>.<br/>
+          <code>"PY2AND3"</code> -
+            Code that is compatible with both Python 2 and 3 without
+            <code>2to3</code> conversion.<br/>
+          <code>"PY3"</code> -
+            Python 3 code that will not run on Python 2.<br/>
+          <br/>
+</li>
+<li id="py_test.stamp"><code>stamp</code>:
+        <i>(Integer; optional; default is 0)</i><br/>
+
+        See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
+        that the stamp argument is set to 0 by default for tests.
+</li>
+</ul>
+
+
+<h4 id="py_test_examples">Examples</h4>
+
+<p>
+<pre class="code">
+py_test(
+    name = "runtest_test",
+    srcs = ["runtest_test.py"],
+    deps = [
+        "//path/to/a/py/library",
+    ],
+)
+</pre>
+
+<p>It's also possible to specify a main module:</p>
+
+<pre class="code">
+py_binary(
+    name = "foo",
+    srcs = [
+        "bar.py",
+        "baz.py",
+    ],
+    main = "bar.py",
 )
 </pre>
 

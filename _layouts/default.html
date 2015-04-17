@@ -8,12 +8,32 @@
 <head>
 <meta charset="utf-8">
 <title>{{ page.title }}</title>
+<script>
+var current_url = window.location.href;
+var bad_url = new RegExp("^https?://google.github.io/bazel/");
+if (bad_url.test(current_url)) {
+  window.location.replace(current_url.replace(bad_url, "http://bazel.io/"));
+}
+(function() {
+  var cx = '012346921571893344015:xv_nfgpzbu4';
+  var gcse = document.createElement('script');
+  gcse.type = 'text/javascript';
+  gcse.async = true;
+  gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') +
+      '//www.google.com/cse/cse.js?cx=' + cx;
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(gcse, s);
+})();
+</script>
 <link href='//fonts.googleapis.com/css?family=Droid+Sans' rel='stylesheet' type='text/css' />
 <link rel="stylesheet" type="text/css" href="{{site_root}}styles/main.css" />
 <link rel="icon" type="image/png" href="{{site_root}}images/favicon.ico">
 </head>
 <body>
 <div id="banner-panel">
+<div style="float: right; width: 400px;">
+  <gcse:search></gcse:search>
+</div>
 <div id="banner">
   <a href="{{site_root}}">
 <span class="product-logo"><img src="{{site_root}}images/BazelLogo.png" /></span>

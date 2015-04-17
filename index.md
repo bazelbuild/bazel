@@ -39,6 +39,7 @@ Find more background about Bazel in our [FAQ](FAQ.html)
 
 * About the Bazel project:
 
+  * A list of [projects using Bazel](users.html).
   * How to [contribute to Bazel](contributing.html)
   * Our [governance plan](governance.html)
   * Future plans are in the [roadmap](roadmap.html)
