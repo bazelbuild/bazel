@@ -29,7 +29,7 @@ Examples
 Debugging
 ---------
 
-* `bazel query --output=build ///my/path:all` will show you how the BUILD
+* `bazel query --output=build //my/path:all` will show you how the BUILD
 file looks like after evaluation. All macros, globs, loops are expanded.
 
 * You can also use `print` for debugging. It displays the message as a
