@@ -37,17 +37,23 @@ closer to a fully open development model in the future (also see
 
 ## Setting up your coding environment
 
-For now we only have partial support for the Eclipse IDE for Java. We don't have
-IDE support for others languages in Bazel right now.
+For now we have partial support for the Eclipse and IntelliJ IDEs for Java. We
+don't have IDE support for other languages in Bazel right now.
 
 ### Creating an Eclipse project
 
-To work with Eclipse, run from the root of the source tree `sh
-scripts/setup-eclipse.sh` and it will create the `.project` and the `.classpath`
-files (if a `.project` file is present, only the `.classpath` will get
-overwritten). You can then import the project in Eclipse.
+To work with Eclipse, run `sh scripts/setup-eclipse.sh` from the root of the
+source tree and it will create the `.project` and the `.classpath` files (if a
+`.project` file is present, only the `.classpath` will get overwritten). You
+can then import the project in Eclipse.
 
 _You might see some errors in Eclipse concerning Truth assertions._
+
+### Creating an IntelliJ project
+
+To work with IntelliJ, run `sh scripts/setup-intellij.sh` from the root of the
+source tree and it will create the necessary project files. You can then open
+the folder as a project in IntelliJ.
 
 ### Compiling Bazel {#compile-bazel}
 
