@@ -48,6 +48,9 @@ genrule(
     name = "package-zip",
     srcs = [
         "//src/main/java:bazel-main_deploy.jar",
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//third_party/ijar",
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -81,15 +84,6 @@ genrule(
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//src/test:__subpackages__",  # For integration tests
-    ],
-)
-
-filegroup(
-    name = "tools",
-    srcs = [
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//third_party/ijar",
     ],
 )
 

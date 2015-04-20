@@ -62,11 +62,20 @@ java_toolchain(
     target_version = "8",
 )
 
-exports_files([
-    "JavaBuilder_deploy.jar",
-    "ijar",
-    "SingleJar_deploy.jar",
-])
+filegroup(
+    name = "JavaBuilder_deploy.jar",
+    srcs = ["//external:__embedded_dir__/JavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "SingleJar_deploy.jar",
+    srcs = ["//external:__embedded_dir__/SingleJar_deploy.jar"],
+)
+
+filegroup(
+    name = "ijar",
+    srcs = ["//external:__embedded_dir__/ijar"],
+)
 
 filegroup(
     name = "srcs",

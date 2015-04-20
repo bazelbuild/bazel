@@ -33,11 +33,6 @@ jdk_dir="${TEST_SRCDIR}/external/local-jdk"
 # Tools directory location
 tools_dir="${TEST_SRCDIR}/tools"
 
-# Java tooling
-javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
-singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
-ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
-
 # Third-party
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 case "${PLATFORM}" in

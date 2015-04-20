@@ -23,6 +23,7 @@ cc_binary(
 filegroup(
     name = "jdk-support",
     srcs = [
+        "embedded.BUILD",
         "jdk.BUILD",
         "jdk.WORKSPACE",
     ],

@@ -383,8 +383,7 @@ if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
 
   create_deploy_jar "SingleJar_deploy" \
       "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
-  mkdir -p tools/jdk
-  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
+  cp -f output/singlejar/SingleJar_deploy.jar output/
 fi
 
 if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
@@ -394,13 +393,12 @@ if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
 
   create_deploy_jar "JavaBuilder_deploy" \
       "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
-  mkdir -p tools/jdk
-  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
+  cp -f output/buildjar/JavaBuilder_deploy.jar output/
 fi
 
 cc_build "client" "objs" "output/client" ${BLAZE_CC_FILES[@]}
 
-LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar" "tools/jdk/ijar" ${IJAR_CC_FILES[@]}
+LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar_objs" "output/ijar" ${IJAR_CC_FILES[@]}
 
 if [ ! -z "$JNILIB" ] ; then
   log "Compiling JNI libraries..."
@@ -438,12 +436,13 @@ fi
 
 cp src/main/tools/build_interface_so output/build_interface_so
 cp src/main/tools/jdk.* output
+cp src/main/tools/embedded.BUILD output
 
 touch output/client_info
 chmod 755 output/client_info
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="bazel-main_deploy.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD"
+TO_ZIP="bazel-main_deploy.jar JavaBuilder_deploy.jar SingleJar_deploy.jar ijar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD embedded.BUILD"
 if [[ $PLATFORM == "linux" ]]; then
     TO_ZIP="$TO_ZIP namespace-sandbox${EXE_EXT}"
 fi
