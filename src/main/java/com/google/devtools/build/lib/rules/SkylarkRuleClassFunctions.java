@@ -194,8 +194,9 @@ public class SkylarkRuleClassFunctions {
              + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
       @Param(name = "attrs", type = Map.class, doc =
           "dictionary to declare all the attributes of the rule. It maps from an attribute name "
-          + "to an attribute object (see 'attr' module). Attributes starting with <code>_</code> "
-          + "are private, and can be used to add an implicit dependency on a label."),
+          + "to an attribute object (see <a href=\"#modules.attr\">attr</a> module). "
+          + "Attributes starting with <code>_</code> are private, and can be used to add "
+          + "an implicit dependency on a label."),
       @Param(name = "outputs", doc = "outputs of this rule. "
           + "It is a dictionary mapping from string to a template name. "
           + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"

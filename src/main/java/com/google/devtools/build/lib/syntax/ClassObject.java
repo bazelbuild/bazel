@@ -57,7 +57,8 @@ public interface ClassObject {
   @Immutable
   @SkylarkModule(name = "struct",
       doc = "A special language element to support structs (i.e. simple value objects). "
-          + "See the global <code>struct</code> method for more details.")
+          + "See the global <a href=\"#modules._top_level.struct\">struct</a> function "
+          + "for more details.")
   public class SkylarkClassObject implements ClassObject {
 
     private final ImmutableMap<String, Object> values;

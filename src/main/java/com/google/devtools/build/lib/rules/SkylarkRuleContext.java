@@ -359,22 +359,22 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(name = "configuration", structField = true,
-      doc = "Returns the default configuration. See the <code>configuration</code> type for "
-          + "more details.")
+      doc = "Returns the default configuration. See the <a href=\"#modules.configuration\">"
+          + "configuration</a> type for more details.")
   public BuildConfiguration getConfiguration() {
     return ruleContext.getConfiguration();
   }
 
   @SkylarkCallable(name = "host_configuration", structField = true,
-      doc = "Returns the host configuration. See the <code>configuration</code> type for "
-          + "more details.")
+      doc = "Returns the host configuration. See the <a href=\"#modules.configuration\">"
+          + "configuration</a> type for more details.")
   public BuildConfiguration getHostConfiguration() {
     return ruleContext.getHostConfiguration();
   }
 
   @SkylarkCallable(name = "data_configuration", structField = true,
-      doc = "Returns the data configuration. See the <code>configuration</code> type for "
-          + "more details.")
+      doc = "Returns the data configuration. See the <a href=\"#modules.configuration\">"
+          + "configuration</a> type for more details.")
   public BuildConfiguration getDataConfiguration() {
     return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }

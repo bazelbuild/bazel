@@ -241,8 +241,8 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "label_list", doc =
-      "Creates an attribute of type list of labels. "
-      + "See <code>label</code> for more information.",
+        "Creates an attribute of type list of labels. "
+      + "See <a href=\"#modules.attr.label\">label</a> for more information.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
@@ -285,7 +285,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "output", doc =
-      "Creates an attribute of type output. Its default value is None. "
+        "Creates an attribute of type output. Its default value is None. "
       + "The user provides a file name (string) and the rule must create an action that "
       + "generates the file.",
       objectType = SkylarkAttr.class,
@@ -304,8 +304,8 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "output_list", doc =
-      "Creates an attribute of type list of outputs. Its default value is []. "
-      + "See <code>output</code> above for more information.",
+        "Creates an attribute of type list of outputs. Its default value is <code>[]</code>. "
+      + "See <a href=\"#modules.attr.output\">output</a> above for more information.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
