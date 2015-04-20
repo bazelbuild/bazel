@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -28,8 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkInputs;
+import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
@@ -83,7 +83,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .registerJ2ObjcCompileAndArchiveActions(optionsProvider, objcProvider)
         .registerCompileAndArchiveActions(common, optionsProvider)
         .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
-        .registerLinkActions(objcProvider, extraLinkArgs, new ExtraLinkInputs())
+        .registerLinkActions(objcProvider, extraLinkArgs, ImmutableList.<Artifact>of())
         .validateAttributes();
 
     Optional<XcTestAppProvider> xcTestAppProvider;

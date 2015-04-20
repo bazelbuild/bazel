@@ -183,10 +183,7 @@ public class ObjcRuleClasses {
         ruleContext,
         intermediateArtifacts(ruleContext),
         ObjcRuleClasses.objcConfiguration(ruleContext),
-        ruleContext,
-        CLANG,
-        CLANG_PLUSPLUS,
-        DSYMUTIL);
+        ruleContext);
   }
 
   public static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {

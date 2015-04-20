@@ -15,14 +15,27 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,15 +44,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -61,6 +76,15 @@ final class CompilationSupport {
   @VisibleForTesting
   static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
       ImmutableList.of("-fprofile-arcs", "-ftest-coverage", "-fprofile-dir=./coverage_output");
+
+  /**
+   * Iterable wrapper providing strong type safety for arguments to binary linking.
+   */
+  static final class ExtraLinkArgs extends IterableWrapper<String> {
+    ExtraLinkArgs(String... args) {
+      super(args);
+    }
+  }
 
   /**
    * Returns information about the given rule's compilation artifacts.
@@ -176,7 +200,7 @@ final class CompilationSupport {
 
     ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcCompile")
-        .setExecutable(ObjcRuleClasses.CLANG)
+        .setExecutable(CLANG)
         .setCommandLine(commandLine.build())
         .addInput(sourceFile)
         .addOutput(objFile)
@@ -240,7 +264,7 @@ final class CompilationSupport {
    * @return this compilation support
    */
   CompilationSupport registerLinkActions(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
-      ExtraLinkInputs extraLinkInputs) {
+      Iterable<Artifact> extraLinkInputs) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Optional<Artifact> dsymBundle;
@@ -251,16 +275,129 @@ final class CompilationSupport {
       dsymBundle = Optional.absent();
     }
 
-    ExtraLinkArgs coverageLinkArgs = new ExtraLinkArgs();
+    registerLinkAction(objcProvider, extraLinkArgs, extraLinkInputs, dsymBundle);
+    return this;
+  }
+
+  private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle) {
+    Artifact linkedBinary =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext).singleArchitectureBinary();
+
+    ruleContext.registerAction(
+        ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+            .setMnemonic("ObjcLink")
+            .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
+            .setCommandLine(linkCommandLine(extraLinkArgs, objcProvider, linkedBinary, dsymBundle))
+            .addOutput(linkedBinary)
+            .addOutputs(dsymBundle.asSet())
+            .addTransitiveInputs(objcProvider.get(LIBRARY))
+            .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
+            .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
+            .addInputs(extraLinkInputs)
+            .build(ruleContext));
+  }
+
+  private static final String FRAMEWORK_SUFFIX = ".framework";
+
+  private CommandLine linkCommandLine(ExtraLinkArgs extraLinkArgs,
+      ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+
+    final CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
+
+    if (objcProvider.is(USES_CPP)) {
+      commandLine
+          .addPath(CLANG_PLUSPLUS)
+          .add("-stdlib=libc++");
+    } else {
+      commandLine.addPath(CLANG);
+    }
+    commandLine
+        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration))
+        .add("-Xlinker").add("-objc_abi_version")
+        .add("-Xlinker").add("2")
+        .add("-fobjc-link-runtime")
+        .add(IosSdkCommands.DEFAULT_LINKER_FLAGS)
+        .addBeforeEach("-framework", frameworkNames(objcProvider))
+        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
+        .addExecPath("-o", linkedBinary)
+        .addExecPaths(objcProvider.get(LIBRARY))
+        .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+        .add(dylibPaths(objcProvider))
+        .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
+        .add(extraLinkArgs)
+        .build();
+
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      coverageLinkArgs = new ExtraLinkArgs(LINKER_COVERAGE_FLAGS);
+      commandLine.add(LINKER_COVERAGE_FLAGS);
     }
 
-    ObjcRuleClasses.actionsBuilder(ruleContext).registerLinkAction(
-        intermediateArtifacts.singleArchitectureBinary(), objcProvider,
-        extraLinkArgs.appendedWith(coverageLinkArgs), extraLinkInputs,
-        dsymBundle);
-    return this;
+    // Call to dsymutil for debug symbol generation must happen in the link action.
+    // All debug symbol information is encoded in object files inside archive files. To generate
+    // the debug symbol bundle, dsymutil will look inside the linked binary for the encoded
+    // absolute paths to archive files, which are only valid in the link action.
+    if (dsymBundle.isPresent()) {
+      commandLine
+          .add("&&")
+          .addPath(DSYMUTIL)
+          .add(linkedBinary.getExecPathString())
+          .addExecPath("-o", dsymBundle.get());
+    }
+
+    return new SingleArgCommandLine(commandLine.build());
+  }
+
+  /**
+   * Command line that converts its input's arg array to a single input.
+   *
+   * <p>Required as a hack to the link command line because that may contain two commands, which are
+   * then passed to {@code /bin/bash -c}, and accordingly need to be a single argument.
+   */
+  private static class SingleArgCommandLine extends CommandLine {
+
+    private final CommandLine original;
+
+    private SingleArgCommandLine(CommandLine original) {
+      this.original = original;
+    }
+
+    @Override
+    public Iterable<String> arguments() {
+      return ImmutableList.of(Joiner.on(' ').join(original.arguments()));
+    }
+  }
+
+  private Iterable<String> dylibPaths(ObjcProvider objcProvider) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
+    for (String dylib : objcProvider.get(SDK_DYLIB)) {
+      args.add(String.format(
+          "%s/usr/lib/%s.dylib", IosSdkCommands.sdkDir(objcConfiguration), dylib));
+    }
+    return args.build();
+  }
+
+  /**
+   * All framework names to pass to the linker using {@code -framework} flags. For a framework in
+   * the directory foo/bar.framework, the name is "bar". Each framework is found without using the
+   * full path by means of the framework search paths. The search paths are added by
+   * {@link IosSdkCommands#commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration)}).
+   *
+   * <p>It's awful that we can't pass the full path to the framework and avoid framework search
+   * paths, but this is imposed on us by clang. clang does not support passing the full path to the
+   * framework, so Bazel cannot do it either.
+   */
+  private Iterable<String> frameworkNames(ObjcProvider provider) {
+    List<String> names = new ArrayList<>();
+    Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
+    for (PathFragment frameworkDir : provider.get(FRAMEWORK_DIR)) {
+      String segment = frameworkDir.getBaseName();
+      Preconditions.checkState(segment.endsWith(FRAMEWORK_SUFFIX),
+          "expect %s to end with %s, but it does not", segment, FRAMEWORK_SUFFIX);
+      names.add(segment.substring(0, segment.length() - FRAMEWORK_SUFFIX.length()));
+    }
+    return names;
   }
 
   /**

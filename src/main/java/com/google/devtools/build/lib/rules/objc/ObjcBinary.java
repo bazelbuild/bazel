@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
+import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 
 /**
  * Implementation for the "objc_binary" rule.
