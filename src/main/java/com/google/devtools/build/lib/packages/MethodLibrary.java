@@ -963,26 +963,18 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "fail",
-      doc = "Raises an error (the execution stops), except if the <code>when</code> condition "
-      + "is False.",
+      doc = "Raises an error that cannot be intercepted.",
       returnType = Environment.NoneType.class,
       mandatoryParams = {
         @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
       optionalParams = {
         @Param(name = "attr", type = String.class,
-            doc = "The name of the attribute that caused the error"),
-        @Param(name = "when", type = Boolean.class,
-            doc = "When False, the function does nothing. Default is True.")})
+            doc = "The name of the attribute that caused the error")})
   private static final Function fail = new MixedModeFunction(
-      "fail", ImmutableList.of("msg", "attr", "when"), 1, false) {
+      "fail", ImmutableList.of("msg", "attr"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException {
-      if (args[2] != null) {
-        if (!EvalUtils.toBoolean(args[2])) {
-          return Environment.NONE;
-        }
-      }
       String msg = cast(args[0], String.class, "msg", ast.getLocation());
       if (args[1] != null) {
         msg = "attribute " + cast(args[1], String.class, "attr", ast.getLocation())
