@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -64,13 +65,13 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 
 import java.util.List;
@@ -84,11 +85,11 @@ import java.util.concurrent.ExecutionException;
 public class SkylarkRuleClassFunctions {
 
   //TODO(bazel-team): proper enum support
-  @SkylarkBuiltin(name = "DATA_CFG", returnType = ConfigurationTransition.class,
+  @SkylarkSignature(name = "DATA_CFG", returnType = ConfigurationTransition.class,
       doc = "Experimental. Specifies a transition to the data configuration.")
   private static final Object dataTransition = ConfigurationTransition.DATA;
 
-  @SkylarkBuiltin(name = "HOST_CFG", returnType = ConfigurationTransition.class,
+  @SkylarkSignature(name = "HOST_CFG", returnType = ConfigurationTransition.class,
       doc = "Specifies a transition to the host configuration.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
@@ -177,39 +178,42 @@ public class SkylarkRuleClassFunctions {
 
   // TODO(bazel-team): implement attribute copy and other rule properties
 
-  @SkylarkBuiltin(name = "rule", doc =
+  @SkylarkSignature(name = "rule", doc =
       "Creates a new rule. Store it in a global value, so that it can be loaded and called "
       + "from BUILD files.",
       onlyLoadingPhase = true,
-      returnType = Function.class,
-      mandatoryParams = {
-      @Param(name = "implementation", type = UserDefinedFunction.class,
-          doc = "the function implementing this rule, has to have exactly one parameter: "
-             + "<code>ctx</code>. The function is called during analysis phase for each "
-             + "instance of the rule. It can access the attributes provided by the user. "
-             + "It must create actions to generate all the declared outputs.")
+      returnType = BaseFunction.class,
+      mandatoryPositionals = {
+        @Param(name = "implementation", type = Function.class,
+            doc = "the function implementing this rule, has to have exactly one parameter: "
+            + "<code>ctx</code>. The function is called during analysis phase for each "
+            + "instance of the rule. It can access the attributes provided by the user. "
+            + "It must create actions to generate all the declared outputs.")
       },
-      optionalParams = {
-      @Param(name = "test", type = Boolean.class, doc = "Whether this rule is a test rule. "
-             + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
-      @Param(name = "attrs", type = Map.class, doc =
-          "dictionary to declare all the attributes of the rule. It maps from an attribute name "
-          + "to an attribute object (see <a href=\"#modules.attr\">attr</a> module). "
-          + "Attributes starting with <code>_</code> are private, and can be used to add "
-          + "an implicit dependency on a label."),
-      @Param(name = "outputs", doc = "outputs of this rule. "
-          + "It is a dictionary mapping from string to a template name. "
-          + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"
-          + "The dictionary key becomes a field in <code>ctx.outputs</code>. "
-          // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
-          + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
-          + "returning such a dictionary."),
-      @Param(name = "executable", type = Boolean.class,
-          doc = "whether this rule always outputs an executable of the same name or not. If True, "
-          + "there must be an action that generates <code>ctx.outputs.executable</code>."),
-      @Param(name = "output_to_genfiles", type = Boolean.class,
-          doc = "If true, the files will be generated in the genfiles directory instead of the "
-          + "bin directory. This is used for compatibility with existing rules.")})
+      optionalPositionals = {
+        @Param(name = "test", type = Boolean.class, defaultValue = "False",
+            doc = "Whether this rule is a test rule. "
+            + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
+        @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
+            "dictionary to declare all the attributes of the rule. It maps from an attribute name "
+            + "to an attribute object (see <a href=\"#modules.attr\">attr</a> module). "
+            + "Attributes starting with <code>_</code> are private, and can be used to add "
+            + "an implicit dependency on a label."),
+        @Param(name = "outputs", type = Map.class, callbackEnabled = true, noneable = true,
+            defaultValue = "None", doc = "outputs of this rule. "
+            + "It is a dictionary mapping from string to a template name. "
+            + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"
+            + "The dictionary key becomes a field in <code>ctx.outputs</code>. "
+            // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
+            + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
+            + "returning such a dictionary."),
+        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
+            doc = "whether this rule always outputs an executable of the same name or not. If "
+            + "True, there must be an action that generates <code>ctx.outputs.executable</code>."),
+        @Param(name = "output_to_genfiles", type = Boolean.class, defaultValue = "False",
+            doc = "If true, the files will be generated in the genfiles directory instead of the "
+            + "bin directory. This is used for compatibility with existing rules.")},
+      useAst = true, useEnvironment = true)
   private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
@@ -313,12 +317,13 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  @SkylarkBuiltin(name = "Label", doc = "Creates a Label referring to a BUILD target. Use "
+  @SkylarkSignature(name = "Label", doc = "Creates a Label referring to a BUILD target. Use "
       + "this function only when you want to give a default value for the label attributes. "
       + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       returnType = Label.class,
-      mandatoryParams = {@Param(name = "label_string", type = String.class,
-            doc = "the label string")})
+      mandatoryPositionals = {@Param(name = "label_string", type = String.class,
+            doc = "the label string")},
+      useLocation = true)
   private static final SkylarkFunction label = new SimpleSkylarkFunction("Label") {
         @Override
         public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
@@ -332,11 +337,11 @@ public class SkylarkRuleClassFunctions {
         }
       };
 
-  @SkylarkBuiltin(name = "FileType",
+  @SkylarkSignature(name = "FileType",
       doc = "Creates a file filter from a list of strings. For example, to match files ending "
       + "with .cc or .cpp, use: <pre class=language-python>FileType([\".cc\", \".cpp\"])</pre>",
       returnType = SkylarkFileType.class,
-      mandatoryParams = {
+      mandatoryPositionals = {
       @Param(name = "types", type = SkylarkList.class, generic1 = String.class,
           doc = "a list of the accepted file extensions")})
   private static final SkylarkFunction fileType = new SimpleSkylarkFunction("FileType") {
@@ -347,7 +352,7 @@ public class SkylarkRuleClassFunctions {
         }
       };
 
-  @SkylarkBuiltin(name = "to_proto",
+  @SkylarkSignature(name = "to_proto",
       doc = "Creates a text message from the struct parameter. This method only works if all "
           + "struct elements (recursively) are strings, ints, booleans, other structs or a "
           + "list of these types. Quotes and new lines in strings are escaped. "
@@ -362,7 +367,12 @@ public class SkylarkRuleClassFunctions {
           + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
           + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
           + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
-      objectType = SkylarkClassObject.class, returnType = String.class)
+      objectType = SkylarkClassObject.class, returnType = String.class,
+      mandatoryPositionals = {
+        // TODO(bazel-team): shouldn't we accept any ClassObject?
+        @Param(name = "self", type = SkylarkClassObject.class,
+            doc = "this struct")},
+      useLocation = true)
   private static final SkylarkFunction toProto = new SimpleSkylarkFunction("to_proto") {
     @Override
     public Object call(Map<String, Object> arguments, Location loc) throws EvalException,

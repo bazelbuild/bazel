@@ -115,6 +115,18 @@ public class SkylarkSignatureProcessor {
   }
 
   /**
+   * Fake class to use in SkylarkSignature annotations to indicate that either List or SkylarkList
+   * may be used, depending on whether the Build language or Skylark is being evaluated.
+   */
+  // TODO(bazel-team): either make SkylarkList a subclass of List (mutable or immutable throwing
+  // runtime exceptions), or have the Build language use immutable SkylarkList, but either way,
+  // do away with this hack.
+  public static class HackHackEitherList {
+    private HackHackEitherList() { }
+  }
+
+
+  /**
    * Configures the parameter of this Skylark function using the annotation.
    */
   // TODO(bazel-team): Maybe have the annotation be a string representing the
@@ -134,7 +146,7 @@ public class SkylarkSignatureProcessor {
       return new Parameter.Star<>(null);
     }
     if (param.type() != Object.class) {
-      if (param.type() == List.class) {
+      if (param.type() == HackHackEitherList.class) {
         // NB: a List in the annotation actually indicates either a List or a SkylarkList
         // and we trust the BuiltinFunction to do the enforcement.
         // For automatic document generation purpose, we lie and just say it's a list;

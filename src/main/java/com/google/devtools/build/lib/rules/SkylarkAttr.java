@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -153,16 +153,20 @@ public final class SkylarkAttr {
     }
   }
 
-  @SkylarkBuiltin(name = "int", doc =
+  @SkylarkSignature(name = "int", doc =
       "Creates an attribute of type int.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = Integer.class,
-          doc = DEFAULT_DOC + " If not specified, default is 0."),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = Integer.class, defaultValue = "0",
+            doc = DEFAULT_DOC + " If not specified, default is 0."),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction integer = new SkylarkFunction("int") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -171,16 +175,20 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "string", doc =
+  @SkylarkSignature(name = "string", doc =
       "Creates an attribute of type string.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = String.class,
-          doc = DEFAULT_DOC + " If not specified, default is \"\"."),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = String.class,
+            defaultValue = "\"\"", doc = DEFAULT_DOC + " If not specified, default is \"\"."),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class,
+            defaultValue = "False", doc = MANDATORY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction string = new SkylarkFunction("string") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -189,29 +197,35 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "label", doc =
+  @SkylarkSignature(name = "label", doc =
       "Creates an attribute of type Label. "
       + "It is the only way to specify a dependency to another target. "
       + "If you need a dependency that the user cannot overwrite, make the attribute "
       + "private (starts with <code>_</code>).",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = Label.class, callbackEnabled = true,
-          doc = DEFAULT_DOC + " If not specified, default is None. "
-              + "Use the <code>Label</code> function to specify a default value."),
-      @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "providers", type = SkylarkList.class, generic1 = String.class,
-          doc = "mandatory providers every dependency has to have"),
-      @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
-          doc = ALLOW_RULES_DOC),
-      @Param(name = "single_file", doc =
-            "if True, the label must correspond to a single File. "
-          + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = Label.class, callbackEnabled = true, noneable = true,
+            defaultValue = "None",
+            doc = DEFAULT_DOC + " If not specified, default is None. "
+            + "Use the <code>Label</code> function to specify a default value."),
+        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
+            doc = EXECUTABLE_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "allow_files", defaultValue = "False", doc = ALLOW_FILES_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "providers", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = "mandatory providers every dependency has to have"),
+        @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
+            noneable = true, defaultValue = "None", doc = ALLOW_RULES_DOC),
+        @Param(name = "single_file", type = Boolean.class, defaultValue = "False",
+            doc = "if True, the label must correspond to a single File. "
+            + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction label = new SkylarkFunction("label") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -220,11 +234,11 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "string_list", doc =
+  @SkylarkSignature(name = "string_list", doc =
       "Creates an attribute of type list of strings",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
-      optionalParams = {
+      optionalPositionals = {
       @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
           doc = DEFAULT_DOC + " If not specified, default is []."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
@@ -240,25 +254,31 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "label_list", doc =
+  @SkylarkSignature(name = "label_list", doc =
         "Creates an attribute of type list of labels. "
       + "See <a href=\"#modules.attr.label\">label</a> for more information.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = SkylarkList.class, generic1 = Label.class,
-          callbackEnabled = true,
-          doc = DEFAULT_DOC + " If not specified, default is []. "
-              + "Use the <code>Label</code> function to specify a default value."),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
-          doc = ALLOW_RULES_DOC),
-      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
-      @Param(name = "providers", type = SkylarkList.class, generic1 = String.class,
-          doc = "mandatory providers every dependency has to have"),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = SkylarkList.class, generic1 = Label.class,
+            callbackEnabled = true, defaultValue = "[]",
+            doc = DEFAULT_DOC + " If not specified, default is []. "
+            + "Use the <code>Label</code> function to specify a default value."),
+        @Param(name = "allow_files", // bool or FileType filter
+            defaultValue = "False", doc = ALLOW_FILES_DOC),
+        @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
+            noneable = true, defaultValue = "None", doc = ALLOW_RULES_DOC),
+        @Param(name = "providers", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = "mandatory providers every dependency has to have"),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
+            doc = NON_EMPTY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -267,15 +287,20 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "bool", doc =
+  @SkylarkSignature(name = "bool", doc =
       "Creates an attribute of type bool. Its default value is False.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = Boolean.class, doc = DEFAULT_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = Boolean.class,
+            defaultValue = "False", doc = DEFAULT_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction bool = new SkylarkFunction("bool") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -284,17 +309,22 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "output", doc =
+  @SkylarkSignature(name = "output", doc =
         "Creates an attribute of type output. Its default value is None. "
       + "The user provides a file name (string) and the rule must create an action that "
       + "generates the file.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = Label.class, doc = DEFAULT_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = Label.class, noneable = true,
+            defaultValue = "None", doc = DEFAULT_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction output = new SkylarkFunction("output") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -303,17 +333,23 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "output_list", doc =
+  @SkylarkSignature(name = "output_list", doc =
         "Creates an attribute of type list of outputs. Its default value is <code>[]</code>. "
       + "See <a href=\"#modules.attr.output\">output</a> above for more information.",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = SkylarkList.class, generic1 = Label.class, doc = DEFAULT_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = SkylarkList.class, generic1 = Label.class,
+            defaultValue = "[]", doc = DEFAULT_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class,
+            defaultValue = "False", doc = MANDATORY_DOC),
+        @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
+            doc = NON_EMPTY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -322,17 +358,23 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "string_dict", doc =
+  @SkylarkSignature(name = "string_dict", doc =
       "Creates an attribute of type dictionary, mapping from string to string. "
-      + "Its default value is {}.",
+      + "Its default value is dict().",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", type = Map.class, doc = DEFAULT_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        @Param(name = "default", type = Map.class,
+            defaultValue = "{}", doc = DEFAULT_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
+            doc = NON_EMPTY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction stringDict = new SkylarkFunction("string_dict") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -341,16 +383,22 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "license", doc =
+  @SkylarkSignature(name = "license", doc =
       "Creates an attribute of type license. Its default value is NO_LICENSE.",
       // TODO(bazel-team): Implement proper license support for Skylark.
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
-      optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+      returnType = Attribute.Builder.class,
+      optionalNamedOnly = {
+        // TODO(bazel-team): ensure this is the correct default value
+        @Param(name = "default", defaultValue = "None", noneable = true,
+            doc = DEFAULT_DOC),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction license = new SkylarkFunction("license") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)

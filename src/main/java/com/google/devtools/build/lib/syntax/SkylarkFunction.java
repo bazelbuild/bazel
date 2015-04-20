@@ -31,10 +31,10 @@ import java.util.concurrent.ExecutionException;
  * All usable arguments have to be specified. In case of ambiguous arguments (a parameter is
  * specified as positional and keyword arguments in the function call) an exception is thrown.
  */
-public abstract class SkylarkFunction extends AbstractFunction {
+public abstract class SkylarkFunction extends BaseFunction {
 
   private ImmutableList<String> parameters;
-  private ImmutableMap<String, SkylarkBuiltin.Param> parameterTypes;
+  private ImmutableMap<String, SkylarkSignature.Param> parameterTypes;
   private int mandatoryParamNum;
   private boolean configured = false;
   private Class<?> objectType;
@@ -50,19 +50,37 @@ public abstract class SkylarkFunction extends AbstractFunction {
   /**
    * Configures the parameter of this Skylark function using the annotation.
    */
-  public void configure(SkylarkBuiltin annotation) {
+  public void configure(SkylarkSignature annotation) {
     Preconditions.checkState(!configured);
     Preconditions.checkArgument(
         getName().equals(annotation.name()), "%s != %s", getName(), annotation.name());
+    Preconditions.checkArgument(
+        annotation.optionalPositionals().length == 0 || annotation.mandatoryNamedOnly().length == 0,
+        "SkylarkFunction %s: forbidden simultaneous optionalPositionals and mandatoryNamedOnly",
+        getName());
+    Preconditions.checkArgument(
+        annotation.extraPositionals().length == 0 && annotation.extraKeywords().length == 0,
+        "SkylarkFunction %s: forbidden extra arguments", getName());
     mandatoryParamNum = 0;
     ImmutableList.Builder<String> paramListBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, SkylarkBuiltin.Param> paramTypeBuilder = ImmutableMap.builder();
-    for (SkylarkBuiltin.Param param : annotation.mandatoryParams()) {
+    ImmutableMap.Builder<String, SkylarkSignature.Param> paramTypeBuilder = ImmutableMap.builder();
+    for (SkylarkSignature.Param param : annotation.mandatoryPositionals()) {
+      if (!param.name().equals("self")) {
+        paramListBuilder.add(param.name());
+        paramTypeBuilder.put(param.name(), param);
+        mandatoryParamNum++;
+      }
+    }
+    for (SkylarkSignature.Param param : annotation.optionalPositionals()) {
+      paramListBuilder.add(param.name());
+      paramTypeBuilder.put(param.name(), param);
+    }
+    for (SkylarkSignature.Param param : annotation.mandatoryNamedOnly()) {
       paramListBuilder.add(param.name());
       paramTypeBuilder.put(param.name(), param);
       mandatoryParamNum++;
     }
-    for (SkylarkBuiltin.Param param : annotation.optionalParams()) {
+    for (SkylarkSignature.Param param : annotation.optionalNamedOnly()) {
       paramListBuilder.add(param.name());
       paramTypeBuilder.put(param.name(), param);
     }
@@ -152,7 +170,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
 
   private void checkTypeAndAddArg(String paramName, Object value,
       ImmutableMap.Builder<String, Object> arguments, Location loc) throws EvalException {
-    SkylarkBuiltin.Param param = parameterTypes.get(paramName);
+    SkylarkSignature.Param param = parameterTypes.get(paramName);
     if (param.callbackEnabled() && value instanceof Function) {
       // If we pass a function as an argument we trust the Function implementation with the type
       // check. It's OK since the function needs to be called manually anyway.

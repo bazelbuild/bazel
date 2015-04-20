@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.lang.reflect.InvocationTargetException;
@@ -58,6 +59,9 @@ public class BuiltinFunction extends BaseFunction {
   // The count of arguments in the inner invoke method,
   // to be used as size of argument array by the outer call method.
   private int innerArgumentCount;
+
+  // The returnType of the method.
+  private Class<?> returnType;
 
 
   /** Create unconfigured function from its name */
@@ -202,6 +206,7 @@ public class BuiltinFunction extends BaseFunction {
     enforcedArgumentTypes = new ArrayList<>();
     this.extraArgs = SkylarkSignatureProcessor.getExtraArgs(annotation);
     super.configure(annotation);
+    this.returnType = annotation.returnType();
   }
 
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
@@ -236,8 +241,6 @@ public class BuiltinFunction extends BaseFunction {
         "bad argument count for %s: method has %s arguments, type list has %s",
         getName(), innerArgumentCount, parameterTypes.length);
 
-    // TODO(bazel-team): also grab the returnType from the annotations,
-    // and check it against method return type
     if (enforcedArgumentTypes != null) {
       for (int i = 0; i < arguments; i++) {
         SkylarkType enforcedType = enforcedArgumentTypes.get(i);
@@ -254,8 +257,7 @@ public class BuiltinFunction extends BaseFunction {
             // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
             enforcedArgumentTypes.set(i, null);
           } else if (enforcedType instanceof SkylarkType.Combination) {
-            Preconditions.checkArgument(
-                enforcedType.getType() == parameterType, msg);
+            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
           } else {
             Preconditions.checkArgument(
                 parameterType == Object.class || parameterType == null, msg);
@@ -265,6 +267,14 @@ public class BuiltinFunction extends BaseFunction {
     }
     // No need for the enforcedArgumentTypes List if all the types were Simple
     enforcedArgumentTypes = FunctionSignature.<SkylarkType>valueListOrNull(enforcedArgumentTypes);
+
+    if (returnType != null) {
+      Class<?> type = returnType;
+      if (type == HackHackEitherList.class) {
+        type = Object.class;
+      }
+      Preconditions.checkArgument(type == invokeMethod.getReturnType());
+    }
   }
 
   /** Configure by copying another function's configuration */

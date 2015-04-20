@@ -27,13 +27,17 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoneType;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -42,6 +46,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -163,7 +168,7 @@ public class SkylarkDocumentationProcessor {
 
   private void generateBuiltinItemDoc(
       String moduleId, SkylarkBuiltinMethod method, StringBuilder sb) {
-    SkylarkBuiltin annotation = method.annotation;
+    SkylarkSignature annotation = method.annotation;
     if (!annotation.documented()) {
       return;
     }
@@ -172,7 +177,7 @@ public class SkylarkDocumentationProcessor {
           annotation.name(),
           annotation.name()));
 
-    if (com.google.devtools.build.lib.syntax.Function.class.isAssignableFrom(method.fieldClass)) {
+    if (BaseFunction.class.isAssignableFrom(method.fieldClass)) {
       sb.append(getSignature(moduleId, annotation));
     } else {
       if (!annotation.returnType().equals(Object.class)) {
@@ -184,11 +189,36 @@ public class SkylarkDocumentationProcessor {
     printParams(moduleId, annotation, sb);
   }
 
-  private void printParams(String moduleId, SkylarkBuiltin annotation, StringBuilder sb) {
-    if (annotation.mandatoryParams().length + annotation.optionalParams().length > 0) {
+  // Elide self parameter from mandatoryPositionals in class methods.
+  private static Param[] adjustedMandatoryPositionals(SkylarkSignature annotation) {
+    Param[] mandatoryPos = annotation.mandatoryPositionals();
+    if (mandatoryPos.length > 0
+        && annotation.objectType() != Object.class
+        && !FuncallExpression.isNamespace(annotation.objectType())) {
+      // Skip the self parameter, which is the first mandatory positional parameter.
+      return Arrays.copyOfRange(mandatoryPos, 1, mandatoryPos.length);
+    } else {
+      return mandatoryPos;
+    }
+  }
+
+  private void printParams(String moduleId, SkylarkSignature annotation, StringBuilder sb) {
+    Param[] mandatoryPos = adjustedMandatoryPositionals(annotation);
+    Param[] optionalPos = annotation.optionalPositionals();
+    Param[] optionalKey = annotation.optionalNamedOnly();
+    Param[] mandatoryKey = annotation.mandatoryNamedOnly();
+    Param[] star = annotation.extraPositionals();
+    Param[] starStar = annotation.extraKeywords();
+
+    if (mandatoryPos.length + optionalPos.length + optionalKey.length + mandatoryKey.length
+        + star.length + starStar.length > 0) {
       sb.append("<h4>Parameters</h4>\n");
-      printParams(moduleId, annotation.name(), annotation.mandatoryParams(), sb);
-      printParams(moduleId, annotation.name(), annotation.optionalParams(), sb);
+      printParams(moduleId, annotation.name(), mandatoryPos, sb);
+      printParams(moduleId, annotation.name(), optionalPos, sb);
+      printParams(moduleId, annotation.name(), star, sb);
+      printParams(moduleId, annotation.name(), mandatoryKey, sb);
+      printParams(moduleId, annotation.name(), optionalKey, sb);
+      printParams(moduleId, annotation.name(), starStar, sb);
     } else {
       sb.append("<br/>\n");
     }
@@ -229,13 +259,29 @@ public class SkylarkDocumentationProcessor {
         getTypeAnchor(method.getReturnType()), objectName, methodName, args);
   }
 
-  private String getSignature(String objectName, SkylarkBuiltin method) {
+  private String getSignature(String objectName, SkylarkSignature method) {
     List<String> argList = new ArrayList<>();
-    for (Param param : method.mandatoryParams()) {
+    for (Param param : adjustedMandatoryPositionals(method)) {
       argList.add(param.name());
     }
-    for (Param param : method.optionalParams()) {
-      argList.add(param.name() + "?");
+    for (Param param : method.optionalPositionals()) {
+      argList.add(param.name() + "?"); // or should we use pythonic " = &#ellipsis;" instead?
+    }
+    for (Param param : method.extraPositionals()) {
+      argList.add("*" + param.name());
+    }
+    if (method.extraPositionals().length == 0
+        && (method.optionalNamedOnly().length > 0 || method.mandatoryNamedOnly().length > 0)) {
+      argList.add("*");
+    }
+    for (Param param : method.mandatoryNamedOnly()) {
+      argList.add(param.name());
+    }
+    for (Param param : method.optionalNamedOnly()) {
+      argList.add(param.name() + "?"); // or should we be more pythonic with this? " = ..."
+    }
+    for (Param param : method.extraKeywords()) {
+      argList.add("**" + param.name());
     }
     String args = "(" + Joiner.on(", ").join(argList) + ")";
     if (!objectName.equals(TOP_LEVEL_ID)) {
@@ -258,7 +304,8 @@ public class SkylarkDocumentationProcessor {
       return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {
       return "<a class=\"anchor\" href=\"#modules.dict\">dict</a>";
-    } else if (List.class.isAssignableFrom(type)) {
+    } else if (List.class.isAssignableFrom(type) || SkylarkList.class.isAssignableFrom(type)
+        || type == HackHackEitherList.class) {
       // Annotated Java methods can return simple java.util.Lists (which get auto-converted).
       return "<a class=\"anchor\" href=\"#modules.list\">list</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
@@ -405,7 +452,7 @@ public class SkylarkDocumentationProcessor {
   }
 
   private void printBuiltinFunctionDoc(
-      String moduleName, SkylarkBuiltin annotation, StringBuilder sb) {
+      String moduleName, SkylarkSignature annotation, StringBuilder sb) {
     if (moduleName != null) {
       sb.append(moduleName).append(".");
     }
@@ -427,9 +474,9 @@ public class SkylarkDocumentationProcessor {
 
   private void collectBuiltinDoc(Map<String, SkylarkModuleDoc> modules, Field[] fields) {
     for (Field field : fields) {
-      if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        SkylarkBuiltin skylarkBuiltin = field.getAnnotation(SkylarkBuiltin.class);
-        Class<?> moduleClass = skylarkBuiltin.objectType();
+      if (field.isAnnotationPresent(SkylarkSignature.class)) {
+        SkylarkSignature skylarkSignature = field.getAnnotation(SkylarkSignature.class);
+        Class<?> moduleClass = skylarkSignature.objectType();
         SkylarkModule skylarkModule = moduleClass.equals(Object.class)
             ? getTopLevelModule()
             : moduleClass.getAnnotation(SkylarkModule.class);
@@ -437,7 +484,8 @@ public class SkylarkDocumentationProcessor {
           modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
         }
         modules.get(skylarkModule.name()).getBuiltinMethods()
-            .put(skylarkBuiltin.name(), new SkylarkBuiltinMethod(skylarkBuiltin, field.getType()));
+            .put(skylarkSignature.name(),
+                new SkylarkBuiltinMethod(skylarkSignature, field.getType()));
       }
     }
   }

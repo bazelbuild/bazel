@@ -20,12 +20,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 
 import java.util.Map;
 
@@ -36,12 +36,12 @@ import java.util.Map;
     doc = "Module for creating memory efficient command lines.")
 public class SkylarkCommandLine {
 
-  @SkylarkBuiltin(name = "join_paths",
+  @SkylarkSignature(name = "join_paths",
       doc = "Creates a single command line argument joining the paths of a set "
           + "of files on the separator string.",
       objectType = SkylarkCommandLine.class,
       returnType = String.class,
-      mandatoryParams = {
+      mandatoryPositionals = {
       @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
       @Param(name = "files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
              doc = "the files to concatenate")})
@@ -59,11 +59,11 @@ public class SkylarkCommandLine {
   };
 
   // TODO(bazel-team): this method should support sets of objects and substitute all struct fields.
-  @SkylarkBuiltin(name = "template",
+  @SkylarkSignature(name = "template",
       doc = "Transforms a set of files to a list of strings using the template string.",
       objectType = SkylarkCommandLine.class,
       returnType = SkylarkList.class,
-      mandatoryParams = {
+      mandatoryPositionals = {
       @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
           doc = "The set of structs to transform."),
       @Param(name = "template", type = String.class,

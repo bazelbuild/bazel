@@ -836,9 +836,9 @@ public abstract class SkylarkType {
   }
 
   /**
-   * Creates a SkylarkType from the SkylarkBuiltin annotation.
+   * Creates a SkylarkType from the SkylarkSignature annotation.
    */
-  public static SkylarkType getReturnType(SkylarkBuiltin annotation) {
+  public static SkylarkType getReturnType(SkylarkSignature annotation) {
     if (Function.class.isAssignableFrom(annotation.returnType())) {
       return SkylarkFunctionType.of(annotation.name());
     } else {

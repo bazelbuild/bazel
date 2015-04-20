@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvaluationContext;
 import com.google.devtools.build.lib.syntax.Function;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
 import java.lang.reflect.Field;
@@ -150,11 +150,11 @@ public class SkylarkModules {
       ImmutableList.Builder<Function> functions, ImmutableMap.Builder<String, Object> objects) {
     try {
       for (Field field : type.getDeclaredFields()) {
-        if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
+        if (field.isAnnotationPresent(SkylarkSignature.class)) {
           // Fields in Skylark modules are sometimes private.
-          // Nevertheless they have to be annotated with SkylarkBuiltin.
+          // Nevertheless they have to be annotated with SkylarkSignature.
           field.setAccessible(true);
-          SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
+          SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
           Object value = field.get(null);
           if (SkylarkFunction.class.isAssignableFrom(field.getType())) {
             SkylarkFunction function = (SkylarkFunction) value;
@@ -179,8 +179,8 @@ public class SkylarkModules {
    */
   private static void collectSkylarkTypesFromFields(Class<?> classObject, Set<String> builtIn) {
     for (Field field : classObject.getDeclaredFields()) {
-      if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
+      if (field.isAnnotationPresent(SkylarkSignature.class)) {
+        SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
         if (SkylarkFunction.class.isAssignableFrom(field.getType())) {
           // Ignore non-global values.
           if (annotation.objectType().equals(Object.class)) {

@@ -16,9 +16,9 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.lang.reflect.Method;
@@ -59,17 +59,17 @@ public class SkylarkJavaInterfaceExplorer {
    * A class representing a Skylark built-in object or method.
    */
   static final class SkylarkBuiltinMethod {
-    public final SkylarkBuiltin annotation;
+    public final SkylarkSignature annotation;
     public final Class<?> fieldClass;
 
-    public SkylarkBuiltinMethod(SkylarkBuiltin annotation, Class<?> fieldClass) {
+    public SkylarkBuiltinMethod(SkylarkSignature annotation, Class<?> fieldClass) {
       this.annotation = annotation;
       this.fieldClass = fieldClass;
     }
   }
 
   /**
-   * A class representing a Skylark built-in object with its {@link SkylarkBuiltin} annotation
+   * A class representing a Skylark built-in object with its {@link SkylarkSignature} annotation
    * and the {@link SkylarkCallable} methods it might have.
    */
   static final class SkylarkModuleDoc {
@@ -80,8 +80,8 @@ public class SkylarkJavaInterfaceExplorer {
     private ArrayList<SkylarkJavaMethod> methods = null;
 
     SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
-      this.module = Preconditions.checkNotNull(module,
-          "Class has to be annotated with SkylarkModule: " + classObject);
+      this.module = Preconditions.checkNotNull(
+          module, "Class has to be annotated with SkylarkModule: %s", classObject);
       this.classObject = classObject;
       this.builtin = new TreeMap<>();
     }
@@ -113,9 +113,9 @@ public class SkylarkJavaInterfaceExplorer {
 
   /**
    * Collects and returns all the Java objects reachable in Skylark from (and including)
-   * firstClassObject with the corresponding SkylarkBuiltin annotations.
+   * firstClassObject with the corresponding SkylarkSignature annotations.
    *
-   * <p>Note that the {@link SkylarkBuiltin} annotation for firstClassObject - firstAnnotation -
+   * <p>Note that the {@link SkylarkSignature} annotation for firstClassObject - firstAnnotation -
    * is also an input parameter, because some top level Skylark built-in objects and methods
    * are not annotated on the class, but on a field referencing them.
    */

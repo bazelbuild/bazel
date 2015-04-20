@@ -38,12 +38,13 @@ import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,6 +65,16 @@ import java.util.regex.Pattern;
 public class MethodLibrary {
 
   private MethodLibrary() {}
+
+  // TODO(bazel-team):
+  // the Build language and Skylark currently have different list types:
+  // the Build language uses plain java List (usually ArrayList) which is mutable and accepts
+  // any argument, whereas Skylark uses SkylarkList which is immutable and accepts only
+  // arguments of the same kind. Some methods below use HackHackEitherList as a magic marker
+  // to indicate that either kind of lists is used depending on the evaluation context.
+  // It might be a good idea to either have separate methods for the two languages where it matters,
+  // or to unify the two languages so they use the same data structure (which might require
+  // updating all existing clients).
 
   // Convert string index in the same way Python does.
   // If index is negative, starts from the end.
@@ -109,14 +120,15 @@ public class MethodLibrary {
     return index;
   }
 
-    // supported string methods
+  // supported string methods
 
-  @SkylarkBuiltin(name = "join", objectType = StringModule.class, returnType = String.class,
+  @SkylarkSignature(name = "join", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a string in which the string elements of the argument have been "
           + "joined by this string as a separator. Example:<br>"
           + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>",
-      mandatoryParams = {
-      @Param(name = "elements", type = SkylarkList.class, doc = "The objects to join.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string, a separator."),
+        @Param(name = "elements", type = HackHackEitherList.class, doc = "The objects to join.")})
   private static Function join = new MixedModeFunction("join",
       ImmutableList.of("this", "elements"), 2, false) {
     @Override
@@ -126,9 +138,11 @@ public class MethodLibrary {
       return Joiner.on(thisString).join(seq);
     }};
 
-  @SkylarkBuiltin(name = "lower", objectType = StringModule.class, returnType = String.class,
-      doc = "Returns the lower case version of this string.")
-      private static Function lower = new MixedModeFunction("lower",
+  @SkylarkSignature(name = "lower", objectType = StringModule.class, returnType = String.class,
+      doc = "Returns the lower case version of this string.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string, to convert to lower case.")})
+  private static Function lower = new MixedModeFunction("lower",
           ImmutableList.of("this"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
@@ -137,8 +151,10 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "upper", objectType = StringModule.class, returnType = String.class,
-      doc = "Returns the upper case version of this string.")
+  @SkylarkSignature(name = "upper", objectType = StringModule.class, returnType = String.class,
+      doc = "Returns the upper case version of this string.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string, to convert to upper case.")})
     private static Function upper = new MixedModeFunction("upper",
         ImmutableList.of("this"), 1, false) {
     @Override
@@ -148,15 +164,18 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "replace", objectType = StringModule.class, returnType = String.class,
+  @SkylarkSignature(name = "replace", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a copy of the string in which the occurrences "
           + "of <code>old</code> have been replaced with <code>new</code>, optionally restricting "
           + "the number of replacements to <code>maxsplit</code>.",
-      mandatoryParams = {
-      @Param(name = "old", type = String.class, doc = "The string to be replaced."),
-      @Param(name = "new", type = String.class, doc = "The string to replace with.")},
-      optionalParams = {
-      @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of replacements.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "old", type = String.class, doc = "The string to be replaced."),
+        @Param(name = "new", type = String.class, doc = "The string to replace with.")},
+      optionalPositionals = {
+        @Param(name = "maxsplit", type = Integer.class,
+            doc = "The maximum number of replacements.")},
+      useLocation = true)
   private static Function replace =
     new MixedModeFunction("replace", ImmutableList.of("this", "old", "new", "maxsplit"), 3, false) {
     @Override
@@ -182,13 +201,17 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "split", objectType = StringModule.class, returnType = SkylarkList.class,
+  @SkylarkSignature(name = "split", objectType = StringModule.class,
+      returnType = HackHackEitherList.class,
       doc = "Returns a list of all the words in the string, using <code>sep</code>  "
           + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>.",
-      optionalParams = {
-      @Param(name = "sep", type = String.class,
-          doc = "The string to split on, default is space (\" \")."),
-      @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of splits.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string.")},
+      optionalPositionals = {
+        @Param(name = "sep", type = String.class,
+            doc = "The string to split on, default is space (\" \")."),
+        @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of splits.")},
+      useEnvironment = true)
   private static Function split = new MixedModeFunction("split",
       ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
     @Override
@@ -233,16 +256,19 @@ public class MethodLibrary {
     return stringFind(forward, thiz, sub, start, args[3], functionName + " argument");
   }
 
-  @SkylarkBuiltin(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
+  @SkylarkSignature(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
-      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Restrict to search from this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "optional position before which to restrict to search.")})
   private static Function rfind =
       new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -251,16 +277,19 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "find", objectType = StringModule.class, returnType = Integer.class,
+  @SkylarkSignature(name = "find", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the first index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end]</code>, "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
-      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Restrict to search from this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "optional position before which to restrict to search.")})
   private static Function find =
       new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -270,16 +299,20 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "rindex", objectType = StringModule.class, returnType = Integer.class,
+  @SkylarkSignature(name = "rindex", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
           + "or throw an error if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
-      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Restrict to search from this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "optional position before which to restrict to search.")},
+      useLocation = true)
   private static Function rindex =
       new MixedModeFunction("rindex", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -295,16 +328,20 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "index", objectType = StringModule.class, returnType = Integer.class,
+  @SkylarkSignature(name = "index", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the first index where <code>sub</code> is found, "
           + "or throw an error if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end]</code>, "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
-      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Restrict to search from this position."),
+        @Param(name = "end", type = Integer.class, noneable = true,
+            doc = "optional position before which to restrict to search.")},
+      useLocation = true)
   private static Function index =
       new MixedModeFunction("index", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -320,15 +357,18 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "count", objectType = StringModule.class, returnType = Integer.class,
+  @SkylarkSignature(name = "count", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
           + "string, optionally restricting to [<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to count.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
-      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to count.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Restrict to search from this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "optional position before which to restrict to search.")})
   private static Function count =
       new MixedModeFunction("count", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -354,15 +394,18 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "endswith", objectType = StringModule.class, returnType = Boolean.class,
+  @SkylarkSignature(name = "endswith", objectType = StringModule.class, returnType = Boolean.class,
       doc = "Returns True if the string ends with <code>sub</code>, "
           + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to check.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Test beginning at this position."),
-      @Param(name = "end", type = Integer.class, doc = "Stop comparing at this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to check.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Test beginning at this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "optional position at which to stop comparing.")})
   private static Function endswith =
       new MixedModeFunction("endswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -379,15 +422,19 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "startswith", objectType = StringModule.class, returnType = Boolean.class,
+  @SkylarkSignature(name = "startswith", objectType = StringModule.class,
+      returnType = Boolean.class,
       doc = "Returns True if the string starts with <code>sub</code>, "
           + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = {
-      @Param(name = "sub", type = String.class, doc = "The substring to check.")},
-      optionalParams = {
-      @Param(name = "start", type = Integer.class, doc = "Test beginning at this position."),
-      @Param(name = "end", type = Integer.class, doc = "Stop comparing at this position.")})
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sub", type = String.class, doc = "The substring to check.")},
+      optionalPositionals = {
+        @Param(name = "start", type = Integer.class, defaultValue = "0",
+            doc = "Test beginning at this position."),
+        @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "Stop comparing at this position.")})
   private static Function startswith =
     new MixedModeFunction("startswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
     @Override
@@ -404,9 +451,11 @@ public class MethodLibrary {
   };
 
   // TODO(bazel-team): Maybe support an argument to tell the type of the whitespace.
-  @SkylarkBuiltin(name = "strip", objectType = StringModule.class, returnType = String.class,
+  @SkylarkSignature(name = "strip", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a copy of the string in which all whitespace characters "
-          + "have been stripped from the beginning and the end of the string.")
+          + "have been stripped from the beginning and the end of the string.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string.")})
   private static Function strip =
       new MixedModeFunction("strip", ImmutableList.of("this"), 1, false) {
         @Override
@@ -418,8 +467,13 @@ public class MethodLibrary {
       };
 
   // slice operator
-  @SkylarkBuiltin(name = "$slice", documented = false,
-      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.")
+  @SkylarkSignature(name = "$slice", documented = false,
+      mandatoryPositionals = {
+        @Param(name = "self", type = Object.class, doc = "This string, list or tuple."),
+        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
+      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
+      useLocation = true, useEnvironment = true)
   private static Function slice = new MixedModeFunction("$slice",
       ImmutableList.of("this", "start", "end"), 3, false) {
     @Override
@@ -448,24 +502,34 @@ public class MethodLibrary {
   };
 
   // supported list methods
-  @SkylarkBuiltin(name = "sorted", doc = "Sort a collection.")
+  @SkylarkSignature(name = "sorted", returnType = HackHackEitherList.class,
+      doc = "Sort a collection.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = HackHackEitherList.class, doc = "This list.")},
+        useLocation = true, useEnvironment = true)
   private static Function sorted = new MixedModeFunction("sorted",
-      ImmutableList.of("this"), 1, false) {
+      ImmutableList.of("self"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException, ConversionException {
-      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'sorted' operand");
+      List<Object> self = Type.OBJECT_LIST.convert(args[0], "'sorted' operand");
       try {
-        thiz = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(thiz);
+        self = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(self);
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(ast.getLocation(), e);
       }
-      return convert(thiz, env, ast.getLocation());
+      return convert(self, env, ast.getLocation());
     }
   };
 
-  @SkylarkBuiltin(name = "append", documented = false,
-      doc = "Adds an item to the end of the list.")
+  // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
+  @SkylarkSignature(name = "append", returnType = Environment.NoneType.class, documented = false,
+      doc = "Adds an item to the end of the list.",
+      mandatoryPositionals = {
+        // we use List rather than SkylarkList because this is actually for use *outside* Skylark
+        @Param(name = "self", type = List.class, doc = "This list."),
+        @Param(name = "item", type = Object.class, doc = "Item to add at the end.")},
+        useLocation = true, useEnvironment = true)
   private static Function append = new MixedModeFunction("append",
       ImmutableList.of("this", "x"), 2, false) {
     @Override
@@ -477,8 +541,14 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "extend", documented = false,
-      doc = "Adds all items to the end of the list.")
+  // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
+  @SkylarkSignature(name = "extend", returnType = Environment.NoneType.class, documented = false,
+      doc = "Adds all items to the end of the list.",
+      mandatoryPositionals = {
+        // we use List rather than SkylarkList because this is actually for use *outside* Skylark
+        @Param(name = "self", type = List.class, doc = "This list."),
+        @Param(name = "items", type = List.class, doc = "Items to add at the end.")},
+        useLocation = true, useEnvironment = true)
   private static Function extend = new MixedModeFunction("extend",
           ImmutableList.of("this", "x"), 2, false) {
     @Override
@@ -492,9 +562,13 @@ public class MethodLibrary {
   };
 
   // dictionary access operator
-  @SkylarkBuiltin(name = "$index", documented = false,
+  @SkylarkSignature(name = "$index", documented = false,
       doc = "Returns the nth element of a list or string, "
-          + "or looks up a value in a dictionary.")
+          + "or looks up a value in a dictionary.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = Object.class, doc = "This object."),
+        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
+      useLocation = true)
   private static Function indexOperator = new MixedModeFunction("$index",
       ImmutableList.of("this", "index"), 2, false) {
     @Override
@@ -543,10 +617,13 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "values", objectType = DictModule.class, returnType = SkylarkList.class,
+  @SkylarkSignature(name = "values", objectType = DictModule.class,
+      returnType = HackHackEitherList.class,
       doc = "Return the list of values. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
-          + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n")
+          + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n",
+      mandatoryPositionals = {@Param(name = "self", type = Map.class, doc = "This dict.")},
+      useLocation = true, useEnvironment = true)
   private static Function values = new NoArgFunction("values") {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
@@ -557,11 +634,15 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "items", objectType = DictModule.class, returnType = SkylarkList.class,
+  @SkylarkSignature(name = "items", objectType = DictModule.class,
+      returnType = HackHackEitherList.class,
       doc = "Return the list of key-value tuples. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
           + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(1, \"c\"), (2, \"a\"), (4, \"b\")]"
-          + "</pre>\n")
+          + "</pre>\n",
+      mandatoryPositionals = {
+        @Param(name = "self", type = Map.class, doc = "This dict.")},
+      useLocation = true, useEnvironment = true)
   private static Function items = new NoArgFunction("items") {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
@@ -577,10 +658,14 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "keys", objectType = DictModule.class, returnType = SkylarkList.class,
+  @SkylarkSignature(name = "keys", objectType = DictModule.class,
+      returnType = HackHackEitherList.class,
       doc = "Return the list of keys. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [1, 2, 4]"
-          + "</pre>\n")
+          + "</pre>\n",
+      mandatoryPositionals = {
+        @Param(name = "self", type = Map.class, doc = "This dict.")},
+      useLocation = true, useEnvironment = true)
   private static Function keys = new NoArgFunction("keys") {
     @Override
     @SuppressWarnings("unchecked") // Skylark will only call this on a dict; and
@@ -592,14 +677,15 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "get", objectType = DictModule.class,
+  @SkylarkSignature(name = "get", objectType = DictModule.class,
       doc = "Return the value for <code>key</code> if <code>key</code> is in the dictionary, "
           + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
           + "<code>None</code>, so that this method never throws an error.",
-      mandatoryParams = {
+      mandatoryPositionals = {
+        @Param(name = "self", doc = "This dict."),
         @Param(name = "key", doc = "The key to look for.")},
-      optionalParams = {
-        @Param(name = "default",
+      optionalPositionals = {
+        @Param(name = "default", defaultValue = "None",
             doc = "The default value to use (instead of None) if the key is not found.")})
   private static Function get =
       new MixedModeFunction("get", ImmutableList.of("this", "key", "default"), 2, false) {
@@ -629,7 +715,9 @@ public class MethodLibrary {
   }
 
   // unary minus
-  @SkylarkBuiltin(name = "-", documented = false, doc = "Unary minus operator.")
+  @SkylarkSignature(name = "-", documented = false, doc = "Unary minus operator.",
+      mandatoryPositionals = {
+        @Param(name = "num", type = Integer.class, doc = "The number to negate.")})
   private static Function minus = new MixedModeFunction("-", ImmutableList.of("this"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
@@ -638,12 +726,13 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "list", returnType = SkylarkList.class,
+  @SkylarkSignature(name = "list", returnType = SkylarkList.class,
       doc = "Converts a collection (e.g. set or dictionary) to a list."
         + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
         + "list(set([2, 3, 2])) == [2, 3]\n"
         + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
-      mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
+      mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")},
+      useLocation = true)
     private static Function list = new MixedModeFunction("list",
         ImmutableList.of("list"), 1, false) {
     @Override
@@ -653,9 +742,10 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "len", returnType = Integer.class, doc =
+  @SkylarkSignature(name = "len", returnType = Integer.class, doc =
       "Returns the length of a string, list, tuple, set, or dictionary.",
-      mandatoryParams = {@Param(name = "x", doc = "The object to check length of.")})
+      mandatoryPositionals = {@Param(name = "x", doc = "The object to check length of.")},
+      useLocation = true)
   private static Function len = new MixedModeFunction("len",
         ImmutableList.of("list"), 1, false) {
 
@@ -671,9 +761,9 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "str", returnType = String.class, doc =
+  @SkylarkSignature(name = "str", returnType = String.class, doc =
       "Converts any object to string. This is useful for debugging.",
-      mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
+      mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
     private static Function str = new MixedModeFunction("str", ImmutableList.of("this"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException {
@@ -681,12 +771,13 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "bool", returnType = Boolean.class, doc = "Converts an object to boolean. "
+  @SkylarkSignature(name = "bool", returnType = Boolean.class,
+      doc = "Converts an object to boolean. "
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
       + "empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> "
       + "is also a type.",
-      mandatoryParams = {@Param(name = "x", doc = "The variable to convert.")})
-      private static Function bool = new MixedModeFunction("bool",
+      mandatoryPositionals = {@Param(name = "x", doc = "The variable to convert.")})
+  private static Function bool = new MixedModeFunction("bool",
           ImmutableList.of("this"), 1, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException {
@@ -694,10 +785,12 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "int", returnType = Integer.class, doc = "Converts a string to int, "
+  @SkylarkSignature(name = "int", returnType = Integer.class, doc = "Converts a string to int, "
       + "using base 10. It raises an error if the conversion fails."
       + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
-      mandatoryParams = {@Param(name = "x", type = String.class, doc = "The string to convert.")})
+      mandatoryPositionals = {
+        @Param(name = "x", type = String.class, doc = "The string to convert.")},
+      useLocation = true)
   private static Function int_ =
       new MixedModeFunction("int", ImmutableList.of("x"), 1, false) {
         @Override
@@ -713,13 +806,15 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "struct", returnType = SkylarkClassObject.class, doc =
+  @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as fields. It is used to group "
       + "multiple values together.Example:<br>"
       + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
-      + "return s.x + s.y  # returns 5</pre>")
+      + "return s.x + s.y  # returns 5</pre>",
+      extraKeywords = {
+        @Param(name = "kwarg", doc = "the struct fields")},
+      useLocation = true)
   private static Function struct = new AbstractFunction("struct") {
-
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
         Environment env) throws EvalException, InterruptedException {
@@ -730,20 +825,21 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "set", returnType = SkylarkNestedSet.class,
+  @SkylarkSignature(name = "set", returnType = SkylarkNestedSet.class,
       doc = "Creates a <a href=\"#modules.set\">set</a> from the <code>items</code>."
       + " The set supports nesting other sets of the same element"
       + " type in it. A desired iteration order can also be specified.<br>"
       + " Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
       + "set([1, 2, 3], order=\"compile\")</pre>",
-      optionalParams = {
-      @Param(name = "items", type = SkylarkList.class,
-          doc = "The items to initialize the set with. May contain both standalone items and other"
-          + " sets."),
-      @Param(name = "order", type = String.class,
-          doc = "The ordering strategy for the set if it's nested, "
-              + "possible values are: <code>stable</code> (default), <code>compile</code>, "
-              + "<code>link</code> or <code>naive_link</code>.")})
+      optionalPositionals = {
+        @Param(name = "items", type = Object.class, defaultValue = "[]",
+            doc = "The items to initialize the set with. May contain both standalone items "
+            + "and other sets."),
+        @Param(name = "order", type = String.class, defaultValue = "\"stable\"",
+            doc = "The ordering strategy for the set if it's nested, "
+            + "possible values are: <code>stable</code> (default), <code>compile</code>, "
+            + "<code>link</code> or <code>naive_link</code>.")},
+      useLocation = true)
   private static final Function set =
     new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
     @Override
@@ -757,14 +853,12 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "enumerate",  returnType = SkylarkList.class,
+  @SkylarkSignature(name = "enumerate",  returnType = SkylarkList.class,
       doc = "Return a list of pairs (two-element lists), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
           + "enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>\n",
-      mandatoryParams = {
-      @Param(name = "list", type = SkylarkList.class,
-          doc = "input list"),
-      })
+      mandatoryPositionals = {@Param(name = "list", type = SkylarkList.class, doc = "input list")},
+      useLocation = true)
   private static Function enumerate = new MixedModeFunction("enumerate",
       ImmutableList.of("list"), 1, false) {
     @Override
@@ -783,23 +877,25 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "range", returnType = SkylarkList.class,
+  @SkylarkSignature(name = "range", returnType = SkylarkList.class,
       doc = "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
           + "range from 0 to that element."
           + "<pre class=\"language-python\">range(4) == [0, 1, 2, 3]\n"
           + "range(3, 9, 2) == [3, 5, 7]\n"
           + "range(3, 0, -1) == [3, 2, 1]</pre>",
-      mandatoryParams = {
-      @Param(name = "start", type = Integer.class,
-          doc = "Value of the first element"),
+      mandatoryPositionals = {
+        @Param(name = "start", type = Integer.class,
+            doc = "Value of the first element if stop is provided, "
+            + "otherwise value of stop and the actual start is 0"),
       },
-      optionalParams = {
-      @Param(name = "stop", type = Integer.class,
-          doc = "The first item <i>not</i> to be included in the resulting list; "
-          + "generation of the list stops before <code>stop</code> is reached."),
-      @Param(name = "step", type = Integer.class,
-          doc = "The increment (default is 1). It may be negative.")})
+      optionalPositionals = {
+        @Param(name = "stop", type = Integer.class, noneable = true,
+            doc = "optional index of the first item <i>not</i> to be included in the "
+            + "resulting list; generation of the list stops before <code>stop</code> is reached."),
+        @Param(name = "step", type = Integer.class,
+            doc = "The increment (default is 1). It may be negative.")},
+      useLocation = true)
   private static final Function range =
     new MixedModeFunction("range", ImmutableList.of("start", "stop", "step"), 1, false) {
     @Override
@@ -838,9 +934,10 @@ public class MethodLibrary {
    * Returns a function-value implementing "select" (i.e. configurable attributes)
    * in the specified package context.
    */
-  @SkylarkBuiltin(name = "select",
+  @SkylarkSignature(name = "select",
       doc = "Creates a SelectorValue from the dict parameter.",
-      mandatoryParams = {@Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
+      mandatoryPositionals = {
+        @Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
   private static final Function select = new MixedModeFunction("select",
       ImmutableList.of("x"), 1, false) {
       @Override
@@ -858,16 +955,16 @@ public class MethodLibrary {
   /**
    * Returns true if the object has a field of the given name, otherwise false.
    */
-  @SkylarkBuiltin(name = "hasattr", returnType = Boolean.class,
+  @SkylarkSignature(name = "hasattr", returnType = Boolean.class,
       doc = "Returns True if the object <code>x</code> has a field of the given <code>name</code>, "
           + "otherwise False. Example:<br>"
           + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
-      mandatoryParams = {
-      @Param(name = "object", doc = "The object to check."),
-      @Param(name = "name", type = String.class, doc = "The name of the field.")})
+      mandatoryPositionals = {
+        @Param(name = "object", doc = "The object to check."),
+        @Param(name = "name", type = String.class, doc = "The name of the field.")},
+      useLocation = true, useEnvironment = true)
   private static final Function hasattr =
       new MixedModeFunction("hasattr", ImmutableList.of("object", "name"), 2, false) {
-
     @Override
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException, ConversionException {
@@ -891,19 +988,20 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "getattr",
+  @SkylarkSignature(name = "getattr",
       doc = "Returns the struct's field of the given name if exists, otherwise <code>default</code>"
           + " if specified, otherwise rasies an error. For example, <code>getattr(x, \"foobar\")"
           + "</code> is equivalent to <code>x.foobar</code>."
           + "Example:<br>"
           + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
-     mandatoryParams = {
-     @Param(name = "object", doc = "The struct which's field is accessed."),
-     @Param(name = "name", doc = "The name of the struct field.")},
-     optionalParams = {
-     @Param(name = "default", doc = "The default value to return in case the struct "
-                                  + "doesn't have a field of the given name.")})
+      mandatoryPositionals = {
+        @Param(name = "object", doc = "The struct which's field is accessed."),
+        @Param(name = "name", doc = "The name of the struct field.")},
+      optionalPositionals = {
+        @Param(name = "default", doc = "The default value to return in case the struct "
+            + "doesn't have a field of the given name.")},
+      useLocation = true)
   private static final Function getattr = new MixedModeFunction(
       "getattr", ImmutableList.of("object", "name", "default"), 2, false) {
     @Override
@@ -924,10 +1022,11 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "dir", returnType = SkylarkList.class,
+  @SkylarkSignature(name = "dir", returnType = SkylarkList.class,
       doc = "Returns a list strings: the names of the fields and "
           + "methods of the parameter object.",
-      mandatoryParams = {@Param(name = "object", doc = "The object to check.")})
+      mandatoryPositionals = {@Param(name = "object", doc = "The object to check.")},
+      useLocation = true, useEnvironment = true)
   private static final Function dir = new MixedModeFunction(
       "dir", ImmutableList.of("object"), 1, false) {
     @Override
@@ -950,9 +1049,9 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "type", returnType = String.class,
+  @SkylarkSignature(name = "type", returnType = String.class,
       doc = "Returns the type name of its argument.",
-      mandatoryParams = {@Param(name = "object", doc = "The object to check type of.")})
+      mandatoryPositionals = {@Param(name = "object", doc = "The object to check type of.")})
   private static final Function type = new MixedModeFunction("type",
       ImmutableList.of("object"), 1, false) {
     @Override
@@ -962,14 +1061,16 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "fail",
+  @SkylarkSignature(name = "fail",
       doc = "Raises an error that cannot be intercepted.",
       returnType = Environment.NoneType.class,
-      mandatoryParams = {
+      mandatoryPositionals = {
         @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
-      optionalParams = {
-        @Param(name = "attr", type = String.class,
-            doc = "The name of the attribute that caused the error")})
+      optionalPositionals = {
+        @Param(name = "attr", type = String.class, noneable = true,
+            defaultValue = "None",
+            doc = "The name of the attribute that caused the error")},
+      useLocation = true)
   private static final Function fail = new MixedModeFunction(
       "fail", ImmutableList.of("msg", "attr"), 1, false) {
     @Override
@@ -984,13 +1085,14 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "print", returnType = Environment.NoneType.class,
+  @SkylarkSignature(name = "print", returnType = Environment.NoneType.class,
       doc = "Prints <code>msg</code> to the console.",
-      mandatoryParams = {
-      @Param(name = "*args", doc = "The objects to print.")},
-      optionalParams = {
-      @Param(name = "sep", type = String.class,
-          doc = "The separator string between the objects, default is space (\" \").")})
+      optionalNamedOnly = {
+        @Param(name = "sep", type = String.class,
+            doc = "The separator string between the objects, default is space (\" \").")},
+      // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
+      extraPositionals = {@Param(name = "args", doc = "The objects to print.")},
+      useLocation = true, useEnvironment = true)
   private static final Function print = new AbstractFunction("print") {
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
@@ -1019,7 +1121,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "zip",
+  @SkylarkSignature(name = "zip",
       doc = "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
           + "the i-th element from each of the argument sequences or iterables. The list has the "
           + "size of the shortest input. With a single iterable argument, it returns a list of "
@@ -1029,7 +1131,8 @@ public class MethodLibrary {
           + "zip([1, 2])  # == [(1,), (2,)]\n"
           + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
           + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
-      returnType = SkylarkList.class)
+      extraPositionals = {@Param(name = "args", doc = "lists to zip")},
+      returnType = SkylarkList.class, useLocation = true)
   private static final Function zip = new AbstractFunction("zip") {
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,

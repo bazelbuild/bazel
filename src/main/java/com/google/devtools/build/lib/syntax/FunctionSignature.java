@@ -194,7 +194,7 @@ public abstract class FunctionSignature implements Serializable {
    *
    * <p>V is the class of defaultValues and T is the class of types.
    * When parsing a function definition at compile-time, they are &lt;Expression, Expression&gt;;
-   * when processing a @SkylarkBuiltin annotation at build-time, &lt;Object, SkylarkType&gt;.
+   * when processing a @SkylarkSignature annotation at build-time, &lt;Object, SkylarkType&gt;.
    */
   @AutoValue
   public abstract static class WithValues<V, T> implements Serializable {
@@ -247,7 +247,7 @@ public abstract class FunctionSignature implements Serializable {
     /**
      * Parse a list of Parameter into a FunctionSignature.
      *
-     * <p>To be used both by the Parser and by the SkylarkBuiltin annotation processor.
+     * <p>To be used both by the Parser and by the SkylarkSignature annotation processor.
      */
     public static <V, T> WithValues<V, T> of(Iterable<Parameter<V, T>> parameters)
         throws SignatureException {
@@ -512,7 +512,7 @@ public abstract class FunctionSignature implements Serializable {
     return of(0, 0, numMandatory, false, false, names);
   }
 
-  /** Invalid signature from Parser or from SkylarkBuiltin annotations */
+  /** Invalid signature from Parser or from SkylarkSignature annotations */
   protected static class SignatureException extends Exception {
     @Nullable private final Parameter<?, ?> parameter;
 
