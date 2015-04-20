@@ -20,34 +20,28 @@
 #
 
 set -eu
+TARGET=//src/...
+JRE="JavaSE-1.8"
+PROJECT_NAME="bazel"
+OUTPUT_PATH="bazel-out/ide/classes"
+GENERATED_PATH="bazel-out/ide/generated"
+EXTRA_JARS="bazel-bazel/external/local-jdk/lib/tools.jar"
+source $(dirname "$0")/get_project_paths.sh
 
-cd $(dirname "$0")
-cd ..
+mkdir -p ${OUTPUT_PATH} ${GENERATED_PATH}
 
-# Simply creates a Eclipse java project
-if [ ! -f ".project" ]; then
-  cat >.project <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<projectDescription>
-    <name>bazel</name>
-    <comment></comment>
-    <projects>
-    </projects>
-    <buildSpec>
-        <buildCommand>
-            <name>org.eclipse.jdt.core.javabuilder</name>
-            <arguments>
-            </arguments>
-        </buildCommand>
-    </buildSpec>
-    <natures>
-        <nature>org.eclipse.jdt.core.javanature</nature>
-    </natures>
-</projectDescription>
-EOF
+# Overwrite .classpath and .factorypath.
+./scripts/eclipse-generate.sh classpath "$JAVA_PATHS" "$LIB_PATHS $EXTRA_JARS" "$JRE" "$OUTPUT_PATH" >.classpath
+if [ -n "$PLUGIN_PATHS" ]; then
+    ./scripts/eclipse-generate.sh factorypath "$PROJECT_NAME" "$PLUGIN_PATHS" >.factorypath
+    mkdir -p .settings
+    # Write apt settings if not present.
+    [ -e ".settings/org.eclipse.jdt.apt.core.prefs" ] || \
+        ./scripts/eclipse-generate.sh apt_settings "$GENERATED_PATH" > .settings/org.eclipse.jdt.apt.core.prefs
 fi
-
-./scripts/generate-classpath.sh >.classpath
+# Write .project if not present.
+[ -e ".project" ] || \
+    ./scripts/eclipse-generate.sh project "$PROJECT_NAME" > .project
 
 echo
 echo '***'
