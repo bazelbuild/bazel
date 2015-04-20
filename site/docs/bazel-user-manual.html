@@ -1475,45 +1475,15 @@ Subtractive patterns:
   javac and before the per-rule options. The last specification of
   any option to javac wins. The default options for javac are:
 </p>
+
 <pre>
-  -g -source 7 -target 7 -encoding UTF-8 -Xlint:divzero,empty,path,-options -Werror:+divzero,+empty,+path
+  -source 8 -target 8 -encoding UTF-8
 </pre>
 <p>
   Note that changing <code class='flag'>--javacopt</code> settings will force a recompilation
   of all affected classes. Also note that javacopts parameters listed in
   specific java_library or java_binary build rules will be placed on the javac
   command line <em>after</em> these options.
-</p>
-
-<h5 id='-Werror'><code>-Werror:<var>(+|-)warning[,(+|-)warning]*</var></code></h5>
-
-<p>
-  This javac option enables selective treating of warnings as errors. To specify
-  all or none of the warnings, use <code>+all</code> or <code>-all</code>.
-  The last specification for any warning wins. A typical value that enables all
-  warnings as errors except those that may be caused upstream is:
-</p>
-<pre>
-  -Werror:+all,-deprecation,-unchecked
-</pre>
-
-<p>
-  The divzero and empty javac warnings are promoted to errors by default. These
-  errors cannot be disabled from the Bazel command line or the BUILD file.
-  However, in extreme cases they may be disabled by adding a
-  <code>@SuppressWarnings({"divzero", "empty"})</code> annotation to your Java
-  source.
-</p>
-
-<h5 id='-extra_checks'><code>-extra_checks[:(off|on)]</code></h5>
-
-<p>
-  This javac option enables extra correctness checks. Any problems found will
-  be presented as errors.
-  Either <code>-extra_checks</code> or <code>-extra_checks:on</code> may be used
-  to force the checks to be turned on. <code>-extra_checks:off</code> completely
-  disables the analysis.
-  When this option is not specified, the default behavior is used.
 </p>
 
 <h4 id='flag--strict_java_deps'><code class='flag'>--strict_java_deps
