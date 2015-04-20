@@ -366,8 +366,8 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
 
   java_compilation "Bazel Java" "$DIRS" "$LIBRARY_JARS" "output"
 
-  # help files: all non java files in src/main/java.
-  for i in $(find src/main/java -type f -a \! -name '*.java' | sed 's|src/main/java/||'); do
+  # help files: all non java and BUILD files in src/main/java.
+  for i in $(find src/main/java -type f -a \! -name '*.java' -a \! -name 'BUILD' | sed 's|src/main/java/||'); do
     mkdir -p $(dirname output/classes/$i)
     cp src/main/java/$i output/classes/$i
   done
