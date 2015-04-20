@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -59,6 +60,8 @@ import java.util.Set;
  */
 @Immutable
 public final class XcodeProvider implements TransitiveInfoProvider {
+  private static final String COMPANION_LIB_TARGET_LABEL_SUFFIX = "_static_lib";
+
   /**
    * A builder for instances of {@link XcodeProvider}.
    */
@@ -92,6 +95,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final ImmutableList.Builder<XcodeProvider> extensions = new ImmutableList.Builder<>();
     private String architecture;
     private ImmutableList.Builder<PathFragment> datamodelDirs = new ImmutableList.Builder<>();
+    private boolean generateCompanionLibTarget = false;
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -285,6 +289,17 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    /**
+     * Generates an extra LIBRARY_STATIC Xcode target with the same compilation artifacts. Dependent
+     * Xcode targets will pick this companion library target as its dependency, rather than the
+     * main Xcode target of this provider.
+     */
+    // TODO(bazel-team): Remove this when the binary rule types and bundling rule types are merged.
+    public Builder generateCompanionLibTarget() {
+      this.generateCompanionLibTarget = true;
+      return this;
+    }
+
     public XcodeProvider build() {
       Preconditions.checkState(
           !testHost.isPresent() || (productType == XcodeProductType.UNIT_TEST),
@@ -340,7 +355,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
       ImmutableList.Builder<TargetControl> controls = new ImmutableList.Builder<>();
       for (XcodeProvider provider : providerSet) {
-        controls.add(provider.targetControl());
+        controls.addAll(provider.targetControls());
       }
       return controls.build();
     }
@@ -367,6 +382,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final ImmutableList<XcodeProvider> extensions;
   private final String architecture;
   private final ImmutableList<PathFragment> datamodelDirs;
+  private final boolean generateCompanionLibTarget;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -390,6 +406,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.extensions = builder.extensions.build();
     this.architecture = Preconditions.checkNotNull(builder.architecture);
     this.datamodelDirs = builder.datamodelDirs.build();
+    this.generateCompanionLibTarget = builder.generateCompanionLibTarget;
   }
 
   private void collectProviders(Set<XcodeProvider> allProviders) {
@@ -420,9 +437,39 @@ public final class XcodeProvider implements TransitiveInfoProvider {
    * the project navigator is too narrow to show the entire name.
    */
   static String xcodeTargetName(Label label) {
-    String pathFromWorkspaceRoot =  label.toString().replace("//", "").replace(':', '/');
+    return xcodeTargetName(label, /*labelSuffix=*/"");
+  }
+
+  /**
+   * Returns the name of the companion Xcode library target that corresponds to a build target with
+   * the given name. See {@link XcodeSupport#generateCompanionLibXcodeTarget} for the rationale of
+   * the companion library target and {@link #xcodeTargetName(Label)} for naming details.
+   */
+  static String xcodeCompanionLibTargetName(Label label) {
+    return xcodeTargetName(label, COMPANION_LIB_TARGET_LABEL_SUFFIX);
+  }
+
+  private static String xcodeTargetName(Label label, String labelSuffix) {
+    String pathFromWorkspaceRoot = (label + labelSuffix).replace("//", "")
+        .replace(':', '/');
     List<String> components = Splitter.on('/').splitToList(pathFromWorkspaceRoot);
     return Joiner.on('_').join(Lists.reverse(components));
+  }
+
+  /**
+   * Returns the name of the xcode target in this provider to be referenced as a dep for dependents.
+   */
+  private String dependencyXcodeTargetName() {
+    return generateCompanionLibTarget ? xcodeCompanionLibTargetName(label) : xcodeTargetName(label);
+  }
+
+  private Iterable<TargetControl> targetControls() {
+    TargetControl mainTargetControl = targetControl();
+    if (generateCompanionLibTarget) {
+      return ImmutableList.of(mainTargetControl, companionLibTargetControl(mainTargetControl));
+    } else {
+      return ImmutableList.of(mainTargetControl);
+    }
   }
 
   private TargetControl targetControl() {
@@ -483,7 +530,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             && dependency.compilationArtifacts.get().getArchive().isPresent();
         if (hasSources || (dependency.productType == XcodeProductType.BUNDLE)) {
             targetControl.addDependency(DependencyControl.newBuilder()
-                .setTargetLabel(xcodeTargetName(dependency.label))
+                .setTargetLabel(dependency.dependencyXcodeTargetName())
                 .build());
         }
       }
@@ -526,6 +573,17 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     }
 
     return targetControl.build();
+  }
+
+  private TargetControl companionLibTargetControl(TargetControl mainTargetControl) {
+    return TargetControl.newBuilder()
+        .mergeFrom(mainTargetControl)
+        .setName(label.getName() + COMPANION_LIB_TARGET_LABEL_SUFFIX)
+        .setLabel(xcodeCompanionLibTargetName(label))
+        .setProductType(LIBRARY_STATIC.getIdentifier())
+        .clearInfoplist()
+        .clearDependency()
+        .build();
   }
 
   /**
