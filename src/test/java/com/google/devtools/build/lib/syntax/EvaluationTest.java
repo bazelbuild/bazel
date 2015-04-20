@@ -578,6 +578,6 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testArgBothPosKey() throws Exception {
     checkEvalError("replace(this, old, new, maxsplit = null) got multiple values "
         + "for keyword argument 'new'",
-        "'banana'.replace('a', 'o', old=3, new=4)");
+        "'banana'.replace('a', 'o', 3, new=4)");
   }
 }
