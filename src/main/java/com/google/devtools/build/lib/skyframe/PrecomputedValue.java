@@ -93,9 +93,6 @@ public class PrecomputedValue implements SkyValue {
   static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
-  static final Precomputed<Map<String, String>> TEST_ENVIRONMENT_VARIABLES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "test_environment"));
-
   static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 

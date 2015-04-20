@@ -390,7 +390,7 @@ public class BlazeCommandDispatcher {
 
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        runtime.beforeCommand(commandName, optionsParser, commonOptions, execStartTimeNanos);
+        runtime.beforeCommand(commandAnnotation, optionsParser, commonOptions, execStartTimeNanos);
         // Allow the command to edit options after parsing:
         command.editOptions(runtime, optionsParser);
       } catch (AbruptExitException e) {

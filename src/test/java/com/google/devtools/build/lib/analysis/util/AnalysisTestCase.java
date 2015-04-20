@@ -259,7 +259,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     BuildConfigurationKey configurationKey = new BuildConfigurationKey(
-        buildOptions, directories, ImmutableMap.<String, String>of(), multiCpu);
+        buildOptions, directories, multiCpu);
     masterConfig = skyframeExecutor.createConfigurations(configurationFactory, configurationKey);
     analysisResult = buildView.update(loadingResult, masterConfig, viewOptions,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT, reporter, eventBus);

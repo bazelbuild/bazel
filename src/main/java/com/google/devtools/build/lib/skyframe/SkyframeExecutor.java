@@ -230,7 +230,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       new SkyframeIncrementalBuildMonitor();
 
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
-  private MutableSupplier<Map<String, String>> testEnv = new MutableSupplier<>();
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
   private MutableSupplier<Set<Package>> configurationPackages = new MutableSupplier<>();
@@ -316,7 +315,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
-        configurationFactory, testEnv, configurationPackages));
+        configurationFactory, configurationPackages));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments, configurationPackages));
     map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction(pkgFactory, directories));
@@ -864,14 +863,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InvalidConfigurationException, InterruptedException {
 
     this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
-    this.testEnv.set(configurationKey.getTestEnv());
     this.configurationFactory.set(configurationFactory);
     this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
     // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of
-    // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
-    // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
-    // and we don't want to rebuild everything when any variable changes.
-    PrecomputedValue.TEST_ENVIRONMENT_VARIABLES.set(injectable(), configurationKey.getTestEnv());
+    // BlazeDirectories.
     PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), configurationKey.getDirectories());
 
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),

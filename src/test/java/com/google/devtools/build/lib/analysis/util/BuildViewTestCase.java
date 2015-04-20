@@ -133,10 +133,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -251,19 +249,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       optionsParser.parse(configurationArgs);
       optionsParser.parse(args);
 
-      // --test_env is a special snowflake: even though it is in BuildConfiguration.Options, it is
-      // only used in BlazeRuntime to compute the actual test environment, which is passed into
-      // BuildConfiguration using its own very special data path. Thus, we need to special-case it
-      // here until it is handled in a more consistent way.
-      Map<String, String> testEnv = new LinkedHashMap<>();
-      for (Map.Entry<String, String> entry :
-          optionsParser.getOptions(BuildConfiguration.Options.class).testEnvironment) {
-        testEnv.put(entry.getKey(), entry.getValue());
-      }
       configurationFactory.forbidSanityCheck();
       BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
       ensureTargetsVisited(buildOptions.getAllLabels().values());
-      BuildConfigurationKey key = new BuildConfigurationKey(buildOptions, directories, testEnv);
+      BuildConfigurationKey key = new BuildConfigurationKey(buildOptions, directories);
       skyframeExecutor.invalidateConfigurationCollection();
       return skyframeExecutor.createConfigurations(configurationFactory, key);
     } catch (InvalidConfigurationException | OptionsParsingException e) {

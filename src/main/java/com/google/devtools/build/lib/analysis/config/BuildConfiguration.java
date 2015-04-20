@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeMap;
 
 import javax.annotation.Nullable;
 
@@ -995,13 +996,19 @@ public final class BuildConfiguration implements Serializable {
   BuildConfiguration(BlazeDirectories directories,
                      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
                      BuildOptions buildOptions,
-                     Map<String, String> testEnv,
                      boolean actionsDisabled) {
     this.actionsEnabled = !actionsDisabled;
     this.fragments = ImmutableMap.copyOf(fragmentsMap);
 
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(Options.class);
+
+    Map<String, String> testEnv = new TreeMap<>();
+    for (Map.Entry<String, String> entry : this.options.testEnvironment) {
+      if (entry.getValue() != null) {
+        testEnv.put(entry.getKey(), entry.getValue());
+      }
+    }
 
     this.testEnvironment = ImmutableMap.copyOf(testEnv);
 
@@ -1054,7 +1061,7 @@ public final class BuildConfiguration implements Serializable {
     globalMakeEnv = globalMakeEnvBuilder.build();
 
     cacheKey = computeCacheKey(
-        directories, fragmentsMap, this.buildOptions, this.testEnvironment);
+        directories, fragmentsMap, this.buildOptions);
     shortCacheKey = shortName + "-" + Fingerprint.md5Digest(cacheKey);
   }
 
@@ -1773,8 +1780,7 @@ public final class BuildConfiguration implements Serializable {
    * parameters and any additional component suppliers.
    */
   static String computeCacheKey(BlazeDirectories directories,
-      Map<Class<? extends Fragment>, Fragment> fragments,
-      BuildOptions buildOptions, Map<String, String> testEnvironment) {
+      Map<Class<? extends Fragment>, Fragment> fragments, BuildOptions buildOptions) {
 
     // Creates a full fingerprint of all constructor parameters, used for
     // canonicalization.
@@ -1792,9 +1798,6 @@ public final class BuildConfiguration implements Serializable {
     keys.add(String.valueOf(System.identityHashCode(directories.getOutputBase().getFileSystem())));
     keys.add(directories.getOutputBase().toString());
     keys.add(buildOptions.computeCacheKey());
-    // This is needed so that if we have --test_env=VAR, the configuration key is updated if the
-    // environment variable VAR is updated.
-    keys.add(testEnvironment.toString());
     keys.add(directories.getWorkspace().toString());
 
     for (Fragment fragment : fragments.values()) {
