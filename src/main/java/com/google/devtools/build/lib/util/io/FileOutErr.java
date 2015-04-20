@@ -34,6 +34,8 @@ import java.io.PrintStream;
  *
  * You should not use this object from multiple different threads.
  */
+// Note that it should be safe to treat the Output and Error streams within a FileOutErr each as
+// individually ThreadCompatible.
 @ThreadSafety.ThreadCompatible
 public class FileOutErr extends OutErr {
 
@@ -137,6 +139,21 @@ public class FileOutErr extends OutErr {
   }
 
   /**
+   * Closes and deletes the error stream.
+   */
+  public void clearErr() throws IOException {
+    getFileErrorStream().clear();
+  }
+
+  /**
+   * Closes and deletes the out stream.
+   */
+  public void clearOut() throws IOException {
+    getFileOutputStream().clear();
+  }
+
+
+  /**
    * Writes the captured out content to the given output stream,
    * avoiding keeping the entire contents in memory.
    */
@@ -193,6 +210,11 @@ public class FileOutErr extends OutErr {
      * avoiding keeping the entire contents in memory.
      */
     abstract void dumpOut(OutputStream out);
+
+    /**
+     * Closes and delets the output.
+     */
+    abstract void clear() throws IOException;
   }
 
   /**
@@ -227,6 +249,10 @@ public class FileOutErr extends OutErr {
     @Override
     void dumpOut(OutputStream out) {
       return;
+    }
+
+    @Override
+    public void clear() {
     }
 
 
@@ -290,6 +316,13 @@ public class FileOutErr extends OutErr {
 
     private boolean hasOutputStream() {
       return outputStream != null;
+    }
+
+    @Override
+    public synchronized void clear() throws IOException {
+      close();
+      outputStream = null;
+      outputFile.delete();
     }
 
     /**

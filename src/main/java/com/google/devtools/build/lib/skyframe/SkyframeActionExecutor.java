@@ -445,7 +445,6 @@ public final class SkyframeActionExecutor {
   ActionExecutionContext constructActionExecutionContext(
       PerActionFileCache graphFileCache, MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
-    // TODO(bazel-team): this should be closed explicitly somewhere.
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
