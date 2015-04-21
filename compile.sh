@@ -372,7 +372,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     cp src/main/java/$i output/classes/$i
   done
 
-  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
+  create_deploy_jar "bazel-main_deploy" "com.google.devtools.build.lib.bazel.BazelMain" \
       output third_party/javascript
 fi
 
@@ -443,7 +443,7 @@ touch output/client_info
 chmod 755 output/client_info
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD"
+TO_ZIP="bazel-main_deploy.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD"
 if [[ $PLATFORM == "linux" ]]; then
     TO_ZIP="$TO_ZIP namespace-sandbox${EXE_EXT}"
 fi

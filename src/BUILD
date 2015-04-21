@@ -48,8 +48,6 @@ genrule(
     name = "package-zip",
     srcs = [
         "//src/main/java:bazel-main_deploy.jar",
-        # The jar must the first in the zip file because the client launcher
-        # looks for the first entry in the zip file for the java server.
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
