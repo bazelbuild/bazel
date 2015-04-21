@@ -99,7 +99,8 @@ EOF
 
       elif [[ -e $macports_header ]]; then
         # For use with Macports.
-        archive_dir=$(dirname $(dirname $macports_header)) rm -f fromhost/*.[ah]
+        archive_dir=$(dirname $(dirname $macports_header))
+        rm -f fromhost/*.[ah]
         touch fromhost/empty.c
         cp "${archive_dir}"/include/{archive.h,archive_entry.h} fromhost/
         cp "${archive_dir}"/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
