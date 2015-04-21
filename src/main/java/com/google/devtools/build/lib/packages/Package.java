@@ -327,7 +327,7 @@ public class Package implements Serializable {
    * <p>Only after this method is called can this package be considered "complete"
    * and be shared publicly.
    */
-  protected void finishInit(AbstractBuilder<?, ?> builder) {
+  protected void finishInit(Builder builder) {
     // If any error occurred during evaluation of this package, consider all
     // rules in the package to be "in error" also (even if they were evaluated
     // prior to the error).  This behaviour is arguably stricter than need be,
@@ -500,7 +500,7 @@ public class Package implements Serializable {
 
   /**
    * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.AbstractBuilder}.
+   * {@link Package.Builder}.
    */
   private static Collection<Target> getTargets(Map<String, Target> targetMap) {
     return Collections.unmodifiableCollection(targetMap.values());
@@ -516,7 +516,7 @@ public class Package implements Serializable {
 
   /**
    * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.AbstractBuilder}.
+   * {@link Package.Builder}.
    */
   private static <T extends Target> Iterable<T> getTargets(Map<String, Target> targetMap,
       Class<T> targetClass) {
@@ -725,42 +725,19 @@ public class Package implements Serializable {
         out.println();
       }
     }
-
-    // TODO(bazel-team): (2009) perhaps dump also:
-    // - subincludes
-    // - globs
-    // - containsErrors
-    // - makeEnv
   }
 
   /**
-   * Builder class for {@link Package}.
+   * Builder class for {@link Package} that does its own globbing.
    *
-   * <p>Should only be used by the package loading and the package deserialization machineries.
+   * <p>Despite its name, this is the normal builder used when parsing BUILD files.
    */
-  static class Builder extends AbstractBuilder<Package, Builder> {
-    Builder(PackageIdentifier packageId) {
-      super(new Package(packageId));
-    }
-
-    @Override
-    protected Builder self() {
-      return this;
-    }
-  }
-
-  /** Builder class for {@link Package} that does its own globbing. */
-  public static class LegacyBuilder extends AbstractBuilder<Package, LegacyBuilder> {
+  public static class LegacyBuilder extends Builder {
 
     private Globber globber = null;
 
     LegacyBuilder(PackageIdentifier packageId) {
-      super(AbstractBuilder.newPackage(packageId));
-    }
-
-    @Override
-    protected LegacyBuilder self() {
-      return this;
+      super(packageId);
     }
 
     /**
@@ -791,14 +768,14 @@ public class Package implements Serializable {
     }
   }
 
-  abstract static class AbstractBuilder<P extends Package, B extends AbstractBuilder<P, B>> {
+  static class Builder {
     /**
      * The output instance for this builder. Needs to be instantiated and
      * available with name info throughout initialization. All other settings
      * are applied during {@link #build}. See {@link Package#Package(String)}
      * and {@link Package#finishInit} for details.
      */
-    protected P pkg;
+    protected Package pkg;
 
     protected Path filename = null;
     private Label buildFileLabel = null;
@@ -846,7 +823,7 @@ public class Package implements Serializable {
       }
     };
 
-    protected AbstractBuilder(P pkg) {
+    protected Builder(Package pkg) {
       this.pkg = pkg;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
@@ -856,8 +833,7 @@ public class Package implements Serializable {
     protected static Package newPackage(PackageIdentifier packageId) {
       return new Package(packageId);
     }
-
-    protected abstract B self();
+    Builder(PackageIdentifier id) { this(newPackage(id)); }
 
     protected PackageIdentifier getPackageIdentifier() {
       return pkg.getPackageIdentifier();
@@ -866,7 +842,7 @@ public class Package implements Serializable {
     /**
      * Sets the name of this package's BUILD file.
      */
-    B setFilename(Path filename) {
+    Builder setFilename(Path filename) {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getBaseName());
@@ -875,7 +851,7 @@ public class Package implements Serializable {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
       }
-      return self();
+      return this;
     }
 
     public Label getBuildFileLabel() {
@@ -889,9 +865,9 @@ public class Package implements Serializable {
     /**
      * Sets this package's Make environment.
      */
-    B setMakeEnv(MakeEnvironment.Builder makeEnv) {
+    Builder setMakeEnv(MakeEnvironment.Builder makeEnv) {
       this.makeEnv = makeEnv;
-      return self();
+      return this;
     }
 
     MakeEnvironment.Builder getMakeEnvironment() {
@@ -902,40 +878,40 @@ public class Package implements Serializable {
      * Sets the default visibility for this package. Called at most once per
      * package from PackageFactory.
      */
-    B setDefaultVisibility(RuleVisibility visibility) {
+    Builder setDefaultVisibility(RuleVisibility visibility) {
       this.defaultVisibility = visibility;
       this.defaultVisibilitySet = true;
-      return self();
+      return this;
     }
 
     /**
      * Sets whether the default visibility is set in the BUILD file.
      */
-    B setDefaultVisibilitySet(boolean defaultVisibilitySet) {
+    Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
-      return self();
+      return this;
     }
 
     /** Sets the default value of 'testonly'. Rule-level 'testonly' will override this. */
-    B setDefaultTestonly(boolean defaultTestonly) {
+    Builder setDefaultTestonly(boolean defaultTestonly) {
       pkg.setDefaultTestOnly(defaultTestonly);
-      return self();
+      return this;
     }
 
     /**
      * Sets the default value of 'deprecation'. Rule-level 'deprecation' will append to this.
      */
-    B setDefaultDeprecation(String defaultDeprecation) {
+    Builder setDefaultDeprecation(String defaultDeprecation) {
       pkg.setDefaultDeprecation(defaultDeprecation);
-      return self();
+      return this;
     }
 
     /**
      * Uses the workspace name from {@code //external} to set this package's workspace name.
      */
-    B setWorkspaceName(String workspaceName) {
+    Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
-      return self();
+      return this;
     }
 
     /**
@@ -952,60 +928,60 @@ public class Package implements Serializable {
     /**
      * Sets the default header checking mode.
      */
-    public B setDefaultHdrsCheck(String hdrsCheck) {
+    public Builder setDefaultHdrsCheck(String hdrsCheck) {
       // Note that this setting is propagated directly to the package because
       // other code needs the ability to read this info directly from the
       // under-construction package. See {@link Package#setDefaultHdrsCheck}.
       pkg.setDefaultHdrsCheck(hdrsCheck);
-      return self();
+      return this;
     }
 
     /**
      * Sets the default value of copts. Rule-level copts will append to this.
      */
-    public B setDefaultCopts(List<String> defaultCopts) {
+    public Builder setDefaultCopts(List<String> defaultCopts) {
       this.defaultCopts = defaultCopts;
-      return self();
+      return this;
     }
 
-    public B addFeatures(Iterable<String> features) {
+    public Builder addFeatures(Iterable<String> features) {
       Iterables.addAll(this.features, features);
-      return self();
+      return this;
     }
 
     /**
      * Declares that errors were encountering while loading this package.
      */
-    public B setContainsErrors() {
+    public Builder setContainsErrors() {
       containsErrors = true;
-      return self();
+      return this;
     }
 
     public boolean containsErrors() {
       return containsErrors;
     }
 
-    B setContainsTemporaryErrors() {
+    Builder setContainsTemporaryErrors() {
       setContainsErrors();
       containsTemporaryErrors = true;
-      return self();
+      return this;
     }
 
-    public B addEvents(Iterable<Event> events) {
+    public Builder addEvents(Iterable<Event> events) {
       for (Event event : events) {
         addEvent(event);
       }
-      return self();
+      return this;
     }
 
-    public B addEvent(Event event) {
+    public Builder addEvent(Event event) {
       this.events.add(event);
-      return self();
+      return this;
     }
 
-    B setSkylarkFileDependencies(ImmutableList<Label> skylarkFileDependencies) {
+    Builder setSkylarkFileDependencies(ImmutableList<Label> skylarkFileDependencies) {
       this.skylarkFileDependencies = skylarkFileDependencies;
-      return self();
+      return this;
     }
 
     /**
@@ -1277,7 +1253,7 @@ public class Package implements Serializable {
       }
     }
 
-    private B beforeBuild() {
+    private Builder beforeBuild() {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
@@ -1325,19 +1301,19 @@ public class Package implements Serializable {
           rule.setAttributeValueByName("$implicit_tests", allTests);
         }
       }
-      return self();
+      return this;
     }
 
     /** Intended to be used only by {@link PackageFunction}. */
-    public B buildPartial() {
+    public Builder buildPartial() {
       if (alreadyBuilt) {
-        return self();
+        return this;
       }
       return beforeBuild();
     }
 
     /** Intended to be used only by {@link PackageFunction}. */
-    public P finishBuild() {
+    public Package finishBuild() {
       if (alreadyBuilt) {
         return pkg;
       }
@@ -1361,7 +1337,7 @@ public class Package implements Serializable {
       return pkg;
     }
 
-    public P build() {
+    public Package build() {
       if (alreadyBuilt) {
         return pkg;
       }

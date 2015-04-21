@@ -69,7 +69,7 @@ public class RuleFactory {
    * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
    * to do so if, for example, the rule has errors).</p>
    */
-  static Rule createRule(Package.AbstractBuilder<?, ?> pkgBuilder, RuleClass ruleClass,
+  static Rule createRule(Package.Builder pkgBuilder, RuleClass ruleClass,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
       Location location)
       throws InvalidRuleException, NameConflictException {
@@ -124,7 +124,7 @@ public class RuleFactory {
    *         reason (e.g. no <code>name</code> attribute is defined)
    * @throws NameConflictException
    */
-  static Rule createAndAddRule(Package.AbstractBuilder<?, ?> pkgBuilder,
+  static Rule createAndAddRule(Package.Builder pkgBuilder,
                   RuleClass ruleClass,
                   Map<String, Object> attributeValues,
                   EventHandler eventHandler,

@@ -1103,7 +1103,7 @@ public final class RuleClass {
   /**
    * Helper function for {@link RuleFactory#createAndAddRule}.
    */
-  Rule createRuleWithLabel(Package.AbstractBuilder<?, ?> pkgBuilder, Label ruleLabel,
+  Rule createRuleWithLabel(Package.Builder pkgBuilder, Label ruleLabel,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
       Location location) throws SyntaxException {
     Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, null, location);
@@ -1111,7 +1111,7 @@ public final class RuleClass {
     return rule;
   }
 
-  private void createRuleCommon(Rule rule, Package.AbstractBuilder<?, ?> pkgBuilder,
+  private void createRuleCommon(Rule rule, Package.Builder pkgBuilder,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast)
           throws SyntaxException {
     populateRuleAttributeValues(
@@ -1153,7 +1153,7 @@ public final class RuleClass {
    */
   @SuppressWarnings("unchecked")
   Rule createRuleWithParsedAttributeValues(Label label,
-      Package.AbstractBuilder<?, ?> pkgBuilder, Location ruleLocation,
+      Package.Builder pkgBuilder, Location ruleLocation,
       Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler)
           throws SyntaxException{
     Rule rule = pkgBuilder.newRuleWithLabel(label, this, null, ruleLocation);
@@ -1191,7 +1191,7 @@ public final class RuleClass {
    * location information with each rule attribute.
    */
   private void populateRuleAttributeValues(Rule rule,
-                                           Package.AbstractBuilder<?, ?> pkgBuilder,
+                                           Package.Builder pkgBuilder,
                                            Map<String, Object> attributeValues,
                                            EventHandler eventHandler,
                                            FuncallExpression ast) {
@@ -1319,7 +1319,7 @@ public final class RuleClass {
    * but does not have a declared license.
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
-      Package.AbstractBuilder<?, ?> pkgBuilder, EventHandler eventHandler) {
+      Package.Builder pkgBuilder, EventHandler eventHandler) {
     if (rule.getLabel().getPackageName().startsWith("third_party/")) {
       License license = rule.getLicense();
       if (license == null) {
@@ -1391,7 +1391,7 @@ public final class RuleClass {
    * evaluated in second pass.)
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
-      Package.AbstractBuilder<?, ?> pkgBuilder) {
+      Package.Builder pkgBuilder) {
     if (attr.getName().equals("licenses")) {
       return pkgBuilder.getDefaultLicense();
     }
