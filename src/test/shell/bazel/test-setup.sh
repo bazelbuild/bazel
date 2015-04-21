@@ -105,10 +105,6 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  ln -s "${javabuilder_path}" tools/jdk/JavaBuilder_deploy.jar
-  ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
-  ln -s "${ijar_path}" tools/jdk/ijar
-
   if [[ -d ${jdk_dir} ]] ; then
     ln -s ${jdk_dir} tools/jdk/jdk
   fi

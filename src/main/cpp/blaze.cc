@@ -294,7 +294,7 @@ static vector<string> GetArgumentArray() {
 
   result.push_back("-jar");
   result.push_back(blaze_util::JoinPath(real_install_dir,
-                                        globals->extracted_binaries[0]));
+                                        "bazel-main_deploy.jar"));
 
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");

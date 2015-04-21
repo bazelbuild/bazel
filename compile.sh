@@ -25,14 +25,14 @@ mkdir -p output/objs
 mkdir -p output/native
 
 # May be passed in from outside.
-CFLAGS="$CFLAGS"
+CXXFLAGS="$CXXFLAGS"
 LDFLAGS="$LDFLAGS"
 ZIPOPTS="$ZIPOPTS"
 
 # TODO: CC target architecture needs to match JAVA_HOME.
 CC=${CC:-gcc}
-CPP=${CPP:-g++}
-CPPSTD="c++0x"
+CXX=${CXX:-g++}
+CXXSTD="c++0x"
 
 unset JAVA_TOOL_OPTIONS
 
@@ -171,7 +171,7 @@ msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
   # Workaround for msys issue which causes omission of std::to_string.
-  CFLAGS="$CFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
+  CXXFLAGS="$CXXFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
   LDFLAGS="-larchive ${LDFLAGS}"
   MD5SUM="md5sum"
   EXE_EXT=".exe"
@@ -321,11 +321,11 @@ function cc_compile() {
   for FILE in "$@"; do
     if [[ ! "${FILE}" =~ ^-.*$ ]]; then
       local OBJ=$(basename "${FILE}").o
-      "${CPP}" \
+      "${CXX}" \
          -I src/main/cpp/ \
           ${ARCHIVE_CFLAGS} \
-          ${CFLAGS} \
-          -std=$CPPSTD \
+          ${CXXFLAGS} \
+          -std=$CXXSTD \
           -c \
           -DBLAZE_JAVA_CPU=\"k8\" \
           -DBLAZE_OPENSOURCE=1 \
@@ -344,7 +344,7 @@ function cc_link() {
     local OBJ=$(basename "${FILE}").o
     FILES+=("output/${OBJDIR}/${OBJ}")
   done
-  "${CPP}" -o ${OUTPUT} "${FILES[@]}" -lstdc++ ${LDFLAGS}
+  "${CXX}" -o ${OUTPUT} "${FILES[@]}" -lstdc++ ${LDFLAGS}
 }
 
 function cc_build() {
@@ -372,7 +372,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     cp src/main/java/$i output/classes/$i
   done
 
-  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
+  create_deploy_jar "bazel-main_deploy" "com.google.devtools.build.lib.bazel.BazelMain" \
       output third_party/javascript
 fi
 
@@ -383,8 +383,7 @@ if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
 
   create_deploy_jar "SingleJar_deploy" \
       "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
-  mkdir -p tools/jdk
-  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
+  cp -f output/singlejar/SingleJar_deploy.jar output/
 fi
 
 if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
@@ -394,24 +393,23 @@ if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
 
   create_deploy_jar "JavaBuilder_deploy" \
       "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
-  mkdir -p tools/jdk
-  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
+  cp -f output/buildjar/JavaBuilder_deploy.jar output/
 fi
 
 cc_build "client" "objs" "output/client" ${BLAZE_CC_FILES[@]}
 
-LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar" "tools/jdk/ijar" ${IJAR_CC_FILES[@]}
+LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar_objs" "output/ijar" ${IJAR_CC_FILES[@]}
 
 if [ ! -z "$JNILIB" ] ; then
   log "Compiling JNI libraries..."
   for FILE in "${NATIVE_CC_FILES[@]}"; do
     OUT=$(basename "${FILE}").o
-    "${CPP}" \
+    "${CXX}" \
       -I src/main/cpp/ \
       -I src/main/native/ \
       -I "${JAVA_HOME}/include/" \
       -I "${JAVA_HOME}/include/${PLATFORM}" \
-      -std=$CPPSTD \
+      -std=$CXXSTD \
       -fPIC \
       -c \
       -D_JNI_IMPLEMENTATION_ \
@@ -422,12 +420,12 @@ if [ ! -z "$JNILIB" ] ; then
   done
 
   log "Linking ${JNILIB}..."
-  "${CPP}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
+  "${CXX}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
 fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-"${CPP}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
+"${CXX}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
 
 log "Compiling process-wrapper..."
 "${CC}" -o output/process-wrapper -std=c99 src/main/tools/process-wrapper.c
@@ -438,12 +436,13 @@ fi
 
 cp src/main/tools/build_interface_so output/build_interface_so
 cp src/main/tools/jdk.* output
+cp src/main/tools/embedded.BUILD output
 
 touch output/client_info
 chmod 755 output/client_info
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD"
+TO_ZIP="bazel-main_deploy.jar JavaBuilder_deploy.jar SingleJar_deploy.jar ijar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD embedded.BUILD"
 if [[ $PLATFORM == "linux" ]]; then
     TO_ZIP="$TO_ZIP namespace-sandbox${EXE_EXT}"
 fi

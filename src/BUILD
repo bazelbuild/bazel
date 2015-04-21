@@ -48,8 +48,9 @@ genrule(
     name = "package-zip",
     srcs = [
         "//src/main/java:bazel-main_deploy.jar",
-        # The jar must the first in the zip file because the client launcher
-        # looks for the first entry in the zip file for the java server.
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//third_party/ijar",
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -83,15 +84,6 @@ genrule(
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//src/test:__subpackages__",  # For integration tests
-    ],
-)
-
-filegroup(
-    name = "tools",
-    srcs = [
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//third_party/ijar",
     ],
 )
 

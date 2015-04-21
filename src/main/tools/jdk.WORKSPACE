@@ -1,6 +1,27 @@
 # External dependencies for the java_* rules.
 
 new_local_repository(
+    name = "__embedded_dir__",
+    path = __embedded_dir__,
+    build_file = __embedded_dir__ + "/embedded.BUILD",
+)
+
+bind(
+    name = "__embedded_dir__/JavaBuilder_deploy.jar",
+    actual = "@__embedded_dir__//:JavaBuilder_deploy.jar",
+)
+
+bind(
+    name = "__embedded_dir__/SingleJar_deploy.jar",
+    actual = "@__embedded_dir__//:SingleJar_deploy.jar",
+)
+
+bind(
+    name = "__embedded_dir__/ijar",
+    actual = "@__embedded_dir__//:ijar",
+)
+
+new_local_repository(
     name = "local-jdk",
     path = DEFAULT_SERVER_JAVABASE,
     build_file = __embedded_dir__ + "/jdk.BUILD",
