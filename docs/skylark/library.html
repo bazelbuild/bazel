@@ -40,24 +40,21 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 <code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Literal for the boolean true.
 <br/>
 <li><h3 id="modules._top_level.bool">bool</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> bool(x)</code><br>
-Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> is also a type.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> is also a type.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.bool.x"><code>x</code>: The variable to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.dir">dir</h3>
-<code><a class="anchor" href="#modules.list">list</a> dir(object)</code><br>
-Returns a list strings: the names of the fields and methods of the parameter object.
+<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a list strings: the names of the fields and methods of the parameter object.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.dir.object"><code>object</code>: The object to check.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.enumerate">enumerate</h3>
-<code><a class="anchor" href="#modules.list">list</a> enumerate(list)</code><br>
-Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
+<code><a class="anchor" href="#modules.list">list</a></code><br>Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
 <pre class="language-python">enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>
 
 <h4>Parameters</h4>
@@ -66,8 +63,7 @@ Return a list of pairs (two-element lists), with the index (int) and the item fr
 	</li>
 </ul>
 <li><h3 id="modules._top_level.fail">fail</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> fail(msg, attr?, when?)</code><br>
-Raises an error (the execution stops), except if the <code>when</code> condition is False.
+<code><a class="anchor" href="#modules._top_level.None">None</a></code><br>Raises an error that cannot be intercepted.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.fail.msg"><code>msg (<a class="anchor" href="#modules.string">string</a>)</code>: Error message to display for the user
@@ -76,11 +72,8 @@ Raises an error (the execution stops), except if the <code>when</code> condition
 <ul>
 	<li id="modules._top_level.fail.attr"><code>attr (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the attribute that caused the error
 	</li>
-	<li id="modules._top_level.fail.when"><code>when (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: When False, the function does nothing. Default is True.
-	</li>
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
-<code>unknown getattr(object, name, default?)</code><br>
 Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise rasies an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.Example:<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
@@ -95,8 +88,7 @@ getattr(ctx.attr, "myattr", "mydefault")</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.hasattr">hasattr</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> hasattr(object, name)</code><br>
-Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
+<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.hasattr.object"><code>object</code>: The object to check.
@@ -105,24 +97,21 @@ Returns True if the object <code>x</code> has a field of the given <code>name</c
 	</li>
 </ul>
 <li><h3 id="modules._top_level.int">int</h3>
-<code>int int(x)</code><br>
-Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
+<code>int</code><br>Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.int.x"><code>x (<a class="anchor" href="#modules.string">string</a>)</code>: The string to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.len">len</h3>
-<code>int len(x)</code><br>
-Returns the length of a string, list, tuple, set, or dictionary.
+<code>int</code><br>Returns the length of a string, list, tuple, set, or dictionary.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.len.x"><code>x</code>: The object to check length of.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.list">list</h3>
-<code><a class="anchor" href="#modules.list">list</a> list(x)</code><br>
-Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
+<code><a class="anchor" href="#modules.list">list</a></code><br>Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
 list(set([2, 3, 2])) == [2, 3]
 list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 <h4>Parameters</h4>
@@ -131,11 +120,10 @@ list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.print">print</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> print(*args, sep?)</code><br>
-Prints <code>msg</code> to the console.
+<code><a class="anchor" href="#modules._top_level.None">None</a></code><br>Prints <code>msg</code> to the console.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.print.*args"><code>*args</code>: The objects to print.
+	<li id="modules._top_level.print.args"><code>args</code>: The objects to print.
 	</li>
 </ul>
 <ul>
@@ -153,17 +141,16 @@ Returns the transitive info provider provided by the target.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.range">range</h3>
-<code><a class="anchor" href="#modules.list">list</a> range(start, stop?, step?)</code><br>
-Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
+<code><a class="anchor" href="#modules.list">list</a></code><br>Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
 range(3, 9, 2) == [3, 5, 7]
 range(3, 0, -1) == [3, 2, 1]</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.range.start"><code>start (int)</code>: Value of the first element
+	<li id="modules._top_level.range.start"><code>start (int)</code>: Value of the first element if stop is provided, otherwise value of stop and the actual start is 0
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.range.stop"><code>stop (int)</code>: The first item <i>not</i> to be included in the resulting list; generation of the list stops before <code>stop</code> is reached.
+	<li id="modules._top_level.range.stop"><code>stop (int)</code>: optional index of the first item <i>not</i> to be included in the resulting list; generation of the list stops before <code>stop</code> is reached.
 	</li>
 	<li id="modules._top_level.range.step"><code>step (int)</code>: The increment (default is 1). It may be negative.
 	</li>
@@ -179,9 +166,9 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 <ul>
 	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it cannot).
 	</li>
-	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see 'attr' module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label.
+	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label.
 	</li>
-	<li id="modules._top_level.rule.outputs"><code>outputs</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes a field in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
+	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes a field in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
 	</li>
 	<li id="modules._top_level.rule.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: whether this rule always outputs an executable of the same name or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
@@ -189,7 +176,6 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 	</li>
 </ul>
 <li><h3 id="modules._top_level.select">select</h3>
-<code>unknown select(x)</code><br>
 Creates a SelectorValue from the dict parameter.
 <h4>Parameters</h4>
 <ul>
@@ -197,48 +183,54 @@ Creates a SelectorValue from the dict parameter.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.set">set</h3>
-<code><a class="anchor" href="#modules.set">set</a> set(items?, order?)</code><br>
-Creates a <a href="#modules.set">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
+<code><a class="anchor" href="#modules.set">set</a></code><br>Creates a <a href="#modules.set">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
 set([1, 2, 3], order="compile")</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.set.items"><code>items (<a class="anchor" href="#modules.list">list</a>)</code>: The items to initialize the set with. May contain both standalone items and other sets.
+	<li id="modules._top_level.set.items"><code>items</code>: The items to initialize the set with. May contain both standalone items and other sets.
 	</li>
 	<li id="modules._top_level.set.order"><code>order (<a class="anchor" href="#modules.string">string</a>)</code>: The ordering strategy for the set if it's nested, possible values are: <code>stable</code> (default), <code>compile</code>, <code>link</code> or <code>naive_link</code>.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.sorted">sorted</h3>
-<code>unknown sorted()</code><br>
-Sort a collection.
-<br/>
+<code><a class="anchor" href="#modules.list">list</a></code><br>Sort a collection.
+<h4>Parameters</h4>
+<ul>
+	<li id="modules._top_level.sorted.self"><code>self (<a class="anchor" href="#modules.list">list</a>)</code>: This list.
+	</li>
+</ul>
 <li><h3 id="modules._top_level.str">str</h3>
-<code><a class="anchor" href="#modules.string">string</a> str(x)</code><br>
-Converts any object to string. This is useful for debugging.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Converts any object to string. This is useful for debugging.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.str.x"><code>x</code>: The object to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.struct">struct</h3>
-<code><a class="anchor" href="#modules.struct">struct</a> struct()</code><br>
-Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
+<code><a class="anchor" href="#modules.struct">struct</a></code><br>Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
 return s.x + s.y  # returns 5</pre>
-<br/>
+<h4>Parameters</h4>
+<ul>
+	<li id="modules._top_level.struct.kwarg"><code>kwarg</code>: the struct fields
+	</li>
+</ul>
 <li><h3 id="modules._top_level.type">type</h3>
-<code><a class="anchor" href="#modules.string">string</a> type(object)</code><br>
-Returns the type name of its argument.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the type name of its argument.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.type.object"><code>object</code>: The object to check type of.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.zip">zip</h3>
-<code><a class="anchor" href="#modules.list">list</a> zip()</code><br>
-Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
+<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
 zip([1, 2])  # == [(1,), (2,)]
 zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
 zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
-<br/>
+<h4>Parameters</h4>
+<ul>
+	<li id="modules._top_level.zip.args"><code>args</code>: lists to zip
+	</li>
+</ul>
 </ul><hr><h2 id="modules.ConfigurationTransition">ConfigurationTransition</h2>
 Declares how the configuration should change when following a dependency. It can be either <a href="#modules._top_level.DATA_CFG">DATA_CFG</a> or <a href="#modules._top_level.HOST_CFG">HOST_CFG</a>.
 <ul></ul><hr><h2 id="modules.File">File</h2>
@@ -270,7 +262,7 @@ A BUILD target. It is essentially a <code>struct</code> with the following field
 <ul></ul><hr><h2 id="modules.attr">attr</h2>
 Module for creating new attributes. They are only for use with the <code>rule</code> function.
 <ul><li><h3 id="modules.attr.bool">bool</h3>
-<code>Attribute attr.bool(default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.bool(*, default?, flags?, mandatory?, cfg?)</code><br>
 Creates an attribute of type bool. Its default value is False.
 <h4>Parameters</h4>
 <ul>
@@ -284,7 +276,7 @@ Creates an attribute of type bool. Its default value is False.
 	</li>
 </ul>
 <li><h3 id="modules.attr.int">int</h3>
-<code>Attribute attr.int(default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.int(*, default?, flags?, mandatory?, cfg?)</code><br>
 Creates an attribute of type int.
 <h4>Parameters</h4>
 <ul>
@@ -298,7 +290,7 @@ Creates an attribute of type int.
 	</li>
 </ul>
 <li><h3 id="modules.attr.label">label</h3>
-<code>Attribute attr.label(default?, executable?, flags?, allow_files?, mandatory?, providers?, allow_rules?, single_file?, cfg?)</code><br>
+<code>Builder attr.label(*, default?, executable?, flags?, allow_files?, mandatory?, providers?, allow_rules?, single_file?, cfg?)</code><br>
 Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
 <h4>Parameters</h4>
 <ul>
@@ -316,35 +308,35 @@ Creates an attribute of type Label. It is the only way to specify a dependency t
 	</li>
 	<li id="modules.attr.label.allow_rules"><code>allow_rules (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatiblity), use providers instead.
 	</li>
-	<li id="modules.attr.label.single_file"><code>single_file</code>: if True, the label must correspond to a single File. Access it through <code>ctx.file.&lt;attribute_name&gt;</code>.
+	<li id="modules.attr.label.single_file"><code>single_file (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: if True, the label must correspond to a single File. Access it through <code>ctx.file.&lt;attribute_name&gt;</code>.
 	</li>
 	<li id="modules.attr.label.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 <li><h3 id="modules.attr.label_list">label_list</h3>
-<code>Attribute attr.label_list(default?, flags?, allow_files?, mandatory?, allow_rules?, non_empty?, providers?, cfg?)</code><br>
-Creates an attribute of type list of labels. See <code>label</code> for more information.
+<code>Builder attr.label_list(*, default?, allow_files?, allow_rules?, providers?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+Creates an attribute of type list of labels. See <a href="#modules.attr.label">label</a> for more information.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.label_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: sets the default value of the attribute. If not specified, default is []. Use the <code>Label</code> function to specify a default value.
 	</li>
-	<li id="modules.attr.label_list.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.label_list.allow_files"><code>allow_files</code>: whether File targets are allowed. Can be True, False (default), or a FileType filter.
-	</li>
-	<li id="modules.attr.label_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.label_list.allow_rules"><code>allow_rules (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: which rule targets (name of the classes) are allowed. This is deprecated (kept only for compatiblity), use providers instead.
 	</li>
-	<li id="modules.attr.label_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
-	</li>
 	<li id="modules.attr.label_list.providers"><code>providers (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: mandatory providers every dependency has to have
+	</li>
+	<li id="modules.attr.label_list.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
+	</li>
+	<li id="modules.attr.label_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	</li>
+	<li id="modules.attr.label_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
 	</li>
 	<li id="modules.attr.label_list.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 <li><h3 id="modules.attr.license">license</h3>
-<code>Attribute attr.license(default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.license(*, default?, flags?, mandatory?, cfg?)</code><br>
 Creates an attribute of type license. Its default value is NO_LICENSE.
 <h4>Parameters</h4>
 <ul>
@@ -358,7 +350,7 @@ Creates an attribute of type license. Its default value is NO_LICENSE.
 	</li>
 </ul>
 <li><h3 id="modules.attr.output">output</h3>
-<code>Attribute attr.output(default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.output(*, default?, flags?, mandatory?, cfg?)</code><br>
 Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
 <h4>Parameters</h4>
 <ul>
@@ -372,8 +364,8 @@ Creates an attribute of type output. Its default value is None. The user provide
 	</li>
 </ul>
 <li><h3 id="modules.attr.output_list">output_list</h3>
-<code>Attribute attr.output_list(default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
-Creates an attribute of type list of outputs. Its default value is []. See <code>output</code> above for more information.
+<code>Builder attr.output_list(*, default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="#modules.attr.output">output</a> above for more information.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.output_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: sets the default value of the attribute.
@@ -388,7 +380,7 @@ Creates an attribute of type list of outputs. Its default value is []. See <code
 	</li>
 </ul>
 <li><h3 id="modules.attr.string">string</h3>
-<code>Attribute attr.string(default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.string(*, default?, flags?, mandatory?, cfg?)</code><br>
 Creates an attribute of type string.
 <h4>Parameters</h4>
 <ul>
@@ -402,8 +394,8 @@ Creates an attribute of type string.
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_dict">string_dict</h3>
-<code>Attribute attr.string_dict(default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
-Creates an attribute of type dictionary, mapping from string to string. Its default value is {}.
+<code>Builder attr.string_dict(*, default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.string_dict.default"><code>default (<a class="anchor" href="#modules.dict">dict</a>)</code>: sets the default value of the attribute.
@@ -489,7 +481,7 @@ Returns the separator for PATH environment variable, which is ':' on Unix.
 </ul><hr><h2 id="modules.ctx">ctx</h2>
 The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
 <ul><li><h3 id="modules.ctx.action">action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(outputs, inputs?, executable?, arguments?, mnemonic?, command?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(*, outputs, inputs?, executable?, arguments?, mnemonic?, command?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
 Creates an action that runs an executable or a shell command.
 <h4>Parameters</h4>
 <ul>
@@ -533,10 +525,10 @@ Experimental. Creates a command helper class.
 </ul>
 <li><h3 id="modules.ctx.configuration">configuration</h3>
 <code><a class="anchor" href="#modules.configuration">configuration</a> ctx.configuration</code><br>
-Returns the default configuration. See the <code>configuration</code> type for more details.
+Returns the default configuration. See the <a href="#modules.configuration">configuration</a> type for more details.
 <li><h3 id="modules.ctx.data_configuration">data_configuration</h3>
 <code><a class="anchor" href="#modules.configuration">configuration</a> ctx.data_configuration</code><br>
-Returns the data configuration. See the <code>configuration</code> type for more details.
+Returns the data configuration. See the <a href="#modules.configuration">configuration</a> type for more details.
 <li><h3 id="modules.ctx.executable">executable</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.executable</code><br>
 A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
@@ -553,7 +545,7 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.file</code><br>
 A <code>struct</code> containing files defined in label type attributes marked as <code>single_file=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code> or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>single_file=True</code>, no corresponding struct field is generated.
 <li><h3 id="modules.ctx.file_action">file_action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.file_action(output, content, executable?)</code><br>
+<code>FileWriteAction ctx.file_action(output, content, executable?)</code><br>
 Creates a file write action.
 <h4>Parameters</h4>
 <ul>
@@ -571,13 +563,16 @@ Creates a file write action.
 A <code>struct</code> containing files defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <code>file</code>s. If an optional attribute is not specified in the rule, an empty list is generated.
 <li><h3 id="modules.ctx.host_configuration">host_configuration</h3>
 <code><a class="anchor" href="#modules.configuration">configuration</a> ctx.host_configuration</code><br>
-Returns the host configuration. See the <code>configuration</code> type for more details.
+Returns the host configuration. See the <a href="#modules.configuration">configuration</a> type for more details.
 <li><h3 id="modules.ctx.label">label</h3>
 <code><a class="anchor" href="#modules.Label">Label</a> ctx.label</code><br>
 The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+<li><h3 id="modules.ctx.new_file">new_file</h3>
+<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
+Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -602,7 +597,7 @@ Creates a runfiles object.
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.targets</code><br>
 <b>Deprecated, use <code>ctx.attr</code> instead.</b> A <code>struct</code> containing prerequisite targets defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <a href="#modules.Target"><code>Target</code></a>s. If an optional attribute is not specified in the rule, an empty list is generated.
 <li><h3 id="modules.ctx.template_action">template_action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.template_action(template, output, substitutions, executable?)</code><br>
+<code>TemplateExpansionAction ctx.template_action(*, template, output, substitutions, executable?)</code><br>
 Creates a template expansion action.
 <h4>Parameters</h4>
 <ul>
@@ -628,7 +623,6 @@ A language built-in type to support dicts. Example of dict literal:<br><pre clas
 d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
 d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
 <ul><li><h3 id="modules.dict.get">get</h3>
-<code>unknown dict.get(key, default?)</code><br>
 Return the value for <code>key</code> if <code>key</code> is in the dictionary, else <code>default</code>. If <code>default</code> is not given, it defaults to <code>None</code>, so that this method never throws an error.
 <h4>Parameters</h4>
 <ul>
@@ -640,18 +634,15 @@ Return the value for <code>key</code> if <code>key</code> is in the dictionary, 
 	</li>
 </ul>
 <li><h3 id="modules.dict.items">items</h3>
-<code><a class="anchor" href="#modules.list">list</a> dict.items()</code><br>
-Return the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
+<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
 
 <br/>
 <li><h3 id="modules.dict.keys">keys</h3>
-<code><a class="anchor" href="#modules.list">list</a> dict.keys()</code><br>
-Return the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
+<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
 
 <br/>
 <li><h3 id="modules.dict.values">values</h3>
-<code><a class="anchor" href="#modules.list">list</a> dict.values()</code><br>
-Return the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
+<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
 
 <br/>
 </ul><hr><h2 id="modules.list">list</h2>
@@ -661,7 +652,7 @@ x += ["c"]            # x == ["a", "b", "c"]</pre>List elements have to be of th
 <ul></ul><hr><h2 id="modules.native">native</h2>
 A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations).<br/>Extra helper functions:
 <ul><li><h3 id="modules.native.exports_files">exports_files</h3>
-<code>unknown native.exports_files(srcs, visibility?, licenses?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> native.exports_files(srcs, visibility?, licenses?)</code><br>
 Specifies a list of files belonging to this package that are exported to other packages but not otherwise mentioned.
 <h4>Parameters</h4>
 <ul>
@@ -669,13 +660,13 @@ Specifies a list of files belonging to this package that are exported to other p
 	</li>
 </ul>
 <ul>
-	<li id="modules.native.exports_files.visibility"><code>visibility (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.
+	<li id="modules.native.exports_files.visibility"><code>visibility (<a class="anchor" href="#modules.list">list</a>)</code>: A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.
 	</li>
-	<li id="modules.native.exports_files.licenses"><code>licenses (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: Lincenses to be specified.
+	<li id="modules.native.exports_files.licenses"><code>licenses (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: Licenses to be specified.
 	</li>
 </ul>
 <li><h3 id="modules.native.glob">glob</h3>
-<code>unknown native.glob(includes, excludes?, exclude_directories?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> native.glob(includes, excludes?, exclude_directories?)</code><br>
 Glob returns a list of every file in the current package that:<ul>
 <li>Matches at least one pattern in <code>include</code>.</li>
 <li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
@@ -692,7 +683,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
 	</li>
 </ul>
 <li><h3 id="modules.native.package_group">package_group</h3>
-<code>unknown native.package_group(name, packages?, includes?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> native.package_group(*, name, packages?, includes?)</code><br>
 This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
 <h4>Parameters</h4>
 <ul>
@@ -727,8 +718,7 @@ x = []
 for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>
 <ul><li><h3 id="modules.string.count">count</h3>
-<code>int string.count(sub, start?, end?)</code><br>
-Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int</code><br>Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.count.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to count.
@@ -737,12 +727,11 @@ Returns the number of (non-overlapping) occurrences of substring <code>sub</code
 <ul>
 	<li id="modules.string.count.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
-	<li id="modules.string.count.end"><code>end (int)</code>: Restrict to search before this position.
+	<li id="modules.string.count.end"><code>end (int)</code>: optional position before which to restrict to search.
 	</li>
 </ul>
 <li><h3 id="modules.string.endswith">endswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.endswith(sub, start?, end?)</code><br>
-Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.endswith.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to check.
@@ -751,12 +740,11 @@ Returns True if the string ends with <code>sub</code>, otherwise False, optional
 <ul>
 	<li id="modules.string.endswith.start"><code>start (int)</code>: Test beginning at this position.
 	</li>
-	<li id="modules.string.endswith.end"><code>end (int)</code>: Stop comparing at this position.
+	<li id="modules.string.endswith.end"><code>end (int)</code>: optional position at which to stop comparing.
 	</li>
 </ul>
 <li><h3 id="modules.string.find">find</h3>
-<code>int string.find(sub, start?, end?)</code><br>
-Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int</code><br>Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.find.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -765,12 +753,11 @@ Returns the first index where <code>sub</code> is found, or -1 if no such index 
 <ul>
 	<li id="modules.string.find.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
-	<li id="modules.string.find.end"><code>end (int)</code>: Restrict to search before this position.
+	<li id="modules.string.find.end"><code>end (int)</code>: optional position before which to restrict to search.
 	</li>
 </ul>
 <li><h3 id="modules.string.index">index</h3>
-<code>int string.index(sub, start?, end?)</code><br>
-Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int</code><br>Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.index.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -779,24 +766,21 @@ Returns the first index where <code>sub</code> is found, or throw an error if no
 <ul>
 	<li id="modules.string.index.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
-	<li id="modules.string.index.end"><code>end (int)</code>: Restrict to search before this position.
+	<li id="modules.string.index.end"><code>end (int)</code>: optional position before which to restrict to search.
 	</li>
 </ul>
 <li><h3 id="modules.string.join">join</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.join(elements)</code><br>
-Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.join.elements"><code>elements (<a class="anchor" href="#modules.list">list</a>)</code>: The objects to join.
 	</li>
 </ul>
 <li><h3 id="modules.string.lower">lower</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.lower()</code><br>
-Returns the lower case version of this string.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the lower case version of this string.
 <br/>
 <li><h3 id="modules.string.replace">replace</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.replace(old, new, maxsplit?)</code><br>
-Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.replace.old"><code>old (<a class="anchor" href="#modules.string">string</a>)</code>: The string to be replaced.
@@ -809,8 +793,7 @@ Returns a copy of the string in which the occurrences of <code>old</code> have b
 	</li>
 </ul>
 <li><h3 id="modules.string.rfind">rfind</h3>
-<code>int string.rfind(sub, start?, end?)</code><br>
-Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int</code><br>Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.rfind.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -819,12 +802,11 @@ Returns the last index where <code>sub</code> is found, or -1 if no such index e
 <ul>
 	<li id="modules.string.rfind.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
-	<li id="modules.string.rfind.end"><code>end (int)</code>: Restrict to search before this position.
+	<li id="modules.string.rfind.end"><code>end (int)</code>: optional position before which to restrict to search.
 	</li>
 </ul>
 <li><h3 id="modules.string.rindex">rindex</h3>
-<code>int string.rindex(sub, start?, end?)</code><br>
-Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int</code><br>Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.rindex.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -833,12 +815,11 @@ Returns the last index where <code>sub</code> is found, or throw an error if no 
 <ul>
 	<li id="modules.string.rindex.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
-	<li id="modules.string.rindex.end"><code>end (int)</code>: Restrict to search before this position.
+	<li id="modules.string.rindex.end"><code>end (int)</code>: optional position before which to restrict to search.
 	</li>
 </ul>
 <li><h3 id="modules.string.split">split</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.split(sep?, maxsplit?)</code><br>
-Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
+<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.split.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
@@ -847,8 +828,7 @@ Returns a list of all the words in the string, using <code>sep</code>  as the se
 	</li>
 </ul>
 <li><h3 id="modules.string.startswith">startswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.startswith(sub, start?, end?)</code><br>
-Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.startswith.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to check.
@@ -861,15 +841,13 @@ Returns True if the string starts with <code>sub</code>, otherwise False, option
 	</li>
 </ul>
 <li><h3 id="modules.string.strip">strip</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.strip()</code><br>
-Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
 <br/>
 <li><h3 id="modules.string.upper">upper</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.upper()</code><br>
-Returns the upper case version of this string.
+<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the upper case version of this string.
 <br/>
 </ul><hr><h2 id="modules.struct">struct</h2>
-A special language element to support structs (i.e. simple value objects). See the global <code>struct</code> method for more details.
+A special language element to support structs (i.e. simple value objects). See the global <a href="#modules._top_level.struct">struct</a> function for more details.
 <ul><li><h3 id="modules.struct.to_proto">to_proto</h3>
 <code><a class="anchor" href="#modules.string">string</a> struct.to_proto()</code><br>
 Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or a list of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_proto()

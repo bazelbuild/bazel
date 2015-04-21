@@ -141,16 +141,6 @@ or up-to-date.
     <th>Notes</th>
   </tr>
   <tr>
-    <td>Go rules (Skylark)</td>
-    <td>
-      <ul>
-        <li>These rules are an experiment with Skylark, and are not the same code as the rules we
-          use internally, even though we tried to match the semantics.</li>
-        <li>They are not tested very extensively.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
     <td><code>Fileset</code></td>
     <td>
       <ul>
