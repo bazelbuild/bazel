@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
  * Syntax node for dictionary comprehension expressions.
  */
 public class DictComprehension extends Expression {
+  // TODO(bazel-team): Factor code with ListComprehension.java.
 
   private final Expression keyExpression;
   private final Expression valueExpression;

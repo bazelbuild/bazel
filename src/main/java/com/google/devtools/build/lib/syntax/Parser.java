@@ -777,6 +777,39 @@ class Parser {
     return setLocation(ListLiteral.makeTuple(tuple), start, token.right);
   }
 
+  // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
+  //                        | 'IF' expr comprehension_suffix
+  //                        | ']'
+  private Expression parseComprehensionSuffix(ListComprehension listComprehension) {
+    while (true) {
+      switch (token.kind) {
+        case FOR:
+          nextToken();
+          Expression loopVar = parseForLoopVariables();
+          expect(TokenKind.IN);
+          Expression listExpression = parseExpression();
+          listComprehension.add(loopVar, listExpression);
+          break;
+
+        case IF:
+          reportError(lexer.createLocation(token.left, token.right),
+              "List comprehension with filtering is not yet supported");
+          nextToken();
+          parseExpression();  // condition
+          break;
+
+        case RBRACKET:
+          nextToken();
+          return listComprehension;
+
+        default:
+          syntaxError(token, "expected ']', 'for' or 'if'");
+          syncPast(LIST_TERMINATOR_SET);
+          return makeErrorExpression(token.left, token.right);
+      }
+    }
+  }
+
   // list_maker ::= '[' ']'
   //               |'[' expr ']'
   //               |'[' expr expr_list ']'
@@ -801,28 +834,8 @@ class Parser {
         return literal;
       }
       case FOR: { // list comprehension
-        ListComprehension listComprehension =
-          new ListComprehension(expression);
-        do {
-          nextToken();
-          Expression loopVar = parseForLoopVariables();
-          if (token.kind == TokenKind.IN) {
-            nextToken();
-            Expression listExpression = parseExpression();
-            listComprehension.add(loopVar, listExpression);
-          } else {
-            break;
-          }
-          if (token.kind == TokenKind.RBRACKET) {
-            setLocation(listComprehension, start, token.right);
-            nextToken();
-            return listComprehension;
-          }
-        } while (token.kind == TokenKind.FOR);
-
-        syntaxError(token, "expected 'for' or ']'");
-        int end = syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
+        Expression result = parseComprehensionSuffix(new ListComprehension(expression));
+        return setLocation(result, start, token.right);
       }
       case COMMA: {
         List<Expression> list = parseExprList();
@@ -861,6 +874,9 @@ class Parser {
     }
     DictionaryEntryLiteral entry = parseDictEntry();
     if (token.kind == TokenKind.FOR) {
+      // TODO(bazel-team): Reuse parseComprehensionSuffix when dict
+      // comprehension is compatible with list comprehension.
+
       // Dict comprehension
       nextToken();
       Expression loopVar = parseForLoopVariables();

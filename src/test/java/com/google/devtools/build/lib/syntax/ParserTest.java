@@ -273,7 +273,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testErrorRecovery() throws Exception {
     setFailFast(false);
 
-    String expr = "f(1, [x for foo foo foo], 3)";
+    String expr = "f(1, [x for foo foo foo foo], 3)";
     FuncallExpression e = (FuncallExpression) parseExpression(expr);
 
     assertContainsEvent("syntax error at 'foo'");
@@ -293,9 +293,9 @@ public class ParserTest extends EvaluationTestCase {
     Ident arg1val = ((Ident) arg1.getValue());
     assertEquals("$error$", arg1val.getName());
 
-    assertLocation(5, 24, arg1val.getLocation());
-    assertEquals("[x for foo foo foo]", expr.substring(5, 24));
-    assertEquals(25, arg1val.getLocation().getEndLineAndColumn().getColumn());
+    assertLocation(5, 29, arg1val.getLocation());
+    assertEquals("[x for foo foo foo foo]", expr.substring(5, 28));
+    assertEquals(30, arg1val.getLocation().getEndLineAndColumn().getColumn());
 
     IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
     assertEquals(3, (int) arg2.getValue());
