@@ -16,7 +16,7 @@
 #define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
 
 #include <string>
-#include "util/numbers.h"
+#include "src/main/cpp/util/numbers.h"
 
 namespace blaze {
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "option_processor.h"
+#include "src/main/cpp/option_processor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,10 +22,10 @@
 #include <cassert>
 #include <utility>
 
-#include "blaze_util.h"
-#include "blaze_util_platform.h"
-#include "util/file.h"
-#include "util/strings.h"
+#include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/strings.h"
 
 using std::list;
 using std::map;

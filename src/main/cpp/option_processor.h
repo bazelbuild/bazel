@@ -21,8 +21,8 @@
 #include <string>
 #include <vector>
 
-#include "blaze_exit_code.h"
-#include "blaze_startup_options.h"
+#include "src/main/cpp/blaze_exit_code.h"
+#include "src/main/cpp/blaze_startup_options.h"
 
 namespace blaze {
 

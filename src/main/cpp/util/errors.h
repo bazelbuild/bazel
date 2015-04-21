@@ -16,7 +16,7 @@
 #ifndef DEVTOOLS_BLAZE_MAIN_UTIL_ERRORS_H_
 #define DEVTOOLS_BLAZE_MAIN_UTIL_ERRORS_H_
 
-#include "util/port.h"
+#include "src/main/cpp/util/port.h"
 
 namespace blaze_util {
 

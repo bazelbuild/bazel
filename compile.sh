@@ -322,7 +322,7 @@ function cc_compile() {
     if [[ ! "${FILE}" =~ ^-.*$ ]]; then
       local OBJ=$(basename "${FILE}").o
       "${CPP}" \
-         -I src/main/cpp/ \
+          -I. \
           ${ARCHIVE_CFLAGS} \
           ${CFLAGS} \
           -std=$CPPSTD \
@@ -407,8 +407,7 @@ if [ ! -z "$JNILIB" ] ; then
   for FILE in "${NATIVE_CC_FILES[@]}"; do
     OUT=$(basename "${FILE}").o
     "${CPP}" \
-      -I src/main/cpp/ \
-      -I src/main/native/ \
+      -I . \
       -I "${JAVA_HOME}/include/" \
       -I "${JAVA_HOME}/include/${PLATFORM}" \
       -std=$CPPSTD \

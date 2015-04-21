@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <jni.h>
+#include "src/main/native/unix_jni.h"
 
+#include <jni.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -31,9 +32,9 @@
 #include <string>
 #include <vector>
 
-#include "macros.h"
-#include "util/md5.h"
-#include "unix_jni.h"
+#include "src/main/native/macros.h"
+#include "src/main/cpp/util/md5.h"
+#include "src/main/cpp/util/port.h"
 
 using blaze_util::Md5Digest;
 

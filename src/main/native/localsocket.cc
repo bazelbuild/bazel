@@ -26,8 +26,7 @@
 
 #include <string>
 
-#include "unix_jni.h"
-
+#include "src/main/native/unix_jni.h"
 
 // Returns the field ID for FileDescriptor.fd.
 static jfieldID GetFileDescriptorField(JNIEnv *env) {

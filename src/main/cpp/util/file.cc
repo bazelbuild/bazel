@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "util/file.h"
+#include "src/main/cpp/util/file.h"
 
 #include <errno.h>   // EINVAL
 #include <limits.h>  // PATH_MAX
@@ -20,9 +20,9 @@
 #include <cstdlib>
 #include <vector>
 
-#include "blaze_exit_code.h"
-#include "util/errors.h"
-#include "util/strings.h"
+#include "src/main/cpp/blaze_exit_code.h"
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/strings.h"
 
 using std::pair;
 

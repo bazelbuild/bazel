@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "util/numbers.h"
+#include "src/main/cpp/util/numbers.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <limits>
 
-#include "util/strings.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 

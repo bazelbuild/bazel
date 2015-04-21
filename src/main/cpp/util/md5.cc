@@ -37,13 +37,12 @@
   documentation and/or software.
 */
 
-
-#include "util/md5.h"
+#include "src/main/cpp/util/md5.h"
 
 #include <string.h>  // for memcpy
 #include <stddef.h>  // for ofsetof
 
-#include "util/numbers.h"
+#include "src/main/cpp/util/numbers.h"
 
 #if !_STRING_ARCH_unaligned
 # ifdef _LP64

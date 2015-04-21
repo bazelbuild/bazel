@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "blaze_util.h"
+#include "src/main/cpp/blaze_util.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -29,10 +29,11 @@
 #include <unistd.h>
 #include <sstream>
 
-#include "util/errors.h"
-#include "util/file.h"
-#include "util/numbers.h"
-#include "util/strings.h"
+#include "src/main/cpp/blaze_exit_code.h"
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/strings.h"
 
 using blaze_util::die;
 using blaze_util::pdie;
@@ -270,17 +271,16 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-blaze_exit_code::ExitCode CheckValidPort(
-    const string &str, const string &option, string *error) {
+bool CheckValidPort(const string &str, const string &option, string *error) {
   int number;
   if (blaze_util::safe_strto32(str, &number) && number > 0 && number < 65536) {
-    return blaze_exit_code::SUCCESS;
+    return true;
   }
 
   blaze_util::StringPrintf(error,
       "Invalid argument to %s: '%s' (must be a valid port number).",
       option.c_str(), str.c_str());
-  return blaze_exit_code::BAD_ARGV;
+  return false;
 }
 
 bool VerboseLogging() {

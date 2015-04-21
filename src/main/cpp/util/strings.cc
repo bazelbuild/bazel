@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "util/strings.h"
+#include "src/main/cpp/util/strings.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include <cassert>
 
-#include "blaze_exit_code.h"
+#include "src/main/cpp/blaze_exit_code.h"
 
 using std::vector;
 

@@ -20,8 +20,6 @@
 
 #include <string>
 
-#include "util/port.h"
-
 namespace blaze_util {
 
 using std::string;

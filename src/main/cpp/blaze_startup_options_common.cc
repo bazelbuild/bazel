@@ -11,17 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "blaze_startup_options.h"
+#include "src/main/cpp/blaze_startup_options.h"
 
 #include <cassert>
 #include <cstdlib>
 
-#include "blaze_exit_code.h"
-#include "blaze_util_platform.h"
-#include "blaze_util.h"
-#include "util/file.h"
-#include "util/numbers.h"
-#include "util/strings.h"
+#include "src/main/cpp/blaze_exit_code.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze {
 
