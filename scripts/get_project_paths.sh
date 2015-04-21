@@ -17,51 +17,57 @@
 
 set -eu
 
-cd $(dirname "$0")
-cd ..
+# Build everything
+bazel build ${TARGET} >&2 || exit $?
 
 function query() {
-    ./output/bazel query "$@"
+    bazel query "$@"
 }
 
-# Compile bazel
-([ -f "output/bazel" ] && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
-    && [ -f "tools/jdk/ijar" ] && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
-    && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
+# Find the bazel-workspaceName link
+EXECUTION_ROOT_PATH=$(bazel info execution_root)
+WORKSPACE_PATH=$(bazel info workspace)
+for i in ${WORKSPACE_PATH}/bazel-*; do
+  if [[ "$(readlink $i)" == "${EXECUTION_ROOT_PATH}" ]]; then
+    EXECUTION_ROOT=$(basename $i)
+  fi
+done
 
-# Build everything
-./output/bazel build ${TARGET} >&2 || exit $?
+# Do a bazel query and replace the result by paths relative to the workspace.
+#   @repo//package:target will be replaced by
+#                         bazel-%workspaceName%/external/repo/package/target
+#   //package:target will be replaced by package/target
+function query_to_path() {
+   query "$1" | sed 's|:|/|' \
+     | sed 's|@\(.*\)///\{0,1\}|'"${EXECUTION_ROOT}"'/external/\1/|' \
+     | sed 's|^//||' | sort -u
+}
 
 # Now for java each targets, find all sources and all jars
-DEPS=$(query 'filter("\.java$",
+PATHS=$(query_to_path 'filter("\.java$",
                     deps(kind("(java_binary|java_library|java_test|java_plugin)",
                          deps('"$TARGET"')))
                     except deps(//tools/...))')
-PATHS=$(echo "$DEPS" | sed 's|:|/|' | sed 's|^//||')
-
 # Java Files:
 JAVA_PATHS=$(echo "$PATHS" | sed 's_\(/java\(tests\)\{0,1\}\)/.*$_\1_' | sort -u)
 
 # Java plugins
-JAVA_PLUGINS_DEPS=$(query 'filter("\.jar$",
-                                  deps(kind(java_import,
-                                            deps(kind(java_plugin,
-                                                     deps('"$TARGET"')))))
-                                  except deps(//tools/...))')
-PLUGIN_PATHS=$(echo "$JAVA_PLUGINS_DEPS" | sed 's|:|/|' | sed 's|^//||' | sort -u)
-
+PLUGIN_PATHS=$(query_to_path 'filter("\.jar$",
+                                     deps(kind(java_import,
+                                               deps(kind(java_plugin,
+                                                         deps('"$TARGET"')))))
+                                     except deps(//tools/...))')
 # Jar Files:
-JAR_DEPS=$(query 'filter("\.jar$", deps(kind(java_import, deps('"$TARGET"')))
-                                   except deps(//tools/...))')
-JAR_FILES=$(echo "$JAR_DEPS" | sed 's|:|/|' | sed 's|^//||' | sort -u)
+JAR_FILES=$(query_to_path 'filter("\.jar$", deps(kind(java_import, deps('"$TARGET"')))
+                                            except deps(//tools/...))')
 
 # Generated files are direct dependencies of java rules that are not java rules,
-# filegroup or binaries.
+# filegroup, binaries or external dependencies.
 # We also handle genproto separately it is output in bazel-genfiles not in
 # bazel-bin.
 # We suppose that all files are generated in the same package than the library.
 GEN_LIBS=$(query 'let gendeps = kind(rule, deps(kind(java_*, deps('"$TARGET"')), 1))
-                              - kind("(java_.*|filegroup|.*_binary|genproto)", deps('"$TARGET"'))
+                              - kind("(java_.*|filegroup|.*_binary|genproto|bind)", deps('"$TARGET"'))
                               - deps(//tools/...)
                   in rdeps('"$TARGET"', set($gendeps), 1) - set($gendeps)' \
     | sed 's|^//\(.*\):\(.*\)|bazel-bin/\1/lib\2.jar:bazel-genfiles/\1|')

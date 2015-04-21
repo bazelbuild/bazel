@@ -26,7 +26,23 @@ PROJECT_NAME="bazel"
 OUTPUT_PATH="bazel-out/ide/classes"
 GENERATED_PATH="bazel-out/ide/generated"
 EXTRA_JARS="bazel-bazel/external/local-jdk/lib/tools.jar"
-source $(dirname "$0")/get_project_paths.sh
+
+cd $(dirname $(dirname "$0"))
+
+# Compile bazel
+([ -f "output/bazel" ] && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
+    && [ -f "tools/jdk/ijar" ] && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
+    && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
+
+# Make the script use actual bazel
+function bazel() {
+  ./output/bazel "$@"
+}
+
+#
+# End of part specific to bazel
+#
+source ./scripts/get_project_paths.sh
 
 mkdir -p ${OUTPUT_PATH} ${GENERATED_PATH}
 
