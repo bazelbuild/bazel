@@ -83,4 +83,30 @@ function test_unlimited_local_jobs() {
   bazel test --test_output=errors --local_resources=10000,3,100 --runs_per_test=10 //dir:test
 }
 
-run_suite "testjobs"
+function test_tmpdir() {
+  mkdir -p foo
+  cat > foo/bar_test.sh <<EOF
+#!/bin/bash
+echo "I'm a test"
+EOF
+  chmod +x foo/bar_test.sh
+  cat > foo/BUILD <<EOF
+sh_test(
+    name = "bar_test",
+    srcs = ["bar_test.sh"],
+)
+EOF
+  bazel test --test_output=all -s //foo:bar_test >& $TEST_log || \
+    fail "Running sh_test failed"
+  expect_log "TEST_TMPDIR=/.*"
+
+  cat > foo/bar_test.sh <<EOF
+#!/bin/bash
+echo "I'm a different test"
+EOF
+  bazel test --test_output=all --test_tmpdir=$TEST_TMPDIR -s //foo:bar_test \
+    >& $TEST_log || fail "Running sh_test failed"
+  expect_log "TEST_TMPDIR=$TEST_TMPDIR"
+}
+
+run_suite "test tests"

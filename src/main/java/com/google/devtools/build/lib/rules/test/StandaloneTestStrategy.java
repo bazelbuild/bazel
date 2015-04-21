@@ -58,9 +58,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     * parsing XML output.
     */
 
+  private final Path workspace;
+
   public StandaloneTestStrategy(OptionsClassProvider requestOptions,
-      OptionsClassProvider startupOptions, BinTools binTools, Map<String, String> clientEnv) {
+      OptionsClassProvider startupOptions, BinTools binTools, Map<String, String> clientEnv,
+      Path workspace) {
     super(requestOptions, startupOptions, binTools, clientEnv);
+    this.workspace = workspace;
   }
 
   private static final String TEST_SETUP = "tools/test/test-setup.sh";
@@ -76,14 +80,24 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw new TestExecException(e.getMessage());
     }
 
+    Path testTmpDir = TestStrategy.getTmpRoot(
+        workspace, actionExecutionContext.getExecutor().getExecRoot(), executionOptions)
+        .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
-    Map<String, String> env = getEnv(action, runfilesDir);
+    Map<String, String> env = getEnv(action, runfilesDir, testTmpDir);
     Spawn spawn = new BaseSpawn(getArgs(action), env,
         action.getTestProperties().getExecutionInfo(),
         action,
         action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs()));
 
     Executor executor = actionExecutionContext.getExecutor();
+
+    try {
+      FileSystemUtils.createDirectoryAndParents(testTmpDir);
+    } catch (IOException e) {
+      executor.getEventHandler().handle(Event.error("Could not create TEST_TMPDIR: " + e));
+      throw new EnvironmentalExecException("Could not create TEST_TMPDIR " + testTmpDir, e);
+    }
 
     ResourceSet resources = null;
     FileOutErr fileOutErr = null;
@@ -116,15 +130,14 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private Map<String, String> getEnv(TestRunnerAction action, Path runfilesDir) {
+  private Map<String, String> getEnv(TestRunnerAction action, Path runfilesDir, Path tmpDir) {
     Map<String, String> vars = getDefaultTestEnvironment(action);
     BuildConfiguration config = action.getConfiguration();
 
     vars.putAll(config.getDefaultShellEnvironment());
     vars.putAll(action.getTestEnv());
     vars.put("TEST_SRCDIR", runfilesDir.getPathString());
-
-    // TODO(bazel-team): set TEST_TMPDIR.
+    vars.put("TEST_TMPDIR", tmpDir.getPathString());
 
     return vars;
   }

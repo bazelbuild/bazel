@@ -34,8 +34,8 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_testjobs_test",
-    srcs = ["bazel_testjobs_test.sh"],
+    name = "bazel_test_test",
+    srcs = ["bazel_test_test.sh"],
     data = [":test-deps"],
 )
 

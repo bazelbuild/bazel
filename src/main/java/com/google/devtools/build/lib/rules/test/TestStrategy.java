@@ -47,6 +47,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nullable;
 
@@ -114,6 +115,8 @@ public abstract class TestStrategy implements TestActionContext {
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
+  // Used for generating unique temporary directory names.
+  private final AtomicInteger tmpIndex = new AtomicInteger(0);
   private final boolean statusServerRunning;
   protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
@@ -225,6 +228,19 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
+   * Returns a unique name for a temporary directory a test could use.
+   *
+   * <p>Since each test within single Blaze run must have a unique TEST_TMPDIR,
+   * we will use rule name and a unique (within single Blaze request) number
+   * to generate directory name.</p>
+   *
+   * <p>This does not create the directory.</p>
+   */
+  protected String getTmpDirName(PathFragment execPath) {
+    return execPath.getBaseName() + "_" + tmpIndex.incrementAndGet();
+  }
+
+  /**
    * Parse a test result XML file into a {@link TestCase}.
    */
   @Nullable
@@ -240,6 +256,19 @@ public abstract class TestStrategy implements TestActionContext {
     } catch (IOException | TestXmlOutputParserException e) {
       return null;
     }
+  }
+
+  /**
+   * Returns a temporary directory for all tests in a workspace to use. Individual tests should
+   * create child directories to actually use.
+   *
+   * <p>This either dynamically generates a directory name or uses the directory specified by
+   * --test_tmpdir. This does not create the directory.</p>
+   */
+  public static Path getTmpRoot(Path workspace, Path execRoot, ExecutionOptions executionOptions) {
+    return executionOptions.testTmpDir != null
+        ? workspace.getRelative(executionOptions.testTmpDir).getRelative(TEST_TMP_ROOT)
+        : execRoot.getRelative(TEST_TMP_ROOT);
   }
 
   /**

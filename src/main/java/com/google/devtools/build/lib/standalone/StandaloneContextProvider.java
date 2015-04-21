@@ -72,12 +72,12 @@ public class StandaloneContextProvider implements ActionContextProvider {
   public StandaloneContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
-    localSpawnStrategy = new LocalSpawnStrategy(
-        runtime.getDirectories().getExecRoot(), verboseFailures);
+    localSpawnStrategy = new LocalSpawnStrategy(runtime.getExecRoot(), verboseFailures);
     this.runtime = runtime;
 
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
-        runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getClientEnv());
+        runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getClientEnv(),
+        runtime.getWorkspace());
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
     // order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
