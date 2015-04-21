@@ -32,7 +32,6 @@ import java.util.List;
 
 /**
  * Tests for ShellUtils.
- *
  */
 @RunWith(JUnit4.class)
 public class ShellUtilsTest {

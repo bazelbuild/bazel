@@ -284,11 +284,12 @@ public class CommandTest {
           fail();
         } catch (CommandException e) {
           // Good.
-          checkCommandElements(e, "/bin/sh", "-c", "sleep 5");
+          checkCommandElements(e, "sleep", "5");
         }
       }
     }.start();
-    Thread.yield();
+    // We're racing against the actual startup of the other command. Wait for 10ms so it can start.
+    Thread.sleep(10);
     observer.kill();
   }
 
@@ -599,9 +600,6 @@ public class CommandTest {
     }
     public synchronized boolean getIsKilled() {
       return isKilled;
-    }
-    public synchronized boolean getTimedOut() {
-      return timedOut;
     }
     /**
      * Wait for a specified time or until the {@link #kill()} is called.
