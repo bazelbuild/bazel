@@ -139,8 +139,11 @@ filegroup(
 EOF
   what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
   echo $what_does_the_fox_say > fox/male
+  # Add some padding to the .zip to test that Bazel's download logic can
+  # handle breaking a response into chunks.
+  dd if=/dev/zero of=fox/padding bs=1024 count=10240
   repo2_zip=$TEST_TMPDIR/fox.zip
-  zip -r $repo2_zip WORKSPACE fox
+  zip -0 -r $repo2_zip WORKSPACE fox
   sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
   serve_file $repo2_zip
 

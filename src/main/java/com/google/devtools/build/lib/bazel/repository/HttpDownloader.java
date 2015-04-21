@@ -62,6 +62,7 @@ public class HttpDownloader {
         while (byteBuffer.hasRemaining()) {
           outputStream.write(byteBuffer.get());
         }
+        byteBuffer.flip();
       }
     } catch (IOException e) {
       throw new IOException(
