@@ -425,7 +425,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testStructAccessOfMethod() throws Exception {
     update("mock", new Mock());
-    checkEvalError("Object of type 'Mock' has no field 'function'",
+    checkEvalError("Object of type 'Mock' has no field \"function\"",
         "v = mock.function");
   }
 
@@ -553,7 +553,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessingUnknownField() throws Exception {
-    checkEvalError("Object of type 'struct' has no field 'c'",
+    checkEvalError("Object of type 'struct' has no field \"c\"",
         "x = struct(a = 1, b = 2)",
         "y = x.c\n");
   }
@@ -601,7 +601,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
-    checkEvalError("Object of type 'string' has no field 'field'", "x = 'a'.field");
+    checkEvalError("Object of type 'string' has no field \"field\"", "x = 'a'.field");
   }
 
   @Test
@@ -711,7 +711,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testGetattrNoAttr() throws Exception {
-    checkEvalError("Object of type 'struct' has no field 'b'",
+    checkEvalError("Object of type 'struct' has no field \"b\"",
         "s = struct(a='val')",
         "getattr(s, 'b')");
   }

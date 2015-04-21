@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
@@ -75,15 +75,18 @@ public final class SkylarkAttr {
       + "executable file, or to a rule that outputs an executable file. Access the labels with "
       + "<code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
+  private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
+    return arguments.containsKey(key) && arguments.get(key) != Environment.NONE;
+  }
+
   private static Attribute.Builder<?> createAttribute(Type<?> type, Map<String, Object> arguments,
       FuncallExpression ast, SkylarkEnvironment env) throws EvalException, ConversionException {
-    final Location loc = ast.getLocation();
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
     Attribute.Builder<?> builder = Attribute.attr("", type);
 
     Object defaultValue = arguments.get("default");
-    if (defaultValue != null) {
+    if (!EvalUtils.isNullOrNone(defaultValue)) {
       if (defaultValue instanceof UserDefinedFunction) {
         // Late bound attribute. Non label type attributes already caused a type check error.
         builder.value(new SkylarkLateBound(
@@ -97,23 +100,23 @@ public final class SkylarkAttr {
       builder.setPropertyFlag(flag);
     }
 
-    if (arguments.containsKey("mandatory") && (Boolean) arguments.get("mandatory")) {
+    if (containsNonNoneKey(arguments, "mandatory") && (Boolean) arguments.get("mandatory")) {
       builder.setPropertyFlag("MANDATORY");
     }
 
-    if (arguments.containsKey("non_empty") && (Boolean) arguments.get("non_empty")) {
+    if (containsNonNoneKey(arguments, "non_empty") && (Boolean) arguments.get("non_empty")) {
       builder.setPropertyFlag("NON_EMPTY");
     }
 
-    if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
+    if (containsNonNoneKey(arguments, "executable") && (Boolean) arguments.get("executable")) {
       builder.setPropertyFlag("EXECUTABLE");
     }
 
-    if (arguments.containsKey("single_file") && (Boolean) arguments.get("single_file")) {
+    if (containsNonNoneKey(arguments, "single_file") && (Boolean) arguments.get("single_file")) {
       builder.setPropertyFlag("SINGLE_ARTIFACT");
     }
 
-    if (arguments.containsKey("allow_files")) {
+    if (containsNonNoneKey(arguments, "allow_files")) {
       Object fileTypesObj = arguments.get("allow_files");
       if (fileTypesObj == Boolean.TRUE) {
         builder.allowedFileTypes(FileTypeSet.ANY_FILE);
@@ -122,29 +125,30 @@ public final class SkylarkAttr {
       } else if (fileTypesObj instanceof SkylarkFileType) {
         builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
       } else {
-        throw new EvalException(loc, "allow_files should be a boolean or a filetype object.");
+        throw new EvalException(ast.getLocation(),
+            "allow_files should be a boolean or a filetype object.");
       }
     } else if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 
     Object ruleClassesObj = arguments.get("allow_rules");
-    if (ruleClassesObj != null) {
+    if (ruleClassesObj != null && ruleClassesObj != Environment.NONE) {
       builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
               "allowed rule classes for attribute definition"));
     }
 
-    if (arguments.containsKey("providers")) {
+    if (containsNonNoneKey(arguments, "providers")) {
       builder.mandatoryProviders(castList(arguments.get("providers"), String.class));
     }
 
-    if (arguments.containsKey("cfg")) {
+    if (containsNonNoneKey(arguments, "cfg")) {
       builder.cfg((ConfigurationTransition) arguments.get("cfg"));
     }
     return builder;
   }
 
-  private static Object createAttribute(Map<String, Object> kwargs, Type<?> type,
+  private static Attribute.Builder<?> createAttribute(Map<String, Object> kwargs, Type<?> type,
       FuncallExpression ast, Environment env) throws EvalException {
     try {
       return createAttribute(type, kwargs, ast, (SkylarkEnvironment) env);
@@ -181,7 +185,7 @@ public final class SkylarkAttr {
       returnType = Attribute.Builder.class,
       optionalNamedOnly = {
         @Param(name = "default", type = String.class,
-            defaultValue = "\"\"", doc = DEFAULT_DOC + " If not specified, default is \"\"."),
+            defaultValue = "''", doc = DEFAULT_DOC + " If not specified, default is \"\"."),
         @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class,
@@ -239,13 +243,18 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalPositionals = {
-      @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
-          doc = DEFAULT_DOC + " If not specified, default is []."),
-      @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
-      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
-      @Param(name = "cfg", type = ConfigurationTransition.class,
-          doc = CONFIGURATION_DOC)})
+        @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]",
+            doc = DEFAULT_DOC + " If not specified, default is []."),
+        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = FLAGS_DOC),
+        @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
+            doc = MANDATORY_DOC),
+        @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
+            doc = NON_EMPTY_DOC),
+        @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
+            defaultValue = "None", doc = CONFIGURATION_DOC)},
+      useAst = true, useEnvironment = true)
   private static SkylarkFunction stringList = new SkylarkFunction("string_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)

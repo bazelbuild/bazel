@@ -447,8 +447,7 @@ public final class PackageFactory {
    */
 
   /**
-   * Returns a function-value implementing "glob" in the specified package
-   * context.
+   * Returns a function-value implementing "glob" in the specified package context.
    *
    * @param async if true, start globs in the background but don't block on their completion.
    *        Only use this for heuristic preloading.
@@ -465,7 +464,7 @@ public final class PackageFactory {
       };
   }
 
-  static Object callGlob(@Nullable PackageContext originalContext, boolean async,
+  static GlobList<String> callGlob(@Nullable PackageContext originalContext, boolean async,
       FuncallExpression ast, Environment env, Object[] namedArguments)
           throws EvalException, ConversionException, InterruptedException {
     // Skylark build extensions need to get the PackageContext from the Environment;

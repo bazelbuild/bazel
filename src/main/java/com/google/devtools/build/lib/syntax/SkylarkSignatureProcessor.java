@@ -190,9 +190,12 @@ public class SkylarkSignatureProcessor {
       return new Parameter.Star<>(param.name(), officialType);
     } else if (mandatory) {
       return new Parameter.Mandatory<>(param.name(), officialType);
-    } else {
-      return new Parameter.Optional<>(param.name(), officialType, defaultValue);
+    } else if (defaultValue != null && enforcedType != null) {
+      Preconditions.checkArgument(enforcedType.contains(defaultValue),
+          "In function '%s', parameter '%s' has default value %s that isn't of enforced type %s",
+          name, param.name(), EvalUtils.prettyPrintValue(defaultValue), enforcedType);
     }
+    return new Parameter.Optional<>(param.name(), officialType, defaultValue);
   }
 
   private static Object getDefaultValue(Param param, Iterator<Object> iterator) {

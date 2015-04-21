@@ -173,7 +173,7 @@ public class MethodLibrary {
         @Param(name = "old", type = String.class, doc = "The string to be replaced."),
         @Param(name = "new", type = String.class, doc = "The string to replace with.")},
       optionalPositionals = {
-        @Param(name = "maxsplit", type = Integer.class,
+        @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "The maximum number of replacements.")},
       useLocation = true)
   private static Function replace =
@@ -208,9 +208,10 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string.")},
       optionalPositionals = {
-        @Param(name = "sep", type = String.class,
+        @Param(name = "sep", type = String.class, defaultValue = "' '",
             doc = "The string to split on, default is space (\" \")."),
-        @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of splits.")},
+        @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
+            doc = "The maximum number of splits.")},
       useEnvironment = true)
   private static Function split = new MixedModeFunction("split",
       ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
@@ -890,10 +891,10 @@ public class MethodLibrary {
             + "otherwise value of stop and the actual start is 0"),
       },
       optionalPositionals = {
-        @Param(name = "stop", type = Integer.class, noneable = true,
+        @Param(name = "stop", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional index of the first item <i>not</i> to be included in the "
             + "resulting list; generation of the list stops before <code>stop</code> is reached."),
-        @Param(name = "step", type = Integer.class,
+        @Param(name = "step", type = Integer.class, defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")},
       useLocation = true)
   private static final Function range =
@@ -999,7 +1000,8 @@ public class MethodLibrary {
         @Param(name = "object", doc = "The struct which's field is accessed."),
         @Param(name = "name", doc = "The name of the struct field.")},
       optionalPositionals = {
-        @Param(name = "default", doc = "The default value to return in case the struct "
+        @Param(name = "default", defaultValue = "None",
+            doc = "The default value to return in case the struct "
             + "doesn't have a field of the given name.")},
       useLocation = true)
   private static final Function getattr = new MixedModeFunction(
@@ -1014,8 +1016,9 @@ public class MethodLibrary {
         if (args[2] != null) {
           return args[2];
         } else {
-          throw new EvalException(ast.getLocation(), "Object of type '"
-              + EvalUtils.getDataTypeName(obj) + "' has no field '" + name + "'");
+          throw new EvalException(ast.getLocation(),
+              String.format("Object of type '%s' has no field %s",
+                  EvalUtils.getDataTypeName(obj), EvalUtils.prettyPrintValue(name)));
         }
       }
       return result;
@@ -1088,7 +1091,7 @@ public class MethodLibrary {
   @SkylarkSignature(name = "print", returnType = Environment.NoneType.class,
       doc = "Prints <code>msg</code> to the console.",
       optionalNamedOnly = {
-        @Param(name = "sep", type = String.class,
+        @Param(name = "sep", type = String.class, defaultValue = "' '",
             doc = "The separator string between the objects, default is space (\" \").")},
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = {@Param(name = "args", doc = "The objects to print.")},
@@ -1222,18 +1225,7 @@ public class MethodLibrary {
   private static final List<Function> skylarkGlobalFunctions = ImmutableList
       .<Function>builder()
       .addAll(pureGlobalFunctions)
-      .add(list)
-      .add(struct)
-      .add(hasattr)
-      .add(getattr)
-      .add(set)
-      .add(dir)
-      .add(enumerate)
-      .add(range)
-      .add(type)
-      .add(fail)
-      .add(print)
-      .add(zip)
+      .add(list, struct, hasattr, getattr, set, dir, enumerate, range, type, fail, print, zip)
       .build();
 
   /**
