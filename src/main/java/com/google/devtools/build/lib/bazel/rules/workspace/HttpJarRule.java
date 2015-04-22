@@ -89,7 +89,7 @@ http_jar(
 
 bind(
     name = "openssl",
-    actual = "@my-ssl//jar:openssl-0.2.jar",
+    actual = "@my-ssl//jar",
 )
 </pre>
 
