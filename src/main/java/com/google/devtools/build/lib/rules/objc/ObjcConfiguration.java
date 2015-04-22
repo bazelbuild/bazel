@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -22,9 +23,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import javax.annotation.Nullable;
 
@@ -58,6 +62,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> iosMultiCpus;
   private final String iosSplitCpu;
   private final boolean perProtoIncludes;
+  private final ConfigurationDistinguisher configurationDistinguisher;
 
   // We only load these labels if the mode which uses them is enabled. That is know as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -88,6 +93,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.perProtoIncludes = objcOptions.perProtoIncludes;
+    this.configurationDistinguisher = objcOptions.configurationDistinguisher;
   }
 
   public String getIosSdkVersion() {
@@ -243,7 +249,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   @Override
   public String getOutputDirectoryName() {
-    return !iosSplitCpu.isEmpty() ? "ios-" + iosSplitCpu : null;
+    List<String> components = new ArrayList<>();
+    if (!iosSplitCpu.isEmpty()) {
+      components.add("ios-" + iosSplitCpu);
+    }
+    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
+      components.add(configurationDistinguisher.toString().toLowerCase(Locale.US));
+    }
+
+    if (components.isEmpty()) {
+      return null;
+    }
+    return Joiner.on('-').join(components);
   }
 
   @Override

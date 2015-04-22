@@ -20,11 +20,22 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 
 /**
  * Implementation for {@code ios_application}.
  */
 public class IosApplication extends ReleaseBundlingTargetFactory {
+
+  /**
+   * Transition that when applied to a target generates a configured target for each value in
+   * {@code --ios_multi_cpus}, such that {@code --ios_cpu} is set to a different one of those values
+   * in the configured targets.
+   */
+  public static final SplitTransition<BuildOptions> SPLIT_ARCH_TRANSITION =
+      new SplitArchTransition();
 
   private static final ImmutableSet<Attribute> DEPENDENCY_ATTRIBUTES =
       ImmutableSet.of(

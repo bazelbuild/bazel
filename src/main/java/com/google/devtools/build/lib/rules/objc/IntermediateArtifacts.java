@@ -43,7 +43,7 @@ final class IntermediateArtifacts {
   private final String archiveFileNameSuffix;
 
   /**
-   * Label to scope the output paths of generated artifacts, in addition to {@link ownerLabel}.
+   * Label to scope the output paths of generated artifacts, in addition to {@link #ownerLabel}.
    */
   private final Optional<Label> scopingLabel;
 
@@ -231,9 +231,8 @@ final class IntermediateArtifacts {
    * file.
    */
   public Artifact compiledXibFileZip(Artifact originalFile) {
-    return analysisEnvironment.getDerivedArtifact(
-        FileSystemUtils.replaceExtension(originalFile.getExecPath(), ".nib.zip"),
-        binDirectory);
+    return appendExtension(
+        "/" + FileSystemUtils.replaceExtension(originalFile.getExecPath(), ".nib.zip"));
   }
 
   /**
