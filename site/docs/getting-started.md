@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: documentation
 ---
 
 # Getting Started with Bazel
@@ -11,11 +11,11 @@ provided compile script. Make sure that you are running Bazel on a supported
 platform and that you have installed other required software as described in the
 [installation guide](install.html).
 
-```bash
+{% highlight bash %}
 $ git clone https://github.com/google/bazel.git
 $ cd bazel
 $ ./compile.sh
-```
+{% endhighlight %}
 
 `./compile.sh` creates the `bazel` executable in `output/bazel`.
 
@@ -42,7 +42,7 @@ Suppose that you have an existing project in a directory, say,
 To make sure everything is set up correctly in your build root, build one of the
 examples from the `examples/` directory.
 
-```bash
+{% highlight bash %}
 $ cd ~/gitroot/my-project
 $ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
 Extracting Bazel installation...
@@ -54,7 +54,7 @@ Target //examples/java-native/src/main/java/com/example/myproject:hello-world up
 INFO: Elapsed time: 3.040s, Critical Path: 1.14s
 $ bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 Hello world
-```
+{% endhighlight %}
 
 Bazel puts binaries it has built under `bazel-bin/`.  Note that you can
 always look at the `build` command's output to find output file paths.
@@ -77,14 +77,14 @@ subdirectory.
 Thus, to add build rules to my-project, create a file named `BUILD` in the
 `my-project/` directory.  Add the following lines to this BUILD file:
 
-```python
+{% highlight python %}
 # ~/gitroot/base_workspace/my-project/BUILD
 java_binary(
     name = "my-runner",
     srcs = glob(["**/*.java"]),
     main_class = "com.example.ProjectRunner",
 )
-```
+{% endhighlight %}
 
 BUILD files are Python-like scripts. BUILD files cannot contain arbitrary
 Python, but each build rule looks like a Python function call and you can use
@@ -103,7 +103,7 @@ the class that contains the main method.
 If you have no actual Java project you're using, you can use the following
 commands to make a fake project for this example:
 
-```bash
+{% highlight bash %}
 $ # If you're not already there, move to your build root directory.
 $ cd ~/gitroot/base_workspace
 $ mkdir -p my-project/java/com/example
@@ -125,11 +125,11 @@ public class Greeting {
     }
 }
 EOF
-```
+{% endhighlight %}
 
 Now build your project:
 
-```bash
+{% highlight bash %}
 $ bazel build my-project:my-runner
 INFO: Found 1 target...
 Target //my-project:my-runner up-to-date:
@@ -138,7 +138,7 @@ Target //my-project:my-runner up-to-date:
 INFO: Elapsed time: 1.021s, Critical Path: 0.83s
 $ bazel-bin/my-project/my-runner
 Hi!
-```
+{% endhighlight %}
 
 Congratulations, you've created your first Bazel BUILD file!
 
@@ -154,7 +154,7 @@ To break up a project, create separate rules for each subcomponent and then
 make them depend on each other. For the example above, add the following rules
 to the `my-project/BUILD` file:
 
-```python
+{% highlight python %}
 java_binary(
     name = "my-other-runner",
     srcs = ["java/com/example/ProjectRunner.java"],
@@ -166,11 +166,11 @@ java_library(
     name = "greeter",
     srcs = ["java/com/example/Greeting.java"],
 )
-```
+{% endhighlight %}
 
 Now you can build and run `my-project:my-other-runner`:
 
-```bash
+{% highlight bash %}
 $ bazel run my-project:my-other-runner
 INFO: Found 1 target...
 Target //my-project:my-other-runner up-to-date:
@@ -180,7 +180,7 @@ INFO: Elapsed time: 2.454s, Critical Path: 1.58s
 
 INFO: Running command line: bazel-bin/my-project/my-other-runner
 Hi!
-```
+{% endhighlight %}
 
 If you edit _ProjectRunner.java_ and rebuild `my-other-runner`, only
 `ProjectRunner.java` needs to be rebuilt (<code>greeter</code> is unchanged).
@@ -193,7 +193,7 @@ can refer to targets defined in other BUILD files using the syntax
 `my-project/java/com/example/` has a `cmdline/` subdirectory with the following
 file:
 
-```bash
+{% highlight bash %}
 $ mkdir my-project/java/com/example/cmdline
 $ cat > my-project/java/com/example/cmdline/Runner.java <<EOF
 package com.example.cmdline;
@@ -206,12 +206,12 @@ public class Runner {
     }
 }
 EOF
-```
+{% endhighlight %}
 
 We could add a `BUILD` file at `my-project/java/com/example/cmdline/BUILD`
 that contained the following rule:
 
-```python
+{% highlight python %}
 # ~/gitroot/base_workspace/my-project/java/com/example/cmdline/BUILD
 java_binary(
     name = "runner",
@@ -219,7 +219,7 @@ java_binary(
     main_class = "com.example.cmdline.Runner",
     deps = ["//my-project:greeter"]
 )
-```
+{% endhighlight %}
 
 However, by default, build rules are _private_. This means that they can only be
 referred to by rules in the same BUILD file. This prevents libraries that are
@@ -227,32 +227,32 @@ implementation details from leaking into public APIs, but it also means that you
 must explicitly allow `runner` to depend on `my-project:greeter`. As is, if we
 build `runner` we'll get a permissions error:
 
-```bash
+{% highlight bash %}
 $ bazel build my-project/java/com/example/cmdline:runner
 ERROR: /usr/local/google/home/kchodorow/gitroot/base_workspace/my-project/java/com/example/cmdline/BUILD:2:1:
   Target '//my-project:greeter' is not visible from target '//my-project/java/com/example/cmdline:runner'.
   Check the visibility declaration of the former target if you think the dependency is legitimate.
 ERROR: Analysis of target '//my-project/java/com/example/cmdline:runner' failed; build aborted.
 INFO: Elapsed time: 0.091s
-```
+{% endhighlight %}
 
 You can make a rule visibile to rules in other BUILD files by adding a
 `visibility = level` attribute.  Change the `greeter` rule in
 _my-project/BUILD_ to be visible to our new rule:
 
-```python
+{% highlight python %}
 java_library(
     name = "greeter",
     srcs = ["java/com/example/Greeting.java"],
     visibility = ["//my-project/java/com/example/cmdline:__pkg__"],
 )
-```
+{% endhighlight %}
 
 This makes `//my-project:greeter` visible to any rule in the
 `//my-project/java/com/example/cmdline` package. Now we can build and
 run the binary:
 
-```bash
+{% highlight bash %}
 $ bazel run my-project/java/com/example/cmdline:runner
 INFO: Found 1 target...
 Target //my-project/java/com/example/cmdline:runner up-to-date:
@@ -262,7 +262,7 @@ INFO: Elapsed time: 1.576s, Critical Path: 0.81s
 
 INFO: Running command line: bazel-bin/my-project/java/com/example/cmdline/runner
 Hi!
-```
+{% endhighlight %}
 
 See the [build encyclopedia](build-encyclopedia.html) for more visibility options.
 
@@ -272,7 +272,7 @@ If you look at the contents of
 _bazel-bin/my-project/java/com/example/cmdline/runner.jar_, you can see that it
 only contains `Runner.class`, not its dependencies (`Greeting.class`):
 
-```bash
+{% highlight bash %}
 $ jar tf bazel-bin/my-project/java/com/example/cmdline/runner.jar
 META-INF/
 META-INF/MANIFEST.MF
@@ -280,18 +280,18 @@ com/
 com/example/
 com/example/cmdline/
 com/example/cmdline/Runner.class
-```
+{% endhighlight %}
 
 To deploy a `runner` binary, we need a self-contained jar. To build this, build
 runner_deploy.jar (or, more generally, _&lt;target-name&gt;_deploy.jar_):
 
-```bash
+{% highlight bash %}
 $ bazel build my-project/java/com/example/cmdline:runner_deploy.jar
 INFO: Found 1 target...
 Target //my-project/java/com/example/cmdline:runner_deploy.jar up-to-date:
   bazel-bin/my-project/java/com/example/cmdline/runner_deploy.jar
 INFO: Elapsed time: 1.700s, Critical Path: 0.23s
-```
+{% endhighlight %}
 
 `runner_deploy.jar` will contain all of its dependencies.
 

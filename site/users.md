@@ -1,3 +1,7 @@
+---
+layout: community
+---
+
 # Projects Using Bazel
 
 If you'd like your project listed here, please
