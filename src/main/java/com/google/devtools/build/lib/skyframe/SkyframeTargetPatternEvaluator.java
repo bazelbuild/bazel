@@ -22,18 +22,26 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.WalkableGraph;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Skyframe-based target pattern parsing.
@@ -95,6 +103,36 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
        SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
   }
 
+  private static Map<PackageIdentifier, Package> getPackages(
+      Set<PackageIdentifier> packagesToRequest, WalkableGraph walkableGraph) {
+    Map<PackageIdentifier, Package> packages =
+        Maps.newHashMapWithExpectedSize(packagesToRequest.size());
+    for (PackageIdentifier pkgIdentifier : packagesToRequest) {
+      SkyKey key = PackageValue.key(pkgIdentifier);
+      Package pkg = null;
+      NoSuchPackageException nspe = (NoSuchPackageException) walkableGraph.getException(key);
+      if (nspe != null) {
+        pkg = nspe.getPackage();
+      } else {
+        pkg = ((PackageValue) walkableGraph.getValue(key)).getPackage();
+      }
+      // Unexpected since the label was part of the TargetPatternValue.
+      Preconditions.checkNotNull(pkg, pkgIdentifier);
+      packages.put(pkgIdentifier, pkg);
+    }
+    return packages;
+  }
+
+  private static Target getExistingTarget(Label label, Map<PackageIdentifier, Package> packages) {
+    Package pkg = Preconditions.checkNotNull(packages.get(label.getPackageIdentifier()), label);
+    try {
+      return pkg.getTarget(label.getName());
+    } catch (NoSuchTargetException e) {
+      // Unexpected since the label was part of the TargetPatternValue.
+      throw new IllegalStateException(e);
+    }
+  }
+
   ResolvedTargets<Target> parseTargetPatternKeys(Iterable<SkyKey> patternSkyKeys, int numThreads,
       boolean keepGoing, EventHandler eventHandler)
       throws InterruptedException, TargetParsingException {
@@ -102,15 +140,15 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         skyframeExecutor.targetPatterns(patternSkyKeys, numThreads, keepGoing, eventHandler);
 
     String errorMessage = null;
-    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
+    ResolvedTargets.Builder<Label> resolvedLabelsBuilder = ResolvedTargets.builder();
     for (SkyKey key : patternSkyKeys) {
       TargetPatternValue resultValue = result.get(key);
       if (resultValue != null) {
-        ResolvedTargets<Target> results = resultValue.getTargets();
+        ResolvedTargets<Label> results = resultValue.getTargets();
         if (((TargetPatternValue.TargetPattern) key.argument()).isNegative()) {
-          builder.filter(Predicates.not(Predicates.in(results.getTargets())));
+          resolvedLabelsBuilder.filter(Predicates.not(Predicates.in(results.getTargets())));
         } else {
-          builder.merge(results);
+          resolvedLabelsBuilder.merge(results);
         }
       } else {
         TargetPatternValue.TargetPattern pattern =
@@ -133,7 +171,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         if (keepGoing) {
           eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         }
-        builder.setError();
+        resolvedLabelsBuilder.setError();
 
         if (eventHandler instanceof ParseFailureListener) {
           ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
@@ -146,6 +184,24 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       Preconditions.checkState(errorMessage != null, "unexpected errors: %s", result.errorMap());
       throw new TargetParsingException(errorMessage);
     }
-    return builder.build();
+    ResolvedTargets<Label> resolvedLabels = resolvedLabelsBuilder.build();
+    Set<PackageIdentifier> packagesToRequest = new HashSet<>();
+    for (Label label
+        : Iterables.concat(resolvedLabels.getTargets(), resolvedLabels.getFilteredTargets())) {
+      packagesToRequest.add(label.getPackageIdentifier());
+    }
+    WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
+    Map<PackageIdentifier, Package> packages = getPackages(packagesToRequest, walkableGraph);
+    ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
+    if (resolvedLabels.hasError()) {
+      resolvedTargetsBuilder.setError();
+    }
+    for (Label label : resolvedLabels.getTargets()) {
+      resolvedTargetsBuilder.add(getExistingTarget(label, packages));
+    }
+    for (Label label : resolvedLabels.getFilteredTargets()) {
+      resolvedTargetsBuilder.remove(getExistingTarget(label, packages));
+    }
+    return resolvedTargetsBuilder.build();
   }
 }

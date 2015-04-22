@@ -19,12 +19,10 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -34,12 +32,8 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A value referring to a computed set of resolved targets. This is used for the results of target
@@ -49,60 +43,48 @@ import java.util.Set;
 @ThreadSafe
 public final class TargetPatternValue implements SkyValue {
 
-  private ResolvedTargets<Target> targets;
+  private ResolvedTargets<Label> targets;
 
-  TargetPatternValue(ResolvedTargets<Target> targets) {
+  TargetPatternValue(ResolvedTargets<Label> targets) {
     this.targets = Preconditions.checkNotNull(targets);
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {
-    Set<Package> packages = new LinkedHashSet<>();
     List<String> ts = new ArrayList<>();
     List<String> filteredTs = new ArrayList<>();
-    for (Target target : targets.getTargets()) {
-      packages.add(target.getPackage());
-      ts.add(target.getLabel().toString());
+    for (Label target : targets.getTargets()) {
+      ts.add(target.toString());
     }
-    for (Target target : targets.getFilteredTargets()) {
-      packages.add(target.getPackage());
-      filteredTs.add(target.getLabel().toString());
+    for (Label target : targets.getFilteredTargets()) {
+      filteredTs.add(target.toString());
     }
 
-    out.writeObject(packages);
     out.writeObject(ts);
     out.writeObject(filteredTs);
   }
 
+  private Label labelFromString(String labelString) {
+    try {
+      return Label.parseAbsolute(labelString);
+    } catch (SyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-    Set<Package> packages = (Set<Package>) in.readObject();
     List<String> ts = (List<String>) in.readObject();
     List<String> filteredTs = (List<String>) in.readObject();
 
-    Map<String, Package> packageMap = new HashMap<>();
-    for (Package p : packages) {
-      packageMap.put(p.getName(), p);
-    }
-
-    Builder<Target> builder = ResolvedTargets.<Target>builder();
+    Builder<Label> builder = ResolvedTargets.<Label>builder();
     for (String labelString : ts) {
-      builder.add(lookupTarget(packageMap, labelString));
+      builder.add(labelFromString(labelString));
     }
 
     for (String labelString : filteredTs) {
-      builder.remove(lookupTarget(packageMap, labelString));
+      builder.remove(labelFromString(labelString));
     }
     this.targets = builder.build();
-  }
-
-  private static Target lookupTarget(Map<String, Package> packageMap, String labelString) {
-    Label label = Label.parseAbsoluteUnchecked(labelString);
-    Package p = packageMap.get(label.getPackageName());
-    try {
-      return p.getTarget(label.getName());
-    } catch (NoSuchTargetException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @SuppressWarnings("unused")
@@ -148,7 +130,7 @@ public final class TargetPatternValue implements SkyValue {
      return keys;
    }
 
-  public ResolvedTargets<Target> getTargets() {
+  public ResolvedTargets<Label> getTargets() {
     return targets;
   }
 

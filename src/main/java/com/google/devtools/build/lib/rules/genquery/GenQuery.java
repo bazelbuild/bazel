@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -78,6 +79,7 @@ import java.io.PrintStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -299,6 +301,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       this.env = env;
     }
 
+    private static Target getExistingTarget(Label label,
+        Map<PackageIdentifier, Package> packages) {
+      try {
+        return packages.get(label.getPackageIdentifier()).getTarget(label.getName());
+      } catch (NoSuchTargetException e) {
+        // Unexpected since the label was part of the TargetPatternValue.
+        throw new IllegalStateException(e);
+      }
+    }
+
     @Override
     public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
                                                                Collection<String> patterns,
@@ -308,24 +320,73 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       boolean ok = true;
       Map<String, ResolvedTargets<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
-      Map<SkyKey, String> keys = Maps.newHashMapWithExpectedSize(patterns.size());
+      Map<SkyKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
-        keys.put(TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, ""), pattern);
+        patternKeys.put(TargetPatternValue.key(pattern, FilteringPolicies.NO_FILTER, ""), pattern);
       }
+      Set<SkyKey> packageKeys = new HashSet<>();
+      Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
+          Maps.newHashMapWithExpectedSize(patterns.size());
       synchronized (this) {
         for (Map.Entry<SkyKey, ValueOrException<TargetParsingException>> entry :
-          env.getValuesOrThrow(keys.keySet(), TargetParsingException.class).entrySet()) {
+          env.getValuesOrThrow(patternKeys.keySet(), TargetParsingException.class).entrySet()) {
           TargetPatternValue patternValue = (TargetPatternValue) entry.getValue().get();
           if (patternValue == null) {
             ok = false;
           } else {
-            preloadedPatterns.put(keys.get(entry.getKey()), patternValue.getTargets());
+            ResolvedTargets<Label> resolvedLabels = patternValue.getTargets();
+            resolvedLabelsMap.put(patternKeys.get(entry.getKey()), resolvedLabels);
+            for (Label label
+                : Iterables.concat(resolvedLabels.getTargets(),
+                    resolvedLabels.getFilteredTargets())) {
+              packageKeys.add(PackageValue.key(label.getPackageIdentifier()));
+            }
           }
         }
       }
       if (!ok) {
         throw new SkyframeRestartQueryException();
+      }
+      Map<PackageIdentifier, Package> packages =
+          Maps.newHashMapWithExpectedSize(packageKeys.size());
+      synchronized (this) {
+        for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry :
+          env.getValuesOrThrow(packageKeys, NoSuchPackageException.class).entrySet()) {
+          PackageIdentifier pkgName = (PackageIdentifier) entry.getKey().argument();
+          Package pkg = null;
+          try {
+            PackageValue packageValue = (PackageValue) entry.getValue().get();
+            if (packageValue == null) {
+              ok = false;
+              continue;
+            }
+            pkg = packageValue.getPackage();
+          } catch (NoSuchPackageException nspe) {
+            if (nspe.getPackage() != null) {
+              pkg = nspe.getPackage();
+            } else {
+              continue;
+            }
+          }
+          Preconditions.checkNotNull(pkg, pkgName);
+          packages.put(pkgName, pkg);
+        }
+      }
+      if (!ok) {
+        throw new SkyframeRestartQueryException();
+      }
+      for (Map.Entry<String, ResolvedTargets<Label>> entry : resolvedLabelsMap.entrySet()) {
+        String pattern = entry.getKey();
+        ResolvedTargets<Label> resolvedLabels = resolvedLabelsMap.get(pattern);
+        ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
+        for (Label label : resolvedLabels.getTargets()) {
+          builder.add(getExistingTarget(label, packages));
+        }
+        for (Label label : resolvedLabels.getFilteredTargets()) {
+          builder.remove(getExistingTarget(label, packages));
+        }
+        preloadedPatterns.put(pattern, builder.build());
       }
       return preloadedPatterns;
     }

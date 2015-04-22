@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -44,6 +48,7 @@ public class TargetPatternFunction implements SkyFunction {
     TargetPatternValue.TargetPattern patternKey =
         ((TargetPatternValue.TargetPattern) key.argument());
     TargetPattern.Parser parser = new TargetPattern.Parser(patternKey.getOffset());
+    ResolvedTargets<Target> resolvedTargets = null;
     try {
       EnvironmentBackedRecursivePackageProvider provider =
           new EnvironmentBackedRecursivePackageProvider(env);
@@ -51,7 +56,7 @@ public class TargetPatternFunction implements SkyFunction {
           new RecursivePackageProviderBackedTargetPatternResolver(provider, env.getListener(),
               patternKey.getPolicy(), pkgPath.get());
       TargetPattern resolvedPattern = parser.parse(patternKey.getPattern());
-      return new TargetPatternValue(resolvedPattern.eval(resolver));
+      resolvedTargets = resolvedPattern.eval(resolver);
     } catch (TargetParsingException e) {
       throw new TargetPatternFunctionException(e);
     } catch (MissingDepException e) {
@@ -62,6 +67,15 @@ public class TargetPatternFunction implements SkyFunction {
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
     }
+    Preconditions.checkNotNull(resolvedTargets, key);
+    ResolvedTargets.Builder<Label> resolvedLabelsBuilder = ResolvedTargets.builder();
+    for (Target target : resolvedTargets.getTargets()) {
+      resolvedLabelsBuilder.add(target.getLabel());
+    }
+    for (Target target : resolvedTargets.getFilteredTargets()) {
+      resolvedLabelsBuilder.remove(target.getLabel());
+    }
+    return new TargetPatternValue(resolvedLabelsBuilder.build());
   }
 
   @Nullable
