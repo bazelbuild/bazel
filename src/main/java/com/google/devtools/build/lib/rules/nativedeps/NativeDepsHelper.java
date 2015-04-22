@@ -142,7 +142,7 @@ public abstract class NativeDepsHelper {
         CppHelper.resolveLinkstamps(ruleContext, linkParams);
     List<Artifact> buildInfoArtifacts = linkstamps.isEmpty()
         ? ImmutableList.<Artifact>of()
-        : ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, CppBuildInfo.KEY);
+        : ruleContext.getBuildInfo(CppBuildInfo.KEY);
 
     boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
     NestedSet<LibraryToLink> linkerInputs = linkParams.getLibraries();

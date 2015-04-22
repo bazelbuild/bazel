@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -235,6 +236,10 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactOwner getOwner() {
     return getAnalysisEnvironment().getOwner();
+  }
+
+  public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) {
+    return getAnalysisEnvironment().getBuildInfo(this, key);
   }
 
   // TODO(bazel-team): This class could be simpler if Rule and BuildConfiguration classes

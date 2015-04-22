@@ -218,8 +218,7 @@ public class DeployArchiveBuilder {
       inputs.addElement(runfilesMiddleman);
     }
 
-    final ImmutableList<Artifact> buildInfoArtifacts =
-        ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, JavaBuildInfoFactory.KEY);
+    ImmutableList<Artifact> buildInfoArtifacts = ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
     inputs.add(buildInfoArtifacts);
 
     Iterable<Artifact> runtimeClasspath = Iterables.concat(

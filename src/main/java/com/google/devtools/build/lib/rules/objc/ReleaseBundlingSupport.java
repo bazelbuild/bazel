@@ -246,7 +246,7 @@ public final class ReleaseBundlingSupport {
 
   private void registerEmbedLabelPlistAction() {
     Artifact buildInfo = Iterables.getOnlyElement(
-        ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, ObjcBuildInfoFactory.KEY));
+        ruleContext.getBuildInfo(ObjcBuildInfoFactory.KEY));
     ruleContext.registerAction(new SpawnAction.Builder()
         .setMnemonic("ObjcVersionPlist")
         .setExecutable(new PathFragment("/bin/bash"))

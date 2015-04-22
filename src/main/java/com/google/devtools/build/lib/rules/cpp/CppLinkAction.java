@@ -616,7 +616,7 @@ public final class CppLinkAction extends AbstractAction {
           : null;
 
       final ImmutableList<Artifact> buildInfoHeaderArtifacts = !linkstamps.isEmpty()
-          ? ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, CppBuildInfo.KEY)
+          ? ruleContext.getBuildInfo(CppBuildInfo.KEY)
           : ImmutableList.<Artifact>of();
 
       final Artifact symbolCountOutput = enableSymbolsCounts(cppConfiguration, fake, linkType)
