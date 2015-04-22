@@ -1783,5 +1783,35 @@ maxrank
   be included in the XML output.
 </p>
 
+
+<h3 id="external-repos">Querying with external repositories</h3>
+
+<p>
+  If the build depends on rules from external repositories (defined in the
+  WORKSPACE file) then query results will include these dependencies. For
+  example, if <code>//foo:bar</code> depends on <code>//external:some-lib</code>
+  and <code>//external:some-lib</code> is bound to
+  <code>@other-repo//baz:lib</code>, then
+  <code>bazel query 'deps(//foo:bar)'</code>
+  will list both <code>@other-repo//baz:lib</code> and
+  <code>//external:some-lib</code> as dependencies.
+</p>
+
+<p>
+  External repositories themselves are not dependencies of a build. That is, in
+  the example above, <code>//external:other-repo</code> is not a dependency. It
+  can be queried for as a member of the <code>//external</code> package, though,
+  for example:
+<p>
+
+<pre>
+  $ # Querying over all members of //external returns the repository.
+  $ bazel query 'kind(maven_jar, //external:*)'
+  //external:other-repo
+
+  $ # ...but the repository is not a dependency.
+  $ bazel query 'kind(maven_jar, deps(//foo:bar))'
+  INFO: Empty results
+</pre>
 </body>
 </html>
