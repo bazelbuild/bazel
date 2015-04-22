@@ -71,8 +71,8 @@ public class Environment {
 
   protected final Map<String, Object> env = new HashMap<>();
 
-  // Functions with namespaces. Works only in the global environment.
-  protected final Map<Class<?>, Map<String, Function>> functions = new HashMap<>();
+  // BaseFunctions with namespaces. Works only in the global environment.
+  protected final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
 
   /**
    * The parent environment. For Skylark it's the global environment,
@@ -303,15 +303,15 @@ public class Environment {
   /**
    * Registers a function with namespace to this global environment.
    */
-  public void registerFunction(Class<?> nameSpace, String name, Function function) {
+  public void registerFunction(Class<?> nameSpace, String name, BaseFunction function) {
     Preconditions.checkArgument(parent == null);
     if (!functions.containsKey(nameSpace)) {
-      functions.put(nameSpace, new HashMap<String, Function>());
+      functions.put(nameSpace, new HashMap<String, BaseFunction>());
     }
     functions.get(nameSpace).put(name, function);
   }
 
-  private Map<String, Function> getNamespaceFunctions(Class<?> nameSpace) {
+  private Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
     if (disabledNameSpaces.contains(nameSpace)
         || (parent != null && parent.disabledNameSpaces.contains(nameSpace))) {
       return null;
@@ -326,8 +326,8 @@ public class Environment {
   /**
    * Returns the function of the namespace of the given name or null of it does not exists.
    */
-  public Function getFunction(Class<?> nameSpace, String name) {
-    Map<String, Function> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
+  public BaseFunction getFunction(Class<?> nameSpace, String name) {
+    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
     return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
   }
 
@@ -335,7 +335,7 @@ public class Environment {
    * Returns the function names registered with the namespace.
    */
   public Set<String> getFunctionNames(Class<?> nameSpace) {
-    Map<String, Function> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
+    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
     return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.<String>of();
   }
 

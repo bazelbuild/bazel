@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -197,7 +197,7 @@ public class WorkspaceFileFunction implements SkyFunction {
 
     RuleFactory ruleFactory = new RuleFactory(packageFactory.getRuleClassProvider());
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      Function ruleFunction = newRuleFunction(ruleFactory, builder, ruleClass);
+      BaseFunction ruleFunction = newRuleFunction(ruleFactory, builder, ruleClass);
       workspaceEnv.update(ruleClass, ruleFunction);
     }
 

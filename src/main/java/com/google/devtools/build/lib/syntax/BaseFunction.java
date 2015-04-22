@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction implements Function {
+public abstract class BaseFunction {
 
   // The name of the function
   private final String name;
@@ -405,7 +405,6 @@ public abstract class BaseFunction implements Function {
    * @return the value resulting from evaluating the function with the given arguments
    * @throws construction of EvalException-s containing source information.
    */
-  @Override
   public Object call(@Nullable List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression ast,

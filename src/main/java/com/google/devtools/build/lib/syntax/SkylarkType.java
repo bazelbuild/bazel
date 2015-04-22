@@ -492,7 +492,7 @@ public abstract class SkylarkType {
       return LIST;
     } else if (SkylarkNestedSet.class.isAssignableFrom(type)) {
       return SET;
-    } else if (Function.class.isAssignableFrom(type)) {
+    } else if (BaseFunction.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
     } else {
       return Simple.of(type);
@@ -533,7 +533,7 @@ public abstract class SkylarkType {
       }
     }
     @Override public Class<?> getType() {
-      return Function.class;
+      return BaseFunction.class;
     }
     @Override public String toString() {
       return (returnType == TOP || returnType == null ? "" : returnType + "-returning ")
@@ -542,7 +542,7 @@ public abstract class SkylarkType {
 
     public boolean contains(Object value) {
       // This returns true a bit too much, not looking at the result type.
-      return value instanceof Function;
+      return value instanceof BaseFunction;
     }
 
     public static SkylarkFunctionType of(String name) {
@@ -839,7 +839,7 @@ public abstract class SkylarkType {
    * Creates a SkylarkType from the SkylarkSignature annotation.
    */
   public static SkylarkType getReturnType(SkylarkSignature annotation) {
-    if (Function.class.isAssignableFrom(annotation.returnType())) {
+    if (BaseFunction.class.isAssignableFrom(annotation.returnType())) {
       return SkylarkFunctionType.of(annotation.name());
     } else {
       return Simple.of(annotation.returnType());

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,12 +30,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -49,7 +50,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
    * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
    */
   public static ConfiguredTarget buildRule(RuleContext ruleContext,
-      Function ruleImplementation) {
+      BaseFunction ruleImplementation) {
     String expectError = ruleContext.attributes().get("expect_failure", Type.STRING);
     try {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
@@ -96,12 +97,11 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     if (!orphanArtifacts.isEmpty()) {
       throw new EvalException(null, "The following files have no generating action:\n"
           + Joiner.on("\n").join(Iterables.transform(orphanArtifacts,
-          new com.google.common.base.Function<Artifact, String>() {
-            @Override
-            public String apply(Artifact artifact) {
-              return artifact.getRootRelativePathString();
-            }
-          })));
+        new Function<Artifact, String>() {
+          @Override
+          public String apply(Artifact artifact) {
+            return artifact.getRootRelativePathString();
+          }})));
     }
   }
 

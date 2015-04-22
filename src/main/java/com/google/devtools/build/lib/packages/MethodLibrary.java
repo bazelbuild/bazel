@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -22,6 +23,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -30,7 +32,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -1024,24 +1025,24 @@ public class MethodLibrary {
       + "</pre>")
   public static final class DictModule {}
 
-  public static final List<Function> stringFunctions = ImmutableList.<Function>of(
+  public static final List<BaseFunction> stringFunctions = ImmutableList.<BaseFunction>of(
       count, endswith, find, index, join, lower, replace, rfind,
       rindex, slice, split, startswith, strip, upper);
 
-  public static final List<Function> listPureFunctions = ImmutableList.<Function>of(
+  public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
       slice);
 
-  public static final List<Function> listFunctions = ImmutableList.<Function>of(
+  public static final List<BaseFunction> listFunctions = ImmutableList.<BaseFunction>of(
       append, extend);
 
-  public static final List<Function> dictFunctions = ImmutableList.<Function>of(
+  public static final List<BaseFunction> dictFunctions = ImmutableList.<BaseFunction>of(
       items, get, keys, values);
 
-  private static final List<Function> pureGlobalFunctions = ImmutableList.<Function>of(
+  private static final List<BaseFunction> pureGlobalFunctions = ImmutableList.<BaseFunction>of(
       bool, int_, len, minus, select, sorted, str);
 
-  private static final List<Function> skylarkGlobalFunctions = ImmutableList
-      .<Function>builder()
+  private static final List<BaseFunction> skylarkGlobalFunctions =
+      ImmutableList.<BaseFunction>builder()
       .addAll(pureGlobalFunctions)
       .add(list, struct, hasattr, getattr, set, dir, enumerate, range, type, fail, print, zip)
       .build();
@@ -1071,14 +1072,14 @@ public class MethodLibrary {
   }
 
   private static void setupMethodEnvironment(
-      Environment env, Class<?> nameSpace, Iterable<Function> functions) {
-    for (Function function : functions) {
+      Environment env, Class<?> nameSpace, Iterable<BaseFunction> functions) {
+    for (BaseFunction function : functions) {
       env.registerFunction(nameSpace, function.getName(), function);
     }
   }
 
-  private static void setupMethodEnvironment(Environment env, Iterable<Function> functions) {
-    for (Function function : functions) {
+  private static void setupMethodEnvironment(Environment env, Iterable<BaseFunction> functions) {
+    for (BaseFunction function : functions) {
       env.update(function.getName(), function);
     }
   }
@@ -1087,7 +1088,7 @@ public class MethodLibrary {
    * Collect global functions for the validation environment.
    */
   public static void setupValidationEnvironment(Set<String> builtIn) {
-    for (Function function : skylarkGlobalFunctions) {
+    for (BaseFunction function : skylarkGlobalFunctions) {
       builtIn.add(function.getName());
     }
   }

@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -44,7 +44,7 @@ import java.util.Map;
 public class SkylarkImportLookupFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
-  private final ImmutableList<Function> nativeRuleFunctions;
+  private final ImmutableList<BaseFunction> nativeRuleFunctions;
 
   public SkylarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
@@ -173,7 +173,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         .createSkylarkRuleClassEnvironment(eventHandler, ast.getContentHashCode());
     // Adding native rules module for build extensions.
     // TODO(bazel-team): this might not be the best place to do this.
-    for (Function function : nativeRuleFunctions) {
+    for (BaseFunction function : nativeRuleFunctions) {
         extensionEnv.registerFunction(
             SkylarkNativeModule.class, function.getName(), function);
     }

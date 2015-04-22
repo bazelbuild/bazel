@@ -420,7 +420,7 @@ public final class FuncallExpression extends Expression {
 
   @SuppressWarnings("unchecked")
   private void evalArguments(ImmutableList.Builder<Object> posargs, Map<String, Object> kwargs,
-      Environment env, Function function)
+      Environment env, BaseFunction function)
       throws EvalException, InterruptedException {
     ArgConversion conversion = getArgConversion(function);
     ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
@@ -473,7 +473,7 @@ public final class FuncallExpression extends Expression {
     Map<String, Object> kwargs = new HashMap<>();
 
     Object returnValue;
-    Function function;
+    BaseFunction function;
     if (obj != null) { // obj.func(...)
       Object objValue = obj.eval(env);
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
@@ -513,8 +513,8 @@ public final class FuncallExpression extends Expression {
       }
     } else { // func(...)
       Object funcValue = func.eval(env);
-      if ((funcValue instanceof Function)) {
-        function = (Function) funcValue;
+      if ((funcValue instanceof BaseFunction)) {
+        function = (BaseFunction) funcValue;
         evalArguments(posargs, kwargs, env, function);
         returnValue = function.call(
             posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
@@ -534,7 +534,7 @@ public final class FuncallExpression extends Expression {
     return returnValue;
   }
 
-  private ArgConversion getArgConversion(Function function) {
+  private ArgConversion getArgConversion(BaseFunction function) {
     if (function == null) {
       // It means we try to call a Java function.
       return ArgConversion.FROM_SKYLARK;

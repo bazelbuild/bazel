@@ -123,7 +123,7 @@ public class SkylarkEnvironment extends Environment implements Serializable {
     for (Entry<String, Object> entry : env.entrySet()) {
       newEnv.env.put(entry.getKey(), entry.getValue());
     }
-    for (Map.Entry<Class<?>, Map<String, Function>> functionMap : functions.entrySet()) {
+    for (Map.Entry<Class<?>, Map<String, BaseFunction>> functionMap : functions.entrySet()) {
       newEnv.functions.put(functionMap.getKey(), functionMap.getValue());
     }
     return newEnv;

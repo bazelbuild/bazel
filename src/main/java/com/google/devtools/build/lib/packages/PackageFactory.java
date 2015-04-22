@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Ident;
@@ -149,7 +148,7 @@ public final class PackageFactory {
     /**
      * Returns the extra functions needed to be added to the Skylark native module.
      */
-    ImmutableList<Function> nativeModuleFunctions();
+    ImmutableList<BaseFunction> nativeModuleFunctions();
 
     Iterable<PackageArgument<?>> getPackageArguments();
   }
@@ -854,7 +853,7 @@ public final class PackageFactory {
    * Returns a function-value implementing "package" in the specified package
    * context.
    */
-  private static Function newPackageFunction(
+  private static BaseFunction newPackageFunction(
       final ImmutableMap<String, PackageArgument<?>> packageArguments) {
     // Flatten the map of argument name of PackageArgument specifier in two co-indexed arrays:
     // one for the argument names, to create a FunctionSignature when we create the function,
@@ -1151,7 +1150,7 @@ public final class PackageFactory {
    * PackageFactory.)
    *
    * <p>PLEASE NOTE: references to PackageContext objects are held by many
-   * Function closures, but should become unreachable once the Environment is
+   * BaseFunction closures, but should become unreachable once the Environment is
    * discarded at the end of evaluation.  Please be aware of your memory
    * footprint when making changes here!
    */
@@ -1188,8 +1187,8 @@ public final class PackageFactory {
    * Returns the list of native rule functions created using the {@link RuleClassProvider}
    * of this {@link PackageFactory}.
    */
-  public ImmutableList<Function> collectNativeRuleFunctions() {
-    ImmutableList.Builder<Function> builder = ImmutableList.builder();
+  public ImmutableList<BaseFunction> collectNativeRuleFunctions() {
+    ImmutableList.Builder<BaseFunction> builder = ImmutableList.builder();
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       builder.add(newRuleFunction(ruleFactory, ruleClass));
     }
@@ -1215,7 +1214,7 @@ public final class PackageFactory {
     pkgEnv.update("PACKAGE_NAME", packageName);
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      Function ruleFunction = newRuleFunction(ruleFactory, ruleClass);
+      BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass);
       pkgEnv.update(ruleClass, ruleFunction);
     }
 

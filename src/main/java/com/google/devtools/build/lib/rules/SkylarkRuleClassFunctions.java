@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
@@ -180,9 +179,9 @@ public class SkylarkRuleClassFunctions {
       "Creates a new rule. Store it in a global value, so that it can be loaded and called "
       + "from BUILD files.",
       onlyLoadingPhase = true,
-      returnType = Function.class,
+      returnType = BaseFunction.class,
       mandatoryPositionals = {
-        @Param(name = "implementation", type = Function.class,
+        @Param(name = "implementation", type = BaseFunction.class,
             doc = "the function implementing this rule, has to have exactly one parameter: "
             + "<code>ctx</code>. The function is called during analysis phase for each "
             + "instance of the rule. It can access the attributes provided by the user. "
@@ -215,7 +214,7 @@ public class SkylarkRuleClassFunctions {
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
       @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
       // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
-      public Function invoke(Function implementation, Boolean test,
+      public BaseFunction invoke(BaseFunction implementation, Boolean test,
           Object attrs, Object implicitOutputs, Boolean executable, Boolean outputToGenfiles,
           FuncallExpression ast, Environment funcallEnv)
            throws EvalException, ConversionException {
@@ -250,8 +249,8 @@ public class SkylarkRuleClassFunctions {
         }
 
         if (implicitOutputs != Environment.NONE) {
-          if (implicitOutputs instanceof Function) {
-            Function func = (Function) implicitOutputs;
+          if (implicitOutputs instanceof BaseFunction) {
+            BaseFunction func = (BaseFunction) implicitOutputs;
             final SkylarkCallbackFunction callback =
                 new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
             builder.setImplicitOutputsFunction(

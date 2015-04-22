@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableList;
  */
 public class SkylarkCallbackFunction {
 
-  private final Function callback;
+  private final BaseFunction callback;
   private final FuncallExpression ast;
   private final SkylarkEnvironment funcallEnv;
 
-  public SkylarkCallbackFunction(Function callback, FuncallExpression ast,
+  public SkylarkCallbackFunction(BaseFunction callback, FuncallExpression ast,
       SkylarkEnvironment funcallEnv) {
     this.callback = callback;
     this.ast = ast;
