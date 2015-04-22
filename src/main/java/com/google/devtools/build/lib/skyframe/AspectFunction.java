@@ -122,11 +122,10 @@ public final class AspectFunction implements SkyFunction {
       throws AspectFunctionException {
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     BuildConfiguration configuration = associatedTarget.getConfiguration();
-    boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
 
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
-        key, false, extendedSanityChecks, events, env, true);
+        key, false, events, env, configuration);
     if (env.valuesMissing()) {
       return null;
     }

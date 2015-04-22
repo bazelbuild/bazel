@@ -464,15 +464,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
       Set<ConfigMatchingProvider> configConditions)
       throws ConfiguredTargetFunctionException,
       InterruptedException {
-    boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
-
     StoredEventHandler events = new StoredEventHandler();
     BuildConfiguration ownerConfig = (configuration == null)
         ? null : configuration.getArtifactOwnerConfiguration();
-    boolean allowRegisteringActions = configuration == null || configuration.isActionsEnabled();
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
         new ConfiguredTargetKey(target.getLabel(), ownerConfig), false,
-        extendedSanityChecks, events, env, allowRegisteringActions);
+        events, env, configuration);
     if (env.valuesMissing()) {
       return null;
     }

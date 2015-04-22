@@ -344,7 +344,7 @@ public final class SkyframeBuildView {
    */
   // TODO(bazel-team): Allow analysis to return null so the value builder can exit and wait for a
   // restart deps are not present.
-  private boolean getWorkspaceStatusValues(Environment env) {
+  private boolean getWorkspaceStatusValues(Environment env, BuildConfiguration config) {
     env.getValue(WorkspaceStatusValue.SKY_KEY);
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
         PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
@@ -359,10 +359,8 @@ public final class SkyframeBuildView {
     // build-info.txt and build-changelist.txt.
     List<SkyKey> depKeys = Lists.newArrayList();
     for (BuildInfoKey key : buildInfoFactories.keySet()) {
-      for (BuildConfiguration config : configurations.getAllConfigurations()) {
-        if (buildInfoFactories.get(key).isEnabled(config)) {
-          depKeys.add(BuildInfoCollectionValue.key(new BuildInfoKeyAndConfig(key, config)));
-        }
+      if (buildInfoFactories.get(key).isEnabled(config)) {
+        depKeys.add(BuildInfoCollectionValue.key(new BuildInfoKeyAndConfig(key, config)));
       }
     }
     env.getValues(depKeys);
@@ -372,11 +370,13 @@ public final class SkyframeBuildView {
   /** Returns null if any build-info values are not ready. */
   @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(ArtifactOwner owner,
-      boolean isSystemEnv, boolean extendedSanityChecks, EventHandler eventHandler,
-      Environment env, boolean allowRegisteringActions) {
-    if (!getWorkspaceStatusValues(env)) {
+      boolean isSystemEnv, EventHandler eventHandler,
+      Environment env, BuildConfiguration config) {
+    if (config != null && !getWorkspaceStatusValues(env, config)) {
       return null;
     }
+    boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
+    boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory, owner, isSystemEnv, extendedSanityChecks, eventHandler, env,
         allowRegisteringActions, binTools);
