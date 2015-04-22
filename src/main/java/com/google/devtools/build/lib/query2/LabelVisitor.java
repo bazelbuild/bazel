@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.syntax.Label;
@@ -365,7 +367,11 @@ final class LabelVisitor {
     private void visitTargetVisibility(Target target, int depth, int count) {
       Attribute attribute = null;
       if (target instanceof Rule) {
-        attribute = ((Rule) target).getRuleClassObject().getAttributeByName("visibility");
+        RuleClass ruleClass = ((Rule) target).getRuleClassObject();
+        if (!ruleClass.hasAttr("visibility", Type.NODEP_LABEL_LIST)) {
+          return;
+        }
+        attribute = ruleClass.getAttributeByName("visibility");
       }
 
       for (Label label : target.getVisibility().getDependencyLabels()) {

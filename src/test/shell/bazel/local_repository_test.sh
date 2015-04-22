@@ -421,4 +421,18 @@ EOF
   expect_log "My number is 3"
 }
 
+function test_external_query() {
+  local external_dir=$TEST_TMPDIR/x
+  mkdir -p $external_dir
+  touch $external_dir/WORKSPACE
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "my-repo",
+    path = "$external_dir",
+)
+EOF
+  bazel query 'deps(//external:*)' >& $TEST_log || fail "query failed"
+  expect_log "//external:my-repo"
+}
+
 run_suite "local repository tests"
