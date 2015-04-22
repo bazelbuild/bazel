@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: documentation
 ---
 
 Building Bazel on Windows

@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: community
 ---
 
 # Support Policy
@@ -26,32 +26,39 @@ We make no breaking changes to the rules, or provide instructions on how to migr
 issues that are reported, and also keep up with changes in the underlying tools. We ensure that all
 the tests pass.
 
-<table>
-<colgroup><col width="30%"/><col/></colgroup>
-  <tr>
-    <th>Rules</th>
-    <th>Notes</th>
-  </tr>
-  <tr>
-    <td>C/C++ rules except <code>cc_toolchain</code></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>Java rules</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><code>genrule</code></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><code>test_suite</code></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><code>filegroup</code></td>
-    <td></td>
-  </tr>
+<table class="table table-condensed table-striped table-bordered">
+  <colgroup>
+    <col width="30%"/>
+    <col/>
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Rules</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>C/C++ rules except <code>cc_toolchain</code></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>Java rules</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><code>genrule</code></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><code>test_suite</code></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><code>filegroup</code></td>
+      <td></td>
+    </tr>
+  </tbody>
 </table>
 
 
@@ -59,44 +66,51 @@ the tests pass.
 We avoid breaking changes when possible. We actively fix issues that are reported, but may fall
 behind the current state of the tools. We ensure that all the tests pass.
 
-<table>
-<colgroup><col width="30%"/><col/></colgroup>
-  <tr>
-    <th>Rules</th>
-    <th>Notes</th>
-  </tr>
-  <tr>
-    <td><code>cc_toolchain</code></td>
-    <td>
-      <ul>
-        <li>We intend to make significant changes to the way C/C++ toolchains are defined; we will
-          keep our published C/C++ toolchain definition(s) up to date, but we make no guarantees for
-          custom ones.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td>iOS/Objective C rules</td>
-    <td>
-      <ul>
-        <li>We cannot vouch for changes made by Apple &reg; to the underlying tools and
-          infrastructure.</li>
-        <li>The rules are fairly new and still subject to change; we try to avoid breaking changes,
-          but this may not always be possible.</li>
-        <li>No testing support yet.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td>Extra actions (<code>extra_action</code>, <code>action_listener</code>)</td>
-    <td>
-      <ul>
-        <li>Extra actions expose information about Bazel that we consider to be implementation
-          details, such as the exact interface between Bazel and the tools we provide; as such,
-          users will need to keep up with changes to tools to avoid breakage.</li>
-      </ul>
-    </td>
-  </tr>
+<table class="table table-condensed table-striped table-bordered">
+  <colgroup>
+    <col width="30%"/>
+    <col/>
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Rules</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>cc_toolchain</code></td>
+      <td>
+        <ul>
+          <li>We intend to make significant changes to the way C/C++ toolchains are defined; we will
+            keep our published C/C++ toolchain definition(s) up to date, but we make no guarantees for
+            custom ones.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td>iOS/Objective C rules</td>
+      <td>
+        <ul>
+          <li>We cannot vouch for changes made by Apple &reg; to the underlying tools and
+            infrastructure.</li>
+          <li>The rules are fairly new and still subject to change; we try to avoid breaking changes,
+            but this may not always be possible.</li>
+          <li>No testing support yet.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td>Extra actions (<code>extra_action</code>, <code>action_listener</code>)</td>
+      <td>
+        <ul>
+          <li>Extra actions expose information about Bazel that we consider to be implementation
+            details, such as the exact interface between Bazel and the tools we provide; as such,
+            users will need to keep up with changes to tools to avoid breakage.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
 </table>
 
 ### Built-In Rules and the Internal API For Rules ###
@@ -134,21 +148,28 @@ to be a lengthy process however.
 We will not break existing tests, but otherwise make no dedicated effort to keep the rules working
 or up-to-date.
 
-<table>
-<colgroup><col width="30%"/><col/></colgroup>
-  <tr>
-    <th>Rules</th>
-    <th>Notes</th>
-  </tr>
-  <tr>
-    <td><code>Fileset</code></td>
-    <td>
-      <ul>
-        <li>There are vestiges of Fileset / FilesetEntry in the source code, but we do not intend to
-          support them in Bazel, ever.</li>
-        <li>They're still widely used internally, and are therefore unlikely to go away in the near
-          future.</li>
-      </ul>
-    </td>
-  </tr>
+<table class="table table-condensed table-striped table-bordered">
+  <colgroup>
+    <col width="30%"/>
+    <col/>
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Rules</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Fileset</code></td>
+      <td>
+        <ul>
+          <li>There are vestiges of Fileset / FilesetEntry in the source code, but we do not intend to
+            support them in Bazel, ever.</li>
+          <li>They're still widely used internally, and are therefore unlikely to go away in the near
+            future.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
 </table>

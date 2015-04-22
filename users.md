@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: community
 ---
 
 # Projects Using Bazel

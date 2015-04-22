@@ -1,0 +1,46 @@
+{% assign site_root = "" %}
+{% assign path_parts = page.url | split:"/" %}
+{% for part in path_parts offset:2 %}
+{% assign site_root = site_root | append:"../" %}
+{% endfor %}
+
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/WebPage">
+  {% include head.html %}
+  <body>
+    {% include header.html %}
+
+    <div class="page-title-bar">
+      <div class="container">
+        <h1>Community</h1>
+      </div>
+    </div>
+
+    <div class="container vpad">
+      <div class="row">
+        <div class="col-md-9">
+          {{ content }}
+        </div>
+        <div class="col-md-3">
+          <ul class="list-unstyled docs-side-nav">
+            <li><a href="{{ "/contributing.html" | prepend: site_root }}">Contributing</a></li>
+            <li><a href="{{ "/governance.html" | prepend : site_root }}">Governance</a></li>
+            <li><a href="{{ "/support.html" | prepend : site_root }}">Support</a></li>
+            <li><a href="{{ "/roadmap.html" | prepend : site_root }}">Roadmap</a></li>
+            <li><a href="{{ "/users.html" | prepend : site_root }}">Who's Using Bazel</a></li>
+          </ul>
+          <h3>Contribute to Bazel</h3>
+          <ul class="list-unstyled">
+            <li><a href="https://github.com/google/bazel">GitHub</a></li>
+            <li><a href="https://github.com/google/bazel/issues">Issues</a></li>
+            <li><a href="https://bazel-review.googlesource.com">Gerrit</a></li>
+            <li><a href="https://groups.google.com/forum/#!forum/bazel-discuss">Mailing List</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {% include footer.html %}
+  </body>
+</html>
+

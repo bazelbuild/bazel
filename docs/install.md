@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: documentation
 ---
 
 # Installing Bazel

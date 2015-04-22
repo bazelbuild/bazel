@@ -1,17 +1,15 @@
 ---
-layout: default
+layout: blog
 ---
 
-Bazel Blog
-==========
-
 {% for post in site.categories.blog %}
-[{{ post.title }}]({{ post.url }})
-----------------------------------
-_{{ post.date | date_to_long_string }}_
 
-{{ post.content }}
+<div class="blog-post">
+  <h1 class="blog-post-title"><a href="{{ post.url }}">{{ post.title }}</a></h1>
+  <div class="blog-post-meta">
+    <span class="text-muted">{{ post.date | date_to_long_string }}</span>
+  </div>
+  {{ post.content }}
+</div>
 
 {% endfor %}
-
-[Subscribe](feed.xml)

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/WebPage">
+  {% include head.html %}
+  <body>
+    {% include header.html %}
+
+    <div class="page-title-bar">
+      <div class="container">
+        <h1>Documentation</h1>
+      </div>
+    </div>
+
+    <div class="container vpad">
+      <div class="row">
+        <div class="col-md-9">
+          {{ content }}
+        </div>
+        <div class="col-md-3">
+          <ul class="list-unstyled docs-side-nav">
+            <li><a href="{{ "/docs/install.html" | prepend: site_root }}">Installing</a></li>
+            <li><a href="{{ "/docs/getting-started.html" | prepend: site_root }}">Getting Started</a></li>
+            <li>
+              Using Bazel
+              <ul>
+                <li><a href="{{ "/docs/build-ref.html" | prepend: site_root }}">Concepts</a></li>
+                <li><a href="{{ "/docs/bazel-user-manual.html" | prepend: site_root }}">User Manual</a></li>
+                <li><a href="{{ "/docs/build-encyclopedia.html" | prepend: site_root }}">Build Encyclopedia</a></li>
+                <li><a href="{{ "/docs/test-encyclopedia.html" | prepend: site_root }}">Test Encyclopedia</a></li>
+                <li><a href="{{ "/docs/query.html" | prepend: site_root }}">Query Language Reference</a></li>
+              </ul>
+            </li>
+            <li>
+              Skylark
+              <ul>
+                <li><a href="{{ "/docs/skylark/index.html" | prepend: site_root }}">Home</a></li>
+                <li><a href="{{ "/docs/skylark/concepts.html" | prepend: site_root }}">Concepts</a></li>
+                <li><a href="{{ "/docs/skylark/rules.html" | prepend: site_root }}">Rules</a></li>
+                <li><a href="{{ "/docs/skylark/macros.html" | prepend: site_root }}">Macros</a></li>
+                <li><a href="{{ "/docs/skylark/library.html" | prepend: site_root }}">Library</a></li>
+                <li><a href="{{ "/docs/skylark/cookbook.html" | prepend: site_root }}">Cookbook</a></li>
+              </ul>
+            </li>
+            <li><a href="{{ "/docs/skyframe.html" | prepend: site_root }}">Skyframe</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {% include footer.html %}
+  </body>
+</html>

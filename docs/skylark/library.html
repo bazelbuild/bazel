@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: documentation
 ---
 
 <h2 id="modules._top_level">Global objects, functions and modules</h2>
@@ -40,21 +40,24 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 <code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Literal for the boolean true.
 <br/>
 <li><h3 id="modules._top_level.bool">bool</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> is also a type.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> bool(x)</code><br>
+Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> is also a type.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.bool.x"><code>x</code>: The variable to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.dir">dir</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a list strings: the names of the fields and methods of the parameter object.
+<code><a class="anchor" href="#modules.list">list</a> dir(object)</code><br>
+Returns a list strings: the names of the fields and methods of the parameter object.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.dir.object"><code>object</code>: The object to check.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.enumerate">enumerate</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
+<code><a class="anchor" href="#modules.list">list</a> enumerate(list)</code><br>
+Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
 <pre class="language-python">enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>
 
 <h4>Parameters</h4>
@@ -63,7 +66,8 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 	</li>
 </ul>
 <li><h3 id="modules._top_level.fail">fail</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a></code><br>Raises an error that cannot be intercepted.
+<code><a class="anchor" href="#modules._top_level.None">None</a> fail(msg, attr?)</code><br>
+Raises an error that cannot be intercepted.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.fail.msg"><code>msg (<a class="anchor" href="#modules.string">string</a>)</code>: Error message to display for the user
@@ -74,6 +78,7 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 	</li>
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
+<code>unknown getattr(object, name, default?)</code><br>
 Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise rasies an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.Example:<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
@@ -88,7 +93,8 @@ getattr(ctx.attr, "myattr", "mydefault")</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.hasattr">hasattr</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> hasattr(object, name)</code><br>
+Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.hasattr.object"><code>object</code>: The object to check.
@@ -97,21 +103,24 @@ getattr(ctx.attr, "myattr", "mydefault")</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.int">int</h3>
-<code>int</code><br>Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
+<code>int int(x)</code><br>
+Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.int.x"><code>x (<a class="anchor" href="#modules.string">string</a>)</code>: The string to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.len">len</h3>
-<code>int</code><br>Returns the length of a string, list, tuple, set, or dictionary.
+<code>int len(x)</code><br>
+Returns the length of a string, list, tuple, set, or dictionary.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.len.x"><code>x</code>: The object to check length of.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.list">list</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
+<code><a class="anchor" href="#modules.list">list</a> list(x)</code><br>
+Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
 list(set([2, 3, 2])) == [2, 3]
 list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 <h4>Parameters</h4>
@@ -120,7 +129,8 @@ list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.print">print</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a></code><br>Prints <code>msg</code> to the console.
+<code><a class="anchor" href="#modules._top_level.None">None</a> print(*args, sep?)</code><br>
+Prints <code>msg</code> to the console.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.print.args"><code>args</code>: The objects to print.
@@ -141,16 +151,17 @@ Returns the transitive info provider provided by the target.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.range">range</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
+<code><a class="anchor" href="#modules.list">list</a> range(start_or_stop, stop_or_none?, step?)</code><br>
+Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
 range(3, 9, 2) == [3, 5, 7]
 range(3, 0, -1) == [3, 2, 1]</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.range.start"><code>start (int)</code>: Value of the first element if stop is provided, otherwise value of stop and the actual start is 0
+	<li id="modules._top_level.range.start_or_stop"><code>start_or_stop (int)</code>: Value of the start element if stop is provided, otherwise value of stop and the actual start is 0
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.range.stop"><code>stop (int)</code>: optional index of the first item <i>not</i> to be included in the resulting list; generation of the list stops before <code>stop</code> is reached.
+	<li id="modules._top_level.range.stop_or_none"><code>stop_or_none (int)</code>: optional index of the first item <i>not</i> to be included in the resulting list; generation of the list stops before <code>stop</code> is reached.
 	</li>
 	<li id="modules._top_level.range.step"><code>step (int)</code>: The increment (default is 1). It may be negative.
 	</li>
@@ -176,6 +187,7 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 	</li>
 </ul>
 <li><h3 id="modules._top_level.select">select</h3>
+<code>unknown select(x)</code><br>
 Creates a SelectorValue from the dict parameter.
 <h4>Parameters</h4>
 <ul>
@@ -183,7 +195,8 @@ Creates a SelectorValue from the dict parameter.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.set">set</h3>
-<code><a class="anchor" href="#modules.set">set</a></code><br>Creates a <a href="#modules.set">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
+<code><a class="anchor" href="#modules.set">set</a> set(items?, order?)</code><br>
+Creates a <a href="#modules.set">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
 set([1, 2, 3], order="compile")</pre>
 <h4>Parameters</h4>
 <ul>
@@ -193,21 +206,24 @@ set([1, 2, 3], order="compile")</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.sorted">sorted</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Sort a collection.
+<code><a class="anchor" href="#modules.list">list</a> sorted(self)</code><br>
+Sort a collection.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.sorted.self"><code>self (<a class="anchor" href="#modules.list">list</a>)</code>: This list.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.str">str</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Converts any object to string. This is useful for debugging.
+<code><a class="anchor" href="#modules.string">string</a> str(x)</code><br>
+Converts any object to string. This is useful for debugging.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.str.x"><code>x</code>: The object to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.struct">struct</h3>
-<code><a class="anchor" href="#modules.struct">struct</a></code><br>Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
+<code><a class="anchor" href="#modules.struct">struct</a> struct(**kwarg)</code><br>
+Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
 return s.x + s.y  # returns 5</pre>
 <h4>Parameters</h4>
 <ul>
@@ -215,14 +231,16 @@ return s.x + s.y  # returns 5</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.type">type</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the type name of its argument.
+<code><a class="anchor" href="#modules.string">string</a> type(object)</code><br>
+Returns the type name of its argument.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.type.object"><code>object</code>: The object to check type of.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.zip">zip</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
+<code><a class="anchor" href="#modules.list">list</a> zip(*args)</code><br>
+Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
 zip([1, 2])  # == [(1,), (2,)]
 zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
 zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
@@ -410,7 +428,7 @@ Creates an attribute of type dictionary, mapping from string to string. Its defa
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_list">string_list</h3>
-<code>Attribute attr.string_list(default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+<code>Builder attr.string_list(default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
 Creates an attribute of type list of strings
 <h4>Parameters</h4>
 <ul>
@@ -623,6 +641,7 @@ A language built-in type to support dicts. Example of dict literal:<br><pre clas
 d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
 d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
 <ul><li><h3 id="modules.dict.get">get</h3>
+<code>unknown dict.get(key, default?)</code><br>
 Return the value for <code>key</code> if <code>key</code> is in the dictionary, else <code>default</code>. If <code>default</code> is not given, it defaults to <code>None</code>, so that this method never throws an error.
 <h4>Parameters</h4>
 <ul>
@@ -634,15 +653,18 @@ Return the value for <code>key</code> if <code>key</code> is in the dictionary, 
 	</li>
 </ul>
 <li><h3 id="modules.dict.items">items</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
+<code><a class="anchor" href="#modules.list">list</a> dict.items()</code><br>
+Return the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
 
 <br/>
 <li><h3 id="modules.dict.keys">keys</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
+<code><a class="anchor" href="#modules.list">list</a> dict.keys()</code><br>
+Return the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
 
 <br/>
 <li><h3 id="modules.dict.values">values</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Return the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
+<code><a class="anchor" href="#modules.list">list</a> dict.values()</code><br>
+Return the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
 
 <br/>
 </ul><hr><h2 id="modules.list">list</h2>
@@ -718,7 +740,8 @@ x = []
 for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>
 <ul><li><h3 id="modules.string.count">count</h3>
-<code>int</code><br>Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int string.count(sub, start?, end?)</code><br>
+Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.count.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to count.
@@ -731,7 +754,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.endswith">endswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.endswith(sub, start?, end?)</code><br>
+Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.endswith.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to check.
@@ -744,7 +768,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.find">find</h3>
-<code>int</code><br>Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int string.find(sub, start?, end?)</code><br>
+Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.find.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -757,7 +782,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.index">index</h3>
-<code>int</code><br>Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int string.index(sub, start?, end?)</code><br>
+Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.index.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -770,17 +796,20 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.join">join</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
+<code><a class="anchor" href="#modules.string">string</a> string.join(elements)</code><br>
+Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.join.elements"><code>elements (<a class="anchor" href="#modules.list">list</a>)</code>: The objects to join.
 	</li>
 </ul>
 <li><h3 id="modules.string.lower">lower</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the lower case version of this string.
+<code><a class="anchor" href="#modules.string">string</a> string.lower()</code><br>
+Returns the lower case version of this string.
 <br/>
 <li><h3 id="modules.string.replace">replace</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
+<code><a class="anchor" href="#modules.string">string</a> string.replace(old, new, maxsplit?)</code><br>
+Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.replace.old"><code>old (<a class="anchor" href="#modules.string">string</a>)</code>: The string to be replaced.
@@ -793,7 +822,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.rfind">rfind</h3>
-<code>int</code><br>Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int string.rfind(sub, start?, end?)</code><br>
+Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.rfind.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -806,7 +836,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.rindex">rindex</h3>
-<code>int</code><br>Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code>int string.rindex(sub, start?, end?)</code><br>
+Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.rindex.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to find.
@@ -819,7 +850,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.split">split</h3>
-<code><a class="anchor" href="#modules.list">list</a></code><br>Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
+<code><a class="anchor" href="#modules.list">list</a> string.split(sep?, maxsplit?)</code><br>
+Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.split.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
@@ -828,7 +860,8 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.startswith">startswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a></code><br>Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.startswith(sub, start?, end?)</code><br>
+Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.string.startswith.sub"><code>sub (<a class="anchor" href="#modules.string">string</a>)</code>: The substring to check.
@@ -841,10 +874,12 @@ for s in "abc":
 	</li>
 </ul>
 <li><h3 id="modules.string.strip">strip</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
+<code><a class="anchor" href="#modules.string">string</a> string.strip()</code><br>
+Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
 <br/>
 <li><h3 id="modules.string.upper">upper</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>Returns the upper case version of this string.
+<code><a class="anchor" href="#modules.string">string</a> string.upper()</code><br>
+Returns the upper case version of this string.
 <br/>
 </ul><hr><h2 id="modules.struct">struct</h2>
 A special language element to support structs (i.e. simple value objects). See the global <a href="#modules._top_level.struct">struct</a> function for more details.

@@ -1,11 +1,12 @@
 ---
-layout: default
+layout: community
 ---
 
 # Contributing to Bazel
 
-*Please do not send us pull requests on GitHub!* We welcome contributions
-(see below) but we cannot currently accept patches via pull request.
+If you wish to contribute, prefer using Gerrit over GitHub pull request. We
+might redirect you to Gerrit if you send us a non-trivial change in a GitHub
+Pull Request.
 
 ## How can I contribute to Bazel?
 
