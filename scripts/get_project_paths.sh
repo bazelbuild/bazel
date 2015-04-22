@@ -73,6 +73,6 @@ GEN_LIBS=$(query 'let gendeps = kind(rule, deps(kind(java_*, deps('"$TARGET"')),
     | sed 's|^//\(.*\):\(.*\)|bazel-bin/\1/lib\2.jar:bazel-genfiles/\1|')
 
 # Hack for genproto
-PROTOBUFS=$(bazel query 'kind(genproto, deps('"$TARGET"'))' \
+PROTOBUFS=$(query 'kind(genproto, deps('"$TARGET"'))' \
     | sed 's|^//\(.*\):\(.*\)$|bazel-bin/\1/lib\2.jar:bazel-bin/\1/lib\2.jar.proto_output/|')
 LIB_PATHS="${JAR_FILES} ${PROTOBUFS} ${GEN_LIBS}"
