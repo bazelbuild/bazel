@@ -366,4 +366,59 @@ EOF
   expect_log "@x-repo//x  to //a:a"
 }
 
+function test_external_includes() {
+  clib=$TEST_TMPDIR/clib
+  mkdir -p $clib/include
+  cat > $clib/include/clib.h <<EOF
+int x();
+EOF
+  cat > $clib/clib.cc <<EOF
+#include "clib.h"
+int x() {
+  return 3;
+}
+EOF
+  cat > $clib/BUILD <<EOF
+cc_library(
+    name = "clib",
+    srcs = ["clib.cc"],
+    hdrs = glob(["**/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "clib-repo",
+    path = "$clib",
+)
+
+bind(
+    name = "clib",
+    actual = "@clib-repo//:clib"
+)
+EOF
+  cat > BUILD <<EOF
+cc_binary(
+    name = "printer",
+    srcs = ["printer.cc"],
+    deps = ["//external:clib"],
+)
+EOF
+  cat > printer.cc <<EOF
+#include <stdio.h>
+
+#include "clib.h"
+
+int main() {
+  printf("My number is %d\n", x());
+  return 0;
+}
+EOF
+
+  bazel run //:printer >& $TEST_log || fail "Running //:printer failed"
+  expect_log "My number is 3"
+}
+
 run_suite "local repository tests"

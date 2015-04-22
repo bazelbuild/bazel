@@ -406,6 +406,7 @@ cat external/endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
+  bazel clean --expunge
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc

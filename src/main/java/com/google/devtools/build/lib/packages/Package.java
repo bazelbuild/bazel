@@ -110,7 +110,7 @@ public class Package implements Serializable {
 
   /**
    * The root of the source tree in which this package was found. It is an invariant that
-   * {@code sourceRoot.getRelative(name).equals(packageDirectory)}.
+   * {@code sourceRoot.getRelative(packageId.getPathFragment()).equals(packageDirectory)}.
    */
   private Path sourceRoot;
 
@@ -312,9 +312,9 @@ public class Package implements Serializable {
     defaultRestrictedTo = environments;
   }
 
-  public static Path getSourceRoot(Path buildFile, PathFragment nameFragment) {
+  private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
     Path current = buildFile.getParentDirectory();
-    for (int i = 0, len = nameFragment.segmentCount(); i < len && current != null; i++) {
+    for (int i = 0, len = packageFragment.segmentCount(); i < len && current != null; i++) {
       current = current.getParentDirectory();
     }
     return current;
@@ -341,12 +341,12 @@ public class Package implements Serializable {
     this.filename = builder.filename;
     this.packageDirectory = filename.getParentDirectory();
 
-    this.sourceRoot = getSourceRoot(filename, nameFragment);
+    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getPathFragment());
     if ((sourceRoot == null
-        || !sourceRoot.getRelative(nameFragment).equals(packageDirectory))
+        || !sourceRoot.getRelative(packageIdentifier.getPathFragment()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
-          "Invalid BUILD file name for package '" + name + "': " + filename);
+          "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
     }
 
     this.makeEnv = builder.makeEnv.build();
@@ -395,7 +395,7 @@ public class Package implements Serializable {
    * Returns the source root (a directory) beneath which this package's BUILD file was found.
    *
    * Assumes invariant:
-   * {@code getSourceRoot().getRelative(getName()).equals(getPackageDirectory())}
+   * {@code getSourceRoot().getRelative(packageId.getPathFragment()).equals(getPackageDirectory())}
    */
   public Path getSourceRoot() {
     return sourceRoot;

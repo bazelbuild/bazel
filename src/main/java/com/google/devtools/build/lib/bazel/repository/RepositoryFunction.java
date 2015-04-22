@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileSymlinkCycleException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -48,7 +46,6 @@ import javax.annotation.Nullable;
  * Parent class for repository-related Skyframe functions.
  */
 public abstract class RepositoryFunction implements SkyFunction {
-  private static final String EXTERNAL_REPOSITORY_DIRECTORY = ".external-repository";
   private BlazeDirectories directories;
 
   @Override
@@ -73,7 +70,7 @@ public abstract class RepositoryFunction implements SkyFunction {
   }
 
   public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(EXTERNAL_REPOSITORY_DIRECTORY);
+    return directories.getOutputBase().getRelative(ExternalPackage.NAME);
   }
 
   /**
@@ -107,7 +104,7 @@ public abstract class RepositoryFunction implements SkyFunction {
       RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
       throws RepositoryFunctionException {
     SkyKey packageKey = PackageValue.key(
-        PackageIdentifier.createInDefaultRepo(PackageFunction.EXTERNAL_PACKAGE_NAME));
+        PackageIdentifier.createInDefaultRepo(ExternalPackage.NAME));
     PackageValue packageValue;
     try {
       packageValue = (PackageValue) env.getValueOrThrow(packageKey,
@@ -115,7 +112,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new RepositoryFunctionException(
           new BuildFileNotFoundException(
-              PackageFunction.EXTERNAL_PACKAGE_NAME, "Could not load //external package"),
+              ExternalPackage.NAME, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     if (packageValue == null) {
@@ -126,7 +123,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     if (rule == null) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              PackageFunction.EXTERNAL_PACKAGE_NAME,
+              ExternalPackage.NAME,
               "The repository named '" + repositoryName + "' could not be resolved"),
           Transience.PERSISTENT);
     }
@@ -138,9 +135,6 @@ public abstract class RepositoryFunction implements SkyFunction {
   /**
    * Adds the repository's directory to the graph and, if it's a symlink, resolves it to an
    * actual directory.
-   *
-   * <p>Also creates a symlink from x/external/x to x, where x is the directory containing a
-   * WORKSPACE file. This is used in the execution root.</p>
    */
   @Nullable
   protected static FileValue getRepositoryDirectory(Path repositoryDirectory, Environment env)
@@ -155,20 +149,6 @@ public abstract class RepositoryFunction implements SkyFunction {
       throw new RepositoryFunctionException(
           new IOException("Could not access " + repositoryDirectory + ": " + e.getMessage()),
           Transience.PERSISTENT);
-    }
-
-    String targetName = repositoryDirectory.getBaseName();
-    try {
-      Path backlink = repositoryDirectory.getRelative("external").getRelative(targetName);
-      FileSystemUtils.createDirectoryAndParents(backlink.getParentDirectory());
-      if (backlink.exists()) {
-        backlink.delete();
-      }
-      backlink.createSymbolicLink(repositoryDirectory);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(new IOException(
-          "Error creating execution root symlink for " + targetName + ": " + e.getMessage()),
-          Transience.TRANSIENT);
     }
     return value;
   }
