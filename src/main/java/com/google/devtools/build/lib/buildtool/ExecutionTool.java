@@ -184,15 +184,8 @@ public class ExecutionTool {
     List<ActionContextConsumer> actionContextConsumers = new ArrayList<>();
     actionContextProviders = new ArrayList<>();
     for (BlazeModule module : runtime.getBlazeModules()) {
-      ActionContextProvider provider = module.getActionContextProvider();
-      if (provider != null) {
-        actionContextProviders.add(provider);
-      }
-
-      ActionContextConsumer consumer = module.getActionContextConsumer();
-      if (consumer != null) {
-        actionContextConsumers.add(consumer);
-      }
+      Iterables.addAll(actionContextProviders, module.getActionContextProviders());
+      Iterables.addAll(actionContextConsumers, module.getActionContextConsumers());
     }
 
     actionContextProviders.add(new FilesetActionContextImpl.Provider(

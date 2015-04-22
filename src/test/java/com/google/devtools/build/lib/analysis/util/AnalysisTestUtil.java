@@ -20,18 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -261,27 +256,6 @@ public final class AnalysisTestUtil {
     @Override
     public ImmutableMap<String, Key> getVolatileKeys() {
       return ImmutableMap.of();
-    }
-  }
-
-  public static class DummyWorkspaceActionContextProvider implements ActionContextProvider {
-    @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return ImmutableList.<ActionContext>of(new DummyWorkspaceStatusActionContext());
-    }
-
-    @Override
-    public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
-    }
-
-    @Override
-    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-        ActionGraph actionGraph,
-        Iterable<Artifact> topLevelArtifacts) throws ExecutorInitException, InterruptedException {
-    }
-
-    @Override
-    public void executionPhaseEnding() {
     }
   }
 

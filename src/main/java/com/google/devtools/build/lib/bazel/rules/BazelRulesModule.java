@@ -20,11 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
@@ -100,30 +97,6 @@ public class BazelRulesModule extends BlazeModule {
     }
   }
 
-  private class BazelActionContextProvider implements ActionContextProvider {
-    @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return ImmutableList.of(
-          new LocalGccStrategy(optionsProvider),
-          new LocalLinkStrategy());
-    }
-
-    @Override
-    public void executorCreated(Iterable<ActionContext> usedContexts)
-        throws ExecutorInitException {
-    }
-
-    @Override
-    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-        ActionGraph actionGraph, Iterable<Artifact> topLevelArtifacts)
-        throws ExecutorInitException, InterruptedException {
-    }
-
-    @Override
-    public void executionPhaseEnding() {
-    }
-  }
-
   private BlazeRuntime runtime;
   private OptionsProvider optionsProvider;
 
@@ -141,14 +114,16 @@ public class BazelRulesModule extends BlazeModule {
   }
 
   @Override
-  public ActionContextConsumer getActionContextConsumer() {
-    return new BazelActionContextConsumer(
-        optionsProvider.getOptions(BazelExecutionOptions.class));
+  public Iterable<ActionContextConsumer> getActionContextConsumers() {
+    return ImmutableList.<ActionContextConsumer>of(new BazelActionContextConsumer(
+        optionsProvider.getOptions(BazelExecutionOptions.class)));
   }
-
+  
   @Override
-  public ActionContextProvider getActionContextProvider() {
-    return new BazelActionContextProvider();
+  public Iterable<ActionContextProvider> getActionContextProviders() {
+    return SimpleActionContextProvider.of(
+        new LocalGccStrategy(optionsProvider),
+        new LocalLinkStrategy());
   }
 
   @Subscribe

@@ -20,17 +20,14 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
@@ -174,29 +171,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
   }
 
-
-  private class WorkspaceActionContextProvider implements ActionContextProvider {
-    @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return ImmutableList.<ActionContext>of(new BazelWorkspaceStatusActionContext());
-    }
-
-    @Override
-    public void executorCreated(Iterable<ActionContext> usedContexts)
-        throws ExecutorInitException {
-    }
-
-    @Override
-    public void executionPhaseEnding() {
-    }
-
-    @Override
-    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-        ActionGraph actionGraph, Iterable<Artifact> topLevelArtifacts) throws ExecutorInitException,
-        InterruptedException {
-    }
-  }
-
   private BlazeRuntime runtime;
   private AtomicReference<WorkspaceStatusAction.Options> options = new AtomicReference<>();
 
@@ -219,8 +193,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public ActionContextProvider getActionContextProvider() {
-    return new WorkspaceActionContextProvider();
+  public Iterable<ActionContextProvider> getActionContextProviders() {
+    return SimpleActionContextProvider.of(new BazelWorkspaceStatusActionContext());
   }
 
   @Override

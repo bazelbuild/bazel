@@ -298,24 +298,24 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the action context provider the module contributes to Blaze, if any.
+   * Returns the action context providers the module contributes to Blaze, if any.
    *
    * <p>This method will be called at the beginning of the execution phase, e.g. of the
    * "blaze build" command.
    */
-  public ActionContextProvider getActionContextProvider() {
-    return null;
+  public Iterable<ActionContextProvider> getActionContextProviders() {
+    return ImmutableList.of();
   }
 
   /**
-   * Returns the action context consumer that pulls in action contexts required by this module,
+   * Returns the action context consumers that pulls in action contexts required by this module,
    * if any.
    *
    * <p>This method will be called at the beginning of the execution phase, e.g. of the
    * "blaze build" command.
    */
-  public ActionContextConsumer getActionContextConsumer() {
-    return null;
+  public Iterable<ActionContextConsumer> getActionContextConsumers() {
+    return ImmutableList.of();
   }
 
   /**
