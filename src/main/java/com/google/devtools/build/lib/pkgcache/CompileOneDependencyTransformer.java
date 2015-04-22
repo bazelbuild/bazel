@@ -17,6 +17,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -63,17 +65,11 @@ final class CompileOneDependencyTransformer {
    * Returns a list of rules in the given package sorted by BUILD file order. When
    * multiple rules depend on a target, we choose the first match in this list (after
    * filtering for preferred dependencies - see below).
-   *
-   * <p>Rules with configurable attributes are skipped, as this code doesn't know which
-   * configuration will be applied, so it can't reliably determine what their 'srcs'
-   * will look like.
    */
   private Iterable<Rule> getOrderedRuleList(Package pkg) {
     List<Rule> orderedList = Lists.newArrayList();
     for (Rule rule : pkg.getTargets(Rule.class)) {
-      if (!rule.hasConfigurableAttributes()) {
-        orderedList.add(rule);
-      }
+      orderedList.add(rule);
     }
 
     Collections.sort(orderedList, new Comparator<Rule>() {
@@ -127,8 +123,17 @@ final class CompileOneDependencyTransformer {
 
     // For each rule, see if it has directCompileTimeInputAttribute,
     // and if so check the targets listed in that attribute match the label.
+    final BinaryPredicate<Rule, Attribute> directCompileTimeInput =
+        new BinaryPredicate<Rule, Attribute>() {
+          @Override
+          public boolean apply(Rule rule, Attribute attribute) {
+            return Rule.DIRECT_COMPILE_TIME_INPUT.apply(rule, attribute)
+                // We don't know which path to follow for configurable attributes, so skip them.
+                && !rule.isConfigurableAttribute(attribute.getName());
+          }
+        };
     for (Rule rule : orderedRuleList) {
-      if (rule.getLabels(Rule.DIRECT_COMPILE_TIME_INPUT).contains(target.getLabel())) {
+      if (rule.getLabels(directCompileTimeInput).contains(target.getLabel())) {
         if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
           result = rule;
         } else if (fallbackRule == null) {
@@ -160,13 +165,11 @@ final class CompileOneDependencyTransformer {
 
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
-      // We don't know what configuration we're using at this point, so we can't be sure
-      // which deps/srcs apply to this invocation if they're configurable for this rule.
-      // So exclude such rules for consideration.
+      // We don't know which path to follow for configurable attributes, so skip them.
       if (attributes.isConfigurable("deps", Type.LABEL_LIST)
           || attributes.isConfigurable("srcs", Type.LABEL_LIST)) {
         continue;
-        }
+      }
       RuleClass ruleClass = rule.getRuleClassObject();
       if (ruleClass.hasAttr("deps", Type.LABEL_LIST) &&
           ruleClass.hasAttr("srcs", Type.LABEL_LIST)) {
