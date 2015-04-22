@@ -205,8 +205,8 @@ public class BuiltinFunction extends BaseFunction {
     Preconditions.checkState(!isConfigured()); // must not be configured yet
     enforcedArgumentTypes = new ArrayList<>();
     this.extraArgs = SkylarkSignatureProcessor.getExtraArgs(annotation);
-    super.configure(annotation);
     this.returnType = annotation.returnType();
+    super.configure(annotation);
   }
 
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
@@ -273,7 +273,10 @@ public class BuiltinFunction extends BaseFunction {
       if (type == HackHackEitherList.class) {
         type = Object.class;
       }
-      Preconditions.checkArgument(type == invokeMethod.getReturnType());
+      Class<?> methodReturnType = invokeMethod.getReturnType();
+      Preconditions.checkArgument(type == methodReturnType,
+          "signature for function %s says it returns %s but its invoke method returns %s",
+          getName(), returnType, methodReturnType);
     }
   }
 

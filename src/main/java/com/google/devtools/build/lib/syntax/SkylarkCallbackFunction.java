@@ -15,17 +15,16 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 
-
 /**
  * A helper class for calling Skylark functions from Java.
  */
 public class SkylarkCallbackFunction {
 
-  private final UserDefinedFunction callback;
+  private final Function callback;
   private final FuncallExpression ast;
   private final SkylarkEnvironment funcallEnv;
 
-  public SkylarkCallbackFunction(UserDefinedFunction callback, FuncallExpression ast,
+  public SkylarkCallbackFunction(Function callback, FuncallExpression ast,
       SkylarkEnvironment funcallEnv) {
     this.callback = callback;
     this.ast = ast;

@@ -14,19 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.AbstractFunction;
-import com.google.devtools.build.lib.syntax.AbstractFunction.NoArgFunction;
+import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.DotExpression;
@@ -35,7 +31,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
-import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -44,11 +39,12 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +102,7 @@ public class MethodLibrary {
     return str.substring(start, stop);
   }
 
-  public static int getListIndex(Object key, int listSize, FuncallExpression ast)
+  public static int getListIndex(Object key, int listSize, Location loc)
       throws ConversionException, EvalException {
     // Get the nth element in the list
     int index = Type.INTEGER.convert(key, "index operand");
@@ -114,7 +110,7 @@ public class MethodLibrary {
       index += listSize;
     }
     if (index < 0 || index >= listSize) {
-      throw new EvalException(ast.getLocation(), "List index out of range (index is "
+      throw new EvalException(loc, "List index out of range (index is "
           + index + ", but list has " + listSize + " elements)");
     }
     return index;
@@ -129,25 +125,20 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, a separator."),
         @Param(name = "elements", type = HackHackEitherList.class, doc = "The objects to join.")})
-  private static Function join = new MixedModeFunction("join",
-      ImmutableList.of("this", "elements"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      String thisString = Type.STRING.convert(args[0], "'join' operand");
-      List<?> seq = Type.OBJECT_LIST.convert(args[1], "'join' argument");
-      return Joiner.on(thisString).join(seq);
-    }};
+  private static BuiltinFunction join = new BuiltinFunction("join") {
+    public String invoke(String self, Object elements) throws ConversionException {
+      List<?> seq = Type.OBJECT_LIST.convert(elements, "'join.elements' argument");
+      return Joiner.on(self).join(seq);
+    }
+  };
 
   @SkylarkSignature(name = "lower", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the lower case version of this string.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, to convert to lower case.")})
-  private static Function lower = new MixedModeFunction("lower",
-          ImmutableList.of("this"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'lower' operand");
-      return thiz.toLowerCase();
+  private static BuiltinFunction lower = new BuiltinFunction("lower") {
+    public String invoke(String self) {
+      return self.toLowerCase();
     }
   };
 
@@ -155,12 +146,9 @@ public class MethodLibrary {
       doc = "Returns the upper case version of this string.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, to convert to upper case.")})
-    private static Function upper = new MixedModeFunction("upper",
-        ImmutableList.of("this"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'upper' operand");
-      return thiz.toUpperCase();
+  private static BuiltinFunction upper = new BuiltinFunction("upper") {
+    public String invoke(String self) {
+      return self.toUpperCase();
     }
   };
 
@@ -176,26 +164,20 @@ public class MethodLibrary {
         @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "The maximum number of replacements.")},
       useLocation = true)
-  private static Function replace =
-    new MixedModeFunction("replace", ImmutableList.of("this", "old", "new", "maxsplit"), 3, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'replace' operand");
-      String old = Type.STRING.convert(args[1], "'replace' argument");
-      String neww = Type.STRING.convert(args[2], "'replace' argument");
-      int maxsplit =
-          args[3] != null ? Type.INTEGER.convert(args[3], "'replace' argument")
-              : Integer.MAX_VALUE;
+  private static BuiltinFunction replace = new BuiltinFunction("replace") {
+    public String invoke(String self, String oldString, String newString, Object maxSplitO,
+        Location loc) throws EvalException, ConversionException {
       StringBuffer sb = new StringBuffer();
+      Integer maxSplit = Type.INTEGER.convertOptional(
+          maxSplitO, "'maxsplit' argument of 'replace'", /*label*/null, Integer.MAX_VALUE);
       try {
-        Matcher m = Pattern.compile(old, Pattern.LITERAL).matcher(thiz);
-        for (int i = 0; i < maxsplit && m.find(); i++) {
-          m.appendReplacement(sb, Matcher.quoteReplacement(neww));
+        Matcher m = Pattern.compile(oldString, Pattern.LITERAL).matcher(self);
+        for (int i = 0; i < maxSplit && m.find(); i++) {
+          m.appendReplacement(sb, Matcher.quoteReplacement(newString));
         }
         m.appendTail(sb);
       } catch (IllegalStateException e) {
-        throw new EvalException(ast.getLocation(), e.getMessage() + " in call to replace");
+        throw new EvalException(loc, e.getMessage() + " in call to replace");
       }
       return sb.toString();
     }
@@ -213,20 +195,14 @@ public class MethodLibrary {
         @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "The maximum number of splits.")},
       useEnvironment = true)
-  private static Function split = new MixedModeFunction("split",
-      ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'split' operand");
-      String sep = args[1] != null
-          ? Type.STRING.convert(args[1], "'split' argument")
-          : " ";
-      int maxsplit = args[2] != null
-          ? Type.INTEGER.convert(args[2], "'split' argument") + 1 // last is remainder
-          : -1;
-      String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(thiz, maxsplit);
-      List<String> result = java.util.Arrays.asList(ss);
+  private static BuiltinFunction split = new BuiltinFunction("split") {
+    public Object invoke(String self, String sep, Object maxSplitO,
+        Environment env) throws ConversionException {
+      int maxSplit = Type.INTEGER.convertOptional(
+          maxSplitO, "'split' argument of 'split'", /*label*/null, -2);
+      // + 1 because the last result is the remainder, and default of -2 so that after +1 it's -1
+      String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(self, maxSplit + 1);
+      List<String> result = Arrays.<String>asList(ss);
       return env.isSkylarkEnabled() ? SkylarkList.list(result, String.class) : result;
     }
   };
@@ -244,19 +220,6 @@ public class MethodLibrary {
     return subpos < 0 ? subpos : subpos + start;
   }
 
-  // Common implementation for find, rfind, index, rindex.
-  // forward is true iff we want to return the last matching index.
-  private static int stringFind(String functionName, boolean forward, Object[] args)
-      throws ConversionException {
-    String thiz = Type.STRING.convert(args[0], functionName + " operand");
-    String sub = Type.STRING.convert(args[1], functionName + " argument");
-    int start = 0;
-    if (!EvalUtils.isNullOrNone(args[2])) {
-      start = Type.INTEGER.convert(args[2], functionName + " argument");
-    }
-    return stringFind(forward, thiz, sub, start, args[3], functionName + " argument");
-  }
-
   @SkylarkSignature(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
@@ -270,13 +233,12 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static Function rfind =
-      new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-          return stringFind("rfind", false, args);
-        }
-      };
+  private static BuiltinFunction rfind = new BuiltinFunction("rfind") {
+    public Integer invoke(String self, String sub, Integer start, Object end)
+        throws ConversionException {
+      return stringFind(false, self, sub, start, end, "'end' argument to rfind");
+    }
+  };
 
   @SkylarkSignature(name = "find", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the first index where <code>sub</code> is found, "
@@ -291,14 +253,12 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static Function find =
-      new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          return stringFind("find", true, args);
-        }
-      };
+  private static BuiltinFunction find = new BuiltinFunction("find") {
+    public Integer invoke(String self, String sub, Integer start, Object end)
+        throws ConversionException {
+      return stringFind(true, self, sub, start, end, "'end' argument to find");
+    }
+  };
 
   @SkylarkSignature(name = "rindex", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
@@ -314,20 +274,17 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")},
       useLocation = true)
-  private static Function rindex =
-      new MixedModeFunction("rindex", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws EvalException, ConversionException {
-          int res = stringFind("rindex", false, args);
-          if (res < 0) {
-            throw new EvalException(ast.getLocation(),
-                "substring " + EvalUtils.prettyPrintValue(args[1])
-                + " not found in " + EvalUtils.prettyPrintValue(args[0]));
-          }
-          return res;
-        }
-      };
+  private static BuiltinFunction rindex = new BuiltinFunction("rindex") {
+    public Integer invoke(String self, String sub, Integer start, Object end,
+        Location loc) throws EvalException, ConversionException {
+      int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
+      if (res < 0) {
+        throw new EvalException(loc, String.format("substring %s not found in %s",
+                EvalUtils.prettyPrintValue(sub), EvalUtils.prettyPrintValue(self)));
+      }
+      return res;
+    }
+  };
 
   @SkylarkSignature(name = "index", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the first index where <code>sub</code> is found, "
@@ -343,20 +300,17 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, noneable = true,
             doc = "optional position before which to restrict to search.")},
       useLocation = true)
-  private static Function index =
-      new MixedModeFunction("index", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws EvalException, ConversionException {
-          int res = stringFind("index", true, args);
-          if (res < 0) {
-            throw new EvalException(ast.getLocation(),
-                "substring " + EvalUtils.prettyPrintValue(args[1])
-                + " not found in " + EvalUtils.prettyPrintValue(args[0]));
-          }
-          return res;
-        }
-      };
+  private static BuiltinFunction index = new BuiltinFunction("index") {
+    public Integer invoke(String self, String sub, Integer start, Object end,
+        Location loc) throws EvalException, ConversionException {
+      int res = stringFind(true, self, sub, start, end, "'end' argument to index");
+      if (res < 0) {
+        throw new EvalException(loc, String.format("substring %s not found in %s",
+                EvalUtils.prettyPrintValue(sub), EvalUtils.prettyPrintValue(self)));
+      }
+      return res;
+    }
+  };
 
   @SkylarkSignature(name = "count", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
@@ -370,30 +324,22 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static Function count =
-      new MixedModeFunction("count", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          String thiz = Type.STRING.convert(args[0], "'count' operand");
-          String sub = Type.STRING.convert(args[1], "'count' argument");
-          int start = 0;
-          if (args[2] != null) {
-            start = Type.INTEGER.convert(args[2], "'count' argument");
-          }
-          String str = pythonSubstring(thiz, start, args[3], "'end' argument to 'count'");
-          if (sub.isEmpty()) {
-            return str.length() + 1;
-          }
-          int count = 0;
-          int index = -1;
-          while ((index = str.indexOf(sub)) >= 0) {
-            count++;
-            str = str.substring(index + sub.length());
-          }
-          return count;
-        }
-      };
+  private static BuiltinFunction count = new BuiltinFunction("count") {
+    public Integer invoke(String self, String sub, Integer start, Object end)
+        throws ConversionException {
+      String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
+      if (sub.isEmpty()) {
+        return str.length() + 1;
+      }
+      int count = 0;
+      int index = -1;
+      while ((index = str.indexOf(sub)) >= 0) {
+        count++;
+        str = str.substring(index + sub.length());
+      }
+      return count;
+    }
+  };
 
   @SkylarkSignature(name = "endswith", objectType = StringModule.class, returnType = Boolean.class,
       doc = "Returns True if the string ends with <code>sub</code>, "
@@ -407,21 +353,13 @@ public class MethodLibrary {
             doc = "Test beginning at this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position at which to stop comparing.")})
-  private static Function endswith =
-      new MixedModeFunction("endswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          String thiz = Type.STRING.convert(args[0], "'endswith' operand");
-          String sub = Type.STRING.convert(args[1], "'endswith' argument");
-          int start = 0;
-          if (args[2] != null) {
-            start = Type.INTEGER.convert(args[2], "'endswith' argument");
-          }
-          return pythonSubstring(thiz, start, args[3], "'end' argument to 'endswith'")
-              .endsWith(sub);
-        }
-      };
+  private static BuiltinFunction endswith = new BuiltinFunction(
+      "endswith", SkylarkList.tuple(0, Environment.NONE)) {
+    public Boolean invoke(String self, String sub, Integer start, Object end)
+        throws ConversionException {
+      return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
+    }
+  };
 
   @SkylarkSignature(name = "startswith", objectType = StringModule.class,
       returnType = Boolean.class,
@@ -436,18 +374,10 @@ public class MethodLibrary {
             doc = "Test beginning at this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "Stop comparing at this position.")})
-  private static Function startswith =
-    new MixedModeFunction("startswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'startswith' operand");
-      String sub = Type.STRING.convert(args[1], "'startswith' argument");
-      int start = 0;
-      if (args[2] != null) {
-        start = Type.INTEGER.convert(args[2], "'startswith' argument");
-      }
-      return pythonSubstring(thiz, start, args[3], "'end' argument to 'startswith'")
-          .startsWith(sub);
+  private static BuiltinFunction startswith = new BuiltinFunction("startswith") {
+    public Boolean invoke(String self, String sub, Integer start, Object end)
+        throws ConversionException {
+      return pythonSubstring(self, start, end, "'end' operand of 'startswith'").startsWith(sub);
     }
   };
 
@@ -457,15 +387,11 @@ public class MethodLibrary {
           + "have been stripped from the beginning and the end of the string.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string.")})
-  private static Function strip =
-      new MixedModeFunction("strip", ImmutableList.of("this"), 1, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          String operand = Type.STRING.convert(args[0], "'strip' operand");
-          return operand.trim();
-        }
-      };
+  private static BuiltinFunction strip = new BuiltinFunction("strip") {
+    public String invoke(String self) {
+      return self.trim();
+    }
+  };
 
   // slice operator
   @SkylarkSignature(name = "$slice", documented = false,
@@ -475,30 +401,22 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
       doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
       useLocation = true, useEnvironment = true)
-  private static Function slice = new MixedModeFunction("$slice",
-      ImmutableList.of("this", "start", "end"), 3, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws EvalException, ConversionException {
-      int left = Type.INTEGER.convert(args[1], "start operand");
-      int right = Type.INTEGER.convert(args[2], "end operand");
-
+  private static BuiltinFunction slice = new BuiltinFunction("$slice") {
+    public Object invoke(Object self, Integer left, Integer right,
+        Location loc, Environment env) throws EvalException, ConversionException {
       // Substring
-      if (args[0] instanceof String) {
-        String thiz = Type.STRING.convert(args[0], "substring operand");
-        return pythonSubstring(thiz, left, right, "");
+      if (self instanceof String) {
+        return pythonSubstring((String) self, left, right, "");
       }
 
       // List slice
-      List<Object> list = Type.OBJECT_LIST.convert(args[0], "list operand");
+      List<Object> list = Type.OBJECT_LIST.convert(self, "list operand");
       left = clampIndex(left, list.size());
       right = clampIndex(right, list.size());
-
-      List<Object> result = Lists.newArrayList();
-      for (int i = left; i < right; i++) {
-        result.add(list.get(i));
+      if (left > right) {
+        left = right;
       }
-      return convert(result, env, ast.getLocation());
+      return convert(list.subList(left, right), env, loc);
     }
   };
 
@@ -508,18 +426,16 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = HackHackEitherList.class, doc = "This list.")},
         useLocation = true, useEnvironment = true)
-  private static Function sorted = new MixedModeFunction("sorted",
-      ImmutableList.of("self"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
+  private static BuiltinFunction sorted = new BuiltinFunction("sorted") {
+    public Object invoke(Object self, Location loc, Environment env)
         throws EvalException, ConversionException {
-      List<Object> self = Type.OBJECT_LIST.convert(args[0], "'sorted' operand");
+      List<Object> list = Type.OBJECT_LIST.convert(self, "'sorted' operand");
       try {
-        self = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(self);
+        list = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(list);
       } catch (EvalUtils.ComparisonException e) {
-        throw new EvalException(ast.getLocation(), e);
+        throw new EvalException(loc, e);
       }
-      return convert(self, env, ast.getLocation());
+      return convert(list, env, loc);
     }
   };
 
@@ -531,13 +447,10 @@ public class MethodLibrary {
         @Param(name = "self", type = List.class, doc = "This list."),
         @Param(name = "item", type = Object.class, doc = "Item to add at the end.")},
         useLocation = true, useEnvironment = true)
-  private static Function append = new MixedModeFunction("append",
-      ImmutableList.of("this", "x"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'append' operand");
-      thiz.add(args[1]);
+  private static BuiltinFunction append = new BuiltinFunction("append") {
+    public Environment.NoneType invoke(List<Object> self, Object item,
+        Location loc, Environment env) throws EvalException, ConversionException {
+      self.add(item);
       return Environment.NONE;
     }
   };
@@ -550,14 +463,10 @@ public class MethodLibrary {
         @Param(name = "self", type = List.class, doc = "This list."),
         @Param(name = "items", type = List.class, doc = "Items to add at the end.")},
         useLocation = true, useEnvironment = true)
-  private static Function extend = new MixedModeFunction("extend",
-          ImmutableList.of("this", "x"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'extend' operand");
-      List<Object> l = Type.OBJECT_LIST.convert(args[1], "'extend' argument");
-      thiz.addAll(l);
+  private static BuiltinFunction extend = new BuiltinFunction("extend") {
+    public Environment.NoneType invoke(List<Object> self, List<Object> items,
+        Location loc, Environment env) throws EvalException, ConversionException {
+      self.addAll(items);
       return Environment.NONE;
     }
   };
@@ -570,50 +479,43 @@ public class MethodLibrary {
         @Param(name = "self", type = Object.class, doc = "This object."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
       useLocation = true)
-  private static Function indexOperator = new MixedModeFunction("$index",
-      ImmutableList.of("this", "index"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Object collectionCandidate = args[0];
-      Object key = args[1];
+  private static BuiltinFunction indexOperator = new BuiltinFunction("$index") {
+    public Object invoke(Object self, Object key,
+        Location loc) throws EvalException, ConversionException {
+      if (self instanceof SkylarkList) {
+        SkylarkList list = (SkylarkList) self;
+        if (list.isEmpty()) {
+          throw new EvalException(loc, "List is empty");
+        }
+        int index = getListIndex(key, list.size(), loc);
+        return list.get(index);
 
-      if (collectionCandidate instanceof Map<?, ?>) {
-        Map<?, ?> dictionary = (Map<?, ?>) collectionCandidate;
+      } else if (self instanceof Map<?, ?>) {
+        Map<?, ?> dictionary = (Map<?, ?>) self;
         if (!dictionary.containsKey(key)) {
-          throw new EvalException(ast.getLocation(),
-              "Key " + EvalUtils.prettyPrintValue(key) + " not found in dictionary");
+          throw new EvalException(loc, String.format("Key %s not found in dictionary",
+                  EvalUtils.prettyPrintValue(key)));
         }
         return dictionary.get(key);
-      } else if (collectionCandidate instanceof List<?>) {
 
-        List<Object> list = Type.OBJECT_LIST.convert(collectionCandidate, "index operand");
-
-        if (!list.isEmpty()) {
-          int index = getListIndex(key, list.size(), ast);
-          return list.get(index);
+      } else if (self instanceof List<?>) {
+        List<Object> list = Type.OBJECT_LIST.convert(self, "index operand");
+        if (list.isEmpty()) {
+          throw new EvalException(loc, "List is empty");
         }
+        int index = getListIndex(key, list.size(), loc);
+        return list.get(index);
 
-        throw new EvalException(ast.getLocation(), "List is empty");
-      } else if (collectionCandidate instanceof SkylarkList) {
-        SkylarkList list = (SkylarkList) collectionCandidate;
-
-        if (!list.isEmpty()) {
-          int index = getListIndex(key, list.size(), ast);
-          return list.get(index);
-        }
-
-        throw new EvalException(ast.getLocation(), "List is empty");
-      } else if (collectionCandidate instanceof String) {
-        String str = (String) collectionCandidate;
-        int index = getListIndex(key, str.length(), ast);
+      } else if (self instanceof String) {
+        String str = (String) self;
+        int index = getListIndex(key, str.length(), loc);
         return str.substring(index, index + 1);
 
       } else {
         // TODO(bazel-team): This is dead code, get rid of it.
-        throw new EvalException(ast.getLocation(), String.format(
+        throw new EvalException(loc, String.format(
             "Unsupported datatype (%s) for indexing, only works for dict and list",
-            EvalUtils.getDataTypeName(collectionCandidate)));
+            EvalUtils.getDataTypeName(self)));
       }
     }
   };
@@ -625,13 +527,12 @@ public class MethodLibrary {
           + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n",
       mandatoryPositionals = {@Param(name = "self", type = Map.class, doc = "This dict.")},
       useLocation = true, useEnvironment = true)
-  private static Function values = new NoArgFunction("values") {
-    @Override
-    public Object call(Object self, FuncallExpression ast, Environment env)
-        throws EvalException, InterruptedException {
+  private static BuiltinFunction values = new BuiltinFunction("values") {
+    public Object invoke(Map<?, ?> self,
+        Location loc, Environment env) throws EvalException, ConversionException {
       // Use a TreeMap to ensure consistent ordering.
-      Map<?, ?> dict = new TreeMap<>((Map<?, ?>) self);
-      return convert(dict.values(), env, ast.getLocation());
+      Map<?, ?> dict = new TreeMap<>(self);
+      return convert(dict.values(), env, loc);
     }
   };
 
@@ -644,20 +545,19 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = Map.class, doc = "This dict.")},
       useLocation = true, useEnvironment = true)
-  private static Function items = new NoArgFunction("items") {
-    @Override
-    public Object call(Object self, FuncallExpression ast, Environment env)
-        throws EvalException, InterruptedException {
+  private static BuiltinFunction items = new BuiltinFunction("items") {
+    public Object invoke(Map<?, ?> self,
+        Location loc, Environment env) throws EvalException, ConversionException {
       // Use a TreeMap to ensure consistent ordering.
-      Map<?, ?> dict = new TreeMap<>((Map<?, ?>) self);
+      Map<?, ?> dict = new TreeMap<>(self);
       List<Object> list = Lists.newArrayListWithCapacity(dict.size());
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
         List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
         list.add(env.isSkylarkEnabled() ? SkylarkList.tuple(item) : item);
       }
-      return convert(list, env, ast.getLocation());
-    }
-  };
+        return convert(list, env, loc);
+      }
+    };
 
   @SkylarkSignature(name = "keys", objectType = DictModule.class,
       returnType = HackHackEitherList.class,
@@ -667,14 +567,12 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = Map.class, doc = "This dict.")},
       useLocation = true, useEnvironment = true)
-  private static Function keys = new NoArgFunction("keys") {
-    @Override
-    @SuppressWarnings("unchecked") // Skylark will only call this on a dict; and
-    // allowed keys are all Comparable... if not mutually, it's OK to get a runtime exception.
-    public Object call(Object self, FuncallExpression ast, Environment env)
-        throws EvalException, InterruptedException {
-      Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) self;
-      return convert(Ordering.natural().sortedCopy(dict.keySet()), env, ast.getLocation());
+  // Skylark will only call this on a dict; and
+  // allowed keys are all Comparable... if not mutually, it's OK to get a runtime exception.
+  private static BuiltinFunction keys = new BuiltinFunction("keys") {
+    public Object invoke(Map<Comparable<?>, ?> dict,
+        Location loc, Environment env) throws EvalException {
+      return convert(Ordering.natural().sortedCopy(dict.keySet()), env, loc);
     }
   };
 
@@ -688,19 +586,12 @@ public class MethodLibrary {
       optionalPositionals = {
         @Param(name = "default", defaultValue = "None",
             doc = "The default value to use (instead of None) if the key is not found.")})
-  private static Function get =
-      new MixedModeFunction("get", ImmutableList.of("this", "key", "default"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      Map<?, ?> dict = (Map<?, ?>) args[0];
-      Object key = args[1];
-      if (dict.containsKey(key)) {
-        return dict.get(key);
+  private static BuiltinFunction get = new BuiltinFunction("get") {
+    public Object invoke(Map<?, ?> self, Object key, Object defaultValue) {
+      if (self.containsKey(key)) {
+        return self.get(key);
       }
-      if (args[2] == null) {
-        return Environment.NONE;
-      }
-      return args[2];
+      return defaultValue;
     }
   };
 
@@ -716,13 +607,12 @@ public class MethodLibrary {
   }
 
   // unary minus
-  @SkylarkSignature(name = "-", documented = false, doc = "Unary minus operator.",
+  @SkylarkSignature(name = "-", returnType = Integer.class,
+      documented = false, doc = "Unary minus operator.",
       mandatoryPositionals = {
         @Param(name = "num", type = Integer.class, doc = "The number to negate.")})
-  private static Function minus = new MixedModeFunction("-", ImmutableList.of("this"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      int num = Type.INTEGER.convert(args[0], "'unary minus' argument");
+  private static BuiltinFunction minus = new BuiltinFunction("-") {
+    public Integer invoke(Integer num) throws ConversionException {
       return -num;
     }
   };
@@ -734,12 +624,9 @@ public class MethodLibrary {
         + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")},
       useLocation = true)
-    private static Function list = new MixedModeFunction("list",
-        ImmutableList.of("list"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
-      Location loc = ast.getLocation();
-      return SkylarkList.list(EvalUtils.toCollection(args[0], loc), loc);
+  private static BuiltinFunction list = new BuiltinFunction("list") {
+    public SkylarkList invoke(Object x, Location loc) throws EvalException {
+      return SkylarkList.list(EvalUtils.toCollection(x, loc), loc);
     }
   };
 
@@ -747,16 +634,11 @@ public class MethodLibrary {
       "Returns the length of a string, list, tuple, set, or dictionary.",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to check length of.")},
       useLocation = true)
-  private static Function len = new MixedModeFunction("len",
-        ImmutableList.of("list"), 1, false) {
-
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
-      Object arg = args[0];
-      int l = EvalUtils.size(arg);
+  private static BuiltinFunction len = new BuiltinFunction("len") {
+    public Integer invoke(Object x, Location loc) throws EvalException {
+      int l = EvalUtils.size(x);
       if (l == -1) {
-        throw new EvalException(ast.getLocation(),
-            EvalUtils.getDataTypeName(arg) + " is not iterable");
+        throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
       }
       return l;
     }
@@ -765,10 +647,9 @@ public class MethodLibrary {
   @SkylarkSignature(name = "str", returnType = String.class, doc =
       "Converts any object to string. This is useful for debugging.",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
-    private static Function str = new MixedModeFunction("str", ImmutableList.of("this"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
-      return EvalUtils.printValue(args[0]);
+  private static BuiltinFunction str = new BuiltinFunction("str") {
+    public String invoke(Object x) throws EvalException {
+      return EvalUtils.printValue(x);
     }
   };
 
@@ -778,11 +659,9 @@ public class MethodLibrary {
       + "empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> "
       + "is also a type.",
       mandatoryPositionals = {@Param(name = "x", doc = "The variable to convert.")})
-  private static Function bool = new MixedModeFunction("bool",
-          ImmutableList.of("this"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
-      return EvalUtils.toBoolean(args[0]);
+  private static BuiltinFunction bool = new BuiltinFunction("bool") {
+    public Boolean invoke(Object x) throws EvalException {
+      return EvalUtils.toBoolean(x);
     }
   };
 
@@ -792,20 +671,16 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "x", type = String.class, doc = "The string to convert.")},
       useLocation = true)
-  private static Function int_ =
-      new MixedModeFunction("int", ImmutableList.of("x"), 1, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws EvalException, ConversionException {
-          String str = Type.STRING.convert(args[0], "'int' operand");
-          try {
-            return Integer.parseInt(str);
-          } catch (NumberFormatException e) {
-            throw new EvalException(ast.getLocation(),
-                "invalid literal for int(): " + EvalUtils.prettyPrintValue(str));
-          }
-        }
-      };
+  private static BuiltinFunction int_ = new BuiltinFunction("int") {
+    public Integer invoke(String x, Location loc) throws EvalException {
+      try {
+        return Integer.parseInt(x);
+      } catch (NumberFormatException e) {
+        throw new EvalException(loc,
+            "invalid literal for int(): " + EvalUtils.prettyPrintValue(x));
+      }
+    }
+  };
 
   @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as fields. It is used to group "
@@ -815,14 +690,11 @@ public class MethodLibrary {
       extraKeywords = {
         @Param(name = "kwarg", doc = "the struct fields")},
       useLocation = true)
-  private static Function struct = new AbstractFunction("struct") {
-    @Override
-    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-        Environment env) throws EvalException, InterruptedException {
-      if (!args.isEmpty()) {
-        throw new EvalException(ast.getLocation(), "struct only supports keyword arguments");
-      }
-      return new SkylarkClassObject(kwargs, ast.getLocation());
+  private static BuiltinFunction struct = new BuiltinFunction("struct") {
+      @SuppressWarnings("unchecked")
+    public SkylarkClassObject invoke(Map<String, Object> kwargs, Location loc)
+        throws EvalException, InterruptedException {
+      return new SkylarkClassObject(kwargs, loc);
     }
   };
 
@@ -841,16 +713,10 @@ public class MethodLibrary {
             + "possible values are: <code>stable</code> (default), <code>compile</code>, "
             + "<code>link</code> or <code>naive_link</code>.")},
       useLocation = true)
-  private static final Function set =
-    new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Order order = SkylarkNestedSet.parseOrder((String) args[1], ast.getLocation());
-      if (args[0] == null) {
-        return new SkylarkNestedSet(order, SkylarkList.EMPTY_LIST, ast.getLocation());
-      }
-      return new SkylarkNestedSet(order, args[0], ast.getLocation());
+  private static final BuiltinFunction set = new BuiltinFunction("set") {
+    public SkylarkNestedSet invoke(Object items, String order,
+        Location loc) throws EvalException, ConversionException {
+      return new SkylarkNestedSet(SkylarkNestedSet.parseOrder(order, loc), items, loc);
     }
   };
 
@@ -860,21 +726,16 @@ public class MethodLibrary {
           + "enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>\n",
       mandatoryPositionals = {@Param(name = "list", type = SkylarkList.class, doc = "input list")},
       useLocation = true)
-  private static Function enumerate = new MixedModeFunction("enumerate",
-      ImmutableList.of("list"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      // Note that enumerate is only available in Skylark.
-      SkylarkList input = cast(
-          args[0], SkylarkList.class, "enumerate operand", ast.getLocation());
-      List<SkylarkList> result = Lists.newArrayList();
+  private static BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
+    public SkylarkList invoke(SkylarkList input, Location loc)
+        throws EvalException, ConversionException, InterruptedException {
       int count = 0;
+      List<SkylarkList> result = Lists.newArrayList();
       for (Object obj : input) {
-        result.add(SkylarkList.tuple(Lists.newArrayList(count, obj)));
+        result.add(SkylarkList.tuple(count, obj));
         count++;
       }
-      return SkylarkList.list(result, ast.getLocation());
+      return SkylarkList.list(result, loc);
     }
   };
 
@@ -886,34 +747,31 @@ public class MethodLibrary {
           + "range(3, 9, 2) == [3, 5, 7]\n"
           + "range(3, 0, -1) == [3, 2, 1]</pre>",
       mandatoryPositionals = {
-        @Param(name = "start", type = Integer.class,
-            doc = "Value of the first element if stop is provided, "
+        @Param(name = "start_or_stop", type = Integer.class,
+            doc = "Value of the start element if stop is provided, "
             + "otherwise value of stop and the actual start is 0"),
       },
       optionalPositionals = {
-        @Param(name = "stop", type = Integer.class, noneable = true, defaultValue = "None",
+        @Param(name = "stop_or_none", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional index of the first item <i>not</i> to be included in the "
             + "resulting list; generation of the list stops before <code>stop</code> is reached."),
         @Param(name = "step", type = Integer.class, defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")},
       useLocation = true)
-  private static final Function range =
-    new MixedModeFunction("range", ImmutableList.of("start", "stop", "step"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
-        ConversionException {
+  private static final BuiltinFunction range = new BuiltinFunction("range") {
+    public SkylarkList invoke(Integer startOrStop, Object stopOrNone, Integer step, Location loc)
+        throws EvalException, ConversionException, InterruptedException {
       int start;
       int stop;
-      if (args[1] == null) {
+      if (stopOrNone == Environment.NONE) {
         start = 0;
-        stop = Type.INTEGER.convert(args[0], "stop");
+        stop = startOrStop;
       } else {
-        start = Type.INTEGER.convert(args[0], "start");
-        stop = Type.INTEGER.convert(args[1], "stop");
+        start = startOrStop;
+        stop = Type.INTEGER.convert(stopOrNone, "'stop' operand of 'range'");
       }
-      int step = args[2] == null ? 1 : Type.INTEGER.convert(args[2], "step");
       if (step == 0) {
-        throw new EvalException(ast.getLocation(), "step cannot be 0");
+        throw new EvalException(loc, "step cannot be 0");
       }
       List<Integer> result = Lists.newArrayList();
       if (step > 0) {
@@ -939,19 +797,11 @@ public class MethodLibrary {
       doc = "Creates a SelectorValue from the dict parameter.",
       mandatoryPositionals = {
         @Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
-  private static final Function select = new MixedModeFunction("select",
-      ImmutableList.of("x"), 1, false) {
-      @Override
-      public Object call(Object[] args, FuncallExpression ast)
-          throws EvalException, ConversionException {
-        Object dict = args[0];
-        if (!(dict instanceof Map<?, ?>)) {
-          throw new EvalException(ast.getLocation(),
-              "select({...}) argument isn't a dictionary");
-        }
-        return SelectorList.of(new SelectorValue((Map<?, ?>) dict));
-      }
-    };
+  private static final BuiltinFunction select = new BuiltinFunction("select") {
+    public Object invoke(Map<?, ?> dict) throws EvalException, InterruptedException {
+      return SelectorList.of(new SelectorValue(dict));
+    }
+  };
 
   /**
    * Returns true if the object has a field of the given name, otherwise false.
@@ -964,18 +814,12 @@ public class MethodLibrary {
         @Param(name = "object", doc = "The object to check."),
         @Param(name = "name", type = String.class, doc = "The name of the field.")},
       useLocation = true, useEnvironment = true)
-  private static final Function hasattr =
-      new MixedModeFunction("hasattr", ImmutableList.of("object", "name"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws EvalException, ConversionException {
-      Object obj = args[0];
-      String name = cast(args[1], String.class, "name", ast.getLocation());
-
+  private static final BuiltinFunction hasattr = new BuiltinFunction("hasattr") {
+    public Boolean invoke(Object obj, String name,
+        Location loc, Environment env) throws EvalException, ConversionException {
       if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
         return true;
       }
-
       if (env.getFunctionNames(obj.getClass()).contains(name)) {
         return true;
       }
@@ -984,7 +828,7 @@ public class MethodLibrary {
         return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
       } catch (ExecutionException e) {
         // This shouldn't happen
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(loc, e.getMessage());
       }
     }
   };
@@ -1004,20 +848,15 @@ public class MethodLibrary {
             doc = "The default value to return in case the struct "
             + "doesn't have a field of the given name.")},
       useLocation = true)
-  private static final Function getattr = new MixedModeFunction(
-      "getattr", ImmutableList.of("object", "name", "default"), 2, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws EvalException {
-      Object obj = args[0];
-      String name = cast(args[1], String.class, "name", ast.getLocation());
-      Object result = DotExpression.eval(obj, name, ast.getLocation());
+  private static final BuiltinFunction getattr = new BuiltinFunction("getattr") {
+    public Object invoke(Object obj, String name, Object defaultValue,
+        Location loc) throws EvalException, ConversionException {
+      Object result = DotExpression.eval(obj, name, loc);
       if (result == null) {
-        if (args[2] != null) {
-          return args[2];
+        if (defaultValue != Environment.NONE) {
+          return defaultValue;
         } else {
-          throw new EvalException(ast.getLocation(),
-              String.format("Object of type '%s' has no field %s",
+          throw new EvalException(loc, String.format("Object of type '%s' has no field %s",
                   EvalUtils.getDataTypeName(obj), EvalUtils.prettyPrintValue(name)));
         }
       }
@@ -1030,23 +869,20 @@ public class MethodLibrary {
           + "methods of the parameter object.",
       mandatoryPositionals = {@Param(name = "object", doc = "The object to check.")},
       useLocation = true, useEnvironment = true)
-  private static final Function dir = new MixedModeFunction(
-      "dir", ImmutableList.of("object"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws EvalException {
-      Object obj = args[0];
+  private static final BuiltinFunction dir = new BuiltinFunction("dir") {
+    public SkylarkList invoke(Object object,
+        Location loc, Environment env) throws EvalException, ConversionException {
       // Order the fields alphabetically.
       Set<String> fields = new TreeSet<>();
-      if (obj instanceof ClassObject) {
-        fields.addAll(((ClassObject) obj).getKeys());
+      if (object instanceof ClassObject) {
+        fields.addAll(((ClassObject) object).getKeys());
       }
-      fields.addAll(env.getFunctionNames(obj.getClass()));
+      fields.addAll(env.getFunctionNames(object.getClass()));
       try {
-        fields.addAll(FuncallExpression.getMethodNames(obj.getClass()));
+        fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
       } catch (ExecutionException e) {
         // This shouldn't happen
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(loc, e.getMessage());
       }
       return SkylarkList.list(fields, String.class);
     }
@@ -1055,12 +891,10 @@ public class MethodLibrary {
   @SkylarkSignature(name = "type", returnType = String.class,
       doc = "Returns the type name of its argument.",
       mandatoryPositionals = {@Param(name = "object", doc = "The object to check type of.")})
-  private static final Function type = new MixedModeFunction("type",
-      ImmutableList.of("object"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
+  private static final BuiltinFunction type = new BuiltinFunction("type") {
+    public String invoke(Object object) {
       // There is no 'type' type in Skylark, so we return a string with the type name.
-      return EvalUtils.getDataTypeName(args[0], false);
+      return EvalUtils.getDataTypeName(object, false);
     }
   };
 
@@ -1074,17 +908,13 @@ public class MethodLibrary {
             defaultValue = "None",
             doc = "The name of the attribute that caused the error")},
       useLocation = true)
-  private static final Function fail = new MixedModeFunction(
-      "fail", ImmutableList.of("msg", "attr"), 1, false) {
-    @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
-        throws EvalException {
-      String msg = cast(args[0], String.class, "msg", ast.getLocation());
-      if (args[1] != null) {
-        msg = "attribute " + cast(args[1], String.class, "attr", ast.getLocation())
-            + ": " + msg;
+  private static final BuiltinFunction fail = new BuiltinFunction("fail") {
+    public Environment.NoneType invoke(String msg, Object attr,
+        Location loc) throws EvalException, ConversionException {
+      if (attr != Environment.NONE) {
+        msg = String.format("attribute %s: %s", attr, msg);
       }
-      throw new EvalException(ast.getLocation(), msg);
+      throw new EvalException(loc, msg);
     }
   };
 
@@ -1096,30 +926,16 @@ public class MethodLibrary {
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = {@Param(name = "args", doc = "The objects to print.")},
       useLocation = true, useEnvironment = true)
-  private static final Function print = new AbstractFunction("print") {
-    @Override
-    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-        Environment env) throws EvalException, InterruptedException {
-      String sep = " ";
-      int count = 0;
-      if (kwargs.containsKey("sep")) {
-        sep = cast(kwargs.get("sep"), String.class, "sep", ast.getLocation());
-        count = 1;
-      }
-      if (kwargs.size() > count) {
-        kwargs = new HashMap<>(kwargs);
-        kwargs.remove("sep");
-        List<String> bad = Ordering.natural().sortedCopy(kwargs.keySet());
-        throw new EvalException(ast.getLocation(), "unexpected keywords: '" + bad + "'");
-      }
-      String msg = Joiner.on(sep).join(Iterables.transform(args,
-          new com.google.common.base.Function<Object, String>() {
-        @Override
-        public String apply(Object input) {
-          return EvalUtils.printValue(input);
-        }
-      }));
-      ((SkylarkEnvironment) env).handleEvent(Event.warn(ast.getLocation(), msg));
+  private static final BuiltinFunction print = new BuiltinFunction("print") {
+    public Environment.NoneType invoke(String sep, SkylarkList starargs,
+        Location loc, SkylarkEnvironment env) throws EvalException {
+      String msg = Joiner.on(sep).join(Iterables.transform(starargs,
+              new com.google.common.base.Function<Object, String>() {
+                @Override
+                public String apply(Object input) {
+                  return EvalUtils.printValue(input);
+                }}));
+      env.handleEvent(Event.warn(loc, msg));
       return Environment.NONE;
     }
   };
@@ -1136,13 +952,12 @@ public class MethodLibrary {
           + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
       extraPositionals = {@Param(name = "args", doc = "lists to zip")},
       returnType = SkylarkList.class, useLocation = true)
-  private static final Function zip = new AbstractFunction("zip") {
-    @Override
-    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-        Environment env) throws EvalException, InterruptedException {
+  private static final BuiltinFunction zip = new BuiltinFunction("zip") {
+    public SkylarkList invoke(SkylarkList args, Location loc)
+        throws EvalException, InterruptedException {
       Iterator<?>[] iterators = new Iterator<?>[args.size()];
       for (int i = 0; i < args.size(); i++) {
-        iterators[i] = EvalUtils.toIterable(args.get(i), ast.getLocation()).iterator();
+        iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
       }
       List<SkylarkList> result = new ArrayList<SkylarkList>();
       boolean allHasNext;
@@ -1160,7 +975,7 @@ public class MethodLibrary {
           result.add(SkylarkList.tuple(elem));
         }
       } while (allHasNext);
-      return SkylarkList.list(result, ast.getLocation());
+      return SkylarkList.list(result, loc);
     }
   };
 
@@ -1209,18 +1024,21 @@ public class MethodLibrary {
       + "</pre>")
   public static final class DictModule {}
 
-  public static final List<Function> stringFunctions = ImmutableList.of(
+  public static final List<Function> stringFunctions = ImmutableList.<Function>of(
       count, endswith, find, index, join, lower, replace, rfind,
       rindex, slice, split, startswith, strip, upper);
 
-  public static final List<Function> listPureFunctions = ImmutableList.of(slice);
+  public static final List<Function> listPureFunctions = ImmutableList.<Function>of(
+      slice);
 
-  public static final List<Function> listFunctions = ImmutableList.of(append, extend);
+  public static final List<Function> listFunctions = ImmutableList.<Function>of(
+      append, extend);
 
-  public static final List<Function> dictFunctions = ImmutableList.of(items, get, keys, values);
+  public static final List<Function> dictFunctions = ImmutableList.<Function>of(
+      items, get, keys, values);
 
-  private static final List<Function> pureGlobalFunctions =
-      ImmutableList.of(bool, int_, len, minus, select, sorted, str);
+  private static final List<Function> pureGlobalFunctions = ImmutableList.<Function>of(
+      bool, int_, len, minus, select, sorted, str);
 
   private static final List<Function> skylarkGlobalFunctions = ImmutableList
       .<Function>builder()
@@ -1272,5 +1090,9 @@ public class MethodLibrary {
     for (Function function : skylarkGlobalFunctions) {
       builtIn.add(function.getName());
     }
+  }
+
+  static {
+    SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);
   }
 }

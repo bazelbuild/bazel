@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -28,11 +29,11 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -171,11 +172,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction integer = new SkylarkFunction("int") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.INTEGER, ast, env);
+  private static BuiltinFunction integer = new BuiltinFunction("int") {
+      public Attribute.Builder<?> invoke(Integer defaultInt,
+          SkylarkList flags, Boolean mandatory, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultInt, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+            Type.INTEGER, ast, env);
       }
     };
 
@@ -193,11 +197,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction string = new SkylarkFunction("string") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.STRING, ast, env);
+  private static BuiltinFunction string = new BuiltinFunction("string") {
+      public Attribute.Builder<?> invoke(String defaultString,
+          SkylarkList flags, Boolean mandatory, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultString, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+            Type.STRING, ast, env);
       }
     };
 
@@ -230,18 +237,31 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction label = new SkylarkFunction("label") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.LABEL, ast, env);
+  private static BuiltinFunction label = new BuiltinFunction("label") {
+      public Attribute.Builder<?> invoke(
+          Object defaultO,
+          Boolean executable,
+          SkylarkList flags,
+          Object allowFiles,
+          Boolean mandatory,
+          SkylarkList providers,
+          Object allowRules,
+          Boolean singleFile,
+          Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultO, "executable", executable, "flags", flags,
+                "allow_files", allowFiles, "mandatory", mandatory, "providers", providers,
+                "allow_rules", allowRules, "single_file", singleFile, "cfg", cfg),
+            Type.LABEL, ast, env);
       }
     };
 
   @SkylarkSignature(name = "string_list", doc =
       "Creates an attribute of type list of strings",
       objectType = SkylarkAttr.class,
-      returnType = Attribute.class,
+      returnType = Attribute.Builder.class,
       optionalPositionals = {
         @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]",
@@ -255,11 +275,19 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction stringList = new SkylarkFunction("string_list") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.STRING_LIST, ast, env);
+  private static BuiltinFunction stringList = new BuiltinFunction("string_list") {
+      public Attribute.Builder<?> invoke(
+          SkylarkList defaultList,
+          SkylarkList flags,
+          Boolean mandatory,
+          Boolean nonEmpty,
+          Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultList,
+                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+            Type.STRING_LIST, ast, env);
       }
     };
 
@@ -288,11 +316,22 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.LABEL_LIST, ast, env);
+  private static BuiltinFunction labelList = new BuiltinFunction("label_list") {
+      public Attribute.Builder<?> invoke(
+          Object defaultList,
+          Object allowFiles,
+          Object allowRules,
+          SkylarkList providers,
+          SkylarkList flags,
+          Boolean mandatory,
+          Boolean nonEmpty,
+          Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap("default", defaultList,
+                "allow_files", allowFiles, "allow_rules", allowRules, "providers", providers,
+                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+            Type.LABEL_LIST, ast, env);
       }
     };
 
@@ -310,11 +349,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction bool = new SkylarkFunction("bool") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.BOOLEAN, ast, env);
+  private static BuiltinFunction bool = new BuiltinFunction("bool") {
+      public Attribute.Builder<?> invoke(Boolean defaultBool,
+          SkylarkList flags, Boolean mandatory, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultBool, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+            Type.BOOLEAN, ast, env);
       }
     };
 
@@ -334,11 +376,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction output = new SkylarkFunction("output") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.OUTPUT, ast, env);
+  private static BuiltinFunction output = new BuiltinFunction("output") {
+      public Attribute.Builder<?> invoke(Object defaultO,
+          SkylarkList flags, Boolean mandatory, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultO, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+            Type.OUTPUT, ast, env);
       }
     };
 
@@ -359,11 +404,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.OUTPUT_LIST, ast, env);
+  private static BuiltinFunction outputList = new BuiltinFunction("output_list") {
+      public Attribute.Builder<?> invoke(SkylarkList defaultList,
+          SkylarkList flags, Boolean mandatory, Boolean nonEmpty, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap("default", defaultList,
+                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+            Type.OUTPUT_LIST, ast, env);
       }
     };
 
@@ -384,11 +432,14 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction stringDict = new SkylarkFunction("string_dict") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.STRING_DICT, ast, env);
+  private static BuiltinFunction stringDict = new BuiltinFunction("string_dict") {
+      public Attribute.Builder<?> invoke(Map<?, ?> defaultO,
+          SkylarkList flags, Boolean mandatory, Boolean nonEmpty, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap("default", defaultO,
+                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+            Type.STRING_DICT, ast, env);
       }
     };
 
@@ -408,11 +459,18 @@ public final class SkylarkAttr {
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
-  private static SkylarkFunction license = new SkylarkFunction("license") {
-      @Override
-      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
-        return createAttribute(kwargs, Type.LICENSE, ast, env);
+  private static BuiltinFunction license = new BuiltinFunction("license") {
+      public Attribute.Builder<?> invoke(Object defaultO,
+          SkylarkList flags, Boolean mandatory, Object cfg,
+          FuncallExpression ast, Environment env) throws EvalException {
+        return createAttribute(
+            EvalUtils.optionMap(
+                "default", defaultO, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+            Type.LICENSE, ast, env);
       }
     };
+
+  static {
+    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkAttr.class);
+  }
 }

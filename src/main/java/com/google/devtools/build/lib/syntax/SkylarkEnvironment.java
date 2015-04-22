@@ -205,8 +205,8 @@ public class SkylarkEnvironment extends Environment implements Serializable {
     List<Class<?>> modulesToRemove = new ArrayList<>();
     for (Map.Entry<String, Object> entry : env.entrySet()) {
       Object object = entry.getValue();
-      if (object instanceof SkylarkFunction) {
-        if (((SkylarkFunction) object).isOnlyLoadingPhase()) {
+      if (object instanceof BaseFunction) {
+        if (((BaseFunction) object).isOnlyLoadingPhase()) {
           objectsToRemove.add(entry.getKey());
         }
       } else if (object.getClass().isAnnotationPresent(SkylarkModule.class)) {

@@ -51,12 +51,12 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testLazyListIndex() throws Exception {
-    checkEvalError("Iterator requested", "a = lazy[0]");
+    checkEvalError("Illegal argument in call to $index: Iterator requested", "a = lazy[0]");
   }
 
   @Test
   public void testLazyListSize() throws Exception {
-    checkEvalError("Iterator requested", "a = len(lazy)");
+    checkEvalError("Illegal argument in call to len: Iterator requested", "a = len(lazy)");
   }
 
   @Test

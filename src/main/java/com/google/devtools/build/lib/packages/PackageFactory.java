@@ -30,21 +30,27 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.GlobCache.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -52,7 +58,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,8 +153,6 @@ public final class PackageFactory {
 
     Iterable<PackageArgument<?>> getPackageArguments();
   }
-
-  private static final int EXCLUDE_DIR_DEFAULT = 1;
 
   private static class DefaultVisibility extends PackageArgument<List<Label>> {
     private DefaultVisibility() {
@@ -452,21 +455,38 @@ public final class PackageFactory {
    * @param async if true, start globs in the background but don't block on their completion.
    *        Only use this for heuristic preloading.
    */
-  private static Function newGlobFunction(
-      final PackageContext originalContext, final boolean async) {
-    List<String> params = ImmutableList.of("include", "exclude", "exclude_directories");
-    return new MixedModeFunction("glob", params, 1, false) {
-        @Override
-        public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
+  @SkylarkSignature(name = "glob", objectType = Object.class, returnType = GlobList.class,
+      doc = "Returns a list of files that match glob search pattern",
+      mandatoryPositionals = {
+        @Param(name = "include", type = HackHackEitherList.class, generic1 = String.class,
+            doc = "a list of strings specifying patterns of files to include.")},
+      optionalPositionals = {
+        @Param(name = "exclude", type = HackHackEitherList.class, generic1 = String.class,
+            defaultValue = "[]",
+            doc = "a list of strings specifying patterns of files to exclude."),
+        // TODO(bazel-team): migrate all existing code to use boolean instead?
+        @Param(name = "exclude_directories", type = Integer.class, defaultValue = "1",
+            doc = "a integer that if non-zero indicates directories should not be matched.")},
+      documented = false, useAst = true, useEnvironment = true)
+  private static final BuiltinFunction.Factory newGlobFunction =
+      new BuiltinFunction.Factory("glob") {
+        public BuiltinFunction create(final PackageContext originalContext, final boolean async) {
+          return new BuiltinFunction("glob", this) {
+            public GlobList<String> invoke(
+                Object include, Object exclude, Integer excludeDirectories,
+                FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException, InterruptedException {
-          return callGlob(originalContext, async, ast, env, namedArguments);
+              return callGlob(
+                  originalContext, async, include, exclude, excludeDirectories != 0, ast, env);
+            }
+          };
         }
       };
-  }
 
-  static GlobList<String> callGlob(@Nullable PackageContext originalContext, boolean async,
-      FuncallExpression ast, Environment env, Object[] namedArguments)
-          throws EvalException, ConversionException, InterruptedException {
+  protected static GlobList<String> callGlob(@Nullable PackageContext originalContext,
+      boolean async, Object include, Object exclude, boolean excludeDirs,
+      FuncallExpression ast, Environment env)
+      throws EvalException, ConversionException, InterruptedException {
     // Skylark build extensions need to get the PackageContext from the Environment;
     // async glob functions cannot do the same because the Environment is not thread safe.
     PackageContext context;
@@ -477,23 +497,18 @@ public final class PackageFactory {
       context = originalContext;
     }
 
-    List<String> includes = Type.STRING_LIST.convert(namedArguments[0], "'glob' argument");
-    List<String> excludes = namedArguments[1] == null
-        ? Collections.<String>emptyList()
-        : Type.STRING_LIST.convert(namedArguments[1], "'glob' argument");
-    int excludeDirs = namedArguments[2] == null
-      ? EXCLUDE_DIR_DEFAULT
-      : Type.INTEGER.convert(namedArguments[2], "'glob' argument");
+    List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
+    List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
 
     if (async) {
       try {
-        context.globber.runAsync(includes, excludes, excludeDirs != 0);
+        context.globber.runAsync(includes, excludes, excludeDirs);
       } catch (GlobCache.BadGlobException e) {
         // Ignore: errors will appear during the actual evaluation of the package.
       }
       return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } else {
-      return handleGlob(includes, excludes, excludeDirs != 0, context, ast);
+      return handleGlob(includes, excludes, excludeDirs, context, ast);
     }
   }
 
@@ -531,44 +546,57 @@ public final class PackageFactory {
    * seen by the parser, because the presence of "subinclude" triggers
    * preprocessing.)
    */
-  private static Function newMockSubincludeFunction(final PackageContext context) {
-    return new MixedModeFunction("mocksubinclude", ImmutableList.of("label", "path"), 2, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          Label label = Type.LABEL.convert(args[0], "'mocksubinclude' argument",
-                                           context.pkgBuilder.getBuildFileLabel());
-          String pathString = Type.STRING.convert(args[1], "'mocksubinclude' argument");
-          Path path = pathString.isEmpty()
-              ? null
-              : context.pkgBuilder.getFilename().getRelative(pathString);
-          // A subinclude within a package counts as a file declaration.
-          if (label.getPackageIdentifier().equals(context.pkgBuilder.getPackageIdentifier())) {
-            Location location = ast.getLocation();
-            if (location == null) {
-              location = Location.fromFile(context.pkgBuilder.getFilename());
-            }
-            context.pkgBuilder.createInputFileMaybe(label, location);
-          }
+  @SkylarkSignature(name = "mocksubinclude", returnType = Environment.NoneType.class,
+      doc = "implement the mocksubinclude function emitted by the PythonPreprocessor",
+      mandatoryPositionals = {
+        @Param(name = "label", type = Object.class,
+            doc = "a label designator."),
+        @Param(name = "path", type = String.class,
+            doc = "a path.")},
+      documented = false, useLocation = true)
+  protected static final BuiltinFunction.Factory newMockSubincludeFunction =
+      new BuiltinFunction.Factory("mocksubinclude") {
+        public BuiltinFunction create(final PackageContext context) {
+          return new BuiltinFunction("mocksubinclude", this) {
+            public Environment.NoneType invoke(Object labelO, String pathString,
+                Location loc) throws ConversionException {
+              Label label = Type.LABEL.convert(labelO, "'mocksubinclude' argument",
+                  context.pkgBuilder.getBuildFileLabel());
+              Path path = pathString.isEmpty()
+                  ? null : context.pkgBuilder.getFilename().getRelative(pathString);
+              // A subinclude within a package counts as a file declaration.
+              if (label.getPackageIdentifier().equals(context.pkgBuilder.getPackageIdentifier())) {
+                if (loc == null) {
+                  loc = Location.fromFile(context.pkgBuilder.getFilename());
+                }
+                context.pkgBuilder.createInputFileMaybe(label, loc);
+              }
 
-          context.pkgBuilder.addSubinclude(label, path);
-          return Environment.NONE;
+              context.pkgBuilder.addSubinclude(label, path);
+              return Environment.NONE;
+            }
+          };
         }
       };
-  }
 
   /**
    * Fake function: subinclude calls are ignored
    * They will disappear after the Python preprocessing.
    */
-  private static Function newSubincludeFunction() {
-    return new MixedModeFunction("subinclude", ImmutableList.of("file"), 1, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast) {
-          return Environment.NONE;
+  @SkylarkSignature(name = "subinclude", returnType = Environment.NoneType.class,
+      mandatoryPositionals = {@Param(name = "file", doc = "(ignored)")},
+      doc = "fake function to skip over subinclude statements",
+      documented = false)
+  private static BuiltinFunction.Factory newSubincludeFunction =
+      new BuiltinFunction.Factory("subinclude") {
+        public BuiltinFunction create() {
+          return new BuiltinFunction("subinclude", this) {
+            public Environment.NoneType invoke(Object file) {
+              return Environment.NONE;
+            }
+          };
         }
       };
-  }
 
   /**
    * Returns a function value implementing "environment_group" in the specified package context.
@@ -585,64 +613,90 @@ public final class PackageFactory {
    * <p>Where ":env1", "env2", ... are all environment rules declared in the same package. All
    * parameters are mandatory.
    */
-  private static Function newEnvironmentGroupFunction(final PackageContext context) {
-    List<String> params = ImmutableList.of("name", "environments", "defaults");
-    return new MixedModeFunction("environment_group", params, params.size(), true) {
-        @Override
-        public Object call(Object[] namedArgs, FuncallExpression ast)
-            throws EvalException, ConversionException {
-          Preconditions.checkState(namedArgs[0] != null);
-          String name = Type.STRING.convert(namedArgs[0], "'environment_group' argument");
-          Preconditions.checkState(namedArgs[1] != null);
-          List<Label> environments = Type.LABEL_LIST.convert(
-              namedArgs[1], "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
-          Preconditions.checkState(namedArgs[2] != null);
-          List<Label> defaults = Type.LABEL_LIST.convert(
-              namedArgs[2], "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
+  @SkylarkSignature(name = "environment_group", returnType = Environment.NoneType.class,
+      doc = "Defines a cc_library, by wrapping around the usual library "
+      + "and also defining a headers target.",
+      mandatoryNamedOnly = {
+        @Param(name = "name", type = String.class,
+            doc = "The name of the rule."),
+        // Both parameter below are lists of label designators
+        @Param(name = "environments", type = HackHackEitherList.class, generic1 = Object.class,
+            doc = "A list of Labels for the environments to be grouped, from the same package."),
+        @Param(name = "defaults", type = HackHackEitherList.class, generic1 = Object.class,
+            doc = "A list of Labels.")}, // TODO(bazel-team): document what that is
+      documented = false, useLocation = true)
+  protected static final BuiltinFunction.Factory newEnvironmentGroupFunction =
+      new BuiltinFunction.Factory("environment_group") {
+        public BuiltinFunction create(final PackageContext context) {
+          return new BuiltinFunction("environment_group", this) {
+            public Environment.NoneType invoke(String name, Object environmentsO, Object defaultsO,
+                Location loc) throws EvalException, ConversionException {
+              List<Label> environments = Type.LABEL_LIST.convert(environmentsO,
+                  "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
+              List<Label> defaults = Type.LABEL_LIST.convert(defaultsO,
+                  "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
 
-          try {
-            context.pkgBuilder.addEnvironmentGroup(name, environments, defaults,
-                context.eventHandler, ast.getLocation());
-            return Environment.NONE;
-          } catch (Label.SyntaxException e) {
-            throw new EvalException(ast.getLocation(),
-                "environment group has invalid name: " + name + ": " + e.getMessage());
-          } catch (Package.NameConflictException e) {
-            throw new EvalException(ast.getLocation(), e.getMessage());
-          }
+              try {
+                context.pkgBuilder.addEnvironmentGroup(name, environments, defaults,
+                    context.eventHandler, loc);
+                return Environment.NONE;
+              } catch (Label.SyntaxException e) {
+                throw new EvalException(loc,
+                    "environment group has invalid name: " + name + ": " + e.getMessage());
+              } catch (Package.NameConflictException e) {
+                throw new EvalException(loc, e.getMessage());
+              }
+            }
+          };
         }
       };
-  }
 
   /**
    * Returns a function-value implementing "exports_files" in the specified
    * package context.
    */
-  private static Function newExportsFilesFunction() {
-    List<String> params = ImmutableList.of("srcs", "visibility", "licenses");
-    return new MixedModeFunction("exports_files", params, 1, false) {
-      @Override
-      public Object call(Object[] namedArgs, FuncallExpression ast, Environment env)
-          throws EvalException, ConversionException {
-        return callExportsFiles(ast, env, namedArgs);
-      }
-    };
-  }
+  @SkylarkSignature(name = "exports_files", returnType = Environment.NoneType.class,
+      doc = "Declare a set of files as exported",
+      mandatoryPositionals = {
+        @Param(name = "srcs", type = HackHackEitherList.class, generic1 = String.class,
+            doc = "A list of strings, the names of the files to export.")},
+      optionalPositionals = {
+        // TODO(blaze-team): make it possible to express a list of label designators,
+        // i.e. a java List or Skylark list of Label or String.
+        @Param(name = "visibility", type = HackHackEitherList.class, noneable = true,
+            defaultValue = "None",
+            doc = "A list of Labels specifying the visibility of the exported files "
+            + "(defaults to public)"),
+        @Param(name = "licenses", type = HackHackEitherList.class, generic1 = String.class,
+            noneable = true, defaultValue = "None",
+            doc = "A list of strings specifying the licenses used in the exported code.")},
+      documented = false, useAst = true, useEnvironment = true)
+  protected static final BuiltinFunction.Factory newExportsFilesFunction =
+      new BuiltinFunction.Factory("exports_files") {
+        public BuiltinFunction create () {
+          return new BuiltinFunction("exports_files", this) {
+            public Environment.NoneType invoke(Object srcs, Object visibility, Object licenses,
+                FuncallExpression ast, Environment env)
+                throws EvalException, ConversionException {
+              return callExportsFiles(srcs, visibility, licenses, ast, env);
+            }
+          };
+        }
+      };
 
-  static Object callExportsFiles(FuncallExpression ast, Environment env, Object[] namedArgs)
-      throws EvalException, ConversionException {
+  static Environment.NoneType callExportsFiles(Object srcs, Object visibilityO, Object licensesO,
+      FuncallExpression ast, Environment env) throws EvalException, ConversionException {
     Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
-    List<String> files = Type.STRING_LIST.convert(namedArgs[0], "'exports_files' operand");
+    List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
-    RuleVisibility visibility = namedArgs[1] == null
+    RuleVisibility visibility = EvalUtils.isNullOrNone(visibilityO)
         ? ConstantRuleVisibility.PUBLIC
         : getVisibility(Type.LABEL_LIST.convert(
-            namedArgs[1],
-            "'exports_files' operand",
-            pkgBuilder.getBuildFileLabel()));
-    License license = namedArgs[2] == null
-        ? null
-        : Type.LICENSE.convert(namedArgs[2], "'exports_files' operand");
+              visibilityO,
+              "'exports_files' operand",
+              pkgBuilder.getBuildFileLabel()));
+    // TODO(bazel-team): is licenses plural or singular?
+    License license = Type.LICENSE.convertOptional(licensesO, "'exports_files' operand");
 
     for (String file : files) {
       String errorMessage = LabelValidator.validateTargetName(file);
@@ -683,67 +737,94 @@ public final class PackageFactory {
    * context.
    * TODO(bazel-team): Remove in favor of package.licenses.
    */
-  private static Function newLicensesFunction(final PackageContext context) {
-    return new MixedModeFunction("licenses", ImmutableList.of("object"), 1, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast) {
-          try {
-            License license = Type.LICENSE.convert(args[0], "'licenses' operand");
-            context.pkgBuilder.setDefaultLicense(license);
-          } catch (ConversionException e) {
-            context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
-            context.pkgBuilder.setContainsErrors();
-          }
-          return Environment.NONE;
+  @SkylarkSignature(name = "licenses", returnType = Environment.NoneType.class,
+      doc = "Declare the license(s) for the code in the current package.",
+      mandatoryPositionals = {
+        @Param(name = "license_strings", type = HackHackEitherList.class, generic1 = String.class,
+            doc = "A list of strings, the names of the licenses used.")},
+      documented = false, useLocation = true)
+  protected static final BuiltinFunction.Factory newLicensesFunction =
+      new BuiltinFunction.Factory("licenses") {
+        public BuiltinFunction create(final PackageContext context) {
+          return new BuiltinFunction("licenses", this) {
+            public Environment.NoneType invoke(Object licensesO, Location loc) {
+              try {
+                License license = Type.LICENSE.convert(licensesO, "'licenses' operand");
+                context.pkgBuilder.setDefaultLicense(license);
+              } catch (ConversionException e) {
+                context.eventHandler.handle(Event.error(loc, e.getMessage()));
+                context.pkgBuilder.setContainsErrors();
+              }
+              return Environment.NONE;
+            }
+          };
         }
       };
-  }
 
   /**
    * Returns a function-value implementing "distribs" in the specified package
    * context.
    * TODO(bazel-team): Remove in favor of package.distribs.
    */
-  private static Function newDistribsFunction(final PackageContext context) {
-    return new MixedModeFunction("distribs", ImmutableList.of("object"), 1, false) {
-        @Override
-        public Object call(Object[] args, FuncallExpression ast) {
-          try {
-            Set<DistributionType> distribs = Type.DISTRIBUTIONS.convert(args[0],
-                "'distribs' operand");
-            context.pkgBuilder.setDefaultDistribs(distribs);
-          } catch (ConversionException e) {
-            context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
-            context.pkgBuilder.setContainsErrors();
-          }
-          return Environment.NONE;
+  @SkylarkSignature(name = "distribs", returnType = Environment.NoneType.class,
+      doc = "Declare the distribution(s) for the code in the current package.",
+      mandatoryPositionals = {
+        @Param(name = "distribution_strings", type = Object.class,
+            doc = "The distributions.")},
+      documented = false, useLocation = true)
+  protected static final BuiltinFunction.Factory newDistribsFunction =
+      new BuiltinFunction.Factory("distribs") {
+        public BuiltinFunction create(final PackageContext context) {
+          return new BuiltinFunction("distribs", this) {
+            public Environment.NoneType invoke(Object object, Location loc) {
+              try {
+                Set<DistributionType> distribs = Type.DISTRIBUTIONS.convert(object,
+                    "'distribs' operand");
+                context.pkgBuilder.setDefaultDistribs(distribs);
+              } catch (ConversionException e) {
+                context.eventHandler.handle(Event.error(loc, e.getMessage()));
+                context.pkgBuilder.setContainsErrors();
+              }
+              return Environment.NONE;
+            }
+          };
         }
       };
-  }
 
-  private static Function newPackageGroupFunction() {
-    List<String> params = ImmutableList.of("name", "packages", "includes");
-    return new MixedModeFunction("package_group", params, 1, true) {
-        @Override
-        public Object call(Object[] namedArgs, FuncallExpression ast, Environment env)
-            throws EvalException, ConversionException {
-          return callPackageFunction(ast, env, namedArgs);
+  @SkylarkSignature(name = "package_group", returnType = Environment.NoneType.class,
+      doc = "Declare a set of files as exported",
+      mandatoryNamedOnly = {
+        @Param(name = "name", type = String.class,
+            doc = "The name of the rule.")},
+      optionalNamedOnly = {
+        @Param(name = "packages", type = HackHackEitherList.class, generic1 = String.class,
+            defaultValue = "[]",
+            doc = "A list of Strings specifying the packages grouped."),
+        // java list or list of label designators: Label or String
+        @Param(name = "includes", type = HackHackEitherList.class, generic1 = Object.class,
+            defaultValue = "[]",
+            doc = "A list of Label specifiers for the files to include.")},
+      documented = false, useAst = true, useEnvironment = true)
+  protected static final BuiltinFunction.Factory newPackageGroupFunction =
+      new BuiltinFunction.Factory("package_group") {
+        public BuiltinFunction create() {
+          return new BuiltinFunction("package_group", this) {
+            public Environment.NoneType invoke(String name, Object packages, Object includes,
+                FuncallExpression ast, Environment env) throws EvalException, ConversionException {
+              return callPackageFunction(name, packages, includes, ast, env);
+            }
+          };
         }
       };
-  }
 
-  static Object callPackageFunction(FuncallExpression ast, Environment env, Object[] namedArgs)
-      throws EvalException, ConversionException {
+  static Environment.NoneType callPackageFunction(String name, Object packagesO, Object includesO,
+      FuncallExpression ast, Environment env) throws EvalException, ConversionException {
     PackageContext context = getContext(env, ast);
-    Preconditions.checkState(namedArgs[0] != null);
-    String name = Type.STRING.convert(namedArgs[0], "'package_group' argument");
-    List<String> packages = namedArgs[1] == null
-        ? Collections.<String>emptyList()
-        : Type.STRING_LIST.convert(namedArgs[1], "'package_group' argument");
-    List<Label> includes = namedArgs[2] == null
-        ? Collections.<Label>emptyList()
-        : Type.LABEL_LIST.convert(namedArgs[2], "'package_group argument'",
-                                  context.pkgBuilder.getBuildFileLabel());
+
+    List<String> packages = Type.STRING_LIST.convert(
+        packagesO, "'package_group.packages argument'");
+    List<Label> includes = Type.LABEL_LIST.convert(includesO,
+        "'package_group.includes argument'", context.pkgBuilder.getBuildFileLabel());
 
     try {
       context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
@@ -774,10 +855,23 @@ public final class PackageFactory {
    * context.
    */
   private static Function newPackageFunction(
-      final Map<String, PackageArgument<?>> packageArguments) {
-    return new MixedModeFunction("package", packageArguments.keySet(), 0, true) {
+      final ImmutableMap<String, PackageArgument<?>> packageArguments) {
+    // Flatten the map of argument name of PackageArgument specifier in two co-indexed arrays:
+    // one for the argument names, to create a FunctionSignature when we create the function,
+    // one of the PackageArgument specifiers, over which to iterate at every function invocation
+    // at the same time that we iterate over the function arguments.
+    final int numArgs = packageArguments.size();
+    final String[] argumentNames = new String[numArgs];
+    final PackageArgument<?>[] argumentSpecifiers = new PackageArgument<?>[numArgs];
+    int i = 0;
+    for (Map.Entry<String, PackageArgument<?>> entry : packageArguments.entrySet()) {
+      argumentNames[i] = entry.getKey();
+      argumentSpecifiers[i++] = entry.getValue();
+    }
+
+    return new BaseFunction("package", FunctionSignature.namedOnly(0, argumentNames)) {
       @Override
-      public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
+      public Object call(Object[] arguments, FuncallExpression ast, Environment env)
           throws EvalException, ConversionException {
 
         Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
@@ -792,16 +886,12 @@ public final class PackageFactory {
         // Parse params
         boolean foundParameter = false;
 
-        int argNumber = 0;
-        for (Map.Entry<String, PackageArgument<?>> entry : packageArguments.entrySet()) {
-          Object arg = namedArguments[argNumber];
-          argNumber += 1;
-          if (arg == null) {
-            continue;
+        for (int i = 0; i < numArgs; i++) {
+          Object value = arguments[i];
+          if (value != null) {
+            foundParameter = true;
+            argumentSpecifiers[i].convertAndProcess(pkgBuilder, ast.getLocation(), value);
           }
-
-          foundParameter = true;
-          entry.getValue().convertAndProcess(pkgBuilder, ast.getLocation(), arg);
         }
 
         if (!foundParameter) {
@@ -852,18 +942,13 @@ public final class PackageFactory {
    * Returns a function-value implementing the build rule "ruleClass" (e.g. cc_library) in the
    * specified package context.
    */
-  private static Function newRuleFunction(final RuleFactory ruleFactory,
-                                          final String ruleClass) {
-    return new AbstractFunction(ruleClass) {
-      @Override
-      public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-          Environment env)
+  private static BuiltinFunction newRuleFunction(
+      final RuleFactory ruleFactory, final String ruleClass) {
+    return new BuiltinFunction(ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
+      @SuppressWarnings("unchecked")
+      public Environment.NoneType invoke(Map<String, Object> kwargs,
+          FuncallExpression ast, Environment env)
           throws EvalException {
-        if (!args.isEmpty()) {
-          throw new EvalException(ast.getLocation(),
-              "build rules do not accept positional parameters");
-        }
-
         try {
           addRule(ruleFactory, ruleClass, getContext(env, ast), kwargs, ast);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -1117,15 +1202,15 @@ public final class PackageFactory {
 
   private void buildPkgEnv(Environment pkgEnv, String packageName,
       PackageContext context, RuleFactory ruleFactory) {
-    pkgEnv.update("distribs", newDistribsFunction(context));
-    pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
-    pkgEnv.update("mocksubinclude", newMockSubincludeFunction(context));
-    pkgEnv.update("licenses", newLicensesFunction(context));
-    pkgEnv.update("exports_files", newExportsFilesFunction());
-    pkgEnv.update("package_group", newPackageGroupFunction());
+    pkgEnv.update("distribs", newDistribsFunction.apply(context));
+    pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/false));
+    pkgEnv.update("mocksubinclude", newMockSubincludeFunction.apply(context));
+    pkgEnv.update("licenses", newLicensesFunction.apply(context));
+    pkgEnv.update("exports_files", newExportsFilesFunction.apply());
+    pkgEnv.update("package_group", newPackageGroupFunction.apply());
     pkgEnv.update("package", newPackageFunction(packageArguments));
-    pkgEnv.update("subinclude", newSubincludeFunction());
-    pkgEnv.update("environment_group", newEnvironmentGroupFunction(context));
+    pkgEnv.update("subinclude", newSubincludeFunction.apply());
+    pkgEnv.update("environment_group", newEnvironmentGroupFunction.apply(context));
 
     pkgEnv.update("PACKAGE_NAME", packageName);
 
@@ -1251,7 +1336,7 @@ public final class PackageFactory {
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
     buildPkgEnv(pkgEnv, packageId.toString(), context, ruleFactory);
-    pkgEnv.update("glob", newGlobFunction(context, /*async=*/true));
+    pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
     pkgEnv.remove("FilesetEntry");
@@ -1300,5 +1385,9 @@ public final class PackageFactory {
       return false; // Invalid package name 'foo'
     }
     return true;
+  }
+
+  static {
+    SkylarkSignatureProcessor.configureSkylarkFunctions(PackageFactory.class);
   }
 }
