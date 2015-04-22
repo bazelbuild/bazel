@@ -60,7 +60,7 @@ list), but this will hopefully change over time.
 Open sourcing Bazel is a work-in-progress. In particular, we're still working on open sourcing:
 
 * Many of our unit and integration tests (which should make contributing patches easier).
-* Development tools, such as IDE integration and command-line completion.
+* Full IDE integration.
 
 Beyond code, we'd like to eventually have all code reviews, bug tracking, and design decisions
 happen publicly, with the Bazel community involved. We are not there yet, so some changes will
