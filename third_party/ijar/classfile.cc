@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-#include "common.h"
+#include "third_party/ijar/common.h"
 
 namespace devtools_ijar {
 

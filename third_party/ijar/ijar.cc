@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <limits.h>
 
-#include "common.h"
+#include "third_party/ijar/common.h"
 
 static void usage() {
   fprintf(stderr, "Usage: ijar [-v] x.jar [x_interface.jar>]\n");

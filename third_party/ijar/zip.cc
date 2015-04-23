@@ -36,7 +36,7 @@
 #include <limits>
 #include <vector>
 
-#include "common.h"
+#include "third_party/ijar/common.h"
 #include <zlib.h>
 
 #define LOCAL_FILE_HEADER_SIGNATURE           0x04034b50
