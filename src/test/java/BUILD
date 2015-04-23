@@ -285,6 +285,25 @@ java_test(
     ],
 )
 
+java_test(
+    name = "analysis_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/analysis/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 cc_binary(
     name = "com/google/devtools/build/lib/shell/killmyself",
     srcs = ["com/google/devtools/build/lib/shell/killmyself.cc"],
