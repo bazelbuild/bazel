@@ -3,7 +3,7 @@ layout: posts
 title: Stickers for Contributors
 ---
 
-![Bazel stickers](/assets/bazel-stickers.jpg)
+<img src="/assets/bazel-stickers.jpg" alt="Bazel stickers" class="img-responsive">
 
 We just got Bazel stickers and we'd like to send them to all of the people who
 have sent us pull requests and patches over the last month. If you'd like
