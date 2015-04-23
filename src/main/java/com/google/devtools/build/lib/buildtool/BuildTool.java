@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -175,8 +174,7 @@ public class BuildTool {
               + "'test' right now!");
         }
       }
-      configurations = getConfigurations(
-          runtime.getBuildConfigurationKey(buildOptions, request.getMultiCpus()),
+      configurations = getConfigurations(buildOptions, request.getMultiCpus(),
           request.getViewOptions().keepGoing);
 
       getEventBus().post(new ConfigurationsCreatedEvent(configurations));
@@ -378,13 +376,15 @@ public class BuildTool {
     return result;
   }
 
-  protected final BuildConfigurationCollection getConfigurations(BuildConfigurationKey key,
-      boolean keepGoing)
+  private final BuildConfigurationCollection getConfigurations(BuildOptions buildOptions,
+      Set<String> multiCpu, boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
     SkyframeExecutor executor = runtime.getSkyframeExecutor();
     // TODO(bazel-team): consider a possibility of moving ConfigurationFactory construction into
     // skyframe.
-    return executor.createConfigurations(keepGoing, runtime.getConfigurationFactory(), key);
+    return executor.createConfigurations(
+        runtime.getConfigurationFactory(), buildOptions, runtime.getDirectories(), multiCpu,
+        keepGoing);
   }
 
   @VisibleForTesting

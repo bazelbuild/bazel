@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
@@ -846,31 +846,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
   }
 
-  @VisibleForTesting
-  public BuildConfigurationCollection createConfigurations(
-      ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
-      throws InvalidConfigurationException, InterruptedException {
-    return createConfigurations(false, configurationFactory, configurationKey);
-  }
-
   /**
-   * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and
-   * returns result. Also invalidates {@link PrecomputedValue#TEST_ENVIRONMENT_VARIABLES} and
-   * {@link PrecomputedValue#BLAZE_DIRECTORIES} if they have changed.
+   * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
+   * result. Also invalidates {@link PrecomputedValue#BLAZE_DIRECTORIES} if it has changed.
    */
-  public BuildConfigurationCollection createConfigurations(boolean keepGoing,
-      ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
+  public BuildConfigurationCollection createConfigurations(
+      ConfigurationFactory configurationFactory, BuildOptions buildOptions,
+      BlazeDirectories directories, Set<String> multiCpu, boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
-
     this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
     this.configurationFactory.set(configurationFactory);
     this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
     // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of
     // BlazeDirectories.
-    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), configurationKey.getDirectories());
+    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
 
-    SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
-        configurationKey.getMultiCpu());
+    SkyKey skyKey = ConfigurationCollectionValue.key(
+        buildOptions, ImmutableSortedSet.copyOf(multiCpu));
     setConfigurationSkyKey(skyKey);
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
             Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);

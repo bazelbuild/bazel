@@ -81,7 +81,7 @@ public final class ConfigurationFactory {
   @Nullable
   public BuildConfiguration createConfiguration(
       PackageProviderForConfigurations loadedPackageProvider, BuildOptions buildOptions,
-      BuildConfigurationKey key, EventHandler errorEventListener)
+      EventHandler errorEventListener)
           throws InvalidConfigurationException {
     return configurationCollectionFactory.createConfigurations(this,
         loadedPackageProvider, buildOptions, errorEventListener, performSanityCheck);

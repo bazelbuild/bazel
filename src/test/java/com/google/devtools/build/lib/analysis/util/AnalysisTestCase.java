@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
@@ -258,9 +257,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
-    BuildConfigurationKey configurationKey = new BuildConfigurationKey(
-        buildOptions, directories, multiCpu);
-    masterConfig = skyframeExecutor.createConfigurations(configurationFactory, configurationKey);
+    masterConfig = skyframeExecutor.createConfigurations(
+        configurationFactory, buildOptions, directories, multiCpu, false);
     analysisResult = buildView.update(loadingResult, masterConfig, viewOptions,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT, reporter, eventBus);
   }

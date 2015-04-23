@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.ConfigurationHolder;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -195,8 +194,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
   /**
    * Checks that the implicit labels are reachable from the loaded labels. The loaded labels are
-   * those returned from {@link BuildConfigurationKey#getLabelsToLoadUnconditionally()}, and the
-   * implicit ones are those that need to be available for late-bound attributes.
+   * those returned from {@link BuildOptions#getAllLabels()}, and the implicit ones are those that
+   * need to be available for late-bound attributes.
    */
   private void sanityCheckImplicitLabels(Collection<Label> reachableLabels,
       BuildConfiguration config) throws InvalidConfigurationException {
