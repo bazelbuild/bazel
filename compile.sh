@@ -25,14 +25,14 @@ mkdir -p output/objs
 mkdir -p output/native
 
 # May be passed in from outside.
-CFLAGS="$CFLAGS"
+CXXFLAGS="$CXXFLAGS"
 LDFLAGS="$LDFLAGS"
 ZIPOPTS="$ZIPOPTS"
 
 # TODO: CC target architecture needs to match JAVA_HOME.
 CC=${CC:-gcc}
-CPP=${CPP:-g++}
-CPPSTD="c++0x"
+CXX=${CXX:-g++}
+CXXSTD="c++0x"
 
 unset JAVA_TOOL_OPTIONS
 
@@ -172,7 +172,7 @@ msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
   # Workaround for msys issue which causes omission of std::to_string.
-  CFLAGS="$CFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
+  CXXFLAGS="$CXXFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
   LDFLAGS="-larchive ${LDFLAGS}"
   MD5SUM="md5sum"
   EXE_EXT=".exe"
@@ -185,13 +185,13 @@ msys*|mingw*)
 
   # The newer version of GCC on msys is stricter and removes some important function
   # declarations from the environment if using c++0x / c++11.
-  CPPSTD="gnu++11"
+  CXXSTD="gnu++11"
 
   # Ensure that we are using the cygwin gcc, not the mingw64 gcc.
   ${CC} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
     fail "mingw gcc detected. Please set CC to point to the msys/Cygwin gcc."
-  ${CPP} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
-    fail "mingw g++ detected. Please set CPP to point to the msys/Cygwin g++."
+  ${CXX} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
+    fail "mingw g++ detected. Please set CXX to point to the msys/Cygwin g++."
 
   MSYS_DLLS="msys-2.0.dll msys-gcc_s-seh-1.dll msys-stdc++-6.dll"
   for dll in $MSYS_DLLS ; do
@@ -322,11 +322,11 @@ function cc_compile() {
   for FILE in "$@"; do
     if [[ ! "${FILE}" =~ ^-.*$ ]]; then
       local OBJ=$(basename "${FILE}").o
-      "${CPP}" \
+      "${CXX}" \
           -I. \
           ${ARCHIVE_CFLAGS} \
           ${CFLAGS} \
-          -std=$CPPSTD \
+          -std=$CXXSTD \
           -c \
           -DBLAZE_JAVA_CPU=\"k8\" \
           -DBLAZE_OPENSOURCE=1 \
@@ -345,7 +345,7 @@ function cc_link() {
     local OBJ=$(basename "${FILE}").o
     FILES+=("output/${OBJDIR}/${OBJ}")
   done
-  "${CPP}" -o ${OUTPUT} "${FILES[@]}" -lstdc++ ${LDFLAGS}
+  "${CXX}" -o ${OUTPUT} "${FILES[@]}" -lstdc++ ${LDFLAGS}
 }
 
 function cc_build() {
@@ -407,11 +407,11 @@ if [ ! -z "$JNILIB" ] ; then
   log "Compiling JNI libraries..."
   for FILE in "${NATIVE_CC_FILES[@]}"; do
     OUT=$(basename "${FILE}").o
-    "${CPP}" \
+    "${CXX}" \
       -I . \
       -I "${JAVA_HOME}/include/" \
       -I "${JAVA_HOME}/include/${PLATFORM}" \
-      -std=$CPPSTD \
+      -std=$CXXSTD \
       -fPIC \
       -c \
       -D_JNI_IMPLEMENTATION_ \
@@ -422,12 +422,12 @@ if [ ! -z "$JNILIB" ] ; then
   done
 
   log "Linking ${JNILIB}..."
-  "${CPP}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
+  "${CXX}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
 fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-"${CPP}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
+"${CXX}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
 
 log "Compiling process-wrapper..."
 "${CC}" -o output/process-wrapper -std=c99 src/main/tools/process-wrapper.c
