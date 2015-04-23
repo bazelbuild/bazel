@@ -191,11 +191,11 @@ java_test(
 java_library(
     name = "analysis_testutil",
     srcs = glob([
+        "com/google/devtools/build/lib/analysis/mock/BazelAnalysisMock.java",
         "com/google/devtools/build/lib/analysis/util/*.java",
         "com/google/devtools/build/lib/exec/util/*.java",
         "com/google/devtools/build/lib/packages/util/*.java",
         "com/google/devtools/build/lib/skyframe/util/*.java",
-        "com/google/devtools/build/lib/analysis/BazelAnalysisMock.java",
     ]),
     data = [
         "//src/main/native:libunix.dylib",

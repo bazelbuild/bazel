@@ -46,7 +46,7 @@ public class TestConstants {
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
    */
   public static final String TEST_ANALYSIS_MOCK =
-      "com.google.devtools.build.lib.analysis.BazelAnalysisMock";
+      "com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock";
 
   /**
    * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
