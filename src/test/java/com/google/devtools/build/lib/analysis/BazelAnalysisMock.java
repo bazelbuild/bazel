@@ -72,6 +72,8 @@ public class BazelAnalysisMock extends AnalysisMock {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")");
     config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
+    config.create("tools/genrule/BUILD",
+        "exports_files(['genrule-setup.sh'])");
   }
 
   @Override
