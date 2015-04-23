@@ -33,8 +33,7 @@ public class Greeter {
 
   public void hello(String obj) throws Exception {
     String greeting = "Hello";
-    InputStream stream  = Greeter.class.getResourceAsStream(
-        "/examples/java-native/src/main/resources/greeting.txt");
+    InputStream stream  = Greeter.class.getResourceAsStream("/greeting.txt");
     if (stream != null) {
       greeting = convertStreamToString(stream);
     }

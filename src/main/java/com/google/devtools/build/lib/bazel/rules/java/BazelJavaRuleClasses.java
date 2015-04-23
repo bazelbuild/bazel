@@ -194,12 +194,21 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resources) -->
           A list of data files to include in a Java jar.
           ${SYNOPSIS}
-          If resources are specified, they will be bundled in the jar along with the usual
-          <code>.class</code> files produced by compilation. The location of the resources inside of
-          the jar file is determined using a heuristic, but it's often in a directory corresponding
-          to the build package name. Resources may be source files or generated files.
+          <p>
+            If resources are specified, they will be bundled in the jar along with the usual
+            <code>.class</code> files produced by compilation. The location of the resources inside
+            of the jar file is determined by the project structure. Bazel first looks for Maven's
+            <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+            (a "src" directory followed by a "resources" directory grandchild). If that is not
+            found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
+             path y/java/z. This heuristic cannot be overridden.
+          </p>
+
+          <p>
+            Resources may be source files or generated files.
+          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          // TODO(bazel-team): be more specific about this heuristic.
           .add(attr("resources", LABEL_LIST).orderIndependent()
               .allowedFileTypes(FileTypeSet.ANY_FILE))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(plugins) -->
