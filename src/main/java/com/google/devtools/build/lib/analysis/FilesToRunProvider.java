@@ -41,6 +41,13 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
   }
 
   /**
+   * Creates an instance that contains one single executable and no other files.
+   */
+  public static FilesToRunProvider fromSingleArtifact(Label label, Artifact artifact) {
+    return new FilesToRunProvider(label, ImmutableList.of(artifact), null, artifact);
+  }
+
+  /**
    * Returns the label that is associated with this piece of information.
    *
    * <p>This is usually the label of the target that provides the information.

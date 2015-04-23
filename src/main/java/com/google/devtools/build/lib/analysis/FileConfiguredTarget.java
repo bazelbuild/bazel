@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.UnmodifiableIterator;
@@ -47,8 +46,8 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
         .put(VisibilityProvider.class, this)
         .put(LicensesProvider.class, this)
         .put(FileProvider.class, new FileProvider(targetContext.getLabel(), filesToBuild))
-        .put(FilesToRunProvider.class, new FilesToRunProvider(targetContext.getLabel(),
-            ImmutableList.copyOf(filesToBuild), null, artifact));
+        .put(FilesToRunProvider.class, FilesToRunProvider.fromSingleArtifact(
+            targetContext.getLabel(), artifact));
     if (this instanceof FilesetProvider) {
       builder.put(FilesetProvider.class, this);
     }
