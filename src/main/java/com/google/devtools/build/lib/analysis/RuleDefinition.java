@@ -96,7 +96,8 @@ public interface RuleDefinition {
       public abstract Builder type(RuleClassType type);
       public abstract Builder factoryClass(Class<? extends RuleConfiguredTargetFactory> factory);
       public abstract Builder ancestors(List<Class<? extends RuleDefinition>> ancestors);
-      public Builder ancestors(Class<? extends RuleDefinition>... ancstrs) {
+      @SafeVarargs
+      public final Builder ancestors(Class<? extends RuleDefinition>... ancstrs) {
         return ancestors(Arrays.asList(ancstrs));
       }
       public abstract Metadata build();
