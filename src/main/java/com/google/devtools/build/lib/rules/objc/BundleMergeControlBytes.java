@@ -67,7 +67,7 @@ final class BundleMergeControlBytes extends ByteSource {
         .addAllSourcePlistFile(Artifact.toExecPaths(
             bundling.getInfoplistMerging().getPlistWithEverything().asSet()))
         // TODO(bazel-team): Add rule attribute for specifying targeted device family
-        .setMinimumOsVersion(bundling.getMinimumOsVersion())
+        .setMinimumOsVersion(objcConfiguration.getMinimumOs())
         .setSdkVersion(objcConfiguration.getIosSdkVersion())
         .setPlatform(objcConfiguration.getBundlingPlatform().name())
         .setBundleRoot(bundling.getBundleDir());

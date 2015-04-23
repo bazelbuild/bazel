@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -116,5 +117,17 @@ class Xcdatamodel extends Value<Xcdatamodel> {
         return model.getOutputZip();
       }
     });
+  }
+
+  /**
+   * Returns a sequence of all unique *.xcdatamodel directories that contain all the artifacts of
+   * the given models. Note that this does not return any *.xcdatamodeld directories.
+   */
+  static Iterable<PathFragment> xcdatamodelDirs(Iterable<Xcdatamodel> models) {
+    ImmutableSet.Builder<PathFragment> result = new ImmutableSet.Builder<>();
+    for (Xcdatamodel model : models) {
+      result.addAll(ObjcCommon.uniqueContainers(model.getInputs(), FileType.of(".xcdatamodel")));
+    }
+    return result.build();
   }
 }

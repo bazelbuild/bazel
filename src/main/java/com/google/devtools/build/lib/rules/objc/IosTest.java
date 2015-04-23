@@ -122,10 +122,9 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
         .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
         .validateAttributes();
 
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
         ruleContext, common.getObjcProvider(), optionsProvider, LinkedBinary.LOCAL_AND_DEPENDENCIES,
-        ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, objcConfiguration.getMinimumOs());
+        ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT);
     releaseBundlingSupport
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)

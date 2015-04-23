@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelCon
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 
 import java.util.List;
@@ -129,19 +127,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Whether to add include path entries for every individual proto file.")
   public boolean perProtoIncludes;
 
-  // This option exists because two configurations are not allowed to have the same cache key
-  // (partially derived from options). Since we have multiple transitions (see
-  // getPotentialSplitTransitions below) that may result in the same configuration values at runtime
-  // we need an artificial way to distinguish between them. This option must only be set by those
-  // transitions for this purpose.
-  // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
-  // configurations (e.g. by min os version) always use different output paths.
-  @Option(name = "DO_NOT_USE_configuration_distinguisher",
-      defaultValue = "UNKNOWN",
-      converter = ConfigurationDistinguisherConverter.class,
-      category = "undocumented")
-  public ConfigurationDistinguisher configurationDistinguisher;
-
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "i386";
 
@@ -167,14 +152,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-    return ImmutableList.of(
-        IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION);
-  }
-
-  public static final class ConfigurationDistinguisherConverter
-      extends EnumConverter<ConfigurationDistinguisher> {
-    public ConfigurationDistinguisherConverter() {
-      super(ConfigurationDistinguisher.class, "configuration distinguisher");
-    }
+    return ImmutableList.of(ReleaseBundlingSupport.SPLIT_ARCH_TRANSITION);
   }
 }

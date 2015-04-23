@@ -180,7 +180,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .setLabel(ruleContext.getLabel())
         .setArchitecture(configuration.getIosCpu())
         .addUserHeaderSearchPaths(searchPathEntries)
-        .addPropagatedDependencies(protoDeps)
+        .addPropagatedDependencies(protoDeps, configuration)
         .addCopts(configuration.getCopts())
         .setProductType(LIBRARY_STATIC)
         .addHeaders(protoGeneratedHeaders)

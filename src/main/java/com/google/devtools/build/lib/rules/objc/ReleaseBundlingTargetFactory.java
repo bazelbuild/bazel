@@ -67,7 +67,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
         ruleContext, common.getObjcProvider(), optionsProvider(ruleContext),
-        LinkedBinary.DEPENDENCIES_ONLY, bundleDirFormat, bundleMinimumOsVersion(ruleContext));
+        LinkedBinary.DEPENDENCIES_ONLY, bundleDirFormat);
     releaseBundlingSupport
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)
@@ -77,8 +77,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
     XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType,
-            ObjcRuleClasses.objcConfiguration(ruleContext).getDependencySingleArchitecture())
+        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType)
         .addDummySource(xcodeProviderBuilder);
 
     for (Attribute attribute : dependencyAttributes) {
@@ -104,15 +103,6 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
         Optional.<J2ObjcSrcsProvider>absent());
     configureTarget(target, ruleContext, releaseBundlingSupport);
     return target.build();
-  }
-
-  /**
-   * Returns the minimum OS version this bundle's plist and resources should be generated for
-   * (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set in the
-   * configuration).
-   */
-  protected String bundleMinimumOsVersion(RuleContext ruleContext) {
-    return ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
   }
 
   /**

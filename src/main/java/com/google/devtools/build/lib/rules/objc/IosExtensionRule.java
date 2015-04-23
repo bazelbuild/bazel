@@ -50,7 +50,7 @@ public class IosExtensionRule implements RuleDefinition {
             .allowedFileTypes()
             .mandatory()
             .direct_compile_time_input()
-            .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+            .cfg(ReleaseBundlingSupport.SPLIT_ARCH_TRANSITION))
         .build();
   }
 

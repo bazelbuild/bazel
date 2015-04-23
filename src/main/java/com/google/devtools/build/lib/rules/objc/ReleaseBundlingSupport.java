@@ -70,6 +70,36 @@ public final class ReleaseBundlingSupport {
    */
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
 
+  /**
+   * Transition that when applied to a target generates a configured target for each value in
+   * {@code --ios_multi_cpus}, such that {@code --ios_cpu} is set to a different one of those values
+   * in the configured targets.
+   */
+  public static final SplitTransition<BuildOptions> SPLIT_ARCH_TRANSITION =
+      new SplitTransition<BuildOptions>() {
+        @Override
+        public List<BuildOptions> split(BuildOptions buildOptions) {
+          List<String> iosMultiCpus = buildOptions.get(ObjcCommandLineOptions.class).iosMultiCpus;
+          if (iosMultiCpus.isEmpty()) {
+            return ImmutableList.of();
+          }
+
+          ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+          for (String iosCpu : iosMultiCpus) {
+            BuildOptions splitOptions = buildOptions.clone();
+            splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
+            splitOptions.get(ObjcCommandLineOptions.class).iosCpu = iosCpu;
+            splitBuildOptions.add(splitOptions);
+          }
+          return splitBuildOptions.build();
+        }
+
+        @Override
+        public boolean defaultsToSelf() {
+          return true;
+        }
+      };
+
   @VisibleForTesting
   static final String NO_ASSET_CATALOG_ERROR_FORMAT =
       "a value was specified (%s), but this app does not have any asset catalogs";
@@ -124,22 +154,18 @@ public final class ReleaseBundlingSupport {
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
    *    the latter
    * @param bundleDirFormat format string representing the bundle's directory with a single
-   *    placeholder for the target name (e.g. {@code "Payload/%s.app"})
-   * @param bundleMinimumOsVersion the minimum OS version this bundle's plist should be generated
-   *    for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
-   *    through the configuration)
+   *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    */
   ReleaseBundlingSupport(
       RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
-      LinkedBinary linkedBinary, String bundleDirFormat, String bundleMinimumOsVersion) {
+      LinkedBinary linkedBinary, String bundleDirFormat) {
     this.linkedBinary = linkedBinary;
     this.attributes = new Attributes(ruleContext);
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.families = ImmutableSet.copyOf(attributes.families());
     this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    bundling = bundling(
-        ruleContext, objcProvider, optionsProvider, bundleDirFormat, bundleMinimumOsVersion);
+    bundling = bundling(ruleContext, objcProvider, optionsProvider, bundleDirFormat);
     bundleSupport = new BundleSupport(ruleContext, families, bundling, extraActoolArgs());
   }
 
@@ -388,7 +414,7 @@ public final class ReleaseBundlingSupport {
 
   private Bundling bundling(
       RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
-      String bundleDirFormat, String minimumOsVersion) {
+      String bundleDirFormat) {
     ImmutableList<BundleableFile> extraBundleFiles;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     if (objcConfiguration.getBundlingPlatform() == Platform.DEVICE) {
@@ -421,7 +447,6 @@ public final class ReleaseBundlingSupport {
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)
-        .setMinimumOsVersion(minimumOsVersion)
         .build();
   }
 
@@ -725,76 +750,6 @@ public final class ReleaseBundlingSupport {
     private String stringAttribute(String attribute) {
       String value = ruleContext.attributes().get(attribute, Type.STRING);
       return value.isEmpty() ? null : value;
-    }
-  }
-
-  /**
-   * Transition that results in one configured target per architecture set in {@code
-   * --ios_multi_cpus}.
-   */
-  protected static class SplitArchTransition implements SplitTransition<BuildOptions> {
-
-    @Override
-    public final List<BuildOptions> split(BuildOptions buildOptions) {
-      List<String> iosMultiCpus = buildOptions.get(ObjcCommandLineOptions.class).iosMultiCpus;
-      if (iosMultiCpus.isEmpty()) {
-        return defaultOptions(buildOptions);
-      }
-
-      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
-      for (String iosCpu : iosMultiCpus) {
-        BuildOptions splitOptions = buildOptions.clone();
-        setArchitectureOptions(splitOptions, iosCpu);
-        setAdditionalOptions(splitOptions, buildOptions);
-        splitOptions.get(ObjcCommandLineOptions.class).configurationDistinguisher =
-            getConfigurationDistinguisher();
-        splitBuildOptions.add(splitOptions);
-      }
-      return splitBuildOptions.build();
-    }
-
-    /**
-     * Returns the default options to use if no split architectures are specified.
-     *
-     * @param originalOptions original options before this transition
-     */
-    protected ImmutableList<BuildOptions> defaultOptions(BuildOptions originalOptions) {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Sets or overwrites flags on the given split options.
-     *
-     * <p>Invoked once for each configuration produced by this transition.
-     *
-     * @param splitOptions options to use after this transition
-     * @param originalOptions original options before this transition
-     */
-    protected void setAdditionalOptions(BuildOptions splitOptions, BuildOptions originalOptions) {}
-
-    private void setArchitectureOptions(BuildOptions splitOptions, String iosCpu) {
-      splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
-      splitOptions.get(ObjcCommandLineOptions.class).iosCpu = iosCpu;
-    }
-
-    @Override
-    public boolean defaultsToSelf() {
-      return true;
-    }
-
-    /**
-     * Returns the configuration distinguisher for this transition instance.
-     */
-    protected ConfigurationDistinguisher getConfigurationDistinguisher() {
-      return ConfigurationDistinguisher.APPLICATION;
-    }
-
-    /**
-     * Value used to avoid multiple configurations from conflicting. No two instances of this
-     * transition may exist with the same value in a single Bazel invocation.
-     */
-    enum ConfigurationDistinguisher {
-      EXTENSION, APPLICATION, UNKNOWN
     }
   }
 }

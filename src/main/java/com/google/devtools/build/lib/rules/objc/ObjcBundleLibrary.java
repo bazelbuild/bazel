@@ -82,17 +82,15 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, ObjcCommon common, OptionsProvider optionsProvider) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
-        .setArchitecture(objcConfiguration.getIosCpu())
+        .setArchitecture(ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu())
         .setBundleDirFormat("%s.bundle")
         .setObjcProvider(common.getObjcProvider())
         .setInfoplistMerging(
             BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(), optionsProvider,
                 new BundleSupport.ExtraMergePlists()))
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setMinimumOsVersion(objcConfiguration.getMinimumOs())
         .build();
   }
 

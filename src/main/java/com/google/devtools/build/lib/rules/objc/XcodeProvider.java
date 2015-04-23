@@ -49,10 +49,8 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -149,19 +147,23 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file and propagated up the dependency chain.
      */
-    public Builder addPropagatedDependencies(Iterable<XcodeProvider> dependencies) {
-      return addDependencies(dependencies, /*doPropagate=*/true);
+    public Builder addPropagatedDependencies(Iterable<XcodeProvider> dependencies,
+        ObjcConfiguration configuration) {
+      return addDependencies(dependencies, configuration, /*doPropagate=*/true);
     }
 
    /**
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file and not propagated up the dependency chain.
      */
-    public Builder addNonPropagatedDependencies(Iterable<XcodeProvider> dependencies) {
-      return addDependencies(dependencies, /*doPropagate=*/false);
+    public Builder addNonPropagatedDependencies(Iterable<XcodeProvider> dependencies,
+        ObjcConfiguration configuration) {
+      return addDependencies(dependencies, configuration, /*doPropagate=*/false);
     }
 
-    private Builder addDependencies(Iterable<XcodeProvider> dependencies, boolean doPropagate) {
+    private Builder addDependencies(Iterable<XcodeProvider> dependencies,
+        ObjcConfiguration configuration, boolean doPropagate) {
+      String architecture = configuration.getDependencySingleArchitecture();
       for (XcodeProvider dependency : dependencies) {
         // TODO(bazel-team): This is messy. Maybe we should make XcodeProvider be able to specify
         // how to depend on it rather than require this method to choose based on the dependency's
@@ -169,7 +171,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         if (dependency.productType == XcodeProductType.EXTENSION) {
           this.extensions.add(dependency);
           this.inputsToXcodegen.addTransitive(dependency.inputsToXcodegen);
-        } else {
+        } else if (dependency.architecture.equals(architecture)) {
           if (doPropagate) {
             this.propagatedDependencies.add(dependency);
             this.propagatedDependencies.addTransitive(dependency.propagatedDependencies);
@@ -352,21 +354,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       }
 
       ImmutableList.Builder<TargetControl> controls = new ImmutableList.Builder<>();
-      Map<Label, XcodeProvider> labelToProvider = new HashMap<>();
       for (XcodeProvider provider : providerSet) {
-        XcodeProvider oldProvider = labelToProvider.put(provider.label, provider);
-        if (oldProvider != null) {
-          if (!oldProvider.architecture.equals(provider.architecture)) {
-            // Do not include duplicate dependencies whose architecture does not match this
-            // project's. This check avoids having multiple conflicting Xcode targets for the same
-            // BUILD target that are only distinguished by this field (which Xcode does not care
-            // about).
-            continue;
-          }
-
-          throw new IllegalStateException("Depending on multiple versions of the same xcode target "
-              + "is not allowed but occurred for: " + provider.label);
-        }
         controls.addAll(provider.targetControls());
       }
       return controls.build();

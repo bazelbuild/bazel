@@ -54,7 +54,7 @@ public class IosApplicationRule implements RuleDefinition {
             .allowedFileTypes()
             .mandatory()
             .direct_compile_time_input()
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
+            .cfg(ReleaseBundlingSupport.SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(extensions) -->
         Any extensions to include in the final application.
         ${SYNOPSIS}

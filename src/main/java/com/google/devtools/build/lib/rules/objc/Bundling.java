@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,7 +57,6 @@ final class Bundling {
     private String primaryBundleId;
     private String fallbackBundleId;
     private String architecture;
-    private String minimumOsVersion;
 
     public Builder setName(String name) {
       this.name = name;
@@ -104,15 +104,6 @@ final class Bundling {
     
     public Builder setFallbackBundleId(String fallbackId) {
       this.fallbackBundleId = fallbackId;
-      return this;
-    }
-
-    /**
-     * Sets the minimum OS version for this bundle which will be used when constructing the bundle's
-     * plist.
-     */
-    public Builder setMinimumOsVersion(String minimumOsVersion) {
-      this.minimumOsVersion = minimumOsVersion;
       return this;
     }
 
@@ -184,7 +175,7 @@ final class Bundling {
 
       return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
           objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifactsBuilder.build(),
-          mergeZips, primaryBundleId, fallbackBundleId, architecture, minimumOsVersion);
+          mergeZips, primaryBundleId, fallbackBundleId, architecture);
     }
   }
 
@@ -200,7 +191,6 @@ final class Bundling {
   private final NestedSet<Artifact> mergeZips;
   private final String primaryBundleId;
   private final String fallbackBundleId;
-  private final String minimumOsVersion;
 
   private Bundling(
       String name,
@@ -214,8 +204,7 @@ final class Bundling {
       NestedSet<Artifact> mergeZips,
       String primaryBundleId,
       String fallbackBundleId,
-      String architecture,
-      String minimumOsVersion) {
+      String architecture) {
     this.name = Preconditions.checkNotNull(name);
     this.bundleDirFormat = Preconditions.checkNotNull(bundleDirFormat);
     this.combinedArchitectureBinary = Preconditions.checkNotNull(combinedArchitectureBinary);
@@ -228,7 +217,6 @@ final class Bundling {
     this.fallbackBundleId = fallbackBundleId;
     this.primaryBundleId = primaryBundleId;
     this.architecture = Preconditions.checkNotNull(architecture);
-    this.minimumOsVersion = Preconditions.checkNotNull(minimumOsVersion);
   }
 
   /**
@@ -339,13 +327,5 @@ final class Bundling {
    */
   public String getArchitecture() {
     return architecture;
-  }
-
-  /**
-   * Returns the minimum iOS version this bundle's plist and resources should be generated for
-   * (does <b>not</b> affect the minimum OS version its binary is compiled with).
-   */
-  public String getMinimumOsVersion() {
-    return minimumOsVersion;
   }
 }

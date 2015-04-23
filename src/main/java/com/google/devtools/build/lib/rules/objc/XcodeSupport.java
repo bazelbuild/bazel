@@ -93,27 +93,9 @@ public final class XcodeSupport {
    */
   XcodeSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder,
       ObjcProvider objcProvider, XcodeProductType productType) {
-    return addXcodeSettings(xcodeProviderBuilder, objcProvider, productType,
-        ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu());
-  }
-
-  /**
-   * Adds common xcode settings to the given provider builder, explicitly specifying architecture
-   * to use.
-   *
-   * @param objcProvider provider containing all dependencies' information as well as some of this
-   *    rule's
-   * @param productType type of this rule's Xcode target
-   * @param architecture architecture to filter all dependencies with (only matching ones will be
-   *    included in the final targets generated)
-   *
-   * @return this xcode support
-   */
-  XcodeSupport addXcodeSettings(Builder xcodeProviderBuilder,
-      ObjcProvider objcProvider, XcodeProductType productType, String architecture) {
     xcodeProviderBuilder
         .setLabel(ruleContext.getLabel())
-        .setArchitecture(architecture)
+        .setArchitecture(ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu())
         .setObjcProvider(objcProvider)
         .setProductType(productType);
     return this;
@@ -127,7 +109,8 @@ public final class XcodeSupport {
   XcodeSupport addDependencies(Builder xcodeProviderBuilder, Attribute attribute) {
     xcodeProviderBuilder.addPropagatedDependencies(
         ruleContext.getPrerequisites(
-            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class));
+            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class),
+        ObjcRuleClasses.objcConfiguration(ruleContext));
     return this;
   }
 
@@ -142,7 +125,8 @@ public final class XcodeSupport {
   XcodeSupport addNonPropagatedDependencies(Builder xcodeProviderBuilder, Attribute attribute) {
     xcodeProviderBuilder.addNonPropagatedDependencies(
         ruleContext.getPrerequisites(
-            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class));
+            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class),
+        ObjcRuleClasses.objcConfiguration(ruleContext));
     return this;
   }
 
