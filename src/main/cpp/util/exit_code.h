@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// blaze_exit_code.h: Exit codes for Blaze.
+// exit_code.h: Exit codes for Blaze.
 // Must be kept in sync with the Java counterpart under
 // com/google/devtools/build/lib/util/ExitCode.java
 
-#ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_EXIT_CODE_H_
-#define DEVTOOLS_BLAZE_MAIN_BLAZE_EXIT_CODE_H_
+#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_
+#define DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_
 
 namespace blaze_exit_code {
 
@@ -39,4 +39,4 @@ enum ExitCode {
 
 }  // namespace blaze_exit_code
 
-#endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_EXIT_CODE_H_
+#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_

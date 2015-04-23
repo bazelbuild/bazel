@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
 

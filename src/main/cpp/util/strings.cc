@@ -19,7 +19,7 @@
 
 #include <cassert>
 
-#include "src/main/cpp/blaze_exit_code.h"
+#include "src/main/cpp/util/exit_code.h"
 
 using std::vector;
 

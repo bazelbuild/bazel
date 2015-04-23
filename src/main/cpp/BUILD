@@ -9,6 +9,7 @@ cc_library(
     ],
     hdrs = [
         "util/errors.h",
+        "util/exit_code.h",
         "util/file.h",
         "util/numbers.h",
         "util/port.h",

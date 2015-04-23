@@ -16,9 +16,9 @@
 #include <cassert>
 #include <cstdlib>
 
-#include "src/main/cpp/blaze_exit_code.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"

@@ -53,12 +53,12 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/blaze_exit_code.h"
 #include "src/main/cpp/blaze_startup_options.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
