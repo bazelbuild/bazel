@@ -157,25 +157,6 @@ public abstract class FoundationTestCase extends TestCase {
     return scratch.overwriteFile(pathName, lines);
   }
 
-  /**
-   * Create a scratch file in the given filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected Path scratchFile(String pathName, byte[] content)
-      throws IOException {
-    return scratch.file(pathName, content);
-  }
-
-  /**
-   * Create a scratch file in the scratch filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected void deleteFile(String pathName) throws IOException {
-    scratch.deleteFile(pathName);
-  }
-
   // Mix-in assertions:
 
   protected void assertNoEvents() {
