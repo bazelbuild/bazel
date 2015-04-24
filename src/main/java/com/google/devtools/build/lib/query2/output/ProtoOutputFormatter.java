@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.ENVIRONMENT_GROUP;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.GENERATED_FILE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.PACKAGE_GROUP;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
@@ -20,6 +21,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -209,6 +211,20 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
 
       targetPb.setType(PACKAGE_GROUP);
       targetPb.setPackageGroup(packageGroupPb);
+    } else if (target instanceof EnvironmentGroup) {
+      EnvironmentGroup envGroup = (EnvironmentGroup) target;
+      Build.EnvironmentGroup.Builder envGroupPb =
+          Build.EnvironmentGroup
+              .newBuilder()
+              .setName(envGroup.getLabel().toString());
+      for (Label env : envGroup.getEnvironments()) {
+        envGroupPb.addEnvironment(env.toString());
+      }
+      for (Label defaultEnv : envGroup.getDefaults()) {
+        envGroupPb.addDefault(defaultEnv.toString());
+      }
+      targetPb.setType(ENVIRONMENT_GROUP);
+      targetPb.setEnvironmentGroup(envGroupPb);
     } else {
       throw new IllegalArgumentException(target.toString());
     }

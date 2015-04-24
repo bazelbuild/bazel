@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -177,6 +178,20 @@ class XmlOutputFormatter extends OutputFormatter implements OutputFormatter.Unor
       }
 
       addPackageGroupsToElement(doc, elem, inputFile);
+    } else if (target instanceof EnvironmentGroup) {
+      EnvironmentGroup envGroup = (EnvironmentGroup) target;
+      elem = doc.createElement("environment-group");
+      elem.setAttribute("name", envGroup.getName());
+      Element environments = createValueElement(doc,
+          com.google.devtools.build.lib.packages.Type.LABEL_LIST,
+          envGroup.getEnvironments());
+      environments.setAttribute("name", "environments");
+      elem.appendChild(environments);
+      Element defaults = createValueElement(doc,
+          com.google.devtools.build.lib.packages.Type.LABEL_LIST,
+          envGroup.getDefaults());
+      defaults.setAttribute("name", "defaults");
+      elem.appendChild(defaults);
     } else if (target instanceof FakeSubincludeTarget) {
       elem = doc.createElement("source-file");
     } else {
