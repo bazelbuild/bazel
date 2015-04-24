@@ -283,7 +283,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testSerialization() throws Exception {
     FileSystem oldFileSystem = Path.getFileSystemForSerialization();
     try {
-      Path.setFileSystemForSerialization(scratchFS());
+      Path.setFileSystemForSerialization(scratch.getFileSystem());
       TestUtils.serializeObject(createCollection());
     } finally {
       Path.setFileSystemForSerialization(oldFileSystem);

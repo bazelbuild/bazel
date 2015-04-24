@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 import java.io.IOException;
@@ -84,6 +85,15 @@ public final class Scratch {
    * filesystem.
    */
   public Path resolve(String pathName) {
+    return workingDir.getRelative(pathName);
+  }
+
+  /**
+   * Resolves {@code pathName} relative to the working directory. Note that this will not create any
+   * entity in the filesystem; i.e., the file that the object is describing may not exist in the
+   * filesystem.
+   */
+  public Path resolve(PathFragment pathName) {
     return workingDir.getRelative(pathName);
   }
 

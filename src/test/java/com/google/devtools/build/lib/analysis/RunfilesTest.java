@@ -41,7 +41,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = new PathFragment("a");
-    Root root = Root.asSourceRoot(scratchFS().getPath("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
     Artifact artifactA = new Artifact(new PathFragment("a"), root);
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(new PathFragment("a/b"), new Artifact(new PathFragment("c/b"),
@@ -54,7 +54,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = new PathFragment("a");
-    Root root = Root.asSourceRoot(scratchFS().getPath("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
     Artifact artifactA = new Artifact(new PathFragment("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -68,7 +68,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = new PathFragment("a");
-    Root root = Root.asSourceRoot(scratchFS().getPath("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
     Artifact artifactA = new Artifact(new PathFragment("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -81,7 +81,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksIgnoresOkObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = new PathFragment("a");
-    Root root = Root.asSourceRoot(scratchFS().getPath("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
     Artifact artifactA = new Artifact(new PathFragment("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -96,7 +96,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksNoObscurers() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = new PathFragment("a");
-    Root root = Root.asSourceRoot(scratchFS().getPath("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
     Artifact artifactA = new Artifact(new PathFragment("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
