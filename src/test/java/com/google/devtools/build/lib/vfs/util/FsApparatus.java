@@ -126,11 +126,9 @@ public class FsApparatus {
   }
 
   /**
-   * Initializes this apparatus (if it hasn't been initialized yet), and returns
-   * a path object describing a file, directory, or symlink pointed at by
-   * {@code pathName}. Note that this will not create any entity in the
-   * filesystem; i.e., the file that the object is describing may not exist in
-   * the filesystem.
+   * Resolves {@code pathName} relative to the working directory. Note that this will not create any
+   * entity in the filesystem; i.e., the file that the object is describing may not exist in the
+   * filesystem.
    */
   public Path path(String pathName) {
     return workingDir.getRelative(pathName);

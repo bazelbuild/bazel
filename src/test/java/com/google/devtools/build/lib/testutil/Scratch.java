@@ -28,19 +28,35 @@ import java.io.IOException;
 public final class Scratch {
 
   private final FileSystem fileSystem;
+  private Path workingDir = null;
 
   /**
    * Create a new ScratchFileSystem using the {@link InMemoryFileSystem}
    */
   public Scratch() {
-    this(new InMemoryFileSystem(BlazeClock.instance()));
+    this(new InMemoryFileSystem(BlazeClock.instance()), "/");
+  }
+
+  /**
+   * Create a new ScratchFileSystem using the {@link InMemoryFileSystem}
+   */
+  public Scratch(String workingDir) {
+    this(new InMemoryFileSystem(BlazeClock.instance()), workingDir);
   }
 
   /**
    * Create a new ScratchFileSystem using the supplied FileSystem.
    */
   public Scratch(FileSystem fileSystem) {
+    this(fileSystem, "/");
+  }
+
+  /**
+   * Create a new ScratchFileSystem using the supplied FileSystem.
+   */
+  public Scratch(FileSystem fileSystem, String workingDir) {
     this.fileSystem = fileSystem;
+    this.workingDir = fileSystem.getPath(workingDir);
   }
 
   /**
@@ -50,11 +66,24 @@ public final class Scratch {
     return fileSystem;
   }
 
+  public void setWorkingDir(String workingDir) {
+    this.workingDir = fileSystem.getPath(workingDir);
+  }
+
+  /**
+   * Resolves {@code pathName} relative to the working directory. Note that this will not create any
+   * entity in the filesystem; i.e., the file that the object is describing may not exist in the
+   * filesystem.
+   */
+  public Path resolve(String pathName) {
+    return workingDir.getRelative(pathName);
+  }
+
   /**
    * Create a directory in the scratch filesystem, with the given path name.
    */
   public Path dir(String pathName) throws IOException {
-    Path dir = getFileSystem().getPath(pathName);
+    Path dir = resolve(pathName);
     if (!dir.exists()) {
       FileSystemUtils.createDirectoryAndParents(dir);
     }
@@ -69,11 +98,11 @@ public final class Scratch {
    * consisting of a set of lines. The method returns a Path instance for the
    * scratch file.
    */
-  public Path file(String pathName, String... lines)
-      throws IOException {
-    Path newFile = file(getFileSystem(), pathName, lines);
-    newFile.setLastModifiedTime(-1L);
-    return newFile;
+  public Path file(String pathName, String... lines) throws IOException {
+    Path file = newFile(pathName);
+    FileSystemUtils.writeContentAsLatin1(file, linesAsString(lines));
+    file.setLastModifiedTime(-1L);
+    return file;
   }
 
   /**
@@ -81,10 +110,10 @@ public final class Scratch {
    * exists.
    */
   public Path overwriteFile(String pathName, String... lines) throws IOException {
-    Path oldFile = getFileSystem().getPath(pathName);
+    Path oldFile = resolve(pathName);
     long newMTime = oldFile.exists() ? oldFile.getLastModifiedTime() + 1 : -1;
     oldFile.delete();
-    Path newFile = file(getFileSystem(), pathName, lines);
+    Path newFile = file(pathName, lines);
     newFile.setLastModifiedTime(newMTime);
     return newFile;
   }
@@ -93,8 +122,7 @@ public final class Scratch {
    * Deletes the specified scratch file, using the same specification as {@link Path#delete}.
    */
   public boolean deleteFile(String pathName) throws IOException {
-    Path file = getFileSystem().getPath(pathName);
-    return file.delete();
+    return resolve(pathName).delete();
   }
 
   /**
@@ -102,28 +130,15 @@ public final class Scratch {
    * consisting of a set of lines. The method returns a Path instance for the
    * scratch file.
    */
-  public Path file(FileSystem fs, String pathName, String... lines)
-      throws IOException {
-    Path file = newScratchFile(fs, pathName);
-    FileSystemUtils.writeContentAsLatin1(file, linesAsString(lines));
-    return file;
-  }
-
-  /**
-   * Create a scratch file in the given filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  public Path file(FileSystem fs, String pathName, byte[] content)
-      throws IOException {
-    Path file = newScratchFile(fs, pathName);
+  public Path file(String pathName, byte[] content) throws IOException {
+    Path file = newFile(pathName);
     FileSystemUtils.writeContent(file, content);
     return file;
   }
 
   /** Creates a new scratch file, ensuring parents exist. */
-  private Path newScratchFile(FileSystem fs, String pathName) throws IOException {
-    Path file = fs.getPath(pathName);
+  private Path newFile(String pathName) throws IOException {
+    Path file = resolve(pathName);
     Path parentDir = file.getParentDirectory();
     if (!parentDir.exists()) {
       FileSystemUtils.createDirectoryAndParents(parentDir);
