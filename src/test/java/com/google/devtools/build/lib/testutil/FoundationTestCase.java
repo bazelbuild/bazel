@@ -114,7 +114,7 @@ public abstract class FoundationTestCase extends TestCase {
           String context = loadFile(file);
           Path path = rootDirectory.getRelative(to + "/" + fileName);
           if (path.exists()) {
-            overwriteScratchFile(path.getPathString(), context);
+            scratch.overwriteFile(path.getPathString(), context);
           } else {
             scratchFile(path.getPathString(), context);
           }
@@ -147,14 +147,6 @@ public abstract class FoundationTestCase extends TestCase {
    */
   protected Path scratchFile(String pathName, String... lines) throws IOException {
     return scratch.file(pathName, lines);
-  }
-
-  /**
-   * Like {@code scratchFile}, but the file is first deleted if it already
-   * exists.
-   */
-  protected Path overwriteScratchFile(String pathName, String... lines) throws IOException {
-    return scratch.overwriteFile(pathName, lines);
   }
 
   // Mix-in assertions:
