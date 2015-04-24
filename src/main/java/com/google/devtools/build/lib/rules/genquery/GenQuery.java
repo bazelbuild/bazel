@@ -244,23 +244,25 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       // behavior of the query engine in these two use cases.
       settings.add(Setting.NO_NODEP_DEPS);
 
-      // All the packages are already loaded at this point, so there is no need
-      // to start up many threads. 4 is started up to make good use of multiple
-      // cores.
       ImmutableList<OutputFormatter> outputFormatters = QUERY_OUTPUT_FORMATTERS.get(
           ruleContext.getAnalysisEnvironment().getSkyframeEnv());
       // This is a precomputed value so it should have been injected by the rules module by the
       // time we get there.
       formatter =  OutputFormatter.getFormatter(
           Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat);
+
+      // All the packages are already loaded at this point, so there is no need
+      // to start up many threads. 4 are started up to make good use of multiple
+      // cores.
       queryResult = (BlazeQueryEvalResult<Target>) AbstractBlazeQueryEnvironment
           .newQueryEnvironment(
-          /*transitivePackageLoader=*/null, /*graph=*/null, packageProvider,
+              /*transitivePackageLoader=*/null, /*graph=*/null, packageProvider,
               evaluator,
-          /* keepGoing = */ false,
+              /*keepGoing=*/false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
-          /*orderedResults=*/QueryOutputUtils.orderResults(queryOptions, formatter),
-              /*universeScope=*/ImmutableList.<String>of(), 4,
+              /*orderedResults=*/QueryOutputUtils.orderResults(queryOptions, formatter),
+              /*universeScope=*/ImmutableList.<String>of(),
+              /*loadingPhaseThreads=*/4,
               labelFilter,
               getEventHandler(ruleContext),
               settings,
