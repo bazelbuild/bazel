@@ -57,6 +57,19 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   }
 
   /**
+   * Returns the extra rules contributed to the default package by this fragment.
+   *
+   * <p>The return value should be a list of strings, which are merged into the BUILD files of the
+   * defaults package.
+   *
+   * <p><strong>WARNING;</strong> this method should only be used when absolutely necessary. Always
+   * prefer {@code getDefaultsLabels()} to this.
+   */
+  public ImmutableList<String> getDefaultsRules() {
+    return ImmutableList.of();
+  }
+
+  /**
    * Returns a list of potential split configuration transitions for this fragment. Split
    * configurations usually need to be explicitly enabled by passing in an option.
    */
