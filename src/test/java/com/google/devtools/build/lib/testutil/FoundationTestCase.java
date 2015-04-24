@@ -91,11 +91,11 @@ public abstract class FoundationTestCase extends TestCase {
     reporter.addHandler(failFastHandler);
   }
 
-  /*
+  /**
    * Creates the file system; override to inject FS behavior.
    */
   protected FileSystem createFileSystem() {
-     return new InMemoryFileSystem(BlazeClock.instance());
+    return new InMemoryFileSystem(BlazeClock.instance());
   }
 
   private void copySkylarkFilesIfExist() throws IOException {
