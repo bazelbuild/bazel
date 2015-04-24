@@ -299,6 +299,8 @@ java_test(
         ":testutil",
         "//src/main/java:bazel-core",
         "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],
