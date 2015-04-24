@@ -22,10 +22,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,7 +54,7 @@ public class CompactPersistentActionCacheTest {
     }
   }
 
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
   private Path dataRoot;
   private Path mapFile;
   private Path journalFile;
@@ -63,7 +63,7 @@ public class CompactPersistentActionCacheTest {
 
   @Before
   public void setUp() throws Exception {
-    dataRoot = scratch.path("/cache/test.dat");
+    dataRoot = scratch.resolve("/cache/test.dat");
     cache = new CompactPersistentActionCache(dataRoot, clock);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);

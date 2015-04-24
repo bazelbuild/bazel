@@ -19,11 +19,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -65,7 +65,7 @@ public class PersistentStringIndexerTest {
 
   private PersistentStringIndexer psi;
   private Map<Integer, String> mappings = new ConcurrentHashMap<>();
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
   private ManualClock clock = new ManualClock();
   private Path dataPath;
   private Path journalPath;
@@ -73,8 +73,8 @@ public class PersistentStringIndexerTest {
 
   @Before
   public void setUp() throws Exception {
-    dataPath = scratch.path("/cache/test.dat");
-    journalPath = scratch.path("/cache/test.journal");
+    dataPath = scratch.resolve("/cache/test.dat");
+    journalPath = scratch.resolve("/cache/test.journal");
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
   }
 
