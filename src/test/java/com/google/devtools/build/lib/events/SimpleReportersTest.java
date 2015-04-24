@@ -34,7 +34,6 @@ public class SimpleReportersTest extends EventTestTemplate {
       public void handle(Event event) {
         handlerCount++;
       }
-
     };
 
     Reporter reporter = new Reporter(handler);
@@ -43,5 +42,4 @@ public class SimpleReportersTest extends EventTestTemplate {
     reporter.handle(new Event(EventKind.INFO, location, "Add to handlerCount."));
     assertEquals(3, handlerCount);
   }
-
 }

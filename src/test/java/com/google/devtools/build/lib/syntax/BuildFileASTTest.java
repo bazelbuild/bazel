@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,14 +39,14 @@ import java.util.Arrays;
 @RunWith(JUnit4.class)
 public class BuildFileASTTest {
 
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
 
   private EventCollectionApparatus events = new EventCollectionApparatus(EventKind.ALL_EVENTS);
 
   private class ScratchPathPackageLocator implements CachingPackageLocator {
     @Override
     public Path getBuildFileForPackage(String packageName) {
-      return scratch.path(packageName).getRelative("BUILD");
+      return scratch.resolve(packageName).getRelative("BUILD");
     }
   }
 

@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,14 +36,13 @@ import org.junit.runners.JUnit4;
 public class LexerTest {
   private String lastError;
   private Location lastErrorLocation;
-  private FsApparatus scratch = FsApparatus.newInMemory();
 
   /**
    * Create a lexer which takes input from the specified string. Resets the
    * error handler beforehand.
    */
   private Lexer createLexer(String input) {
-    Path somePath = scratch.path("/some/path.txt");
+    Path somePath = new Scratch().resolve("/some/path.txt");
     ParserInputSource inputSource = ParserInputSource.create(input, somePath);
     Reporter reporter = new Reporter();
     reporter.addHandler(new EventHandler() {

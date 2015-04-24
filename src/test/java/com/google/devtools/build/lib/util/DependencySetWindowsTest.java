@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,10 +28,10 @@ import java.util.Set;
 @RunWith(JUnit4.class)
 public class DependencySetWindowsTest {
 
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
 
   private DependencySet newDependencySet() {
-    return new DependencySet(scratch.fs().getRootDirectory());
+    return new DependencySet(scratch.resolve("/"));
   }
 
   @Test
@@ -86,5 +86,4 @@ public class DependencySetWindowsTest {
     MoreAsserts.assertSameContents(expected,
         newDependencySet().read(dotd).getDependencies());
   }
-
 }

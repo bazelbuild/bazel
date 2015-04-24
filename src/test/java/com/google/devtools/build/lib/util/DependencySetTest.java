@@ -18,10 +18,10 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,10 +32,10 @@ import java.util.Collection;
 @RunWith(JUnit4.class)
 public class DependencySetTest {
 
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
 
   private DependencySet newDependencySet() {
-    return new DependencySet(scratch.fs().getRootDirectory());
+    return new DependencySet(scratch.resolve("/"));
   }
 
   @Test
@@ -190,8 +190,8 @@ public class DependencySetTest {
     depSet1.addDependency(file3);
     depSet1.setOutputFileName(filename);
     
-    Path outfile = scratch.path(filename);
-    Path dotd = scratch.path("/usr/local/blah/blah/genhello/hello.d");
+    Path outfile = scratch.resolve(filename);
+    Path dotd = scratch.resolve("/usr/local/blah/blah/genhello/hello.d");
     FileSystemUtils.createDirectoryAndParents(dotd.getParentDirectory());
     depSet1.write(outfile, ".d");
 
@@ -217,7 +217,7 @@ public class DependencySetTest {
     depSet1.addDependency(file3);
     depSet1.setOutputFileName(filename);
 
-    Path dotd = scratch.path(filename);
+    Path dotd = scratch.resolve(filename);
     FileSystemUtils.createDirectoryAndParents(dotd.getParentDirectory());
     depSet1.write(dotd, ".d");
     

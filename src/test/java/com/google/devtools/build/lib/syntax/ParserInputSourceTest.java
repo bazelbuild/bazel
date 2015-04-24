@@ -18,8 +18,8 @@ import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A test case for {@link ParserInputSource}.
@@ -35,12 +36,12 @@ import java.io.InputStream;
 @RunWith(JUnit4.class)
 public class ParserInputSourceTest {
 
-  private FsApparatus scratch = FsApparatus.newInMemory();
+  private Scratch scratch = new Scratch();
 
   @Test
   public void testCreateFromFile() throws IOException {
     String content = joinLines("Line 1", "Line 2", "Line 3", "");
-    Path file = scratch.file("/tmp/my/file.txt", content);
+    Path file = scratch.file("/tmp/my/file.txt", content.getBytes(StandardCharsets.UTF_8));
     ParserInputSource input = ParserInputSource.create(file);
     assertEquals(content, new String(input.getContent()));
     assertEquals("/tmp/my/file.txt", input.getPath().toString());
@@ -50,7 +51,7 @@ public class ParserInputSourceTest {
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.path(pathName);
+    Path path = scratch.resolve(pathName);
     ParserInputSource input = ParserInputSource.create(content, path);
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
@@ -60,7 +61,7 @@ public class ParserInputSourceTest {
   public void testCreateFromCharArray() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.path(pathName);
+    Path path = scratch.resolve(pathName);
     char[] contentChars = content.toCharArray();
     ParserInputSource input = ParserInputSource.create(contentChars, path);
     assertEquals(content, new String(input.getContent()));
@@ -73,7 +74,7 @@ public class ParserInputSourceTest {
     byte[] bytes = content.getBytes("ISO-8859-1");
     ByteArrayInputStream in = new ByteArrayInputStream(bytes);
     String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.path(pathName);
+    Path path = scratch.resolve(pathName);
     ParserInputSource input = ParserInputSource.create(in, path);
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
@@ -82,7 +83,7 @@ public class ParserInputSourceTest {
   @Test
   public void testIOExceptionIfInputFileDoesNotExistForSingleArgConstructor() {
     try {
-      Path path = scratch.path("/does/not/exist");
+      Path path = scratch.resolve("/does/not/exist");
       ParserInputSource.create(path);
       fail();
     } catch (IOException e) {
@@ -93,13 +94,13 @@ public class ParserInputSourceTest {
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
-    Path path = scratch.path("/will/not/try/to/read");
+    Path path = scratch.resolve("/will/not/try/to/read");
     ParserInputSource.create("Content provided as string.", path);
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
-    Path path = scratch.path("/will/not/try/to/read");
+    Path path = scratch.resolve("/will/not/try/to/read");
     char[] content = "Content provided as char array.".toCharArray();
     ParserInputSource.create(content, path);
   }
@@ -118,7 +119,7 @@ public class ParserInputSourceTest {
       }
     };
     try {
-      Path path = scratch.path("/will/not/try/to/read");
+      Path path = scratch.resolve("/will/not/try/to/read");
       ParserInputSource.create(in, path);
       fail();
     } catch (IOException e) {
