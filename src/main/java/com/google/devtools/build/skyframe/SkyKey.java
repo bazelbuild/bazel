@@ -34,14 +34,20 @@ public final class SkyKey implements Serializable {
   private final Object argument;
 
   /**
-   * Cache the hash code for this object. It might be expensive to compute.
+   * Cache the hash code for this object. It might be expensive to compute. It is transient because
+   * argument's hash code might not be stable across JVM instances.
    */
-  private final int hashCode;
+  private transient int hashCode;
+
+  /**
+   * Whether the hash code is cached. Needed for {de,}serialization.
+   */
+  private transient boolean hashCodeCached;
 
   public SkyKey(SkyFunctionName functionName, Object valueName) {
     this.functionName = Preconditions.checkNotNull(functionName);
     this.argument = Preconditions.checkNotNull(valueName);
-    this.hashCode = 31 * functionName.hashCode() + argument.hashCode();
+    cacheHashCode();
   }
 
   public SkyFunctionName functionName() {
@@ -59,7 +65,15 @@ public final class SkyKey implements Serializable {
 
   @Override
   public int hashCode() {
+    if (!hashCodeCached) {
+      cacheHashCode();
+    }
     return hashCode;
+  }
+
+  private void cacheHashCode() {
+    hashCode = 31 * functionName.hashCode() + argument.hashCode();
+    hashCodeCached = true;
   }
 
   @Override
