@@ -14,114 +14,67 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
 /**
- * An implementation of the FileOutErr that doesn't use a file.
- * This is useful for tests, as they often test the action directly
- * and would otherwise have to create files on the vfs.
+ * An implementation of the FileOutErr that uses an in-memory file behind the scenes.
  */
 public class TestFileOutErr extends FileOutErr {
 
-  RecordingOutErr recorder;
-
-  public TestFileOutErr(TestFileOutErr arg) {
-    this(arg.getOutputStream(), arg.getErrorStream());
-  }
-
   public TestFileOutErr() {
-    this(new ByteArrayOutputStream(), new ByteArrayOutputStream());
+    super(new FlushingFileRecordingOutputStream(newInMemoryFile("out.log")),
+        new FlushingFileRecordingOutputStream(newInMemoryFile("err.log")));
+
   }
 
-  public TestFileOutErr(ByteArrayOutputStream stream) {
-    super(null, null); // This is a pretty brutal overloading - We're just inheriting for the type.
-    recorder = new RecordingOutErr(stream, stream);
-  }
-
-  public TestFileOutErr(ByteArrayOutputStream stream1, ByteArrayOutputStream stream2) {
-    super(null, null); // This is a pretty brutal overloading - We're just inheriting for the type.
-    recorder = new RecordingOutErr(stream1, stream2);
-  }
-
-
-  @Override
-  public Path getOutputFile() {
-    return null;
-  }
-
-  @Override
-  public Path getErrorFile() {
-    return null;
-  }
-
-  @Override
-  public ByteArrayOutputStream getOutputStream() {
-    return recorder.getOutputStream();
-  }
-
-  @Override
-  public ByteArrayOutputStream getErrorStream() {
-    return recorder.getErrorStream();
-  }
-
-  @Override
-  public void printOut(String s) {
-    recorder.printOut(s);
-  }
-
-  @Override
-  public void printErr(String s) {
-    recorder.printErr(s);
-  }
-
-  @Override
-  public String toString() {
-    return recorder.toString();
-  }
-
-  @Override
-  public boolean hasRecordedOutput() {
-    return recorder.hasRecordedOutput();
-  }
-
-  @Override
-  public String outAsLatin1() {
-    return recorder.outAsLatin1();
-  }
-
-  @Override
-  public String errAsLatin1() {
-    return recorder.errAsLatin1();
-  }
-
-  @Override
-  public void dumpOutAsLatin1(OutputStream out) {
+  private static Path newInMemoryFile(String name) {
+    InMemoryFileSystem inMemFS = new InMemoryFileSystem();
+    Path directory = inMemFS.getPath("/inmem/file_outerr");
     try {
-      recorder.getOutputStream().writeTo(out);
+      FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new IllegalStateException(e);
     }
+    return directory.getRelative(name);
   }
 
-  @Override
-  public void dumpErrAsLatin1(OutputStream out) {
-    try {
-      recorder.getErrorStream().writeTo(out);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+  private static class FlushingFileRecordingOutputStream extends FileRecordingOutputStream {
+    protected FlushingFileRecordingOutputStream(Path outputFile) {
+      super(outputFile);
+    }
+
+    @Override
+    public synchronized void write(byte[] b) throws IOException {
+      super.write(b);
+      flush();
+    }
+
+    @Override
+    public synchronized void write(byte[] b, int off, int len) {
+      super.write(b, off, len);
+      try {
+        flush();
+      } catch (IOException e) {
+        recordError(e);
+      }
+    }
+
+    @Override
+    public synchronized void write(int b) {
+      super.write(b);
+      try {
+        flush();
+      } catch (IOException e) {
+        recordError(e);
+      }
     }
   }
 
   public String getRecordedOutput() {
-    return recorder.outAsLatin1() + recorder.errAsLatin1();
-  }
-
-  public void reset() {
-    recorder.reset();
+    return outAsLatin1() + errAsLatin1();
   }
 }
