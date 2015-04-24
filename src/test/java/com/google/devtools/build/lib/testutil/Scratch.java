@@ -45,6 +45,14 @@ public final class Scratch {
   }
 
   /**
+   * Create a new ScratchFileSystem using the given {@code Path}.
+   */
+  public Scratch(Path workingDir) {
+    this.fileSystem = workingDir.getFileSystem();
+    this.workingDir = workingDir;
+  }
+
+  /**
    * Create a new ScratchFileSystem using the supplied FileSystem.
    */
   public Scratch(FileSystem fileSystem) {
