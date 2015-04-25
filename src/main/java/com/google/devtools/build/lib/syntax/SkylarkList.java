@@ -83,6 +83,28 @@ public abstract class SkylarkList implements Iterable<Object> {
     return EvalUtils.prettyPrintValue(this);
   }
 
+  @Override
+  public boolean equals(Object object) {
+    if (this == object) {
+      return true;
+    }
+    if (!(object instanceof SkylarkList)) {
+      return false;
+    }
+    SkylarkList other = (SkylarkList) object;
+    if (this.isTuple() != other.isTuple()) {
+      return false;
+    }
+    return toList().equals(other.toList());
+  }
+
+  @Override
+  public int hashCode() {
+    return SkylarkList.class.hashCode()
+        + Boolean.valueOf(isTuple()).hashCode()
+        + 31 * toList().hashCode();
+  }
+
   // TODO(bazel-team): we should be very careful using this method. Check and remove
   // auto conversions on the Java-Skylark interface if possible.
   /**
@@ -179,23 +201,6 @@ public abstract class SkylarkList implements Iterable<Object> {
     @Override
     public String toString() {
       return EvalUtils.prettyPrintValue(this);
-    }
-
-    @Override
-    public int hashCode() {
-      return list.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof SimpleSkylarkList)) {
-        return false;
-      }
-      SimpleSkylarkList other = (SimpleSkylarkList) obj;
-      return other.list.equals(this.list);
     }
   }
 

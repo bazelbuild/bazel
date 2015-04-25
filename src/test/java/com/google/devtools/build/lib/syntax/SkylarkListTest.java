@@ -131,4 +131,16 @@ public class SkylarkListTest extends EvaluationTestCase {
         "  v = 0");
     assertEquals(0, lookup("v"));
   }
+
+  @Test
+  public void testListComparison() throws Exception {
+    assertEquals(true, eval("(1, 'two', [3, 4]) == (1, 'two', [3, 4])"));
+    assertEquals(true, eval("[1, 2, 3, 4] == [1, 2] + [3, 4]"));
+    assertEquals(false, eval("[1, 2, 3, 4] == (1, 2, 3, 4)"));
+    assertEquals(false, eval("[1, 2] == [1, 2, 3]"));
+    assertEquals(true, eval("[] == []"));
+    assertEquals(true, eval("() == ()"));
+    assertEquals(false, eval("() == (1,)"));
+    assertEquals(false, eval("(1) == (1,)"));
+  }
 }
