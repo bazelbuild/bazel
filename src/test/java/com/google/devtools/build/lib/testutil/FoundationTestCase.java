@@ -131,15 +131,6 @@ public abstract class FoundationTestCase extends TestCase {
     super.tearDown();
   }
 
-  /**
-   * A scratch filesystem that is completely in-memory. Since this file system
-   * is "cached" in a private (but *not* static) field in the test class,
-   * each testFoo method in junit sees a fresh filesystem.
-   */
-  protected FileSystem scratchFS() {
-    return scratch.getFileSystem();
-  }
-
   // Mix-in assertions:
 
   protected void assertNoEvents() {
