@@ -233,7 +233,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
   private MutableSupplier<Set<Package>> configurationPackages = new MutableSupplier<>();
-  private SkyKey configurationSkyKey = null;
 
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
@@ -798,7 +797,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
     this.skyframeBuildView = skyframeBuildView;
-    setConfigurationSkyKey(configurationSkyKey);
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     if (skyframeBuildView.getWarningListener() != null) {
       setErrorEventListener(skyframeBuildView.getWarningListener());
@@ -828,18 +826,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
-  private void setConfigurationSkyKey(SkyKey skyKey) {
-    this.configurationSkyKey = skyKey;
-    if (skyframeBuildView != null) {
-      skyframeBuildView.setConfigurationSkyKey(skyKey);
-    }
-  }
-
   @VisibleForTesting
-  public void setConfigurationDataForTesting(BuildOptions options,
-      BlazeDirectories directories, ConfigurationFactory configurationFactory) {
-    SkyKey skyKey = ConfigurationCollectionValue.key(options, ImmutableSet.<String>of());
-    setConfigurationSkyKey(skyKey);
+  public void setConfigurationDataForTesting(BlazeDirectories directories,
+      ConfigurationFactory configurationFactory) {
     PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
     this.configurationFactory.set(configurationFactory);
     this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
@@ -863,7 +852,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     SkyKey skyKey = ConfigurationCollectionValue.key(
         buildOptions, ImmutableSortedSet.copyOf(multiCpu));
-    setConfigurationSkyKey(skyKey);
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
             Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
