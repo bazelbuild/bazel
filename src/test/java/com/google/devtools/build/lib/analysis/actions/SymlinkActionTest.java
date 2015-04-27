@@ -40,7 +40,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    input = scratchFile("input.txt", "Hello, world.");
+    input = scratch.file("input.txt", "Hello, world.");
     inputArtifact = getSourceArtifact("input.txt");
     Path linkedInput = directories.getExecRoot().getRelative("input.txt");
     FileSystemUtils.createDirectoryAndParents(linkedInput.getParentDirectory());

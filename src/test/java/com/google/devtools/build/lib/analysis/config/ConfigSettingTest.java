@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.syntax.Label;
 public class ConfigSettingTest extends BuildViewTestCase {
 
   private void writeSimpleExample() throws Exception {
-    scratchFile("pkg/BUILD",
+    scratch.file("pkg/BUILD",
         "config_setting(",
         "    name = 'foo',",
         "    values = {",
@@ -123,7 +123,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * com.google.devtools.common.options.Option#defaultValue}).
    */
   public void testLateBoundOptionDefaults() throws Exception {
-    scratchFile("test/BUILD",
+    scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",
@@ -137,7 +137,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests matching on multi-value attributes with key=value entries (e.g. --define).
    */
   public void testMultiValueDict() throws Exception {
-    scratchFile("test/BUILD",
+    scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",
@@ -162,7 +162,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests matching on multi-value attributes with primitive values.
    */
   public void testMultiValueList() throws Exception {
-    scratchFile("test/BUILD",
+    scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",

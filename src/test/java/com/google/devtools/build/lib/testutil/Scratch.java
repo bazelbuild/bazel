@@ -124,7 +124,7 @@ public final class Scratch {
   }
 
   /**
-   * Like {@code scratchFile}, but the file is first deleted if it already
+   * Like {@code scratch.file}, but the file is first deleted if it already
    * exists.
    */
   public Path overwriteFile(String pathName, String... lines) throws IOException {

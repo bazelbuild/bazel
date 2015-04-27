@@ -75,7 +75,7 @@ public abstract class FoundationTestCase extends TestCase {
     scratch = new Scratch(createFileSystem(), "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
-    scratchFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+    scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString(),
         "bind(",
         "  name = 'objc_proto_lib',",
         "  actual = '//objcproto:ProtocolBuffers_lib',",
@@ -99,8 +99,8 @@ public abstract class FoundationTestCase extends TestCase {
   }
 
   private void copySkylarkFilesIfExist() throws IOException {
-    scratchFile(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
-    scratchFile(rootDirectory.getRelative("rules/BUILD").getPathString());
+    scratch.file(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
+    scratch.file(rootDirectory.getRelative("rules/BUILD").getPathString());
     copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules/staging");
     copySkylarkFilesIfExist("third_party/bazel/tools/build_rules", "rules");
   }
@@ -116,7 +116,7 @@ public abstract class FoundationTestCase extends TestCase {
           if (path.exists()) {
             scratch.overwriteFile(path.getPathString(), context);
           } else {
-            scratchFile(path.getPathString(), context);
+            scratch.file(path.getPathString(), context);
           }
         }
       }
@@ -138,15 +138,6 @@ public abstract class FoundationTestCase extends TestCase {
    */
   protected FileSystem scratchFS() {
     return scratch.getFileSystem();
-  }
-
-  /**
-   * Create a scratch file in the scratch filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected Path scratchFile(String pathName, String... lines) throws IOException {
-    return scratch.file(pathName, lines);
   }
 
   // Mix-in assertions:

@@ -102,7 +102,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addInput(input)
         .addOutput(output)
-        .setExecutable(scratchFile("/bin/xxx").asFragment())
+        .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
@@ -130,7 +130,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testBuilderWithJavaExecutable() throws Exception {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
-        .setJavaExecutable(scratchFile("/bin/java").asFragment(),
+        .setJavaExecutable(scratch.file("/bin/java").asFragment(),
             jarArtifact, "MyMainClass", asList("-jvmarg"))
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
@@ -148,7 +148,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addOutput(output)
         .setJavaExecutable(
-            scratchFile("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
+            scratch.file("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
         .addArgument("-X")
         .useParameterFile(ParameterFileType.UNQUOTED)
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
@@ -180,7 +180,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addOutput(output)
         .setJavaExecutable(
-            scratchFile("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
+            scratch.file("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
         .addArgument("-X")
         .useParameterFile(ParameterFileType.UNQUOTED, ISO_8859_1, "--flagfile=")
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
@@ -205,7 +205,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
         .setJavaExecutable(
-            scratchFile("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
+            scratch.file("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
         .addExecutableArguments("execArg1", "execArg2")
         .addArguments("arg1")
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
@@ -225,7 +225,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addOutput(output)
         .setJavaExecutable(
-            scratchFile("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
+            scratch.file("/bin/java").asFragment(), jarArtifact, "MyMainClass", asList("-jvmarg"))
         .addExecutableArguments("execArg1", "execArg2")
         .addArguments("arg1", "arg2", "arg3")
         .useParameterFile(ParameterFileType.UNQUOTED)
@@ -308,7 +308,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .addInput(manifest)
         .addInputManifest(manifest, new PathFragment("/destination/"))
         .addOutput(getBinArtifactWithNoOwner("output"))
-        .setExecutable(scratchFile("/bin/xxx").asFragment())
+        .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);

@@ -611,7 +611,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
-    scratchFile(packageName + "/BUILD", lines);
+    scratch.file(packageName + "/BUILD", lines);
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
   }
 

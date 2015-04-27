@@ -73,7 +73,7 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
           .append(getAttrDef("environments", environments.toArray(new String[0])) + ",\n")
           .append(getAttrDef("defaults", defaults.toArray(new String[0])) + ",\n")
           .append(")");
-      scratchFile("" + name + "/BUILD", builder.toString());
+      scratch.file("" + name + "/BUILD", builder.toString());
     }
   }
 

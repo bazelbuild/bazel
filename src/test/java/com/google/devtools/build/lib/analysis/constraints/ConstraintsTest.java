@@ -40,7 +40,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void setUp() throws Exception {
     super.setUp();
     // Support files for RuleClassWithImplicitAndLateBoundDefaults:
-    scratchFile("helpers/BUILD",
+    scratch.file("helpers/BUILD",
         "sh_library(name = 'implicit', srcs = ['implicit.sh'])",
         "sh_library(name = 'latebound', srcs = ['latebound.sh'])");
   }
@@ -280,7 +280,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testAllDefaults() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule());
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -292,7 +292,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testSameConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:b")),
         getDependingRule(constrainedTo("//foo_env:b")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -305,7 +305,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testValidConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:a", "//foo_env:b")),
         getDependingRule(constrainedTo("//foo_env:b")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -318,7 +318,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testInvalidConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:b")),
         getDependingRule(constrainedTo("//foo_env:a", "//foo_env:b")));
     reporter.removeHandler(failFastHandler);
@@ -332,7 +332,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testSameCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(compatibleWith("//foo_env:b", "//foo_env:c")),
         getDependingRule(compatibleWith("//foo_env:b", "//foo_env:c")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -345,7 +345,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testValidCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(compatibleWith("//foo_env:b", "//foo_env:c")),
         getDependingRule(compatibleWith("//foo_env:c")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -358,7 +358,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testInvalidCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(compatibleWith("//foo_env:c")),
         getDependingRule(compatibleWith("//foo_env:b", "//foo_env:c")));
     reporter.removeHandler(failFastHandler);
@@ -371,7 +371,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testMultipleMissingEnvironments() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(compatibleWith("//foo_env:b", "//foo_env:c")));
     reporter.removeHandler(failFastHandler);
@@ -386,7 +386,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testValidMultigroupConstraints() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
     new EnvironmentGroupMaker("bar_env").setEnvironments("d", "e", "f").setDefaults("d").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:b", "//foo_env:c"),
             compatibleWith("//bar_env:e")),
         getDependingRule(constrainedTo("//foo_env:c"), compatibleWith("//bar_env:e")));
@@ -400,7 +400,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testInvalidMultigroupConstraints() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
     new EnvironmentGroupMaker("bar_env").setEnvironments("d", "e", "f").setDefaults("d").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:c"), compatibleWith("//bar_env:e")),
         getDependingRule(constrainedTo("//foo_env:b", "//foo_env:c"),
             compatibleWith("//bar_env:e")));
@@ -416,7 +416,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testValidConstraintsUnknownEnvironmentToDependency() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a", "b")
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//foo_env:b")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -430,7 +430,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testInvalidConstraintsUnknownEnvironmentToDependency() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a", "b")
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//foo_env:c")));
     reporter.removeHandler(failFastHandler);
@@ -445,7 +445,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testValidConstraintsUnknownEnvironmentToDependender() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:a", "//foo_env:b")),
         getDependingRule());
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -459,7 +459,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testInvalidConstraintsUnknownEnvironmentToDependender() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:b")),
         getDependingRule());
     reporter.removeHandler(failFastHandler);
@@ -472,7 +472,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testOneDependencyIsInvalid() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getRuleDef("sh_library", "bad_dep", constrainedTo("//foo_env:b")),
         getRuleDef("sh_library", "good_dep", compatibleWith("//foo_env:b")),
         getRuleDef("sh_library", "depender",
@@ -487,7 +487,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testConstraintEnforcementDisabled() throws Exception {
     useConfiguration("--experimental_enforce_constraints=0");
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b", "c").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(compatibleWith("//foo_env:b", "//foo_env:c")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -500,7 +500,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testCompatibilityPackageDefaults() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "package(default_compatible_with = ['//foo_env:b'])",
         getDependencyRule(),
         getDependingRule(compatibleWith("//foo_env:b")));
@@ -516,7 +516,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     // We intentionally create an invalid dependency structure vs. a valid one. If we tested on
     // a valid one, this test wouldn't be able to distinguish between rule declarations overriding
     // package defaults and package defaults overriding rule declarations.
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "package(default_compatible_with = ['//foo_env:b'])",
         getDependencyRule(compatibleWith("//foo_env:a")),
         getDependingRule(compatibleWith("//foo_env:a", "//foo_env:b")));
@@ -531,7 +531,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testRestrictionPackageDefaults() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a", "b").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "package(default_restricted_to = ['//foo_env:b'])",
         getDependencyRule(constrainedTo("//foo_env:b")),
         getDependingRule());
@@ -547,7 +547,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     // We intentionally create an invalid dependency structure vs. a valid one. If we tested on
     // a valid one, this test wouldn't be able to distinguish between rule declarations overriding
     // package defaults and package defaults overriding rule declarations.
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "package(default_restricted_to = ['//foo_env:b'])",
         getDependencyRule(constrainedTo("//foo_env:a")),
         getDependingRule(constrainedTo("//foo_env:a", "//foo_env:b")));
@@ -564,7 +564,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    */
   public void testPackageDefaultsDirectlyFillRuleAttributes() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults().make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "package(default_restricted_to = ['//foo_env:b'])",
         getDependencyRule(compatibleWith("//foo_env:a")));
     reporter.removeHandler(failFastHandler);
@@ -575,7 +575,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
 
   public void testHostDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "sh_binary(name = 'host_tool', srcs = ['host_tool.sh'], restricted_to = ['//foo_env:b'])",
         "genrule(",
         "    name = 'hello',",
@@ -590,7 +590,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
 
   public void testImplicitAndLateBoundDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "rule_with_implicit_and_latebound_deps(name = 'hi', compatible_with = ['//foo_env:b'])");
     assertNotNull(getConfiguredTarget("//hello:hi"));
     // Note that the event "cannot build rule_with_implicit_and_latebound_deps" *does* occur
@@ -601,7 +601,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
 
   public void testOutputFilesAreChecked() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults().make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "genrule(name = 'gen', srcs = [], outs = ['shlib.sh'], cmd = '')",
         "sh_library(",
         "    name = 'shlib',",
@@ -615,7 +615,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
 
   public void testConfigSettingRulesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults().make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         "config_setting(name = 'setting', values = {'compilation_mode': 'fastbuild'})",
         "sh_library(",
         "    name = 'shlib',",
@@ -633,7 +633,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("a", "b")
         .setDefaults()
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:a")),
         getDependingRule(constrainedTo("//foo_env:b")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -646,7 +646,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("a", "b")
         .setDefaults()
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:b")),
         getDependingRule(constrainedTo("//foo_env:a")));
     reporter.removeHandler(failFastHandler);
@@ -661,7 +661,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("b", "c")
         .setDefaults()
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:a")),
         getDependingRule(constrainedTo("//foo_env:c")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -674,7 +674,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("a", "b")
         .setDefaults("a")
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//foo_env:b")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -688,7 +688,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("b", "c")
         .setDefaults("a")
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//foo_env:c")));
     assertNotNull(getConfiguredTarget("//hello:main"));
@@ -701,7 +701,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("a", "b")
         .setDefaults("b")
         .make();
-    scratchFile("hello/BUILD",
+    scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//foo_env:a")),
         getDependingRule());
     assertNotNull(getConfiguredTarget("//hello:main"));

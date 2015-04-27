@@ -60,7 +60,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   private void pkg(String name, String... contents) throws Exception {
-    scratchFile("" + name + "/BUILD", contents);
+    scratch.file("" + name + "/BUILD", contents);
   }
 
   @Test

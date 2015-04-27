@@ -56,7 +56,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     super.setUp();
     Root workspace = Root.asSourceRoot(scratch.dir("/workspace"));
     outputRoot = Root.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
-    Path input = scratchFile("/workspace/input.txt", TEMPLATE);
+    Path input = scratch.file("/workspace/input.txt", TEMPLATE);
     inputArtifact = new Artifact(input, workspace);
     output = scratch.resolve("/workspace/out/destination.txt");
     outputArtifact = new Artifact(output, outputRoot);
@@ -158,7 +158,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     Executor executor = new TestExecutorBuilder(directories, binTools).build();
     createWithArtifact().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    // The trailing "" is needed because scratchFile implicitly appends "\n".
+    // The trailing "" is needed because scratch.file implicitly appends "\n".
     String expected = Joiner.on('\n').join("key=foo", "value=bar", "");
     assertEquals(expected, content);
   }
