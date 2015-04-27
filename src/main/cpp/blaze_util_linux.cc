@@ -13,11 +13,12 @@
 // limitations under the License.
 
 #include <limits.h>
+#include <pwd.h>
 #include <string.h>  // strerror
 #include <sys/statfs.h>
-#include <unistd.h>
 #include <sys/types.h>
-#include <pwd.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"

@@ -16,21 +16,11 @@
 //               Blaze client.
 //
 
-#ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H__
-#define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H__
+#ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_
+#define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_
 
-#include <pwd.h>
-#include <stdarg.h>
-#include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <string>
 #include <vector>
-
-#include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/numbers.h"
-#include "src/main/cpp/util/port.h"
 
 namespace blaze {
 
@@ -87,8 +77,9 @@ void ReExecute(const string &executable, int argc, const char *argv[]);
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
 // Returns NULL otherwise.
-const char* GetUnaryOption(const char *arg, const char *next_arg,
-                                  const char *key);
+const char* GetUnaryOption(const char *arg,
+                           const char *next_arg,
+                           const char *key);
 
 // Returns true iff 'arg' equals 'key'.
 // Dies with a syntax error if arg starts with 'key='.
@@ -121,4 +112,5 @@ string GetJvmVersion(string java_exe);
 bool CheckJavaVersionIsAtLeast(string jvm_version, string version_spec);
 
 }  // namespace blaze
-#endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H__
+
+#endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_

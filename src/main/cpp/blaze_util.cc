@@ -22,11 +22,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/xattr.h>
 #include <unistd.h>
+
 #include <sstream>
 
 #include "src/main/cpp/util/errors.h"
@@ -34,6 +37,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/util/port.h"
 
 using blaze_util::die;
 using blaze_util::pdie;
