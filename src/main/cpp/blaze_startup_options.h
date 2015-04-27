@@ -166,6 +166,9 @@ class BlazeStartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<string, string> option_sources;
 
+  // This can be used for site-specific startup options. For Bazel, this is
+  // stubbed
+  // out.
   std::unique_ptr<StartupOptions> extra_options;
 
   // Given the working directory, returns the nearest enclosing directory with a
