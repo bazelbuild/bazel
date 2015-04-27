@@ -130,11 +130,17 @@ public class MavenJarFunction extends HttpArchiveFunction {
     return SkyFunctionName.computed(Ascii.toUpperCase(MavenJarRule.NAME));
   }
 
+  /**
+   * @see RepositoryFunction#getRule(RepositoryName, String, Environment)
+   */
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return MavenJarRule.class;
   }
 
+  /**
+   * This downloader creates a connection to one or more Maven repositories and downloads a jar.
+   */
   static class MavenDownloader {
     private static final String MAVEN_CENTRAL_URL = "http://central.maven.org/maven2/";
 

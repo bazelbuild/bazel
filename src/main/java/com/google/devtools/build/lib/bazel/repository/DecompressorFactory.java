@@ -52,8 +52,8 @@ public abstract class DecompressorFactory {
         return new JarDecompressor(targetKind, targetName, archivePath, repositoryPath);
       } else {
         throw new DecompressorException(
-            "Expected " + HttpJarRule.NAME + " " + targetName
-                + " to create file with a .jar suffix (got " + archivePath + ")");
+            String.format("Expected %s %s to create file with a .jar suffix (got %s)",
+            HttpJarRule.NAME, targetName, archivePath));
       }
     }
 
@@ -63,14 +63,13 @@ public abstract class DecompressorFactory {
         return new ZipDecompressor(archivePath);
       } else {
         throw new DecompressorException(
-            "Expected " + HttpArchiveRule.NAME + " " + targetName
-                + " to create file with a .zip or .jar suffix (got " + archivePath + ")");
+            String.format("Expected %s %s to create file with a .zip or .jar suffix (got %s)",
+            HttpArchiveRule.NAME, targetName, archivePath));
       }
     }
 
-    throw new DecompressorException(
-        "No decompressor found for " + targetKind + " rule " + targetName
-            + " (got " + archivePath + ")");
+    throw new DecompressorException(String.format("No decompressor found for %s rule %s (got %s)",
+        targetKind, targetName, archivePath));
   }
 
   /**
@@ -88,11 +87,18 @@ public abstract class DecompressorFactory {
      * files and directories under the {@link Decompressor#archiveFile}'s parent directory.
      *
      * @return the path to the repository directory. That is, the returned path will be a directory
-     * containing a WORKSPACE file.
+     *         containing a WORKSPACE file.
      */
     public abstract Path decompress() throws DecompressorException;
   }
 
+  /**
+   * Decompressor for jar files.
+   *
+   * <p>This is actually a bit of a misnomer, as .jars aren't decompressed.  This does create a
+   * repository a BUILD file for them, though, making the java_import target @&lt;jar&gt;//jar:jar
+   * available for users to depend on.</p>
+   */
   static class JarDecompressor extends Decompressor {
     private final String targetKind;
     private final String targetName;
@@ -121,9 +127,9 @@ public abstract class DecompressorFactory {
         FileSystemUtils.createDirectoryAndParents(repositoryDir);
         // .external-repository/some-name/WORKSPACE.
         Path workspaceFile = repositoryDir.getRelative("WORKSPACE");
-        FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-            "# DO NOT EDIT: automatically generated WORKSPACE file for " + targetKind
-                + " rule " + targetName);
+        FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"), String.format(
+            "# DO NOT EDIT: automatically generated WORKSPACE file for %s rule %s\n",
+            targetKind, targetName));
         // .external-repository/some-name/jar.
         Path jarDirectory = repositoryDir.getRelative("jar");
         FileSystemUtils.createDirectoryAndParents(jarDirectory);
@@ -151,6 +157,9 @@ public abstract class DecompressorFactory {
     }
   }
 
+  /**
+   * Decompressor for zip files.
+   */
   private static class ZipDecompressor extends Decompressor {
     public ZipDecompressor(Path archiveFile) {
       super(archiveFile);
@@ -184,8 +193,8 @@ public abstract class DecompressorFactory {
         }
       } catch (IOException | ArchiveException e) {
         throw new DecompressorException(
-            "Error extracting " + archiveFile + " to " + destinationDirectory + ": "
-                + e.getMessage());
+            String.format("Error extracting %s to %s: %s",
+                archiveFile, destinationDirectory, e.getMessage()));
       }
       return destinationDirectory;
     }
@@ -195,8 +204,8 @@ public abstract class DecompressorFactory {
         throws IOException, DecompressorException {
       PathFragment relativePath = new PathFragment(entry.getName());
       if (relativePath.isAbsolute()) {
-        throw new DecompressorException("Failed to extract " + relativePath
-            + ", zipped paths cannot be absolute");
+        throw new DecompressorException(
+            String.format("Failed to extract %s, zipped paths cannot be absolute", relativePath));
       }
       Path outputPath = destinationDirectory.getRelative(relativePath);
       FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
@@ -206,8 +215,8 @@ public abstract class DecompressorFactory {
         try (OutputStream out = new FileOutputStream(new File(outputPath.getPathString()))) {
           IOUtils.copy(in, out);
         } catch (IOException e) {
-          throw new DecompressorException("Error writing " + outputPath + " from "
-              + archiveFile);
+          throw new DecompressorException(
+              String.format("Error writing %s from %s", outputPath, archiveFile));
         }
       }
     }

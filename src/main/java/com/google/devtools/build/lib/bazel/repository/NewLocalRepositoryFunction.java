@@ -123,7 +123,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     try {
       Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
       FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-          "# DO NOT EDIT: automatically generated WORKSPACE file for " + rule + "\n");
+          String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n", rule));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -137,19 +137,19 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
    * @param env the Skyframe environment.
    * @return the file value of the symlink created.
    * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
-   * linked.
+   *         linked.
    */
-  public static FileValue createBuildFile(Rule rule, Path workspaceDirectory,
-                                          Path repositoryDirectory, Environment env)
+  public static FileValue createBuildFile(
+      Rule rule, Path workspaceDirectory, Path repositoryDirectory, Environment env)
       throws RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
     Path buildFileTarget = workspaceDirectory.getRelative(buildFile);
     if (!buildFileTarget.exists()) {
       throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "In " + rule
-              + " the 'build_file' attribute does not specify an existing file ("
-              + buildFileTarget + " does not exist)"),
+          new EvalException(rule.getLocation(),
+              String.format("In %s the 'build_file' attribute does not specify an existing file "
+                  + "(%s does not exist)", rule, buildFileTarget)),
           Transience.PERSISTENT);
     }
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
@@ -164,8 +164,8 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Error creating symbolic link from " + from + " to " + to + ": "
-              + e.getMessage()), Transience.TRANSIENT);
+          new IOException(String.format("Error creating symbolic link from %s to %s: %s",
+              from, to, e.getMessage())), Transience.TRANSIENT);
     }
 
     SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
@@ -175,11 +175,14 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
           FileSymlinkCycleException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not access " + from + ": " + e.getMessage()),
+          new IOException(String.format("Could not access %s: %s", from, e.getMessage())),
           Transience.PERSISTENT);
     }
   }
 
+  /**
+   * @see RepositoryFunction#getRule(RepositoryName, String, Environment)
+   */
   @Override
   public SkyFunctionName getSkyFunctionName() {
     return SkyFunctionName.computed(NewLocalRepositoryRule.NAME.toUpperCase());
