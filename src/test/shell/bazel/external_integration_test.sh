@@ -22,6 +22,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  bazel clean --expunge
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
 java_binary(
@@ -411,6 +412,32 @@ EOF
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
+}
+
+function test_fetch() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    group_id = "com.example.carnivore",
+    artifact_id = "carnivore",
+    version = "1.23",
+    repositories = ['http://localhost:$nc_port/']
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  output_base=$(bazel info output_base)
+  external_dir=$output_base/external
+  needle=endangered
+  [[ $(ls $external_dir | grep $needle) ]] && fail "$needle already in $external_dir"
+  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
+  [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
+
+  # Rerun fetch while nc isn't serving anything to make sure the fetched result
+  # is cached.
+  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
 }
 
 run_suite "external tests"

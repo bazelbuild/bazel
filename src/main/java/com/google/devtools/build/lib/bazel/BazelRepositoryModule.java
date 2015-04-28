@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Clock;
@@ -94,6 +97,10 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
+  }
+
+  public Iterable<? extends BlazeCommand> getCommands() {
+    return ImmutableList.of(new FetchCommand());
   }
 
   @Override

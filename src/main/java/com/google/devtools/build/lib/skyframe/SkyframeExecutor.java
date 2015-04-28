@@ -938,8 +938,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
       int numThreads, boolean keepGoing, EventHandler eventHandler) throws InterruptedException {
     checkActive();
-    return buildDriver.evaluate(patternSkyKeys, keepGoing, numThreads,
-        eventHandler);
+    return buildDriver.evaluate(patternSkyKeys, keepGoing, numThreads, eventHandler);
   }
 
   /**
