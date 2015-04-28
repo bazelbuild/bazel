@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * An OutputService retains control over the Blaze output tree, and provides a higher level of
@@ -51,10 +52,12 @@ public interface OutputService {
   /**
    * Start the build.
    *
+   * @param buildId the UUID build identifier
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
    */
-  void startBuild() throws BuildFailedException, AbruptExitException, InterruptedException;
+  void startBuild(UUID buildId)
+      throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /**
    * Finish the build.

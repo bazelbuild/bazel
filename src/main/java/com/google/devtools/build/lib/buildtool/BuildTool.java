@@ -199,8 +199,9 @@ public class BuildTool {
 
       // Execution phase.
       if (needsExecutionPhase(request.getBuildOptions())) {
-        executionTool.executeBuild(analysisResult, result, runtime.getSkyframeExecutor(),
-            configurations, mergePackageRoots(loadingResult.getPackageRoots(),
+        executionTool.executeBuild(request.getId(), analysisResult, result,
+            runtime.getSkyframeExecutor(), configurations,
+            mergePackageRoots(loadingResult.getPackageRoots(),
             runtime.getSkyframeExecutor().getPackageRoots()));
       }
 
