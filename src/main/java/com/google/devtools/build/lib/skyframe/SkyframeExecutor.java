@@ -798,9 +798,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
     this.skyframeBuildView = skyframeBuildView;
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
-    if (skyframeBuildView.getWarningListener() != null) {
-      setErrorEventListener(skyframeBuildView.getWarningListener());
-    }
   }
 
   /**
@@ -808,13 +805,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public void setEventBus(EventBus eventBus) {
     this.eventBus.set(eventBus);
-  }
-
-  /**
-   * Sets the eventHandler to use for reporting errors.
-   */
-  public void setErrorEventListener(EventHandler eventHandler) {
-    this.errorEventListener = eventHandler;
   }
 
   /**

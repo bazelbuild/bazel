@@ -89,9 +89,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private static final int LOADING_PHASE_THREADS = 20;
 
   /** All the flags that can be passed to {@link BuildView#update}. */
-  public static enum Flag {
-    KEEP_GOING,
-    ANALYSIS_WARNINGS_AS_ERRORS,
+  public enum Flag {
+    KEEP_GOING
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -238,7 +237,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
     viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
-    viewOptions.analysisWarningsAsErrors = flags.contains(Flag.ANALYSIS_WARNINGS_AS_ERRORS);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);

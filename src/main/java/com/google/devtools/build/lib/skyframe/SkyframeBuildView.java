@@ -78,7 +78,6 @@ public final class SkyframeBuildView {
 
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
-  @Nullable private EventHandler warningListener;
   private final SkyframeExecutor skyframeExecutor;
   private final Runnable legacyDataCleaner;
   private final BinTools binTools;
@@ -107,10 +106,6 @@ public final class SkyframeBuildView {
     this.legacyDataCleaner = legacyDataCleaner;
     this.binTools = binTools;
     skyframeExecutor.setArtifactFactoryAndBinTools(artifactFactory, binTools);
-  }
-
-  public void setWarningListener(@Nullable EventHandler warningListener) {
-    this.warningListener = warningListener;
   }
 
   public void resetEvaluatedConfiguredTargetKeysSet() {
@@ -249,14 +244,13 @@ public final class SkyframeBuildView {
         } else {
           root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
         }
-        if (warningListener != null) {
-          Exception cause = errorInfo.getException();
-          if (cause instanceof ActionConflictException) {
-            ((ActionConflictException) cause).reportTo(warningListener);
-          }
-          warningListener.handle(Event.warn("errors encountered while analyzing target '"
-              + label + "': it will not be built"));
+        Exception cause = errorInfo.getException();
+        if (cause instanceof ActionConflictException) {
+          ((ActionConflictException) cause).reportTo(skyframeExecutor.getReporter());
         }
+        skyframeExecutor.getReporter().handle(
+            Event.warn("errors encountered while analyzing target '"
+                + label + "': it will not be built"));
         eventBus.post(new AnalysisFailureEvent(
             LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()), root));
       }
@@ -269,10 +263,9 @@ public final class SkyframeBuildView {
         ex.rethrowTyped();
       } catch (MutableActionGraph.ActionConflictException ace) {
         ace.reportTo(skyframeExecutor.getReporter());
-        if (warningListener != null) {
-          warningListener.handle(Event.warn("errors encountered while analyzing target '"
-              + bad.getKey().getOwner().getLabel() + "': it will not be built"));
-        }
+        skyframeExecutor.getReporter()
+            .handle(Event.warn("errors encountered while analyzing target '"
+                + bad.getKey().getOwner().getLabel() + "': it will not be built"));
       } catch (ArtifactPrefixConflictException apce) {
         if (reportedExceptions.add(apce)) {
           skyframeExecutor.getReporter().handle(Event.error(apce.getMessage()));
@@ -325,11 +318,6 @@ public final class SkyframeBuildView {
 
   ArtifactFactory getArtifactFactory() {
     return artifactFactory;
-  }
-
-  @Nullable
-  EventHandler getWarningListener() {
-    return warningListener;
   }
 
   /**

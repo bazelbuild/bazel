@@ -45,12 +45,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.events.WarningsAsErrorsEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -155,6 +152,8 @@ public class BuildView {
     public boolean keepGoing;
 
     @Option(name = "analysis_warnings_as_errors",
+            deprecationWarning = "analysis_warnings_as_errors is now a no-op and will be removed in"
+                + " an upcoming Blaze release",
             defaultValue = "false",
             category = "strategy",
             help = "Treat visible analysis warnings as errors.")
@@ -550,34 +549,6 @@ public class BuildView {
       BuildConfigurationCollection configurations, Options viewOptions,
       TopLevelArtifactContext topLevelOptions, EventHandler eventHandler, EventBus eventBus)
           throws ViewCreationFailedException, InterruptedException {
-
-    // Detect errors during analysis and don't attempt a build.
-    //
-    // (Errors reported during the previous step, package loading, that do
-    // not cause the visitation of the transitive closure to abort, are
-    // recoverable.  For example, an error encountered while evaluating an
-    // irrelevant rule in a visited package causes an error to be reported,
-    // but visitation still succeeds.)
-    ErrorCollector errorCollector = null;
-    if (!viewOptions.keepGoing) {
-      eventHandler = errorCollector = new ErrorCollector(eventHandler);
-    }
-
-    // Treat analysis warnings as errors, to enable strict builds.
-    //
-    // Warnings reported during analysis are converted to errors, ultimately
-    // triggering failure. This check needs to be added after the keep-going check
-    // above so that it is invoked first (FIFO eventHandler chain). This way, detected
-    // warnings are converted to errors first, and then the proper error handling
-    // logic is invoked.
-    WarningsAsErrorsEventHandler warningsHandler = null;
-    if (viewOptions.analysisWarningsAsErrors) {
-      eventHandler = warningsHandler = new WarningsAsErrorsEventHandler(eventHandler);
-    }
-
-    skyframeBuildView.setWarningListener(eventHandler);
-    skyframeExecutor.setErrorEventListener(eventHandler);
-
     LOG.info("Starting analysis");
     pollInterruptedStatus();
 
@@ -631,7 +602,6 @@ public class BuildView {
         });
 
     prepareToBuild(new SkyframePackageRootResolver(skyframeExecutor));
-    skyframeBuildView.setWarningListener(warningsHandler);
     skyframeExecutor.injectWorkspaceStatusData();
     Collection<ConfiguredTarget> configuredTargets;
     try {
@@ -651,47 +621,10 @@ public class BuildView {
       LOG.info(msg);
     }
 
-    postUpdateValidation(errorCollector, warningsHandler);
-
     AnalysisResult result = createResult(loadingResult, topLevelOptions,
         viewOptions, configuredTargets, analysisSuccessful);
     LOG.info("Finished analysis");
     return result;
-  }
-
-  // Validates that the update has been done correctly
-  private void postUpdateValidation(ErrorCollector errorCollector,
-      WarningsAsErrorsEventHandler warningsHandler) throws ViewCreationFailedException {
-    if (warningsHandler != null && warningsHandler.warningsEncountered()) {
-      throw new ViewCreationFailedException("Warnings being treated as errors");
-    }
-
-    if (errorCollector != null && !errorCollector.getEvents().isEmpty()) {
-      // This assertion ensures that if any errors were reported during the
-      // initialization phase, the call to configureTargets will fail with a
-      // ViewCreationFailedException.  Violation of this invariant leads to
-      // incorrect builds, because the fact that errors were encountered is not
-      // properly recorded in the view (i.e. the graph of configured targets).
-      // Rule errors must be reported via RuleConfiguredTarget.reportError,
-      // which causes the rule's hasErrors() flag to be set, and thus the
-      // hasErrors() flag of anything that depends on it transitively.  If the
-      // toplevel rule hasErrors, then analysis is aborted and we do not
-      // proceed to the execution phase of a build.
-      //
-      // Reporting errors directly through the Reporter does not set the error
-      // flag, so analysis may succeed spuriously, allowing the execution
-      // phase to begin with unpredictable consequences.
-      //
-      // The use of errorCollector (rather than an ErrorSensor) makes the
-      // assertion failure messages more informative.
-      // Note we tolerate errors iff --keep-going, because some of the
-      // requested targets may have had problems during analysis, but that's ok.
-      StringBuilder message = new StringBuilder("Unexpected errors reported during analysis:");
-      for (Event event : errorCollector.getEvents()) {
-        message.append('\n').append(event);
-      }
-      throw new IllegalStateException(message.toString());
-    }
   }
 
   private AnalysisResult createResult(LoadingResult loadingResult,
@@ -1019,35 +952,5 @@ public class BuildView {
     // TODO(bazel-team): Consider clearing packages too to save more memory.
     skyframeAnalysisWasDiscarded = true;
     skyframeExecutor.clearAnalysisCache(topLevelTargets);
-  }
-
-  /********************************************************************
-   *                                                                  *
-   *                  'blaze dump' related functions                  *
-   *                                                                  *
-   ********************************************************************/
-
-  /**
-   * Collects and stores error events while also forwarding them to another eventHandler.
-   */
-  public static class ErrorCollector extends DelegatingEventHandler {
-    private final List<Event> events;
-
-    public ErrorCollector(EventHandler delegate) {
-      super(delegate);
-      this.events = Lists.newArrayList();
-    }
-
-    public List<Event> getEvents() {
-      return events;
-    }
-
-    @Override
-    public void handle(Event e) {
-      super.handle(e);
-      if (e.getKind() == EventKind.ERROR) {
-        events.add(e);
-      }
-    }
   }
 }
