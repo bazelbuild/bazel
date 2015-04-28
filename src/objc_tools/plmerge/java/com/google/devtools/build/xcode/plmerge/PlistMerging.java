@@ -263,28 +263,21 @@ public class PlistMerging extends Value<PlistMerging> {
    * Sets the given identifier on this merged plist in the {@code CFBundleIdentifier}
    * attribute.
    *
-   * @param primaryIdentifier used if the bundle doesn't have an identifier already, can be null
-   * @param fallbackIdentifier used if neither bundle, nor primary identifier is set, can be null
+   * @param primaryIdentifier used to set the bundle identifier or override the existing one from
+   *     plist file, can be null
+   * @param fallbackIdentifier used to set the bundle identifier if it is not set by plist file or
+   *     primary identifier, can be null
    * @return this plist merging
-   * @throws ValidationException if both plist and control contain bundle identifiers and they
-   *     don't match
    */
   public PlistMerging setBundleIdentifier(String primaryIdentifier, String fallbackIdentifier) {
     NSString bundleIdentifier = (NSString) merged.get(BUNDLE_IDENTIFIER_PLIST_KEY);
         
-    if (bundleIdentifier == null) {
-      if (primaryIdentifier != null) {
-        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, primaryIdentifier);
-      } else if (fallbackIdentifier != null) {
-        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, fallbackIdentifier);
-      }
-    } else if (primaryIdentifier != null 
-        && !primaryIdentifier.equals(bundleIdentifier.getContent())) {
-      throw new ValidationException(String.format(
-          "Blaze generated bundle_id is %s but the Plist %s is %s",
-          primaryIdentifier, BUNDLE_IDENTIFIER_PLIST_KEY, bundleIdentifier));
+    if (primaryIdentifier != null) {
+      merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, primaryIdentifier);
+    } else if (bundleIdentifier == null && fallbackIdentifier != null) {
+      merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, fallbackIdentifier);
     }
-    
+
     return this;
   }
 

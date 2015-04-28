@@ -53,6 +53,21 @@ public class PlMerge {
         help = "Path to the output file. Required.",
         defaultValue = "null")
     public String outFile;
+
+    @Option(
+        name = "primary_bundle_id",
+        help = "A reverse-DNS string identifier for this bundle associated with output binary "
+            + "plist. This flag overrides the bundle id specified in field CFBundleIdentifier in "
+            + "the associated plist file.",
+        defaultValue = "null")
+    public String primaryBundleId;
+
+    @Option(
+        name = "fallback_bundle_id",
+        help = "A fallback reverse-DNS string identifier for this bundle when the bundle "
+            + "identifier is not specified in flag primary_bundle_id or associated plist file",
+        defaultValue = "null")
+    public String fallbackBundleId;
   }
 
   public static void main(String[] args) throws IOException, OptionsParsingException {
@@ -74,6 +89,7 @@ public class PlMerge {
 
     PlistMerging merging = PlistMerging.from(sourceFilePaths, ImmutableMap.<String, NSObject>of(),
         ImmutableMap.<String, String>of(), new KeysToRemoveIfEmptyString());
+    merging.setBundleIdentifier(options.primaryBundleId, options.fallbackBundleId);
     merging.writePlist(fileSystem.getPath(options.outFile));
   }
 
