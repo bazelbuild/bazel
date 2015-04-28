@@ -21,7 +21,7 @@ support many different programming languages within Google, and can be
 used to build both client and server software targeting multiple
 architectures from the same underlying codebase.
 
-Find more background about Bazel in our [FAQ](http://bazel.io/FAQ.html).
+Find more background about Bazel in our [FAQ](http://bazel.io/faq.html).
 
 ## Getting Started
 
