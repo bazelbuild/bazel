@@ -82,6 +82,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<XcodeprojBuildSetting> xcodeprojBuildSettings =
         new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<XcodeprojBuildSetting>
+        companionTargetXcodeprojBuildSettings = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<String> copts = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<String> compilationModeCopts =
         new ImmutableList.Builder<>();
@@ -191,14 +193,24 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     }
 
     /**
-     * Adds additional build settings of this target.
+     * Adds additional build settings of this target and its companion library target, if it exists.
      */
     public Builder addXcodeprojBuildSettings(
         Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings) {
       this.xcodeprojBuildSettings.addAll(xcodeprojBuildSettings);
+      this.companionTargetXcodeprojBuildSettings.addAll(xcodeprojBuildSettings);
       return this;
     }
 
+    /**
+     * Adds additional build settings of this target without adding them to the companion lib
+     * target, if it exists.
+     */
+    public Builder addMainTargetXcodeprojBuildSettings(
+        Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings) {
+      this.xcodeprojBuildSettings.addAll(xcodeprojBuildSettings);
+      return this;
+    }
     /**
      * Sets the copts to use when compiling the Xcode target.
      */
@@ -370,6 +382,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final NestedSet<XcodeProvider> propagatedDependencies;
   private final NestedSet<XcodeProvider> nonPropagatedDependencies;
   private final ImmutableList<XcodeprojBuildSetting> xcodeprojBuildSettings;
+  private final ImmutableList<XcodeprojBuildSetting> companionTargetXcodeprojBuildSettings;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> compilationModeCopts;
   private final XcodeProductType productType;
@@ -394,6 +407,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.propagatedDependencies = builder.propagatedDependencies.build();
     this.nonPropagatedDependencies = builder.nonPropagatedDependencies.build();
     this.xcodeprojBuildSettings = builder.xcodeprojBuildSettings.build();
+    this.companionTargetXcodeprojBuildSettings =
+        builder.companionTargetXcodeprojBuildSettings.build();
     this.copts = builder.copts.build();
     this.compilationModeCopts = builder.compilationModeCopts.build();
     this.productType = Preconditions.checkNotNull(builder.productType);
@@ -583,6 +598,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         .setProductType(LIBRARY_STATIC.getIdentifier())
         .clearInfoplist()
         .clearDependency()
+        .clearBuildSetting()
+        .addAllBuildSetting(companionTargetXcodeprojBuildSettings)
+        .addAllBuildSetting(IosSdkCommands.defaultWarningsForXcode())
         .build();
   }
 
