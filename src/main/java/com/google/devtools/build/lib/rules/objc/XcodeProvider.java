@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
@@ -49,8 +50,10 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -98,6 +101,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private String architecture;
     private ImmutableList.Builder<PathFragment> datamodelDirs = new ImmutableList.Builder<>();
     private boolean generateCompanionLibTarget = false;
+    private ConfigurationDistinguisher configurationDistinguisher;
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -149,23 +153,19 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file and propagated up the dependency chain.
      */
-    public Builder addPropagatedDependencies(Iterable<XcodeProvider> dependencies,
-        ObjcConfiguration configuration) {
-      return addDependencies(dependencies, configuration, /*doPropagate=*/true);
+    public Builder addPropagatedDependencies(Iterable<XcodeProvider> dependencies) {
+      return addDependencies(dependencies, /*doPropagate=*/true);
     }
 
    /**
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file and not propagated up the dependency chain.
      */
-    public Builder addNonPropagatedDependencies(Iterable<XcodeProvider> dependencies,
-        ObjcConfiguration configuration) {
-      return addDependencies(dependencies, configuration, /*doPropagate=*/false);
+    public Builder addNonPropagatedDependencies(Iterable<XcodeProvider> dependencies) {
+      return addDependencies(dependencies, /*doPropagate=*/false);
     }
 
-    private Builder addDependencies(Iterable<XcodeProvider> dependencies,
-        ObjcConfiguration configuration, boolean doPropagate) {
-      String architecture = configuration.getDependencySingleArchitecture();
+    private Builder addDependencies(Iterable<XcodeProvider> dependencies, boolean doPropagate) {
       for (XcodeProvider dependency : dependencies) {
         // TODO(bazel-team): This is messy. Maybe we should make XcodeProvider be able to specify
         // how to depend on it rather than require this method to choose based on the dependency's
@@ -173,7 +173,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         if (dependency.productType == XcodeProductType.EXTENSION) {
           this.extensions.add(dependency);
           this.inputsToXcodegen.addTransitive(dependency.inputsToXcodegen);
-        } else if (dependency.architecture.equals(architecture)) {
+        } else {
           if (doPropagate) {
             this.propagatedDependencies.add(dependency);
             this.propagatedDependencies.addTransitive(dependency.propagatedDependencies);
@@ -312,6 +312,15 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    /**
+     * Sets the distinguisher that will cause this xcode provider to discard any dependencies from
+     * sources that are tagged with a different distinguisher.
+     */
+    public Builder setConfigurationDistinguisher(ConfigurationDistinguisher distinguisher) {
+      this.configurationDistinguisher = distinguisher;
+      return this;
+    }
+
     public XcodeProvider build() {
       Preconditions.checkState(
           !testHost.isPresent() || (productType == XcodeProductType.UNIT_TEST),
@@ -366,7 +375,22 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       }
 
       ImmutableList.Builder<TargetControl> controls = new ImmutableList.Builder<>();
+      Map<Label, XcodeProvider> labelToProvider = new HashMap<>();
       for (XcodeProvider provider : providerSet) {
+        XcodeProvider oldProvider = labelToProvider.put(provider.label, provider);
+        if (oldProvider != null) {
+          if (!oldProvider.architecture.equals(provider.architecture)
+              || oldProvider.configurationDistinguisher != provider.configurationDistinguisher) {
+            // Do not include duplicate dependencies whose architecture or configuration
+            // distinguisher does not match this project's. This check avoids having multiple
+            // conflicting Xcode targets for the same BUILD target that are only distinguished by
+            // these fields (which Xcode does not care about).
+            continue;
+          }
+
+          throw new IllegalStateException("Depending on multiple versions of the same xcode target "
+              + "is not allowed but occurred for: " + provider.label);
+        }
         controls.addAll(provider.targetControls());
       }
       return controls.build();
@@ -396,6 +420,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final String architecture;
   private final ImmutableList<PathFragment> datamodelDirs;
   private final boolean generateCompanionLibTarget;
+  private final ConfigurationDistinguisher configurationDistinguisher;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -422,6 +447,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.architecture = Preconditions.checkNotNull(builder.architecture);
     this.datamodelDirs = builder.datamodelDirs.build();
     this.generateCompanionLibTarget = builder.generateCompanionLibTarget;
+    this.configurationDistinguisher =
+        Preconditions.checkNotNull(builder.configurationDistinguisher);
   }
 
   private void collectProviders(Set<XcodeProvider> allProviders) {

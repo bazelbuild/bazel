@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 
 /**
@@ -93,9 +94,31 @@ public final class XcodeSupport {
    */
   XcodeSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder,
       ObjcProvider objcProvider, XcodeProductType productType) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    return addXcodeSettings(xcodeProviderBuilder, objcProvider, productType,
+        objcConfiguration.getIosCpu(), objcConfiguration.getConfigurationDistinguisher());
+  }
+
+  /**
+   * Adds common xcode settings to the given provider builder, explicitly specifying architecture
+   * to use.
+   *
+   * @param objcProvider provider containing all dependencies' information as well as some of this
+   *    rule's
+   * @param productType type of this rule's Xcode target
+   * @param architecture architecture to filter all dependencies with (only matching ones will be
+   *    included in the final targets generated)
+   * @param configurationDistinguisher distinguisher that will cause this target's xcode provider to
+   *    discard any dependencies from sources that are tagged with a different distinguisher
+   * @return this xcode support
+   */
+  XcodeSupport addXcodeSettings(Builder xcodeProviderBuilder,
+      ObjcProvider objcProvider, XcodeProductType productType, String architecture,
+      ConfigurationDistinguisher configurationDistinguisher) {
     xcodeProviderBuilder
         .setLabel(ruleContext.getLabel())
-        .setArchitecture(ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu())
+        .setArchitecture(architecture)
+        .setConfigurationDistinguisher(configurationDistinguisher)
         .setObjcProvider(objcProvider)
         .setProductType(productType);
     return this;
@@ -109,8 +132,7 @@ public final class XcodeSupport {
   XcodeSupport addDependencies(Builder xcodeProviderBuilder, Attribute attribute) {
     xcodeProviderBuilder.addPropagatedDependencies(
         ruleContext.getPrerequisites(
-            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class),
-        ObjcRuleClasses.objcConfiguration(ruleContext));
+            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class));
     return this;
   }
 
@@ -125,8 +147,7 @@ public final class XcodeSupport {
   XcodeSupport addNonPropagatedDependencies(Builder xcodeProviderBuilder, Attribute attribute) {
     xcodeProviderBuilder.addNonPropagatedDependencies(
         ruleContext.getPrerequisites(
-            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class),
-        ObjcRuleClasses.objcConfiguration(ruleContext));
+            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class));
     return this;
   }
 

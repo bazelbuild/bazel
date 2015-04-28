@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR
 
 import com.google.common.base.Optional;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -192,8 +191,6 @@ final class BundleSupport {
   private void registerInterfaceBuilderActions(ObjcProvider objcProvider) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    String minimumOs = objcConfiguration.getMinimumOs();
     for (Artifact storyboardInput : objcProvider.get(ObjcProvider.STORYBOARD)) {
       String archiveRoot = BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
       Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
@@ -208,7 +205,7 @@ final class BundleSupport {
                   .add(archiveRoot)
                   .addPath(ObjcActionsBuilder.IBTOOL)
 
-                  .add("--minimum-deployment-target").add(minimumOs)
+                  .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
                   .addPath(storyboardInput.getExecPath())
                   .build())
               .addOutput(zipOutput)
@@ -234,25 +231,21 @@ final class BundleSupport {
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
                   .add(IosSdkCommands.MOMC_PATH)
-                  .add(commonMomczipArguments(objcConfiguration))
+
+                  .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(objcConfiguration))
+                  .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
+                  .add("-MOMC_PLATFORMS")
+                  .add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
+                  .add("-XD_MOMC_TARGET_VERSION=10.6")
                   .add(datamodel.getContainer().getSafePathString())
                   .build())
               .build(ruleContext));
     }
   }
 
-  static Iterable<String> commonMomczipArguments(ObjcConfiguration configuration) {
-    return ImmutableList.of(
-        "-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(configuration),
-        "-XD_MOMC_IOS_TARGET_VERSION=" + configuration.getMinimumOs(),
-        "-MOMC_PLATFORMS", configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
-        "-XD_MOMC_TARGET_VERSION=10.6");
-  }
-
   private void registerConvertXibsActions(ObjcProvider objcProvider) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     for (Artifact original : objcProvider.get(ObjcProvider.XIB)) {
       Artifact zipOutput = intermediateArtifacts.compiledXibFileZip(original);
       String archiveRoot = BundleableFile.flatBundlePath(
@@ -267,7 +260,7 @@ final class BundleSupport {
                   .add(archiveRoot)
                   .addPath(ObjcActionsBuilder.IBTOOL)
 
-                  .add("--minimum-deployment-target").add(objcConfiguration.getMinimumOs())
+                  .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
                   .addPath(original.getExecPath())
                   .build())
               .addOutput(zipOutput)
@@ -292,15 +285,6 @@ final class BundleSupport {
           .addOutput(bundled)
           .build(ruleContext));
     }
-  }
-
-  /**
-   * Validates any rule attributes and dependencies related to this bundle.
-   *
-   * @return this bundle support
-   */
-  BundleSupport validateAttributes() {
-    return this;
   }
 
   private void registerMergeInfoplistAction() {
@@ -348,7 +332,7 @@ final class BundleSupport {
 
         .add("--platform").add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
         .addExecPath("--output-partial-info-plist", partialInfoPlist)
-        .add("--minimum-deployment-target").add(objcConfiguration.getMinimumOs());
+        .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
