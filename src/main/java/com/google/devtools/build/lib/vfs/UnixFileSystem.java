@@ -155,7 +155,12 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected UnixFileStatus stat(Path path, boolean followSymlinks) throws IOException {
+  protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    return statInternal(path, followSymlinks);
+  }
+
+  @VisibleForTesting
+  protected UnixFileStatus statInternal(Path path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
@@ -171,7 +176,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   // This is a performance optimization in the case where clients
   // catch and don't re-throw.
   @Override
-  protected UnixFileStatus statNullable(Path path, boolean followSymlinks) {
+  protected FileStatus statNullable(Path path, boolean followSymlinks) {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
@@ -221,7 +226,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   protected boolean isDirectory(Path path, boolean followSymlinks) {
-    UnixFileStatus stat = statNullable(path, followSymlinks);
+    FileStatus stat = statNullable(path, followSymlinks);
     return stat != null && stat.isDirectory();
   }
 
@@ -229,23 +234,23 @@ public class UnixFileSystem extends AbstractFileSystem {
   protected boolean isFile(Path path, boolean followSymlinks) {
     // Note, FileStatus.isFile means *regular* file whereas Path.isFile may
     // mean special file too, so we don't return FileStatus.isFile here.
-    UnixFileStatus status = statNullable(path, followSymlinks);
+    FileStatus status = statNullable(path, followSymlinks);
     return status != null && !(status.isSymbolicLink() || status.isDirectory());
   }
 
   @Override
   protected boolean isReadable(Path path) throws IOException {
-    return (stat(path, true).getPermissions() & 0400) != 0;
+    return (statInternal(path, true).getPermissions() & 0400) != 0;
   }
 
   @Override
   protected boolean isWritable(Path path) throws IOException {
-    return (stat(path, true).getPermissions() & 0200) != 0;
+    return (statInternal(path, true).getPermissions() & 0200) != 0;
   }
 
   @Override
   protected boolean isExecutable(Path path) throws IOException {
-    return (stat(path, true).getPermissions() & 0100) != 0;
+    return (statInternal(path, true).getPermissions() & 0100) != 0;
   }
 
   /**
@@ -258,7 +263,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   private void modifyPermissionBits(Path path, int permissionBits, boolean add)
     throws IOException {
     synchronized (path) {
-      int oldMode = stat(path, true).getPermissions();
+      int oldMode = statInternal(path, true).getPermissions();
       int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
       FilesystemUtils.chmod(path.toString(), newMode);
     }
@@ -368,7 +373,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   protected boolean isSymbolicLink(Path path) {
-    UnixFileStatus stat = statNullable(path, false);
+    FileStatus stat = statNullable(path, false);
     return stat != null && stat.isSymbolicLink();
   }
 
