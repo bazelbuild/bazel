@@ -9,7 +9,8 @@ in a directory.
 Previously, you'd need to copy or symlink the `tools` directory into your
 project, which was unpopular:
 
-!["move my-project/ to be a subdirectory of base_workspace/" Ok. Ctrl-W.]({{ site_root }}/assets/ctrl-w-tweet.png)
+
+<img src="{{ site_root }}/assets/ctrl-w-tweet.png" alt="'move my-project/ to be a subdirectory of base_workspace/' Ok. Ctrl-W." class="img-responsive">
 
 [Miguel Alcon](https://github.com/mikelalcon) came up with a great idea for
 making this process simpler. Now the `compile.sh` script will create a

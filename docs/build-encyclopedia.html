@@ -1652,10 +1652,20 @@ java_binary(
           A list of data files to include in a Java jar.
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
-          If resources are specified, they will be bundled in the jar along with the usual
-          <code>.class</code> files produced by compilation. The location of the resources inside of
-          the jar file is determined using a heuristic, but it's often in a directory corresponding
-          to the build package name. Resources may be source files or generated files.
+          <p>
+            If resources are specified, they will be bundled in the jar along with the usual
+            <code>.class</code> files produced by compilation. The location of the resources inside
+            of the jar file is determined by the project structure. Bazel first looks for Maven's
+            <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+            (a "src" directory followed by a "resources" directory grandchild). If that is not
+            found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
+             path y/java/z. This heuristic cannot be overridden.
+          </p>
+
+          <p>
+            Resources may be source files or generated files.
+          </p>
 </li>
 <li id="java_binary.classpath_resources"><code>classpath_resources</code>:
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
@@ -2951,10 +2961,20 @@ java_library(<a href="#java_library.name">name</a>,
           A list of data files to include in a Java jar.
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
-          If resources are specified, they will be bundled in the jar along with the usual
-          <code>.class</code> files produced by compilation. The location of the resources inside of
-          the jar file is determined using a heuristic, but it's often in a directory corresponding
-          to the build package name. Resources may be source files or generated files.
+          <p>
+            If resources are specified, they will be bundled in the jar along with the usual
+            <code>.class</code> files produced by compilation. The location of the resources inside
+            of the jar file is determined by the project structure. Bazel first looks for Maven's
+            <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+            (a "src" directory followed by a "resources" directory grandchild). If that is not
+            found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
+             path y/java/z. This heuristic cannot be overridden.
+          </p>
+
+          <p>
+            Resources may be source files or generated files.
+          </p>
 </li>
 <li id="java_library.exported_plugins"><code>exported_plugins</code>:
         The list of <code><a href="#java_plugin">java_plugin</a></code>s (e.g. annotation
@@ -4718,10 +4738,20 @@ test code. The test runner's main method is invoked instead of the main class be
           A list of data files to include in a Java jar.
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
-          If resources are specified, they will be bundled in the jar along with the usual
-          <code>.class</code> files produced by compilation. The location of the resources inside of
-          the jar file is determined using a heuristic, but it's often in a directory corresponding
-          to the build package name. Resources may be source files or generated files.
+          <p>
+            If resources are specified, they will be bundled in the jar along with the usual
+            <code>.class</code> files produced by compilation. The location of the resources inside
+            of the jar file is determined by the project structure. Bazel first looks for Maven's
+            <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+            (a "src" directory followed by a "resources" directory grandchild). If that is not
+            found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
+             path y/java/z. This heuristic cannot be overridden.
+          </p>
+
+          <p>
+            Resources may be source files or generated files.
+          </p>
 </li>
 <li id="java_test.classpath_resources"><code>classpath_resources</code>:
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
@@ -6464,7 +6494,7 @@ http_jar(
 
 bind(
     name = "openssl",
-    actual = "@my-ssl//jar:openssl-0.2.jar",
+    actual = "@my-ssl//jar",
 )
 </pre>
 
@@ -6581,10 +6611,20 @@ java_plugin(<a href="#java_plugin.name">name</a>,
           A list of data files to include in a Java jar.
           <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
-          If resources are specified, they will be bundled in the jar along with the usual
-          <code>.class</code> files produced by compilation. The location of the resources inside of
-          the jar file is determined using a heuristic, but it's often in a directory corresponding
-          to the build package name. Resources may be source files or generated files.
+          <p>
+            If resources are specified, they will be bundled in the jar along with the usual
+            <code>.class</code> files produced by compilation. The location of the resources inside
+            of the jar file is determined by the project structure. Bazel first looks for Maven's
+            <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
+            (a "src" directory followed by a "resources" directory grandchild). If that is not
+            found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
+            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
+             path y/java/z. This heuristic cannot be overridden.
+          </p>
+
+          <p>
+            Resources may be source files or generated files.
+          </p>
 </li>
 <li id="java_plugin.javacopts"><code>javacopts</code>:
           Extra compiler options for this library.
