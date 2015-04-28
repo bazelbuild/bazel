@@ -901,7 +901,9 @@ public class ObjcRuleClasses {
           The bundle ID (reverse-DNS path followed by app name) of the binary.
           ${SYNOPSIS}
 
-          If none is specified, a junk value will be used.
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("bundle_id", STRING)
               .value(new Attribute.ComputedDefault() {
