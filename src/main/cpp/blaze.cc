@@ -146,7 +146,7 @@ struct GlobalVariables {
 
 static GlobalVariables *globals;
 
-void InitGlobals() {
+static void InitGlobals() {
   globals = new GlobalVariables;
   globals->sigint_count = 0;
   globals->startup_time = 0;
@@ -386,7 +386,7 @@ static void AddLoggingArgs(vector<string>* args) {
 
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
-string GetArgumentString(const vector<string>& argument_array) {
+static string GetArgumentString(const vector<string>& argument_array) {
   string result;
   blaze_util::JoinStrings(argument_array, '\0', &result);
   return result;
@@ -1520,7 +1520,7 @@ static string GetMountpoint(string dir) {
   return "/";
 }
 
-void SetupStreams() {
+static void SetupStreams() {
   // Line-buffer stderr, since we always flush at the end of a server
   // message.  This saves lots of single-char calls to write(2).
   // This doesn't work if any writes to stderr have already occurred!
@@ -1654,6 +1654,7 @@ int main(int argc, const char *argv[]) {
   }
   return 0;
 }
+
 }  // namespace blaze
 
 int main(int argc, const char *argv[]) {
