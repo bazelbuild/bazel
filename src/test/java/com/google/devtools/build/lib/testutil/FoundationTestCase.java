@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -26,9 +25,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 import junit.framework.TestCase;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Set;
 
@@ -84,7 +80,6 @@ public abstract class FoundationTestCase extends TestCase {
         "  name = 'objc_proto_cpp_lib',",
         "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
         ")");
-    copySkylarkFilesIfExist();
     actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(eventCollector);
@@ -96,31 +91,6 @@ public abstract class FoundationTestCase extends TestCase {
    */
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance());
-  }
-
-  private void copySkylarkFilesIfExist() throws IOException {
-    scratch.file(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
-    scratch.file(rootDirectory.getRelative("rules/BUILD").getPathString());
-    copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules/staging");
-    copySkylarkFilesIfExist("third_party/bazel/tools/build_rules", "rules");
-  }
-
-  private void copySkylarkFilesIfExist(String from, String to) throws IOException {
-    File rulesDir = new File(from);
-    if (rulesDir.exists() && rulesDir.isDirectory()) {
-      for (String fileName : rulesDir.list()) {
-        File file = new File(from + "/" + fileName);
-        if (file.isFile() && fileName.endsWith(".bzl")) {
-          String context = loadFile(file);
-          Path path = rootDirectory.getRelative(to + "/" + fileName);
-          if (path.exists()) {
-            scratch.overwriteFile(path.getPathString(), context);
-          } else {
-            scratch.file(path.getPathString(), context);
-          }
-        }
-      }
-    }
   }
 
   @Override
@@ -183,9 +153,5 @@ public abstract class FoundationTestCase extends TestCase {
   protected static <T> void assertContainsSubset(Iterable<T> arguments,
                                                  Iterable<T> expectedSubset) {
     JunitTestUtils.assertContainsSubset(arguments, expectedSubset);
-  }
-
-  protected String loadFile(File file) throws IOException {
-    return Files.toString(file, Charset.defaultCharset());
   }
 }
