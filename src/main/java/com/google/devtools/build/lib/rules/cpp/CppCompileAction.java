@@ -76,6 +76,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Action that represents some kind of C++ compilation step.
@@ -162,6 +163,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private final UUID actionClassId;
 
+  // This can be read/written from multiple threads, and so accesses should be synchronized.
+  @GuardedBy("this")
   private boolean inputsKnown = false;
 
   /**
@@ -313,7 +316,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public boolean inputsKnown() {
+  public synchronized boolean inputsKnown() {
     return inputsKnown;
   }
 
@@ -767,7 +770,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   @ThreadCompatible
-  public final void updateActionInputs(Path execRoot,
+  public final synchronized void updateActionInputs(Path execRoot,
       ArtifactResolver artifactResolver, CppCompileActionContext.Reply reply)
       throws ActionExecutionException {
     if (!cppConfiguration.shouldScanIncludes()) {
