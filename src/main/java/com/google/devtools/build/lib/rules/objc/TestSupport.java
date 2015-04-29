@@ -62,17 +62,18 @@ class TestSupport {
 
     IosDeviceProvider targetDevice = targetDevice();
 
-    List<Substitution> substitutions = ImmutableList.of(
-        Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()),
-        Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)),
+    List<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
+        .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
+        .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
 
-        Substitution.of("%(xctest_app_ipa)s", xctestIpa.getRootRelativePathString()),
-        Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(xctestIpa)),
+        .add(Substitution.of("%(xctest_app_ipa)s", xctestIpa.getRootRelativePathString()))
+        .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(xctestIpa)))
 
-        Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()),
-        Substitution.of("%(device_type)s", targetDevice.getType()),
-        Substitution.of("%(simulator_sdk)s", targetDevice.getIosVersion())
-    );
+        .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
+
+        .addAll(targetDevice.getSubstitutionsForTestRunnerScript())
+
+        .build();
 
     Artifact template = ruleContext.getPrerequisiteArtifact("$test_template", Mode.TARGET);
 
@@ -81,19 +82,7 @@ class TestSupport {
   }
 
   private IosDeviceProvider targetDevice() {
-    IosDeviceProvider targetDevice =
-        ruleContext.getPrerequisite("target_device", Mode.TARGET, IosDeviceProvider.class);
-    if (targetDevice == null) {
-      ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-      targetDevice = new IosDeviceProvider.Builder()
-          // iPhone 6 should be the default, but 32-bit (i386) simulators don't support the
-          // iPhone 6.
-          .setType(objcConfiguration.getIosCpu().equals("x86_64") ? "iPhone 6" : "iPhone 5")
-          .setIosVersion(objcConfiguration.getIosSimulatorVersion())
-          .setLocale("en")
-          .build();
-    }
-    return targetDevice;
+    return ruleContext.getPrerequisite("target_device", Mode.TARGET, IosDeviceProvider.class);
   }
 
   private Artifact testIpa() {

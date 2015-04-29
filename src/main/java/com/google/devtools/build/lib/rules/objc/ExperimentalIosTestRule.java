@@ -45,6 +45,10 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .override(attr(IosTest.TARGET_DEVICE, LABEL)
+            .allowedFileTypes()
+            .allowedRuleClasses("ios_device")
+            .value(env.getLabel("//tools/objc/sim_devices:default")))
         .add(attr("$test_template", LABEL)
             .value(env.getLabel("//tools/objc:ios_test.sh.bazel_template")))
         .build();
