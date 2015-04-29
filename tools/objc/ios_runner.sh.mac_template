@@ -21,8 +21,11 @@ if [[ "$(uname)" != Darwin ]]; then
   exit 1
 fi
 
-readonly SDK_VERSION="%sdk_version%"
-readonly SIM_DEVICE="%sim_device%"
+# Note: SDK_VERSION and SIM_DEVICE might contain spaces, but they are already
+# provided in quoted form in the template variables, so we should not quote them
+# again here.
+readonly SDK_VERSION=%sdk_version%
+readonly SIM_DEVICE=%sim_device%
 readonly APP_DIR=$(mktemp -d -t extracted_app)
 
 args=()
