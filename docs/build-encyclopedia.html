@@ -86,7 +86,7 @@ layout: documentation
 <td class="lang">Objective-C</td>
 <td><a href="#ios_application">ios_application</a><br/><a href="#ios_device">ios_device</a><br/><a href="#ios_extension">ios_extension</a><br/><a href="#ios_extension_binary">ios_extension_binary</a><br/><a href="#objc_binary">objc_binary</a></td>
 <td><a href="#objc_bundle">objc_bundle</a><br/><a href="#objc_bundle_library">objc_bundle_library</a><br/><a href="#objc_framework">objc_framework</a><br/><a href="#objc_import">objc_import</a><br/><a href="#objc_library">objc_library</a><br/><a href="#objc_proto_library">objc_proto_library</a></td>
-<td><a href="#ios_test">ios_test</a></td>
+<td><a href="#experimental_ios_test">experimental_ios_test</a><br/><a href="#ios_test">ios_test</a></td>
 <td><a href="#objc_xcodeproj">objc_xcodeproj</a></td>
 <td></td>
 </tr>
@@ -987,7 +987,9 @@ passed to the application.</p>
           <i>(String; optional)</i><br/>
 
 
-          If none is specified, a junk value will be used.
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
 </li>
 <li id="ios_application.entitlements"><code>entitlements</code>:
           The entitlements file required for device builds of this application.
@@ -1180,7 +1182,9 @@ between how each thing is processed:
           <i>(String; optional)</i><br/>
 
 
-          If none is specified, a junk value will be used.
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
 </li>
 <li id="ios_extension.entitlements"><code>entitlements</code>:
           The entitlements file required for device builds of this application.
@@ -1891,7 +1895,9 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           <i>(String; optional)</i><br/>
 
 
-          If none is specified, a junk value will be used.
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
 </li>
 <li id="objc_binary.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
@@ -4288,6 +4294,363 @@ cc_test(<a href="#cc_test.name">name</a>,
 </ul>
 
 
+<h3 id="experimental_ios_test">experimental_ios_test</h3>
+
+
+<p class="rule-signature">
+experimental_ios_test(<a href="#experimental_ios_test.name">name</a>,
+<a href="#experimental_ios_test.deps">deps</a>,
+<a href="#experimental_ios_test.srcs">srcs</a>,
+<a href="#experimental_ios_test.resources">resources</a>,
+<a href="#experimental_ios_test.hdrs">hdrs</a>,
+<a href="#experimental_ios_test.app_icon">app_icon</a>,
+<a href="#test.args">args</a>,
+<a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>,
+<a href="#experimental_ios_test.bundle_id">bundle_id</a>,
+<a href="#experimental_ios_test.bundles">bundles</a>,
+<a href="#experimental_ios_test.copts">copts</a>,
+<a href="#experimental_ios_test.datamodels">datamodels</a>,
+<a href="#experimental_ios_test.defines">defines</a>,
+<a href="#common.deprecation">deprecation</a>,
+<a href="#common.distribs">distribs</a>,
+<a href="#experimental_ios_test.entitlements">entitlements</a>,
+<a href="#experimental_ios_test.families">families</a>,
+<a href="#test.flaky">flaky</a>,
+<a href="#experimental_ios_test.includes">includes</a>,
+<a href="#experimental_ios_test.infoplist">infoplist</a>,
+<a href="#experimental_ios_test.launch_image">launch_image</a>,
+<a href="#common.licenses">licenses</a>,
+<a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>,
+<a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>,
+<a href="#experimental_ios_test.pch">pch</a>,
+<a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>,
+<a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>,
+<a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>,
+<a href="#experimental_ios_test.sdk_includes">sdk_includes</a>,
+<a href="#test.size">size</a>,
+<a href="#experimental_ios_test.storyboards">storyboards</a>,
+<a href="#experimental_ios_test.strings">strings</a>,
+<a href="#experimental_ios_test.structured_resources">structured_resources</a>,
+<a href="#common.tags">tags</a>,
+<a href="#experimental_ios_test.target_device">target_device</a>,
+<a href="#common.testonly">testonly</a>,
+<a href="#test.timeout">timeout</a>,
+<a href="#common.visibility">visibility</a>,
+<a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>,
+<a href="#experimental_ios_test.xctest">xctest</a>,
+<a href="#experimental_ios_test.xctest_app">xctest_app</a>,
+<a href="#experimental_ios_test.xibs">xibs</a>)
+</p>
+
+
+<p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
+on both iOS simulator and real devices.
+</p>
+
+<h4 id="experimental_ios_test_args">Arguments</h4>
+<ul>
+<li id="experimental_ios_test.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="experimental_ios_test.deps"><code>deps</code>:
+          The list of targets that are linked together to form the final bundle.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.srcs"><code>srcs</code>:
+          The list of C, C++, Objective-C, and Objective-C++ files that are
+          processed to create the library target.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          These are your checked-in source files, plus any generated files.
+          These are compiled into .o files with Clang, so headers should not go
+          here (see the hdrs attribute).
+</li>
+<li id="experimental_ios_test.resources"><code>resources</code>:
+          Files to include in the final application bundle.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+</li>
+<li id="experimental_ios_test.hdrs"><code>hdrs</code>:
+          The list of Objective-C files that are included as headers by source
+          files in this rule or by users of this library.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.app_icon"><code>app_icon</code>:
+          The name of the application icon.
+          <i>(String; optional)</i><br/>
+
+
+          The icon should be in one of the asset catalogs of this target or
+          a (transitive) dependency. In a new project, this is initialized
+          to "AppIcon" by Xcode.
+          <p>
+          If the application icon is not in an asset catalog, do not use this
+          attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
+</li>
+<li id="experimental_ios_test.asset_catalogs"><code>asset_catalogs</code>:
+          Files that comprise the asset catalogs of the final linked binary.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
+</li>
+<li id="experimental_ios_test.bundle_id"><code>bundle_id</code>:
+          The bundle ID (reverse-DNS path followed by app name) of the binary.
+          <i>(String; optional)</i><br/>
+
+
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
+</li>
+<li id="experimental_ios_test.bundles"><code>bundles</code>:
+          The list of bundle targets that this target requires to be included
+          in the final bundle.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.copts"><code>copts</code>:
+          Extra flags to pass to the compiler.
+          <i>(List of strings; optional)</i><br/>
+
+          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+</li>
+<li id="experimental_ios_test.datamodels"><code>datamodels</code>:
+          Files that comprise the data models of the final linked binary.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          Each file must have a containing directory named *.xcdatamodel, which
+          is usually contained by another *.xcdatamodeld (note the added d)
+          directory.
+</li>
+<li id="experimental_ios_test.defines"><code>defines</code>:
+          Extra <code>-D</code> flags to pass to the compiler. They should be in
+          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+          passed not only the compiler for this target (as <code>copts</code>
+          are) but also to all <code>objc_</code> dependers of this target.
+          <i>(List of strings; optional)</i><br/>
+
+          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+</li>
+<li id="experimental_ios_test.entitlements"><code>entitlements</code>:
+          The entitlements file required for device builds of this application.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+
+          See
+          <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
+          for more information. If absent, the default entitlements from the
+          provisioning profile will be used.
+          <p>
+          The following variables are substituted as per
+          <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
+          $(AppIdentifierPrefix) and $(CFBundleIdentifier).
+</li>
+<li id="experimental_ios_test.families"><code>families</code>:
+          The device families to which this binary is targeted.
+          <i>(List of strings; optional)</i><br/>
+
+
+          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+          in Xcode project files. It is a list of one or more of the strings
+          <code>"iphone"</code> and <code>"ipad"</code>.
+</li>
+<li id="experimental_ios_test.includes"><code>includes</code>:
+          List of <code>#include/#import</code> search paths to add to this target
+          and all depending targets.
+          <i>(List of strings; optional)</i><br/>
+
+
+          This is to support third party and open-sourced libraries that do not
+          specify the entire workspace path in their
+          <code>#import/#include</code> statements.
+          <p>
+          The paths are interpreted relative to the package directory, and the
+          genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
+          and <code>bazel-out/pkg/includedir</code>) are included in addition to the
+          actual client root.
+</li>
+<li id="experimental_ios_test.infoplist"><code>infoplist</code>:
+          The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+          Bazel will perform variable substitution on the plist file for the following values:
+          <ul>
+            <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
+               in the bundle by bazel, which can be used as the value for
+               <code>CFBundleExecutable</code> within the plist.
+            <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
+               in the form<code><var>name</var></code>.<code>suffix</code>.
+            <li><code>${PRODUCT_NAME}</code>: This target's name.
+         </ul>
+</li>
+<li id="experimental_ios_test.launch_image"><code>launch_image</code>:
+          The name of the launch image.
+          <i>(String; optional)</i><br/>
+
+
+          The icon should be in one of the asset catalogs of this target or
+          a (transitive) dependency. In a new project, this is initialized
+          to "LaunchImage" by Xcode.
+          <p>
+          If the launch image is not in an asset catalog, do not use this
+          attribute. Instead, add an appropriately-named image resource to the
+          bundle.
+</li>
+<li id="experimental_ios_test.non_arc_srcs"><code>non_arc_srcs</code>:
+          The list of Objective-C files that are processed to create the
+          library target that DO NOT use ARC.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          The files in this attribute are treated very similar to those in the
+          srcs attribute, but are compiled without ARC enabled.
+</li>
+<li id="experimental_ios_test.non_propagated_deps"><code>non_propagated_deps</code>:
+          The list of targets that are required in order to build this target,
+          but which are not included in the final bundle.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          This attribute should only rarely be used, and probably only for proto
+          dependencies.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.pch"><code>pch</code>:
+          Header file to prepend to every source file being compiled (both arc
+          and non-arc).
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+          Note that the file will not be precompiled - this is simply a
+          convenience, not a build-speed enhancement.
+</li>
+<li id="experimental_ios_test.provisioning_profile"><code>provisioning_profile</code>:
+          The provisioning profile (.mobileprovision file) to use when bundling
+          the application.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+
+          This is only used for non-simulator builds.
+</li>
+<li id="experimental_ios_test.sdk_dylibs"><code>sdk_dylibs</code>:
+          Names of SDK .dylib libraries to link with. For instance, "libz" or
+          "libarchive".
+           <i>(List of strings; optional)</i><br/>
+
+
+          "libc++" is included automatically if the binary has any C++ or
+          Objective-C++ sources in its dependency tree. When linking a binary,
+          all libraries named in that binary's transitive dependency graph are
+          used.
+</li>
+<li id="experimental_ios_test.sdk_frameworks"><code>sdk_frameworks</code>:
+          Names of SDK frameworks to link with.
+          <i>(List of strings; optional)</i><br/>
+
+          For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
+          included and do not mean anything if you include them.
+
+          <p>When linking a library, only those frameworks named in that library's
+          sdk_frameworks attribute are linked in. When linking a binary, all
+          SDK frameworks named in that binary's transitive dependency graph are
+          used.
+</li>
+<li id="experimental_ios_test.sdk_includes"><code>sdk_includes</code>:
+          List of <code>#include/#import</code> search paths to add to this target
+          and all depending targets, where each path is relative to
+          <code>$(SDKROOT)/usr/include</code>.
+          <i>(List of strings; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.storyboards"><code>storyboards</code>:
+          Files which are .storyboard resources, possibly localizable.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
+</li>
+<li id="experimental_ios_test.strings"><code>strings</code>:
+          Files which are plists of strings, often localizable.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+</li>
+<li id="experimental_ios_test.structured_resources"><code>structured_resources</code>:
+          Files to include in the final application bundle.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+</li>
+<li id="experimental_ios_test.target_device"><code>target_device</code>:
+          The device against which to run the test.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional; default is <code>//tools/objc/sim_devices:default</code>)</i><br/>
+
+</li>
+<li id="experimental_ios_test.weak_sdk_frameworks"><code>weak_sdk_frameworks</code>:
+          Names of SDK frameworks to weakly link with. For instance,
+          "MediaAccessibility".
+          <i>(List of strings; optional)</i><br/>
+
+
+          In difference to regularly linked SDK frameworks, symbols
+          from weakly linked frameworks do not cause an error if they
+          are not present at runtime.
+</li>
+<li id="experimental_ios_test.xctest"><code>xctest</code>:
+          Whether this target contains tests using the XCTest testing framework.
+          <i>(Boolean; optional; default is 0)</i><br/>
+
+</li>
+<li id="experimental_ios_test.xctest_app"><code>xctest_app</code>:
+          A <code>objc_binary</code> target that contains the app bundle to test against in XCTest.
+          This attribute is only valid if <code>xctest</code> is true.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.xibs"><code>xibs</code>:
+          Files which are .xib resources, possibly localizable.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+</li>
+</ul>
+
+
 <h3 id="ios_test">ios_test</h3>
 
 
@@ -4404,7 +4767,9 @@ on both iOS simulator and real devices.
           <i>(String; optional)</i><br/>
 
 
-          If none is specified, a junk value will be used.
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
 </li>
 <li id="ios_test.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
