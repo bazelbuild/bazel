@@ -68,12 +68,18 @@ final class BundleSupport {
    *    rule's
    * @param optionsProvider provider containing options and plist settings for this rule and its
    *    dependencies
+   * @param primaryBundleId used to set the bundle identifier or override the existing one from
+   *     plist file, can be null
+   * @param fallbackBundleId used to set the bundle identifier if it is not set by plist file or
+   *     primary identifier, can be null
    * @param extraMergePlists additional plist files to merge
    */
   static InfoplistMerging infoPlistMerging(
       RuleContext ruleContext,
       ObjcProvider objcProvider,
       OptionsProvider optionsProvider,
+      String primaryBundleId,
+      String fallbackBundleId,
       ExtraMergePlists extraMergePlists) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -86,6 +92,7 @@ final class BundleSupport {
             .addAll(extraMergePlists)
             .build())
         .setPlmerge(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
+        .setBundleIdentifiers(primaryBundleId, fallbackBundleId)
         .build();
   }
 

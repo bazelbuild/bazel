@@ -419,6 +419,7 @@ public final class ReleaseBundlingSupport {
         .setObjcProvider(objcProvider)
         .setInfoplistMerging(
             BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider,
+                primaryBundleId, fallbackBundleId,
                 new BundleSupport.ExtraMergePlists(getGeneratedVersionPlist())))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)

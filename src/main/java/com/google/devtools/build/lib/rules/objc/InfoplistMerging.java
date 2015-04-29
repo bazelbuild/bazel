@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
  * <ul>
  *   <li>the Info.plist which contains the fields from every source. If there is only one source
  *       plist, this is that plist.
- *   <li>the action to merge all the Infoplists into a single one. This is present even if there is
- *       only one Infoplist, to prevent a Bazel error when an Artifact does not have a generating
- *       action.
+ *   <li>the action to merge all the Infoplists into a single one and stamp the bundle ID on it.
+ *       This action is present if there is more than one plist file or there is a non-null bundle
+ *       ID to stamp on the merged plist file.
  * </ul>
  */
 class InfoplistMerging {
@@ -42,6 +42,8 @@ class InfoplistMerging {
     private NestedSet<Artifact> inputPlists;
     private FilesToRunProvider plmerge;
     private IntermediateArtifacts intermediateArtifacts;
+    private String primaryBundleId;
+    private String fallbackBundleId;
 
     public Builder(ActionConstructionContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -65,21 +67,38 @@ class InfoplistMerging {
     }
 
     /**
+     * Sets the potential bundle identifiers to stamp on the merged plist file.
+     *
+     * @param primaryBundleId used to set the bundle identifier or override the existing one from
+     *     plist file, can be null
+     * @param fallbackBundleId used to set the bundle identifier if it is not set by plist file or
+     *     primary identifier, can be null
+     */
+    public Builder setBundleIdentifiers(String primaryBundleId, String fallbackBundleId) {
+      this.primaryBundleId = primaryBundleId;
+      this.fallbackBundleId = fallbackBundleId;
+      return this;
+    }
+
+    /**
      * This static factory method prevents retention of the outer {@link Builder} class reference by
      * the anonymous {@link CommandLine} instance.
      */
-    private static CommandLine mergeCommandLine(
-        final NestedSet<Artifact> inputPlists, final Artifact mergedInfoplist) {
-      return new CommandLine() {
-        @Override
-        public Iterable<String> arguments() {
-          return new ImmutableList.Builder<String>()
-              .addAll(Interspersing.beforeEach(
-                  "--source_file", Artifact.toExecPaths(inputPlists)))
-              .add("--out_file", mergedInfoplist.getExecPathString())
-              .build();
-        }
-      };
+    private static CommandLine mergeCommandLine(NestedSet<Artifact> inputPlists,
+        Artifact mergedInfoplist, String primaryBundleId,  String fallbackBundleId) {
+      CustomCommandLine.Builder argBuilder = CustomCommandLine.builder()
+          .addBeforeEachExecPath("--source_file", inputPlists)
+          .addExecPath("--out_file", mergedInfoplist);
+
+      if (primaryBundleId != null) {
+        argBuilder.add("--primary_bundle_id").add(primaryBundleId);
+      }
+
+      if (fallbackBundleId != null) {
+        argBuilder.add("--fallback_bundle_id").add(fallbackBundleId);
+      }
+
+      return argBuilder.build();
     }
 
     public InfoplistMerging build() {
@@ -88,20 +107,23 @@ class InfoplistMerging {
       Optional<Artifact> plistWithEverything = Optional.absent();
       Action[] mergeActions = new Action[0];
 
-      int inputs = Iterables.size(inputPlists);
-      if (inputs == 1) {
-        plistWithEverything = Optional.of(Iterables.getOnlyElement(inputPlists));
-      } else if (inputs > 1) {
-        Artifact merged = intermediateArtifacts.mergedInfoplist();
+      if (!inputPlists.isEmpty()) {
+        int inputs = Iterables.size(inputPlists);
+        if (inputs == 1 && primaryBundleId == null && fallbackBundleId == null) {
+          plistWithEverything = Optional.of(Iterables.getOnlyElement(inputPlists));
+        } else {
+          Artifact merged = intermediateArtifacts.mergedInfoplist();
 
-        plistWithEverything = Optional.of(merged);
-        mergeActions = new SpawnAction.Builder()
-            .setMnemonic("MergeInfoPlistFiles")
-            .setExecutable(plmerge)
-            .setCommandLine(mergeCommandLine(inputPlists, merged))
-            .addTransitiveInputs(inputPlists)
-            .addOutput(merged)
-            .build(context);
+          plistWithEverything = Optional.of(merged);
+          mergeActions = new SpawnAction.Builder()
+              .setMnemonic("MergeInfoPlistFiles")
+              .setExecutable(plmerge)
+              .setCommandLine(
+                  mergeCommandLine(inputPlists, merged, primaryBundleId, fallbackBundleId))
+              .addTransitiveInputs(inputPlists)
+              .addOutput(merged)
+              .build(context);
+        }
       }
 
       return new InfoplistMerging(plistWithEverything, mergeActions, inputPlists);
@@ -120,8 +142,9 @@ class InfoplistMerging {
   }
 
   /**
-   * Creates action to merge multiple Info.plist files of a binary into a single Info.plist. No
-   * action is necessary if there is only one source.
+   * Creates action to merge multiple Info.plist files of a binary into a single Info.plist. The
+   * merge action is necessary if there are more than one input plist files or we have a bundle ID
+   * to stamp on the merged plist.
    */
   public Action[] getMergeAction() {
     return mergeActions;
