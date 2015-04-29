@@ -31,8 +31,9 @@ public interface QueryableGraph {
   NodeEntry get(SkyKey key);
 
   /**
-   * Fetches all the given nodes. Returns a map {@code m} such that {@code m.get(k).equals(e)} for
-   * all {@code k} such that {@code get(k) == e} and {@code e != null}.
+   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in
+   * {@code keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and
+   * {@code !m.containsKey(k)} iff {@code get(k) == null}.
    */
   Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys);
 }
