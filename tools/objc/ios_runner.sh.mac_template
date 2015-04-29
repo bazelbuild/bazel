@@ -21,8 +21,9 @@ if [[ "$(uname)" != Darwin ]]; then
   exit 1
 fi
 
-readonly SDK_VERSION="%sdk_version%"
-readonly SIM_DEVICE="%sim_device%"
+# TODO(bazel-team): Use %sdk_version% and %sim_device% when available.
+readonly SDK_VERSION='8.1'
+readonly SIM_DEVICE='iPhone 6'
 readonly APP_DIR=$(mktemp -d -t extracted_app)
 
 args=()
