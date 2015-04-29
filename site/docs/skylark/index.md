@@ -21,7 +21,7 @@ rules or macros (composition of rules and macros).
   had to rebuild and restart Bazel before seeing a change, this slowed down the
   development process a lot.
 
-* **Faster release cycle**. Update one rule file, commint the changes to
+* **Faster release cycle**. Update one rule file, commit the changes to
   version control and everyone will use it when they sync. No need to wait for
   a native rule to be released with the next Bazel binary.
 
