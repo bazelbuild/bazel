@@ -268,10 +268,10 @@ final class BuildingState {
    * finished is equal to the number of known children.
    *
    * <p>If the node is dirty and checking its deps for changes, this also updates {@link
-   * #dirtyState} as needed -- {@link DirtyState#REBUILDING} if the child has changed,
-   * and {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the last
-   * child to be checked (as determined by {@link #dirtyDirectDepIterator} == null, isReady(), and
-   * a flag set in {@link #getNextDirtyDirectDeps}).
+   * #dirtyState} as needed -- {@link NodeEntry.DirtyState#REBUILDING} if the child has changed,
+   * and {@link NodeEntry.DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the
+   * last child to be checked (as determined by {@link #dirtyDirectDepIterator} == null, isReady(),
+   * and a flag set in {@link #getNextDirtyDirectDeps}).
    *
    * @see NodeEntry#signalDep(Version)
    */

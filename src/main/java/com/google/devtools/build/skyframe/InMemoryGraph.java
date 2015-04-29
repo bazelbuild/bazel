@@ -23,7 +23,6 @@ import com.google.common.collect.Maps;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
@@ -59,7 +58,7 @@ public class InMemoryGraph implements ProcessableGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(Set<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
     ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
       NodeEntry entry = get(key);

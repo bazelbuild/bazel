@@ -21,7 +21,6 @@ import com.google.common.util.concurrent.Striped;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -156,7 +155,7 @@ public class RefCountedMultisetKeyedLocker<K> implements BatchedKeyedLocker<K> {
   }
 
   @Override
-  public AutoUnlocker lockBatch(Set<K> keys) {
+  public AutoUnlocker lockBatch(Iterable<K> keys) {
     // This indicates the client did some unsafe casting - not our problem.
     Preconditions.checkNotNull(comparator);
     // We acquire locks in a consistent order. This prevents a deadlock that would otherwise occur

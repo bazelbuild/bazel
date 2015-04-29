@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker;
-
 import java.util.Comparator;
-import java.util.Set;
 
 /** A {@link KeyedLocker} that additionally offers batched locking functionality. */
 public interface BatchedKeyedLocker<K> extends KeyedLocker<K> {
@@ -42,5 +39,5 @@ public interface BatchedKeyedLocker<K> extends KeyedLocker<K> {
    *
    * <p>Note that use of this method avoids the concerns described in {@link #lock}.
    */
-  AutoUnlocker lockBatch(Set<K> keys);
+  AutoUnlocker lockBatch(Iterable<K> keys);
 }
