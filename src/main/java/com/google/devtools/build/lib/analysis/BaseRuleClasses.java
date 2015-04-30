@@ -196,6 +196,7 @@ public class BaseRuleClasses {
         .add(attr("generator_function", STRING).undocumented("internal"))
         .add(attr("testonly", BOOLEAN).value(testonlyDefault)
             .nonconfigurable("policy decision: rules testability should be consistent"))
+        .add(attr("features", STRING_LIST).orderIndependent())
         .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
@@ -140,8 +141,7 @@ public final class RuleContext extends TargetContext
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions, ImmutableSet<String> features,
-      Map<String, Attribute> attributeMap) {
+      Set<ConfigMatchingProvider> configConditions, Map<String, Attribute> attributeMap) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -150,8 +150,41 @@ public final class RuleContext extends TargetContext
     this.configConditions = configConditions;
     this.attributes =
         ConfiguredAttributeMapper.of(builder.rule, configConditions);
-    this.features = features;
+    this.features = getEnabledFeatures();
     this.attributeMap = attributeMap;
+  }
+
+  private ImmutableSet<String> getEnabledFeatures() {
+    Set<String> globallyEnabled = new HashSet<>();
+    Set<String> globallyDisabled = new HashSet<>();
+    parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
+    Set<String> packageEnabled = new HashSet<>();
+    Set<String> packageDisabled = new HashSet<>();
+    parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);
+    Set<String> packageFeatures =
+        Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);
+    Set<String> ruleFeatures = packageFeatures;
+    if (attributes().has("features", Type.STRING_LIST)) {
+      Set<String> ruleEnabled = new HashSet<>();
+      Set<String> ruleDisabled = new HashSet<>();
+      parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
+      ruleFeatures = Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
+    }
+    return ImmutableSortedSet.copyOf(Sets.difference(ruleFeatures, globallyDisabled));
+  }
+
+  private void parseFeatures(Iterable<String> features, Set<String> enabled, Set<String> disabled) {
+    for (String feature : features) {
+      if (feature.startsWith("-")) {
+        disabled.add(feature.substring(1));
+      } else if (feature.equals("no_layering_check")) {
+        // TODO(bazel-team): Remove once we do not have BUILD files left that contain
+        // 'no_layering_check'.
+        disabled.add(feature.substring(3));
+      } else {
+        enabled.add(feature);
+      }
+    }
   }
 
   @Override
@@ -1125,26 +1158,7 @@ public final class RuleContext extends TargetContext
         }
         attributeMap.put(attribute.getName(), attribute);
       }
-      return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
-          getEnabledFeatures(), attributeMap);
-    }
-
-    private ImmutableSet<String> getEnabledFeatures() {
-      Set<String> enabled = new HashSet<>();
-      Set<String> disabled = new HashSet<>();
-      for (String feature : Iterables.concat(getConfiguration().getDefaultFeatures(),
-          getRule().getPackage().getFeatures())) {
-        if (feature.startsWith("-")) {
-          disabled.add(feature.substring(1));
-        } else if (feature.equals("no_layering_check")) {
-          // TODO(bazel-team): Remove once we do not have BUILD files left that contain
-          // 'no_layering_check'.
-          disabled.add(feature.substring(3));
-        } else {
-          enabled.add(feature);
-        }
-      }
-      return Sets.difference(enabled, disabled).immutableCopy();
+      return new RuleContext(this, targetMap, filesetEntryMap, configConditions, attributeMap);
     }
 
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {

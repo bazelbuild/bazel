@@ -44,6 +44,7 @@ public class Constants {
       "templates/attributes/common/deprecation.html",
       "templates/attributes/common/deps.html",
       "templates/attributes/common/distribs.html",
+      "templates/attributes/common/features.html",
       "templates/attributes/common/licenses.html",
       "templates/attributes/common/tags.html",
       "templates/attributes/common/testonly.html",
