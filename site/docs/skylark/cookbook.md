@@ -21,7 +21,7 @@ def macro(name, visibility=None):
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "macro")
 
 macro(name = "myrule")
@@ -53,7 +53,7 @@ def macro(name, visibility=None):
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "macro")
 
 macro(name = "myrule")
@@ -76,7 +76,7 @@ empty = rule(impl)
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/empty", "empty")
 
 empty(name = "nothing")
@@ -111,7 +111,7 @@ printer = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/printer", "printer")
 
 printer(
@@ -159,7 +159,7 @@ Hello
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/size", "size")
 
 size(
@@ -188,7 +188,7 @@ file = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/file", "file")
 
 file(
@@ -238,7 +238,7 @@ execute = rule(
 
 `a.sh`:
 
-```shell
+```bash
 #! /bin/bash
 
 tr 'a-z' 'A-Z' < $1 > $2
@@ -246,7 +246,7 @@ tr 'a-z' 'A-Z' < $1 > $2
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/execute", "execute")
 
 execute(
@@ -300,7 +300,7 @@ Hello World!
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/execute", "execute")
 
 execute(
@@ -346,7 +346,7 @@ sum = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/sum", "sum")
 
 sum(
@@ -394,7 +394,7 @@ sum = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/sum", "sum")
 
 sum(
@@ -437,7 +437,7 @@ executable_rule = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "executable_rule")
 
 executable_rule(name = "my_rule")
@@ -469,7 +469,7 @@ rule_with_outputs = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "rule_with_outputs")
 
 rule_with_outputs(name = "my_rule")
@@ -503,7 +503,7 @@ rule_with_outputs = rule(
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "rule_with_outputs")
 
 rule_with_outputs(
@@ -562,7 +562,7 @@ def macro(name, cmd, input):
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/extension", "macro")
 
 # This creates the target :my_rule
@@ -595,7 +595,7 @@ debug = rule(implementation=impl)
 
 `BUILD`:
 
-```build
+```python
 load("/pkg/debug", "debug")
 
 debug(
