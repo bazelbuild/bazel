@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -124,7 +123,7 @@ public final class ExtraAction extends SpawnAction {
       if (shadowedAction.discoversInputs() && shadowedAction instanceof AbstractAction) {
         Iterable<Artifact> additionalInputs =
             ((AbstractAction) shadowedAction).getInputFilesForExtraAction(actionExecutionContext);
-        updateExtraActionInputs(additionalInputs);
+        updateInputs(createInputs(additionalInputs, extraActionInputs));
         return ImmutableSet.copyOf(additionalInputs);
       }
     }
@@ -148,15 +147,8 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
-  public void updateInputs(Iterable<Artifact> discoveredInputs) {
-    shadowedAction.updateInputs(
-        Iterables.filter(discoveredInputs, Predicates.not(Predicates.in(extraActionInputs))));
-    Preconditions.checkArgument(shadowedAction.inputsKnown(), "%s %s", this, shadowedAction);
-    updateExtraActionInputs(discoveredInputs);
-  }
-
-  private synchronized void updateExtraActionInputs(Iterable<Artifact> discoveredInputs) {
-    setInputs(createInputs(discoveredInputs, extraActionInputs));
+  public synchronized void updateInputs(Iterable<Artifact> discoveredInputs) {
+    setInputs(discoveredInputs);
     inputsKnown = true;
   }
 
