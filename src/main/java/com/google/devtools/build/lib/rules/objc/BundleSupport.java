@@ -326,10 +326,8 @@ final class BundleSupport {
             .build(ruleContext));
   }
 
-  private CommandLine actoolzipCommandLine(
-      final ObjcProvider provider,
-      final Artifact zipOutput,
-      final Artifact partialInfoPlist) {
+  private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
+      Artifact partialInfoPlist) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         // The next three arguments are positional, i.e. they don't have flags before them.
