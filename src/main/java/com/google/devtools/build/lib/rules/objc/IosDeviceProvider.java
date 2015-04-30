@@ -20,8 +20,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-import java.util.List;
-
 /**
  * Provider that describes a simulator device.
  */
@@ -76,13 +74,13 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a list of substitutions which should be performed to the test runner script, to fill
-   * in device-specific data which may be required in order to run tests.
+   * Returns an {@code IosTestSubstitutionProvider} exposing substitutions indicating how to run a
+   * test in this particular iOS simulator configuration.
    */
-  public List<Substitution> getSubstitutionsForTestRunnerScript() {
-    return ImmutableList.of(
+  public IosTestSubstitutionProvider iosTestSubstitutionProvider() {
+    return new IosTestSubstitutionProvider(ImmutableList.of(
         Substitution.of("%(device_type)s", getType()),
         Substitution.of("%(simulator_sdk)s", getIosVersion())
-    );
+    ));
   }
 }
