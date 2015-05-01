@@ -1,8 +1,47 @@
+package(default_visibility = ["//src:__subpackages__"])
+
 java_library(
     name = "shell",
     srcs = glob(["com/google/devtools/build/lib/shell/*.java"]),
-    visibility = ["//src:__subpackages__"],
     deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "common",
+    srcs = [
+        "com/google/devtools/build/lib/Constants.java",
+    ],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "concurrent",
+    srcs = glob([
+        "com/google/devtools/build/lib/concurrent/*.java",
+    ]),
+    deps = [
+        ":common",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "unix",
+    srcs = glob([
+        "com/google/devtools/build/lib/unix/*.java",
+    ]) + [
+        "com/google/devtools/build/lib/UnixJniLoader.java",
+    ],
+    deps = [
+        ":common",
+        ":shell",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -10,9 +49,14 @@ java_library(
     srcs = glob(
         ["**/*.java"],
         exclude = [
-            "com/google/devtools/build/lib/shell/*.java",
-            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+            "com/google/devtools/build/lib/Constants.java",
+            "com/google/devtools/build/lib/UnixJniLoader.java",
+            "com/google/devtools/build/lib/concurrent/**/*.java",
+            "com/google/devtools/build/lib/unix/**/*.java",
             "com/google/devtools/build/lib/docgen/**/*.java",
+            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+            "com/google/devtools/build/lib/shell/*.java",
+            "com/google/devtools/build/lib/unix/*.java",
         ],
     ),
     resources = glob([
@@ -32,7 +76,10 @@ java_library(
         "//third_party:plexus_utils",
     ],
     deps = [
+        ":common",
+        ":concurrent",
         ":shell",
+        ":unix",
         "//src/main/protobuf:proto_build",
         "//src/main/protobuf:proto_bundlemerge",
         "//src/main/protobuf:proto_crosstool_config",
@@ -62,12 +109,12 @@ java_library(
         "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
         # Concurrent stuff
         "com/google/devtools/build/lib/concurrent/*.java",
-        "com/google/devtools/build/lib/Constants.java",
     ]),
     visibility = [
         "//src/java_tools/buildjar:__pkg__",
     ],
     deps = [
+        ":common",
         "//src/main/protobuf:proto_build",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -110,6 +157,7 @@ java_library(
     ],
     deps = [
         ":bazel-core",
+        ":common",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -124,7 +172,10 @@ java_binary(
     name = "docgen_bin",
     srcs = ["com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
-    deps = [":docgen_javalib"],
+    deps = [
+        ":common",
+        ":docgen_javalib",
+    ],
 )
 
 java_binary(
