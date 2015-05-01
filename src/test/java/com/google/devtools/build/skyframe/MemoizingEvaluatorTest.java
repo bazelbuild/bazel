@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
@@ -68,6 +69,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -1884,6 +1886,7 @@ public class MemoizingEvaluatorTest {
     final AtomicBoolean interruptInvalidation = new AtomicBoolean(false);
     initializeTester(new TrackingInvalidationReceiver() {
       private final AtomicBoolean firstInvalidation = new AtomicBoolean(true);
+
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         if (interruptInvalidation.get() && !firstInvalidation.getAndSet(false)) {
@@ -2756,6 +2759,189 @@ public class MemoizingEvaluatorTest {
     tester.evalAndGetError(topKey);
     // TODO(bazel-team): We can do better here once we implement change pruning for errors.
     assertThat(tester.getEnqueuedValues()).containsExactly(topKey, transientErrorKey);
+  }
+
+  /**
+   * The following two tests check that the evaluator shuts down properly when encountering an error
+   * that is marked dirty but later verified to be unchanged from a prior build. In that case, the
+   * invariant that its parents are not enqueued for evaluation should be maintained.
+   */
+  /**
+   * Test that a parent of a cached but invalidated error doesn't successfully build. First build
+   * the error. Then invalidate the error via a dependency (so it will not actually change) and
+   * build two new parents. Parent A will request error and abort since error isn't done yet. error
+   * is then revalidated, and A is restarted. If A does not throw upon encountering the error, and
+   * instead sets its value, then we throw in parent B, which waits for error to be done before
+   * requesting it. Then there will be the impossible situation of a node that was built during this
+   * evaluation depending on a node in error.
+   */
+  @Test
+  public void shutDownBuildOnCachedError_Done() throws Exception {
+    // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
+    // since invalidatedKey re-evaluates to the same value on a subsequent build.
+    final SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey invalidatedKey = GraphTester.toSkyKey("invalidated-leaf");
+    tester.set(invalidatedKey, new StringValue("invalidated-leaf-value"));
+    tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
+    // Names are alphabetized in reverse deps of errorKey.
+    final SkyKey fastToRequestSlowToSetValueKey = GraphTester.toSkyKey("A-slow-set-value-parent");
+    final SkyKey failingKey = GraphTester.toSkyKey("B-fast-fail-parent");
+    tester.getOrCreate(fastToRequestSlowToSetValueKey).addDependency(errorKey)
+        .setComputedValue(CONCATENATE);
+    tester.getOrCreate(failingKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+    // We only want to force a particular order of operations at some points during evaluation.
+    final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
+    // We don't expect slow-set-value to actually be built, but if it is, we wait for it.
+    final CountDownLatch slowBuilt = new CountDownLatch(1);
+    // Keep track of any exceptions thrown during evaluation.
+    final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
+        new AtomicReference<>();
+    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
+      @Override
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
+        if (!synchronizeThreads.get()) {
+          return;
+        }
+        if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
+          // Wait for the build to abort or for the other node to incorrectly build.
+          try {
+            assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+          } catch (InterruptedException e) {
+            // This is ok, because it indicates the build is shutting down.
+            Thread.currentThread().interrupt();
+          }
+        } else if (type == EventType.SET_VALUE && key.equals(fastToRequestSlowToSetValueKey)
+            && order == Order.AFTER) {
+          // This indicates a problem -- this parent shouldn't be built since it depends on an
+          // error.
+          slowBuilt.countDown();
+          // Before this node actually sets its value (and then throws an exception) we wait for the
+          // other node to throw an exception.
+          try {
+            Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            unexpectedException.set(Pair.of(key, new IllegalStateException("uninterrupted")));
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+      }
+    }));
+    // Initialize graph.
+    tester.eval(/*keepGoing=*/true, errorKey);
+    tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
+    tester.invalidate();
+    synchronizeThreads.set(true);
+    tester.eval(/*keepGoing=*/false, fastToRequestSlowToSetValueKey, failingKey);
+    Pair<SkyKey, ? extends Exception> unexpected = unexpectedException.get();
+    if (unexpected != null) {
+      throw new AssertionError(unexpected.first + ", " + unexpected.second + ", "
+          + Arrays.toString(unexpected.second.getStackTrace()));
+    }
+  }
+
+  /**
+   * Test that the invalidated parent of a cached but invalidated error doesn't get marked clean.
+   * First build the parent -- it will contain an error. Then invalidate the error via a dependency
+   * (so it will not actually change) and then build the parent and another node that depends on the
+   * error. The other node will wait to throw until the parent is signaled that all of its
+   * dependencies are done, or until it is interrupted. If it throws, the parent will be
+   * VERIFIED_CLEAN but not done, which is not a valid state once evaluation shuts down. The
+   * evaluator avoids this situation by throwing when the error is encountered, even though the
+   * error isn't evaluated or requested by an evaluating node.
+   */
+  @Test
+  public void shutDownBuildOnCachedError_Verified() throws Exception {
+    // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
+    // since invalidatedKey re-evaluates to the same value on a subsequent build.
+    SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey invalidatedKey = GraphTester.toSkyKey("invalidated-leaf");
+    SkyKey changedKey = GraphTester.toSkyKey("changed-leaf");
+    tester.set(invalidatedKey, new StringValue("invalidated-leaf-value"));
+    tester.set(changedKey, new StringValue("changed-leaf-value"));
+    // Names are alphabetized in reverse deps of errorKey.
+    final SkyKey cachedParentKey = GraphTester.toSkyKey("A-cached-parent");
+    final SkyKey uncachedParentKey = GraphTester.toSkyKey("B-uncached-parent");
+    tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
+    tester.getOrCreate(cachedParentKey).addDependency(errorKey)
+        .setComputedValue(CONCATENATE);
+    tester.getOrCreate(uncachedParentKey).addDependency(changedKey).addDependency(errorKey)
+        .setComputedValue(CONCATENATE);
+    // We only want to force a particular order of operations at some points during evaluation. In
+    // particular, we don't want to force anything during error bubbling.
+    final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
+    // Keep track of any exceptions thrown during evaluation.
+    final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
+        new AtomicReference<>();
+    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
+      private final CountDownLatch cachedSignaled = new CountDownLatch(1);
+
+      @Override
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
+        if (!synchronizeThreads.get() || order != Order.BEFORE || type != EventType.SIGNAL) {
+          return;
+        }
+        if (key.equals(uncachedParentKey)) {
+          // When the uncached parent is first signaled by its changed dep, make sure that we wait
+          // until the cached parent is signaled too.
+          try {
+            assertTrue(cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+          } catch (InterruptedException e) {
+            // Before the relevant bug was fixed, this code was not interrupted, and the uncached
+            // parent got to build, yielding an inconsistent state at a later point during
+            // evaluation. With the bugfix, the cached parent is never signaled before the evaluator
+            // shuts down, and so the above code is interrupted.
+            Thread.currentThread().interrupt();
+          }
+        } else if (key.equals(cachedParentKey)) {
+          // This branch should never be reached by a well-behaved evaluator, since when the error
+          // node is reached, the evaluator should shut down. However, we don't test for that
+          // behavior here because that would be brittle and we expect that such an evaluator will
+          // crash hard later on in any case.
+          cachedSignaled.countDown();
+          try {
+            // Sleep until we're interrupted by the evaluator, so we know it's shutting down.
+            Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+            unexpectedException.set(Pair.of(key, new IllegalStateException("uninterrupted")));
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+      }
+    }));
+    // Initialize graph.
+    tester.eval(/*keepGoing=*/true, cachedParentKey, uncachedParentKey);
+    tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
+    tester.set(changedKey, new StringValue("new value"));
+    tester.invalidate();
+    synchronizeThreads.set(true);
+    SkyKey waitForShutdownKey = GraphTester.skyKey("wait-for-shutdown");
+    tester.getOrCreate(waitForShutdownKey).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+        try {
+          TrackingAwaiter.waitAndMaybeThrowInterrupt(
+              ((ParallelEvaluator.SkyFunctionEnvironment) env).getExceptionLatchForTesting(), "");
+        } catch (InterruptedException e) {
+          unexpectedException.set(Pair.of(skyKey, e));
+        }
+        // Threadpool is shutting down. Don't try to synchronize anything in the future during
+        // error bubbling.
+        synchronizeThreads.set(false);
+        throw new InterruptedException();
+      }
+
+      @Nullable
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    tester.eval(/*keepGoing=*/false, cachedParentKey, uncachedParentKey, waitForShutdownKey);
+    Pair<SkyKey, ? extends Exception> unexpected = unexpectedException.get();
+    if (unexpected != null) {
+      throw new AssertionError(unexpected.first + ", " + unexpected.second + ", "
+          + Arrays.toString(unexpected.second.getStackTrace()));
+    }
   }
 
   @Test

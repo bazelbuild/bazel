@@ -113,7 +113,6 @@ public final class ParallelEvaluator implements Evaluator {
   private final int threadCount;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
   private final DirtyKeyTracker dirtyKeyTracker;
-  private final AtomicBoolean errorEncountered = new AtomicBoolean(false);
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
@@ -537,11 +536,17 @@ public final class ParallelEvaluator implements Evaluator {
       enqueue(new Evaluate(this, key));
     }
 
-    public void preventNewEvaluations() {
-      preventNewEvaluations.set(true);
+    /**
+     * Stop any new evaluations from being enqueued. Returns whether this was the first thread to
+     * request a halt. If true, this thread should proceed to throw an exception. If false, another
+     * thread already requested a halt and will throw an exception, and so this thread can simply
+     * end.
+     */
+    boolean preventNewEvaluations() {
+      return preventNewEvaluations.compareAndSet(false, true);
     }
 
-    public void notifyDone(SkyKey key) {
+    void notifyDone(SkyKey key) {
       inflightNodes.remove(key);
     }
 
@@ -624,14 +629,40 @@ public final class ParallelEvaluator implements Evaluator {
               // which would be incorrect if, for instance, the value re-evaluated to a non-error.
               state.forceRebuild();
               break; // Fall through to re-evaluation.
-            } else {
-              // If this isn't the error transience value, it is safe to add these deps back to the
-              // node -- even if one of them has changed, the contract of pruning is that the node
-              // will request these deps again when it rebuilds. We must add these deps before
-              // enqueuing them, so that the node knows that it depends on them.
-              state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
             }
-
+            if (!keepGoing) {
+              // This check ensures that we maintain the invariant that if a node with an error is
+              // reached during a no-keep-going build, none of its currently building parents
+              // finishes building. If the child isn't done building yet, it will detect on its own
+              // that it has an error (see the VERIFIED_CLEAN case below). On the other hand, if it
+              // is done, then it is the parent's responsibility to notice that, which we do here.
+              // We check the deps for errors so that we don't continue building this node if it has
+              // a child error.
+              for (Map.Entry<SkyKey, NodeEntry> entry :
+                  graph.getBatch(directDepsToCheck).entrySet()) {
+                if (entry.getValue().isDone() && entry.getValue().getErrorInfo() != null) {
+                  // If any child has an error, we arbitrarily add a dep on the first one (needed
+                  // for error bubbling) and throw an exception coming from it.
+                  if (!visitor.preventNewEvaluations()) {
+                    // An error was already thrown in the evaluator. Don't do anything here.
+                    return;
+                  }
+                  SkyKey errorKey = entry.getKey();
+                  NodeEntry errorEntry = entry.getValue();
+                  state.addTemporaryDirectDeps(
+                      GroupedListHelper.create(ImmutableList.of(errorKey)));
+                  DependencyState errorState = entry.getValue().addReverseDepAndCheckIfDone(skyKey);
+                  Preconditions.checkState(errorState == DependencyState.DONE, "%s %s %s %s",
+                      skyKey, state, errorKey, errorEntry);
+                  throw SchedulerException.ofError(errorEntry.getErrorInfo(), entry.getKey());
+                }
+              }
+            }
+            // If this isn't the error transience value, it is safe to add these deps back to the
+            // node -- even if one of them has changed, the contract of pruning is that the node
+            // will request these deps again when it rebuilds. We must add these deps before
+            // enqueuing them, so that the node knows that it depends on them.
+            state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
             for (SkyKey directDep : directDepsToCheck) {
               enqueueChild(skyKey, state, directDep);
             }
@@ -645,6 +676,12 @@ public final class ParallelEvaluator implements Evaluator {
             if (progressReceiver != null) {
               // Tell the receiver that the value was not actually changed this run.
               progressReceiver.evaluated(skyKey, value, EvaluationState.CLEAN);
+            }
+            if (!keepGoing && state.getErrorInfo() != null) {
+              if (!visitor.preventNewEvaluations()) {
+                return;
+              }
+              throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
             }
             signalValuesAndEnqueueIfReady(visitor, reverseDeps, state.getVersion());
             return;
@@ -682,10 +719,7 @@ public final class ParallelEvaluator implements Evaluator {
             // After we commit this error to the graph but before the eval call completes with the
             // error there is a race-like opportunity for the error to be used, either by an
             // in-flight computation or by a future computation.
-            if (errorEncountered.compareAndSet(false, true)) {
-              // This is the first error encountered.
-              visitor.preventNewEvaluations();
-            } else {
+            if (!visitor.preventNewEvaluations()) {
               // This is not the first error encountered, so we ignore it so that we can terminate
               // with the first error.
               return;
@@ -727,8 +761,8 @@ public final class ParallelEvaluator implements Evaluator {
         return;
       }
 
-      if (!newDirectDeps.isEmpty() && env.getDepErrorKey() != null) {
-        Preconditions.checkState(!keepGoing);
+      if (env.getDepErrorKey() != null) {
+        Preconditions.checkState(!keepGoing, "%s %s %s", skyKey, state, env.getDepErrorKey());
         // We encountered a child error in noKeepGoing mode, so we want to fail fast. But we first
         // need to add the edge between the current node and the child error it requested so that
         // error bubbling can occur. Note that this edge will subsequently be removed during graph
@@ -1016,7 +1050,7 @@ public final class ParallelEvaluator implements Evaluator {
         new ThrowableRecordingRunnableWrapper("ParallelEvaluator#clean");
     for (final SkyKey key : inflightNodes) {
       final NodeEntry entry = graph.get(key);
-      Preconditions.checkState(!entry.isDone(), key);
+      Preconditions.checkState(!entry.isDone(), "%s %s", key, entry);
       executor.execute(wrapper.wrap(new Runnable() {
         @Override
         public void run() {
@@ -1177,7 +1211,7 @@ public final class ParallelEvaluator implements Evaluator {
         parentEntry = bubbleParentEntry;
         break;
       }
-      Preconditions.checkNotNull(parent, "", errorKey, bubbleErrorInfo);
+      Preconditions.checkNotNull(parent, "%s %s", errorKey, bubbleErrorInfo);
       errorKey = parent;
       SkyFunction factory = skyFunctions.get(parent.functionName());
       if (parentEntry.isDirty()) {
@@ -1365,7 +1399,7 @@ public final class ParallelEvaluator implements Evaluator {
         // A marker node means we are done with all children of a node. Since all nodes have
         // errors, we must have found errors in the children when that happens.
         key = graphPath.remove(graphPath.size() - 1);
-        entry = graph.get(key);
+        entry = Preconditions.checkNotNull(graph.get(key), key);
         pathSet.remove(key);
         // Skip this node if it was first/last node of a cycle, and so has already been processed.
         if (entry.isDone()) {
@@ -1395,6 +1429,7 @@ public final class ParallelEvaluator implements Evaluator {
         env.commit(/*enqueueParents=*/false);
       }
 
+      Preconditions.checkNotNull(entry, key);
       // Nothing to be done for this node if it already has an entry.
       if (entry.isDone()) {
         continue;
