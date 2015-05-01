@@ -1558,9 +1558,9 @@ Subtractive patterns:
   </li>
 </ul>
 
-<h4 id='flag--cpu'><code class='flag'>--cpu (piii|k8)</code></h4>
+<h4 id='flag--cpu'><code class='flag'>--cpu <var>cpu</var></code></h4>
 <p>
-This option specifies the target CPU architecture (piii (x86), k8 (x86_64), etc.) to be used for
+This option specifies the target CPU architecture to be used for
 the compilation of binaries during the build.
 </p>
 <p>
@@ -1575,7 +1575,7 @@ the compilation of binaries during the build.
   in the currently used CROSSTOOL file.
 </p>
 
-<h4 id='flag--host_cpu'><code class='flag'>--host_cpu (piii|k8)</code></h4>
+<h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
 <p>
   This option specifies the name of the CPU architecture that should be
   used to build host tools.
@@ -1585,7 +1585,8 @@ the compilation of binaries during the build.
 <p>
   This option specifies the name of the CPU architecture (piii, k8, etc) that
   should be used to build libraries dynamically loaded by the JVM.
-  By default it is set to k8, ensuring that all such libraries will be 64-bit.
+  By default it is set to k8, ensuring that all such libraries will be 64-bit
+  x86 code.
 </p>
 
 <h4 id='flag--experimental_skip_static_outputs'><code class='flag'>--experimental_skip_static_outputs</code></h4>
