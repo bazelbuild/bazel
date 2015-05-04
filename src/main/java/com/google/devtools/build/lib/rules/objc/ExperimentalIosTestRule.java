@@ -52,6 +52,7 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
             .value(env.getLabel("//tools/objc/sim_devices:default")))
         .add(attr("$test_template", LABEL)
             .value(env.getLabel("//tools/objc:ios_test.sh.bazel_template")))
+        .add(attr("$test_runner", LABEL).value(env.getLabel("//tools/objc:testrunner")))
         .build();
   }
 

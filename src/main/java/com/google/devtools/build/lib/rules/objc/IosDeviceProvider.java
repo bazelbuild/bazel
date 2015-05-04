@@ -80,7 +80,8 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
   public IosTestSubstitutionProvider iosTestSubstitutionProvider() {
     return new IosTestSubstitutionProvider(ImmutableList.of(
         Substitution.of("%(device_type)s", getType()),
-        Substitution.of("%(simulator_sdk)s", getIosVersion())
+        Substitution.of("%(simulator_sdk)s", getIosVersion()),
+        Substitution.of("%(locale)s", getLocale())
     ));
   }
 }

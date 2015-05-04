@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -28,8 +29,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.FileType;
-
-import java.util.List;
 
 /**
  * Support for running XcTests.
@@ -62,7 +61,7 @@ class TestSupport {
     // xctestIpa is the app bundle being tested
     Artifact xctestIpa = xctestIpa();
 
-    List<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
+    ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
         .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
         .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
 
@@ -71,14 +70,18 @@ class TestSupport {
 
         .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
 
-        .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript())
+        .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
 
-        .build();
+    Optional<Artifact> testRunner = testRunner();
+    if (testRunner.isPresent()) {
+      substitutions.add(
+          Substitution.of("%(testrunner_binary)s", testRunner.get().getRootRelativePathString()));
+    }
 
     Artifact template = ruleContext.getPrerequisiteArtifact("$test_template", Mode.TARGET);
 
     ruleContext.registerAction(new TemplateExpansionAction(ruleContext.getActionOwner(),
-        template, generatedTestScript(), substitutions, /*executable=*/true));
+        template, generatedTestScript(), substitutions.build(), /*executable=*/true));
   }
 
   private IosTestSubstitutionProvider deviceSubstitutions() {
@@ -102,6 +105,13 @@ class TestSupport {
   }
 
   /**
+   * Gets the binary of the testrunner attribute, if there is one.
+   */
+  private Optional<Artifact> testRunner() {
+    return Optional.fromNullable(ruleContext.getPrerequisiteArtifact("$test_runner", Mode.TARGET));
+  }
+
+  /**
    * Adds all files needed to run this test to the passed Runfiles builder.
    */
   TestSupport addRunfiles(Runfiles.Builder runfilesBuilder) {
@@ -110,7 +120,8 @@ class TestSupport {
         .addArtifact(xctestIpa())
         .addArtifact(generatedTestScript())
         .addArtifact(iossim())
-        .addTransitiveArtifacts(deviceRunfiles());
+        .addTransitiveArtifacts(deviceRunfiles())
+        .addArtifacts(testRunner().asSet());
     return this;
   }
 

@@ -43,3 +43,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "testrunner",
+)
