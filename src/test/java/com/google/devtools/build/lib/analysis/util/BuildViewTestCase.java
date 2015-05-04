@@ -1264,7 +1264,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         + depRuleType + " rule '" + depRuleName + "' is misplaced here";
   }
 
-  public static String getErrorMsgNonEmptyList(String attrName, String ruleType, String ruleName) {
+  protected String getErrorMsgNonEmptyList(String attrName, String ruleType, String ruleName) {
     return "non empty attribute '" + attrName + "' in '" + ruleType
         + "' rule '" + ruleName + "' has to have at least one value";
   }

@@ -53,6 +53,10 @@ java_library(
         "com/google/devtools/build/lib/vfs/util/*.java",
         "com/google/devtools/build/lib/events/util/*.java",
     ]),
+    data = [
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
     deps = [
         ":testutil",
         "//src/main/java:bazel-core",
@@ -102,10 +106,7 @@ java_test(
         ],
     ),
     args = ["com.google.devtools.build.lib.AllTests"],
-    data = glob([test_prefix + "/vfs/*.zip"]) + [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
+    data = glob([test_prefix + "/vfs/*.zip"]),
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -130,10 +131,6 @@ java_test(
     ]]),
     args = [
         "com.google.devtools.build.lib.AllTests",
-    ],
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
     ],
     jvm_flags = ["-Dblaze.os=Windows"],
     deps = [
@@ -174,10 +171,6 @@ java_test(
         "com/google/devtools/build/lib/actions/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
     deps = [
         ":actions_testutil",
         ":foundations_testutil",
@@ -200,20 +193,15 @@ java_library(
         "com/google/devtools/build/lib/analysis/mock/BazelAnalysisMock.java",
         "com/google/devtools/build/lib/analysis/util/*.java",
         "com/google/devtools/build/lib/exec/util/*.java",
-        "com/google/devtools/build/lib/packages/util/*.java",
         "com/google/devtools/build/lib/skyframe/util/*.java",
     ]),
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
     resources = [
         "MOCK_CROSSTOOL",
     ],
     deps = [
         ":actions_testutil",
         ":foundations_testutil",
-        ":test_runner",
+        ":packages_testutil",
         ":testutil",
         "//src/main/java:bazel-core",
         "//src/main/java:concurrent",
@@ -302,6 +290,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
+        ":packages_testutil",
         ":test_runner",
         ":testutil",
         "//src/main/java:bazel-core",
@@ -332,6 +321,46 @@ java_test(
     ],
 )
 
+java_library(
+    name = "packages_testutil",
+    srcs = glob([
+        "com/google/devtools/build/lib/packages/util/*.java",
+    ]),
+    deps = [
+        ":foundations_testutil",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "packages_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/packages/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":actions_testutil",
+        ":foundations_testutil",
+        ":packages_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 cc_binary(
     name = "com/google/devtools/build/lib/shell/killmyself",
     srcs = ["com/google/devtools/build/lib/shell/killmyself.cc"],
@@ -345,8 +374,6 @@ java_test(
     args = ["com.google.devtools.build.lib.AllTests"],
     data = [
         ":com/google/devtools/build/lib/shell/killmyself",
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
     ],
     deps = [
         ":foundations_testutil",
@@ -369,10 +396,6 @@ java_test(
         "com/google/devtools/build/lib/syntax/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
     deps = [
         ":foundations_testutil",
         ":test_runner",
