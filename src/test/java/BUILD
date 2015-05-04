@@ -293,6 +293,25 @@ java_test(
 )
 
 java_test(
+    name = "analysis_select_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/analysis/select/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "analysis_test",
     srcs = glob([
         "com/google/devtools/build/lib/analysis/*.java",

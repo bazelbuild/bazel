@@ -1,0 +1,149 @@
+// Copyright 2015 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.analysis.select;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Label;
+
+import java.util.List;
+
+/**
+ * Unit tests for {@link RawAttributeMapper}.
+ */
+public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
+
+  @Override
+  public void setUp() throws Exception {
+    super.setUp();
+    // Run AbstractAttributeMapper tests through a RawAttributeMapper.
+    mapper = RawAttributeMapper.of(rule);
+  }
+
+  private Rule setupGenRule() throws Exception {
+    return createRule("x", "myrule",
+        "sh_binary(",
+        "    name = 'myrule',",
+        "    srcs = select({",
+        "        '//conditions:a': ['a.sh'],",
+        "        '//conditions:b': ['b.sh'],",
+        "        '" + Type.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
+        "    }),",
+        "    data = [ ':data_a', ':data_b' ])");
+  }
+
+  public void testGetAttribute() throws Exception {
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
+    List<Label> value = rawMapper.get("data", Type.LABEL_LIST);
+    assertNotNull(value);
+    assertThat(value).containsExactly(Label.create("x", "data_a"), Label.create("x", "data_b"));
+
+    // Configurable attribute: trying to directly access from a RawAttributeMapper throws a
+    // type mismatch exception.
+    try {
+      rawMapper.get("srcs", Type.LABEL_LIST);
+      fail("Expected srcs lookup to fail since the returned type is a SelectorList and not a list");
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getCause().getMessage())
+          .contains("SelectorList cannot be cast to java.util.List");
+    }
+  }
+
+  @Override
+  public void testGetAttributeType() throws Exception {
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
+    assertEquals(Type.LABEL_LIST, rawMapper.getAttributeType("data")); // not configurable
+    assertEquals(Type.LABEL_LIST, rawMapper.getAttributeType("srcs")); // configurable
+  }
+
+  public void testConfigurabilityCheck() throws Exception {
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
+    assertFalse(rawMapper.isConfigurable("data", Type.LABEL_LIST));
+    assertTrue(rawMapper.isConfigurable("srcs", Type.LABEL_LIST));
+  }
+
+  /**
+   * Tests that RawAttributeMapper can't handle label visitation with configurable attributes.
+   */
+  public void testVisitLabels() throws Exception {
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
+    try {
+      rawMapper.visitLabels(new AttributeMap.AcceptsLabelAttribute() {
+        @Override
+        public void acceptLabelAttribute(Label label, Attribute attribute) {
+          // Nothing to do.
+        }
+      });
+      fail("Expected label visitation to fail since one attribute is configurable");
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getCause().getMessage())
+          .contains("SelectorList cannot be cast to java.util.List");
+    }
+  }
+
+  public void testGetConfigurabilityKeys() throws Exception {
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
+    assertSameContents(
+        ImmutableSet.of(
+            Label.parseAbsolute("//conditions:a"),
+            Label.parseAbsolute("//conditions:b"),
+            Label.parseAbsolute("//conditions:default")),
+        rawMapper.getConfigurabilityKeys("srcs", Type.LABEL_LIST));
+    assertThat(rawMapper.getConfigurabilityKeys("data", Type.LABEL_LIST)).isEmpty();
+  }
+
+  public void testGetMergedValues() throws Exception {
+    Rule rule = createRule("x", "myrule",
+        "sh_binary(",
+        "    name = 'myrule',",
+        "    srcs = select({",
+        "        '//conditions:a': ['a.sh', 'b.sh'],",
+        "        '//conditions:b': ['b.sh', 'c.sh'],",
+        "    }))");
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
+    assertThat(rawMapper.getMergedValues("srcs", Type.LABEL_LIST)).containsExactly(
+        Label.parseAbsolute("//x:a.sh"),
+        Label.parseAbsolute("//x:b.sh"),
+        Label.parseAbsolute("//x:c.sh"))
+        .inOrder();
+  }
+
+  public void testMergedValuesWithConcatenatedSelects() throws Exception {
+    Rule rule = createRule("x", "myrule",
+        "sh_binary(",
+        "    name = 'myrule',",
+        "    srcs = select({",
+        "            '//conditions:a1': ['a1.sh'],",
+        "            '//conditions:b1': ['b1.sh', 'another_b1.sh']})",
+        "        + select({",
+        "            '//conditions:a2': ['a2.sh'],",
+        "            '//conditions:b2': ['b2.sh']})",
+        "    )");
+    RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
+    assertThat(rawMapper.getMergedValues("srcs", Type.LABEL_LIST)).containsExactly(
+        Label.parseAbsolute("//x:a1.sh"),
+        Label.parseAbsolute("//x:b1.sh"),
+        Label.parseAbsolute("//x:another_b1.sh"),
+        Label.parseAbsolute("//x:a2.sh"),
+        Label.parseAbsolute("//x:b2.sh"))
+        .inOrder();
+  }
+}

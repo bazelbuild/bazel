@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -76,7 +77,9 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * <p>If you don't know how to do this, you really want to use one of the "do-it-all"
    * constructors.
    */
-  static ConfiguredAttributeMapper of(Rule rule, Set<ConfigMatchingProvider> configConditions) {
+  @VisibleForTesting
+  public static ConfiguredAttributeMapper of(
+      Rule rule, Set<ConfigMatchingProvider> configConditions) {
     return new ConfiguredAttributeMapper(rule, configConditions);
   }
 

@@ -528,8 +528,8 @@ public class Package implements Serializable {
    * for walking through the dependency graph of a target.
    * Fails if the target is not a Rule.
    */
-  @VisibleForTesting
-  Rule getRule(String targetName) {
+  @VisibleForTesting // Should be package-private
+  public Rule getRule(String targetName) {
     return (Rule) targets.get(targetName);
   }
 

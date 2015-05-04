@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -74,7 +75,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * @throws IllegalArgumentException if the given attribute doesn't exist with the specified
    *         type. This happens whether or not it's a computed default.
    */
-  protected <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
+  @VisibleForTesting // Should be protected
+  public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     int index = getIndexWithTypeCheck(attributeName, type);
     Object value = attributes.getAttributeValue(index);
     if (value instanceof Attribute.ComputedDefault) {
@@ -177,7 +179,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (!(attrValue instanceof Type.SelectorList)) {
       return null;
     }
-    if (((Type.SelectorList) attrValue).getOriginalType() != type) {
+    if (((Type.SelectorList<?>) attrValue).getOriginalType() != type) {
       throw new IllegalArgumentException("Attribute " + attributeName
           + " is not of type " + type + " in rule " + ruleLabel);
     }
