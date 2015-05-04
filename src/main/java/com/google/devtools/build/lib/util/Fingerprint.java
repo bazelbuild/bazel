@@ -43,7 +43,7 @@ public final class Fingerprint {
     try {
       md = MessageDigest.getInstance("md5");
     } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("MD5 not available");
+      throw new IllegalStateException("MD5 not available", e);
     }
   }
 
