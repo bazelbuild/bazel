@@ -139,10 +139,12 @@ public class Artifact implements FileType.HasFilename, ActionInput {
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
     if (root == null || !path.startsWith(root.getPath())) {
-      throw new IllegalArgumentException(root + ": illegal root for " + path);
+      throw new IllegalArgumentException(root + ": illegal root for " + path
+          + " (execPath: " + execPath + ")");
     }
     if (execPath == null || execPath.isAbsolute() || !path.asFragment().endsWith(execPath)) {
-      throw new IllegalArgumentException(execPath + ": illegal execPath for " + path);
+      throw new IllegalArgumentException(execPath + ": illegal execPath for " + path
+          + " (root: " + root + ")");
     }
     this.path = path;
     this.root = root;
