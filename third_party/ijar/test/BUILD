@@ -20,6 +20,8 @@ sh_test(
         "zip",
     ],
     data = [
+        "testenv.sh",
+        "//src/test/shell:bashunit",
         "//third_party/ijar",
         "A.java",
         "B.java",
@@ -36,6 +38,7 @@ sh_test(
         "//tools/defaults:jdk",
         "//tools/jdk:langtools",
     ],
+    shard_count = 5,
 )
 
 java_library(
