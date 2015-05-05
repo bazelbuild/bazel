@@ -126,6 +126,12 @@ public class SourceManifestAction extends AbstractFileWriteAction {
     };
   }
 
+  @Override
+  public boolean isRemotable() {
+    // There is little gain to remoting these, since they include absolute path names inline.
+    return false;
+  }
+
   /**
    * Returns the input dependencies for this action. Note we don't need to create the symlink
    * target Artifacts before we write the output manifest, so this Action does not have to
