@@ -34,10 +34,10 @@ An example of a macro creating a Skylark rule.
 `empty.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   print("This rule does nothing")
 
-empty = rule(impl)
+empty = rule(implementation=_impl)
 ```
 
 `extension.bzl`:
@@ -67,11 +67,11 @@ succeed (with no generated file).
 `empty.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   # You may use print for debugging.
   print("This rule does nothing")
 
-empty = rule(impl)
+empty = rule(implementation=_impl)
 ```
 
 `BUILD`:
@@ -89,7 +89,7 @@ Example of a rule that shows how to declare attributes and access them.
 `printer.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   # You may use print for debugging.
   print("The number is %s" % ctx.attr.number)
 
@@ -101,7 +101,7 @@ def impl(ctx):
     print("  files = %s" % [f.path for f in i.files])
 
 printer = rule(
-    implementation=impl,
+    implementation=_impl,
     attrs={
       # Do not declare "name": It is added automatically.
       "number": attr.int(default = 1),
@@ -136,7 +136,7 @@ the user. The output has the same name as the input, with a `.txt` suffix.
 `size.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   output = ctx.outputs.out
   input = ctx.file.file
   ctx.action(
@@ -145,7 +145,7 @@ def impl(ctx):
       command="stat -L -c%%s %s > %s" % (input.path, output.path))
 
 size = rule(
-    implementation=impl,
+    implementation=_impl,
     attrs={"file": attr.label(mandatory=True, allow_files=True, single_file=True)},
     outputs={"out": "%{name}.size"},
 )
@@ -175,12 +175,12 @@ Example of a rule that writes a string to a file.
 `file.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   output = ctx.outputs.out
   ctx.file_action(output=output, content=ctx.attr.content)
 
 file = rule(
-    implementation=impl,
+    implementation=_impl,
     attrs={"content": attr.string()},
     outputs={"out": "%{name}.txt"},
 )
@@ -206,7 +206,7 @@ only to executable rules or files.
 `execute.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   # ctx.new_file is used for temporary files.
   # If it should be visible for user, declare it in rule.outputs instead.
   f = ctx.new_file(ctx.configuration.bin_dir, "hello")
@@ -226,7 +226,7 @@ def impl(ctx):
   )
 
 execute = rule(
-  implementation=impl,
+  implementation=_impl,
   attrs={
       "binary": attr.label(cfg=HOST_CFG, mandatory=True, allow_files=True,
                            executable=True),
@@ -262,7 +262,7 @@ execute(
 `execute.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   executable = ctx.outputs.executable
   # Create the output executable file with command as its content.
   ctx.file_action(
@@ -283,7 +283,7 @@ def impl(ctx):
   )
 
 execute = rule(
-  implementation=impl,
+  implementation=_impl,
   executable=True,
   attrs={
       "command": attr.string(),
@@ -324,7 +324,7 @@ to its dependents.
 `sum.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   result = ctx.attr.number
   for i in ctx.targets.deps:
     result += i.number
@@ -334,7 +334,7 @@ def impl(ctx):
   return struct(number=result)
 
 sum = rule(
-  implementation=impl,
+  implementation=_impl,
   attrs={
       "number": attr.int(default=1),
       # All deps must provide all listed providers.
@@ -372,7 +372,7 @@ This is a similar example, but dependencies may not provide a number.
 `sum.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   result = ctx.attr.number
   for i in ctx.targets.deps:
     if hasattr(i, "number"):
@@ -383,7 +383,7 @@ def impl(ctx):
   return struct(number=result)
 
 sum = rule(
-  implementation=impl,
+  implementation=_impl,
   attrs={
       "number": attr.int(default=1),
       "deps": attr.label_list(),
@@ -420,18 +420,18 @@ This example shows how to create a default executable output.
 `extension.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   ctx.file_action(
       # Access the executable output file using ctx.outputs.executable.
-      output = ctx.outputs.executable,
-      content = "#!/bin/bash\necho Hello!",
-      executable = True
+      output=ctx.outputs.executable,
+      content="#!/bin/bash\necho Hello!",
+      executable=True
   )
   # The executable output is added automatically to this target.
 
 executable_rule = rule(
-    implementation = impl,
-    executable = True
+    implementation=_impl,
+    executable=True
 )
 ```
 
@@ -450,16 +450,16 @@ This example shows how to create default outputs for a rule.
 `extension.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   ctx.file_action(
       # Access the default outputs using ctx.outputs.<output name>.
-      output = ctx.outputs.my_output,
-      content = "Hello World!"
+      output=ctx.outputs.my_output,
+      content="Hello World!"
   )
   # The default outputs are added automatically to this target.
 
 rule_with_outputs = rule(
-    implementation = impl,
+    implementation=_impl,
     outputs = {
         # %{name} is substituted with the rule's name
         "my_output": "%{name}.txt"
@@ -484,18 +484,18 @@ creates each of them containing a "Hello World!" message.
 `extension.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   # Access the custom outputs using ctx.outputs.<attribute name>.
   for output in ctx.outputs.outs:
     ctx.file_action(
-        output = output,
-        content = "Hello World!"
+        output=output,
+        content="Hello World!"
     )
   # The custom outputs are added automatically to this target.
 
 rule_with_outputs = rule(
-    implementation = impl,
-    attrs = {
+    implementation=_impl,
+    attrs={
         "outs": attr.output_list()
     }
 )
@@ -522,17 +522,17 @@ other rules. For example, if you need to compile C++ files, you can reuse
 `extension.bzl`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   # Aggregate the output files from the depending rules
   files = set()
   files += ctx.target.dep_rule_1.files
   files += ctx.target.dep_rule_2.files
-  return struct(files = files)
+  return struct(files=files)
 
 # This rule binds the depending rules together
 master_rule = rule(
-    implementation = impl,
-    attrs = {
+    implementation=_impl,
+    attrs={
         "dep_rule_1": attr.label(),
         "dep_rule_2": attr.label()
     }
@@ -582,7 +582,7 @@ Here are some examples on how to do debug Skylark macros and rules.
 ```python
 print("print something when the module is loaded")
 
-def impl(ctx):
+def _impl(ctx):
   print("print something when the rule implementation is executed")
   print(type("abc"))     # prints string, the type of "abc"
   print(dir(ctx))        # prints all the fields and methods of ctx
@@ -590,7 +590,7 @@ def impl(ctx):
   # prints the objects each separated with new line
   print("object1", "object2", sep="\n")
 
-debug = rule(implementation=impl)
+debug = rule(implementation=_impl)
 ```
 
 `BUILD`:
