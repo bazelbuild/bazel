@@ -31,7 +31,7 @@ public final class CcLinkParamsProvider implements TransitiveInfoProvider {
         public CcLinkParamsStore apply(TransitiveInfoCollection input) {
           CcLinkParamsProvider provider = input.getProvider(
               CcLinkParamsProvider.class);
-          return provider == null ? null : provider.store;
+          return provider == null ? null : provider.getCcLinkParamsStore();
         }
       };
 
@@ -39,6 +39,11 @@ public final class CcLinkParamsProvider implements TransitiveInfoProvider {
 
   public CcLinkParamsProvider(CcLinkParamsStore store) {
     this.store = new CcLinkParamsStoreImpl(store);
+  }
+
+  /** Returns the link params store. */
+  public CcLinkParamsStore getCcLinkParamsStore() {
+    return store;
   }
 
   /**
