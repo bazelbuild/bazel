@@ -228,6 +228,10 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @Override
   public synchronized Artifact resolveSourceArtifact(PathFragment execPath) {
     execPath = execPath.normalize();
+    if (execPath.containsUplevelReferences()) {
+      // Source exec paths cannot escape the source root.
+      return null;
+    }
     // First try a quick map lookup to see if the artifact already exists.
     Artifact a = pathToSourceArtifact.get(execPath);
     if (a != null) {
@@ -257,6 +261,11 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
 
     for (PathFragment execPath : execPaths) {
       PathFragment execPathNormalized = execPath.normalize();
+      if (execPathNormalized.containsUplevelReferences()) {
+        // Source exec paths cannot escape the source root.
+        result.put(execPath, null);
+        continue;
+      }
       // First try a quick map lookup to see if the artifact already exists.
       Artifact a = pathToSourceArtifact.get(execPathNormalized);
       if (a != null) {

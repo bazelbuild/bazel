@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
 import static org.junit.Assert.assertEquals;
@@ -126,6 +127,29 @@ public class ArtifactFactoryTest {
     assertSame(artifactFactory.getSourceArtifact(fooRelative, clientRoot), actual);
     actual = artifactFactory.resolveSourceArtifact(barRelative);
     assertSame(artifactFactory.getSourceArtifact(barRelative, clientRoRoot), actual);
+  }
+
+  @Test
+  public void testResolveArtifactWithUpLevelFailsCleanly() throws Exception {
+    // We need a package in the root directory to make every exec path (even one with up-level
+    // references) be in a package.
+    Map<PackageIdentifier, Root> packageRoots = ImmutableMap.of(
+        PackageIdentifier.createInDefaultRepo(new PathFragment("")), clientRoot);
+    artifactFactory.setPackageRoots(packageRoots);
+    PathFragment outsideWorkspace = new PathFragment("../foo");
+    PathFragment insideWorkspace =
+        new PathFragment("../" + clientRoot.getPath().getBaseName() + "/foo");
+    assertNull(artifactFactory.resolveSourceArtifact(outsideWorkspace));
+    assertNull("Up-level-containing paths that descend into the right workspace aren't allowed",
+            artifactFactory.resolveSourceArtifact(insideWorkspace));
+    MockPackageRootResolver packageRootResolver = new MockPackageRootResolver();
+    packageRootResolver.setPackageRoots(packageRoots);
+    Map<PathFragment, Artifact> result = new HashMap<>();
+    result.put(insideWorkspace, null);
+    result.put(outsideWorkspace, null);
+    assertThat(
+        artifactFactory.resolveSourceArtifacts(ImmutableList.of(insideWorkspace, outsideWorkspace),
+            packageRootResolver).entrySet()).containsExactlyElementsIn(result.entrySet());
   }
 
   @Test
