@@ -199,6 +199,7 @@ public class BuildTool {
 
       // Execution phase.
       if (needsExecutionPhase(request.getBuildOptions())) {
+        runtime.getSkyframeExecutor().injectTopLevelContext(request.getTopLevelArtifactContext());
         executionTool.executeBuild(request.getId(), analysisResult, result,
             runtime.getSkyframeExecutor(), configurations,
             mergePackageRoots(loadingResult.getPackageRoots(),

@@ -639,8 +639,6 @@ public class BuildView {
           filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
-    skyframeExecutor.injectTopLevelContext(topLevelOptions);
-
     Set<Artifact> artifactsToBuild = new HashSet<>();
     Set<ConfiguredTarget> parallelTests = new HashSet<>();
     Set<ConfiguredTarget> exclusiveTests = new HashSet<>();
