@@ -45,18 +45,74 @@ java_library(
 )
 
 java_library(
+    name = "collect",
+    srcs = glob([
+        "com/google/devtools/build/lib/collect/**/*.java",
+    ]),
+    deps = [
+        ":common",
+        ":shell",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "options",
+    srcs = glob(["com/google/devtools/common/options/*.java"]),
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "vfs",
+    srcs = glob([
+        "com/google/devtools/build/lib/vfs/**/*.java",
+        "com/google/devtools/build/lib/profiler/**/*.java",
+        "com/google/devtools/build/lib/util/**/*.java",
+    ]),
+    deps = [
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":options",
+        ":shell",
+        ":unix",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-core",
     srcs = glob(
-        ["**/*.java"],
+        [
+            "com/google/devtools/build/lib/exec/**",
+            "com/google/devtools/build/lib/server/**",
+            "com/google/devtools/build/lib/server/**",
+            "com/google/devtools/build/lib/pkgcache/**",
+            "com/google/devtools/build/lib/query2/**",
+            "com/google/devtools/build/lib/bazel/**/*.java",
+            "com/google/devtools/build/lib/actions/**",
+            "com/google/devtools/build/lib/graph/**",
+            "com/google/devtools/build/lib/cmdline/**",
+            "com/google/devtools/build/lib/skyframe/**",
+            "com/google/devtools/build/lib/webstatusserver/**/*.java",
+            "com/google/devtools/build/lib/analysis/**",
+            "com/google/devtools/build/lib/events/**",
+            "com/google/devtools/build/lib/rules/**",
+            "com/google/devtools/build/lib/syntax/**",
+            "com/google/devtools/build/docgen/**/*.java",
+            "com/google/devtools/build/lib/packages/**",
+            "com/google/devtools/build/lib/runtime/**/*.java",
+            "com/google/devtools/build/lib/standalone/**",
+            "com/google/devtools/build/lib/buildtool/**",
+            "com/google/devtools/build/skyframe/**",
+        ],
         exclude = [
-            "com/google/devtools/build/lib/Constants.java",
-            "com/google/devtools/build/lib/UnixJniLoader.java",
-            "com/google/devtools/build/lib/concurrent/**/*.java",
-            "com/google/devtools/build/lib/unix/**/*.java",
-            "com/google/devtools/build/lib/docgen/**/*.java",
             "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
-            "com/google/devtools/build/lib/shell/*.java",
-            "com/google/devtools/build/lib/unix/*.java",
         ],
     ),
     resources = glob([
@@ -76,10 +132,13 @@ java_library(
         "//third_party:plexus_utils",
     ],
     deps = [
+        ":collect",
         ":common",
         ":concurrent",
+        ":options",
         ":shell",
         ":unix",
+        ":vfs",
         "//src/main/protobuf:proto_build",
         "//src/main/protobuf:proto_bundlemerge",
         "//src/main/protobuf:proto_crosstool_config",
@@ -158,6 +217,7 @@ java_library(
     deps = [
         ":bazel-core",
         ":common",
+        "//src/main/java:vfs",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
