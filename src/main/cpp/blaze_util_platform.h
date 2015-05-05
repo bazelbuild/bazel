@@ -15,8 +15,9 @@
 #ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
 #define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
 
+#include <stdint.h>
+
 #include <string>
-#include "src/main/cpp/util/numbers.h"
 
 namespace blaze {
 
@@ -33,12 +34,12 @@ pid_t GetPeerProcessId(int socket);
 void WarnFilesystemType(const std::string& output_base);
 
 // Wrapper around clock_gettime(CLOCK_MONOTONIC) that returns the time
-// as a uint64 nanoseconds since epoch.
-uint64 MonotonicClock();
+// as a uint64_t nanoseconds since epoch.
+uint64_t MonotonicClock();
 
 // Wrapper around clock_gettime(CLOCK_PROCESS_CPUTIME_ID) that returns the
 // nanoseconds consumed by the current process since it started.
-uint64 ProcessClock();
+uint64_t ProcessClock();
 
 // Set cpu and IO scheduling properties. Note that this can take ~50ms
 // on Linux, so it should only be called when necessary.

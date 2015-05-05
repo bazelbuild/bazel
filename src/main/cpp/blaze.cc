@@ -34,6 +34,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -128,15 +129,15 @@ struct GlobalVariables {
   BlazeStartupOptions options;
 
   // The time in ms the launcher spends before sending the request to the Blaze
-  uint64 startup_time;
+  uint64_t startup_time;
 
   // The time spent on extracting the new blaze version
   // This is part of startup_time
-  uint64 extract_data_time;
+  uint64_t extract_data_time;
 
   // The time in ms if a command had to wait on a busy Blaze server process
   // This is part of startup_time
-  uint64 command_wait_time;
+  uint64_t command_wait_time;
 
   RestartReason restart_reason;
 
@@ -889,14 +890,14 @@ static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   struct stat buf;
   if (stat(globals->options.install_base.c_str(), &buf) == -1) {
-    uint64 st = MonotonicClock();
+    uint64_t st = MonotonicClock();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options.install_base + ".tmp." +
         std::to_string(getpid());
     string tmp_binaries = tmp_install + "/_embedded_binaries";
     ActuallyExtractData(self_path, tmp_binaries);
 
-    uint64 et = MonotonicClock();
+    uint64_t et = MonotonicClock();
     globals->extract_data_time = (et - st) / 1000000LL;
 
     // Now rename the completed installation to its final name. If this
@@ -1459,7 +1460,7 @@ static void AcquireLock() {
     fflush(stderr);
 
     // Take a clock sample for that start of the waiting time
-    uint64 st = MonotonicClock();
+    uint64_t st = MonotonicClock();
     // Try to take the lock again (blocking).
     int r;
     do {
@@ -1471,7 +1472,7 @@ static void AcquireLock() {
            "couldn't acquire file lock");
     }
     // Take another clock sample, calculate elapsed
-    uint64 et = MonotonicClock();
+    uint64_t et = MonotonicClock();
     globals->command_wait_time = (et - st) / 1000000LL;
   }
 

@@ -16,21 +16,13 @@
 
 #include <string>
 
-typedef signed char int8;
-typedef int int32;
-typedef long long int64;  // NOLINT
-
-typedef unsigned char uint8;
-typedef unsigned int uint32;
-typedef unsigned long long uint64;  // NOLINT
-
 namespace blaze_util {
 
 using std::string;
 
 bool safe_strto32(const string &text, int *value);
 
-int32 strto32(const char *str, char **endptr, int base);
+int32_t strto32(const char *str, char **endptr, int base);
 
 }  // namespace blaze_util
 

@@ -60,7 +60,7 @@ string GetSelfPath() {
   return string(pathbuf, len);
 }
 
-uint64 MonotonicClock() {
+uint64_t MonotonicClock() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
@@ -68,7 +68,7 @@ uint64 MonotonicClock() {
   return ts.tv_sec * 1000000000LL + ts.tv_usec * 1000;
 }
 
-uint64 ProcessClock() {
+uint64_t ProcessClock() {
   return clock() * (1000000000LL / CLOCKS_PER_SEC);
 }
 

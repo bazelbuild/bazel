@@ -15,9 +15,9 @@
 #include <limits.h>
 #include <pwd.h>
 #include <string.h>  // strerror
+#include <sys/socket.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "src/main/cpp/blaze_util.h"
@@ -87,13 +87,13 @@ pid_t GetPeerProcessId(int socket) {
   return creds.pid;
 }
 
-uint64 MonotonicClock() {
+uint64_t MonotonicClock() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
-uint64 ProcessClock() {
+uint64_t ProcessClock() {
   struct timespec ts = {};
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
   return ts.tv_sec * 1000000000LL + ts.tv_nsec;
