@@ -95,7 +95,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     if (attr.isEmpty()) {
       return PathFragment.EMPTY_FRAGMENT;
     } else {
-      return ruleContext.getLabel().getPackageFragment().getRelative(attr);
+      return ruleContext.getLabel().getPackageIdentifier().getPathFragment().getRelative(attr);
     }
   }
 }
