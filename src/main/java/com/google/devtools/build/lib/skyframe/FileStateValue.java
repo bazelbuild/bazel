@@ -51,11 +51,10 @@ import javax.annotation.Nullable;
  */
 abstract class FileStateValue implements SkyValue {
 
-  public static final FileStateValue DIRECTORY_FILE_STATE_NODE = DirectoryFileStateValue.INSTANCE;
-  public static final FileStateValue NONEXISTENT_FILE_STATE_NODE =
-      NonexistentFileStateValue.INSTANCE;
+  static final FileStateValue DIRECTORY_FILE_STATE_NODE = DirectoryFileStateValue.INSTANCE;
+  static final FileStateValue NONEXISTENT_FILE_STATE_NODE = NonexistentFileStateValue.INSTANCE;
 
-  public enum Type {
+  enum Type {
     FILE,
     DIRECTORY,
     SYMLINK,
@@ -65,7 +64,7 @@ abstract class FileStateValue implements SkyValue {
   protected FileStateValue() {
   }
 
-  public static FileStateValue create(RootedPath rootedPath,
+  static FileStateValue create(RootedPath rootedPath,
       @Nullable TimestampGranularityMonitor tsgm) throws InconsistentFilesystemException,
       IOException {
     Path path = rootedPath.asPath();
@@ -78,7 +77,7 @@ abstract class FileStateValue implements SkyValue {
     return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
   }
 
-  public static FileStateValue createWithStatNoFollow(RootedPath rootedPath,
+  static FileStateValue createWithStatNoFollow(RootedPath rootedPath,
       FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
           throws InconsistentFilesystemException, IOException {
     Path path = rootedPath.asPath();
@@ -145,7 +144,7 @@ abstract class FileStateValue implements SkyValue {
      * Create a FileFileStateValue instance corresponding to the given existing file.
      * @param stat must be of type "File". (Not a symlink).
      */
-    public static FileFileStateValue fromPath(Path path, FileStatusWithDigest stat,
+    private static FileFileStateValue fromPath(Path path, FileStatusWithDigest stat,
                                         @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
@@ -179,18 +178,18 @@ abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public Type getType() {
+    Type getType() {
       return Type.FILE;
     }
 
     @Override
-    public long getSize() {
+    long getSize() {
       return size;
     }
 
     @Override
     @Nullable
-    public byte[] getDigest() {
+    byte[] getDigest() {
       return digest;
     }
 
@@ -219,13 +218,13 @@ abstract class FileStateValue implements SkyValue {
   /** Implementation of {@link FileStateValue} for directories that exist. */
   private static final class DirectoryFileStateValue extends FileStateValue {
 
-    public static final DirectoryFileStateValue INSTANCE = new DirectoryFileStateValue();
+    static final DirectoryFileStateValue INSTANCE = new DirectoryFileStateValue();
 
     private DirectoryFileStateValue() {
     }
 
     @Override
-    public Type getType() {
+    Type getType() {
       return Type.DIRECTORY;
     }
 
@@ -256,12 +255,12 @@ abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public Type getType() {
+    Type getType() {
       return Type.SYMLINK;
     }
 
     @Override
-    public PathFragment getSymlinkTarget() {
+    PathFragment getSymlinkTarget() {
       return symlinkTarget;
     }
 
@@ -288,13 +287,13 @@ abstract class FileStateValue implements SkyValue {
   /** Implementation of {@link FileStateValue} for nonexistent files. */
   private static final class NonexistentFileStateValue extends FileStateValue {
 
-    public static final NonexistentFileStateValue INSTANCE = new NonexistentFileStateValue();
+    static final NonexistentFileStateValue INSTANCE = new NonexistentFileStateValue();
 
     private NonexistentFileStateValue() {
     }
 
     @Override
-    public Type getType() {
+    Type getType() {
       return Type.NONEXISTENT;
     }
 
