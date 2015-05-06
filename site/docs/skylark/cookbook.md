@@ -91,7 +91,7 @@ Example of a rule that shows how to declare attributes and access them.
 ```python
 def _impl(ctx):
   # You may use print for debugging.
-  print("The number is %s" % ctx.attr.number)
+  print("Rule name = %s, package = %s" % (ctx.label.name, ctx.label.package))
 
   # This prints the labels of the deps attribute.
   print("There are %d deps" % len(ctx.attr.deps))
