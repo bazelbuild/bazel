@@ -198,6 +198,92 @@ file(
 ```
 
 
+## <a name="execute-bin"></a>Execute a binary
+
+This rule executes an existing binary. In this particular example, the
+binary is a tool that merges files. During the analysis phase, we cannot
+access any arbitrary label: the dependency must have been previously
+declared. To do so, the rule needs a label attribute. In this example, we
+will give the label a default value and make it private (so that it is not
+visible to end users). Keeping the label private can simplify maintenance,
+since you can easily change the arguments and flags you pass to the tool.
+
+`execute.bzl`:
+
+```python
+def _impl(ctx):
+  # The list of arguments we pass to the script.
+  args = [ctx.outputs.out.path] + [f.path for f in ctx.files.srcs]
+  # Action to call the script.
+  ctx.action(
+      inputs=ctx.files.srcs,
+      outputs=[ctx.outputs.out],
+      arguments=args,
+      executable=ctx.executable._merge_tool)
+
+concat = rule(
+  implementation=_impl,
+  attrs={
+      "srcs": attr.label_list(allow_files=True),
+      "out": attr.output(mandatory=True),
+      "_merge_tool": attr.label(executable=True, default=Label("//pkg:merge"))
+  }
+)
+```
+
+Any executable target can be used. In this example, we will use a
+`sh_binary` rule that concatenates all the inputs.
+
+`BUILD`:
+
+```
+load("execute", "concat")
+
+concat(
+    name = "sh",
+    srcs = [
+        "header.html",
+        "body.html",
+        "footer.html",
+    ],
+    out = "page.html",
+)
+
+# This target is used by the shell rule.
+sh_binary(
+    name = "merge",
+    srcs = ["merge.sh"],
+)
+```
+
+`merge.sh`:
+
+```python
+#! /bin/bash
+
+out=$1
+shift
+cat $* > $out
+```
+
+`header.html`:
+
+```
+<html><body>
+```
+
+`body.html`:
+
+```
+content
+```
+
+`footer.html`:
+
+```
+</body></html>
+```
+
 ## <a name="execute"></a>Execute an input binary
 
 This rule has a mandatory `binary` attribute. It is a label that can refer
