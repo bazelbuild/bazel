@@ -435,4 +435,43 @@ EOF
   expect_log "//external:my-repo"
 }
 
+function test_overlaid_build_file() {
+  local mutant=$TEST_TMPDIR/mutant
+  mkdir $mutant
+  touch $mutant/WORKSPACE
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "mutant",
+    path = "$mutant",
+    build_file = "mutant.BUILD"
+)
+
+bind(
+    name = "best-turtle",
+    actual = "@mutant//:turtle",
+)
+EOF
+  cat > mutant.BUILD <<EOF
+genrule(
+    name = "turtle",
+    outs = ["tmnt"],
+    cmd = "echo 'Raphael' > \$@",
+    visibility = ["//visibility:public"],
+)
+EOF
+  bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
+  assert_contains "Raphael" bazel-genfiles/tmnt
+
+  cat > mutant.BUILD <<EOF
+genrule(
+    name = "turtle",
+    outs = ["tmnt"],
+    cmd = "echo 'Michaelangelo' > \$@",
+    visibility = ["//visibility:public"],
+)
+EOF
+  bazel build //external:best-turtle &> $TEST_log || fail "Second build failed"
+  assert_contains "Michaelangelo" bazel-genfiles/tmnt
+}
+
 run_suite "local repository tests"

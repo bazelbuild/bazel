@@ -122,7 +122,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     if (repositoryFileValue == null) {
       return null;
     }
-    return new RepositoryValue(repositoryDirectory, repositoryFileValue);
+    return RepositoryValue.create(repositoryFileValue);
   }
 
   @Override

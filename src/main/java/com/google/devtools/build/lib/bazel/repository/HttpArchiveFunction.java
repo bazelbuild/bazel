@@ -97,7 +97,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
     } catch (DecompressorException e) {
       throw new RepositoryFunctionException(new IOException(e.getMessage()), Transience.TRANSIENT);
     }
-    return new RepositoryValue(outputDirectory, directoryValue);
+    return RepositoryValue.create(directoryValue);
   }
 
   @Override

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -155,8 +156,22 @@ class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(new BuildFileContainsErrorsException(
           PackageFunction.EXTERNAL_PACKAGE_NAME, e.getMessage()), Transience.PERSISTENT);
     }
-
-    return getPackageLookupValue(env, repositoryValue.getPath(), id.getPackageFragment());
+    PathFragment buildFileFragment = id.getPackageFragment().getChild("BUILD");
+    RootedPath buildFileRootedPath = RootedPath.toRootedPath(repositoryValue.getPath(),
+        buildFileFragment);
+    FileValue fileValue = getFileValue(buildFileRootedPath, env);
+    if (fileValue == null) {
+      return null;
+    }
+    Optional<FileValue> overlaidBuildFile = repositoryValue.getOverlaidBuildFile();
+    if (fileValue.isFile()) {
+      if (overlaidBuildFile.isPresent()) {
+        return PackageLookupValue.overlaidBuildFile(repositoryValue.getPath(), overlaidBuildFile);
+      } else {
+        return PackageLookupValue.success(repositoryValue.getPath());
+      }
+    }
+    return PackageLookupValue.noBuildFile();
   }
 
   /**

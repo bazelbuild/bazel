@@ -111,11 +111,12 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     // Link x/BUILD to <build_root>/x.BUILD.
-    if (createBuildFile(rule, getWorkspace(), repositoryDirectory, env) == null) {
+    FileValue buildFile = createBuildFile(rule, getWorkspace(), repositoryDirectory, env);
+    if (buildFile == null) {
       return null;
     }
 
-    return new RepositoryValue(repositoryDirectory, directoryValue);
+    return RepositoryValue.createNew(directoryValue, buildFile);
   }
 
   public static void createWorkspaceFile(Path repositoryDirectory, Rule rule)
@@ -152,8 +153,33 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
                   + "(%s does not exist)", rule, buildFileTarget)),
           Transience.PERSISTENT);
     }
+
+    RootedPath rootedBuild;
+    if (buildFile.isAbsolute()) {
+      rootedBuild = RootedPath.toRootedPath(
+          buildFileTarget.getParentDirectory(), new PathFragment(buildFileTarget.getBaseName()));
+    } else {
+      rootedBuild = RootedPath.toRootedPath(workspaceDirectory, buildFile);
+    }
+    SkyKey buildFileKey = FileValue.key(rootedBuild);
+    FileValue buildFileValue;
+    try {
+      buildFileValue = (FileValue) env.getValueOrThrow(buildFileKey, IOException.class,
+          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
+      if (buildFileValue == null) {
+        return null;
+      }
+    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Cannot lookup " + buildFile + ": " + e.getMessage()),
+          Transience.TRANSIENT);
+    }
+
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
-    return createSymbolicLink(buildFilePath, buildFileTarget, env);
+    if (createSymbolicLink(buildFilePath, buildFileTarget, env) == null) {
+      return null;
+    }
+    return buildFileValue;
   }
 
   private static FileValue createSymbolicLink(Path from, Path to, Environment env)
