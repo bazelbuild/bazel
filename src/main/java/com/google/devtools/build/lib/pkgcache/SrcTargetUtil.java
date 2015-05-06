@@ -68,7 +68,7 @@ public final class SrcTargetUtil {
 
   // Attributes referring to "headers".
   private static final ImmutableSet<String> HEADER_ATTRIBUTES =
-      ImmutableSet.of("hdrs");
+      ImmutableSet.of("hdrs", "textual_hdrs");
   
   // The attribute to search in filegroups.
   private static final ImmutableSet<String> FILEGROUP_ATTRIBUTES =
