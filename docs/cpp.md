@@ -2,8 +2,11 @@
 layout: documentation
 ---
 
+C++ Basics
+==========
+
 Use fully qualified include paths
-=================================
+---------------------------------
 
 Includes are relative to the root of your workspace. For example, suppose
 you have the following directory structure:
@@ -79,7 +82,7 @@ And the following include to _b/main.cc_:
 _b/main.cc_ will then be able to access symbols from _a/a.h_ or _b/b.h_.
 
 Transitive includes
-===================
+-------------------
 
 If a file includes a header then the file's rule should depend on that header's
 library.  Conversely, only direct dependencies need to be specified as
@@ -113,7 +116,7 @@ This expresses that the "sandwich" library depends on the "bread" library,
 which depends on the "flour" library.
 
 Adding include paths
-====================
+--------------------
 
 Sometimes you cannot (or do not want to) base include paths at the workspace
 root. Existing libaries might already have a include directory that doesn't
@@ -150,7 +153,7 @@ This is especially useful for external dependencies, as their header files
 must otherwise be included with an "external/[repository-name]/" prefix.
 
 Including external libraries: an example
-========================================
+----------------------------------------
 
 Suppose you are using [Google Test](https://code.google.com/p/googletest/). You
 can use one of the `new_` repository functions in the WORKSPACE file to create
@@ -190,7 +193,7 @@ cc_library(
     name = "main",
     srcs = glob(
         ["src/*.cc"],
-        exclude=["src/gtest-all.cc"]
+        exclude = ["src/gtest-all.cc"]
     ),
     hdrs = glob(["include/**/*.h"]),
     includes = [

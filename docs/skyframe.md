@@ -4,7 +4,7 @@ layout: documentation
 
 # Skyframe
 
-#### The parallel evaluation and incrementality model of Bazel
+<p class="lead">The parallel evaluation and incrementality model of Bazel</p>
 
 ## Data model
 

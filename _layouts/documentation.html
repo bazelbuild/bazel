@@ -1,3 +1,7 @@
+---
+nav: docs
+---
+
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
   {% include head.html %}
@@ -12,37 +16,39 @@
 
     <div class="container vpad">
       <div class="row">
-        <div class="col-md-9">
-          {{ content }}
+        <div class="col-lg-2 col-md-3 col-sm-3">
+          <nav class="sidebar">
+            <ul class="sidebar-nav">
+              <li><a href="/docs/install.html">Installing</a></li>
+              <li><a href="/docs/getting-started.html">Getting Started</a></li>
+              <li>
+                <p class="sidebar-nav-heading">Using Bazel</p>
+                <ul class="sidebar-nav">
+                  <li><a href="/docs/build-ref.html">Concepts</a></li>
+                  <li><a href="/docs/bazel-user-manual.html">User Manual</a></li>
+                  <li><a href="/docs/build-encyclopedia.html">Build Encyclopedia</a></li>
+                  <li><a href="/docs/test-encyclopedia.html">Test Encyclopedia</a></li>
+                  <li><a href="/docs/query.html">Query Language</a></li>
+                  <li><a href="/docs/cpp.html">C++ Basics</a></li>
+                </ul>
+              </li>
+              <li>
+                <p class="sidebar-nav-heading">Skylark</p>
+                <ul class="sidebar-nav">
+                  <li><a href="/docs/skylark/index.html">Home</a></li>
+                  <li><a href="/docs/skylark/concepts.html">Concepts</a></li>
+                  <li><a href="/docs/skylark/rules.html">Rules</a></li>
+                  <li><a href="/docs/skylark/macros.html">Macros</a></li>
+                  <li><a href="/docs/skylark/library.html">Library</a></li>
+                  <li><a href="/docs/skylark/cookbook.html">Cookbook</a></li>
+                </ul>
+              </li>
+              <li><a href="/docs/skyframe.html">Skyframe</a></li>
+            </ul>
+          </nav>
         </div>
-        <div class="col-md-3">
-          <ul class="list-unstyled docs-side-nav">
-            <li><a href="/docs/install.html">Installing</a></li>
-            <li><a href="/docs/getting-started.html">Getting Started</a></li>
-            <li>
-              Using Bazel
-              <ul>
-                <li><a href="/docs/build-ref.html">Concepts</a></li>
-                <li><a href="/docs/bazel-user-manual.html">User Manual</a></li>
-                <li><a href="/docs/build-encyclopedia.html">Build Encyclopedia</a></li>
-                <li><a href="/docs/test-encyclopedia.html">Test Encyclopedia</a></li>
-                <li><a href="/docs/query.html">Query Language Reference</a></li>
-                <li><a href="/docs/cpp.html">C++ Basics</a></li>
-              </ul>
-            </li>
-            <li>
-              Skylark
-              <ul>
-                <li><a href="/docs/skylark/index.html">Home</a></li>
-                <li><a href="/docs/skylark/concepts.html">Concepts</a></li>
-                <li><a href="/docs/skylark/rules.html">Rules</a></li>
-                <li><a href="/docs/skylark/macros.html">Macros</a></li>
-                <li><a href="/docs/skylark/library.html">Library</a></li>
-                <li><a href="/docs/skylark/cookbook.html">Cookbook</a></li>
-              </ul>
-            </li>
-            <li><a href="/docs/skyframe.html">Skyframe</a></li>
-          </ul>
+        <div class="col-lg-10 col-md-9 col-sm-9">
+          {{ content }}
         </div>
       </div>
     </div>

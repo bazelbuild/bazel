@@ -1,8 +1,6 @@
-{% assign site_root = "" %}
-{% assign path_parts = page.url | split:"/" %}
-{% for part in path_parts offset:2 %}
-{% assign site_root = site_root | append:"../" %}
-{% endfor %}
+---
+nav: blog
+---
 
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">

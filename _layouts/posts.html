@@ -1,9 +1,8 @@
-{% assign site_root = "" %}
-{% assign path_parts = page.url | split:"/" %}
-{% for part in path_parts offset:2 %}
-{% assign site_root = site_root | append:"../" %}
-{% endfor %}
-{% assign enable_comments = true %}
+---
+nav: blog
+enable_comments: true
+---
+
 
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
@@ -28,7 +27,7 @@
             <div class="blog-post-content">
               {{ content }}
             </div>
-            {% if enable_comments %}
+            {% if page.enable_comments %}
             <div class="blog-post-comments">
               <div id="disqus_thread"></div>
               <script type="text/javascript">

@@ -246,6 +246,15 @@ A list of distribution-method strings to be used for this particular build rule.
 Overrides the <code>BUILD</code>-file scope defaults defined by the
 <a href="#distribs"><code>distribs()</code></a> directive.
 </li>
+<li id="common.features"><code>features</code>:
+List of <i>features</i>. Default is the empty list.<br/>
+<i>Features</i> on a rule modify the <i>features</i> currently enabled on
+the <a href="#package">package</a> level via the <i>features</i> attribute.<br/>
+For example, if the features ['a', 'b'] are enabled on the package level,
+and a rule <i>features</i> attribute contains ['-a', 'c'], the features
+enabled for the rule will be 'b' and 'c'.
+</p>
+</li>
 <li id="common.licenses"><code>licenses</code>:
 <i>(List of strings; optional)</i><br/>
 A list of license-type strings to be used for this particular build rule.
@@ -577,6 +586,7 @@ cc_binary(<a href="#cc_binary.name">name</a>,
 <a href="#cc_binary.defines">defines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#cc_binary.hdrs_check">hdrs_check</a>,
 <a href="#cc_binary.includes">includes</a>,
 <a href="#common.licenses">licenses</a>,
@@ -936,6 +946,7 @@ ios_application(<a href="#ios_application.name">name</a>,
 <a href="#ios_application.entitlements">entitlements</a>,
 <a href="#ios_application.extensions">extensions</a>,
 <a href="#ios_application.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#ios_application.infoplist">infoplist</a>,
 <a href="#ios_application.launch_image">launch_image</a>,
 <a href="#common.licenses">licenses</a>,
@@ -1011,13 +1022,13 @@ passed to the application.</p>
 
 </li>
 <li id="ios_application.families"><code>families</code>:
-          The device families to which this binary is targeted.
-          <i>(List of strings; optional)</i><br/>
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
 
 
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="ios_application.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -1064,6 +1075,7 @@ passed to the application.</p>
 ios_device(<a href="#ios_device.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#ios_device.ios_version">ios_version</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
@@ -1107,6 +1119,7 @@ ios_extension(<a href="#ios_extension.name">name</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#ios_extension.entitlements">entitlements</a>,
 <a href="#ios_extension.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#ios_extension.infoplist">infoplist</a>,
 <a href="#ios_extension.launch_image">launch_image</a>,
 <a href="#common.licenses">licenses</a>,
@@ -1201,13 +1214,13 @@ between how each thing is processed:
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
 </li>
 <li id="ios_extension.families"><code>families</code>:
-          The device families to which this binary is targeted.
-          <i>(List of strings; optional)</i><br/>
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
 
 
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="ios_extension.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -1263,6 +1276,7 @@ ios_extension_binary(<a href="#ios_extension_binary.name">name</a>,
 <a href="#ios_extension_binary.defines">defines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#ios_extension_binary.includes">includes</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#ios_extension_binary.non_arc_srcs">non_arc_srcs</a>,
@@ -1516,6 +1530,7 @@ java_binary(<a href="#java_binary.name">name</a>,
 <a href="#java_binary.deploy_manifest_lines">deploy_manifest_lines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#java_binary.javacopts">javacopts</a>,
 <a href="#java_binary.jvm_flags">jvm_flags</a>,
 <a href="#common.licenses">licenses</a>,
@@ -1791,6 +1806,7 @@ objc_binary(<a href="#objc_binary.name">name</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#objc_binary.entitlements">entitlements</a>,
 <a href="#objc_binary.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#objc_binary.includes">includes</a>,
 <a href="#objc_binary.infoplist">infoplist</a>,
 <a href="#objc_binary.launch_image">launch_image</a>,
@@ -1948,13 +1964,13 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
 </li>
 <li id="objc_binary.families"><code>families</code>:
-          The device families to which this binary is targeted.
-          <i>(List of strings; optional)</i><br/>
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
 
 
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="objc_binary.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -2132,6 +2148,7 @@ py_binary(<a href="#py_binary.name">name</a>,
 <a href="#py_binary.default_python_version">default_python_version</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#py_binary.main">main</a>,
 <a href="#binary.output_licenses">output_licenses</a>,
@@ -2297,6 +2314,7 @@ sh_binary(<a href="#sh_binary.name">name</a>,
 <a href="#binary.args">args</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#binary.output_licenses">output_licenses</a>,
 <a href="#common.tags">tags</a>,
@@ -2377,6 +2395,7 @@ cc_library(<a href="#cc_library.name">name</a>,
 <a href="#cc_library.defines">defines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#cc_library.hdrs_check">hdrs_check</a>,
 <a href="#cc_library.includes">includes</a>,
 <a href="#common.licenses">licenses</a>,
@@ -2794,6 +2813,7 @@ java_import(<a href="#java_import.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#java_import.exports">exports</a>,
+<a href="#common.features">features</a>,
 <a href="#java_import.jars">jars</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#java_import.neverlink">neverlink</a>,
@@ -2872,6 +2892,7 @@ java_library(<a href="#java_library.name">name</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#java_library.exported_plugins">exported_plugins</a>,
 <a href="#java_library.exports">exports</a>,
+<a href="#common.features">features</a>,
 <a href="#java_library.javacopts">javacopts</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#java_library.neverlink">neverlink</a>,
@@ -3083,6 +3104,7 @@ objc_bundle(<a href="#objc_bundle.name">name</a>,
 <a href="#objc_bundle.bundle_imports">bundle_imports</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
@@ -3117,6 +3139,8 @@ objc_bundle_library(<a href="#objc_bundle_library.name">name</a>,
 <a href="#objc_bundle_library.datamodels">datamodels</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#objc_bundle_library.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#objc_bundle_library.infoplist">infoplist</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#objc_bundle_library.storyboards">storyboards</a>,
@@ -3173,6 +3197,15 @@ the final iOS application.
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
+</li>
+<li id="objc_bundle_library.families"><code>families</code>:
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
+
+
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="objc_bundle_library.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -3243,6 +3276,7 @@ the final iOS application.
 objc_framework(<a href="#objc_framework.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#objc_framework.framework_imports">framework_imports</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#objc_framework.sdk_dylibs">sdk_dylibs</a>,
@@ -3317,6 +3351,7 @@ objc_import(<a href="#objc_import.name">name</a>,
 <a href="#objc_import.datamodels">datamodels</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#objc_import.includes">includes</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#objc_import.sdk_dylibs">sdk_dylibs</a>,
@@ -3521,6 +3556,7 @@ objc_library(<a href="#objc_library.name">name</a>,
 <a href="#objc_library.defines">defines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#objc_library.includes">includes</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#objc_library.non_arc_srcs">non_arc_srcs</a>,
@@ -3777,6 +3813,7 @@ objc_proto_library(<a href="#objc_proto_library.name">name</a>,
 <a href="#objc_proto_library.deps">deps</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#objc_proto_library.options_file">options_file</a>,
 <a href="#objc_proto_library.output_cpp">output_cpp</a>,
@@ -3822,6 +3859,7 @@ py_library(<a href="#py_library.name">name</a>,
 <a href="#py_library.data">data</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#py_library.srcs_version">srcs_version</a>,
 <a href="#common.tags">tags</a>,
@@ -3887,6 +3925,7 @@ sh_library(<a href="#sh_library.name">name</a>,
 <a href="#common.data">data</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
@@ -3986,6 +4025,7 @@ cc_test(<a href="#cc_test.name">name</a>,
 <a href="#cc_test.defines">defines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#cc_test.hdrs_check">hdrs_check</a>,
 <a href="#cc_test.includes">includes</a>,
@@ -4315,6 +4355,7 @@ experimental_ios_test(<a href="#experimental_ios_test.name">name</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#experimental_ios_test.entitlements">entitlements</a>,
 <a href="#experimental_ios_test.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#experimental_ios_test.includes">includes</a>,
 <a href="#experimental_ios_test.infoplist">infoplist</a>,
@@ -4463,13 +4504,13 @@ on both iOS simulator and real devices.
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
 </li>
 <li id="experimental_ios_test.families"><code>families</code>:
-          The device families to which this binary is targeted.
-          <i>(List of strings; optional)</i><br/>
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
 
 
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="experimental_ios_test.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -4672,6 +4713,7 @@ ios_test(<a href="#ios_test.name">name</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#ios_test.entitlements">entitlements</a>,
 <a href="#ios_test.families">families</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#ios_test.includes">includes</a>,
 <a href="#ios_test.infoplist">infoplist</a>,
@@ -4820,13 +4862,13 @@ on both iOS simulator and real devices.
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
 </li>
 <li id="ios_test.families"><code>families</code>:
-          The device families to which this binary is targeted.
-          <i>(List of strings; optional)</i><br/>
+        The device families to which this bundle or binary is targeted.
+        <i>(List of strings; optional)</i><br/>
 
 
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 </li>
 <li id="ios_test.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -5023,6 +5065,7 @@ java_test(<a href="#java_test.name">name</a>,
 <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#java_test.javacopts">javacopts</a>,
 <a href="#java_test.jvm_flags">jvm_flags</a>,
@@ -5258,6 +5301,7 @@ py_test(<a href="#py_test.name">name</a>,
 <a href="#py_test.default_python_version">default_python_version</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#py_test.main">main</a>,
@@ -5388,6 +5432,7 @@ sh_test(<a href="#sh_test.name">name</a>,
 <a href="#test.args">args</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#test.size">size</a>,
@@ -5663,6 +5708,7 @@ action_listener(<a href="#action_listener.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#action_listener.extra_actions">extra_actions</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#action_listener.mnemonics">mnemonics</a>,
 <a href="#common.tags">tags</a>,
@@ -5739,6 +5785,7 @@ filegroup(<a href="#filegroup.name">name</a>,
 <a href="#filegroup.data">data</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#binary.output_licenses">output_licenses</a>,
 <a href="#filegroup.path">path</a>,
@@ -5851,6 +5898,7 @@ extra_action(<a href="#extra_action.name">name</a>,
 <a href="#extra_action.cmd">cmd</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#extra_action.out_templates">out_templates</a>,
 <a href="#extra_action.requires_action_output">requires_action_output</a>,
@@ -5974,6 +6022,7 @@ genquery(<a href="#genquery.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#genquery.expression">expression</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#genquery.opts">opts</a>,
 <a href="#genquery.scope">scope</a>,
@@ -6060,6 +6109,7 @@ genquery(
 test_suite(<a href="#test_suite.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#test_suite.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
@@ -6176,6 +6226,7 @@ bind(<a href="#bind.name">name</a>,
 <a href="#bind.actual">actual</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
@@ -6275,6 +6326,7 @@ cc_library(
 config_setting(<a href="#config_setting.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
@@ -6395,6 +6447,7 @@ genrule(<a href="#genrule.name">name</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
 <a href="#genrule.executable">executable</a>,
+<a href="#common.features">features</a>,
 <a href="#genrule.heuristic_label_expansion">heuristic_label_expansion</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#genrule.message">message</a>,
@@ -6876,6 +6929,7 @@ java_plugin(<a href="#java_plugin.name">name</a>,
 <a href="#java_plugin.resources">resources</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#java_plugin.javacopts">javacopts</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#java_plugin.neverlink">neverlink</a>,
@@ -7395,6 +7449,7 @@ objc_xcodeproj(<a href="#objc_xcodeproj.name">name</a>,
 <a href="#objc_xcodeproj.deps">deps</a>,
 <a href="#common.deprecation">deprecation</a>,
 <a href="#common.distribs">distribs</a>,
+<a href="#common.features">features</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,

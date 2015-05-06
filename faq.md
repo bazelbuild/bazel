@@ -1,6 +1,7 @@
 ---
 layout: default
 title: FAQ
+nav: faq
 ---
 
 What is Bazel?

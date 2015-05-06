@@ -50,6 +50,8 @@ h5,
 h6 {
   color: #444444;
   font-weight: 300;
+  margin-top: 25px;
+  margin-bottom: 15px;
 }
 h1 {
   margin-top: 40px;
@@ -60,6 +62,9 @@ h2 {
 }
 h3 {
   font-size: 18px;
+}
+h4 {
+  font-size: 16px;
 }
 p,
 li {
@@ -78,6 +83,11 @@ code {
   font-family: "Source Code Pro";
   font-size: 13px;
   background-color: #f9f9f9;
+}
+.well {
+  background-color: #f9f9f9;
+  border-color: #f9f9f9;
+  box-shadow: none;
 }
 .vpad {
   padding-top: 20px;
@@ -149,6 +159,13 @@ code {
 .navbar-inverse .navbar-nav > li > a.nav-icon {
   font-size: 18px;
 }
+.navbar-inverse .navbar-nav > li.active > a {
+  background-color: #66bb6a;
+}
+.navbar-inverse .navbar-nav > li.active > a:focus,
+.navbar-inverse .navbar-nav > li.active > a:hover {
+  background-color: #66bb6a;
+}
 .navbar-inverse .navbar-form {
   border-color: #4caf50;
 }
@@ -194,8 +211,32 @@ code {
 .landing-context .lang-list {
   font-size: 18px;
 }
-.docs-side-nav {
+.sidebar {
   margin-top: 40px;
+}
+.sidebar ul.sidebar-nav {
+  list-style-type: none;
+  padding: 0px;
+}
+.sidebar ul.sidebar-nav li .sidebar-nav-heading {
+  padding: 4px 0px;
+  margin: 0;
+  display: block;
+}
+.sidebar ul.sidebar-nav li a {
+  padding: 4px 0px;
+  display: block;
+}
+.sidebar ul.sidebar-nav li a:focus,
+.sidebar ul.sidebar-nav li a:hover {
+  border-right: 2px solid #66bb6a;
+  text-decoration: none;
+}
+.sidebar ul.sidebar-nav li.active a {
+  border-right: 2px solid #66bb6a;
+}
+.sidebar ul.sidebar-nav ul.sidebar-nav {
+  padding-left: 20px;
 }
 .faq-context h4 {
   margin-top: 30px;
