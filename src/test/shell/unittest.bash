@@ -521,8 +521,8 @@ function run_suite() {
         # Run test in a subshell.
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
         (
-          set_up
           timestamp >$TEST_TMPDIR/__ts_start
+          set_up
           eval $TEST_name
           timestamp >$TEST_TMPDIR/__ts_end
           tear_down
