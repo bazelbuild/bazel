@@ -167,10 +167,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       @Override
       protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
                              boolean linkShared) {
-        Iterable<? extends TransitiveInfoCollection> deps =
-            common.targetsTreatedAsDeps(ClasspathType.BOTH);
-        builder.addTransitiveTargets(deps);
-        builder.addTransitiveLangTargets(deps, JavaCcLinkParamsProvider.TO_LINK_PARAMS);
+        builder.addTransitiveTargets(common.targetsTreatedAsDeps(ClasspathType.BOTH),
+            JavaCcLinkParamsProvider.TO_LINK_PARAMS, CcLinkParamsProvider.TO_LINK_PARAMS);
       }
     };
 
