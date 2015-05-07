@@ -211,6 +211,7 @@ java_library(
     resources = [
         "MOCK_CROSSTOOL",
     ],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":foundations_testutil",
@@ -237,6 +238,7 @@ java_test(
         "com/google/devtools/build/lib/analysis/actions/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -261,6 +263,7 @@ java_test(
         "com/google/devtools/build/lib/analysis/config/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -286,6 +289,7 @@ java_test(
         "com/google/devtools/build/lib/analysis/constraints/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -305,6 +309,7 @@ java_test(
         "com/google/devtools/build/lib/analysis/select/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -326,6 +331,7 @@ java_test(
         "com/google/devtools/build/lib/analysis/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["analysis"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -400,6 +406,7 @@ java_test(
     data = [
         ":com/google/devtools/build/lib/shell/killmyself",
     ],
+    tags = ["shell"],
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -442,6 +449,7 @@ java_test(
     name = "common-rules-tests",
     srcs = glob(["com/google/devtools/build/lib/rules/filegroup/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["rules"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -454,4 +462,23 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
     ],
+)
+
+TEST_SUITES = [
+    "rules",
+    "analysis",
+    "shell",
+]
+
+[
+    test_suite(
+        name = n,
+        tags = [n],
+    )
+    for n in TEST_SUITES
+]
+
+test_suite(
+    name = "others",
+    tags = ["-" + n for n in TEST_SUITES],
 )
