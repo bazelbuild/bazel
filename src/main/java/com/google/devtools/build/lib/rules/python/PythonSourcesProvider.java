@@ -17,12 +17,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 /**
  * A provider interface for configured targets that provide source files to
  * Python targets.
  */
 @Immutable
+@SkylarkModule(name = "PythonSourcesProvider", doc = "")
 public final class PythonSourcesProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Artifact> transitivePythonSources;
@@ -37,6 +40,7 @@ public final class PythonSourcesProvider implements TransitiveInfoProvider {
   /**
    * Returns the Python sources in the transitive closure of this target.
    */
+  @SkylarkCallable(name = "transitive_srcs", doc = "", structField = true)
   public NestedSet<Artifact> getTransitivePythonSources() {
     return transitivePythonSources;
   }
@@ -48,4 +52,3 @@ public final class PythonSourcesProvider implements TransitiveInfoProvider {
     return usesSharedLibraries;
   }
 }
-
