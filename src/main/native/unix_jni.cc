@@ -293,7 +293,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_symlink(JNIEnv *env,
 }
 
 static jobject NewFileStatus(JNIEnv *env,
-                             const struct stat &stat_ref) {
+                             const struct stat64 &stat_ref) {
   static jclass file_status_class = NULL;
   if (file_status_class == NULL) {  // note: harmless race condition
     jclass local = env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
@@ -318,7 +318,7 @@ static jobject NewFileStatus(JNIEnv *env,
 
 static jobject NewErrnoFileStatus(JNIEnv *env,
                                   int saved_errno,
-                                  const struct stat &stat_ref) {
+                                  const struct stat64 &stat_ref) {
   static jclass errno_file_status_class = NULL;
   if (errno_file_status_class == NULL) {  // note: harmless race condition
     jclass local = env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
@@ -347,7 +347,7 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
       StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
       StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
       StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
-      stat_ref.st_size, static_cast<int>(stat_ref.st_dev),
+      static_cast<jlong>(stat_ref.st_size), static_cast<int>(stat_ref.st_dev),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -374,9 +374,9 @@ Java_com_google_devtools_build_lib_unix_ErrnoFileStatus_00024ErrnoConstants_init
 
 static jobject StatCommon(JNIEnv *env,
                           jstring path,
-                          int (*stat_function)(const char *, struct stat *),
+                          int (*stat_function)(const char *, struct stat64 *),
                           bool should_throw) {
-  struct stat statbuf;
+  struct stat64 statbuf;
   const char *path_chars = GetStringLatin1Chars(env, path);
   int r;
   int saved_errno = 0;
@@ -414,7 +414,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_stat(JNIEnv *env,
                                                  jclass clazz,
                                                  jstring path) {
-  return ::StatCommon(env, path, ::stat, true);
+  return ::StatCommon(env, path, ::stat64, true);
 }
 
 /*
@@ -427,7 +427,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_lstat(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path) {
-  return ::StatCommon(env, path, ::lstat, true);
+  return ::StatCommon(env, path, ::lstat64, true);
 }
 
 /*
@@ -439,7 +439,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoStat(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path) {
-  return ::StatCommon(env, path, ::stat, false);
+  return ::StatCommon(env, path, ::stat64, false);
 }
 
 /*
@@ -451,7 +451,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoLstat(JNIEnv *env,
                                                        jclass clazz,
                                                        jstring path) {
-  return ::StatCommon(env, path, ::lstat, false);
+  return ::StatCommon(env, path, ::lstat64, false);
 }
 
 /*
@@ -554,7 +554,7 @@ static char GetDirentType(struct dirent *entry,
       }
       FALLTHROUGH_INTENDED;
     case DT_UNKNOWN:
-      struct stat statbuf;
+      struct stat64 statbuf;
       if (portable_fstatat(dirfd, entry->d_name, &statbuf, 0) == 0) {
         if (S_ISREG(statbuf.st_mode)) return 'f';
         if (S_ISDIR(statbuf.st_mode)) return 'd';

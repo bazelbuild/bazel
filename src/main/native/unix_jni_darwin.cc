@@ -39,7 +39,7 @@ string ErrorMessage(int error_number) {
 }
 
 
-int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags) {
+int portable_fstatat(int dirfd, char *name, struct stat64 *statbuf, int flags) {
   char dirPath[PATH_MAX2];  // Have enough room for relative path
 
   // No fstatat under darwin, simulate it
@@ -50,7 +50,7 @@ int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags) {
   }
   if (strlen(name) == 0 || name[0] == '/') {
     // Absolute path, simply stat
-    return stat(name, statbuf);
+    return stat64(name, statbuf);
   }
   // Relative path, construct an absolute path
   if (fcntl(dirfd, F_GETPATH, dirPath) == -1) {
@@ -68,12 +68,12 @@ int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags) {
   if (newpath == NULL) {
     return -1;
   }
-  int r = stat(newpath, statbuf);
+  int r = stat64(newpath, statbuf);
   free(newpath);
   return r;
 }
 
-int StatSeconds(const struct stat &statbuf, StatTimes t) {
+int StatSeconds(const struct stat64 &statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
       return statbuf.st_atime;
@@ -86,7 +86,7 @@ int StatSeconds(const struct stat &statbuf, StatTimes t) {
   }
 }
 
-int StatNanoSeconds(const struct stat &statbuf, StatTimes t) {
+int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
       return statbuf.st_atimespec.tv_nsec;
