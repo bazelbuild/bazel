@@ -666,19 +666,31 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "int", returnType = Integer.class, doc = "Converts a string to int, "
-      + "using base 10. It raises an error if the conversion fails."
+  @SkylarkSignature(name = "int", returnType = Integer.class, doc = "Converts a value to int. "
+      + "If the argument is a string, it is converted using base 10 and raises an error if the "
+      + "conversion fails. If the argument is a bool, it returns 0 (False) or 1 (True). "
+      + "If the argument is an int, it is simply returned."
       + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
       mandatoryPositionals = {
-        @Param(name = "x", type = String.class, doc = "The string to convert.")},
+        @Param(name = "x", type = Object.class, doc = "The string to convert.")},
       useLocation = true)
   private static BuiltinFunction int_ = new BuiltinFunction("int") {
-    public Integer invoke(String x, Location loc) throws EvalException {
-      try {
-        return Integer.parseInt(x);
-      } catch (NumberFormatException e) {
+    public Integer invoke(Object x, Location loc) throws EvalException {
+      if (x instanceof Boolean) {
+        return ((Boolean) x).booleanValue() ? 1 : 0;
+      } else if (x instanceof Integer) {
+        return (Integer) x;
+      } else if (x instanceof String) {
+        try {
+          return Integer.parseInt((String) x);
+        } catch (NumberFormatException e) {
+          throw new EvalException(loc,
+              "invalid literal for int(): " + EvalUtils.prettyPrintValue(x));
+        }
+      } else {
         throw new EvalException(loc,
-            "invalid literal for int(): " + EvalUtils.prettyPrintValue(x));
+            String.format("argument must be string, int, or bool, not '%s'",
+                EvalUtils.prettyPrintValue(x)));
       }
     }
   };
