@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.BufferedWriter;
@@ -116,7 +115,7 @@ public class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)
       throws IOException {
-    final Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> runfilesInputs =
+    final Map<PathFragment, Artifact> runfilesInputs =
         runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation());
     return new DeterministicWriter() {
       @Override
@@ -154,9 +153,7 @@ public class SourceManifestAction extends AbstractFileWriteAction {
    * @param output The actual mapping of the output manifest.
    * @throws IOException
    */
-  private void writeFile(OutputStream out,
-                         Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> output)
-      throws IOException {
+  private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
 
     Comparator<Map.Entry<PathFragment, Artifact>> fragmentComparator =
@@ -168,21 +165,13 @@ public class SourceManifestAction extends AbstractFileWriteAction {
       }
     };
 
-    List<Map.Entry<PathFragment, Artifact>> sortedRootLinks =
-      new ArrayList<>(output.second.entrySet());
-    Collections.sort(sortedRootLinks, fragmentComparator);
-
-    List<Map.Entry<PathFragment, Artifact>> sortedManifest =
-      new ArrayList<>(output.first.entrySet());
+    List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     Collections.sort(sortedManifest, fragmentComparator);
-
-    for (Map.Entry<PathFragment, Artifact> line : sortedRootLinks) {
-      manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
-    }
 
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
       manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
     }
+
     manifestFile.flush();
   }
 

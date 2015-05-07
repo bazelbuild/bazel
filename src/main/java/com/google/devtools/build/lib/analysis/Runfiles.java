@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -330,17 +329,17 @@ public final class Runfiles {
   }
 
   /**
-   * Returns the symlinks as a map from PathFragment to Artifact, with PathFragments relativized
-   * and rooted at the specified points.
-   * @param eventHandler Used for throwing an error if we have an obscuring runlink.
-   *                 May be null, in which case obscuring symlinks are silently discarded.
+   * Returns the symlinks as a map from PathFragment to Artifact.
+   *
+   * @param eventHandler Used for throwing an error if we have an obscuring runlink within the
+   *    normal source tree entries. May be null, in which case obscuring symlinks are silently
+   *    discarded.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
-   * @return Pair of Maps from remote path fragment to artifact, the first of normal source tree
-   *         entries, the second of any elements that live outside the source tree.
+   * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
+   *    and elements that live outside the source tree. Null values represent empty input files.
    */
-  public Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getRunfilesInputs(
-      EventHandler eventHandler, Location location)
-          throws IOException {
+  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler,
+      Location location) throws IOException {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap();
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
@@ -377,7 +376,21 @@ public final class Runfiles {
     for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
       result.put(path.getRelative(entry.getKey()), entry.getValue());
     }
-    return Pair.of(result, (Map<PathFragment, Artifact>) new HashMap<>(getRootSymlinksAsMap()));
+
+    // Finally add symlinks outside the source tree on top of everything else.
+    for (Map.Entry<PathFragment, Artifact> entry : getRootSymlinksAsMap().entrySet()) {
+      PathFragment mappedPath = entry.getKey();
+      Artifact mappedArtifact = entry.getValue();
+      if (result.put(mappedPath, mappedArtifact) != null) {
+        // Emit warning if we overwrote something and we're capable of emitting warnings.
+        if (eventHandler != null) {
+          eventHandler.handle(Event.warn(location, "overwrote " + mappedPath + " symlink mapping "
+              + "with root symlink to " + mappedArtifact));
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
