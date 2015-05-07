@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule definition for {@code experimental_ios_test} rule in Bazel.
@@ -50,6 +52,11 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
             .allowedFileTypes()
             .allowedRuleClasses(Constants.IOS_DEVICE_RULE_CLASSES)
             .value(env.getLabel("//tools/objc/sim_devices:default")))
+        /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(plugins) -->
+        Plugins to pass to the test runner.
+        ${SYNOPSIS}
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("plugins", LABEL_LIST).allowedFileTypes(FileType.of("_deploy.jar")))
         .add(attr("$test_template", LABEL)
             .value(env.getLabel("//tools/objc:ios_test.sh.bazel_template")))
         .add(attr("$test_runner", LABEL).value(env.getLabel("//tools/objc:testrunner")))

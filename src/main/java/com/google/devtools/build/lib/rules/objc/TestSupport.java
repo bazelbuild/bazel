@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -69,6 +70,7 @@ class TestSupport {
         .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(xctestIpa)))
 
         .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
+        .add(Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())))
 
         .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
 
@@ -121,8 +123,16 @@ class TestSupport {
         .addArtifact(generatedTestScript())
         .addArtifact(iossim())
         .addTransitiveArtifacts(deviceRunfiles())
+        .addTransitiveArtifacts(plugins())
         .addArtifacts(testRunner().asSet());
     return this;
+  }
+
+  /**
+   * Jar files for plugins to the test runner. May be empty.
+   */
+  private NestedSet<Artifact> plugins() {
+    return PrerequisiteArtifacts.nestedSet(ruleContext, "plugins", Mode.TARGET);
   }
 
   /**
