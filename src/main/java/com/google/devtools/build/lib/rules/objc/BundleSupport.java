@@ -100,7 +100,8 @@ final class BundleSupport {
    * Creates a new bundle support with no special {@code actool} arguments.
    *
    * @param ruleContext context this bundle is constructed in
-   * @param targetDeviceFamilies device families used in asset catalogue construction
+   * @param targetDeviceFamilies device families used in asset catalogue construction and storyboard
+   *     compilation
    * @param bundling bundle information as configured for this rule
    */
   public BundleSupport(
@@ -112,7 +113,8 @@ final class BundleSupport {
    * Creates a new bundle support.
    *
    * @param ruleContext context this bundle is constructed in
-   * @param targetDeviceFamilies device families used in asset catalogue construction
+   * @param targetDeviceFamilies device families used in asset catalogue construction and storyboard
+   *     compilation
    * @param bundling bundle information as configured for this rule
    * @param extraActoolArgs any additional parameters to be used for invoking {@code actool}
    */
@@ -205,20 +207,29 @@ final class BundleSupport {
       ruleContext.registerAction(
           ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
               .setMnemonic("StoryboardCompile")
-              .setCommandLine(CustomCommandLine.builder()
-                  // The next three arguments are positional,
-                  // i.e. they don't have flags before them.
-                  .addPath(zipOutput.getExecPath())
-                  .add(archiveRoot)
-                  .addPath(ObjcActionsBuilder.IBTOOL)
-
-                  .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
-                  .addPath(storyboardInput.getExecPath())
-                  .build())
+              .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
               .build(ruleContext));
     }
+  }
+
+  private CommandLine ibActionsCommandLine(String archiveRoot, Artifact zipOutput,
+      Artifact storyboardInput) {
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
+        // The next three arguments are positional, i.e. they don't have flags before them.
+        .addPath(zipOutput.getExecPath())
+        .add(archiveRoot)
+        .addPath(ObjcActionsBuilder.IBTOOL)
+        .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
+
+    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies) {
+      commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+    }
+
+    return commandLine
+        .addPath(storyboardInput.getExecPath())
+        .build();
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
