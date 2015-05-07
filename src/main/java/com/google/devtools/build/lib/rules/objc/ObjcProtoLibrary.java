@@ -99,11 +99,16 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     boolean outputCpp =
         ruleContext.attributes().get(ObjcProtoLibraryRule.OUTPUT_CPP_ATTR, Type.BOOLEAN);
 
+    boolean useObjcHeaderNames =
+         ruleContext.attributes().get(
+            ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
+
     ImmutableList<Artifact> protoGeneratedSources = outputArtifacts(
         ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb." + (outputCpp ? "cc" : "m")),
         outputCpp);
     ImmutableList<Artifact> protoGeneratedHeaders = outputArtifacts(
-        ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb.h"), outputCpp);
+        ruleContext, rootRelativeOutputDir, protos,
+        FileType.of(".pb" + (useObjcHeaderNames ? "objc.h" : ".h")), outputCpp);
 
     Artifact inputFileList = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
         AnalysisUtils.getUniqueDirectory(ruleContext.getLabel(), new PathFragment("_protos"))
@@ -127,6 +132,9 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
     if (outputCpp) {
       commandLineBuilder.add("--generate-cpp");
+    }
+    if (useObjcHeaderNames) {
+      commandLineBuilder.add("--use-objc-header-names");
     }
 
     if (!Iterables.isEmpty(protos)) {

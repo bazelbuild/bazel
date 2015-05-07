@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Type;
 public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String OPTIONS_FILE_ATTR = "options_file";
   static final String OUTPUT_CPP_ATTR = "output_cpp";
+  static final String USE_OBJC_HEADER_NAMES_ATTR = "use_objc_header_names";
   static final String LIBPROTOBUF_ATTR = "$lib_protobuf";
 
   @Override
@@ -60,6 +61,11 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(use_objc_header_names) -->
+        If true, output headers with .pbobjc.h, rather than .pb.h.
+        ${SYNOPSIS}
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
               @Override
