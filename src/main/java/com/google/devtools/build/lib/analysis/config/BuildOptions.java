@@ -156,6 +156,15 @@ public final class BuildOptions implements Cloneable, Serializable {
     return result.build();
   }
 
+  ImmutableList<String> getDefaultsRules() {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
+      result.addAll(fragment.getDefaultsRules());
+    }
+
+    return result.build();
+  }
+
   /**
    * The cache key for the options collection. Recomputes cache key every time it's called.
    */
