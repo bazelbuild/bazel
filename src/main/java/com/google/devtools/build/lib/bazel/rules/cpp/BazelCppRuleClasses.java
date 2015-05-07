@@ -733,15 +733,9 @@ public class BazelCppRuleClasses {
              listed in the <code>srcs</code> attribute instead, even if they are
              included by a published header. See <a href="#hdrs">"Header inclusion
              checking"</a> for a more detailed description. </p>
-          <p>Permitted <code>headers</code> file types:
-            <code>.h</code>,
-            <code>.hh</code>,
-            <code>.hpp</code>,
-            <code>.hxx</code>.
-          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
-              .allowedFileTypes(CPP_HEADER))
+              .allowedFileTypes(FileTypeSet.ANY_FILE))
           // TODO(bazel-team): document or remove.
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
