@@ -312,7 +312,7 @@ static jobject NewFileStatus(JNIEnv *env,
       StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
       StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
       StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
-      stat_ref.st_size,
+      static_cast<jlong>(stat_ref.st_size),
       static_cast<int>(stat_ref.st_dev), static_cast<jlong>(stat_ref.st_ino));
 }
 
