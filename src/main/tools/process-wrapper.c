@@ -152,6 +152,18 @@ int main(int argc, char *argv[]) {
     DIE("Not enough cmd line arguments to process-wrapper");
   }
 
+  int uid = getuid();
+  int euid = geteuid();
+  if (uid != euid) {
+    // Switch completely to the target uid.
+    // Some programs (notably, bash) ignore the euid and just use the uid. This
+    // limits the ability for us to use process-wrapper as a setuid binary for
+    // security/user-isolation.
+    if (setreuid(euid, euid) != 0) {
+      DIE("changing uid failed: setreuid");
+    }
+  }
+
   // Parse the cmdline args to get the timeout and redirect files.
   argv++;
   double timeout;
