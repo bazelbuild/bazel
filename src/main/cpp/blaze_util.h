@@ -28,9 +28,6 @@ using std::string;
 
 string GetUserName();
 
-// Return the path to the JVM launcher.
-string GetJvm();
-
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
 //
