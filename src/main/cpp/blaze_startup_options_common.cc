@@ -87,7 +87,7 @@ void BlazeStartupOptions::Copy(
 
 blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       const string &argstr, const string &next_argstr, const string &rcfile,
-      bool *is_space_seperated, string *error) {
+      bool *is_space_separated, string *error) {
   // We have to parse a specific option syntax, so GNU getopts won't do.  All
   // options begin with "--" or "-". Values are given together with the option
   // delimited by '=' or in the next option.
@@ -227,7 +227,7 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
     }
   }
 
-  *is_space_seperated = ((value == next_arg) && (value != NULL));
+  *is_space_separated = ((value == next_arg) && (value != NULL));
   return blaze_exit_code::SUCCESS;
 }
 
