@@ -26,15 +26,22 @@ bazel_root="${TEST_TMPDIR}/root"
 mkdir -p "${bazel_root}"
 
 bazel_javabase="${jdk_dir}"
-bazel="${bazel_path}/bazel --output_user_root=${bazel_root} --host_javabase=${bazel_javabase}"
+bazel="${bazel_path}/bazel"
 
 echo "bazel binary is at $bazel"
 
 # Here we unset variable that were set by the invoking Blaze instance
 unset JAVA_RUNFILES
 
+function setup_bazelrc() {
+  cat >$TEST_TMPDIR/bazelrc <<EOF
+startup --output_user_root=${bazel_root}
+startup --host_javabase=${bazel_javabase}
+EOF
+}
+
 function bazel() {
-  ${bazel} "$@"
+  ${bazel} --blazerc=$TEST_TMPDIR/bazelrc "$@"
 }
 
 function setup_protoc_support() {
@@ -197,3 +204,4 @@ function assert_bazel_run() {
 }
 
 setup_clean_workspace
+setup_bazelrc
