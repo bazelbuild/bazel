@@ -21,10 +21,13 @@ import static org.junit.Assert.assertNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -71,6 +74,17 @@ public final class MockSimpleFileSystem implements SimpleFileSystem {
       throw new FileNotFoundException();
     }
     return new ByteArrayInputStream(data);
+  }
+
+  @Override
+  public File getFile(String filename) throws IOException {
+    byte[] data = files.get(filename);
+    if (data == null) {
+      throw new FileNotFoundException();
+    }
+    File file = File.createTempFile(filename, null);
+    Files.copy(new ByteArrayInputStream(data), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    return file;
   }
 
   @Override
