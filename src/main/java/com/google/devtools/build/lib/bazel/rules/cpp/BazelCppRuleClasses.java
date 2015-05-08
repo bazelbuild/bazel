@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLibrary;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -446,7 +447,7 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(attr("deps", LABEL_LIST)
               .allowedRuleClasses(DEPS_ALLOWED_RULES)
-              .allowedFileTypes()
+              .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
               .skipAnalysisTimeFileTypeCheck())
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkopts) -->
           Add these flags to the C++ linker command.
