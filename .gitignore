@@ -8,6 +8,7 @@
 /.project
 /.classpath
 /.factorypath
+/.idea/
 /fromhost/
 /base_workspace/bazel-bin
 /base_workspace/bazel-genfiles
@@ -17,6 +18,7 @@
 /base_workspace/examples
 /base_workspace/tools
 /base_workspace/third_party
+/bazel.iml
 /tools/jdk/jdk
 /tools/jdk/ijar
 /tools/jdk/JavaBuilder_deploy.jar
