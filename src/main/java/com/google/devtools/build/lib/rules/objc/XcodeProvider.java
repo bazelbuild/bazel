@@ -79,10 +79,12 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<String> nonPropagatedHeaderSearchPaths =
         NestedSetBuilder.stableOrder();
     private Optional<InfoplistMerging> infoplistMerging = Optional.absent();
+    // Dependencies must be in link order because XCode observes the dependency ordering for
+    // binary linking.
     private final NestedSetBuilder<XcodeProvider> propagatedDependencies =
-        NestedSetBuilder.stableOrder();
+        NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<XcodeProvider> nonPropagatedDependencies =
-        NestedSetBuilder.stableOrder();
+        NestedSetBuilder.linkOrder();
     private final ImmutableList.Builder<XcodeprojBuildSetting> xcodeprojBuildSettings =
         new ImmutableList.Builder<>();
     private final ImmutableList.Builder<XcodeprojBuildSetting>
