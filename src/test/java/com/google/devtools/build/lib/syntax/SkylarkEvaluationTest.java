@@ -567,7 +567,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructPosArgs() throws Exception {
-    checkEvalError("struct(**kwarg) does not accept positional arguments, but got 1",
+    checkEvalError("struct(**kwargs) does not accept positional arguments, but got 1",
         "x = struct(1, b = 2)\n");
   }
 

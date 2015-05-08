@@ -362,6 +362,38 @@ public class MethodLibrary {
     }
   };
 
+  // In Python, formatting is very complex.
+  // We handle here the simplest case which provides most of the value of the function.
+  // https://docs.python.org/3/library/string.html#formatstrings
+  @SkylarkSignature(name = "format", objectType = StringModule.class, returnType = String.class,
+      doc = "Replace the values surrounded by curly brackets in the string."
+          + "<pre class=\"language-python\">"
+          + "\"x{key}x\".format(key = 2) == \"x2x\"</pre>\n",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+      },
+      extraKeywords = {
+        @Param(name = "kwargs", doc = "the struct fields")},
+      useLocation = true)
+  private static BuiltinFunction format = new BuiltinFunction("format") {
+      public String invoke(String self, Map<String, Object> kwargs, Location loc)
+          throws ConversionException, EvalException {
+      StringBuffer result = new StringBuffer();
+      Pattern pattern = Pattern.compile("\\{[^}]*\\}");
+      Matcher matcher = pattern.matcher(self);
+      while (matcher.find()) {
+        String word = matcher.group();
+        word = word.substring(1, word.length() - 1);  // remove the curly braces
+        if (!kwargs.containsKey(word)) {
+          throw new EvalException(loc, "No replacement found for '" + word + "'");
+        }
+        matcher.appendReplacement(result, EvalUtils.printValue(kwargs.get(word)));
+      }
+      matcher.appendTail(result);
+      return result.toString();
+    }
+  };
+
   @SkylarkSignature(name = "startswith", objectType = StringModule.class,
       returnType = Boolean.class,
       doc = "Returns True if the string starts with <code>sub</code>, "
@@ -701,7 +733,7 @@ public class MethodLibrary {
       + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
       + "return s.x + s.y  # returns 5</pre>",
       extraKeywords = {
-        @Param(name = "kwarg", doc = "the struct fields")},
+        @Param(name = "kwargs", doc = "the struct fields")},
       useLocation = true)
   private static BuiltinFunction struct = new BuiltinFunction("struct") {
       @SuppressWarnings("unchecked")
@@ -1038,7 +1070,7 @@ public class MethodLibrary {
   public static final class DictModule {}
 
   public static final List<BaseFunction> stringFunctions = ImmutableList.<BaseFunction>of(
-      count, endswith, find, index, join, lower, replace, rfind,
+      count, endswith, find, index, format, join, lower, replace, rfind,
       rindex, slice, split, startswith, strip, upper);
 
   public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
