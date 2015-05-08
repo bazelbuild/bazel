@@ -249,10 +249,6 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private void emitInfoKeysHelp(BlazeRuntime runtime, OutErr outErr) {
-    for (InfoKey key : InfoKey.values()) {
-      outErr.printOut(String.format("%-23s %s\n", key.getName(), key.getDescription()));
-    }
-
     for (BlazeModule.InfoItem item : InfoCommand.getInfoItemMap(runtime,
         OptionsParser.newOptionsParser(
             ImmutableList.<Class<? extends OptionsBase>>of())).values()) {
