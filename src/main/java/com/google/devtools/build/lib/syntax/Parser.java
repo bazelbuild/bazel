@@ -114,6 +114,7 @@ class Parser {
           .put(TokenKind.LESS_EQUALS, Operator.LESS_EQUALS)
           .put(TokenKind.MINUS, Operator.MINUS)
           .put(TokenKind.NOT_EQUALS, Operator.NOT_EQUALS)
+          .put(TokenKind.NOT_IN, Operator.NOT_IN)
           .put(TokenKind.OR, Operator.OR)
           .put(TokenKind.PERCENT, Operator.PERCENT)
           .put(TokenKind.SLASH, Operator.DIVIDE)
@@ -134,7 +135,7 @@ class Parser {
       EnumSet.of(Operator.AND),
       EnumSet.of(Operator.NOT),
       EnumSet.of(Operator.EQUALS_EQUALS, Operator.NOT_EQUALS, Operator.LESS, Operator.LESS_EQUALS,
-          Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN),
+          Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN, Operator.NOT_IN),
       EnumSet.of(Operator.MINUS, Operator.PLUS),
       EnumSet.of(Operator.DIVIDE, Operator.MULT, Operator.PERCENT));
 
@@ -924,6 +925,15 @@ class Parser {
     // The loop is not strictly needed, but it prevents risks of stack overflow. Depth is
     // limited to number of different precedence levels (operatorPrecedence.size()).
     for (;;) {
+
+      if (token.kind == TokenKind.NOT) {
+        // If NOT appears when we expect a binary operator, it must be followed by IN.
+        // Since the code expects every operator to be a single token, we push a NOT_IN token.
+        expect(TokenKind.NOT);
+        expect(TokenKind.IN);
+        pushToken(new Token(TokenKind.NOT_IN, token.left, token.right));
+      }
+
       if (!binaryOperators.containsKey(token.kind)) {
         return expr;
       }

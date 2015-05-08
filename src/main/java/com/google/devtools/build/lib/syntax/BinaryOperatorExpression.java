@@ -70,6 +70,33 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
+  private boolean evalIn(Object lval, Object rval) throws EvalException {
+    if (rval instanceof SkylarkList) {
+      for (Object obj : (SkylarkList) rval) {
+        if (obj.equals(lval)) {
+          return true;
+        }
+      }
+      return false;
+    } else if (rval instanceof Collection<?>) {
+      return ((Collection<?>) rval).contains(lval);
+    } else if (rval instanceof Map<?, ?>) {
+      return ((Map<?, ?>) rval).containsKey(lval);
+    } else if (rval instanceof SkylarkNestedSet) {
+      return ((SkylarkNestedSet) rval).expandedSet().contains(lval);
+    } else if (rval instanceof String) {
+      if (lval instanceof String) {
+        return ((String) rval).contains((String) lval);
+      } else {
+        throw new EvalException(getLocation(),
+            "in operator only works on strings if the left operand is also a string");
+      }
+    } else {
+      throw new EvalException(getLocation(),
+          "in operator only works on lists, tuples, sets, dicts and strings");
+    }
+  }
+
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     Object lval = lhs.eval(env);
@@ -264,30 +291,11 @@ public final class BinaryOperatorExpression extends Expression {
       }
 
       case IN: {
-        if (rval instanceof SkylarkList) {
-          for (Object obj : (SkylarkList) rval) {
-            if (obj.equals(lval)) {
-              return true;
-            }
-          }
-          return false;
-        } else if (rval instanceof Collection<?>) {
-          return ((Collection<?>) rval).contains(lval);
-        } else if (rval instanceof Map<?, ?>) {
-          return ((Map<?, ?>) rval).containsKey(lval);
-        } else if (rval instanceof SkylarkNestedSet) {
-          return ((SkylarkNestedSet) rval).expandedSet().contains(lval);
-        } else if (rval instanceof String) {
-          if (lval instanceof String) {
-            return ((String) rval).contains((String) lval);
-          } else {
-            throw new EvalException(getLocation(),
-                "in operator only works on strings if the left operand is also a string");
-          }
-        } else {
-          throw new EvalException(getLocation(),
-              "in operator only works on lists, tuples, sets, dicts and strings");
-        }
+        return evalIn(lval, rval);
+      }
+
+      case NOT_IN: {
+        return !evalIn(lval, rval);
       }
 
       default: {

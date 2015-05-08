@@ -511,6 +511,19 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testNotInOperator() throws Exception {
+    assertEquals(Boolean.FALSE, eval("'b' not in ['a', 'b']"));
+    assertEquals(Boolean.TRUE, eval("'c' not in ['a', 'b']"));
+    assertEquals(Boolean.FALSE, eval("'b' not in ('a', 'b')"));
+    assertEquals(Boolean.TRUE, eval("'c' not in ('a', 'b')"));
+    assertEquals(Boolean.FALSE, eval("'b' not in {'a' : 1, 'b' : 2}"));
+    assertEquals(Boolean.TRUE, eval("'c' not in {'a' : 1, 'b' : 2}"));
+    assertEquals(Boolean.TRUE, eval("1 not in {'a' : 1, 'b' : 2}"));
+    assertEquals(Boolean.FALSE, eval("'b' not in 'abc'"));
+    assertEquals(Boolean.TRUE, eval("'d' not in 'abc'"));
+  }
+
+  @Test
   public void testInFail() throws Exception {
     checkEvalError("in operator only works on strings if the left operand is also a string",
         "1 in '123'");

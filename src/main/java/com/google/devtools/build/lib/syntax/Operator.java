@@ -30,6 +30,7 @@ public enum Operator {
   MULT("*"),
   NOT("not"),
   NOT_EQUALS("!="),
+  NOT_IN("not in"),
   OR("or"),
   PERCENT("%"),
   PLUS("+");

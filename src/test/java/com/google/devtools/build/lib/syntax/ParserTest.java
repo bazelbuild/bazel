@@ -626,7 +626,7 @@ public class ParserTest extends EvaluationTestCase {
     setFailFast(false);
     List<Statement> statements = parseFileForSkylark(
         "def foo():",
-        "  a = 2 not 4",  // parse error
+        "  a = 2 for 4",  // parse error
         "  b = [3, 4]",
         "",
         "d = 4 ada",  // parse error
@@ -637,7 +637,7 @@ public class ParserTest extends EvaluationTestCase {
         "");
 
     assertThat(getEventCollector()).hasSize(3);
-    assertContainsEvent("syntax error at 'not': expected newline");
+    assertContainsEvent("syntax error at 'for': expected newline");
     assertContainsEvent("syntax error at 'ada': expected newline");
     assertContainsEvent("syntax error at '+': expected expression");
     assertThat(statements).hasSize(3);
