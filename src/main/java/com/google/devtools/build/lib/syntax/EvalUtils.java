@@ -273,7 +273,7 @@ public abstract class EvalUtils {
     } else if (c.equals(Boolean.class)) {
       return "bool";
     } else if (c.equals(Void.TYPE) || c.equals(Environment.NoneType.class)) {
-      return "None";
+      return "NoneType";
     } else if (List.class.isAssignableFrom(c)) {
       // NB: the capital here is a subtle way to distinguish java Tuple and java List
       // from native SkylarkList tuple and list.
