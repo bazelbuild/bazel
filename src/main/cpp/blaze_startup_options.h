@@ -55,10 +55,10 @@ class BlazeStartupOptions {
   // rcfile should be an empty string if the option being parsed does not come
   // from a blazerc.
   //
-  // Sets "is_space_seperated" true if arg is unary and uses the "--foo bar"
+  // Sets "is_space_separated" true if arg is unary and uses the "--foo bar"
   // style, so its value is in next_arg.
   //
-  // Sets "is_space_seperated" false if arg is either nullary
+  // Sets "is_space_separated" false if arg is either nullary
   // (e.g. "--[no]batch") or is unary but uses the "--foo=bar" style.
   //
   // Returns the exit code after processing the argument. "error" will contain
@@ -66,7 +66,7 @@ class BlazeStartupOptions {
   // blaze_exit_code::SUCCESS.
   blaze_exit_code::ExitCode ProcessArg(
       const string &arg, const string &next_arg, const string &rcfile,
-      bool *is_space_seperated, string *error);
+      bool *is_space_separated, string *error);
 
   // Adds any other options needed to result.
   void AddExtraOptions(std::vector<string> *result) const;
