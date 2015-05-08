@@ -48,6 +48,8 @@ public final class JavaLibraryBuildRequest {
 
   private final String classPath;
 
+  private final String extdir;
+
   private final String processorPath;
   private final List<String> processorNames;
 
@@ -145,6 +147,7 @@ public final class JavaLibraryBuildRequest {
     this.resourceJars = ImmutableList.copyOf(optionsParser.getResourceJars());
     this.rootResourceFiles = ImmutableList.copyOf(optionsParser.getRootResourceFiles());
     this.classPath = optionsParser.getClassPath();
+    this.extdir = optionsParser.getExtdir();
     this.processorPath = optionsParser.getProcessorPath();
     this.processorNames = optionsParser.getProcessorNames();
     // Since the default behavior of this tool with no arguments is "rm -fr <classDir>", let's not
@@ -213,6 +216,10 @@ public final class JavaLibraryBuildRequest {
 
   public String getClassPath() {
     return classPath;
+  }
+
+  public String getExtdir() {
+    return extdir;
   }
 
   public String getProcessorPath() {

@@ -61,6 +61,8 @@ public final class OptionsParser {
 
   private String classPath;
 
+  private String extdir;
+
   private String processorPath = "";
   private final List<String> processorNames = new ArrayList<>();
 
@@ -162,6 +164,9 @@ public final class OptionsParser {
           break;
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
+          break;
+        case "--extdir":
+          extdir = getArgument(argQueue, arg);
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -356,6 +361,10 @@ public final class OptionsParser {
 
   public String getClassPath() {
     return classPath;
+  }
+
+  public String getExtdir() {
+    return extdir;
   }
 
   public String getProcessorPath() {

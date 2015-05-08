@@ -60,6 +60,11 @@ public abstract class CommonJavaLibraryProcessor {
     args.add("-sourcepath");
     args.add(":");
 
+    if (build.getExtdir() != null) {
+      args.add("-extdirs");
+      args.add(build.getExtdir());
+    }
+
     return args;
   }
 }
