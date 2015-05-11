@@ -144,8 +144,8 @@ set of output files.
 The set of input and output files must be known during the analysis phase. It
 might depend on the value of attributes and information from dependencies, but
 it cannot depend on the result of the execution. For example, if your action
-runs the zip command, you must specify which files you expect (before running
-zip).
+runs the unzip command, you must specify which files you expect to be inflated
+(before running unzip).
 
 Actions are comparable to pure functions: They should depend only on the
 provided inputs, and avoid accessing computer information, username, clock,
