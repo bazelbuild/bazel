@@ -141,7 +141,7 @@
 <h2 id='overview'>Bazel overview</h2>
 
 <p>
-  Running Bazel is easy.  Simply go to
+  To run Bazel, go to
 
   your base workspace directory
   or any of its subdirectories and type <code>bazel</code>.
@@ -163,6 +163,7 @@
 
     <a href='#info'>info</a>                Displays runtime info about the bazel server.
 
+    <a href='#fetch'>fetch</a>                Fetches all external dependencies of a target.
     <a href='#query'>query</a>               Executes a dependency graph query.
 
     <a href='#run'>run</a>                 Runs the specified target.
@@ -653,6 +654,74 @@ Subtractive patterns:
   specify them explicitly on the command line.
 </p>
 
+<h3 id='fetch'>Fetching external dependencies</h3>
+
+<p>
+  You must run <code>bazel fetch</code>:
+  <ol>
+    <li>Before you build for the first time.
+    <li>After you add a new external dependency.
+  </ol>
+  Once it has been run, you should not need to run it again until the WORKSPACE
+  file changes.
+</p>
+
+<p>
+  <code>fetch</code> takes a list of targets to fetch dependencies for. For
+  example, this would fetch dependencies needed to build <code>//foo:bar</code>
+  and <code>//bar:baz</code>:
+<pre>
+$ bazel fetch //foo:bar //bar:baz
+</pre>
+</p>
+
+<p>
+  To fetch all external dependencies for a workspace, run:
+<pre>
+$ bazel fetch //...
+</pre>
+</p>
+
+<p>
+  If you do not run <code>fetch</code> before building a target that relies on
+  external dependencies, your build will fail with:
+<pre>
+ERROR: /path/to/your/BUILD:1:1: error loading package 'external': to fix, run
+    bazel fetch //...
+External repository @your-repo not found and referenced by '//your:target'.
+ERROR: Loading failed; build aborted.
+</pre>
+</p>
+
+<p>
+  Why add an extra step, instead of just allowing the build to fetch external
+  dependencies? The fetch step is designed to provide some security and
+  predictability. It prevents external dependencies from being changed between
+  builds without the programmer knowing. Also, external dependencies are
+  immutable<a href="#mostly">*</a> between <code>fetch</code>s, which means that
+  output changes are always caused by programmer actions, not Bazel silently
+  updating dependencies.
+</p>
+
+<p>
+  You do not need to run bazel fetch at all if you have all of the tools you are
+  using (from library jars to the JDK itself) under your workspace root.
+  However, if you're using anything outside of the workspace directory then you
+  will need to run <code>bazel fetch</code> before running
+  <code>bazel build</code>.
+</p>
+
+<p id="mostly">
+  <em>
+    * External dependencies are assumed to be immutable. If you manually
+    change files in an external repository directory, Bazel will not behave
+    correctly. Similarly, if you use <code>local_repository</code> or
+    <code>new_local_repository</code> and then change the local files (e.g.,
+    update the JDK) Bazel will not notice the change and, thus, not invalidate
+    the dependencies that it should. After upgrading system tools, rerun
+    <code>bazel fetch</code> to ensure Bazel's cache is up-to-date.
+  </em>
+</p>
 <h3 id='configurations'>Build configurations and cross-compilation</h3>
 
 <p>
