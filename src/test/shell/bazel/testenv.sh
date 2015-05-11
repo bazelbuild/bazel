@@ -45,7 +45,7 @@ case "${PLATFORM}" in
     protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc.darwin"
     ;;
   *)
-    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc.amd64"
+    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc.linux-i686"
     ;;
 esac
 protoc_jar="${TEST_SRCDIR}/third_party/protobuf/protobuf-*.jar"
