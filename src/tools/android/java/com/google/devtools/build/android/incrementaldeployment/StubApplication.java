@@ -54,12 +54,13 @@ import java.util.Map;
  * because any class loaded before it cannot be incrementally deployed.
  */
 public class StubApplication extends Application {
-  private static final String INCREMENTAL_DEPLOYMENT_DIR = "/sdcard/incrementaldeployment";
+  private static final String INCREMENTAL_DEPLOYMENT_DIR = "/data/local/tmp/incrementaldeployment";
 
-  private final Application realApplication;
   private final String realClassName;
   private final String packageName;
-  private final String externalResourceFile;
+
+  private String externalResourceFile;
+  private Application realApplication;
 
   public StubApplication() {
     String[] stubApplicationData = getResourceAsString("stub_application_data.txt").split("\n");
@@ -68,17 +69,7 @@ public class StubApplication extends Application {
 
     Log.v("StubApplication", String.format(
         "StubApplication created. Android package is %s, real application class is %s.",
-        packageName,
-        realClassName));
-
-    externalResourceFile = getExternalResourceFile();
-
-    IncrementalClassLoader.inject(
-        StubApplication.class.getClassLoader(),
-        packageName,
-        getDexList(packageName));
-
-    realApplication = instantiateRealApplication();
+        packageName, realClassName));
   }
 
   private String getExternalResourceFile() {
@@ -286,13 +277,21 @@ public class StubApplication extends Application {
     }
   }
 
-  private Application instantiateRealApplication() {
+  private void instantiateRealApplication(String codeCacheDir) {
+    externalResourceFile = getExternalResourceFile();
+
+    IncrementalClassLoader.inject(
+        StubApplication.class.getClassLoader(),
+        packageName,
+        codeCacheDir,
+        getDexList(packageName));
+
     try {
       @SuppressWarnings("unchecked")
       Class<? extends Application> realClass =
           (Class<? extends Application>) Class.forName(realClassName);
       Constructor<? extends Application> ctor = realClass.getConstructor();
-      return ctor.newInstance();
+      realApplication = ctor.newInstance();
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
@@ -300,6 +299,8 @@ public class StubApplication extends Application {
 
   @Override
   protected void attachBaseContext(Context context) {
+    instantiateRealApplication(context.getCacheDir().getPath());
+
     // This is called from ActivityThread#handleBindApplication() -> LoadedApk#makeApplication().
     // Application#mApplication is changed right after this call, so we cannot do the monkey
     // patching here. So just forward this method to the real Application instance.
