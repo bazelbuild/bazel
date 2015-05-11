@@ -19,6 +19,7 @@ java_test(
         "com/google/devtools/build/skyframe/*.java",
     ]),
     args = ["com.google.devtools.build.skyframe.AllTests"],
+    tags = ["skyframe"],
     deps = [
         ":testutil",
         "//src/main/java:bazel-core",
@@ -110,6 +111,7 @@ java_test(
     ),
     args = ["com.google.devtools.build.lib.AllTests"],
     data = glob([test_prefix + "/vfs/*.zip"]),
+    tags = ["foundations"],
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -467,7 +469,9 @@ java_test(
 TEST_SUITES = [
     "rules",
     "analysis",
+    "foundations",
     "shell",
+    "skyframe",
 ]
 
 [
