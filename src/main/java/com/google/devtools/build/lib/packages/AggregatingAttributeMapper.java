@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +31,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * {@link AttributeMap} implementation that provides the ability to retrieve *all possible*
+ * {@link AttributeMap} implementation that provides the ability to retrieve <i>all possible</i>
  * values an attribute might take.
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
@@ -168,7 +169,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList != null) {
       ImmutableList.Builder<T> builder = ImmutableList.builder();
-      visitConfigurableAttribute(selectorList.getSelectors(), type, null, builder);
+      visitConfigurableAttribute(selectorList.getSelectors(), new BoundSelectorPaths(), type,
+          null, builder);
       return builder.build();
     }
 
@@ -197,29 +199,99 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Determines all possible values a configurable attribute can take and places each one into
-   * valuesBuilder.
+   * Determines all possible values a configurable attribute can take. Do not call this method
+   * unless really necessary (see TODO comment inside).
+   *
+   * @param selectors the selectors that make up this attribute assignment (in order)
+   * @param boundSelectorPaths paths that have already been chosen from previous selectors in an
+   *     earlier recursive call of this method. For example, given
+   *     <pre>cmd = select({':a': 'w', ':b': 'x'}) + select({':a': 'y', ':b': 'z'})</pre>
+   *     the only possible values for <code>cmd</code> are <code>"wy"</code> and <code>"xz"</code>.
+   *     This is because the selects have the same conditions, so whatever matches the first also
+   *     matches the second. Note that this doesn't work for selects with overlapping but
+   *     <i>different</i> key sets. That's because of key specialization (see
+   *     {@link com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper} - if the
+   *     second select also included a condition <code>':c'</code> that includes both the flags
+   *     in <code>':a'</code> and <code>':b'</code>, <code>':c'</code> would be chosen over
+   *     them both.
+   * @param type the type of this attribute
+   * @param currentValueSoFar the partial value produced so far from earlier calls to this method
+   * @param valuesBuilder output container for full values this attribute can take
    */
-  private <T> void visitConfigurableAttribute(List<Type.Selector<T>> selectors, Type<T> type,
-      T currentValueSoFar, ImmutableList.Builder<T> valuesBuilder) {
-
+  private <T> void visitConfigurableAttribute(List<Type.Selector<T>> selectors,
+      BoundSelectorPaths boundSelectorPaths, Type<T> type, T currentValueSoFar,
+      ImmutableList.Builder<T> valuesBuilder) {
     // TODO(bazel-team): minimize or eliminate uses of this interface. It necessarily grows
     // exponentially with the number of selects in the attribute. Is that always necessary?
     // For example, dependency resolution just needs to know every possible label an attribute
     // might reference, but it doesn't need to know the exact combination of labels that make
-    // up a value.
+    // up a value. This may be even less important for non-label values (e.g. strings), which
+    // have no impact on the dependency structure.
+
     if (selectors.isEmpty()) {
       valuesBuilder.add(Preconditions.checkNotNull(currentValueSoFar));
     } else {
       Type.Selector<T> firstSelector = selectors.get(0);
       List<Type.Selector<T>> remainingSelectors = selectors.subList(1, selectors.size());
-      for (T branchedValue : firstSelector.getEntries().values()) {
-        visitConfigurableAttribute(remainingSelectors, type,
-            currentValueSoFar == null
-                ? branchedValue
-                : type.concat(ImmutableList.of(currentValueSoFar, branchedValue)),
-            valuesBuilder);
+
+      Map<Label, T> firstSelectorEntries = firstSelector.getEntries();
+      Label boundKey = boundSelectorPaths.getChosenKey(firstSelectorEntries.keySet());
+      if (boundKey != null) {
+        // If we've already followed some path from a previous selector with the same exact
+        // conditions as this one, we only need to visit that path (since the same key will
+        // match both selectors).
+        T boundValue = firstSelectorEntries.get(boundKey);
+        visitConfigurableAttribute(remainingSelectors, boundSelectorPaths, type,
+                    currentValueSoFar == null
+                        ? boundValue
+                        : type.concat(ImmutableList.of(currentValueSoFar, boundValue)),
+                    valuesBuilder);
+      } else {
+        // Otherwise, we need to iterate over all possible paths.
+        for (Map.Entry<Label, T> selectorBranch : firstSelectorEntries.entrySet()) {
+          // Bind this particular path for later selectors using the same conditions.
+          boundSelectorPaths.bind(firstSelectorEntries.keySet(), selectorBranch.getKey());
+          visitConfigurableAttribute(remainingSelectors, boundSelectorPaths, type,
+              currentValueSoFar == null
+                  ? selectorBranch.getValue()
+                  : type.concat(ImmutableList.of(currentValueSoFar, selectorBranch.getValue())),
+              valuesBuilder);
+          // Unbind the path (so when we pop back up the recursive stack we can rebind it to new
+          // values if we visit this selector again).
+          boundSelectorPaths.unbind(firstSelectorEntries.keySet());
+        }
       }
+    }
+  }
+
+  /**
+   * Helper class for {@link #visitConfigurableAttribute}. See that method's comments for more
+   * details.
+   */
+  private static class BoundSelectorPaths {
+    private final Map<Set<Label>, Label> bindings = new HashMap<>();
+
+    /**
+     * Binds the given config key set to the specified path. There should be no previous binding
+     * for this key set.
+     */
+    public void bind(Set<Label> allKeys, Label chosenKey) {
+      Preconditions.checkState(allKeys.contains(chosenKey));
+      Verify.verify(bindings.put(allKeys, chosenKey) == null);
+    }
+
+    /**
+     * Unbinds the given config key set.
+     */
+    public void unbind(Set<Label> allKeys) {
+      Verify.verifyNotNull(bindings.remove(allKeys));
+    }
+
+    /**
+     * Returns the key this config key set is bound to or null if no binding.
+     */
+    public Label getChosenKey(Set<Label> allKeys) {
+      return bindings.get(allKeys);
     }
   }
 

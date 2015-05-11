@@ -89,6 +89,25 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
   }
 
   /**
+   * Given a large number of selects, we expect better than the naive
+   * exponential performance from evaluating select1 x select2 x select3 x ...
+   */
+  public void testGetPossibleValuesWithManySelects() throws Exception {
+    String pattern = " + select({'//conditions:a1': '%c', '//conditions:a2': '%s'})";
+    StringBuilder ruleDef = new StringBuilder();
+    ruleDef.append("genrule(name = 'gen', srcs = [], outs = ['gen.out'], cmd = ''");
+    for (char c : "abcdefghijklmnopqrstuvwxyz".toCharArray()) {
+      ruleDef.append(String.format(pattern, c, Character.toUpperCase(c)));
+    }
+    ruleDef.append(")");
+    Rule rule = createRule("a", "gen", ruleDef.toString());
+    assertSameContents(
+        ImmutableList.of("abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        // Naive evaluation would visit 2^26 cases and either overflow memory or timeout the test.
+        AggregatingAttributeMapper.of(rule).visitAttribute("cmd", Type.STRING));
+  }
+
+  /**
    * Tests that, on rule visitation, {@link AggregatingAttributeMapper} visits *every* possible
    * value in a configurable attribute (including configuration key labels).
    */
