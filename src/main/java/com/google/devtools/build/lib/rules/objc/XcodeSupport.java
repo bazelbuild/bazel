@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Support for Objc rule types that export an Xcode provider or generate xcode project files.
@@ -120,7 +123,8 @@ public final class XcodeSupport {
         .setArchitecture(architecture)
         .setConfigurationDistinguisher(configurationDistinguisher)
         .setObjcProvider(objcProvider)
-        .setProductType(productType);
+        .setProductType(productType)
+        .addXcodeprojBuildSettings(XcodeSupport.defaultXcodeSettings());
     return this;
   }
 
@@ -168,5 +172,19 @@ public final class XcodeSupport {
   XcodeSupport generateCompanionLibXcodeTarget(Builder xcodeProviderBuilder) {
     xcodeProviderBuilder.generateCompanionLibTarget();
     return this;
+  }
+
+  /**
+   * Returns a list of default XCode build settings for Bazel-generated XCode projects.
+   */
+  @VisibleForTesting
+  static Iterable<XcodeprojBuildSetting> defaultXcodeSettings() {
+    // Do not use XCode headermap because Bazel-generated header search paths are sufficient for
+    // resolving header imports.
+    return ImmutableList.of(
+        XcodeprojBuildSetting.newBuilder()
+            .setName("USE_HEADERMAP")
+            .setValue("NO")
+            .build());
   }
 }
