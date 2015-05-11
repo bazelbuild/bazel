@@ -196,6 +196,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public String unusedBlazeCpu;
 
   @Option(name = "skyframe",
+      deprecationWarning = "skyframe is now a no-op and will be removed in an upcoming Blaze "
+          + "release",
       defaultValue = "full",
       category = "undocumented",
       help = "Unused.")
