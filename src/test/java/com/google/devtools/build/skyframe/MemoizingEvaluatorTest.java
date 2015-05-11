@@ -800,7 +800,8 @@ public class MemoizingEvaluatorTest {
     // This value will not have finished building on the second build when the error is thrown.
     final SkyKey otherTop = GraphTester.toSkyKey("otherTop");
     final SkyKey errorKey = GraphTester.toSkyKey("error");
-    // Is the graph state all set up and ready for the error to be thrown?
+    // Is the graph state all set up and ready for the error to be thrown? The three values are
+    // exceptionMarker, cycle2Key, and dep1 (via signaling otherTop).
     final CountDownLatch valuesReady = new CountDownLatch(3);
     // Is evaluation being shut down? This is counted down by the exceptionMarker's builder, after
     // it has waited for the threadpool's exception latch to be released.
@@ -812,11 +813,6 @@ public class MemoizingEvaluatorTest {
       @Override
       public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!secondBuild.get()) {
-          return;
-        }
-        if (key.equals(errorKey) && type == EventType.SET_VALUE) {
-          // If the error is about to be thrown, make sure all listeners are ready.
-          trackingAwaiter.awaitLatchAndTrackExceptions(valuesReady, "waiting values not ready");
           return;
         }
         if (key.equals(otherTop) && type == EventType.SIGNAL) {
@@ -857,7 +853,9 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(cycle1Key).setComputedValue(CONCATENATE);
     tester.getOrCreate(cycle1Key).addDependency(errorKey).addDependency(cycle2Key)
         .setComputedValue(CONCATENATE);
-    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(errorKey).setBuilder(new ChainedFunction(/*notifyStart=*/null,
+    /*waitToFinish=*/valuesReady, /*notifyFinish=*/null, /*waitForException=*/false, /*value=*/null,
+        ImmutableList.<SkyKey>of()));
     // Make sure cycle2Key has declared its dependence on cycle1Key before error throws.
     tester.getOrCreate(cycle2Key).setBuilder(new ChainedFunction(/*notifyStart=*/valuesReady,
         null, null, false, new StringValue("never returned"), ImmutableList.<SkyKey>of(cycle1Key)));
