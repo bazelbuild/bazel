@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
+import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
@@ -435,7 +435,7 @@ public final class ReleaseBundlingSupport {
     Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
     NestedSet<Artifact> linkedBinaries = linkedBinaries();
 
-    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(linkedBinaries)
         .addOutput(resultingLinkedBinary)
@@ -495,7 +495,7 @@ public final class ReleaseBundlingSupport {
   private ReleaseBundlingSupport registerSignBundleAction(
       Artifact entitlements, Artifact ipaOutput, Artifact ipaUnsigned) {
     // TODO(bazel-team): Support variable substitution
-    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("IosSignBundle")
         .setProgressMessage("Signing iOS bundle: " + ruleContext.getLabel())
         .setExecutable(new PathFragment("/bin/bash"))
@@ -595,7 +595,7 @@ public final class ReleaseBundlingSupport {
   }
 
   private void registerExtractTeamPrefixAction(Artifact teamPrefixFile) {
-    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("ExtractIosTeamPrefix")
         .setExecutable(new PathFragment("/bin/bash"))
         .addArgument("-c")
@@ -616,7 +616,7 @@ public final class ReleaseBundlingSupport {
     // BundleID consists of a reverse-DNS string to identify the app, where the last component
     // is the application name, and is specified as an attribute.
 
-    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("ExtractIosEntitlements")
         .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
         .setExecutable(new PathFragment("/bin/bash"))

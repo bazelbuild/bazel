@@ -38,7 +38,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -72,8 +71,8 @@ final class CompilationSupport {
       "The path '%s' is absolute, but only relative paths are allowed.";
 
   @VisibleForTesting
-  static final ImmutableList<String> LINKER_COVERAGE_FLAGS = ImmutableList.<String>of(
-      "-ftest-coverage", "-fprofile-arcs");
+  static final ImmutableList<String> LINKER_COVERAGE_FLAGS =
+      ImmutableList.of("-ftest-coverage", "-fprofile-arcs");
 
   @VisibleForTesting
   static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
@@ -200,7 +199,7 @@ final class CompilationSupport {
         .addExecPath("-c", sourceFile)
         .addExecPath("-o", objFile);
 
-    ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcCompile")
         .setExecutable(CLANG)
         .setCommandLine(commandLine.build())
@@ -237,7 +236,7 @@ final class CompilationSupport {
         Artifact.joinExecPaths("\n", objFiles),
         /*makeExecutable=*/ false));
 
-    actions.add(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+    actions.add(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcLink")
         .setExecutable(ObjcRuleClasses.LIBTOOL)
         .setCommandLine(new CustomCommandLine.Builder()
@@ -287,7 +286,7 @@ final class CompilationSupport {
         ObjcRuleClasses.intermediateArtifacts(ruleContext).singleArchitectureBinary();
 
     ruleContext.registerAction(
-        ObjcActionsBuilder.spawnOnDarwinActionBuilder()
+        ObjcRuleClasses.spawnOnDarwinActionBuilder()
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(linkCommandLine(extraLinkArgs, objcProvider, linkedBinary, dsymBundle))
@@ -539,11 +538,10 @@ final class CompilationSupport {
 
     Artifact dumpsyms = ruleContext.getPrerequisiteArtifact(":dumpsyms", Mode.HOST);
     Artifact breakpadFile = intermediateArtifacts.breakpadSym();
-    ruleContext.registerAction(new SpawnAction.Builder()
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("GenBreakpad")
         .setProgressMessage("Generating breakpad file: " + ruleContext.getLabel())
         .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
-        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
         .addInput(dumpsyms)
         .addInput(debugSymbolFile)
         .addArgument(String.format("%s %s > %s",

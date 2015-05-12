@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -138,7 +136,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (!Iterables.isEmpty(protos)) {
-      ruleContext.registerAction(new SpawnAction.Builder()
+      ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
           .setMnemonic("GenObjcProtos")
           .addInput(compileProtos)
           .addInputs(optionsFile.asSet())
@@ -149,7 +147,6 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
           .addOutputs(Iterables.concat(protoGeneratedSources, protoGeneratedHeaders))
           .setExecutable(new PathFragment("/usr/bin/python"))
           .setCommandLine(commandLineBuilder.build())
-          .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
           .build(ruleContext));
     }
 
@@ -181,38 +178,31 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addHeaders(protoGeneratedSources)
         .build();
 
-    ObjcConfiguration configuration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    Iterable<XcodeProvider> protoDeps = ruleContext.getPrerequisites(
-        ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET, XcodeProvider.class);
-    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
-        .setLabel(ruleContext.getLabel())
-        .setArchitecture(configuration.getIosCpu())
-        .addUserHeaderSearchPaths(searchPathEntries)
-        .addPropagatedDependencies(protoDeps)
-        .setConfigurationDistinguisher(configuration.getConfigurationDistinguisher())
-        .addCopts(configuration.getCopts())
-        .setProductType(LIBRARY_STATIC)
-        .addHeaders(protoGeneratedHeaders)
-        .setCompilationArtifacts(common.getCompilationArtifacts().get())
-        .setObjcProvider(common.getObjcProvider())
-        .build();
+    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
+        .addAll(common.getCompiledArchive().asSet())
+        .addAll(protoGeneratedSources)
+        .addAll(protoGeneratedHeaders);
 
-    ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
+    ObjcConfiguration configuration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder()
+        .addUserHeaderSearchPaths(searchPathEntries)
+        .addCopts(configuration.getCopts())
+        .addHeaders(protoGeneratedHeaders)
+        .setCompilationArtifacts(common.getCompilationArtifacts().get());
+
     new CompilationSupport(ruleContext)
         .registerCompileAndArchiveActions(common, OptionsProvider.DEFAULT);
-    actionsBuilder.registerXcodegenActions(
-        new ObjcRuleClasses.Tools(ruleContext),
-        ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ),
-        XcodeProvider.Project.fromTopLevelTarget(xcodeProvider));
+
+    new XcodeSupport(ruleContext)
+        .addFilesToBuild(filesToBuild)
+        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
+        .addDependencies(
+            xcodeProviderBuilder, new Attribute(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET))
+        .registerActions(xcodeProviderBuilder.build());
 
     return common.configuredTarget(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(common.getCompiledArchive().asSet())
-            .addAll(protoGeneratedSources)
-            .addAll(protoGeneratedHeaders)
-            .add(ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ))
-            .build(),
-        Optional.of(xcodeProvider),
+        filesToBuild.build(),
+        Optional.of(xcodeProviderBuilder.build()),
         Optional.of(common.getObjcProvider()),
         Optional.<XcTestAppProvider>absent(),
         Optional.<J2ObjcSrcsProvider>absent(),

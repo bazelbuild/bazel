@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
@@ -52,9 +51,25 @@ import java.util.Objects;
  */
 final class BundleSupport {
 
+  /**
+   * Iterable wrapper used to strongly type plists for merging into a bundle's {@code Info.plist}.
+   */
   static class ExtraMergePlists extends IterableWrapper<Artifact> {
     ExtraMergePlists(Artifact... inputs) {
       super(inputs);
+    }
+  }
+
+  /**
+   * Iterable wrapper used to strongly type arguments eventually passed to {@code actool}.
+   */
+  static final class ExtraActoolArgs extends IterableWrapper<String> {
+    ExtraActoolArgs(Iterable<String> args) {
+      super(args);
+    }
+
+    ExtraActoolArgs(String... args) {
+      super(args);
     }
   }
 
@@ -211,7 +226,7 @@ final class BundleSupport {
       Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
+          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
               .setMnemonic("StoryboardCompile")
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
@@ -226,7 +241,7 @@ final class BundleSupport {
         // The next three arguments are positional, i.e. they don't have flags before them.
         .addPath(zipOutput.getExecPath())
         .add(archiveRoot)
-        .addPath(ObjcActionsBuilder.IBTOOL)
+        .addPath(ObjcRuleClasses.IBTOOL)
         .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
 
     for (TargetDeviceFamily targetDeviceFamily : attributes.families()) {
@@ -247,7 +262,7 @@ final class BundleSupport {
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(attributes.momczipDeployJar())
+          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.momczipDeployJar())
               .setMnemonic("MomCompile")
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
@@ -275,14 +290,14 @@ final class BundleSupport {
       String archiveRoot = BundleableFile.flatBundlePath(
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
       ruleContext.registerAction(
-          ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
+          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
               .setMnemonic("XibCompile")
               .setCommandLine(CustomCommandLine.builder()
                   // The next three arguments are positional,
                   // i.e. they don't have flags before them.
                   .addPath(zipOutput.getExecPath())
                   .add(archiveRoot)
-                  .addPath(ObjcActionsBuilder.IBTOOL)
+                  .addPath(ObjcRuleClasses.IBTOOL)
 
                   .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
                   .addPath(original.getExecPath())
@@ -331,7 +346,7 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(attributes.actoolzipDeployJar())
+        ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.actoolzipDeployJar())
             .setMnemonic("AssetCatalogCompile")
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)

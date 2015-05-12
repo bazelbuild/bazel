@@ -24,16 +24,16 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -62,6 +62,8 @@ public class ObjcRuleClasses {
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
+  static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
+  private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 
   private ObjcRuleClasses() {
     throw new UnsupportedOperationException("static-only");
@@ -205,14 +207,6 @@ public class ObjcRuleClasses {
         context, context.getLabel().toPathFragment(), suffix);
   }
 
-  static ObjcActionsBuilder actionsBuilder(RuleContext ruleContext) {
-    return new ObjcActionsBuilder(
-        ruleContext,
-        intermediateArtifacts(ruleContext),
-        ObjcRuleClasses.objcConfiguration(ruleContext),
-        ruleContext);
-  }
-
   public static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {
     return ruleContext.getFragment(ObjcConfiguration.class);
   }
@@ -220,6 +214,27 @@ public class ObjcRuleClasses {
   @VisibleForTesting
   static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+
+  /**
+   * Creates a new spawn action builder that requires a darwin architecture to run.
+   */
+  static SpawnAction.Builder spawnOnDarwinActionBuilder() {
+    return new SpawnAction.Builder()
+        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
+  }
+
+  /**
+   * Creates a new spawn action builder that requires a darwin architecture to run and is executed
+   * with the given jar.
+   */
+  // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
+  // better.
+  static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(Artifact deployJarArtifact) {
+    return spawnOnDarwinActionBuilder()
+        .setExecutable(JAVA)
+        .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
+        .addInput(deployJarArtifact);
+  }
 
   /**
    * Attributes for {@code objc_*} rules that have compiler options.
@@ -992,22 +1007,6 @@ public class ObjcRuleClasses {
           .name("$objc_simulator_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
-    }
-  }
-
-  /**
-   * Object that supplies tools used by all rules which have the helper tools common to most rule
-   * implementations.
-   */
-  static final class Tools {
-    private final RuleContext ruleContext;
-
-    Tools(RuleContext ruleContext) {
-      this.ruleContext = Preconditions.checkNotNull(ruleContext);
-    }
-
-    FilesToRunProvider xcodegen() {
-      return ruleContext.getExecutablePrerequisite("$xcodegen", Mode.HOST);
     }
   }
 }

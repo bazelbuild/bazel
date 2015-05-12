@@ -18,14 +18,21 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
+import com.google.devtools.build.lib.rules.objc.XcodeProvider.Project;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import java.io.InputStream;
 
 /**
  * Support for Objc rule types that export an Xcode provider or generate xcode project files.
@@ -78,11 +85,18 @@ public final class XcodeSupport {
    * @return this xcode support
    */
   XcodeSupport registerActions(XcodeProvider xcodeProvider) {
-    ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
-    actionsBuilder.registerXcodegenActions(
-        new ObjcRuleClasses.Tools(ruleContext),
-        ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ),
-        XcodeProvider.Project.fromTopLevelTarget(xcodeProvider));
+    registerXcodegenActions(XcodeProvider.Project.fromTopLevelTarget(xcodeProvider));
+    return this;
+  }
+
+  /**
+   * Registers actions that generate the rule's Xcode project.
+   *
+   * @param xcodeProviders information about several rules' xcode settings
+   * @return this xcode support
+   */
+  XcodeSupport registerActions(Iterable<XcodeProvider> xcodeProviders) {
+    registerXcodegenActions(Project.fromTopLevelTargets(xcodeProviders));
     return this;
   }
 
@@ -172,6 +186,50 @@ public final class XcodeSupport {
   XcodeSupport generateCompanionLibXcodeTarget(Builder xcodeProviderBuilder) {
     xcodeProviderBuilder.generateCompanionLibTarget();
     return this;
+  }
+
+  private void registerXcodegenActions(XcodeProvider.Project project) {
+    Artifact controlFile =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext).pbxprojControlArtifact();
+
+    ruleContext.registerAction(new BinaryFileWriteAction(
+        ruleContext.getActionOwner(),
+        controlFile,
+        xcodegenControlFileBytes(project),
+        /*makeExecutable=*/false));
+
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setMnemonic("GenerateXcodeproj")
+        .setExecutable(ruleContext.getExecutablePrerequisite("$xcodegen", Mode.HOST))
+        .addArgument("--control")
+        .addInputArgument(controlFile)
+        .addOutput(ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ))
+        .addTransitiveInputs(project.getInputsToXcodegen())
+        .build(ruleContext));
+  }
+
+  private ByteSource xcodegenControlFileBytes(final XcodeProvider.Project project) {
+    final Artifact pbxproj = ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ);
+    final ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() {
+        return XcodeGenProtos.Control.newBuilder()
+            .setPbxproj(pbxproj.getExecPathString())
+            .addAllTarget(project.targets())
+            .addBuildSetting(XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
+                .setName("IPHONEOS_DEPLOYMENT_TARGET")
+                .setValue(objcConfiguration.getMinimumOs())
+                .build())
+            .addBuildSetting(XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
+                .setName("DEBUG_INFORMATION_FORMAT")
+                .setValue(objcConfiguration.generateDebugSymbols() ? "dwarf-with-dsym" : "dwarf")
+                .build())
+            .build()
+            .toByteString()
+            .newInput();
+      }
+    };
   }
 
   /**
