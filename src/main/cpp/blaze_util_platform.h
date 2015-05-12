@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
-#define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
+#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
+#define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
 #include <stdint.h>
 
@@ -56,4 +56,4 @@ std::string GetDefaultHostJavabase();
 
 }  // namespace blaze
 
-#endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_
+#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

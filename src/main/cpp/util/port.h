@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
 
 #include <stddef.h>  // For size_t
 
@@ -110,4 +110,4 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
-#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

@@ -16,8 +16,8 @@
 //               Blaze client.
 //
 
-#ifndef DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_
-#define DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_
+#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
+#define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
 
 #include <string>
 #include <vector>
@@ -110,4 +110,4 @@ bool CheckJavaVersionIsAtLeast(string jvm_version, string version_spec);
 
 }  // namespace blaze
 
-#endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H_
+#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_

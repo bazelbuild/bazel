@@ -16,8 +16,8 @@
 // Must be kept in sync with the Java counterpart under
 // com/google/devtools/build/lib/util/ExitCode.java
 
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_EXIT_CODE_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_EXIT_CODE_H_
 
 namespace blaze_exit_code {
 
@@ -39,4 +39,4 @@ enum ExitCode {
 
 }  // namespace blaze_exit_code
 
-#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_EXIT_CODE_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_EXIT_CODE_H_

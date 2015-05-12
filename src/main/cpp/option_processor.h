@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DEVTOOLS_BLAZE_MAIN_OPTION_PROCESSOR_H_
-#define DEVTOOLS_BLAZE_MAIN_OPTION_PROCESSOR_H_
+#ifndef BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
+#define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
 #include <list>
 #include <map>
@@ -119,4 +119,4 @@ class OptionProcessor {
 };
 
 }  // namespace blaze
-#endif  // DEVTOOLS_BLAZE_MAIN_OPTION_PROCESSOR_H_
+#endif  // BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_

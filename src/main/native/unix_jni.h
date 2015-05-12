@@ -14,8 +14,8 @@
 //
 // INTERNAL header file for use by C++ code in this package.
 
-#ifndef JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
-#define JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
+#ifndef BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
+#define BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 
 #include <jni.h>
 
@@ -70,4 +70,4 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size);
 
-#endif  // JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
+#endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

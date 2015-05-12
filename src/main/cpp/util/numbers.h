@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_NUMBERS_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_NUMBERS_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
 
 #include <string>
 
@@ -26,4 +26,4 @@ int32_t strto32(const char *str, char **endptr, int base);
 
 }  // namespace blaze_util
 
-#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_NUMBERS_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_

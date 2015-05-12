@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_ERRORS_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_ERRORS_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
 
 #include "src/main/cpp/util/port.h"
 
@@ -29,4 +29,4 @@ void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
 
 }  // namespace blaze_util
 
-#endif   // DEVTOOLS_BLAZE_MAIN_UTIL_ERRORS_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
