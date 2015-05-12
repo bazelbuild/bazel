@@ -258,6 +258,13 @@ final class IntermediateArtifacts {
   }
 
   /**
+   * Breakpad debug symbol representation for a specific architecture.
+   */
+  public Artifact breakpadSym(String arch) {
+    return appendExtension(String.format("_%s.breakpad", arch));
+  }
+
+  /**
    * Shell script that launches the binary.
    */
   public Artifact runnerScript() {

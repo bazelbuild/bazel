@@ -175,7 +175,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
-    return new ObjcCommon.Builder(ruleContext)
+    ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext)
         .setCompilationAttributes(new CompilationAttributes(ruleContext))
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .setCompilationArtifacts(compilationArtifacts)
@@ -188,7 +188,12 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
         .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
-        .setLinkedBinary(intermediateArtifacts.singleArchitectureBinary())
-        .build();
+        .setLinkedBinary(intermediateArtifacts.singleArchitectureBinary());
+
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
+      builder.setBreakpadFile(intermediateArtifacts.breakpadSym());
+    }
+
+    return builder.build();
   }
 }

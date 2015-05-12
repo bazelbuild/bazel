@@ -275,11 +275,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    if (generateDebugSymbols && !iosMultiCpus.isEmpty()) {
-      reporter.handle(Event.error(
-          "--objc_generate_debug_symbols is not supported when --ios_multi_cpus is set"));
-    }
-
     // TODO(bazel-team): Remove this constraint once getBundlingPlatform can return multiple values.
     Platform platform = null;
     for (String architecture : iosMultiCpus) {

@@ -164,6 +164,12 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> DEBUG_SYMBOLS = new Key<>(STABLE_ORDER);
 
   /**
+   * Generated breakpad file containing debug information used by the breakpad crash reporting
+   * system.
+   */
+  public static final Key<Artifact> BREAKPAD_FILE = new Key<>(STABLE_ORDER);
+
+  /**
    * Artifacts for storyboard sources.
    */
   public static final Key<Artifact> STORYBOARD = new Key<>(STABLE_ORDER);

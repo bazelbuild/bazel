@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEV
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -195,6 +198,7 @@ public final class ReleaseBundlingSupport {
     bundleSupport.registerActions(objcProvider);
 
     registerCombineArchitecturesAction();
+    registerTransformAndCopyBreakpadFilesAction();
 
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(IPA);
@@ -303,6 +307,10 @@ public final class ReleaseBundlingSupport {
   ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
     NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(objcProvider.get(ObjcProvider.DEBUG_SYMBOLS));
+
+    for (Artifact breakpadFile : getBreakpadFiles().values()) {
+      filesToBuild.add(breakpadFile);
+    }
 
     if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES
         && ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
@@ -537,6 +545,59 @@ public final class ReleaseBundlingSupport {
         .build(ruleContext));
   }
 
+  /**
+   * Registers the actions that transform and copy the breakpad files from the CPU-specific binaries
+   * that are part of this application. There are two steps involved: 1) The breakpad files have to
+   * be renamed to include their corresponding CPU architecture as a suffix. 2) The first line of
+   * the breakpad file has to be rewritten, as it has to include the name of the application instead
+   * of the name of the binary artifact.
+   *
+   * <p>Example:<br>
+   * The ios_application "PrenotCalculator" is specified to use "PrenotCalculatorBinary" as its
+   * binary. Assuming that the application is built for armv7 and arm64 CPUs, in the build process
+   * two binaries with a corresponding breakpad file each will be built:
+   *
+   * <pre>blaze-out/xyz-crosstool-ios-arm64/.../PrenotCalculatorBinary_bin
+   * blaze-out/xyz-crosstool-ios-arm64/.../PrenotCalculatorBinary.breakpad
+   * blaze-out/xyz-crosstool-ios-armv7/.../PrenotCalculatorBinary_bin
+   * blaze-out/xyz-crosstool-ios-armv7/.../PrenotCalculatorBinary.breakpad</pre>
+   *
+   * <p>The first line of the breakpad files will look like this:
+   * <pre>MODULE mac arm64 8A7A2DDD28E83E27B339E63631ADBEF30 PrenotCalculatorBinary_bin</pre>
+   *
+   * <p>For our application, we have to transform & copy these breakpad files like this:
+   * <pre>$ head -n1 blaze-bin/.../PrenotCalculator_arm64.breakpad
+   * MODULE mac arm64 8A7A2DDD28E83E27B339E63631ADBEF30 PrenotCalculator</pre>
+   */
+  private void registerTransformAndCopyBreakpadFilesAction() {
+    for (Entry<Artifact, Artifact> breakpadFiles : getBreakpadFiles().entrySet()) {
+      ruleContext.registerAction(
+          new SpawnAction.Builder().setMnemonic("CopyBreakpadFile")
+              .setShellCommand(String.format(
+                  // This sed command replaces the last word of the first line with the application
+                  // name.
+                  "sed -r \"1 s/^(MODULE \\w* \\w* \\w*).*$/\\1 %s/\" < %s > %s",
+                  ruleContext.getLabel().getName(), breakpadFiles.getKey().getExecPathString(),
+                  breakpadFiles.getValue().getExecPathString()))
+              .addInput(breakpadFiles.getKey())
+              .addOutput(breakpadFiles.getValue())
+              .build(ruleContext));
+    }
+  }
+
+  /**
+   * Returns a map of input breakpad artifacts from the CPU-specific binaries built for this
+   * ios_application to the new output breakpad artifacts.
+   */
+  private ImmutableMap<Artifact, Artifact> getBreakpadFiles() {
+    ImmutableMap.Builder<Artifact, Artifact> results = ImmutableMap.builder();
+    for (Entry<String, Artifact> breakpadFile : attributes.cpuSpecificBreakpadFiles().entrySet()) {
+      Artifact destBreakpad = intermediateArtifacts.breakpadSym(breakpadFile.getKey());
+      results.put(breakpadFile.getValue(), destBreakpad);
+    }
+    return results.build();
+  }
+
   private void registerExtractTeamPrefixAction(Artifact teamPrefixFile) {
     ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
         .setMnemonic("ExtractIosTeamPrefix")
@@ -722,6 +783,26 @@ public final class ReleaseBundlingSupport {
 
     String bundleId() {
       return checkNotNull(stringAttribute("bundle_id"));
+    }
+
+    ImmutableMap<String, Artifact> cpuSpecificBreakpadFiles() {
+      ImmutableMap.Builder<String, Artifact> results = ImmutableMap.builder();
+      if (ruleContext.attributes().has("binary", Type.LABEL)) {
+        for (TransitiveInfoCollection prerequisite
+            : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK)) {
+          ObjcProvider prerequisiteProvider =  prerequisite.getProvider(ObjcProvider.class);
+          if (prerequisiteProvider != null) {
+            Artifact sourceBreakpad = Iterables.getOnlyElement(
+                prerequisiteProvider.get(ObjcProvider.BREAKPAD_FILE), null);
+            if (sourceBreakpad != null) {
+              String cpu =
+                  prerequisite.getConfiguration().getFragment(ObjcConfiguration.class).getIosCpu();
+              results.put(cpu, sourceBreakpad);
+            }
+          }
+        }
+      }
+      return results.build();
     }
 
     @Nullable
