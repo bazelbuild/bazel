@@ -604,18 +604,10 @@ public final class ReleaseBundlingSupport {
         .setExecutable(new PathFragment("/bin/bash"))
         .addArgument("-c")
         .addArgument("set -e &&"
-            + " PLIST=$(" + extractPlistCommand(attributes.provisioningProfile()) + ") && "
-
-            // We think PlistBuddy uses PRead internally to seek through the file. Or possibly
-            // mmaps the file. Or something similar.
-            //
-            // Pipe FDs do not support PRead or mmap, though.
-            //
-            // <<< however does something magical like write to a temporary file or something
-            // like that internally, which means that this Just Works.
-            + " PREFIX=$(/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0'"
-            + " /dev/stdin <<< \"${PLIST}\") && "
-            + " echo ${PREFIX} > " + teamPrefixFile.getExecPathString())
+            + "PLIST=$(mktemp -t teamprefix.plist) && trap \"rm ${PLIST}\" EXIT && "
+            + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
+            + "/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0' ${PLIST} > "
+            + teamPrefixFile.getExecPathString())
         .addInput(attributes.provisioningProfile())
         .addOutput(teamPrefixFile)
         .build(ruleContext));
@@ -634,19 +626,10 @@ public final class ReleaseBundlingSupport {
         .setExecutable(new PathFragment("/bin/bash"))
         .addArgument("-c")
         .addArgument("set -e && "
-            + "PLIST=$("
-            + extractPlistCommand(attributes.provisioningProfile()) + ") && "
-
-            // We think PlistBuddy uses PRead internally to seek through the file. Or possibly
-            // mmaps the file. Or something similar.
-            //
-            // Pipe FDs do not support PRead or mmap, though.
-            //
-            // <<< however does something magical like write to a temporary file or something
-            // like that internally, which means that this Just Works.
-
-            + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' /dev/stdin <<< \"${PLIST}\" "
-            + "> " + entitlements.getExecPathString())
+            + "PLIST=$(mktemp -t entitlements.plist) && trap \"rm ${PLIST}\" EXIT && "
+            + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
+            + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' ${PLIST} > "
+            + entitlements.getExecPathString())
         .addInput(attributes.provisioningProfile())
         .addOutput(entitlements)
         .build(ruleContext));
@@ -687,8 +670,9 @@ public final class ReleaseBundlingSupport {
   private String codesignCommand(
       Artifact provisioningProfile, Artifact entitlements, String appDir) {
     String fingerprintCommand =
-        "/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' /dev/stdin <<< "
-            + "$(" + extractPlistCommand(provisioningProfile) + ") | "
+        "PLIST=$(mktemp -t cert.plist) && trap \"rm ${PLIST}\" EXIT && "
+            + extractPlistCommand(provisioningProfile) + " > ${PLIST} && "
+            + "/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' ${PLIST} | "
             + "openssl x509 -inform DER -noout -fingerprint | "
             + "cut -d= -f2 | sed -e 's#:##g'";
     return String.format(
