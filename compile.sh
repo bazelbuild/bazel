@@ -484,7 +484,11 @@ cp -f output/actoolzip/precomp_actoolzip_deploy.jar output/ibtoolzip/precomp_ibt
 
 # Create a bazelrc file with the base_workspace directory in the package path.
 package_path="build --package_path %workspace%:$base_workspace"
-if [ ! -f $HOME/.bazelrc ]; then
+if [ -z "${HOME-}" ]; then
+  warning="No \$HOME variable set, cannot write .bazelrc file."
+  warning="$warning Consider adding $base_workspace to your package path"
+  log $warning
+elif [ ! -f $HOME/.bazelrc ]; then
   log "Creating a .bazelrc pointing to $base_workspace"
   cat > $HOME/.bazelrc <<EOF
 $package_path
