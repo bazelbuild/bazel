@@ -1484,41 +1484,6 @@ static void AcquireLock() {
   write(globals->lockfd, msg.data(), msg.size());
 }
 
-// Returns the mountpoint containing the specified directory, which
-// must exist.  Fails if any parent path could not be statted or
-// canonicalised.
-static string GetMountpoint(string dir) {
-  dev_t initial_device = -1;
-  ino_t prev_inode = -1;
-  string prev_dir = dir;
-  for (;;) {
-    struct stat buf;
-    if (stat(dir.c_str(), &buf) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "stat('%s') failed", dir.c_str());
-    } else if (initial_device == -1 && prev_inode == -1) {  // first time
-      initial_device = buf.st_dev;
-    } else if (initial_device != buf.st_dev) {  // we crossed file systems
-      char *resolved_path = realpath(prev_dir.c_str(), NULL);
-      if (resolved_path == NULL) {
-        pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-             "realpath('%s') failed", prev_dir.c_str());
-      }
-      dir = resolved_path;
-      free(resolved_path);
-      return dir;
-    } else if (prev_inode == buf.st_ino) {  // ".." had no effect => root.
-      return "/";
-    }
-
-    prev_inode = buf.st_ino;
-    prev_dir = dir;
-    dir +=  "/..";
-  }
-
-  return "/";
-}
-
 static void SetupStreams() {
   // Line-buffer stderr, since we always flush at the end of a server
   // message.  This saves lots of single-char calls to write(2).
