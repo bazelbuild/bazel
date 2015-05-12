@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -92,6 +93,11 @@ public final class SelectorList {
     } else if (value instanceof SelectorValue) {
       builder.add(value);
       return ((SelectorValue) value).getType();
+    } else if (value instanceof GlobList) {
+      builder.add(((GlobList<?>) value).delegate());
+      // TODO(bazel-team): match on the List interface, not the actual implementation. For now,
+      // we verify this is the right class through test coverage.
+      return ArrayList.class;
     } else {
       builder.add(value);
       return value.getClass();
