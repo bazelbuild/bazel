@@ -153,12 +153,14 @@ public class ObjcRuleClasses {
     builder.addAll(currentSource.asSet());
     boolean hasProtos = currentSource.isPresent()
         && currentSource.get().getSourceType() == J2ObjcSource.SourceType.PROTO;
+    ImmutableSet.Builder<String> entryClasses = ImmutableSet.builder();
 
     if (ruleContext.attributes().has("deps", Type.LABEL_LIST)) {
       for (J2ObjcSrcsProvider provider :
           ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcSrcsProvider.class)) {
         builder.addTransitive(provider.getSrcs());
         hasProtos |= provider.hasProtos();
+        entryClasses.addAll(provider.getEntryClasses());
       }
     }
 
@@ -167,10 +169,35 @@ public class ObjcRuleClasses {
           ruleContext.getPrerequisites("exports", Mode.TARGET, J2ObjcSrcsProvider.class)) {
         builder.addTransitive(provider.getSrcs());
         hasProtos |= provider.hasProtos();
+        entryClasses.addAll(provider.getEntryClasses());
       }
     }
 
-    return new J2ObjcSrcsProvider(builder.build(), hasProtos);
+    if (ruleContext.attributes().has("entry_classes", Type.STRING_LIST)) {
+      entryClasses.addAll(ruleContext.attributes().get("entry_classes", Type.STRING_LIST));
+    }
+
+    return new J2ObjcSrcsProvider(builder.build(), entryClasses.build(), hasProtos);
+  }
+
+
+  /**
+   * Returns a {@link J2ObjcMappingFileProvider} containing J2ObjC mapping files from rules
+   * that can be reached transitively through the "deps" attribute.
+   *
+   * @param ruleContext the rule context of the current rule
+   * @return a {@link J2ObjcMappingFileProvider} containing J2ObjC mapping files information from
+   *     the transitive closure.
+   */
+  public static J2ObjcMappingFileProvider j2ObjcMappingFileProvider(RuleContext ruleContext) {
+    J2ObjcMappingFileProvider.Builder builder = new J2ObjcMappingFileProvider.Builder();
+    Iterable<J2ObjcMappingFileProvider> providers =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class);
+    for (J2ObjcMappingFileProvider provider : providers) {
+      builder.addTransitive(provider);
+    }
+
+    return builder.build();
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
@@ -669,6 +696,12 @@ public class ObjcRuleClasses {
               return configuration.getFragment(ObjcConfiguration.class).getDumpSymsLabel();
             }
           }))
+          .add(attr("$j2objc_dead_code_pruner", LABEL)
+              .allowedFileTypes(FileType.of(".py"))
+              .cfg(HOST)
+              .exec()
+              .singleArtifact()
+              .value(env.getLabel("//tools/objc:j2objc_dead_code_pruner")))
         .build();
     }
     @Override

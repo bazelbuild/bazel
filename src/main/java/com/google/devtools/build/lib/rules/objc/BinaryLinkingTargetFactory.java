@@ -145,7 +145,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         Optional.of(xcodeProvider),
         Optional.of(objcProvider),
         xcTestAppProvider,
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
     for (RunfilesSupport runfilesSupport : maybeRunfilesSupport.asSet()) {
       target.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
     }

@@ -108,7 +108,8 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
         Optional.of(xcodeProviderBuilder.build()),
         exposedObjcProvider,
         Optional.of(releaseBundlingSupport.xcTestAppProvider()),
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
     configureTarget(target, ruleContext, releaseBundlingSupport);
     return target.build();
   }

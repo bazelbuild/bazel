@@ -69,7 +69,8 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         Optional.of(xcodeProviderBuilder.build()),
         Optional.of(nestedBundleProvider),
         Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
   }
 
   private OptionsProvider optionsProvider(RuleContext ruleContext) {

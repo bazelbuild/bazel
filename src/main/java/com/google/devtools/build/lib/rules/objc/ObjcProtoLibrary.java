@@ -215,7 +215,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         Optional.of(xcodeProvider),
         Optional.of(common.getObjcProvider()),
         Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
   }
 
   private NestedSet<Artifact> maybeGetProtoSources(RuleContext ruleContext) {

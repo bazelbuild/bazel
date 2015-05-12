@@ -111,7 +111,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         Optional.of(xcodeProviderBuilder.build()),
         Optional.of(common.getObjcProvider()),
         Optional.<XcTestAppProvider>absent(),
-        Optional.of(ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext)));
+        Optional.of(ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext)),
+        Optional.of(ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext)));
   }
 
   private OptionsProvider optionsProvider(RuleContext ruleContext) {

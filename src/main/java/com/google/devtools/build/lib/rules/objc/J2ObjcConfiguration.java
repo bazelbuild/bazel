@@ -20,7 +20,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.Collections;
 import java.util.Set;
@@ -56,8 +57,7 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions) {
       return new J2ObjcConfiguration(buildOptions.get(J2ObjcCommandLineOptions.class));
     }
 
@@ -67,23 +67,15 @@ public class J2ObjcConfiguration extends Fragment {
     }
   }
 
-  private Iterable<String> translationFlags;
-  private String cacheKey;
+  private final Set<String> translationFlags;
+  private final boolean removeDeadCode;
 
-  J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) throws InvalidConfigurationException {
-    Set<String> translationFlags = ImmutableSet.<String>builder()
+  J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
+    this.removeDeadCode = j2ObjcOptions.removeDeadCode;
+    this.translationFlags = ImmutableSet.<String>builder()
         .addAll(j2ObjcOptions.translationFlags)
         .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
         .build();
-
-    if (Collections.disjoint(translationFlags, J2OBJC_BLACKLISTED_TRANSLATION_FLAGS)) {
-      this.translationFlags = translationFlags;
-      this.cacheKey = Joiner.on(" ").join(this.translationFlags);
-    } else {
-      throw new InvalidConfigurationException(String.format(INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE,
-          Joiner.on(",").join(translationFlags),
-          Joiner.on(",").join(J2OBJC_BLACKLISTED_TRANSLATION_FLAGS)));
-    }
   }
 
   /**
@@ -96,6 +88,16 @@ public class J2ObjcConfiguration extends Fragment {
     return translationFlags;
   }
 
+  /**
+   * Returns whether to perform J2ObjC dead code removal. If true, the list of entry classes will be
+   * collected transitively throuh "entry_classes" attribute on j2objc_library and used as entry
+   * points to perform dead code analysis. Unused classes will then be removed from the final ObjC
+   * app bundle.
+   */
+  public boolean removeDeadCode() {
+    return removeDeadCode;
+  }
+
   @Override
   public String getName() {
     return "J2ObjC";
@@ -103,6 +105,16 @@ public class J2ObjcConfiguration extends Fragment {
 
   @Override
   public String cacheKey() {
-    return cacheKey;
+    return Joiner.on(" ").join(translationFlags) + "-" + String.valueOf(removeDeadCode);
+  }
+
+  @Override
+  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
+    if (!Collections.disjoint(translationFlags, J2OBJC_BLACKLISTED_TRANSLATION_FLAGS)) {
+      String errorMsg = String.format(INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE,
+          Joiner.on(",").join(translationFlags),
+          Joiner.on(",").join(J2OBJC_BLACKLISTED_TRANSLATION_FLAGS));
+      reporter.handle(Event.error(errorMsg));
+    }
   }
 }

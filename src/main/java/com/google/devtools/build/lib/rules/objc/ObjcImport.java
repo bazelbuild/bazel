@@ -66,6 +66,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         Optional.of(xcodeProviderBuilder.build()),
         Optional.of(common.getObjcProvider()),
         Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
   }
 }

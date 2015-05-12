@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -410,11 +412,28 @@ final class CompilationSupport {
    */
   CompilationSupport registerJ2ObjcCompileAndArchiveActions(
       OptionsProvider optionsProvider, ObjcProvider objcProvider) {
-    for (J2ObjcSource j2ObjcSource : ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext).getSrcs()) {
+    J2ObjcSrcsProvider provider = ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext);
+    Iterable<J2ObjcSource> j2ObjcSources = provider.getSrcs();
+    J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
+
+    // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
+    // users have specified entry classes.
+    boolean stripJ2ObjcDeadCode = j2objcConfiguration.removeDeadCode()
+        && !provider.getEntryClasses().isEmpty();
+
+    if (stripJ2ObjcDeadCode) {
+      registerJ2ObjcDeadCodeRemovalActions(j2ObjcSources, provider.getEntryClasses());
+    }
+
+    for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
+      J2ObjcSource sourceToCompile =
+          j2ObjcSource.getSourceType() == SourceType.JAVA && stripJ2ObjcDeadCode
+              ? j2ObjcSource.toPrunedSource(ruleContext)
+              : j2ObjcSource;
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, j2ObjcSource);
+          ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, sourceToCompile);
       CompilationArtifacts compilationArtifact = new CompilationArtifacts.Builder()
-          .addNonArcSrcs(j2ObjcSource.getObjcSrcs())
+          .addNonArcSrcs(sourceToCompile.getObjcSrcs())
           .setIntermediateArtifacts(intermediateArtifacts)
           .setPchFile(Optional.<Artifact>absent())
           .build();
@@ -423,6 +442,40 @@ final class CompilationSupport {
     }
 
     return this;
+  }
+
+  private void registerJ2ObjcDeadCodeRemovalActions(Iterable<J2ObjcSource> j2ObjcSources,
+      Iterable<String> entryClasses) {
+    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
+    J2ObjcMappingFileProvider provider = ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext);
+    NestedSet<Artifact> j2ObjcDependencyMappingFiles = provider.getDependencyMappingFiles();
+    NestedSet<Artifact> j2ObjcHeaderMappingFiles = provider.getHeaderMappingFiles();
+
+    for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
+      if (j2ObjcSource.getSourceType() == SourceType.JAVA) {
+        Iterable<Artifact> sourceArtifacts = j2ObjcSource.getObjcSrcs();
+        Iterable<Artifact> prunedSourceArtifacts =
+            j2ObjcSource.toPrunedSource(ruleContext).getObjcSrcs();
+        PathFragment objcFilePath = j2ObjcSource.getObjcFilePath();
+        ruleContext.registerAction(new SpawnAction.Builder()
+            .setMnemonic("DummyPruner")
+            .setExecutable(pruner)
+            .addInput(pruner)
+            .addInputs(sourceArtifacts)
+            .addTransitiveInputs(j2ObjcDependencyMappingFiles)
+            .addTransitiveInputs(j2ObjcHeaderMappingFiles)
+            .setCommandLine(CustomCommandLine.builder()
+                .addJoinExecPaths("--input_files", ",", sourceArtifacts)
+                .addJoinExecPaths("--output_files", ",", prunedSourceArtifacts)
+                .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+                .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+                .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
+                .add("--objc_file_path").add(objcFilePath.getPathString())
+                .build())
+            .addOutputs(prunedSourceArtifacts)
+            .build(ruleContext));
+      }
+    }
   }
 
   /**

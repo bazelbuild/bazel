@@ -35,6 +35,14 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       )
   public List<String> translationFlags;
 
+  @Option(name = "j2objc_dead_code_removal",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
+          + "bundle."
+      )
+  public boolean removeDeadCode;
+
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }

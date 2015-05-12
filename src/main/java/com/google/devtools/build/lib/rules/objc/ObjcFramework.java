@@ -55,6 +55,7 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
         Optional.<XcodeProvider>absent(),
         Optional.of(common.getObjcProvider()),
         Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent());
+        Optional.<J2ObjcSrcsProvider>absent(),
+        Optional.<J2ObjcMappingFileProvider>absent());
   }
 }

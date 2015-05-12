@@ -589,7 +589,8 @@ public final class ObjcCommon {
   public RuleConfiguredTargetBuilder configuredTargetBuilder(NestedSet<Artifact> filesToBuild,
       Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
       Optional<XcTestAppProvider> maybeXcTestAppProvider,
-      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider) {
+      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider,
+      Optional<J2ObjcMappingFileProvider> maybeJ2ObjcMappingFileProvider) {
     NestedSet<Artifact> allFilesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(filesToBuild)
         .build();
@@ -615,6 +616,10 @@ public final class ObjcCommon {
     for (J2ObjcSrcsProvider j2ObjcSrcsProvider : maybeJ2ObjcSrcsProvider.asSet()) {
       target.addProvider(J2ObjcSrcsProvider.class, j2ObjcSrcsProvider);
     }
+    for (J2ObjcMappingFileProvider j2ObjcMappingFileProvider
+        : maybeJ2ObjcMappingFileProvider.asSet()) {
+      target.addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider);
+    }
     return target;
   }
 
@@ -632,8 +637,9 @@ public final class ObjcCommon {
   public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
       Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
       Optional<XcTestAppProvider> maybeXcTestAppProvider,
-      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider) {
+      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider,
+      Optional<J2ObjcMappingFileProvider> maybeJ2ObjcMappingFileProvider) {
     return configuredTargetBuilder(filesToBuild, maybeTargetProvider, maybeExportedProvider,
-        maybeXcTestAppProvider, maybeJ2ObjcSrcsProvider).build();
+        maybeXcTestAppProvider, maybeJ2ObjcSrcsProvider, maybeJ2ObjcMappingFileProvider).build();
   }
 }

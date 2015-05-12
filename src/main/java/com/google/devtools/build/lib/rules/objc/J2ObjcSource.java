@@ -15,9 +15,13 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -64,6 +68,41 @@ public class J2ObjcSource {
     this.objcHdrs = objcHdrs;
     this.objcFilePath = objcFilePath;
     this.sourceType = sourceType;
+  }
+
+  /**
+   * Returns a corresponding {@link J2ObjcSource} with source artifacts replaced by the outputs of
+   * the J2objC dead code removal script, for use after that action has processed the originals.
+   *
+   * <p>The script in question builds a dependency graph with entry classes specified
+   * transitively on j2objc_library rules as roots. Translated files from this (original)
+   * {@link J2ObjcSource} which are reachable in the graph from the roots will be copied over to the
+   * source file paths in the returned pruned {@link J2ObjcSource} with full original contents.
+   * Unreachable files will not be copied over and the artifacts pointed to by the returned pruned 
+   * {@link J2ObjcSource} will only contain empty files.
+   *
+   * @param ruleContext the {@link RuleContext} of the current rule
+   */
+  public J2ObjcSource toPrunedSource(RuleContext ruleContext) {
+    ImmutableList.Builder<Artifact> prunedSourceArtifacts = ImmutableList.builder();
+
+    for (Artifact sourceArtifact : getObjcSrcs()) {
+      PathFragment scopedPath = AnalysisUtils.getUniqueDirectory(
+          ruleContext.getRule().getLabel(), new PathFragment("_j2objc_pruned"));
+      PathFragment prunedSourceArtifactPath = FileSystemUtils.appendWithoutExtension(
+          scopedPath.getRelative(sourceArtifact.getRootRelativePath()), "_pruned");
+
+      Artifact prunedArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+          prunedSourceArtifactPath, ruleContext.getBinOrGenfilesDirectory());
+      prunedSourceArtifacts.add(prunedArtifact);
+    }
+
+    return new J2ObjcSource(
+        getTargetLabel(),
+        prunedSourceArtifacts.build(),
+        getObjcHdrs(),
+        getObjcFilePath(),
+        getSourceType());
   }
 
   /**
