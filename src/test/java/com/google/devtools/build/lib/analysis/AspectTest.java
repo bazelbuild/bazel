@@ -124,4 +124,17 @@ public class AspectTest extends AnalysisTestCase {
     }
     assertContainsEvent("Aspect error");
   }
+
+  @Test
+  public void sameTargetInDifferentAttributes() throws Exception {
+    setRules(new TestAspects.BaseRule(), new TestAspects.AspectRequiringRule(),
+        new TestAspects.SimpleRule());
+    pkg("a",
+        "aspect(name='a', foo=[':b'], bar=[':b'])",
+        "aspect(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+        .containsExactly("aspect //a:b", "rule //a:a");
+  }
 }

@@ -269,6 +269,8 @@ public class TestAspects {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
               .aspect(SimpleAspect.class))
+          .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(SimpleAspect.class))
           .build();
 
     }

@@ -275,6 +275,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     for (Dependency dep : deps) {
       SkyKey depKey = TO_KEYS.apply(dep);
+      // If the same target was declared in different attributes of rule, we should not process it
+      // twice.
+      if (result.containsKey(depKey)) {
+        continue;
+      }
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (Class<? extends ConfiguredAspectFactory> depAspect : dep.getAspects()) {
         if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect)) {
