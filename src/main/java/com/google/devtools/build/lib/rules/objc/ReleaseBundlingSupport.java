@@ -45,15 +45,12 @@ import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -96,7 +93,6 @@ public final class ReleaseBundlingSupport {
   private final Bundling bundling;
   private final ObjcProvider objcProvider;
   private final LinkedBinary linkedBinary;
-  private final ImmutableSet<TargetDeviceFamily> families;
   private final IntermediateArtifacts intermediateArtifacts;
 
   /**
@@ -139,11 +135,10 @@ public final class ReleaseBundlingSupport {
     this.attributes = new Attributes(ruleContext);
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
-    this.families = ImmutableSet.copyOf(attributes.families());
     this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
     bundling = bundling(
         ruleContext, objcProvider, optionsProvider, bundleDirFormat, bundleMinimumOsVersion);
-    bundleSupport = new BundleSupport(ruleContext, families, bundling, extraActoolArgs());
+    bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
   }
 
   /**
@@ -168,7 +163,7 @@ public final class ReleaseBundlingSupport {
       }
     }
 
-    if (families.isEmpty()) {
+    if (bundleSupport.targetDeviceFamilies().isEmpty()) {
       ruleContext.attributeError("families", INVALID_FAMILIES_ERROR);
     }
 
@@ -215,7 +210,7 @@ public final class ReleaseBundlingSupport {
     registerEmbedLabelPlistAction();
 
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
-        bundling, maybeSignedIpa, objcConfiguration, families);
+        bundling, maybeSignedIpa, objcConfiguration, bundleSupport.targetDeviceFamilies());
     registerBundleMergeActions(
         maybeSignedIpa, bundling.getBundleContentArtifacts(), bundleMergeControlBytes);
 
@@ -478,6 +473,7 @@ public final class ReleaseBundlingSupport {
     }
 
     // Convert names to a sequence containing "1" and/or "2" for iPhone and iPad, respectively.
+    ImmutableSet<TargetDeviceFamily> families = bundleSupport.targetDeviceFamilies();
     Iterable<Integer> familyIndexes =
         families.isEmpty() ? ImmutableList.<Integer>of() : UI_DEVICE_FAMILY_VALUES.get(families);
     buildSettings.add(XcodeprojBuildSetting.newBuilder()
@@ -717,20 +713,6 @@ public final class ReleaseBundlingSupport {
         return explicitProvisioningProfile;
       }
       return ruleContext.getPrerequisiteArtifact(":default_provisioning_profile", Mode.TARGET);
-    }
-
-    /**
-     * Returns the value of the {@code families} attribute in a form that is more useful than a list
-     * of strings. Returns an empty set for any invalid {@code families} attribute value, including
-     * an empty list.
-     */
-    Set<TargetDeviceFamily> families() {
-      List<String> rawFamilies = ruleContext.attributes().get("families", Type.STRING_LIST);
-      try {
-        return TargetDeviceFamily.fromNamesInRule(rawFamilies);
-      } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {
-        return ImmutableSet.of();
-      }
     }
 
     @Nullable

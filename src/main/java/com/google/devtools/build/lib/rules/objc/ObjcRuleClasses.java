@@ -849,6 +849,9 @@ public class ObjcRuleClasses {
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("families", STRING_LIST)
              .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
