@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -219,6 +220,7 @@ public class SkylarkRuleClassFunctions {
           FuncallExpression ast, Environment funcallEnv)
            throws EvalException, ConversionException {
 
+        Preconditions.checkState(funcallEnv instanceof SkylarkEnvironment);
         RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
 
         // We'll set the name later, pass the empty string for now.
@@ -241,11 +243,6 @@ public class SkylarkRuleClassFunctions {
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
               .build());
           builder.setOutputsDefaultExecutable();
-        }
-
-        if (!(funcallEnv instanceof SkylarkEnvironment)) {
-          System.out.println("rule called from non-Skylark environment!");
-          // throw new EvaluationException("rule not accessible at the toplevel");
         }
 
         if (implicitOutputs != Environment.NONE) {
