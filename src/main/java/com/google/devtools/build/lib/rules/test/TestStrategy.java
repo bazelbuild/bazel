@@ -296,16 +296,15 @@ public abstract class TestStrategy implements TestActionContext {
       InterruptedException {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
 
-    // --nobuild_runfile_links disables runfiles generation only for C++ rules.
-    // In that case, getManifest returns the .runfiles_manifest (input) file,
-    // not the MANIFEST output file of the build-runfiles action. So the
-    // extension ".runfiles_manifest" indicates no runfiles tree.
-    if (!execSettings.getManifest().equals(execSettings.getInputManifest())) {
-      return execSettings.getManifest().getPath().getParentDirectory();
+    // If the symlink farm is already created then return the existing directory. If not we
+    // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
+    // as a flag to the build.
+    if (execSettings.getRunfilesSymlinksCreated()) {
+      return execSettings.getRunfilesDir();
     }
 
-    // We might need to build runfiles tree now, since it was not created yet
-    // local testing is needed.
+    // TODO(bazel-team): Should we be using TestTargetExecutionSettings#getRunfilesDir() here over
+    // generating the directory ourselves?
     Path program = execSettings.getExecutable().getPath();
     Path runfilesDir = program.getParentDirectory().getChild(program.getBaseName() + ".runfiles");
 
@@ -314,7 +313,7 @@ public abstract class TestStrategy implements TestActionContext {
     // trying to generate same runfiles tree in case of --runs_per_test > 1 or
     // local test sharding.
     long startTime = Profiler.nanoTimeMaybe();
-    synchronized (execSettings.getManifest()) {
+    synchronized (execSettings.getInputManifest()) {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction);
       updateLocalRunfilesDirectory(testAction, runfilesDir, actionExecutionContext, binTools);
     }
@@ -335,8 +334,10 @@ public abstract class TestStrategy implements TestActionContext {
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     try {
+      // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
+      // implying the symlinks exist and are already up to date.
       if (Arrays.equals(runfilesDir.getRelative("MANIFEST").getMD5Digest(),
-          execSettings.getManifest().getPath().getMD5Digest())) {
+          execSettings.getInputManifest().getPath().getMD5Digest())) {
         return;
       }
     } catch (IOException e1) {
@@ -346,7 +347,7 @@ public abstract class TestStrategy implements TestActionContext {
     executor.getEventHandler().handle(Event.progress(
         "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
 
-    new SymlinkTreeHelper(execSettings.getManifest().getExecPath(),
+    new SymlinkTreeHelper(execSettings.getInputManifest().getExecPath(),
         runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */ false)
         .createSymlinks(testAction, actionExecutionContext, binTools);
 

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.List;
 
@@ -41,17 +42,18 @@ public final class TestTargetExecutionSettings {
   private final RunUnder runUnder;
   private final Artifact runUnderExecutable;
   private final Artifact executable;
-  private final Artifact runfilesManifest;
+  private final boolean runfilesSymlinksCreated;
+  private final Path runfilesDir;
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
 
-  TestTargetExecutionSettings(RuleContext ruleContext, RunfilesSupport runfiles,
+  TestTargetExecutionSettings(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       Artifact executable, Artifact instrumentedFileManifest, int shards) {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
 
-    List<String> targetArgs = runfiles.getArgs();
+    List<String> targetArgs = runfilesSupport.getArgs();
     testArguments = targetArgs.isEmpty()
       ? config.getTestArguments()
       : ImmutableList.copyOf(Iterables.concat(targetArgs, config.getTestArguments()));
@@ -62,8 +64,9 @@ public final class TestTargetExecutionSettings {
 
     this.testFilter = config.getTestFilter();
     this.executable = executable;
-    this.runfilesManifest = runfiles.getRunfilesManifest();
-    this.runfilesInputManifest = runfiles.getRunfilesInputManifest();
+    this.runfilesSymlinksCreated = runfilesSupport.getCreateSymlinks();
+    this.runfilesDir = runfilesSupport.getRunfilesDirectory();
+    this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;
   }
 
@@ -99,17 +102,14 @@ public final class TestTargetExecutionSettings {
     return executable;
   }
 
-  /**
-   * Returns the runfiles manifest for this test.
-   *
-   * <p>This returns either the input manifest outside of the runfiles tree,
-   * if blaze is run with --nobuild_runfile_links or the manifest inside the
-   * runfiles tree, if blaze is run with --build_runfile_links.
-   *
-   * @see com.google.devtools.build.lib.analysis.RunfilesSupport#getRunfilesManifest()
-   */
-  public Artifact getManifest() {
-    return runfilesManifest;
+  /** @return whether or not the runfiles symlinks were created */
+  public boolean getRunfilesSymlinksCreated() {
+    return runfilesSymlinksCreated;
+  }
+
+  /** @return the directory of the runfiles */
+  public Path getRunfilesDir() {
+    return runfilesDir;
   }
 
   /**

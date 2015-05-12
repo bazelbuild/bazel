@@ -158,6 +158,11 @@ public class RunfilesSupport {
         executablePath.getBaseName() + RUNFILES_DIR_EXT);
   }
 
+  /** @return whether or not runfiles symlinks should be created */
+  public boolean getCreateSymlinks() {
+    return createSymlinks;
+  }
+
   public Runfiles getRunfiles() {
     return runfiles;
   }
