@@ -203,5 +203,5 @@ function assert_bazel_run() {
   assert_binary_run "./bazel-bin/$(echo "$1" | sed 's|^//||' | sed 's|:|/|')" "${2:-}"
 }
 
-setup_clean_workspace
 setup_bazelrc
+setup_clean_workspace
