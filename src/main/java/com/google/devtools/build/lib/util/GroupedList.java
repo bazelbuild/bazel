@@ -227,7 +227,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
       case 0:
         return;
       case 1:
-        elements.add(Iterables.getOnlyElement(item));
+        elements.add(Preconditions.checkNotNull(Iterables.getOnlyElement(item), elements));
         return;
       default:
         elements.add(ImmutableList.copyOf(item));
@@ -254,7 +254,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
      * goes in a group of its own.
      */
     public void add(E elt) {
-      Preconditions.checkState(elements.add(elt), "%s %s", elt, this);
+      Preconditions.checkState(elements.add(Preconditions.checkNotNull(elt)), "%s %s", elt, this);
       if (currentGroup == null) {
         groupedList.add(elt);
       } else {
