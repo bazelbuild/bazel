@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -131,6 +133,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   public Set<Label> checkForDuplicateLabels(Attribute attribute) {
     String attrName = attribute.getName();
     Type<?> attrType = attribute.getType();
+    ImmutableSet.Builder<Label> duplicates = ImmutableSet.builder();
 
     Type.SelectorList<?> selectorList = getSelectorList(attribute.getName(), attrType);
     if (selectorList == null || selectorList.getSelectors().size() == 1) {
@@ -140,22 +143,35 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       //     visitAttribute might be inefficient. But we have no choice but to iterate over all
       //     possible values (since we have to compute them), so we take the efficiency hit.
       //  3) "attr = select({...})". With just a single select, visitAttribute runs efficiently.
-      ImmutableSet.Builder<Label> duplicates = ImmutableSet.builder();
       for (Object value : visitAttribute(attrName, attrType)) {
         if (value != null) {
           duplicates.addAll(CollectionUtils.duplicatedElementsOf(
               ImmutableList.copyOf(attrType.getLabels(value))));
         }
       }
-      return duplicates.build();
     } else {
       // Multiple selects concatenated together. It's expensive to iterate over every possible
       // value, so instead collect all labels across all the selects and check for duplicates.
       // This is overly strict, since this counts duplicates across values. We can presumably
       // relax this if necessary, but doing so would incur the value iteration expense this
       // code path avoids.
-      return CollectionUtils.duplicatedElementsOf(getReachableLabels(attrName, false));
+      List<Label> combinedLabels = new LinkedList<>(); // Labels that appear across all selectors.
+      for (Type.Selector<?> selector : selectorList.getSelectors()) {
+        // Labels within a single selector. It's okay for there to be duplicates as long as
+        // they're in different selector paths (since only one path can actually get chosen).
+        Set<Label> selectorLabels = new LinkedHashSet<>();
+        for (Object selectorValue : selector.getEntries().values()) {
+          Collection<Label> labelsInSelectorValue = attrType.getLabels(selectorValue);
+          // Duplicates within a single path are not okay.
+          duplicates.addAll(CollectionUtils.duplicatedElementsOf(labelsInSelectorValue));
+          selectorLabels.addAll(labelsInSelectorValue);
+        }
+        combinedLabels.addAll(selectorLabels);
+      }
+      duplicates.addAll(CollectionUtils.duplicatedElementsOf(combinedLabels));
     }
+
+    return duplicates.build();
   }
 
   /**
