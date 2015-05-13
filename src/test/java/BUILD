@@ -425,6 +425,15 @@ java_test(
     ],
 )
 
+java_binary(
+    name = "skylarkshell",
+    srcs = ["com/google/devtools/build/lib/syntax/SkylarkShell.java"],
+    main_class = "com.google.devtools.build.lib.syntax.SkylarkShell",
+    deps = [
+        "//src/main/java:bazel-core",
+    ],
+)
+
 java_test(
     name = "syntax_test",
     srcs = glob([
