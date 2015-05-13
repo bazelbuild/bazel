@@ -66,7 +66,7 @@ public class SkylarkRuleImplementationFunctions {
    *         outputs = [output1, output2, ...],
    *         executable = executable,
    *         arguments = [argument1, argument2, ...],
-   *         mnemonic = 'mnemonic',
+   *         mnemonic = 'Mnemonic',
    *         command = 'command',
    *     )
    */
@@ -88,7 +88,8 @@ public class SkylarkRuleImplementationFunctions {
         @Param(name = "arguments", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]", doc = "command line arguments of the action"),
         @Param(name = "mnemonic", type = String.class, noneable = true,
-            defaultValue = "None", doc = "mnemonic"),
+            defaultValue = "None",
+            doc = "a one-word description of the action, e.g. CppCompile or GoLink"),
         @Param(name = "command", type = Object.class, // string or ListOf(string) or NoneType
             defaultValue = "None", doc = "shell command to execute"),
         @Param(name = "progress_message", type = String.class, noneable = true,
