@@ -48,6 +48,7 @@ cc_binary(
         ":blaze_util_os",
     ],
     copts = [
+        "-Wno-sign-compare",
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
     ],
