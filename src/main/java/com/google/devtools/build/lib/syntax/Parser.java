@@ -194,9 +194,7 @@ class Parser {
     List<Statement> statements = parser.parseFileInput();
     boolean hasSemanticalErrors = false;
     try {
-      for (Statement statement : statements) {
-        statement.validate(validationEnvironment);
-      }
+      validationEnvironment.validateAst(statements);
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been reported.
       if (!e.isDueToIncompleteAST()) {

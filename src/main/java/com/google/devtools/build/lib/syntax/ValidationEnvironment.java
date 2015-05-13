@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.Location;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
@@ -153,5 +154,24 @@ public class ValidationEnvironment {
   public void finishTemporarilyDisableReadonlyCheckBranch() {
     readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
     clonable = false;
+  }
+
+  /**
+   * Validates the AST and runs static checks.
+   */
+  public void validateAst(List<Statement> statements) throws EvalException {
+    // Add every function in the environment before validating. This is
+    // necessary because functions may call other functions defined
+    // later in the file.
+    for (Statement statement : statements) {
+      if (statement instanceof FunctionDefStatement) {
+        FunctionDefStatement fct = (FunctionDefStatement) statement;
+        declare(fct.getIdent().getName(), fct.getLocation());
+      }
+    }
+
+    for (Statement statement : statements) {
+      statement.validate(this);
+    }
   }
 }

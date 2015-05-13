@@ -664,6 +664,22 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testFunctionCallOrdering() throws Exception {
+    eval("def func(): return foo() * 2",
+         "def foo(): return 2",
+         "x = func()");
+    assertThat(lookup("x")).isEqualTo(4);
+  }
+
+  @Test
+  public void testFunctionCallBadOrdering() throws Exception {
+    checkEvalError("name 'foo' is not defined",
+         "def func(): return foo() * 2",
+         "x = func()",
+         "def foo(): return 2");
+  }
+
+  @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
     eval("a = None",
       "b = True",

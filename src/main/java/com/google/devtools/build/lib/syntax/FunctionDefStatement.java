@@ -106,6 +106,5 @@ public class FunctionDefStatement extends Statement {
     for (Statement stmts : statements) {
       stmts.validate(localEnv);
     }
-    env.declare(ident.getName(), getLocation());
   }
 }
