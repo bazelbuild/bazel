@@ -127,6 +127,13 @@ public class SkylarkRuleImplementationFunctions {
       // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
       builder.addInputs(castList(inputs, Artifact.class));
       builder.addOutputs(castList(outputs, Artifact.class));
+      if (commandO != Environment.NONE && arguments.size() > 0) {
+        // When we use a shell command, add an empty argument before other arguments.
+        //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+        // bash will use the empty argument as the value of $0 (which we don't care about).
+        // arg1 and arg2 will be $1 and $2, as a user exects.
+        builder.addArgument("");
+      }
       builder.addArguments(castList(arguments, String.class));
       if (executableO != Environment.NONE) {
         if (executableO instanceof Artifact) {
