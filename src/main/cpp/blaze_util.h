@@ -19,6 +19,8 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
 
+#include <sys/types.h>
+
 #include <string>
 #include <vector>
 
@@ -38,7 +40,7 @@ string MakeAbsolute(string path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // Returns -1 on failure, sets errno.
-int MakeDirectories(string path, int mode);
+int MakeDirectories(const string& path, mode_t mode);
 
 // Replaces 'content' with contents of file 'filename'.
 // Returns false on error.

@@ -79,53 +79,84 @@ string MakeAbsolute(string path) {
   return cwdbuf + separator + path;
 }
 
-static int MakeDirectories_(string path, int mode, bool childmost) {
+// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or `path`
+// isn't a directory. If check_perms is true, this will also make sure that
+// `path` is owned by the current user and has `mode` permissions (attempting to
+// run chmod if not). If `path` is a symlink, this will check ownership of the
+// link, not the underlying directory.
+static int GetDirectoryStat(const string& path, mode_t mode, bool check_perms) {
+  struct stat filestat = {};
+  if (stat(path.c_str(), &filestat) == -1) {
+    return -1;
+  }
+
+  if (!S_ISDIR(filestat.st_mode)) {
+    errno = ENOTDIR;
+    return -1;
+  }
+
+  if (check_perms) {
+    // If this is a symlink, run checks on the link. (If we did lstat above
+    // then it would return false for ISDIR).
+    struct stat linkstat = {};
+    if (lstat(path.c_str(), &linkstat) != 0) {
+      return -1;
+    }
+    if (linkstat.st_uid != geteuid()) {
+      // The directory isn't owned by me.
+      errno = EACCES;
+      return -1;
+    }
+    if ((filestat.st_mode & 0777) != mode
+        && chmod(path.c_str(), mode) == -1) {
+      // errno set by chmod.
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int MakeDirectories(const string& path, mode_t mode, bool childmost) {
   if (path.empty() || path == "/") {
     errno = EACCES;
     return -1;
   }
 
-  struct stat filestat = {};
-  if (stat(path.c_str(), &filestat) == 0) {
-    if (S_ISDIR(filestat.st_mode)) {
-      // Only check permissions if this is the actual directory we're trying to
-      // create.
-      if (childmost) {
-        // If this is a symlink, run checks on the link. (If we did lstat above
-        // then it would return false for ISDIR).
-        struct stat linkstat = {};
-        if (lstat(path.c_str(), &linkstat) != 0) {
-          return -1;
-        }
-        if (linkstat.st_uid != geteuid()) {
-          // The directory isn't owned by me.
-          errno = EACCES;
-          return -1;
-        }
-        if ((filestat.st_mode & 0777) != mode
-            && chmod(path.c_str(), mode) == -1) {
-          // errno set by chmod.
-          return -1;
-        }
-      }
-      return 0;
-    } else {
-      errno = ENOTDIR;
-      return -1;
-    }
+  int retval = GetDirectoryStat(path, mode, childmost);
+  if (retval == 0) {
+    return 0;
   }
 
   if (errno == ENOENT) {
     // Path does not exist, attempt to create its parents, then it.
     string parent = blaze_util::Dirname(path);
-    if (MakeDirectories_(parent, mode, false) == 0
-        && mkdir(path.c_str(), mode) == 0) {
-      return 0;
+    if (MakeDirectories(parent, mode, false) == -1) {
+      // errno set by stat.
+      return -1;
     }
+
+    if (mkdir(path.c_str(), mode) == -1) {
+      if (errno == EEXIST) {
+        if (childmost) {
+          // If there are multiple bazel calls at the same time then the
+          // directory could be created between the MakeDirectories and mkdir
+          // calls. This is okay, but we still have to check the permissions.
+          return GetDirectoryStat(path, mode, childmost);
+        } else {
+          // If this isn't the childmost directory, we don't care what the
+          // permissions were. If it's not even a directory then that error will
+          // get caught when we attempt to create the next directory down the
+          // chain.
+          return 0;
+        }
+      }
+      // errno set by mkdir.
+      return -1;
+    }
+    return 0;
   }
 
-  // errno set by stat.
-  return -1;
+  return retval;
 }
 
 // mkdir -p path. Returns 0 if the path was created or already exists and could
@@ -133,8 +164,8 @@ static int MakeDirectories_(string path, int mode, bool childmost) {
 // symlink, this ensures that the destination of the symlink has the desired
 // permissions. It also checks that the directory or symlink is owned by us.
 // On failure, this returns -1 and sets errno.
-int MakeDirectories(string path, int mode) {
-  return MakeDirectories_(path, mode, true);
+int MakeDirectories(const string& path, mode_t mode) {
+  return MakeDirectories(path, mode, true);
 }
 
 // Replaces 'contents' with contents of 'fd' file descriptor.
