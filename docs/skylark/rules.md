@@ -33,6 +33,12 @@ If an attribute starts with `_`, it is private and users cannot set it. It
 is useful in particular for label attributes (your rule will have an
 implicit dependency on this label).
 
+The following attributes are implicitely added to every rule: `name`,
+`visibility`, `deprecation`, `tags`, `testonly`, `features`.
+
+To access an attribute, use `ctx.attr.<attribute_name>`. The name and the
+package of a rule are available with `ctx.label.name` and `ctx.label.package`.
+
 [See example.](cookbook.html#attr)
 
 The rule implementation function
@@ -142,8 +148,8 @@ set of output files.
 The set of input and output files must be known during the analysis phase. It
 might depend on the value of attributes and information from dependencies, but
 it cannot depend on the result of the execution. For example, if your action
-runs the zip command, you must specify which files you expect (before running
-zip).
+runs the unzip command, you must specify which files you expect to be inflated
+(before running unzip).
 
 Actions are comparable to pure functions: They should depend only on the
 provided inputs, and avoid accessing computer information, username, clock,

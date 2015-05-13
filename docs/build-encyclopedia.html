@@ -1029,6 +1029,9 @@ passed to the application.</p>
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="ios_application.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -1221,6 +1224,9 @@ between how each thing is processed:
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="ios_extension.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -1971,6 +1977,9 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="objc_binary.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -2486,12 +2495,6 @@ cc_library(<a href="#cc_library.name">name</a>,
              listed in the <code>srcs</code> attribute instead, even if they are
              included by a published header. See <a href="#hdrs">"Header inclusion
              checking"</a> for a more detailed description. </p>
-          <p>Permitted <code>headers</code> file types:
-            <code>.h</code>,
-            <code>.hh</code>,
-            <code>.hpp</code>,
-            <code>.hxx</code>.
-          </p>
 </li>
 <li id="cc_library.abi" class="deprecated"><code>abi</code>:
            Platform-specific information string which is used in combination
@@ -3206,6 +3209,9 @@ the final iOS application.
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="objc_bundle_library.infoplist"><code>infoplist</code>:
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
@@ -3819,6 +3825,7 @@ objc_proto_library(<a href="#objc_proto_library.name">name</a>,
 <a href="#objc_proto_library.output_cpp">output_cpp</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
+<a href="#objc_proto_library.use_objc_header_names">use_objc_header_names</a>,
 <a href="#common.visibility">visibility</a>)
 </p>
 
@@ -3843,6 +3850,11 @@ options file.</p>
 </li>
 <li id="objc_proto_library.output_cpp"><code>output_cpp</code>:
         If true, output C++ rather than ObjC.
+        <i>(Boolean; optional; default is 0)</i><br/>
+
+</li>
+<li id="objc_proto_library.use_objc_header_names"><code>use_objc_header_names</code>:
+        If true, output headers with .pbobjc.h, rather than .pb.h.
         <i>(Boolean; optional; default is 0)</i><br/>
 
 </li>
@@ -4364,6 +4376,7 @@ experimental_ios_test(<a href="#experimental_ios_test.name">name</a>,
 <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>,
 <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>,
 <a href="#experimental_ios_test.pch">pch</a>,
+<a href="#experimental_ios_test.plugins">plugins</a>,
 <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>,
 <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>,
 <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>,
@@ -4511,6 +4524,9 @@ on both iOS simulator and real devices.
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="experimental_ios_test.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -4579,6 +4595,11 @@ on both iOS simulator and real devices.
 
           Note that the file will not be precompiled - this is simply a
           convenience, not a build-speed enhancement.
+</li>
+<li id="experimental_ios_test.plugins"><code>plugins</code>:
+        Plugins to pass to the test runner.
+        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
 </li>
 <li id="experimental_ios_test.provisioning_profile"><code>provisioning_profile</code>:
           The provisioning profile (.mobileprovision file) to use when bundling
@@ -4869,6 +4890,9 @@ on both iOS simulator and real devices.
         This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
         in Xcode project files. It is a list of one or more of the strings
         <code>"iphone"</code> and <code>"ipad"</code>.
+
+        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+        empty.</p>
 </li>
 <li id="ios_test.includes"><code>includes</code>:
           List of <code>#include/#import</code> search paths to add to this target
@@ -7507,10 +7531,10 @@ file, before any rule.</p>
     attribute, unless otherwise specified in the <code>visibility</code>
     attribute of the rule. For detailed information about the syntax of this
     attribute, see the documentation of the <a href="#common.visibility">visibility</a>
-    attribute. The package default visibility applies neither to the
-    <a href="#exports_files">exports_files</a> function nor to the
-    <a href="#cc_public_library">cc_public_library</a> rule (which are
-    public by default).
+    attribute. The package default visibility does not apply to
+
+    <a href="#exports_files">exports_files</a>, which is
+    public by default.
   </li>
 
   <li id="package.default_deprecation"><code>default_deprecation</code>:

@@ -134,10 +134,10 @@ directory structure:
             some_lib.cc
 ```
 
-Bazel will expect _some\_lib.h_ to be included as
-`third_party/some_lib/include/some_lib.h`, but suppose _some\_lib.cc_ includes
+Bazel will expect _some_lib.h_ to be included as
+`third_party/some_lib/include/some_lib.h`, but suppose _some_lib.cc_ includes
 `"include/some_lib.h"`.  To make that include path valid,
-_third\_party/some\_lib/BUILD_ will need to specify that the _some\_lib/_
+_third\_party/some_lib/BUILD_ will need to specify that the _some_lib/_
 directory is an include directory:
 
 ```python
@@ -156,8 +156,8 @@ Including external libraries: an example
 ----------------------------------------
 
 Suppose you are using [Google Test](https://code.google.com/p/googletest/). You
-can use one of the `new_` repository functions in the WORKSPACE file to create
-the repository:
+can use one of the `new_` repository functions in the _WORKSPACE_ file to
+download Google Test and make it available in your repository:
 
 ```python
 new_http_archive(
@@ -174,10 +174,10 @@ bind(
 ```
 
 Then create _gtest.BUILD_, a BUILD file to use to compile Google Test.
-Google Test has several "special" requirements that make its `cc\_library` rule
+Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-* It has a .cc file that `#include`s all of the other files in _src/_, so we
+* _src/gtest-all.cc_ `#include`s all of the other files in _src/_, so we
   need to exclude it from the compile or we'll get link errors for duplicate
   symbols.
 * It uses header files that relative to the _include/_ directory

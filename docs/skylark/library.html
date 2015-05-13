@@ -104,10 +104,10 @@ Returns True if the object <code>x</code> has a field of the given <code>name</c
 </ul>
 <li><h3 id="modules._top_level.int">int</h3>
 <code>int int(x)</code><br>
-Converts a string to int, using base 10. It raises an error if the conversion fails.<pre class="language-python">int("123") == 123</pre>
+Converts a value to int. If the argument is a string, it is converted using base 10 and raises an error if the conversion fails. If the argument is a bool, it returns 0 (False) or 1 (True). If the argument is an int, it is simply returned.<pre class="language-python">int("123") == 123</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.int.x"><code>x (<a class="anchor" href="#modules.string">string</a>)</code>: The string to convert.
+	<li id="modules._top_level.int.x"><code>x</code>: The string to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.len">len</h3>
@@ -222,12 +222,12 @@ Converts any object to string. This is useful for debugging.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.struct">struct</h3>
-<code><a class="anchor" href="#modules.struct">struct</a> struct(**kwarg)</code><br>
+<code><a class="anchor" href="#modules.struct">struct</a> struct(**kwargs)</code><br>
 Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
 return s.x + s.y  # returns 5</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.struct.kwarg"><code>kwarg</code>: the struct fields
+	<li id="modules._top_level.struct.kwargs"><code>kwargs</code>: the struct fields
 	</li>
 </ul>
 <li><h3 id="modules._top_level.type">type</h3>
@@ -276,7 +276,7 @@ The package part of this label. For instance:<br><pre class=language-python>Labe
 <code><a class="anchor" href="#modules.Label">Label</a> Label.relative(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package.<br>For example:<br><ul><li><code>:quux</code> relative to <code>//foo/bar:baz</code> is <code>//foo/bar:quux</code></li><li><code>//wiz:quux</code> relative to <code>//foo/bar:baz</code> is <code>//wiz:quux</code></li></ul>
 </ul><hr><h2 id="modules.Target">Target</h2>
-A BUILD target. It is essentially a <code>struct</code> with the following fields:<ul><li><h3>label</h3><code><a class="anchor" href="#modules.Label">Label</a> Target.label</code><br>The identifier of the target.</li><li><h3>files</h3><code><a class="anchor" href="#modules.set">set</a> Target.files</code><br>The (transitive) set of <a class="anchor" href="#modules.File">File</a>s produced by this target.</li><li><h3>Extra providers</h3>For rule targets all additional providers provided by this target are accessible as <code>struct</code> fields. These extra providers are defined in the <code>struct</code> returned by the rule implementation function.</li></ul>
+A BUILD target. It is essentially a <code>struct</code> with the following fields:<ul><li><h3 id="modules.Target.label">label</h3><code><a class="anchor" href="#modules.Label">Label</a> Target.label</code><br>The identifier of the target.</li><li><h3 id="modules.Target.files">files</h3><code><a class="anchor" href="#modules.set">set</a> Target.files </code><br>The (transitive) set of <a class="anchor" href="#modules.File">File</a>s produced by this target.</li><li><h3 id="modules.Target.extraproviders">Extra providers</h3>For rule targets all additional providers provided by this target are accessible as <code>struct</code> fields. These extra providers are defined in the <code>struct</code> returned by the rule implementation function.</li></ul>
 <ul></ul><hr><h2 id="modules.attr">attr</h2>
 Module for creating new attributes. They are only for use with the <code>rule</code> function.
 <ul><li><h3 id="modules.attr.bool">bool</h3>
@@ -513,7 +513,7 @@ Creates an action that runs an executable or a shell command.
 	</li>
 	<li id="modules.ctx.action.arguments"><code>arguments (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: command line arguments of the action
 	</li>
-	<li id="modules.ctx.action.mnemonic"><code>mnemonic (<a class="anchor" href="#modules.string">string</a>)</code>: mnemonic
+	<li id="modules.ctx.action.mnemonic"><code>mnemonic (<a class="anchor" href="#modules.string">string</a>)</code>: a one-word description of the action, e.g. CppCompile or GoLink
 	</li>
 	<li id="modules.ctx.action.command"><code>command</code>: shell command to execute
 	</li>
@@ -779,6 +779,15 @@ Returns the first index where <code>sub</code> is found, or -1 if no such index 
 	<li id="modules.string.find.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
 	<li id="modules.string.find.end"><code>end (int)</code>: optional position before which to restrict to search.
+	</li>
+</ul>
+<li><h3 id="modules.string.format">format</h3>
+<code><a class="anchor" href="#modules.string">string</a> string.format(**kwargs)</code><br>
+Replace the values surrounded by curly brackets in the string.<pre class="language-python">"x{key}x".format(key = 2) == "x2x"</pre>
+
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.string.format.kwargs"><code>kwargs</code>: the struct fields
 	</li>
 </ul>
 <li><h3 id="modules.string.index">index</h3>
