@@ -169,6 +169,7 @@ cat external/endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
+  bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc
@@ -197,8 +198,7 @@ cat fox/male
 EOF
   chmod +x zoo/female.sh
 
-  bazel run //zoo:breeding-program >& $TEST_log && echo "Expected build to fail"
-  cat $TEST_log
+  bazel fetch //zoo:breeding-program >& $TEST_log && fail "Expected fetch to fail"
   expect_log "Connection refused"
 }
 
@@ -235,7 +235,7 @@ cat fox/male
 EOF
   chmod +x zoo/female.sh
 
-  bazel run //zoo:breeding-program >& $TEST_log && echo "Expected build to fail"
+  bazel fetch //zoo:breeding-program >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
   expect_log "does not match expected SHA-256"
 }
@@ -262,6 +262,7 @@ EOF
   nc_l $nc_port < $http_response >& $nc_log &
   pid=$!
 
+  bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected run to succeed"
   kill_nc
@@ -298,6 +299,7 @@ public class BallPit {
 }
 EOF
 
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
@@ -309,7 +311,7 @@ function test_invalid_rule() {
 http_jar(name = 'endangered', sha256 = 'dummy')
 EOF
 
-  bazel run //external:endangered >& $TEST_log && echo "Expected run to fail"
+  bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"
   expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
 }
 
@@ -327,7 +329,8 @@ maven_jar(
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
   kill_nc
   assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
   expect_log "Tra-la!"
@@ -354,7 +357,7 @@ maven_jar(
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  bazel run //zoo:ball-pit >& $TEST_log && echo "Expected run to fail"
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
   expect_log "Failed to fetch Maven dependency: Could not find artifact"
 }
@@ -408,6 +411,7 @@ EOF
   chmod +x zoo/female.sh
 
   bazel clean --expunge
+  bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc
@@ -438,6 +442,15 @@ EOF
   # Rerun fetch while nc isn't serving anything to make sure the fetched result
   # is cached.
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
+
+  # Make sure fetch isn't needed after a bazel restart.
+  bazel shutdown
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
+
+  # But it is required after a clean.
+  bazel clean --expunge
+  bazel build //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
+  expect_log "bazel fetch //..."
 }
 
 run_suite "external tests"

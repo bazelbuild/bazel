@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -26,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Implements delegation to the correct repository fetcher.
@@ -35,9 +41,17 @@ public class RepositoryDelegatorFunction implements SkyFunction {
   // Mapping of rule class name to SkyFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
 
+  // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
+  // command is a fetch. Remote repository lookups are only allowed during fetches.
+  private final AtomicBoolean isFetch;
+  private final BlazeDirectories directories;
+
   public RepositoryDelegatorFunction(
-      ImmutableMap<String, RepositoryFunction> handlers) {
+      BlazeDirectories directories, ImmutableMap<String, RepositoryFunction> handlers,
+      AtomicBoolean isFetch) {
+    this.directories = directories;
     this.handlers = handlers;
+    this.isFetch = isFetch;
   }
 
   @Override
@@ -47,6 +61,27 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     if (rule == null) {
       return null;
     }
+
+    // If Bazel isn't running a fetch command, we shouldn't be able to download anything. To
+    // prevent having to rerun fetch on server restart, we check if the external repository
+    // directory already exists and, if it does, just use that.
+    if (!isFetch.get()) {
+      FileValue repoRoot = RepositoryFunction.getRepositoryDirectory(
+          RepositoryFunction.getExternalRepositoryDirectory(directories)
+              .getRelative(rule.getName()), env);
+      if (repoRoot == null) {
+        return null;
+      }
+      Path repoPath = repoRoot.realRootedPath().asPath();
+      if (!repoPath.exists()) {
+        throw new RepositoryFunctionException(new IOException(
+            "to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
+                + " not found"),
+            Transience.TRANSIENT);
+      }
+      return RepositoryValue.create(repoRoot);
+    }
+
     RepositoryFunction handler = handlers.get(rule.getRuleClass());
     if (handler == null) {
       throw new IllegalStateException("Could not find handler for " + rule);
@@ -57,11 +92,11 @@ public class RepositoryDelegatorFunction implements SkyFunction {
       return env.getValueOrThrow(
           key, NoSuchPackageException.class, IOException.class, EvalException.class);
     } catch (NoSuchPackageException e) {
-      throw new RepositoryFunction.RepositoryFunctionException(e, Transience.PERSISTENT);
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     } catch (IOException e) {
-      throw new RepositoryFunction.RepositoryFunctionException(e, Transience.PERSISTENT);
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     } catch (EvalException e) {
-      throw new RepositoryFunction.RepositoryFunctionException(e, Transience.PERSISTENT);
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
   }
 

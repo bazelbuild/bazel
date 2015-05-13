@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,6 +51,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Adds support for fetching external code.
@@ -58,6 +61,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private BlazeDirectories directories;
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
+  private final AtomicBoolean isFetch = new AtomicBoolean(false);
 
   public BazelRepositoryModule() {
     repositoryHandlers = ImmutableMap.<String, RepositoryFunction>builder()
@@ -104,6 +108,11 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
+  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
+    isFetch.set(command.name().equals(FetchCommand.NAME));
+  }
+
+  @Override
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
 
@@ -114,7 +123,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     // Create the delegator everything flows through.
     builder.put(SkyFunctions.REPOSITORY,
-        new RepositoryDelegatorFunction(repositoryHandlers));
+        new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
 
     // Helper SkyFunctions.
     builder.put(SkyFunctionName.computed(HttpDownloadFunction.NAME), new HttpDownloadFunction());

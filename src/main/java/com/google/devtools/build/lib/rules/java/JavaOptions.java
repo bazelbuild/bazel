@@ -41,8 +41,8 @@ import java.util.Set;
  */
 public class JavaOptions extends FragmentOptions {
   // Defaults value for options
+  public static final String DEFAULT_LANGTOOLS = "//tools/jdk:langtools";
   static final String DEFAULT_LANGTOOLS_BOOTCLASSPATH = "//tools/jdk:bootclasspath";
-  static final String DEFAULT_LANGTOOLS = "//tools/jdk:langtools";
   static final String DEFAULT_JAVABUILDER = "//tools/jdk:JavaBuilder_deploy.jar";
   static final String DEFAULT_SINGLEJAR = "//tools/jdk:SingleJar_deploy.jar";
   static final String DEFAULT_JAVABASE = "//tools/jdk:jdk";

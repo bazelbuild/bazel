@@ -75,6 +75,7 @@ function bootstrap() {
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   ${BAZEL_BIN} --blazerc=/dev/null clean || return $?
+  ${BAZEL_BIN} --blazerc=/dev/null fetch //... || return $?
   ${BAZEL_BIN} --blazerc=/dev/null build --nostamp //src:bazel //src:tools || return $?
 
   if [ -n "${BAZEL_SUM}" ]; then

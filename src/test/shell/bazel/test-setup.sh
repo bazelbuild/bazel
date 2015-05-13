@@ -205,3 +205,4 @@ function assert_bazel_run() {
 
 setup_bazelrc
 setup_clean_workspace
+bazel fetch //tools/jdk/...

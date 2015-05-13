@@ -500,4 +500,7 @@ else
   [[ $package_path != $old_line ]] && log "$warning"
 fi
 
+# Run "bazel fetch" to bring in the JDK (so users don't have to).
+${PWD}/output/bazel fetch //...
+
 log "Build successful! Binary is here: ${PWD}/output/bazel"

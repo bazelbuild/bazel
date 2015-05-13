@@ -85,7 +85,7 @@ EOF
 
   echo "feed bamboo" > red/day-keeper
 
-
+  bazel fetch //zoo:dumper || fail "Fetch failed"
   bazel run //zoo:dumper >& $TEST_log || fail "Failed to build/run zoo"
   expect_log "rawr" "//external runfile not cat-ed"
   expect_log "feed bamboo" \
@@ -140,6 +140,7 @@ public class BallPit {
 }
 EOF
 
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log
   expect_log "Tra-la!"
 }
@@ -207,6 +208,7 @@ java_library(
     visibility = ["//visibility:public"],
 )
 EOF
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
   expect_log "Tra-la!"
 
@@ -222,6 +224,7 @@ EOF
   # Check that rebuilding this doesn't rebuild libmongoose.jar, even though it
   # has changed. Bazel assumes that files in external repositories are
   # immutable.
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
   expect_log "Tra-la!"
   expect_not_log "Building endangered/libmongoose.jar"
@@ -229,6 +232,7 @@ EOF
 }
 
 function test_default_ws() {
+  bazel fetch //external:java || fail "Fetch failed"
   bazel build //external:java >& $TEST_log || fail "Failed to build java"
 }
 
@@ -283,6 +287,7 @@ bind(
 )
 EOF
 
+  bazel fetch //:greeter || fail "Fetch failed"
   bazel run //:greeter >& $TEST_log || fail "Failed to run greeter"
   expect_log "Hello"
 }
@@ -361,6 +366,7 @@ bind(
 )
 EOF
 
+  bazel fetch //a:a || fail "Fetch failed"
   bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
   expect_log "** Please add the following dependencies:"
   expect_log "@x-repo//x  to //a:a"
@@ -417,6 +423,7 @@ int main() {
 }
 EOF
 
+  bazel fetch //:printer || fail "Fetch failed"
   bazel run //:printer >& $TEST_log || fail "Running //:printer failed"
   expect_log "My number is 3"
 }
@@ -431,6 +438,7 @@ local_repository(
     path = "$external_dir",
 )
 EOF
+  bazel fetch //external:* || fail "Fetch failed"
   bazel query 'deps(//external:*)' >& $TEST_log || fail "query failed"
   expect_log "//external:my-repo"
 }
@@ -459,6 +467,7 @@ genrule(
     visibility = ["//visibility:public"],
 )
 EOF
+  bazel fetch //external:best-turtle || fail "Fetch failed"
   bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
   assert_contains "Raphael" bazel-genfiles/tmnt
 
