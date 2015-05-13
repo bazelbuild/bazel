@@ -264,7 +264,8 @@ public class SkylarkRuleClassFunctions {
         }
 
         builder.setConfiguredTargetFunction(implementation);
-        builder.setRuleDefinitionEnvironment((SkylarkEnvironment) funcallEnv);
+        builder.setRuleDefinitionEnvironment(
+            ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
         return new RuleFunction(builder, type);
         }
       };
