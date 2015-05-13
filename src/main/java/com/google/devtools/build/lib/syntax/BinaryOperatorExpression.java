@@ -300,7 +300,8 @@ public final class BinaryOperatorExpression extends Expression {
     if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
       Map<?, ?> ldict = (Map<?, ?>) lval;
       Map<?, ?> rdict = (Map<?, ?>) rval;
-      Map<Object, Object> result = Maps.newHashMapWithExpectedSize(ldict.size() + rdict.size());
+      Map<Object, Object> result =
+          Maps.newLinkedHashMapWithExpectedSize(ldict.size() + rdict.size());
       result.putAll(ldict);
       result.putAll(rdict);
       return ImmutableMap.copyOf(result);
