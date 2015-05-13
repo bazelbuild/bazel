@@ -931,6 +931,24 @@ public class BuildView {
   }
 
   /**
+   * For a configured target dependentTarget, returns the desired configured target
+   * that is depended upon. Useful for obtaining the a target with aspects
+   * required by the dependent.
+   */
+  @VisibleForTesting
+  public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
+      ConfiguredTarget dependentTarget, ConfiguredTarget desiredTarget) {
+    Collection<ConfiguredTarget> configuredTargets =
+        getPrerequisiteMapForTesting(dependentTarget).values();
+    for (ConfiguredTarget ct : configuredTargets) {
+      if (ct.getLabel().equals(desiredTarget.getLabel())) {
+        return ct;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Tests and clears the current thread's pending "interrupted" status, and
    * throws InterruptedException iff it was set.
    */

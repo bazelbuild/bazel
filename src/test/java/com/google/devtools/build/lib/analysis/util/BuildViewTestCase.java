@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -98,6 +99,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -803,6 +805,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
     return getPackageRelativeDerivedArtifact(packageRelativePath,
         owner.getConfiguration().getBinDirectory(), new ConfiguredTargetKey(owner));
+  }
+
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner},
+   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
+   * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect,
+   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
+   * FooAspect.class. This method is necessary when an Apsect of the target, not the target itself,
+   * is creating an Artifact.
+   */
+  protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner,
+      Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
+    return getPackageRelativeDerivedArtifact(packageRelativePath,
+        owner.getConfiguration().getBinDirectory(),
+        (AspectValue.AspectKey) AspectValue.key(
+            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory).argument());
   }
 
   /**
