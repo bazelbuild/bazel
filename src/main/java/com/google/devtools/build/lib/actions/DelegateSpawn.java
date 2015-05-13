@@ -60,6 +60,11 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  public RunfilesSupplier getRunfilesSupplier() {
+    return spawn.getRunfilesSupplier();
+  }
+
+  @Override
   public SpawnInfo getExtraActionInfo() {
     return spawn.getExtraActionInfo();
   }

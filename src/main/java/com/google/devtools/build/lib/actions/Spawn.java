@@ -58,6 +58,11 @@ public interface Spawn {
   ImmutableMap<PathFragment, Artifact> getRunfilesManifests();
 
   /**
+   * Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn.
+   */
+  RunfilesSupplier getRunfilesSupplier();
+
+  /**
    * Returns artifacts for filesets, so they can be scheduled on remote execution.
    */
   ImmutableList<Artifact> getFilesetManifests();

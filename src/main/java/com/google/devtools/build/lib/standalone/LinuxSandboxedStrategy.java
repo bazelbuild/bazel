@@ -44,12 +44,12 @@ import java.util.TreeSet;
 /**
  * Strategy that uses sandboxing to execute a process.
  */
-@ExecutionStrategy(name = {"sandboxed"}, 
+@ExecutionStrategy(name = {"sandboxed"},
                    contextType = SpawnActionContext.class)
 public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
   private final BlazeDirectories directories;
-  
+
   public LinuxSandboxedStrategy(BlazeDirectories blazeDirectories, boolean verboseFailures) {
     this.directories = blazeDirectories;
     this.verboseFailures = verboseFailures;
@@ -67,7 +67,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
           spawn.asShellCommand(executor.getExecRoot()));
     }
     boolean processHeaders = spawn.getResourceOwner() instanceof CppCompileAction;
-    
+
     Path execPath = this.directories.getExecRoot();
     List<String> spawnArguments = new ArrayList<>();
 
@@ -83,7 +83,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     List<? extends ActionInput> expandedInputs =
         ActionInputHelper.expandMiddlemen(spawn.getInputFiles(),
             actionExecutionContext.getMiddlemanExpander());
-    
+
     String cwd = executor.getExecRoot().getPathString();
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
@@ -96,10 +96,10 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
         // when running the compilation and will have to be unmangled after it's done in the *.pic.d
         includeDirectories = extractIncludeDirs(execPath, cppAction, spawnArguments);
         includePrefix = getSandboxIncludeDir(cppAction);
-      }      
-      
+      }
+
       NamespaceSandboxRunner runner = new NamespaceSandboxRunner(directories, spawn, includePrefix,
-          includeDirectories, spawn.getRunfilesManifests(), verboseFailures);
+          includeDirectories, verboseFailures);
       runner.setupSandbox(expandedInputs, spawn.getOutputFiles());
       runner.run(spawnArguments, spawn.getEnvironment(), new File(cwd), outErr);
       runner.copyOutputs(spawn.getOutputFiles(), outErr);
@@ -144,14 +144,14 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     includes.addAll(cppCompileAction.getQuoteIncludeDirs());
     includes.addAll(cppCompileAction.getIncludeDirs());
     includes.addAll(cppCompileAction.getSystemIncludeDirs());
-    
+
     // gcc implicitly includes headers in the same dir as .cc file
     PathFragment sourceDirectory =
         cppCompileAction.getSourceFile().getPath().getParentDirectory().asFragment();
     includes.add(sourceDirectory);
     spawnArguments.add("-iquote");
     spawnArguments.add(sourceDirectory.toString());
-    
+
     TreeSet<PathFragment> processedIncludes = new TreeSet<>();
     for (int i = 0; i < includes.size(); i++) {
       PathFragment absolutePath;
@@ -160,7 +160,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       } else {
         absolutePath = includes.get(i);
       }
-      // CppCompileAction may provide execPath as one of the include directories. This is a big 
+      // CppCompileAction may provide execPath as one of the include directories. This is a big
       // overestimation of what is actually needed and doesn't make for very hermetic sandbox
       // (since everything from the workspace will be somehow accessed in the sandbox). To have
       // some more hermeticity in this situation we mount all the include dirs in:
@@ -185,10 +185,10 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
         processedIncludes.add(absolutePath);
       }
     }
-    
+
     // pseudo random name for include directory inside sandbox, so it won't be accessed by accident
     String prefix = getSandboxIncludeDir(cppCompileAction).toString();
-    
+
     // change names in the invocation
     for (int i = 0; i < spawnArguments.size(); i++) {
       if (spawnArguments.get(i).startsWith("-I")) {
@@ -196,8 +196,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
         spawnArguments.set(i, setIncludeDirSandboxPath(execPath, argument, "-I" + prefix));
       }
       if (spawnArguments.get(i).equals("-iquote") || spawnArguments.get(i).equals("-isystem")) {
-        spawnArguments.set(i + 1, setIncludeDirSandboxPath(execPath, 
-            spawnArguments.get(i + 1), prefix));  
+        spawnArguments.set(i + 1, setIncludeDirSandboxPath(execPath,
+            spawnArguments.get(i + 1), prefix));
       }
     }
     return ImmutableList.copyOf(processedIncludes);
@@ -211,7 +211,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       builder.append('/');
     }
     builder.append(argument);
-    
+
     return builder.toString();
   }
 

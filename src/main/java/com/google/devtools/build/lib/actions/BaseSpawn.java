@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -39,8 +42,43 @@ public class BaseSpawn implements Spawn {
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
+  private final RunfilesSupplier runfilesSupplier;
   private final ActionMetadata action;
   private final ResourceSet localResources;
+
+  // TODO(bazel-team): When we migrate ActionSpawn to use this constructor decide on and enforce
+  // policy on runfilesManifests and runfilesSupplier being non-empty (ie: are overlapping mappings
+  // allowed?).
+  @VisibleForTesting
+  BaseSpawn(List<String> arguments,
+      Map<String, String> environment,
+      Map<String, String> executionInfo,
+      Map<PathFragment, Artifact> runfilesManifests,
+      RunfilesSupplier runfilesSupplier,
+      ActionMetadata action,
+      ResourceSet localResources) {
+    this.arguments = ImmutableList.copyOf(arguments);
+    this.environment = ImmutableMap.copyOf(environment);
+    this.executionInfo = ImmutableMap.copyOf(executionInfo);
+    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
+    this.runfilesSupplier = runfilesSupplier;
+    this.action = action;
+    this.localResources = localResources;
+  }
+
+  /**
+   * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
+   * this method.
+   */
+  public BaseSpawn(List<String> arguments,
+     Map<String, String> environment,
+     Map<String, String> executionInfo,
+     RunfilesSupplier runfilesSupplier,
+     ActionMetadata action,
+     ResourceSet localResources) {
+    this(arguments, environment, executionInfo, ImmutableMap.<PathFragment, Artifact>of(),
+        runfilesSupplier, action, localResources);
+  }
 
   /**
    * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
@@ -52,12 +90,8 @@ public class BaseSpawn implements Spawn {
       Map<PathFragment, Artifact> runfilesManifests,
       ActionMetadata action,
       ResourceSet localResources) {
-    this.arguments = ImmutableList.copyOf(arguments);
-    this.environment = ImmutableMap.copyOf(environment);
-    this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
-    this.action = action;
-    this.localResources = localResources;
+    this(arguments, environment, executionInfo, runfilesManifests, EmptyRunfilesSupplier.INSTANCE,
+        action, localResources);
   }
 
   /**
@@ -78,10 +112,6 @@ public class BaseSpawn implements Spawn {
         action, localResources);
   }
 
-  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
-    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
-  }
-
   /**
    * Returns a new Spawn.
    */
@@ -92,6 +122,10 @@ public class BaseSpawn implements Spawn {
       ResourceSet localResources) {
     this(arguments, environment, executionInfo,
         ImmutableMap.<PathFragment, Artifact>of(), action, localResources);
+  }
+
+  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
+    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
   }
 
   @Override
@@ -112,6 +146,11 @@ public class BaseSpawn implements Spawn {
   @Override
   public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
     return runfilesManifests;
+  }
+
+  @Override
+  public RunfilesSupplier getRunfilesSupplier() {
+    return runfilesSupplier;
   }
 
   @Override
@@ -148,18 +187,30 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    if (getRunfilesManifests().size() != 1) {
+    PathFragment runfilesRoot = getRunfilesRoot();
+    if (runfilesRoot == null) {
       return environment;
-    }
-
-    ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-    env.putAll(environment);
-    for (Map.Entry<PathFragment, Artifact> e : getRunfilesManifests().entrySet()) {
+    } else {
+      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+      env.putAll(environment);
       // TODO(bazel-team): Unify these into a single env variable.
-      env.put("JAVA_RUNFILES", e.getKey().getPathString() + "/");
-      env.put("PYTHON_RUNFILES", e.getKey().getPathString() + "/");
+      String runfilesRootString = runfilesRoot.getPathString();
+      env.put("JAVA_RUNFILES", runfilesRootString);
+      env.put("PYTHON_RUNFILES", runfilesRootString);
+      return env.build();
     }
-    return env.build();
+  }
+
+  /** @return the runfiles directory if there is only one, otherwise null */
+  private PathFragment getRunfilesRoot() {
+    Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
+    if (runfilesSupplierRoots.size() == 1 && runfilesManifests.isEmpty()) {
+      return Iterables.getOnlyElement(runfilesSupplierRoots);
+    } else if (runfilesManifests.size() == 1 && runfilesSupplierRoots.isEmpty()) {
+      return Iterables.getOnlyElement(runfilesManifests.keySet());
+    } else {
+      return null;
+    }
   }
 
   @Override

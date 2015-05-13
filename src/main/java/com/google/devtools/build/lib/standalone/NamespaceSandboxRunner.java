@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 /**
@@ -53,12 +54,11 @@ public class NamespaceSandboxRunner {
   private final Path tools;
   private final ImmutableList<PathFragment> includeDirectories;
   private final PathFragment includePrefix;
-  private final ImmutableMap<PathFragment, Artifact> manifests;
+  private final Spawn spawn;
   private final Path execRoot;
 
   public NamespaceSandboxRunner(BlazeDirectories directories, Spawn spawn,
-      PathFragment includePrefix, List<PathFragment> includeDirectories,
-      ImmutableMap<PathFragment, Artifact> manifests, boolean debug) {
+      PathFragment includePrefix, List<PathFragment> includeDirectories, boolean debug) {
     String md5sum = Fingerprint.md5Digest(spawn.getResourceOwner().getPrimaryOutput().toString());
     this.sandboxDirectory = new PathFragment("sandbox-root-" + md5sum);
     this.sandboxPath =
@@ -69,7 +69,7 @@ public class NamespaceSandboxRunner {
     this.embeddedBinaries = directories.getEmbeddedBinariesRoot();
     this.includePrefix = includePrefix;
     this.includeDirectories = ImmutableList.copyOf(includeDirectories);
-    this.manifests = manifests;
+    this.spawn = spawn;
     this.execRoot = directories.getExecRoot();
   }
 
@@ -127,7 +127,7 @@ public class NamespaceSandboxRunner {
             .getRelative(fullPath.getPathString().substring(1)));
       }
     }
-    
+
     // output directories
     for (ActionInput output : outputs) {
       PathFragment parentDirectory =
@@ -141,10 +141,11 @@ public class NamespaceSandboxRunner {
     createFileSystem(outputs);
     setupBlazeUtils();
     includeManifests();
+    includeRunfiles();
     copyInputs(inputs);
   }
 
-  private void copyInputs(List<? extends ActionInput> inputs) throws IOException {    
+  private void copyInputs(List<? extends ActionInput> inputs) throws IOException {
     for (ActionInput input : inputs) {
       if (input.getExecPathString().contains("internal/_middlemen/")) {
         continue;
@@ -163,8 +164,29 @@ public class NamespaceSandboxRunner {
     }
   }
 
+  private void includeRunfiles() throws IOException {
+    Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
+        spawn.getRunfilesSupplier().getMappings();
+    for (Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
+        rootsAndMappings.entrySet()) {
+      PathFragment root = rootAndMappings.getKey();
+      for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+        Artifact sourceArtifact = mapping.getValue();
+        String sourcePath = (sourceArtifact != null) ? sourceArtifact.getPath().getPathString()
+            : "/dev/null";
+        File source = new File(sourcePath);
+
+        String targetPath = root.getRelative(mapping.getKey()).getPathString();
+        File target = new File(targetPath);
+
+        Files.createParentDirs(target);
+        Files.copy(source, target);
+      }
+    }
+  }
+
   private void includeManifests() throws IOException {
-    for (Entry<PathFragment, Artifact> manifest : this.manifests.entrySet()) {
+    for (Entry<PathFragment, Artifact> manifest : spawn.getRunfilesManifests().entrySet()) {
       String path = manifest.getValue().getPath().getPathString();
       for (String line : Files.readLines(new File(path), Charset.defaultCharset())) {
         String[] fields = line.split(" ");
@@ -187,15 +209,15 @@ public class NamespaceSandboxRunner {
                new File(bin.getChild("build-runfiles").getPathString()));
     FilesystemUtils.chmod(bin.getChild("build-runfiles").getPathString(), 0755);
     // TODO(bazel-team) filter tools out of input files instead
-    // some of the tools could be in inputs; we will mount entire tools anyway so it's just 
+    // some of the tools could be in inputs; we will mount entire tools anyway so it's just
     // easier to remove them and remount inside sandbox
     FilesystemUtils.rmTree(sandboxPath.getChild("tools").getPathString());
   }
 
- 
+
   /**
-   * Runs given 
-   * 
+   * Runs given
+   *
    * @param spawnArguments - arguments of spawn to run inside the sandbox
    * @param env - environment to run sandbox in
    * @param cwd - current working directory
@@ -223,7 +245,7 @@ public class NamespaceSandboxRunner {
     }
     args.add("-t");
     args.add(tools.getPathString());
-    
+
     args.add("-S");
     args.add(sandboxPath.getPathString());
     for (String mount : mounts) {
@@ -236,8 +258,8 @@ public class NamespaceSandboxRunner {
     Command cmd = new Command(args.toArray(new String[] {}), env, cwd);
 
     cmd.execute(
-    /* stdin */new byte[] {}, 
-    Command.NO_OBSERVER, 
+    /* stdin */new byte[] {},
+    Command.NO_OBSERVER,
     outErr.getOutputStream(),
     outErr.getErrorStream(),
     /* killSubprocessOnInterrupt */true);
@@ -248,7 +270,7 @@ public class NamespaceSandboxRunner {
     FilesystemUtils.rmTree(sandboxPath.getPathString());
   }
 
-  
+
   public void copyOutputs(Collection<? extends ActionInput> outputs, FileOutErr outErr)
       throws IOException {
     for (ActionInput output : outputs) {
