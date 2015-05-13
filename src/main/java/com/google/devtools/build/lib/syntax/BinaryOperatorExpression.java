@@ -122,63 +122,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     switch (operator) {
       case PLUS: {
-        // int + int
-        if (lval instanceof Integer && rval instanceof Integer) {
-          return ((Integer) lval).intValue() + ((Integer) rval).intValue();
-        }
-
-        // string + string
-        if (lval instanceof String && rval instanceof String) {
-          return (String) lval + (String) rval;
-        }
-
-        // list + list, tuple + tuple (list + tuple, tuple + list => error)
-        if (lval instanceof List<?> && rval instanceof List<?>) {
-          List<?> llist = (List<?>) lval;
-          List<?> rlist = (List<?>) rval;
-          if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
-            throw new EvalException(getLocation(), "can only concatenate "
-                + EvalUtils.getDataTypeName(rlist) + " (not \""
-                + EvalUtils.getDataTypeName(llist) + "\") to "
-                + EvalUtils.getDataTypeName(rlist));
-          }
-          if (llist instanceof GlobList<?> || rlist instanceof GlobList<?>) {
-            return GlobList.concat(llist, rlist);
-          } else {
-            List<Object> result = Lists.newArrayListWithCapacity(llist.size() + rlist.size());
-            result.addAll(llist);
-            result.addAll(rlist);
-            return EvalUtils.makeSequence(result, EvalUtils.isImmutable(llist));
-          }
-        }
-
-        if (lval instanceof SelectorValue || rval instanceof SelectorValue
-            || lval instanceof SelectorList || rval instanceof SelectorList) {
-          return SelectorList.concat(getLocation(), lval, rval);
-        }
-
-        if (lval instanceof SkylarkList && rval instanceof SkylarkList) {
-          return SkylarkList.concat((SkylarkList) lval, (SkylarkList) rval, getLocation());
-        }
-
-        if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
-          Map<?, ?> ldict = (Map<?, ?>) lval;
-          Map<?, ?> rdict = (Map<?, ?>) rval;
-          Map<Object, Object> result = Maps.newHashMapWithExpectedSize(ldict.size() + rdict.size());
-          result.putAll(ldict);
-          result.putAll(rdict);
-          return ImmutableMap.copyOf(result);
-        }
-
-        if (lval instanceof SkylarkClassObject && rval instanceof SkylarkClassObject) {
-          return SkylarkClassObject.concat(
-              (SkylarkClassObject) lval, (SkylarkClassObject) rval, getLocation());
-        }
-
-        if (lval instanceof SkylarkNestedSet) {
-          return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, getLocation());
-        }
-        break;
+        return plus(lval, rval);
       }
 
       case MINUS: {
@@ -302,6 +246,74 @@ public final class BinaryOperatorExpression extends Expression {
         throw new AssertionError("Unsupported binary operator: " + operator);
       }
     } // endswitch
+
+    // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
+    // though python raises a TypeError.
+    // For more details, we'll hopefully have usable stack traces at some point.
+    throw new EvalException(getLocation(),
+        String.format("unsupported operand type(s) for %s: '%s' and '%s'",
+            operator, EvalUtils.getDataTypeName(lval), EvalUtils.getDataTypeName(rval)));
+  }
+
+  private Object plus(Object lval, Object rval) throws EvalException {
+    // int + int
+    if (lval instanceof Integer && rval instanceof Integer) {
+      return ((Integer) lval).intValue() + ((Integer) rval).intValue();
+    }
+
+    // string + string
+    if (lval instanceof String && rval instanceof String) {
+      return (String) lval + (String) rval;
+    }
+
+    // list + list, tuple + tuple (list + tuple, tuple + list => error)
+    if (lval instanceof List<?> && rval instanceof List<?>) {
+      List<?> llist = (List<?>) lval;
+      List<?> rlist = (List<?>) rval;
+      if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
+        throw new EvalException(getLocation(), "can only concatenate "
+            + EvalUtils.getDataTypeName(rlist) + " (not \"" + EvalUtils.getDataTypeName(llist)
+            + "\") to " + EvalUtils.getDataTypeName(rlist));
+      }
+      if (llist instanceof GlobList<?> || rlist instanceof GlobList<?>) {
+        return GlobList.concat(llist, rlist);
+      } else {
+        List<Object> result = Lists.newArrayListWithCapacity(llist.size() + rlist.size());
+        result.addAll(llist);
+        result.addAll(rlist);
+        return EvalUtils.makeSequence(result, EvalUtils.isImmutable(llist));
+      }
+    }
+
+    if (lval instanceof SelectorValue || rval instanceof SelectorValue
+        || lval instanceof SelectorList || rval instanceof SelectorList) {
+      return SelectorList.concat(getLocation(), lval, rval);
+    }
+
+    if ((lval instanceof SkylarkList || lval instanceof List<?>)
+        && (rval instanceof SkylarkList || rval instanceof List<?>)) {
+      SkylarkList left = (SkylarkList) SkylarkType.convertToSkylark(lval, getLocation());
+      SkylarkList right = (SkylarkList) SkylarkType.convertToSkylark(rval, getLocation());
+      return SkylarkList.concat(left, right, getLocation());
+    }
+
+    if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
+      Map<?, ?> ldict = (Map<?, ?>) lval;
+      Map<?, ?> rdict = (Map<?, ?>) rval;
+      Map<Object, Object> result = Maps.newHashMapWithExpectedSize(ldict.size() + rdict.size());
+      result.putAll(ldict);
+      result.putAll(rdict);
+      return ImmutableMap.copyOf(result);
+    }
+
+    if (lval instanceof SkylarkClassObject && rval instanceof SkylarkClassObject) {
+      return SkylarkClassObject.concat((SkylarkClassObject) lval, (SkylarkClassObject) rval,
+          getLocation());
+    }
+
+    if (lval instanceof SkylarkNestedSet) {
+      return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, getLocation());
+    }
 
     // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
     // though python raises a TypeError.
