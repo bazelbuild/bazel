@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -61,13 +60,10 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .add(NESTED_BUNDLE, bundling)
         .build();
 
-    return common.configuredTarget(
-        filesToBuild.build(),
-        Optional.of(xcodeProviderBuilder.build()),
-        Optional.of(nestedBundleProvider),
-        Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent(),
-        Optional.<J2ObjcMappingFileProvider>absent());
+    return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
+        .addProvider(ObjcProvider.class, nestedBundleProvider)
+        .build();
   }
 
   private OptionsProvider optionsProvider(RuleContext ruleContext) {

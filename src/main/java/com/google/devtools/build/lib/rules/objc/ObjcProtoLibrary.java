@@ -200,13 +200,10 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             xcodeProviderBuilder, new Attribute(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET))
         .registerActions(xcodeProviderBuilder.build());
 
-    return common.configuredTarget(
-        filesToBuild.build(),
-        Optional.of(xcodeProviderBuilder.build()),
-        Optional.of(common.getObjcProvider()),
-        Optional.<XcTestAppProvider>absent(),
-        Optional.<J2ObjcSrcsProvider>absent(),
-        Optional.<J2ObjcMappingFileProvider>absent());
+    return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
+        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .build();
   }
 
   private NestedSet<Artifact> maybeGetProtoSources(RuleContext ruleContext) {

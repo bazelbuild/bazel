@@ -52,15 +52,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.util.FileType;
@@ -432,7 +426,7 @@ public final class ObjcCommon {
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet())
           .addAll(BREAKPAD_FILE, breakpadFile.asSet());
 
-      return new ObjcCommon(context, objcProvider.build(), compilationArtifacts);
+      return new ObjcCommon(objcProvider.build(), compilationArtifacts);
     }
 
   }
@@ -442,16 +436,13 @@ public final class ObjcCommon {
   static final FileType ASSET_CATALOG_CONTAINER_TYPE = FileType.of(".xcassets");
 
   static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
-  private final RuleContext context;
   private final ObjcProvider objcProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(
-      RuleContext context,
       ObjcProvider objcProvider,
       Optional<CompilationArtifacts> compilationArtifacts) {
-    this.context = Preconditions.checkNotNull(context);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
@@ -573,73 +564,5 @@ public final class ObjcCommon {
       }
     }
     return errors;
-  }
-
-  /**
-   * Returns a {@link RuleConfiguredTargetBuilder}.
-   *
-   * @param filesToBuild files to build for this target. These also become the data runfiles. Note
-   *     that this method may add more files to create the complete list of files to build for this
-   *     target.
-   * @param maybeTargetProvider the provider for this target.
-   * @param maybeExportedProvider the {@link ObjcProvider} for this target. This should generally be
-   *     present whenever {@code objc_} rules may depend on this target.
-   * @param maybeJ2ObjcSrcsProvider the {@link J2ObjcSrcsProvider} for this target.
-   */
-  public RuleConfiguredTargetBuilder configuredTargetBuilder(NestedSet<Artifact> filesToBuild,
-      Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
-      Optional<XcTestAppProvider> maybeXcTestAppProvider,
-      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider,
-      Optional<J2ObjcMappingFileProvider> maybeJ2ObjcMappingFileProvider) {
-    NestedSet<Artifact> allFilesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(filesToBuild)
-        .build();
-
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder()
-            .addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES)
-            .build(),
-        new Runfiles.Builder().addTransitiveArtifacts(allFilesToBuild).build());
-
-    RuleConfiguredTargetBuilder target = new RuleConfiguredTargetBuilder(context)
-        .setFilesToBuild(allFilesToBuild)
-        .add(RunfilesProvider.class, runfilesProvider);
-    for (ObjcProvider exportedProvider : maybeExportedProvider.asSet()) {
-      target.addProvider(ObjcProvider.class, exportedProvider);
-    }
-    for (XcTestAppProvider xcTestAppProvider : maybeXcTestAppProvider.asSet()) {
-      target.addProvider(XcTestAppProvider.class, xcTestAppProvider);
-    }
-    for (XcodeProvider targetProvider : maybeTargetProvider.asSet()) {
-      target.addProvider(XcodeProvider.class, targetProvider);
-    }
-    for (J2ObjcSrcsProvider j2ObjcSrcsProvider : maybeJ2ObjcSrcsProvider.asSet()) {
-      target.addProvider(J2ObjcSrcsProvider.class, j2ObjcSrcsProvider);
-    }
-    for (J2ObjcMappingFileProvider j2ObjcMappingFileProvider
-        : maybeJ2ObjcMappingFileProvider.asSet()) {
-      target.addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider);
-    }
-    return target;
-  }
-
-  /**
-   * Creates a {@link ConfiguredTarget}.
-   *
-   * @param filesToBuild files to build for this target. These also become the data runfiles. Note
-   *     that this method may add more files to create the complete list of files to build for this
-   *     target.
-   * @param maybeTargetProvider the provider for this target.
-   * @param maybeExportedProvider the {@link ObjcProvider} for this target. This should generally be
-   *     present whenever {@code objc_} rules may depend on this target.
-   * @param maybeJ2ObjcSrcsProvider the {@link J2ObjcSrcsProvider} for this target.
-   */
-  public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
-      Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
-      Optional<XcTestAppProvider> maybeXcTestAppProvider,
-      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider,
-      Optional<J2ObjcMappingFileProvider> maybeJ2ObjcMappingFileProvider) {
-    return configuredTargetBuilder(filesToBuild, maybeTargetProvider, maybeExportedProvider,
-        maybeXcTestAppProvider, maybeJ2ObjcSrcsProvider, maybeJ2ObjcMappingFileProvider).build();
   }
 }

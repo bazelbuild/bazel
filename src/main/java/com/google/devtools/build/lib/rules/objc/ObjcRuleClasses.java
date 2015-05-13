@@ -30,11 +30,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -234,6 +238,24 @@ public class ObjcRuleClasses {
         .setExecutable(JAVA)
         .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
         .addInput(deployJarArtifact);
+  }
+
+  /**
+   * Creates a new configured target builder with the given {@code filesToBuild}, which are also
+   * used as runfiles.
+   *
+   * @param ruleContext the current rule context
+   * @param filesToBuild files to build for this target. These also become the data runfiles
+   */
+  static RuleConfiguredTargetBuilder ruleConfiguredTarget(RuleContext ruleContext,
+      NestedSet<Artifact> filesToBuild) {
+    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
+        new Runfiles.Builder().addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES).build(),
+        new Runfiles.Builder().addTransitiveArtifacts(filesToBuild).build());
+
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .setFilesToBuild(filesToBuild)
+        .add(RunfilesProvider.class, runfilesProvider);
   }
 
   /**

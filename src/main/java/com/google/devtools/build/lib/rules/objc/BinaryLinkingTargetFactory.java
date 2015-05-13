@@ -138,19 +138,20 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     xcodeSupport.registerActions(xcodeProvider);
 
-    // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
-    // application bundle.
-    RuleConfiguredTargetBuilder target = common.configuredTargetBuilder(
-        filesToBuild.build(),
-        Optional.of(xcodeProvider),
-        Optional.of(objcProvider),
-        xcTestAppProvider,
-        Optional.<J2ObjcSrcsProvider>absent(),
-        Optional.<J2ObjcMappingFileProvider>absent());
-    for (RunfilesSupport runfilesSupport : maybeRunfilesSupport.asSet()) {
-      target.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+    RuleConfiguredTargetBuilder targetBuilder =
+        ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+            .addProvider(XcodeProvider.class, xcodeProvider)
+            .addProvider(ObjcProvider.class, objcProvider);
+    if (xcTestAppProvider.isPresent()) {
+      // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
+      // application bundle.
+      targetBuilder.addProvider(XcTestAppProvider.class, xcTestAppProvider.get());
     }
-    return target.build();
+    if (maybeRunfilesSupport.isPresent()) {
+      RunfilesSupport runfilesSupport = maybeRunfilesSupport.get();
+      targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+    }
+    return targetBuilder.build();
   }
 
   private OptionsProvider optionsProvider(RuleContext ruleContext) {
