@@ -465,6 +465,16 @@ public class EvaluationTest extends EvaluationTestCase {
         "(1, 2) + [3, 4]");
   }
 
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testSelectorListConcatenation() throws Exception {
+    SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
+    List<Object> elements = x.getElements();
+    assertThat(elements.size()).isEqualTo(2);
+    assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
+    assertThat((Iterable) elements.get(1)).isEmpty();
+  }
+
   @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
     checkEvalErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
