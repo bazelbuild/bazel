@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/**
- * A value corresponding to a glob.
- */
+/** A value corresponding to a glob. */
 @Immutable
 @ThreadSafe
-final class GlobValue implements SkyValue {
+public final class GlobValue implements SkyValue {
 
   static final GlobValue EMPTY = new GlobValue(
       NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER));
@@ -44,7 +42,7 @@ final class GlobValue implements SkyValue {
   /**
    * Returns glob matches.
    */
-  NestedSet<PathFragment> getMatches() {
+  public NestedSet<PathFragment> getMatches() {
     return matches;
   }
 
@@ -75,7 +73,8 @@ final class GlobValue implements SkyValue {
    * @throws InvalidGlobPatternException if the pattern is not valid.
    */
   @ThreadSafe
-  static SkyKey key(PackageIdentifier packageId, String pattern, boolean excludeDirs)
+  public static SkyKey key(PackageIdentifier packageId, String pattern, boolean excludeDirs,
+      PathFragment subdir)
       throws InvalidGlobPatternException {
     if (pattern.indexOf('?') != -1) {
       throw new InvalidGlobPatternException(pattern, "wildcard ? forbidden");
@@ -86,7 +85,7 @@ final class GlobValue implements SkyValue {
       throw new InvalidGlobPatternException(pattern, error);
     }
 
-    return internalKey(packageId, PathFragment.EMPTY_FRAGMENT, pattern, excludeDirs);
+    return internalKey(packageId, subdir, pattern, excludeDirs);
   }
 
   /**
@@ -116,7 +115,7 @@ final class GlobValue implements SkyValue {
    * An exception that indicates that a glob pattern is syntactically invalid.
    */
   @ThreadSafe
-  static final class InvalidGlobPatternException extends Exception {
+  public static final class InvalidGlobPatternException extends Exception {
     private final String pattern;
 
     InvalidGlobPatternException(String pattern, String error) {

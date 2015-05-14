@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+
+import javax.annotation.Nullable;
 
 /**
  * A class that groups services in the scope of the action. Like the FileOutErr object.
@@ -28,14 +33,38 @@ public class ActionExecutionContext {
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
   private final MiddlemanExpander middlemanExpander;
+  @Nullable
+  private final Environment env;
 
-  public ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
-      MetadataHandler metadataHandler, FileOutErr fileOutErr, MiddlemanExpander middlemanExpander) {
+  private ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler, FileOutErr fileOutErr,
+      @Nullable MiddlemanExpander middlemanExpander,
+      @Nullable SkyFunction.Environment env) {
     this.actionInputFileCache = actionInputFileCache;
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
     this.executor = executor;
     this.middlemanExpander = middlemanExpander;
+    this.env = env;
+  }
+
+  public ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler, FileOutErr fileOutErr, MiddlemanExpander middlemanExpander) {
+    this(executor, actionInputFileCache, metadataHandler, fileOutErr, middlemanExpander, null);
+  }
+
+  public static ActionExecutionContext normal(Executor executor,
+      ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
+      FileOutErr fileOutErr, MiddlemanExpander middlemanExpander) {
+    return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
+        middlemanExpander, null);
+  }
+
+  public static ActionExecutionContext forInputDiscovery(Executor executor,
+      ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
+      FileOutErr fileOutErr, Environment env) {
+    return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
+        null, env);
   }
 
   public ActionInputFileCache getActionInputFileCache() {
@@ -63,11 +92,18 @@ public class ActionExecutionContext {
   }
 
   /**
+   * Provides a mechanism for the action to request values from Skyframe while it discovers inputs.
+   */
+  public Environment getEnvironmentForDiscoveringInputs() {
+    return Preconditions.checkNotNull(env);
+  }
+
+  /**
    * Allows us to create a new context that overrides the FileOutErr with another one. This is
    * useful for muting the output for example.
    */
   public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
     return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        middlemanExpander);
+        middlemanExpander, env);
   }
 }

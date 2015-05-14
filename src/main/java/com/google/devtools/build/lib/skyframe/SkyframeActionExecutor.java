@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.protobuf.ByteString;
 
 import java.io.IOException;
@@ -517,8 +518,16 @@ public final class SkyframeActionExecutor {
    * <p>This method is just a wrapper around {@link Action#discoverInputs} that properly processes
    * any ActionExecutionException thrown before rethrowing it to the caller.
    */
-  Collection<Artifact> discoverInputs(Action action, ActionExecutionContext actionExecutionContext)
+  Collection<Artifact> discoverInputs(Action action, PerActionFileCache graphFileCache,
+      MetadataHandler metadataHandler, Environment env)
       throws ActionExecutionException, InterruptedException {
+    ActionExecutionContext actionExecutionContext =
+        ActionExecutionContext.forInputDiscovery(
+            executorEngine,
+            new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
+            metadataHandler,
+            actionLogBufferPathGenerator.generate(),
+            env);
     try {
       return action.discoverInputs(actionExecutionContext);
     } catch (ActionExecutionException e) {

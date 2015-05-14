@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import javax.annotation.Nullable;
 
 /** Utilities for producing and consuming ValueOrException(2|3|4)? instances. */
-class ValueOrExceptionUtils {
+@VisibleForTesting
+public class ValueOrExceptionUtils {
 
   /** The bottom exception type. */
   class BottomException extends Exception {

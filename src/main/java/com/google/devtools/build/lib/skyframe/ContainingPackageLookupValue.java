@@ -29,7 +29,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   public abstract boolean hasContainingPackage();
 
   /** If there is a containing package, returns its name. */
-  abstract PackageIdentifier getContainingPackageName();
+  public abstract PackageIdentifier getContainingPackageName();
 
   /** If there is a containing package, returns its package root */
   public abstract Path getContainingPackageRoot();

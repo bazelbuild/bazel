@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -49,7 +50,8 @@ import javax.annotation.Nullable;
  *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-abstract class FileStateValue implements SkyValue {
+@VisibleForTesting
+public abstract class FileStateValue implements SkyValue {
 
   static final FileStateValue DIRECTORY_FILE_STATE_NODE = DirectoryFileStateValue.INSTANCE;
   static final FileStateValue NONEXISTENT_FILE_STATE_NODE = NonexistentFileStateValue.INSTANCE;
@@ -92,8 +94,9 @@ abstract class FileStateValue implements SkyValue {
         + "neither a file nor directory nor symlink.");
   }
 
+  @VisibleForTesting
   @ThreadSafe
-  static SkyKey key(RootedPath rootedPath) {
+  public static SkyKey key(RootedPath rootedPath) {
     return new SkyKey(SkyFunctions.FILE_STATE, rootedPath);
   }
 

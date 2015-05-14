@@ -296,16 +296,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // This may be recreated if we discover inputs.
     PerActionFileCache perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-    ActionExecutionContext actionExecutionContext =
-        skyframeActionExecutor.constructActionExecutionContext(perActionFileCache,
-            metadataHandler, state.expandedMiddlemen);
+    ActionExecutionContext actionExecutionContext = null;
     boolean inputsDiscoveredDuringActionExecution = false;
     Map<Artifact, FileArtifactValue> metadataFoundDuringActionExecution = null;
     try {
       if (action.discoversInputs()) {
         if (!state.hasDiscoveredInputs()) {
-          state.discoveredInputs =
-              skyframeActionExecutor.discoverInputs(action, actionExecutionContext);
+          try {
+            state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
+                perActionFileCache, metadataHandler, env);
+          } catch (MissingDepException e) {
+            Preconditions.checkState(env.valuesMissing(), action);
+            return null;
+          }
           if (state.discoveredInputs == null) {
             // Action had nothing to tell us about discovered inputs before execution. We'll have to
             // add them afterwards.
@@ -325,20 +328,22 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
-          actionExecutionContext =
-              skyframeActionExecutor.constructActionExecutionContext(perActionFileCache,
-                  metadataHandler, state.expandedMiddlemen);
         }
       }
+      actionExecutionContext =
+          skyframeActionExecutor.constructActionExecutionContext(perActionFileCache,
+              metadataHandler, state.expandedMiddlemen);
       if (!state.hasExecutedAction()) {
         state.value = skyframeActionExecutor.executeAction(action,
             metadataHandler, actionStartTime, actionExecutionContext);
       }
     } finally {
-      try {
-        actionExecutionContext.getFileOutErr().close();
-      } catch (IOException e) {
-        // Nothing we can do here.
+      if (actionExecutionContext != null) {
+        try {
+          actionExecutionContext.getFileOutErr().close();
+        } catch (IOException e) {
+          // Nothing we can do here.
+        }
       }
       if (inputsDiscoveredDuringActionExecution) {
         metadataFoundDuringActionExecution =
@@ -522,6 +527,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   public String extractTag(SkyKey skyKey) {
     return null;
   }
+
+  /**
+   * Exception to be thrown if an action is missing Skyframe dependencies that it finds are missing
+   * during execution/input discovery.
+   */
+  public static class MissingDepException extends RuntimeException {}
 
   /**
    * Should be called once execution is over, and the intra-build cache of in-progress computations

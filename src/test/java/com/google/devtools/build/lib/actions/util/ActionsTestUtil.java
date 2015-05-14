@@ -37,20 +37,33 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
+import com.google.devtools.build.skyframe.BuildDriver;
+import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
+import com.google.devtools.build.skyframe.ValueOrUntypedException;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -78,6 +91,74 @@ public final class ActionsTestUtil {
         actionGraph == null
             ? null
             : ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+  }
+
+  public static ActionExecutionContext createContextForInputDiscovery(Executor executor,
+      FileOutErr fileOutErr, Path execRoot, MetadataHandler metadataHandler,
+      BuildDriver buildDriver) {
+    return ActionExecutionContext.forInputDiscovery(
+        executor,
+        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        metadataHandler, fileOutErr,
+        new BlockingSkyFunctionEnvironment(buildDriver,
+            executor == null ? null : executor.getEventHandler()));
+
+  }
+
+
+  /**
+   * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
+   * requested keys, blocking until the values are ready.
+   */
+  private static class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+    private final BuildDriver driver;
+    private final EventHandler eventHandler;
+
+    private BlockingSkyFunctionEnvironment(BuildDriver driver, EventHandler eventHandler) {
+      this.driver = driver;
+      this.eventHandler = eventHandler;
+    }
+
+    @Override
+    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+        Iterable<SkyKey> depKeys) {
+      EvaluationResult<SkyValue> evaluationResult;
+      Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
+      try {
+        evaluationResult = driver.evaluate(depKeys, /*keepGoing=*/false,
+            ResourceUsage.getAvailableProcessors(), eventHandler);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        for (SkyKey key : depKeys) {
+          result.put(key, ValueOrExceptionUtils.ofNull());
+        }
+        return result;
+      }
+      for (SkyKey key : depKeys) {
+        SkyValue value = evaluationResult.get(key);
+        if (value != null) {
+          result.put(key, ValueOrExceptionUtils.ofValue(value));
+          continue;
+        }
+        ErrorInfo errorInfo = evaluationResult.getError(key);
+        if (errorInfo == null || errorInfo.getException() == null) {
+          result.put(key, ValueOrExceptionUtils.ofNull());
+          continue;
+        }
+        result.put(key, ValueOrExceptionUtils.ofExn(errorInfo.getException()));
+      }
+      return result;
+    }
+
+    @Override
+    public EventHandler getListener() {
+      return null;
+    }
+
+    @Override
+    public boolean inErrorBubblingForTesting() {
+      return false;
+    }
   }
 
   /**

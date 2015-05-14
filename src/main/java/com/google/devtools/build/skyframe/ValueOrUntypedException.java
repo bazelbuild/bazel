@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import javax.annotation.Nullable;
 
 /**
@@ -22,7 +24,8 @@ import javax.annotation.Nullable;
  * {@link ValueOrExceptionUtils}. It's an abstract class (as opposed to an interface) to avoid
  * exposing the methods outside the package.
  */
-abstract class ValueOrUntypedException {
+@VisibleForTesting
+public abstract class ValueOrUntypedException {
 
   /** Returns the stored value, if there was one. */
   @Nullable
