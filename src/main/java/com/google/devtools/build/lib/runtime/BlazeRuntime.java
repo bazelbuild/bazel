@@ -805,6 +805,9 @@ public final class BlazeRuntime {
         throw new IllegalStateException(e);
       }
     }
+    for (BlazeModule module : blazeModules) {
+      module.handleOptions(optionsParser);
+    }
 
     eventBus.post(new CommandStartEvent(command.name(), commandId, clientEnv, workingDirectory));
     // Initialize exit code to dummy value for afterCommand.

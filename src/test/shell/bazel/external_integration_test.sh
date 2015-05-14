@@ -449,7 +449,8 @@ EOF
 
   # But it is required after a clean.
   bazel clean --expunge
-  bazel build //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
+  # TODO(kchodorow): remove the --fetch=false option once that's the default.
+  bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
   expect_log "bazel fetch //..."
 }
 

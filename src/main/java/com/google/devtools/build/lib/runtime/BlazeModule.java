@@ -232,6 +232,15 @@ public abstract class BlazeModule {
   }
 
   /**
+   * Does any handling of options needed by the command.
+   *
+   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   */
+  @SuppressWarnings("unused")
+  public void handleOptions(OptionsProvider optionsProvider) {
+  }
+
+  /**
    * Returns the extra options this module contributes to a specific command.
    *
    * <p>This method will be called at the beginning of each command (after #beforeCommand).

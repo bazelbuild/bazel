@@ -139,4 +139,10 @@ public class PackageCacheOptions extends OptionsBase {
       category = "undocumented",
       help = "Threshold for number of loaded packages before skyframe-m1 cache eviction kicks in")
   public int minLoadedPkgCountForCtNodeEviction;
+
+  @Option(name = "fetch",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Allows the command to fetch external dependencies")
+  public boolean fetch;
 }

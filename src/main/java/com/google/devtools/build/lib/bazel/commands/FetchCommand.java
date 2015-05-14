@@ -79,6 +79,12 @@ public final class FetchCommand implements BlazeCommand {
       return e.getExitCode();
     }
 
+    PackageCacheOptions pkgOptions = options.getOptions(PackageCacheOptions.class);
+    if (pkgOptions.fetch == false) {
+      runtime.getReporter().handle(Event.error(null, "You cannot run fetch with --fetch=false"));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
     // Querying for all of the dependencies of the targets has the side-effect of populating the
     // Skyframe graph for external targets, which requires downloading them. The JDK is required to
     // build everything but isn't counted as a dep in the build graph so we add it manually.

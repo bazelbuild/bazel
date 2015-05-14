@@ -37,10 +37,9 @@ import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
+import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
@@ -103,13 +102,15 @@ public class BazelRepositoryModule extends BlazeModule {
     }
   }
 
+  @Override
   public Iterable<? extends BlazeCommand> getCommands() {
     return ImmutableList.of(new FetchCommand());
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
-    isFetch.set(command.name().equals(FetchCommand.NAME));
+  public void handleOptions(OptionsProvider optionsProvider) {
+    PackageCacheOptions pkgOptions = optionsProvider.getOptions(PackageCacheOptions.class);
+    isFetch.set(pkgOptions != null && pkgOptions.fetch);
   }
 
   @Override
