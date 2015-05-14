@@ -129,7 +129,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             transitiveJavaNativeLibraries))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, new JavaSourceInfoProvider(
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, srcJars), /* Artifact bundledSrcJar = */null))
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, srcJars)))
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveJavaSourceJars, srcJars))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
