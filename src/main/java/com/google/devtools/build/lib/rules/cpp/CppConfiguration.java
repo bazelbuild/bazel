@@ -1855,8 +1855,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public Map<String, Object> lateBoundOptionDefaults() {
-    // --cpu defaults to null. With that default, the actual target cpu string gets picked up
-    // by the "default_target_cpu" crosstool parameter.
-    return ImmutableMap.<String, Object>of("cpu", getTargetCpu());
+    // --cpu and --compiler initially default to null because their *actual* defaults aren't known
+    // until they're read from the CROSSTOOL. Feed the CROSSTOOL defaults in here.
+    return ImmutableMap.<String, Object>of(
+        "cpu", getTargetCpu(),
+        "compiler", getCompiler()
+    );
   }
 }

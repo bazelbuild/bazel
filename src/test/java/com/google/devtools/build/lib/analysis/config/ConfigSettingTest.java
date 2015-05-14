@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
 
 /**
  * Tests for {@link ConfigSetting}.
@@ -33,6 +35,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   private ConfigMatchingProvider getConfigMatchingProvider(String label) throws Exception {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
+  }
+
+  /**
+   * Returns the default value of the given flag.
+   */
+  private Object flagDefault(String option) {
+    Class<? extends OptionsBase> optionsClass = getTargetConfiguration().getOptionClass(option);
+    return OptionsParser.newOptionsParser(optionsClass)
+        .getOptions(optionsClass)
+        .asMap()
+        .get(option);
   }
 
   /**
@@ -123,14 +136,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * com.google.devtools.common.options.Option#defaultValue}).
    */
   public void testLateBoundOptionDefaults() throws Exception {
+    String crosstoolCpuDefault = (String) getTargetConfiguration().getOptionValue("cpu");
+    String crosstoolCompilerDefault = (String) getTargetConfiguration().getOptionValue("compiler");
+
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",
-        "        'cpu': 'k8',",
+        "        'cpu': '" + crosstoolCpuDefault + "',",
+        "        'compiler': '" + crosstoolCompilerDefault + "',", //'gcc-4.4.0',",
         "    })");
-    useConfiguration("--cpu=k8");
+
     assertTrue(getConfigMatchingProvider("//test:match").matches());
+    assertNull(flagDefault("cpu"));
+    assertNotNull(crosstoolCpuDefault);
+    assertNull(flagDefault("compiler"));
+    assertNotNull(crosstoolCompilerDefault);
   }
 
   /**
