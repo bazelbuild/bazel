@@ -72,8 +72,8 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
-        ruleContext, common.getObjcProvider(), optionsProvider(ruleContext),
-        LinkedBinary.DEPENDENCIES_ONLY, bundleDirFormat, bundleMinimumOsVersion(ruleContext));
+        ruleContext, common.getObjcProvider(), LinkedBinary.DEPENDENCIES_ONLY, bundleDirFormat,
+        bundleMinimumOsVersion(ruleContext));
     releaseBundlingSupport
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)
@@ -122,11 +122,6 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
   protected String bundleMinimumOsVersion(RuleContext ruleContext) {
     return ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
   }
-
-  /**
-   * Returns a provider based on this rule's options and those of its option-providing dependencies.
-   */
-  protected abstract OptionsProvider optionsProvider(RuleContext ruleContext);
 
   /**
    * Performs additional configuration of the target. The default implementation does nothing, but

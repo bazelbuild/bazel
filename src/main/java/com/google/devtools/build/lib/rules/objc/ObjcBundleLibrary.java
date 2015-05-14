@@ -34,9 +34,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = common(ruleContext);
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
-
-    Bundling bundling = bundling(ruleContext, common, optionsProvider);
+    Bundling bundling = bundling(ruleContext, common);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
@@ -66,14 +64,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
-        .build();
-  }
-
-  private Bundling bundling(
-      RuleContext ruleContext, ObjcCommon common, OptionsProvider optionsProvider) {
+  private Bundling bundling(RuleContext ruleContext, ObjcCommon common) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
@@ -83,7 +74,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .setBundleDirFormat("%s.bundle")
         .setObjcProvider(common.getObjcProvider())
         .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(), optionsProvider,
+            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(),
                 /*primaryBundleId=*/null, /*fallbackBundleId=*/null,
                 new BundleSupport.ExtraMergePlists()))
         .setIntermediateArtifacts(intermediateArtifacts)

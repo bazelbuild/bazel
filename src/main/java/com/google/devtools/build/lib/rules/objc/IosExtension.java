@@ -52,12 +52,6 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
         ConfigurationDistinguisher.EXTENSION);
   }
 
-  protected OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
-        .build();
-  }
-
   @Override
   protected String bundleMinimumOsVersion(RuleContext ruleContext) {
     return determineMinimumOsVersion(ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs());

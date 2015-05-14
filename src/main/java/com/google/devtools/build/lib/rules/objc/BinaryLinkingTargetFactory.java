@@ -64,7 +64,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = common(ruleContext);
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
 
     ObjcProvider objcProvider = common.getObjcProvider();
     if (!hasLibraryOrSources(objcProvider)) {
@@ -80,9 +79,9 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .add(intermediateArtifacts.singleArchitectureBinary());
 
     new CompilationSupport(ruleContext)
-        .registerJ2ObjcCompileAndArchiveActions(optionsProvider, objcProvider)
-        .registerCompileAndArchiveActions(common, optionsProvider)
-        .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
+        .registerJ2ObjcCompileAndArchiveActions(objcProvider)
+        .registerCompileAndArchiveActions(common)
+        .addXcodeSettings(xcodeProviderBuilder, common)
         .registerLinkActions(objcProvider, extraLinkArgs, ImmutableList.<Artifact>of())
         .validateAttributes();
 
@@ -93,9 +92,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
         ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
-            ruleContext, objcProvider, optionsProvider,
-            LinkedBinary.LOCAL_AND_DEPENDENCIES, ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
-            objcConfiguration.getMinimumOs());
+            ruleContext, objcProvider, LinkedBinary.LOCAL_AND_DEPENDENCIES,
+            ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, objcConfiguration.getMinimumOs());
         releaseBundlingSupport
             .registerActions()
             .addXcodeSettings(xcodeProviderBuilder)
@@ -152,18 +150,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
       targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
     }
     return targetBuilder.build();
-  }
-
-  private OptionsProvider optionsProvider(RuleContext ruleContext) {
-    OptionsProvider.Builder provider = new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)));
-    if (hasReleaseBundlingSupport == HasReleaseBundlingSupport.YES) {
-        provider
-            .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list());
-    }
-    return provider.build();
   }
 
   private boolean hasLibraryOrSources(ObjcProvider objcProvider) {

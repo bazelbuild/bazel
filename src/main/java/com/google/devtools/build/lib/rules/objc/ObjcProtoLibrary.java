@@ -191,7 +191,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .setCompilationArtifacts(common.getCompilationArtifacts().get());
 
     new CompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(common, OptionsProvider.DEFAULT);
+        .registerCompileAndArchiveActions(common);
 
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)

@@ -146,6 +146,33 @@ public final class ObjcCommon {
       }
       return paths.build();
     }
+
+    /**
+     * Returns any values specified in this rule's {@code copts} attribute or an empty list if the
+     * attribute does not exist or no values are specified.
+     */
+    public Iterable<String> copts() {
+      if (!ruleContext.attributes().has("copts", Type.STRING_LIST)) {
+        return ImmutableList.of();
+      }
+      return ruleContext.getTokenizedStringListAttr("copts");
+    }
+
+    /**
+     * Returns any {@code copts} defined on an {@code objc_options} rule that is a dependency of
+     * this rule.
+     */
+    public Iterable<String> optionsCopts() {
+      if (!ruleContext.attributes().has("options", Type.LABEL)) {
+        return ImmutableList.of();
+      }
+      OptionsProvider optionsProvider =
+          ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
+      if (optionsProvider == null) {
+        return ImmutableList.of();
+      }
+      return optionsProvider.getCopts();
+    }
   }
 
   /**

@@ -84,8 +84,6 @@ final class BundleSupport {
    * @param ruleContext context this bundle is constructed in
    * @param objcProvider provider containing all dependencies' information as well as some of this
    *    rule's
-   * @param optionsProvider provider containing options and plist settings for this rule and its
-   *    dependencies
    * @param primaryBundleId used to set the bundle identifier or override the existing one from
    *     plist file, can be null
    * @param fallbackBundleId used to set the bundle identifier if it is not set by plist file or
@@ -95,17 +93,29 @@ final class BundleSupport {
   static InfoplistMerging infoPlistMerging(
       RuleContext ruleContext,
       ObjcProvider objcProvider,
-      OptionsProvider optionsProvider,
       String primaryBundleId,
       String fallbackBundleId,
       ExtraMergePlists extraMergePlists) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
+    NestedSetBuilder<Artifact> infoPlists = NestedSetBuilder.stableOrder();
+    if (ruleContext.attributes().has("options", Type.LABEL)) {
+      OptionsProvider optionsProvider = ruleContext
+          .getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
+      if (optionsProvider != null) {
+        infoPlists.addAll(optionsProvider.getInfoplists());
+      }
+    }
+    Artifact infoplist = ruleContext.getPrerequisiteArtifact("infoplist", Mode.TARGET);
+    if (infoplist != null) {
+      infoPlists.add(infoplist);
+    }
+
     return new InfoplistMerging.Builder(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(optionsProvider.getInfoplists())
+            .addTransitive(infoPlists.build())
             .addAll(actoolPartialInfoplist(ruleContext, objcProvider).asSet())
             .addAll(extraMergePlists)
             .build())

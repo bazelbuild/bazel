@@ -118,8 +118,6 @@ public final class ReleaseBundlingSupport {
    * @param ruleContext context for the application-generating rule
    * @param objcProvider provider containing all dependencies' information as well as some of this
    *    rule's
-   * @param optionsProvider provider containing options and plist settings for this rule and its
-   *    dependencies
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
    *    the latter
    * @param bundleDirFormat format string representing the bundle's directory with a single
@@ -128,16 +126,14 @@ public final class ReleaseBundlingSupport {
    *    for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
    *    through the configuration)
    */
-  ReleaseBundlingSupport(
-      RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
+  ReleaseBundlingSupport(RuleContext ruleContext, ObjcProvider objcProvider,
       LinkedBinary linkedBinary, String bundleDirFormat, String bundleMinimumOsVersion) {
     this.linkedBinary = linkedBinary;
     this.attributes = new Attributes(ruleContext);
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    bundling = bundling(
-        ruleContext, objcProvider, optionsProvider, bundleDirFormat, bundleMinimumOsVersion);
+    bundling = bundling(ruleContext, objcProvider, bundleDirFormat, bundleMinimumOsVersion);
     bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
   }
 
@@ -391,8 +387,7 @@ public final class ReleaseBundlingSupport {
     return new ExtraActoolArgs(extraArgs.build());
   }
 
-  private Bundling bundling(
-      RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
+  private Bundling bundling(RuleContext ruleContext, ObjcProvider objcProvider,
       String bundleDirFormat, String minimumOsVersion) {
     ImmutableList<BundleableFile> extraBundleFiles;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
@@ -421,9 +416,8 @@ public final class ReleaseBundlingSupport {
         .addExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)
         .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider,
-                primaryBundleId, fallbackBundleId,
-                new BundleSupport.ExtraMergePlists(getGeneratedVersionPlist())))
+            BundleSupport.infoPlistMerging(ruleContext, objcProvider, primaryBundleId,
+                fallbackBundleId, new BundleSupport.ExtraMergePlists(getGeneratedVersionPlist())))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)

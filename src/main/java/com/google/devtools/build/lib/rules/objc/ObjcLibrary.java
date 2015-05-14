@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -82,15 +81,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         ruleContext, ImmutableList.<SdkFramework>of(),
         ruleContext.attributes().get("alwayslink", Type.BOOLEAN), new ExtraImportLibraries(),
         ImmutableList.<ObjcProvider>of());
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
     new CompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(common, optionsProvider)
-        .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
+        .registerCompileAndArchiveActions(common)
+        .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 
     new ResourceSupport(ruleContext)
@@ -112,14 +110,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcSrcsProvider.class, ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext))
         .addProvider(
             J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
-        .build();
-  }
-
-  private OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
         .build();
   }
 }

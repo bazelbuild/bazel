@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -69,7 +68,6 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = common(ruleContext);
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
 
     if (!common.getCompilationArtifacts().get().getArchive().isPresent()) {
       ruleContext.ruleError(REQUIRES_SOURCE_ERROR);
@@ -117,14 +115,14 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
 
     new CompilationSupport(ruleContext)
         .registerLinkActions(common.getObjcProvider(), extraLinkArgs, extraLinkInputs)
-        .registerJ2ObjcCompileAndArchiveActions(optionsProvider, common.getObjcProvider())
-        .registerCompileAndArchiveActions(common, optionsProvider)
-        .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
+        .registerJ2ObjcCompileAndArchiveActions(common.getObjcProvider())
+        .registerCompileAndArchiveActions(common)
+        .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
-        ruleContext, common.getObjcProvider(), optionsProvider, LinkedBinary.LOCAL_AND_DEPENDENCIES,
+        ruleContext, common.getObjcProvider(), LinkedBinary.LOCAL_AND_DEPENDENCIES,
         ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, objcConfiguration.getMinimumOs());
     releaseBundlingSupport
         .registerActions()
@@ -165,15 +163,6 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
 
   protected static boolean isXcTest(RuleContext ruleContext) {
     return ruleContext.attributes().get(IS_XCTEST, Type.BOOLEAN);
-  }
-
-  private OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
-        .build();
   }
 
   /** Returns the {@link XcTestAppProvider} of the {@code xctest_app} attribute. */

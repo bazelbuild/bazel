@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -46,16 +45,6 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
   public IosApplication() {
     super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, XcodeProductType.APPLICATION,
         ExposeAsNestedBundle.NO, DEPENDENCY_ATTRIBUTES, ConfigurationDistinguisher.APPLICATION);
-  }
-
-  @Override
-  protected OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
-        .addTransitive(
-            Optional.fromNullable(
-                ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
-        .build();
   }
 
   @Override

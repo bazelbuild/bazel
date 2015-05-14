@@ -119,17 +119,14 @@ final class CompilationSupport {
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
    * @param common common information about this rule and its dependencies
-   * @param optionsProvider option and plist information about this rule and its dependencies
-   *
    * @return this compilation support
    */
-  CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, OptionsProvider optionsProvider) {
+  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common) {
     if (common.getCompilationArtifacts().isPresent()) {
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
           ObjcRuleClasses.intermediateArtifacts(ruleContext),
-          common.getObjcProvider(), optionsProvider,
+          common.getObjcProvider(),
           ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
     return this;
@@ -140,21 +137,21 @@ final class CompilationSupport {
    * files into a single archive library.
    */
   private void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
-      IntermediateArtifacts intermediateArtifacts,
-      ObjcProvider objcProvider, OptionsProvider optionsProvider, boolean isCodeCoverageEnabled) {
+      IntermediateArtifacts intermediateArtifacts, ObjcProvider objcProvider,
+      boolean isCodeCoverageEnabled) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
       registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fobjc-arc"), optionsProvider,
+          objcProvider, intermediateArtifacts, ImmutableList.of("-fobjc-arc"),
           isCodeCoverageEnabled);
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
       registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"), optionsProvider,
+          objcProvider, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"),
           isCodeCoverageEnabled);
     }
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
@@ -169,7 +166,6 @@ final class CompilationSupport {
       ObjcProvider objcProvider,
       IntermediateArtifacts intermediateArtifacts,
       Iterable<String> otherFlags,
-      OptionsProvider optionsProvider,
       boolean isCodeCoverageEnabled) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
@@ -195,7 +191,8 @@ final class CompilationSupport {
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
         .add(coverageFlags.build())
         .add(objcConfiguration.getCopts())
-        .add(optionsProvider.getCopts())
+        .add(attributes.copts())
+        .add(attributes.optionsCopts())
         .addExecPath("-c", sourceFile)
         .addExecPath("-o", objFile);
 
@@ -404,13 +401,11 @@ final class CompilationSupport {
   /**
    * Registers actions that compile and archive j2Objc dependencies of this rule.
    *
-   * @param optionsProvider option and plist information about this rule and its dependencies
    * @param objcProvider common information about this rule's attributes and its dependencies
    *
    * @return this compilation support
    */
-  CompilationSupport registerJ2ObjcCompileAndArchiveActions(
-      OptionsProvider optionsProvider, ObjcProvider objcProvider) {
+  CompilationSupport registerJ2ObjcCompileAndArchiveActions(ObjcProvider objcProvider) {
     J2ObjcSrcsProvider provider = ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext);
     Iterable<J2ObjcSource> j2ObjcSources = provider.getSrcs();
     J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
@@ -437,7 +432,7 @@ final class CompilationSupport {
           .setPchFile(Optional.<Artifact>absent())
           .build();
       registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
-          optionsProvider, ruleContext.getConfiguration().isCodeCoverageEnabled());
+          ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
 
     return this;
@@ -481,11 +476,9 @@ final class CompilationSupport {
    * Sets compilation-related Xcode project information on the given provider builder.
    *
    * @param common common information about this rule's attributes and its dependencies
-   * @param optionsProvider option and plist information about this rule and its dependencies
    * @return this compilation support
    */
-  CompilationSupport addXcodeSettings(Builder xcodeProviderBuilder,
-      ObjcCommon common, OptionsProvider optionsProvider) {
+  CompilationSupport addXcodeSettings(Builder xcodeProviderBuilder, ObjcCommon common) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     for (CompilationArtifacts artifacts : common.getCompilationArtifacts().asSet()) {
       xcodeProviderBuilder.setCompilationArtifacts(artifacts);
@@ -497,7 +490,8 @@ final class CompilationSupport {
         .addHeaderSearchPaths("$(SDKROOT)/usr/include", attributes.sdkIncludes())
         .addCompilationModeCopts(objcConfiguration.getCoptsForCompilationMode())
         .addCopts(objcConfiguration.getCopts())
-        .addCopts(optionsProvider.getCopts());
+        .addCopts(attributes.copts())
+        .addCopts(attributes.optionsCopts());
     return this;
   }
 
