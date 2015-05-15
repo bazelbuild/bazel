@@ -167,6 +167,11 @@ public class LocalDiffAwareness implements DiffAwareness {
   }
 
   @Override
+  public String name() {
+    return "local";
+  }
+
+  @Override
   public void close() {
     try {
       watchService.close();

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Map;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -30,6 +31,8 @@ import javax.annotation.Nullable;
  * sequential manner.
  */
 public final class DiffAwarenessManager {
+
+  private static final Logger LOG = Logger.getLogger(DiffAwarenessManager.class.getName());
 
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
   private Map<Path, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
@@ -108,6 +111,7 @@ public final class DiffAwarenessManager {
     } catch (IncompatibleViewException e) {
       throw new IllegalStateException(pathEntry + " " + baselineView + " " + newView, e);
     }
+
     ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(diff, pathEntry,
         newView);
     return result;
@@ -132,6 +136,7 @@ public final class DiffAwarenessManager {
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
       DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
       if (newDiffAwareness != null) {
+        LOG.info("Using " + newDiffAwareness.name() + " DiffAwareness strategy for " + pathEntry);
         diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*previousView=*/null);
         currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
         return diffAwarenessState;

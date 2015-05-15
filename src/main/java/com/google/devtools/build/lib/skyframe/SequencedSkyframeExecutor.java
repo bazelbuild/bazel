@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -68,12 +69,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.logging.Logger;
 
 /**
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
  * recent build. In other words, builds are "sequenced".
  */
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
+
+  private static final Logger LOG = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
+
   /** Lower limit for number of loaded packages to consider clearing CT values. */
   private int valueCacheEvictionLimit = -1;
 
@@ -279,13 +284,38 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
           diffAwarenessManager.getDiff(pathEntry);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
+        LOG.info("DiffAwareness treating all sources as modified for " + pathEntry);
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {
+        LOG.info(diffInfoLogString(pathEntry,
+            modifiedFileSet.getModifiedFileSet().modifiedSourceFiles()));
         modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
       }
     }
     handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
     handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
+  }
+
+  private static String diffInfoLogString(Path pathEntry,
+      ImmutableSet<PathFragment> modifiedFileSet) {
+    int numModified = modifiedFileSet.size();
+    StringBuilder result = new StringBuilder("DiffAwareness found ")
+        .append(numModified)
+        .append(" modified source files for ")
+        .append(pathEntry.getPathString());
+
+    if (numModified > 0) {
+      Iterable<String> trimmed = PathFragment.safePathStrings(
+          Iterables.limit(modifiedFileSet, 5));
+      result.append(": ")
+          .append(Joiner.on(", ").join(trimmed));
+
+      if (numModified > 5) {
+        result.append(", ...");
+      }
+    }
+
+    return result.toString();
   }
 
   /**

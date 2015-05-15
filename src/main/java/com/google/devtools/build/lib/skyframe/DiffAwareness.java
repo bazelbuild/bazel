@@ -73,6 +73,9 @@ public interface DiffAwareness extends Closeable {
   ModifiedFileSet getDiff(View oldView, View newView)
       throws IncompatibleViewException, BrokenDiffAwarenessException;
 
+  /** @return the name of this implementation */
+  String name();
+
   /**
    * Must be called whenever the {@link DiffAwareness} object is to be discarded. Using a
    * {@link DiffAwareness} instance after calling {@link #close} on it is unspecified behavior.
