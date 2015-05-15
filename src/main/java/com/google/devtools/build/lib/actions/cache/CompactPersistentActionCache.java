@@ -190,7 +190,8 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   /**
-   * @return false iff indexer contains no data or integrity check has failed.
+   * @return non-null error description if indexer contains no data or integrity check has failed,
+   *     and null otherwise
    */
   private static String validateIntegrity(int indexerSize, byte[] validationRecord) {
     if (indexerSize == 0) {
@@ -210,7 +211,6 @@ public class CompactPersistentActionCache implements ActionCache {
     } catch (BufferUnderflowException e) {
       return e.getMessage();
     }
-
   }
 
   public static Path cacheFile(Path cacheRoot) {
