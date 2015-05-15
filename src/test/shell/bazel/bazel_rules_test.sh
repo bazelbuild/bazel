@@ -149,4 +149,67 @@ EOF
   assert_test_ok //:trivial_test
 }
 
+# Regression test for https://github.com/google/bazel/issues/67
+# C++ library depedending on C++ library fails to compile on Darwin
+function test_cpp_libdeps() {
+  mkdir -p pkg
+  cat <<'EOF' >pkg/BUILD
+cc_library(
+  name = "a",
+  srcs = ["a.cc"],
+)
+
+cc_library(
+  name = "b",
+  srcs = ["b.cc"],
+  deps = [":a"],
+)
+
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+  deps = [":b"],
+)
+EOF
+
+  cat <<'EOF' >pkg/a.cc
+#include <string>
+
+std::string get_hello(std::string world) {
+  return "Hello, " + world + "!";
+}
+EOF
+
+  cat <<'EOF' >pkg/b.cc
+#include <string>
+#include <iostream>
+
+std::string get_hello(std::string);
+
+void print_hello(std::string world) {
+  std::cout << get_hello(world) << std::endl;
+}
+EOF
+
+  cat <<'EOF' >pkg/main.cc
+#include <string>
+void print_hello(std::string);
+
+int main() {
+   print_hello(std::string("World"));
+}
+EOF
+
+  bazel build //pkg:a >& $TEST_log \
+    || fail "Failed to build //pkg:a"
+  bazel build //pkg:b >& $TEST_log \
+    || fail "Failed to build //pkg:b"
+  bazel run //pkg:main >& $TEST_log \
+    || fail "Failed to run //pkg:main"
+  expect_log "Hello, World!"
+  ./bazel-bin/pkg/main >& $TEST_log \
+    || fail "Failed to run //pkg:main"
+  expect_log "Hello, World!"
+}
+
 run_suite "rules test"

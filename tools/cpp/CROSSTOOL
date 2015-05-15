@@ -77,6 +77,8 @@ toolchain {
   ar_flag: "-s"
   ar_flag: "-o"
   linker_flag: "-lstdc++"
+  linker_flag: "-undefined"
+  linker_flag: "dynamic_lookup"
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
   cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
