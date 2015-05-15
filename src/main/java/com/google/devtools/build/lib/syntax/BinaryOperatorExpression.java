@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -300,8 +300,7 @@ public final class BinaryOperatorExpression extends Expression {
     if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
       Map<?, ?> ldict = (Map<?, ?>) lval;
       Map<?, ?> rdict = (Map<?, ?>) rval;
-      Map<Object, Object> result =
-          Maps.newLinkedHashMapWithExpectedSize(ldict.size() + rdict.size());
+      Map<Object, Object> result = new LinkedHashMap<>(ldict.size() + rdict.size());
       result.putAll(ldict);
       result.putAll(rdict);
       return ImmutableMap.copyOf(result);
