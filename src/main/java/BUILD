@@ -120,7 +120,10 @@ java_library(
         "com/google/devtools/build/lib/**/*.html",
         "com/google/devtools/build/lib/**/*.css",
         "com/google/devtools/build/lib/**/*.js",
-    ]),
+    ]) + [
+        "//third_party:d3-js",
+        "//third_party:jquery",
+    ],
     visibility = ["//src/test/java:__subpackages__"],
     runtime_deps = [
         "//third_party:aether",

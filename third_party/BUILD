@@ -16,6 +16,16 @@ filegroup(
     }),
 )
 
+filegroup(
+    name = "d3-js",
+    srcs = glob(["javascript/d3/**/*.js"]),
+)
+
+filegroup(
+    name = "jquery",
+    srcs = glob(["javascript/jquery/**/*.jslib"]),
+)
+
 java_import(
     name = "aether",
     jars = [
