@@ -21,7 +21,7 @@ Clone the Bazel repo from GitHub:
 
 ```
 $ cd $HOME
-$ git clone https://github.com/google/bazel/
+$ git clone https://github.com/google/bazel.git
 ```
 
 ## Building Bazel
