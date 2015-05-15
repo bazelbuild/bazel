@@ -27,7 +27,7 @@ genrule(
         ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
-        ":namespace-sandbox",
+        "//src/main/tools:namespace-sandbox",
         "client_info",
         "//src/main/tools:build_interface_so",
     ],
@@ -55,7 +55,7 @@ genrule(
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:jdk-support",
-        ":namespace-sandbox",
+        "//src/main/tools:namespace-sandbox",
         "client_info",
         "//src/main/tools:build_interface_so",
         "install_base_key",
@@ -92,13 +92,6 @@ filegroup(
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//third_party/ijar",
-    ],
-)
-
-filegroup(
-    name = "namespace-sandbox",
-    srcs = [
-        "//src/main/tools:namespace-sandbox",
     ],
 )
 
