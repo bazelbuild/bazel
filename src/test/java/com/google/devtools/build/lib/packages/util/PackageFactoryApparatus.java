@@ -74,7 +74,7 @@ public class PackageFactoryApparatus {
     return factory;
   }
 
-  CachingPackageLocator getPackageLocator() {
+  public CachingPackageLocator getPackageLocator() {
     return locator;
   }
 
