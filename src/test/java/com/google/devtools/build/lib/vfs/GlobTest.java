@@ -302,6 +302,17 @@ public class GlobTest {
   }
 
   @Test
+  public void testMatcherMethodRecursiveBelowDir() throws Exception {
+    FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/file"));
+    String pattern = "foo/**/*";
+    assertTrue(UnixGlob.matches(pattern, "foo/bar"));
+    assertTrue(UnixGlob.matches(pattern, "foo/bar/baz"));
+    assertFalse(UnixGlob.matches(pattern, "foo"));
+    assertFalse(UnixGlob.matches(pattern, "foob"));
+    assertTrue(UnixGlob.matches("**/foo", "foo"));
+  }
+
+  @Test
   public void testMultiplePatternsWithOverlap() throws Exception {
     assertGlobMatchesAnyOrder(Lists.newArrayList("food", "foo?"),
                               "food", "fool");

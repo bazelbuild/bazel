@@ -252,7 +252,21 @@ public final class UnixGlob {
       char c = pattern.charAt(i);
       switch(c) {
         case '*':
+          int toIncrement = 0;
+          if (len > i + 1 && pattern.charAt(i + 1) == '*') {
+            // The pattern '**' is interpreted to match 0 or more directory separators, not 1 or
+            // more. We skip the next * and then find a trailing/leading '/' and get rid of it.
+            toIncrement = 1;
+            if (len > i + 2 && pattern.charAt(i + 2) == '/') {
+              // We have '**/' -- skip the '/'.
+              toIncrement = 2;
+            } else if (len == i + 2 && i > 0 && pattern.charAt(i - 1) == '/') {
+              // We have '/**' -- remove the '/'.
+              regexp.delete(regexp.length() - 1, regexp.length());
+            }
+          }
           regexp.append(".*");
+          i += toIncrement;
           break;
         case '?':
           regexp.append('.');
