@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
 import com.google.devtools.build.xcode.common.XcodeprojPath;
 import com.google.devtools.build.xcode.util.Containing;
 import com.google.devtools.build.xcode.util.Equaling;
@@ -83,6 +85,7 @@ public class XcodeprojGeneration {
   public static final String FILE_TYPE_WRAPPER_BUNDLE = "wrapper.cfbundle";
   public static final String FILE_TYPE_APP_EXTENSION = "wrapper.app-extension";
   private static final String DEFAULT_OPTIONS_NAME = "Debug";
+  private static final Escaper QUOTE_ESCAPER = Escapers.builder().addEscape('"', "\\\"").build();
 
   @VisibleForTesting
   static final String APP_NEEDS_SOURCE_ERROR =
@@ -458,8 +461,11 @@ public class XcodeprojGeneration {
             "INFOPLIST_FILE", "$(WORKSPACE_ROOT)/" + targetControl.getInfoplist());
       }
 
+      // Double-quotes in copt strings need to be escaped for XCode.
       if (targetControl.getCoptCount() > 0) {
-        targetBuildConfigMap.put("OTHER_CFLAGS", NSObject.wrap(targetControl.getCoptList()));
+        List<String> escapedCopts = Lists.transform(
+            targetControl.getCoptList(), QUOTE_ESCAPER.asFunction());
+        targetBuildConfigMap.put("OTHER_CFLAGS", NSObject.wrap(escapedCopts));
       }
       targetBuildConfigMap.put("OTHER_LDFLAGS", NSObject.wrap(otherLdflags(targetControl)));
       for (XcodeprojBuildSetting setting : targetControl.getBuildSettingList()) {
