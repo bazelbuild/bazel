@@ -392,8 +392,8 @@ public class ParserTest extends EvaluationTestCase {
   public void testPrettyPrintFunctions() throws Exception {
     assertEquals("[x[1:3]\n]", parseFile("x[1:3]").toString());
     assertEquals("[str[42]\n]", parseFile("str[42]").toString());
-    assertEquals("[ctx.new_file(['hello'])\n]", parseFile("ctx.new_file('hello')").toString());
-    assertEquals("[new_file(['hello'])\n]", parseFile("new_file('hello')").toString());
+    assertEquals("[ctx.new_file('hello')\n]", parseFile("ctx.new_file('hello')").toString());
+    assertEquals("[new_file('hello')\n]", parseFile("new_file('hello')").toString());
   }
 
   @Test

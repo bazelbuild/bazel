@@ -398,7 +398,7 @@ public abstract class EvalUtils {
     }
   }
 
-  private static void printList(Iterable<?> list,
+  public static void printList(Iterable<?> list,
       String before, String separator, String after, String singletonTerminator, Appendable buffer)
       throws IOException {
     boolean printSeparator = false; // don't print the separator before the first element
@@ -418,7 +418,7 @@ public abstract class EvalUtils {
     buffer.append(after);
   }
 
-  private static void printList(Iterable<?> list, boolean isTuple, Appendable buffer)
+  public static void printList(Iterable<?> list, boolean isTuple, Appendable buffer)
       throws IOException {
     if (isTuple) {
       printList(list, "(", ", ", ")", ",", buffer);

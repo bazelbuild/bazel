@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.util.StringUtilities;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -254,10 +255,17 @@ public final class FuncallExpression extends Expression {
     if (func.getName().equals("$index")) {
       return obj + "[" + args.get(0) + "]";
     }
+    StringBuilder sb = new StringBuilder();
     if (obj != null) {
-      return obj + "." + func + "(" + args + ")";
+      sb.append(obj).append(".");
     }
-    return func + "(" + args + ")";
+    sb.append(func);
+    try {
+      EvalUtils.printList(args, "(", ", ", ")", null, sb);
+    } catch (IOException x) {
+      throw new RuntimeException("Error while printing", x);
+    }
+    return sb.toString();
   }
 
   /**
