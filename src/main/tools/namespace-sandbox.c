@@ -21,6 +21,7 @@
 #include <linux/capability.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,6 +64,9 @@ void Usage() {
 void PropagateSignals();
 void EnableAlarm();
 void SetupSlashDev();
+// Write the file "filename" using a format string specified by "fmt".
+// Returns -1 on failure.
+int WriteFile(const char *filename, const char *fmt, ...);
 
 static volatile sig_atomic_t global_signal_received = 0;
 
@@ -177,19 +181,8 @@ parsing_finished:
 
   // set group and user mapping from outer namespace to inner:
   // no changes in the parent, be root in the child
-  int uid_fd, gid_fd;
-  char uid_mapping[64], gid_mapping[64];
-  sprintf(uid_mapping, "0 %d 1\n", uid);
-  sprintf(gid_mapping, "0 %d 1\n", gid);
-  uid_fd = open("/proc/self/uid_map", O_WRONLY);
-  CHECK_CALL(uid_fd);
-  CHECK_CALL(write(uid_fd, uid_mapping, strlen(uid_mapping)));
-  CHECK_CALL(close(uid_fd));
-
-  gid_fd = open("/proc/self/gid_map", O_WRONLY);
-  CHECK_CALL(gid_fd);
-  CHECK_CALL(write(gid_fd, gid_mapping, strlen(gid_mapping)));
-  CHECK_CALL(close(gid_fd));
+  CHECK_CALL(WriteFile("/proc/self/uid_map", "0 %d 1\n", uid));
+  CHECK_CALL(WriteFile("/proc/self/gid_map", "0 %d 1\n", gid));
 
   CHECK_CALL(setresuid(0, 0, 0));
   CHECK_CALL(setresgid(0, 0, 0));
@@ -320,4 +313,21 @@ void EnableAlarm(int timeout) {
   struct itimerval timer = {};
   timer.it_value.tv_sec = (long) timeout;
   CHECK_CALL(setitimer(ITIMER_REAL, &timer, NULL));
+}
+
+int WriteFile(const char *filename, const char *fmt, ...) {
+  FILE *stream;
+  int r;
+  va_list ap;
+  stream = fopen(filename, "w");
+  if (stream == NULL) {
+    return -1;
+  }
+  va_start(ap, fmt);
+  r = vfprintf(stream, fmt, ap);
+  va_end(ap);
+  if (r >= 0) {
+    r = fclose(stream);
+  }
+  return r;
 }
