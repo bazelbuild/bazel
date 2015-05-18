@@ -63,7 +63,7 @@ string GetUserName() {
 // If called from working directory "/bar":
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
-string MakeAbsolute(string path) {
+string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
   if (path.empty() || path[0] == '/') {
     return path;
@@ -241,7 +241,7 @@ int GetTerminalColumns() {
 // Replace the current process with the given program in the given working
 // directory, using the given argument vector.
 // This function does not return on success.
-void ExecuteProgram(string exe, const vector<string>& args_vector) {
+void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   if (VerboseLogging()) {
     string dbg;
     for (const auto& s : args_vector) {
@@ -278,8 +278,9 @@ void ReExecute(const string &executable, int argc, const char *argv[]) {
   ExecuteProgram(args[0], args);
 }
 
-const char* GetUnaryOption(const char *arg, const char *next_arg,
-                                  const char *key) {
+const char* GetUnaryOption(const char *arg,
+                           const char *next_arg,
+                           const char *key) {
   const char *value = blaze_util::var_strprefix(arg, key);
   if (value == NULL) {
     return NULL;
@@ -343,7 +344,7 @@ string ReadJvmVersion(int fd) {
   return "";
 }
 
-string GetJvmVersion(string java_exe) {
+string GetJvmVersion(const string &java_exe) {
   vector<string> args;
   args.push_back("java");
   args.push_back("-version");
@@ -370,7 +371,8 @@ string GetJvmVersion(string java_exe) {
   }
 }
 
-bool CheckJavaVersionIsAtLeast(string jvm_version, string version_spec) {
+bool CheckJavaVersionIsAtLeast(const string &jvm_version,
+                               const string &version_spec) {
   vector<string> jvm_version_vect = blaze_util::Split(jvm_version, '.');
   vector<string> version_spec_vect = blaze_util::Split(version_spec, '.');
   int i;

@@ -1325,7 +1325,7 @@ static void ComputeWorkspace() {
 // Figure out the base directories based on embedded data, username, cwd, etc.
 // Sets globals->options.install_base, globals->options.output_base,
 // globals->lock_file, globals->jvm_log_file.
-static void ComputeBaseDirectories(const string self_path) {
+static void ComputeBaseDirectories(const string &self_path) {
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
   if (!BlazeStartupOptions::InWorkspace(globals->workspace)) {

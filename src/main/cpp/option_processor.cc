@@ -41,7 +41,6 @@ OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option) {
   option_ = option;
 }
 
-
 OptionProcessor::RcFile::RcFile(const string& filename, int index) {
   filename_ = filename;
   index_ = index;
@@ -58,7 +57,8 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
-    string filename, const int index,
+    const string& filename,
+    const int index,
     vector<RcFile>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     list<string>* import_stack,

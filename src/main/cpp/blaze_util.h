@@ -36,11 +36,11 @@ string GetUserName();
 // If called from working directory "/bar":
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
-string MakeAbsolute(string path);
+string MakeAbsolute(const string &path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // Returns -1 on failure, sets errno.
-int MakeDirectories(const string& path, mode_t mode);
+int MakeDirectories(const string &path, mode_t mode);
 
 // Replaces 'content' with contents of file 'filename'.
 // Returns false on error.
@@ -69,7 +69,7 @@ bool Is64BitBlazeJavabase();
 void AddJVMSpecificArguments(const string &host_javabase,
                              std::vector<string> *result);
 
-void ExecuteProgram(string exe, const std::vector<string>& args_vector);
+void ExecuteProgram(const string &exe, const std::vector<string> &args_vector);
 
 void ReExecute(const string &executable, int argc, const char *argv[]);
 
@@ -101,14 +101,15 @@ string ReadJvmVersion(int fd);
 // is supposed to output a string in the form '.*version ".*".*'. This method
 // will return the part in between the two quote or the empty string on failure
 // to match the good string.
-string GetJvmVersion(string java_exe);
+string GetJvmVersion(const string &java_exe);
 
 // Returns true iff jvm_version is at least the version specified by
 // version_spec.
 // jvm_version is supposed to be a string specifying a java runtime version
 // as specified by the JSR-56 appendix A. version_spec is supposed to be a
 // version is the format [0-9]+(.[1-9]+)*.
-bool CheckJavaVersionIsAtLeast(string jvm_version, string version_spec);
+bool CheckJavaVersionIsAtLeast(const string &jvm_version,
+                               const string &version_spec);
 
 }  // namespace blaze
 
