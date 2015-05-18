@@ -73,10 +73,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .setArchitecture(objcConfiguration.getIosCpu())
         .setBundleDirFormat("%s.bundle")
         .setObjcProvider(common.getObjcProvider())
-        .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(),
-                /*primaryBundleId=*/null, /*fallbackBundleId=*/null,
-                new BundleSupport.ExtraMergePlists()))
+        .addInfoplistInputFromRule(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setMinimumOsVersion(objcConfiguration.getMinimumOs())
         .build();

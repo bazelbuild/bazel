@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
@@ -52,15 +51,6 @@ import java.util.Objects;
 final class BundleSupport {
 
   /**
-   * Iterable wrapper used to strongly type plists for merging into a bundle's {@code Info.plist}.
-   */
-  static class ExtraMergePlists extends IterableWrapper<Artifact> {
-    ExtraMergePlists(Artifact... inputs) {
-      super(inputs);
-    }
-  }
-
-  /**
    * Iterable wrapper used to strongly type arguments eventually passed to {@code actool}.
    */
   static final class ExtraActoolArgs extends IterableWrapper<String> {
@@ -77,52 +67,6 @@ final class BundleSupport {
   private final ExtraActoolArgs extraActoolArgs;
   private final Bundling bundling;
   private final Attributes attributes;
-
-  /**
-   * Returns merging instructions for a bundle's {@code Info.plist}.
-   *
-   * @param ruleContext context this bundle is constructed in
-   * @param objcProvider provider containing all dependencies' information as well as some of this
-   *    rule's
-   * @param primaryBundleId used to set the bundle identifier or override the existing one from
-   *     plist file, can be null
-   * @param fallbackBundleId used to set the bundle identifier if it is not set by plist file or
-   *     primary identifier, can be null
-   * @param extraMergePlists additional plist files to merge
-   */
-  static InfoplistMerging infoPlistMerging(
-      RuleContext ruleContext,
-      ObjcProvider objcProvider,
-      String primaryBundleId,
-      String fallbackBundleId,
-      ExtraMergePlists extraMergePlists) {
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
-
-    NestedSetBuilder<Artifact> infoPlists = NestedSetBuilder.stableOrder();
-    if (ruleContext.attributes().has("options", Type.LABEL)) {
-      OptionsProvider optionsProvider = ruleContext
-          .getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
-      if (optionsProvider != null) {
-        infoPlists.addAll(optionsProvider.getInfoplists());
-      }
-    }
-    Artifact infoplist = ruleContext.getPrerequisiteArtifact("infoplist", Mode.TARGET);
-    if (infoplist != null) {
-      infoPlists.add(infoplist);
-    }
-
-    return new InfoplistMerging.Builder(ruleContext)
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .setInputPlists(NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(infoPlists.build())
-            .addAll(actoolPartialInfoplist(ruleContext, objcProvider).asSet())
-            .addAll(extraMergePlists)
-            .build())
-        .setPlmerge(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
-        .setBundleIdentifiers(primaryBundleId, fallbackBundleId)
-        .build();
-  }
 
   /**
    * Creates a new bundle support with no special {@code actool} arguments.
@@ -173,7 +117,9 @@ final class BundleSupport {
    * @return this bundle support
    */
   BundleSupport addXcodeSettings(Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder.setInfoplistMerging(bundling.getInfoplistMerging());
+    if (bundling.getBundleInfoplist().isPresent()) {
+      xcodeProviderBuilder.setBundleInfoplist(bundling.getBundleInfoplist().get());
+    }
     return this;
   }
 
@@ -336,9 +282,39 @@ final class BundleSupport {
     }
   }
 
+  /**
+   * Creates action to merge multiple Info.plist files of a bundle into a single Info.plist. The
+   * merge action is necessary if there are more than one input plist files or we have a bundle ID
+   * to stamp on the merged plist.
+   */
   private void registerMergeInfoplistAction() {
-    // TODO(bazel-team): Move action implementation from InfoplistMerging to this class.
-    ruleContext.registerAction(bundling.getInfoplistMerging().getMergeAction());
+    if (!bundling.needsToMergeInfoplist()) {
+      return; // Nothing to do here.
+    }
+
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setMnemonic("MergeInfoPlistFiles")
+        .setExecutable(attributes.plmerge())
+        .setCommandLine(mergeCommandLine())
+        .addInputs(bundling.getBundleInfoplistInputs())
+        .addOutput(ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist())
+        .build(ruleContext));
+  }
+
+  private CommandLine mergeCommandLine() {
+    CustomCommandLine.Builder argBuilder = CustomCommandLine.builder()
+        .addBeforeEachExecPath("--source_file", bundling.getBundleInfoplistInputs())
+        .addExecPath(
+            "--out_file", ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist());
+
+    if (bundling.getPrimaryBundleId() != null) {
+      argBuilder.add("--primary_bundle_id").add(bundling.getPrimaryBundleId());
+    }
+    if (bundling.getFallbackBundleId() != null) {
+      argBuilder.add("--fallback_bundle_id").add(bundling.getFallbackBundleId());
+    }
+
+    return argBuilder.build();
   }
 
   private void registerActoolActionIfNecessary(ObjcProvider objcProvider) {

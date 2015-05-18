@@ -64,8 +64,11 @@ final class BundleMergeControlBytes extends ByteSource {
     BundleMergeProtos.Control.Builder control = BundleMergeProtos.Control.newBuilder()
         .addAllBundleFile(BundleableFile.toBundleFiles(bundling.getExtraBundleFiles()))
         .addAllBundleFile(BundleableFile.toBundleFiles(objcProvider.get(BUNDLE_FILE)))
-        .addAllSourcePlistFile(Artifact.toExecPaths(
-            bundling.getInfoplistMerging().getPlistWithEverything().asSet()))
+        // TODO(bazel-team): This should really be bundling.getBundleInfoplistInputs since (most of)
+        // those are editable, whereas this is usually the programatically merged plist. If we pass
+        // the sources here though, any synthetic data (generated plists with blaze-derived values)
+        // should be passed as well.
+        .addAllSourcePlistFile(Artifact.toExecPaths(bundling.getBundleInfoplist().asSet()))
         // TODO(bazel-team): Add rule attribute for specifying targeted device family
         .setMinimumOsVersion(bundling.getMinimumOsVersion())
         .setSdkVersion(objcConfiguration.getIosSdkVersion())

@@ -415,9 +415,8 @@ public final class ReleaseBundlingSupport {
         .setBundleDirFormat(bundleDirFormat)
         .addExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)
-        .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, objcProvider, primaryBundleId,
-                fallbackBundleId, new BundleSupport.ExtraMergePlists(getGeneratedVersionPlist())))
+        .addInfoplistInputFromRule(ruleContext)
+        .addInfoplistInput(getGeneratedVersionPlist())
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)
