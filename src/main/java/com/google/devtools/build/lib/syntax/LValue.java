@@ -29,7 +29,6 @@ import java.util.Collection;
  * An LValue can be a simple variable or something more complex like a tuple.
  */
 public class LValue implements Serializable {
-  // Currently, expr can only be an Ident, but we plan to support more.
   private final Expression expr;
 
   public LValue(Expression expr) {

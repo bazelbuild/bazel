@@ -786,15 +786,15 @@ class Parser {
           nextToken();
           Expression loopVar = parseForLoopVariables();
           expect(TokenKind.IN);
-          Expression listExpression = parseExpression();
-          listComprehension.add(loopVar, listExpression);
+          // The expression cannot be a ternary expression ('x if y else z') due to
+          // conflicts in Python grammar ('if' is used by the comprehension).
+          Expression listExpression = parseNonTupleExpression(0);
+          listComprehension.addFor(loopVar, listExpression);
           break;
 
         case IF:
-          reportError(lexer.createLocation(token.left, token.right),
-              "List comprehension with filtering is not yet supported");
           nextToken();
-          parseExpression();  // condition
+          listComprehension.addIf(parseExpression());
           break;
 
         case RBRACKET:

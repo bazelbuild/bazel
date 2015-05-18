@@ -394,6 +394,29 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListComprehensionsWithFiltering() throws Exception {
+    eval("range3 = [0, 1, 2]"); // used below
+
+    assertThat(eval("[a for a in (4, None, 2, None, 1) if a != None]").toString())
+        .isEqualTo("[4, 2, 1]");
+    assertThat(eval("[b+c for b in [0, 1, 2] for c in [0, 1, 2] if b + c > 2]").toString())
+        .isEqualTo("[3, 3, 4]");
+    assertThat(eval("[d+e for d in range3 if d % 2 == 1 for e in range3]").toString())
+        .isEqualTo("[1, 2, 3]");
+    assertThat(eval(
+        "[[f,g] for f in [0, 1, 2, 3, 4] if f for g in [5, 6, 7, 8] if f * g % 12 == 0 ]")
+        .toString()).isEqualTo("[[2, 6], [3, 8], [4, 6]]");
+    assertThat(eval("[h for h in [4, 2, 0, 1] if h]").toString())
+        .isEqualTo("[4, 2, 1]");
+  }
+
+  @Test
+  public void testListComprehensionDefinitionOrder() throws Exception {
+    checkEvalErrorContains("name 'y' is not defined",
+        "[x for x in (1, 2) if y for y in (3, 4)]");
+  }
+
+  @Test
   public void testTupleDestructuring() throws Exception {
     eval("a, b = 1, 2");
     assertThat(lookup("a")).isEqualTo(1);
