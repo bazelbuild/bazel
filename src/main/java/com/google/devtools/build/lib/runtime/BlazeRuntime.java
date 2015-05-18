@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.runtime.commands.ProfileCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.build.lib.runtime.commands.ShutdownCommand;
-import com.google.devtools.build.lib.runtime.commands.SkylarkCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.server.RPCServer;
@@ -1574,7 +1573,6 @@ public final class BlazeRuntime {
         new CanonicalizeCommand(),
         new CleanCommand(),
         new HelpCommand(),
-        new SkylarkCommand(),
         new InfoCommand(),
         new ProfileCommand(),
         new QueryCommand(),
