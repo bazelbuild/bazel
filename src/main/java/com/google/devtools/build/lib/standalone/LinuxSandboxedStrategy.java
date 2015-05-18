@@ -63,8 +63,9 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
     if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(Label.print(spawn.getOwner().getLabel()),
-          spawn.asShellCommand(executor.getExecRoot()));
+      executor.reportSubcommand(
+          Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
+              + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
     boolean processHeaders = spawn.getResourceOwner() instanceof CppCompileAction;
 

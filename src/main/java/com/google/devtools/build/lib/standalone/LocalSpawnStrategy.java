@@ -57,8 +57,9 @@ public class LocalSpawnStrategy implements SpawnActionContext {
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
     if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(Label.print(spawn.getOwner().getLabel()),
-          spawn.asShellCommand(executor.getExecRoot()));
+      executor.reportSubcommand(
+          Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
+              + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
 
     // We must wrap the subprocess with process-wrapper to kill the process tree.
