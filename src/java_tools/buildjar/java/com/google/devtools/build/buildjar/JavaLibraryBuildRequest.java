@@ -78,18 +78,6 @@ public final class JavaLibraryBuildRequest {
    * for both compilation and annotation processing.
    *
    * @param args the list of command line args
-   * @throws InvalidCommandLineException on any command line error
-   */
-  public JavaLibraryBuildRequest(List<String> args)
-      throws InvalidCommandLineException, IOException {
-    this(args, ImmutableList.<BlazeJavaCompilerPlugin>of());
-  }
-
-  /**
-   * Constructs a build from a list of command args. Sets the same JavacRunner
-   * for both compilation and annotation processing.
-   *
-   * @param args the list of command line args
    * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
    * @throws InvalidCommandLineException on any command line error
    */

@@ -14,7 +14,11 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
+import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.FileManagerInitializationPlugin;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -31,7 +35,11 @@ public abstract class BazelJavaBuilder {
    */
   public static void main(String[] args) {
     try {
-      JavaLibraryBuildRequest build = new JavaLibraryBuildRequest(Arrays.asList(args));
+      ImmutableList<BlazeJavaCompilerPlugin> plugins =
+          ImmutableList.<BlazeJavaCompilerPlugin>of(new FileManagerInitializationPlugin());
+      JavaLibraryBuildRequest build =
+          new JavaLibraryBuildRequest(
+              Arrays.asList(args), plugins, new DependencyModule.Builder());
       build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));
       AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
           ? new ReducedClasspathJavaLibraryBuilder()
