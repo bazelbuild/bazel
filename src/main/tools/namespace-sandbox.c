@@ -46,7 +46,7 @@ int kChildrenCleanupDelay = 1;
 
 void Usage() {
   fprintf(stderr,
-          "Usage: ./sandbox [-R sandbox-root] [-m mount] -C command arg1\n"
+          "Usage: ./sandbox [-S sandbox-root] [-m mount] -C command arg1\n"
           "Mandatory arguments:\n"
           "  -C command to run inside sandbox, followed by arguments\n"
           "  -S directory which will become the root of the sandbox\n"
