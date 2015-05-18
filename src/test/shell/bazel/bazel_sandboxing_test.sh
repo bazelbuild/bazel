@@ -40,6 +40,26 @@ function check_kernel_version {
   fi
 }
 
+# Some CI systems might deactivate sandboxing
+function check_sandbox_allowed {
+  mkdir -p test
+  # Create a program that check if unshare(2) is allowed.
+  cat <<'EOF' > test/test.c
+#define _GNU_SOURCE
+#include <sched.h>
+int main() {
+  return unshare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER);
+}
+EOF
+  cat <<'EOF' >test/BUILD
+cc_test(name = "sandbox_enabled", srcs = ["test.c"], copts = ["-std=c99"])
+EOF
+  bazel test //test:sandbox_enabled || {
+    echo "Sandboxing disabled, skipping..."
+    return false
+  }
+}
+
 function set_up {
    mkdir -p examples/genrule
    cat << 'EOF' > examples/genrule/a.txt
@@ -158,4 +178,5 @@ function test_sandbox_block_filesystem() {
 }
 
 check_kernel_version
+check_sandbox_allowed || exit 0
 run_suite "sandbox"
