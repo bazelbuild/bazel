@@ -107,7 +107,7 @@ inline bool safe_parse_sign(const string &text  /*inout*/,
 inline bool safe_parse_positive_int(const string &text, int* value_p) {
   int value = 0;
   const int vmax = std::numeric_limits<int>::max();
-  assert(vmax > 0);
+  static_assert(vmax > 0, "");
   const int vmax_over_base = vmax / 10;
   const char* start = text.data();
   const char* end = start + text.size();
@@ -137,7 +137,7 @@ inline bool safe_parse_positive_int(const string &text, int* value_p) {
 inline bool safe_parse_negative_int(const string &text, int* value_p) {
   int value = 0;
   const int vmin = std::numeric_limits<int>::min();
-  assert(vmin < 0);
+  static_assert(vmin < 0, "");
   int vmin_over_base = vmin / 10;
   // 2003 c++ standard [expr.mul]
   // "... the sign of the remainder is implementation-defined."
