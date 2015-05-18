@@ -44,23 +44,31 @@ static int global_cpid; // Returned by fork()
 
 int kChildrenCleanupDelay = 1;
 
-void Usage() {
-  fprintf(stderr,
-          "Usage: ./sandbox [-S sandbox-root] [-m mount] -C command arg1\n"
-          "Mandatory arguments:\n"
-          "  -C command to run inside sandbox, followed by arguments\n"
-          "  -S directory which will become the root of the sandbox\n"
-          "\n"
-          "Optional arguments:\n"
-          "  -t absolute path to bazel tools directory\n"
-          "  -T timeout after which sandbox will be terminated\n"
-          "  -m system directory to mount inside the sandbox\n"
-          " Multiple directories can be specified and each of them will\n"
-          " be mount as readonly\n"
-          "  -D if set, debug info will be printed\n");
-  exit(1);
-}
+static volatile sig_atomic_t global_signal_received = 0;
 
+//
+// Options parsing result
+//
+struct Options {
+  char *include_prefix;
+  char *sandbox_root;
+  char *tools;
+  char **mounts;
+  char **includes;
+  int num_mounts;
+  int num_includes;
+  int timeout;
+  char **args;
+};
+
+// Print out a usage error. argc and argv are the argument counter
+// and vector, fmt is a format string for the error message to print.
+void Usage(int argc, char **argv, char *fmt, ...);
+// Parse the command line flags and return the result in an
+// Options structure passed as argument.
+void ParseCommandLine(int argc, char **argv, struct Options *opt);
+
+// Signal hanlding
 void PropagateSignals();
 void EnableAlarm();
 void SetupSlashDev();
@@ -68,107 +76,56 @@ void SetupSlashDev();
 // Returns -1 on failure.
 int WriteFile(const char *filename, const char *fmt, ...);
 
-static volatile sig_atomic_t global_signal_received = 0;
-
+//
+// Main method
+//
 int main(int argc, char *argv[]) {
-  char *include_prefix = NULL;
-  char *sandbox_root = NULL;
-  char *tools = NULL;
-  char **mounts = malloc(argc * sizeof(char*));
-  char **includes = malloc(argc * sizeof(char*));
-  int num_mounts = 0;
-  int num_includes = 0;
-  int iArg = 0;
+  struct Options opt = {
+    .args = NULL,
+    .include_prefix = NULL,
+    .sandbox_root = NULL,
+    .tools = NULL,
+    .mounts = calloc(argc, sizeof(char*)),
+    .includes = calloc(argc, sizeof(char*)),
+    .num_mounts = 0,
+    .num_includes = 0,
+    .timeout = 0
+  };
+  ParseCommandLine(argc, argv, &opt);
   int uid = getuid();
   int gid = getgid();
-  int timeout = 0;
-
-  for (iArg = 1; iArg < argc - 1; iArg++) {
-    if (strlen(argv[iArg]) != 2) {
-      Usage();
-    }
-    if (argv[iArg][0] != '-') {
-      Usage();
-    }
-    switch (argv[iArg][1]) {
-      case 'S':
-        if (sandbox_root == NULL) {
-          sandbox_root = argv[++iArg];
-        } else {
-          fprintf(stderr,
-                  "Multiple sandbox roots (-S) specified (expected one).\n");
-          Usage();
-        }
-        break;
-      case 'm':
-        mounts[num_mounts++] = argv[++iArg];
-        break;
-      case 'D':
-        global_debug = 1;
-        break;
-      case 'T':
-        sscanf(argv[iArg], "%d", &timeout);
-        break;
-      case 'N':
-        include_prefix = argv[++iArg];
-        break;
-      case 'n':
-        includes[num_includes++] = argv[++iArg];
-        break;
-      case 'C':
-        iArg++;
-        goto parsing_finished;
-      case 't':
-        tools = argv[++iArg];
-        break;
-      default:
-        fprintf(stderr, "Unrecognized argument: %s\n", argv[iArg]);
-        Usage();
-    }
-  }
-
-parsing_finished:
-  if (iArg == argc) {
-    fprintf(stderr, "No command specified.\n");
-    Usage();
-  }
-  if (timeout < 0) {
-    fprintf(stderr, "Invalid timeout (-T) value: %d", timeout);
-    Usage();
-  }
 
   // parsed all arguments, now prepare sandbox
-
-  PRINT_DEBUG("%s\n", sandbox_root);
+  PRINT_DEBUG("%s\n", opt.sandbox_root);
   // create new namespaces in which this process and its children will live
   CHECK_CALL(unshare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER));
   CHECK_CALL(mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL));
   // mount sandbox and go there
-  CHECK_CALL(mount(sandbox_root, sandbox_root, NULL, MS_BIND | MS_NOSUID, NULL));
-  CHECK_CALL(chdir(sandbox_root));
+  CHECK_CALL(mount(opt.sandbox_root, opt.sandbox_root, NULL, MS_BIND | MS_NOSUID, NULL));
+  CHECK_CALL(chdir(opt.sandbox_root));
 
   SetupSlashDev();
   // mount blaze specific directories - tools/ and build-runfiles/
-  if (tools != NULL) {
-    PRINT_DEBUG("tools: %s\n", tools);
+  if (opt.tools != NULL) {
+    PRINT_DEBUG("tools: %s\n", opt.tools);
     CHECK_CALL(mkdir("tools", 0755));
-    CHECK_CALL(mount(tools, "tools", NULL, MS_BIND | MS_RDONLY, NULL));
+    CHECK_CALL(mount(opt.tools, "tools", NULL, MS_BIND | MS_RDONLY, NULL));
   }
 
   // mounts passed in argv; those are mostly dirs for shared libs
-  for (int i = 0; i < num_mounts; i++) {
-    CHECK_CALL(mount(mounts[i], mounts[i] + 1, NULL, MS_BIND | MS_RDONLY, NULL));
+  for (int i = 0; i < opt.num_mounts; i++) {
+    CHECK_CALL(mount(opt.mounts[i], opt.mounts[i] + 1, NULL, MS_BIND | MS_RDONLY, NULL));
   }
 
   // c++ compilation
   // headers go in separate directory
-  if (include_prefix != NULL) {
-    CHECK_CALL(chdir(include_prefix));
-    for (int i = 0; i < num_includes; i++) {
+  if (opt.include_prefix != NULL) {
+    CHECK_CALL(chdir(opt.include_prefix));
+    for (int i = 0; i < opt.num_includes; i++) {
       // TODO(bazel-team) sometimes list of -iquote given by bazel contains
       // invalid (non-existing) entries, ideally we would like not to have them
-      PRINT_DEBUG("include: %s\n", includes[i]);
-      if (mount(includes[i], includes[i] + 1 , NULL, MS_BIND, NULL) > -1) {
+      PRINT_DEBUG("include: %s\n", opt.includes[i]);
+      if (mount(opt.includes[i], opt.includes[i] + 1 , NULL, MS_BIND, NULL) > -1) {
         continue;
       }
       if (errno == ENOENT) {
@@ -207,11 +164,11 @@ parsing_finished:
   CHECK_CALL(umount2(old_root, MNT_DETACH));
   CHECK_CALL(rmdir(old_root));
 
-  free(mounts);
-  free(includes);
+  free(opt.mounts);
+  free(opt.includes);
 
-  for (int i = iArg; i < argc; i += 1) {
-    PRINT_DEBUG("arg: %s\n", argv[i]);
+  for (int i = 0; opt.args[i] != NULL; i += 1) {
+    PRINT_DEBUG("arg: %s\n", opt.args[i]);
   }
 
   // spawn child and wait until it finishes
@@ -227,7 +184,7 @@ parsing_finished:
     // c) the binary uses elf interpreter which is not inside sandbox - you can
     // check for that by running "readelf -a a.out | grep interpreter" (the
     // sandbox code assumes that it is either in /lib*/ or /usr/lib*/)
-    CHECK_CALL(execvp(argv[iArg], argv + iArg));
+    CHECK_CALL(execvp(opt.args[0], opt.args));
     PRINT_DEBUG("Exec failed near %s:%d\n", __FILE__, __LINE__);
     exit(1);
   } else {
@@ -236,7 +193,7 @@ parsing_finished:
     // entire sandbox)
     PropagateSignals();
     // after given timeout, kill children
-    EnableAlarm(timeout);
+    EnableAlarm(opt.timeout);
     int status = 0;
     while (1) {
       PRINT_DEBUG("Waiting for the child...\n");
@@ -273,6 +230,9 @@ parsing_finished:
   return 0;
 }
 
+//
+// Signal handling
+//
 void SignalHandler(int signum, siginfo_t *info, void *uctxt) {
   global_signal_received = signum;
 }
@@ -338,4 +298,98 @@ int WriteFile(const char *filename, const char *fmt, ...) {
     r = fclose(stream);
   }
   return r;
+}
+
+//
+// Command line parsing
+//
+void Usage(int argc, char **argv, char *fmt, ...) {
+  int i;
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+
+  fprintf(stderr,
+          "\nUsage: %s [-S sandbox-root] [-m mount] [-C|--] command arg1\n",
+          argv[0]);
+  fprintf(stderr, "  provided:");
+  for (i = 0; i < argc; i++) {
+    fprintf(stderr, " %s", argv[i]);
+  }
+  fprintf(stderr,
+          "\nMandatory arguments:\n"
+          "  [-C|--] command to run inside sandbox, followed by arguments\n"
+          "  -S directory which will become the root of the sandbox\n"
+          "\n"
+          "Optional arguments:\n"
+          "  -t absolute path to bazel tools directory\n"
+          "  -T timeout after which sandbox will be terminated\n"
+          "  -m system directory to mount inside the sandbox\n"
+          " Multiple directories can be specified and each of them will\n"
+          " be mount as readonly\n"
+          "  -D if set, debug info will be printed\n");
+  exit(1);
+}
+
+void ParseCommandLine(int argc, char **argv, struct Options *opt) {
+  extern char *optarg;
+  extern int optind, optopt;
+  int c;
+
+  opt->include_prefix = NULL;
+  opt->sandbox_root = NULL;
+  opt->tools = NULL;
+  opt->mounts = malloc(argc * sizeof(char*));
+  opt->includes = malloc(argc * sizeof(char*));
+  opt->num_mounts = 0;
+  opt->num_includes = 0;
+  opt->timeout = 0;
+
+  while ((c = getopt(argc, argv, "+:S:t:T:m:N:n:DC")) != -1) {
+    switch(c) {
+      case 'S':
+        if (opt->sandbox_root == NULL) {
+          opt->sandbox_root = optarg;
+        } else {
+          Usage(argc, argv,
+                "Multiple sandbox roots (-S) specified (expected one).");
+        }
+        break;
+      case 'm':
+        opt->mounts[opt->num_mounts++] = optarg;
+        break;
+      case 'D':
+        global_debug = 1;
+        break;
+      case 'T':
+        sscanf(optarg, "%d", &opt->timeout);
+        if (opt->timeout < 0) {
+          Usage(argc, argv, "Invalid timeout (-T) value: %d", opt->timeout);
+        }
+        break;
+      case 'N':
+        opt->include_prefix = optarg;
+        break;
+      case 'n':
+        opt->includes[opt->num_includes++] = optarg;
+        break;
+      case 'C':
+        break; // deprecated, ignore.
+      case 't':
+        opt->tools = optarg;
+        break;
+      case '?':
+        Usage(argc, argv, "Unrecognized argument: -%c (%d)", optopt, optind);
+        break;
+      case ':':
+        Usage(argc, argv, "Flag -%c requires an argument", optopt);
+        break;
+    }
+  }
+
+  opt->args = argv + optind;
+  if (argc <= optind) {
+    Usage(argc, argv, "No command specified");
+  }
 }
