@@ -605,20 +605,32 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListComprehensionEmptyList() throws Exception {
+    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
+        "['foo/%s.java' % x for x in []]")).getClauses();
+    assertThat(clauses).hasSize(1);
+    assertThat(clauses.get(0).getExpression().toString()).isEqualTo("[]");
+    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+  }
+
+  @Test
   public void testListComprehension() throws Exception {
-    ListComprehension list =
-      (ListComprehension) parseExpression(
-          "['foo/%s.java' % x "
-          + "for x in []]");
-    assertThat(list.getLists()).hasSize(1);
+    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
+        "['foo/%s.java' % x for x in ['bar', 'wiz', 'quux']]")).getClauses();
+    assertThat(clauses).hasSize(1);
+    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
+  }
 
-    list = (ListComprehension) parseExpression("['foo/%s.java' % x "
-        + "for x in ['bar', 'wiz', 'quux']]");
-    assertThat(list.getLists()).hasSize(1);
-
-    list = (ListComprehension) parseExpression("['%s/%s.java' % (x, y) "
-        + "for x in ['foo', 'bar'] for y in ['baz', 'wiz', 'quux']]");
-    assertThat(list.getLists()).hasSize(2);
+  @Test
+  public void testForForListComprehension() throws Exception {
+    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
+        "['%s/%s.java' % (x, y) for x in ['foo', 'bar'] for y in list]")).getClauses();
+    assertThat(clauses).hasSize(2);
+    assertThat(clauses.get(0).getLValue().getExpression().toString()).isEqualTo("x");
+    assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
+    assertThat(clauses.get(1).getLValue().getExpression().toString()).isEqualTo("y");
+    assertThat(clauses.get(1).getExpression()).isInstanceOf(Ident.class);
   }
 
   @Test

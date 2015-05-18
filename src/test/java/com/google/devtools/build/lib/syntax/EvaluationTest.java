@@ -362,6 +362,21 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testNestedListComprehensions() throws Exception {
+    assertThat((Iterable<?>) eval(
+          "li = [[1, 2], [3, 4]]\n"
+          + "[j for i in li for j in i]"))
+        .containsExactly(1, 2, 3, 4).inOrder();
+
+    assertThat((Iterable<?>) eval(
+          "input = [['abc'], ['def', 'ghi']]\n"
+          + "['%s %s' % (b, c) for a in input for b in a for c in b]"))
+        .containsExactly(
+            "abc a", "abc b", "abc c", "def d", "def e", "def f", "ghi g", "ghi h", "ghi i")
+        .inOrder();
+  }
+
+  @Test
   public void testListComprehensionsMultipleVariables() throws Exception {
     assertThat(eval("[x + y for x, y in [(1, 2), (3, 4)]]").toString())
         .isEqualTo("[3, 7]");
