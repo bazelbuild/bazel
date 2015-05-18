@@ -1055,8 +1055,6 @@ public final class BuildConfiguration implements Serializable {
     // These variables will be used on Windows as well, so we need to make sure
     // that paths use the correct system file-separator.
     globalMakeEnvBuilder.put("BINDIR", getBinDirectory().getExecPath().getPathString());
-    globalMakeEnvBuilder.put("INCDIR",
-        getIncludeDirectory().getExecPath().getPathString());
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
