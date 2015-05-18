@@ -33,7 +33,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -529,10 +528,6 @@ public abstract class SkylarkType {
       return value instanceof BaseFunction;
     }
 
-    public static SkylarkFunctionType of(String name) {
-      return SkylarkFunctionType.of(name, TOP);
-    }
-
     public static SkylarkFunctionType of(String name, SkylarkType returnType) {
       return new SkylarkFunctionType(name, returnType);
     }
@@ -545,17 +540,6 @@ public abstract class SkylarkType {
 
 
   // Utility functions regarding types
-  /**
-   * For the purpose of type inference during validation,
-   * we upgrade the type for None as being Top, the type of everything,
-   * so None is compatible with anything as far as the validate method is concern.
-   *
-   * @param type a SkylarkType suitable for runtime type checking.
-   * @return the corresponding SkylarkType suitable for a type validation.
-   */
-  public static SkylarkType typeForInference(SkylarkType type) {
-    return type == NONE ? TOP : type;
-  }
 
   public static SkylarkType typeOf(Object value) {
     if (value == null) {
@@ -577,28 +561,6 @@ public abstract class SkylarkType {
     } else {
       return TOP;
     }
-  }
-
-  boolean isStruct() {
-    return ClassObject.class.isAssignableFrom(getType());
-  }
-
-  boolean isList() {
-    return SkylarkList.class.isAssignableFrom(getType());
-  }
-
-  boolean isDict() {
-    return Map.class.isAssignableFrom(getType());
-  }
-
-  boolean isSet() {
-    return Set.class.isAssignableFrom(getType());
-  }
-
-  boolean isNset() {
-    // TODO(bazel-team): NestedSets are going to be a bit strange with 2 type info (validation
-    // and execution time). That can be cleaned up once we have complete type inference.
-    return SkylarkNestedSet.class.isAssignableFrom(getType());
   }
 
   private static boolean isTypeAllowedInSkylark(Object object) {
