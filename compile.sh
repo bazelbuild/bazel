@@ -62,7 +62,7 @@ function fail() {
 
 function log() {
   if [[ -z "${QUIETMODE}" ]]; then
-    echo "$1" >&2
+    echo -e "$1" >&2
   fi
 }
 
@@ -485,21 +485,25 @@ if [[ $PLATFORM == "darwin" ]]; then
 fi
 
 # Create a bazelrc file with the base_workspace directory in the package path.
-package_path="build --package_path %workspace%:$base_workspace"
+bazelrc='build --package_path %workspace%:'${base_workspace}
+bazelrc="${bazelrc}"$'\nfetch --package_path %workspace%:'${base_workspace}
+bazelrc="${bazelrc}"$'\nquery --package_path %workspace%:'${base_workspace}
 if [ -z "${HOME-}" ]; then
   warning="No \$HOME variable set, cannot write .bazelrc file."
   warning="$warning Consider adding $base_workspace to your package path"
   log $warning
 elif [ ! -f $HOME/.bazelrc ]; then
   log "Creating a .bazelrc pointing to $base_workspace"
-  cat > $HOME/.bazelrc <<EOF
-$package_path
-EOF
+  echo "$bazelrc" > $HOME/.bazelrc
 else
-  warning="You already have a .bazelrc. please modify it to add "
-  warning="$warning $base_workspace to your build package path."
-  old_line=$(fgrep "build --package_path " ~/.bazelrc) || true
-  [[ $package_path != $old_line ]] && log "$warning"
+  while read rcline; do
+    if ! grep -q "$rcline" $HOME/.bazelrc; then
+      warning="You already have a .bazelrc. Make sure it contains the "
+      warning="$warning following package paths:\n$bazelrc"
+      log "$warning"
+      break
+    fi
+  done <<< "$bazelrc"
 fi
 
 # Run "bazel fetch" to bring in the JDK (so users don't have to).
