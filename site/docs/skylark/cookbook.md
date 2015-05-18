@@ -142,6 +142,7 @@ def _impl(ctx):
   ctx.action(
       inputs=[input],
       outputs=[output],
+      progress_message="Getting size of %s" % input.short_path,
       command="stat -L -c%%s %s > %s" % (input.path, output.path))
 
 size = rule(
@@ -219,6 +220,7 @@ def _impl(ctx):
       inputs=ctx.files.srcs,
       outputs=[ctx.outputs.out],
       arguments=args,
+      progress_message="Merging into %s" % ctx.outputs.out.short_path,
       executable=ctx.executable._merge_tool)
 
 concat = rule(
@@ -304,6 +306,7 @@ def _impl(ctx):
       inputs=[f],
       outputs=[ctx.outputs.out],
       executable=ctx.executable.binary,
+      progress_message="Executing %s" % ctx.executable.binary.short_path,
       arguments=[
           f.path,
           ctx.outputs.out.path,  # Access the output file using
