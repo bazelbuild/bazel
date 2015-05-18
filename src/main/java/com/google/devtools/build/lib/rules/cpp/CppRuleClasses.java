@@ -140,4 +140,9 @@ public class CppRuleClasses {
    * default legacy feature set.
    */
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
+
+  /**
+   * A string constant for the include_paths feature.
+   */
+  public static final String INCLUDE_PATHS = "include_paths";
 }

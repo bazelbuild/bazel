@@ -800,6 +800,32 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "}",
             toolchainBuilder);
       }
+      if (!features.contains("include_paths")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'include_paths'"
+            + "  flag_set {"
+            + "    action: 'preprocess-assemble'"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-header-parsing'"
+            + "    action: 'c++-header-preprocessing'"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-iquote'"
+            + "      flag: '%{quote_include_paths}'"
+            + "    }"
+            + "    flag_group {"
+            + "      flag: '-I%{include_paths}'"
+            + "    }"
+            + "    flag_group {"
+            + "      flag: '-isystem'"
+            + "      flag: '%{system_include_paths}'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
     } catch (ParseException e) {
       // Can only happen if we change the proto definition without changing our configuration above.
       throw new RuntimeException(e);

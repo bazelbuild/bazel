@@ -604,7 +604,8 @@ public class CcToolchainFeatures implements Serializable {
    * @param toolchain the toolchain configuration as specified by the user.
    * @throws InvalidConfigurationException if the configuration has logical errors.
    */
-  CcToolchainFeatures(CToolchain toolchain) throws InvalidConfigurationException {
+  @VisibleForTesting
+  public CcToolchainFeatures(CToolchain toolchain) throws InvalidConfigurationException {
     // Build up the feature graph.
     // First, we build up the map of name -> features in one pass, so that earlier features can
     // reference later features in their configuration.
@@ -698,7 +699,7 @@ public class CcToolchainFeatures implements Serializable {
   /**
    * Convenience method taking a variadic string argument list for testing.   
    */
-  FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
+  public FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
     return getFeatureConfiguration(Arrays.asList(requestedFeatures));
   }
 

@@ -92,7 +92,8 @@ public final class CcCommon {
   private static final ImmutableSet<String> DEFAULT_FEATURES = ImmutableSet.of(
       CppRuleClasses.MODULE_MAPS,
       CppRuleClasses.MODULE_MAP_HOME_CWD,
-      CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES);
+      CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES,
+      CppRuleClasses.INCLUDE_PATHS);
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;

@@ -1217,23 +1217,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     public List<String> getCompilerOptions() {
       List<String> options = new ArrayList<>();
-
-      for (PathFragment quoteIncludePath : context.getQuoteIncludeDirs()) {
-        // "-iquote" is a gcc-specific option.  For C compilers that don't support "-iquote",
-        // we should instead use "-I".
-        options.add("-iquote");
-        options.add(quoteIncludePath.getSafePathString());
-      }
-      for (PathFragment includePath : context.getIncludeDirs()) {
-        options.add("-I" + includePath.getSafePathString());
-      }
-      for (PathFragment systemIncludePath : context.getSystemIncludeDirs()) {
-        options.add("-isystem");
-        options.add(systemIncludePath.getSafePathString());
-      }
-
       CppConfiguration toolchain = cppConfiguration;
-
+      
       // pluginOpts has to be added before defaultCopts because -fplugin must precede -plugin-arg.
       options.addAll(pluginOpts);
       addFilteredOptions(options, toolchain.getCompilerOptions(features));
@@ -1267,6 +1252,31 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (fdoBuildStamp != null) {
         options.add("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
       }
+
+      CcToolchainFeatures.Variables.Builder buildVariables =
+          new CcToolchainFeatures.Variables.Builder();
+      if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
+        buildVariables.addVariable("module_name", cppModuleMap.getName());
+        buildVariables.addVariable("module_map_file",
+            cppModuleMap.getArtifact().getExecPathString());
+      }
+      if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
+        buildVariables.addSequenceVariable("module_files", getHeaderModulePaths());
+      }      
+      if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
+        buildVariables.addSequenceVariable("include_paths",
+            getSafePathStrings(context.getIncludeDirs()));
+        buildVariables.addSequenceVariable("quote_include_paths",
+            getSafePathStrings(context.getQuoteIncludeDirs()));
+        buildVariables.addSequenceVariable("system_include_paths",
+            getSafePathStrings(context.getSystemIncludeDirs()));
+      }
+      // TODO(bazel-team): This needs to be before adding getUnfilteredCompilerOptions() and after
+      // adding the warning flags until all toolchains are migrated; currently toolchains use the
+      // unfiltered compiler options to inject include paths, which is superseded by the feature
+      // configuration; on the other hand toolchains switch off warnings for the layering check
+      // that will be re-added by the feature flags.
+      options.addAll(featureConfiguration.getCommandLine(getActionName(), buildVariables.build()));
 
       options.addAll(toolchain.getUnfilteredCompilerOptions(features));
 
@@ -1318,18 +1328,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         options.add("-fPIC");
       }
 
-      CcToolchainFeatures.Variables.Builder buildVariables =
-          new CcToolchainFeatures.Variables.Builder();
-      if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
-        buildVariables.addVariable("module_name", cppModuleMap.getName());
-        buildVariables.addVariable("module_map_file",
-            cppModuleMap.getArtifact().getExecPathString());
-      }
-      if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
-        buildVariables.addSequenceVariable("module_files", getHeaderModulePaths());
-      }
-      options.addAll(featureConfiguration.getCommandLine(getActionName(), buildVariables.build()));
       return options;
+    }
+
+    /**
+     * Get the safe path strings for a list of paths to use in the build variables.
+     */
+    private Collection<String> getSafePathStrings(Collection<PathFragment> paths) {
+      ImmutableSet.Builder<String> result = ImmutableSet.builder();
+      for (PathFragment path : paths) {
+        result.add(path.getSafePathString());
+      }
+      return result.build();
     }
 
     /**
