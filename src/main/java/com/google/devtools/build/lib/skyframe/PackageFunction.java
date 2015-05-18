@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
-import com.google.devtools.build.lib.packages.PackageLoadedEvent;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -53,8 +51,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.JavaClock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,7 +73,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -91,7 +86,6 @@ public class PackageFunction implements SkyFunction {
   private final CachingPackageLocator packageLocator;
   private final ConcurrentMap<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
   private final AtomicBoolean showLoadingProgress;
-  private final AtomicReference<EventBus> eventBus;
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
 
@@ -108,14 +102,13 @@ public class PackageFunction implements SkyFunction {
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
       ConcurrentMap<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache,
-      AtomicReference<EventBus> eventBus, AtomicInteger numPackagesLoaded) {
+      AtomicInteger numPackagesLoaded) {
     this.reporter = reporter;
 
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
     this.packageFunctionCache = packageFunctionCache;
-    this.eventBus = eventBus;
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
@@ -722,8 +715,6 @@ public class PackageFunction implements SkyFunction {
         : ParserInputSource.create(replacementContents, buildFilePath);
     Package.LegacyBuilder pkgBuilder = packageFunctionCache.get(packageId);
     if (pkgBuilder == null) {
-      Clock clock = new JavaClock();
-      long startTime = clock.nanoTime();
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
       try {
         Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
@@ -737,15 +728,6 @@ public class PackageFunction implements SkyFunction {
             buildFilePath, preprocessingResult, localReporter.getEvents(), preludeStatements,
             importResult.importMap, importResult.fileDependencies, packageLocator,
             defaultVisibility, globber);
-        if (eventBus.get() != null) {
-          eventBus.get().post(new PackageLoadedEvent(packageId.toString(),
-              (clock.nanoTime() - startTime) / (1000 * 1000),
-              // It's impossible to tell if the package was loaded before, so we always pass false.
-              /*reloading=*/false,
-              // This isn't completely correct since we may encounter errors later (e.g. filesystem
-              // inconsistencies)
-              !pkgBuilder.containsErrors()));
-        }
         numPackagesLoaded.incrementAndGet();
         packageFunctionCache.put(packageId, pkgBuilder);
       } finally {
