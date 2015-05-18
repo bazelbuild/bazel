@@ -6,6 +6,7 @@ java_binary(
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
         "//src/main/protobuf:proto_deps",
+        "//third_party:error_prone",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:protobuf",

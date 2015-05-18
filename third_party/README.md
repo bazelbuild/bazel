@@ -60,6 +60,11 @@ a minimal set of extra dependencies.
 * [auto_value](https://github.com/google/auto/tree/master/value) (version 1.0)
 * License: Apache License 2.0
 
+[Error Prone](github.com/google/error-prone)
+-------------
+
+* Version: 2.0.2
+* License: Apache License 2.0
 
 [Buck (iOS support)](http://facebook.github.io/buck/)
 --------------------

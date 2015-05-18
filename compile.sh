@@ -50,7 +50,7 @@ DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xco
 SINGLEJAR_DIRS="src/java_tools/singlejar/java src/main/java/com/google/devtools/build/lib/shell"
 SINGLEJAR_LIBRARIES="third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar"
 BUILDJAR_DIRS="src/java_tools/buildjar/java/com/google/devtools/build/buildjar output/src/com/google/devtools/build/lib/view/proto"
-BUILDJAR_LIBRARIES="third_party/guava/guava-18.0.jar third_party/protobuf/protobuf-2.5.0.jar third_party/jsr305/jsr-305.jar"
+BUILDJAR_LIBRARIES="third_party/error_prone/error_prone_core-2.0.2.jar third_party/guava/guava-18.0.jar third_party/protobuf/protobuf-2.5.0.jar third_party/jsr305/jsr-305.jar"
 
 MSYS_DLLS=""
 PATHSEP=":"

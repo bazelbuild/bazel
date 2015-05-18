@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
-import com.google.devtools.build.buildjar.javac.plugins.dependency.FileManagerInitializationPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorProneOptionsPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.filemanager.FileManagerInitializationPlugin;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -36,7 +37,9 @@ public abstract class BazelJavaBuilder {
   public static void main(String[] args) {
     try {
       ImmutableList<BlazeJavaCompilerPlugin> plugins =
-          ImmutableList.<BlazeJavaCompilerPlugin>of(new FileManagerInitializationPlugin());
+          ImmutableList.<BlazeJavaCompilerPlugin>of(
+              new FileManagerInitializationPlugin(),
+              new ErrorProneOptionsPlugin());
       JavaLibraryBuildRequest build =
           new JavaLibraryBuildRequest(
               Arrays.asList(args), plugins, new DependencyModule.Builder());

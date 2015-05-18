@@ -151,6 +151,11 @@ java_import(
 )
 
 java_import(
+    name = "error_prone",
+    jars = ["error_prone/error_prone_core-2.0.2.jar"],
+)
+
+java_import(
     name = "guava",
     jars = ["guava/guava-18.0.jar"],
 )
