@@ -71,7 +71,8 @@ public class WorkspaceFileFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws WorkspaceFileFunctionException,
       InterruptedException {
     RootedPath workspaceRoot = (RootedPath) skyKey.argument();
-    if (env.getValue(FileValue.key(workspaceRoot)) == null) {
+    FileValue workspaceFileValue = (FileValue) env.getValue(FileValue.key(workspaceRoot));
+    if (workspaceFileValue == null) {
       return null;
     }
 
@@ -85,7 +86,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       }
       parseWorkspaceFile(installDir.getRelative(workspaceFile), builder);
     }
-    if (!repoWorkspace.exists()) {
+    if (!workspaceFileValue.exists()) {
       return new PackageValue(builder.build());
     }
     parseWorkspaceFile(repoWorkspace, builder);
