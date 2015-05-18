@@ -24,6 +24,10 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 # namespaces which are used by the sandbox were introduced in 3.8, so
 # test won't run on earlier kernels
 function check_kernel_version {
+  if [ "${PLATFORM-}" = "darwin" ]; then
+    echo "Test will skip: sandbox is not yet supported on Darwin."
+    exit 0
+  fi
   MAJOR=$(uname -r | sed 's/^\([0-9]*\)\.\([0-9]*\)\..*/\1/')
   MINOR=$(uname -r | sed 's/^\([0-9]*\)\.\([0-9]*\)\..*/\2/')
   if [ $MAJOR -lt 3 ]; then
@@ -67,6 +71,13 @@ genrule(
 )
 
 genrule(
+   name = "tooldir",
+   srcs = [],
+   outs = ["tooldir.txt"],
+   cmd = "ls -l tools/genrule | tee $@ >&2; cat tools/genrule/genrule-setup.sh >&2",
+)
+
+genrule(
   name = "breaks1",
   srcs = [ "a.txt" ],
   outs = [ "breaks1.txt" ],
@@ -101,22 +112,35 @@ chmod +x examples/genrule/tool.sh
 }
 
 function test_sandboxed_genrule() {
-  bazel build --genrule_strategy=sandboxed examples/genrule:works \
+  bazel build --genrule_strategy=sandboxed --verbose_failures \
+    examples/genrule:works \
     || fail "Hermetic genrule failed: examples/genrule:works"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/works.txt" ] \
     || fail "Genrule didn't produce output: examples/genrule:works"
 }
 
+function test_sandboxed_tooldir() {
+  bazel build --genrule_strategy=sandboxed --verbose_failures \
+    examples/genrule:tooldir \
+    || fail "Hermetic genrule failed: examples/genrule:tooldir"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/tooldir.txt" ] \
+    || fail "Genrule didn't produce output: examples/genrule:works"
+  cat "${BAZEL_GENFILES_DIR}/examples/genrule/tooldir.txt" > $TEST_log
+  expect_log "genrule-setup.sh"
+}
+
 function test_sandboxed_genrule_with_tools() {
-  bazel build --genrule_strategy=sandboxed examples/genrule:tools_work \
+  bazel build --genrule_strategy=sandboxed --verbose_failures \
+    examples/genrule:tools_work \
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/tools.txt" ] \
     || fail "Genrule didn't produce output: examples/genrule:tools_work"
 }
 
 function test_sandbox_undeclared_deps() {
-  bazel build --genrule_strategy=sandboxed examples/genrule:breaks1 \
-    || fail "Non-hermetic genrule succeeded: examples/genrule:breaks1"
+  bazel build --genrule_strategy=sandboxed --verbose_failures \
+    examples/genrule:breaks1 \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks1" || true
   [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1.txt" ] || {
     output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1.txt")
     fail "Non-hermetic genrule breaks1 suceeded with following output: $(output)"
@@ -124,8 +148,9 @@ function test_sandbox_undeclared_deps() {
 }
 
 function test_sandbox_block_filesystem() {
-  bazel build --genrule_strategy=sandboxed examples/genrule:breaks2 \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2"
+  bazel build --genrule_strategy=sandboxed --verbose_failures \
+    examples/genrule:breaks2 \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
   [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt" ] || {
     output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt")
     fail "Non-hermetic genrule suceeded with following output: $(output)"
