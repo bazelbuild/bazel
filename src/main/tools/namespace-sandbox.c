@@ -179,6 +179,14 @@ parsing_finished:
     CHECK_CALL(chdir(".."));
   }
 
+  // Disable needs for CAP_SETGID
+  int r = WriteFile("/proc/self/setgroups", "deny");
+  if (r < 0 && errno != ENOENT) {
+    // Writing to /proc/self/setgroups might fail on earlier
+    // version of linux because setgroups does not exist, ignore.
+    perror("WriteFile(\"/proc/self/setgroups\", \"deny\")");
+    exit(-1);
+  }
   // set group and user mapping from outer namespace to inner:
   // no changes in the parent, be root in the child
   CHECK_CALL(WriteFile("/proc/self/uid_map", "0 %d 1\n", uid));
