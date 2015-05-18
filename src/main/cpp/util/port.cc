@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/util/port.h"
+
 #ifdef __linux
 #include <sys/syscall.h>
 #endif  // __linux
