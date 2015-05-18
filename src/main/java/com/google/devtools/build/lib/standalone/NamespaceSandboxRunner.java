@@ -51,7 +51,6 @@ public class NamespaceSandboxRunner {
   private final Path sandboxPath;
   private final List<String> mounts;
   private final Path embeddedBinaries;
-  private final Path tools;
   private final ImmutableList<PathFragment> includeDirectories;
   private final PathFragment includePrefix;
   private final Spawn spawn;
@@ -65,7 +64,6 @@ public class NamespaceSandboxRunner {
         directories.getExecRoot().getRelative("sandboxes").getRelative(sandboxDirectory);
     this.debug = debug;
     this.mounts = new ArrayList<>();
-    this.tools = directories.getExecRoot().getChild("tools");
     this.embeddedBinaries = directories.getEmbeddedBinariesRoot();
     this.includePrefix = includePrefix;
     this.includeDirectories = ImmutableList.copyOf(includeDirectories);
@@ -150,10 +148,6 @@ public class NamespaceSandboxRunner {
       if (input.getExecPathString().contains("internal/_middlemen/")) {
         continue;
       }
-      // entire tools will be mounted in the sandbox, so don't copy parts of it
-      if (input.getExecPathString().startsWith("tools/")) {
-        continue;
-      }
       Path target = sandboxPath.getRelative(input.getExecPathString());
       Path source = execRoot.getRelative(input.getExecPathString());
       FileSystemUtils.createDirectoryAndParents(target.getParentDirectory());
@@ -208,10 +202,6 @@ public class NamespaceSandboxRunner {
     Files.copy(new File(this.embeddedBinaries.getChild("build-runfiles").getPathString()),
                new File(bin.getChild("build-runfiles").getPathString()));
     FilesystemUtils.chmod(bin.getChild("build-runfiles").getPathString(), 0755);
-    // TODO(bazel-team) filter tools out of input files instead
-    // some of the tools could be in inputs; we will mount entire tools anyway so it's just
-    // easier to remove them and remount inside sandbox
-    FilesystemUtils.rmTree(sandboxPath.getChild("tools").getPathString());
   }
 
 
@@ -243,8 +233,6 @@ public class NamespaceSandboxRunner {
     if (debug) {
       args.add("-D");
     }
-    args.add("-t");
-    args.add(tools.getPathString());
 
     args.add("-S");
     args.add(sandboxPath.getPathString());
