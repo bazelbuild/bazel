@@ -486,6 +486,7 @@ fi
 
 # Create a bazelrc file with the base_workspace directory in the package path.
 package_path="build --package_path %workspace%:$base_workspace"
+fetch_path="fetch --package_path %workspace%:$base_workspace"
 if [ -z "${HOME-}" ]; then
   warning="No \$HOME variable set, cannot write .bazelrc file."
   warning="$warning Consider adding $base_workspace to your package path"
@@ -494,12 +495,21 @@ elif [ ! -f $HOME/.bazelrc ]; then
   log "Creating a .bazelrc pointing to $base_workspace"
   cat > $HOME/.bazelrc <<EOF
 $package_path
+$fetch_path
 EOF
 else
-  warning="You already have a .bazelrc. please modify it to add "
-  warning="$warning $base_workspace to your build package path."
-  old_line=$(fgrep "build --package_path " ~/.bazelrc) || true
-  [[ $package_path != $old_line ]] && log "$warning"
+  warning="You already have a .bazelrc. please modify it to:"
+  old_build_line=$(fgrep "build --package_path " ~/.bazelrc) || true
+  old_fetch_line=$(fgrep "fetch --package_path " ~/.bazelrc) || true
+  if [[ $package_path != $old_build_line ]] || [[ $fetch_path != $old_fetch_line ]]; then
+    log "$warning"
+    if [[ $package_path != $old_build_line ]]; then
+      log "Add $base_workspace to your build package path."
+    fi
+    if [[ $fetch_path != $old_fetch_line ]]; then
+      log "Add $base_workspace to your fetch package path."
+    fi
+  fi
 fi
 
 # Run "bazel fetch" to bring in the JDK (so users don't have to).
