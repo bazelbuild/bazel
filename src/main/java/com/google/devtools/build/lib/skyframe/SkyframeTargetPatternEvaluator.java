@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -99,8 +100,27 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   ResolvedTargets<Target> parseTargetPatternList(String offset, EventHandler eventHandler,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
-    return parseTargetPatternKeys(TargetPatternValue.keys(targetPatterns, policy, offset),
-       SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
+    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
+        TargetPatternValue.keys(targetPatterns, policy, offset);
+
+    ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
+    for (TargetPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
+      try {
+        builder.add(skyKeyOrException.getSkyKey());
+      } catch (TargetParsingException e) {
+        if (!keepGoing) {
+          throw e;
+        }
+        String pattern = skyKeyOrException.getOriginalPattern();
+        eventHandler.handle(Event.error("Skipping '" + pattern + "': " + e.getMessage()));
+        if (eventHandler instanceof ParseFailureListener) {
+          ((ParseFailureListener) eventHandler).parsingError(pattern, e.getMessage());
+        }
+      }
+    }
+    ImmutableList<SkyKey> skyKeys = builder.build();
+    return parseTargetPatternKeys(skyKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing,
+        eventHandler);
   }
 
   private static Map<PackageIdentifier, Package> getPackages(

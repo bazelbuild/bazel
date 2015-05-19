@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -50,20 +52,32 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+    EventHandler eventHandler = env.getListener();
+    boolean handlerIsParseFailureListener = eventHandler instanceof ParseFailureListener;
     TargetPatternSequence targetPatternSequence = (TargetPatternSequence) skyKey.argument();
-    Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(targetPatternSequence.getPatterns(),
-        targetPatternSequence.getPolicy(), targetPatternSequence.getOffset());
+    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
+        TargetPatternValue.keys(targetPatternSequence.getPatterns(),
+            targetPatternSequence.getPolicy(), targetPatternSequence.getOffset());
+
+    ImmutableList.Builder<SkyKey> skyKeyBuilder = ImmutableList.builder();
+    for (TargetPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
+      try {
+        skyKeyBuilder.add(skyKeyOrException.getSkyKey());
+      } catch (TargetParsingException e) {
+        handleTargetParsingException(eventHandler, handlerIsParseFailureListener,
+            skyKeyOrException.getOriginalPattern(), e);
+      }
+    }
+    ImmutableList<SkyKey> skyKeys = skyKeyBuilder.build();
+
     Map<SkyKey, ValueOrException<TargetParsingException>> targetPatternValuesByKey =
-        env.getValuesOrThrow(patternSkyKeys, TargetParsingException.class);
+        env.getValuesOrThrow(skyKeys, TargetParsingException.class);
     if (env.valuesMissing()) {
       return null;
     }
 
-    EventHandler eventHandler = env.getListener();
-    boolean handlerIsParseFailureListener = eventHandler instanceof ParseFailureListener;
-
     ResolvedTargets.Builder<Label> builder = ResolvedTargets.builder();
-    for (SkyKey key : patternSkyKeys) {
+    for (SkyKey key : skyKeys) {
       try {
         // The only exception type throwable by TargetPatternFunction is TargetParsingException.
         // Therefore all ValueOrException values in the map will either be non-null or throw
@@ -102,13 +116,18 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
 
   private static void handleTargetParsingException(EventHandler eventHandler,
       boolean handlerIsParseFailureListener, SkyKey key, TargetParsingException e) {
-    TargetPatternKey pattern = (TargetPatternKey) key.argument();
-    String rawPattern = pattern.getPattern();
+    TargetPatternKey patternKey = (TargetPatternKey) key.argument();
+    String rawPattern = patternKey.getPattern();
+    handleTargetParsingException(eventHandler, handlerIsParseFailureListener, rawPattern, e);
+  }
+
+  private static void handleTargetParsingException(EventHandler eventHandler,
+      boolean handlerIsParseFailureListener, String rawPattern, TargetParsingException e) {
     String errorMessage = e.getMessage();
     eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
     if (handlerIsParseFailureListener) {
       ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
-      parseListener.parsingError(rawPattern,  errorMessage);
+      parseListener.parsingError(rawPattern, errorMessage);
     }
   }
 
