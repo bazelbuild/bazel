@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
+import java.util.List;
+
 /**
  * Information about the JDK used by the <code>java_*</code> rules.
  *
@@ -27,9 +29,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @Immutable
 public class JavaToolchainData {
   private final ImmutableList<String> options;
+  private final ImmutableList<String> jvmOpts;
 
   public JavaToolchainData(String source, String target, String encoding,
-      ImmutableList<String> xlint, ImmutableList<String> misc) {
+      List<String> xlint, List<String> misc, List<String> jvmOpts) {
+    this.jvmOpts = ImmutableList.copyOf(jvmOpts);
     Builder<String> builder = ImmutableList.<String>builder();
     if (!source.isEmpty()) {
       builder.add("-source", source);
@@ -51,5 +55,12 @@ public class JavaToolchainData {
    */
   public ImmutableList<String> getJavacOptions() {
     return options;
+  }
+
+  /**
+   * @return the list of options to be given to the JVM when invoking the java compiler.
+   */
+  public ImmutableList<String> getJavacJvmOptions() {
+    return jvmOpts;
   }
 }

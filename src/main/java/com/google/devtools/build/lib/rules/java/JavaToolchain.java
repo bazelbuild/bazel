@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -39,10 +38,12 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     final String encoding = ruleContext.attributes().get("encoding", Type.STRING);
     final List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
     final List<String> misc = ruleContext.attributes().get("misc", Type.STRING_LIST);
+    final List<String> jvmOpts = ruleContext.attributes().get("jvm_opts", Type.STRING_LIST);
+    final JavaToolchainData toolchainData =
+        new JavaToolchainData(source, target, encoding, xlint, misc, jvmOpts);
     final JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
-    JavaToolchainProvider provider = new JavaToolchainProvider(source, target, encoding,
-        ImmutableList.copyOf(xlint), ImmutableList.copyOf(misc),
-        configuration.getDefaultJavacFlags());
+    JavaToolchainProvider provider = new JavaToolchainProvider(toolchainData,
+        configuration.getDefaultJavacFlags(), configuration.getDefaultJavaBuilderJvmFlags());
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
         .add(JavaToolchainProvider.class, provider)
         .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())

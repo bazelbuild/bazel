@@ -55,22 +55,10 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
     boolean generateJavaDeps = javaOptions.javaDeps ||
         javaOptions.experimentalJavaClasspath != JavaClasspathMode.OFF;
 
-    ImmutableList<String> defaultJavaBuilderJvmOpts = ImmutableList.<String>builder()
-        .addAll(getJavacJvmOptions())
-        .addAll(JavaHelper.tokenizeJavaOptions(javaOptions.javaBuilderJvmOpts))
-        .build();
+    ImmutableList<String> defaultJavaBuilderJvmOpts =
+        ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javaBuilderJvmOpts));
 
     return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions,
         javaToolchain, javaCpu, defaultJavaBuilderJvmOpts);
   }
-
-  /**
-   * This method returns the list of JVM options when invoking the java compiler.
-   *
-   * <p>TODO(bazel-team): Maybe we should put those options in the java_toolchain rule.
-   */
-  protected ImmutableList<String> getJavacJvmOptions() {
-    return ImmutableList.of("-client");
-  }
-
 }

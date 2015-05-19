@@ -28,6 +28,20 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  * Rule definition for {@code java_toolchain}
  */
 public final class JavaToolchainRule implements RuleDefinition {
+  // TODO(dmarting): remove this and make -client the default once the jvm_opts field is released.
+  private final ImmutableList<String> defaultJavacJvmOpts;
+
+  public JavaToolchainRule() {
+    defaultJavacJvmOpts = ImmutableList.<String>of("-client");
+  }
+
+  /**
+   * Construct a {@link JavaToolchainRule} with a different set of default JVM options for Javac.
+   */
+  public JavaToolchainRule(ImmutableList<String> defaultJavacJvmOpts) {
+    this.defaultJavacJvmOpts = defaultJavacJvmOpts;
+  }
+
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder.setUndocumented()
@@ -50,11 +64,16 @@ public final class JavaToolchainRule implements RuleDefinition {
         removes it. Please see the Javac documentation on the -Xlint options for more information.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("xlint", STRING_LIST).value(ImmutableList.<String>of()))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(misc) -->
         The list of extra arguments for the Java compiler. Please refer to the Java compiler
         documentation for the extensive list of possible Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("misc", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(jvm_opts) -->
+        The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
+        virtual machine documentation for the extensive list of possible flags for this option.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("jvm_opts", STRING_LIST).value(defaultJavacJvmOpts))
         .build();
   }
 

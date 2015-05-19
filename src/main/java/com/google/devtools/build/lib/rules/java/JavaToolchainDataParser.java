@@ -75,6 +75,7 @@ public class JavaToolchainDataParser {
     String encoding = "";
     ImmutableList<String> xlint = ImmutableList.of();
     ImmutableList<String> misc = ImmutableList.of();
+    ImmutableList<String> jvmOpts = ImmutableList.of();
     for (Build.Attribute attribute : rule.getAttributeList()) {
       switch (attribute.getName()) {
         case "source_version":
@@ -92,8 +93,11 @@ public class JavaToolchainDataParser {
         case "misc":
           misc = ImmutableList.copyOf(attribute.getStringListValueList());
           break;
+        case "jvm_opts":
+          jvmOpts = ImmutableList.copyOf(attribute.getStringListValueList());
+          break;
       }
     }
-    return new JavaToolchainData(source, target, encoding, xlint, misc);
+    return new JavaToolchainData(source, target, encoding, xlint, misc, jvmOpts);
   }
 }

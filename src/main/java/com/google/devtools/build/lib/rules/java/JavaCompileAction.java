@@ -723,6 +723,7 @@ public class JavaCompileAction extends AbstractAction {
     private final Collection<Artifact> directJars = new ArrayList<>();
     private final Collection<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
     private List<String> javacOpts = new ArrayList<>();
+    private ImmutableList<String> javacJvmOpts = ImmutableList.of();
     private boolean compressJar;
     private NestedSet<Artifact> classpathEntries =
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
@@ -856,7 +857,7 @@ public class JavaCompileAction extends AbstractAction {
           langtoolsJar,
           instrumentationJars,
           paramFile,
-          javaConfiguration.getDefaultJavaBuilderJvmFlags(),
+          javacJvmOpts,
           semantics.getJavaBuilderMainClass(),
           configuration.getHostPathSeparator());
 
@@ -975,6 +976,11 @@ public class JavaCompileAction extends AbstractAction {
 
     public Builder setJavacOpts(Iterable<String> copts) {
       this.javacOpts = ImmutableList.copyOf(copts);
+      return this;
+    }
+
+    public Builder setJavacJvmOpts(ImmutableList<String> opts) {
+      this.javacJvmOpts = opts;
       return this;
     }
 
