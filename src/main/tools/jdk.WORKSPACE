@@ -11,6 +11,10 @@ bind(
     actual = "@local-jdk//:bootclasspath",
 )
 bind(
+    name = "extdir",
+    actual = "@local-jdk//:extdir",
+)
+bind(
     name = "langtools",
     actual = "@local-jdk//:langtools",
 )

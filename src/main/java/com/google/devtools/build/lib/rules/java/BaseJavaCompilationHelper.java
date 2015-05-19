@@ -134,6 +134,13 @@ public class BaseJavaCompilationHelper {
     return ruleContext.getPrerequisiteArtifacts("$javac_bootclasspath", Mode.HOST).list();
   }
 
+  /**
+   * Returns the extdir artifacts.
+   */
+  protected final ImmutableList<Artifact> getExtdirInputs() {
+    return ruleContext.getPrerequisiteArtifacts("$javac_extdir", Mode.HOST).list();
+  }
+
   private Artifact getIjarArtifact(Artifact jar, boolean addPrefix) {
     if (addPrefix) {
       PathFragment ruleBase = ruleContext.getUniqueDirectory("_ijar");

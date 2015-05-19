@@ -62,6 +62,7 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
   private final Label javacBootclasspath;
+  private final Label javacExtdir;
   private final ImmutableList<String> javacOpts;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
@@ -87,6 +88,7 @@ public final class JavaConfiguration extends Fragment {
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.javacBootclasspath = javaOptions.javacBootclasspath;
+    this.javacExtdir = javaOptions.javacExtdir;
     this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.javaCpu = javaCpu;
@@ -219,6 +221,10 @@ public final class JavaConfiguration extends Fragment {
 
   public Label getJavacBootclasspath() {
     return javacBootclasspath;
+  }
+
+  public Label getJavacExtdir() {
+    return javacExtdir;
   }
 
   public List<String> getJavacOpts() {

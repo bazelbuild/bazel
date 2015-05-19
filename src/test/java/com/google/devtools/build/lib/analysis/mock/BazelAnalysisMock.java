@@ -52,6 +52,7 @@ public class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'jdk', srcs = [':jdk-default', ':jdk-null'])",
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
+        "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar'])");

@@ -8,6 +8,7 @@ filegroup(
         "testenv.sh",
         "//examples:srcs",
         "//external:bootclasspath",
+        "//external:extdir",
         "//external:jdk-default",
         "//external:langtools",
         "//src:bazel",

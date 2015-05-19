@@ -98,6 +98,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
     } else {
       builder.setBootclasspathEntries(getBootClasspath());
     }
+    builder.setExtdirInputs(getExtdirInputs());
     builder.setLangtoolsJar(getLangtoolsJar());
     builder.setJavaBuilderJar(getJavaBuilderJar());
     builder.addTranslations(getTranslations());
@@ -240,6 +241,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setOutputJar(resourceJar);
     builder.addResources(attributes.getResources());
     builder.addClasspathResources(attributes.getClassPathResources());
+    builder.setExtdirInputs(getExtdirInputs());
     builder.setLangtoolsJar(getLangtoolsJar());
     builder.addTranslations(getTranslations());
     builder.setCompressJar(true);

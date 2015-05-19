@@ -34,6 +34,11 @@ filegroup(
 )
 
 filegroup(
+    name = "extdir",
+    srcs = ["//external:extdir"],
+)
+
+filegroup(
     name = "langtools",
     srcs = ["//external:langtools"],
 )

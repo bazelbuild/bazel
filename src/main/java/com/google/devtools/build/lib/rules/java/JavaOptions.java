@@ -43,6 +43,7 @@ public class JavaOptions extends FragmentOptions {
   // Defaults value for options
   public static final String DEFAULT_LANGTOOLS = "//tools/jdk:langtools";
   static final String DEFAULT_LANGTOOLS_BOOTCLASSPATH = "//tools/jdk:bootclasspath";
+  static final String DEFAULT_LANGTOOLS_EXTDIR = "//tools/jdk:extdir";
   static final String DEFAULT_JAVABUILDER = "//tools/jdk:JavaBuilder_deploy.jar";
   static final String DEFAULT_SINGLEJAR = "//tools/jdk:SingleJar_deploy.jar";
   static final String DEFAULT_JAVABASE = "//tools/jdk:jdk";
@@ -251,6 +252,13 @@ public class JavaOptions extends FragmentOptions {
       help = "Label of the rule that produces the bootclasspath jars for javac to use.")
   public Label javacBootclasspath;
 
+  @Option(name = "javac_extdir",
+      defaultValue = DEFAULT_LANGTOOLS_EXTDIR,
+      category = "version",
+      converter = LabelConverter.class,
+      help = "Label of the rule that produces the extdir for javac to use.")
+  public Label javacExtdir;
+
   @Option(name = "java_launcher",
       defaultValue = "null",
       converter = LabelConverter.class,
@@ -289,6 +297,7 @@ public class JavaOptions extends FragmentOptions {
 
     host.javacOpts = javacOpts;
     host.javaLangtoolsJar = javaLangtoolsJar;
+    host.javacExtdir = javacExtdir;
     host.javaBuilderTop = javaBuilderTop;
     host.javaToolchain = javaToolchain;
     host.singleJarTop = singleJarTop;
@@ -327,6 +336,7 @@ public class JavaOptions extends FragmentOptions {
     result.put("JDK", jdkLabels);
     result.put("JAVA_LANGTOOLS", ImmutableSet.of(javaLangtoolsJar));
     result.put("JAVAC_BOOTCLASSPATH", ImmutableSet.of(javacBootclasspath));
+    result.put("JAVAC_EXTDIR", ImmutableSet.of(javacExtdir));
     result.put("JAVABUILDER", ImmutableSet.of(javaBuilderTop));
     result.put("SINGLEJAR", ImmutableSet.of(singleJarTop));
     result.put("IJAR", ImmutableSet.of(iJarTop));

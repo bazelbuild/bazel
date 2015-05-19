@@ -34,6 +34,11 @@ filegroup(
 )
 
 filegroup(
+    name = "extdir",
+    srcs = glob(["jre/lib/ext/*.jar"]),
+)
+
+filegroup(
     name = "jdk-default",
     srcs = glob(["bin/*"]),
 )
