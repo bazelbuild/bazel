@@ -157,16 +157,6 @@ public class BuildRequest implements OptionsClassProvider {
         help = "This is a no-op.")
     public boolean dumpProviders;
 
-    @Option(name = "incremental_builder",
-            deprecationWarning = "incremental_builder is now a no-op and will be removed in an"
-            + " upcoming Blaze release",
-            defaultValue = "true",
-            category = "strategy",
-            help = "Enables an incremental builder aimed at faster "
-            + "incremental builds. Currently it has the greatest effect on null"
-            + "builds.")
-    public boolean useIncrementalDependencyChecker;
-
     @Deprecated
     @Option(name = "dump_targets",
             defaultValue = "null",
