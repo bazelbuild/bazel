@@ -9,7 +9,7 @@ import threading
 import weakref
 import sys
 
-from concurrent.futures import _base
+from third_party.py.concurrent.futures import _base
 
 try:
     import queue
