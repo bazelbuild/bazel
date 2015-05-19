@@ -107,8 +107,8 @@ public final class TargetPatternValue implements SkyValue {
     return new SkyKey(SkyFunctions.TARGET_PATTERN,
         pattern.startsWith("-")
         // Don't apply filters to negative patterns.
-        ? new TargetPattern(pattern.substring(1), FilteringPolicies.NO_FILTER, true, offset)
-        : new TargetPattern(pattern, policy, false, offset));
+        ? new TargetPatternKey(pattern.substring(1), FilteringPolicies.NO_FILTER, true, offset)
+        : new TargetPatternKey(pattern, policy, false, offset));
   }
 
   /**
@@ -135,19 +135,19 @@ public final class TargetPatternValue implements SkyValue {
   }
 
   /**
-   * A TargetPattern is a tuple of pattern (eg, "foo/..."), filtering policy, a relative pattern
+   * A TargetPatternKey is a tuple of pattern (eg, "foo/..."), filtering policy, a relative pattern
    * offset, and whether it is a positive or negative match.
    */
   @ThreadSafe
-  public static class TargetPattern implements Serializable {
+  public static class TargetPatternKey implements Serializable {
     private final String pattern;
     private final FilteringPolicy policy;
     private final boolean isNegative;
 
     private final String offset;
 
-    public TargetPattern(String pattern, FilteringPolicy policy,
-                         boolean isNegative, String offset) {
+    public TargetPatternKey(String pattern, FilteringPolicy policy,
+        boolean isNegative, String offset) {
       this.pattern = Preconditions.checkNotNull(pattern);
       this.policy = Preconditions.checkNotNull(policy);
       this.isNegative = isNegative;
@@ -182,10 +182,10 @@ public final class TargetPatternValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof TargetPattern)) {
+      if (!(obj instanceof TargetPatternKey)) {
         return false;
       }
-      TargetPattern other = (TargetPattern) obj;
+      TargetPatternKey other = (TargetPatternKey) obj;
 
       return other.isNegative == this.isNegative && other.pattern.equals(this.pattern) &&
           other.offset.equals(this.offset) && other.policy.equals(this.policy);

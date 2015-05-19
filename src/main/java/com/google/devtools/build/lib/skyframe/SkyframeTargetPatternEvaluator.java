@@ -145,15 +145,15 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       TargetPatternValue resultValue = result.get(key);
       if (resultValue != null) {
         ResolvedTargets<Label> results = resultValue.getTargets();
-        if (((TargetPatternValue.TargetPattern) key.argument()).isNegative()) {
+        if (((TargetPatternValue.TargetPatternKey) key.argument()).isNegative()) {
           resolvedLabelsBuilder.filter(Predicates.not(Predicates.in(results.getTargets())));
         } else {
           resolvedLabelsBuilder.merge(results);
         }
       } else {
-        TargetPatternValue.TargetPattern pattern =
-            (TargetPatternValue.TargetPattern) key.argument();
-        String rawPattern = pattern.getPattern();
+        TargetPatternValue.TargetPatternKey patternKey =
+            (TargetPatternValue.TargetPatternKey) key.argument();
+        String rawPattern = patternKey.getPattern();
         ErrorInfo error = result.errorMap().get(key);
         if (error == null) {
           Preconditions.checkState(!keepGoing);

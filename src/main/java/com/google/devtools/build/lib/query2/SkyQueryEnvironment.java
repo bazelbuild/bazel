@@ -337,8 +337,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       SkyKey patternKey = TargetPatternValue.key(pattern,
           TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
 
-      TargetPatternValue.TargetPattern targetPattern =
-          ((TargetPatternValue.TargetPattern) patternKey.argument());
+      TargetPatternValue.TargetPatternKey targetPatternKey =
+          ((TargetPatternValue.TargetPatternKey) patternKey.argument());
 
       TargetParsingException targetParsingException = null;
       if (graph.exists(patternKey)) {
@@ -361,11 +361,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       } else {
         // If the graph doesn't contain a value for this target pattern, try to directly evaluate
         // it, by making use of packages already present in the graph.
-        TargetPattern.Parser parser = new TargetPattern.Parser(targetPattern.getOffset());
+        TargetPattern.Parser parser = new TargetPattern.Parser(targetPatternKey.getOffset());
         RecursivePackageProviderBackedTargetPatternResolver resolver =
             new RecursivePackageProviderBackedTargetPatternResolver(provider, eventHandler,
-                targetPattern.getPolicy(), pkgPath);
-        TargetPattern parsedPattern = parser.parse(targetPattern.getPattern());
+                targetPatternKey.getPolicy(), pkgPath);
+        TargetPattern parsedPattern = parser.parse(targetPatternKey.getPattern());
         try {
           result.put(pattern, parsedPattern.eval(resolver));
         } catch (TargetParsingException e) {

@@ -45,8 +45,8 @@ public class TargetPatternFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws TargetPatternFunctionException,
       InterruptedException {
-    TargetPatternValue.TargetPattern patternKey =
-        ((TargetPatternValue.TargetPattern) key.argument());
+    TargetPatternValue.TargetPatternKey patternKey =
+        ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern.Parser parser = new TargetPattern.Parser(patternKey.getOffset());
     ResolvedTargets<Target> resolvedTargets = null;
     try {

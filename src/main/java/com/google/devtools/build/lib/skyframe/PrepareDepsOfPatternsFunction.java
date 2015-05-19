@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -70,7 +71,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
         TargetPatternValue resultValue = Preconditions.checkNotNull(
             (TargetPatternValue) targetPatternValuesByKey.get(key).get());
         ResolvedTargets<Label> results = resultValue.getTargets();
-        if (((TargetPatternValue.TargetPattern) key.argument()).isNegative()) {
+        if (((TargetPatternKey) key.argument()).isNegative()) {
           builder.filter(Predicates.not(Predicates.in(results.getTargets())));
         } else {
           builder.merge(results);
@@ -101,7 +102,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
 
   private static void handleTargetParsingException(EventHandler eventHandler,
       boolean handlerIsParseFailureListener, SkyKey key, TargetParsingException e) {
-    TargetPatternValue.TargetPattern pattern = (TargetPatternValue.TargetPattern) key.argument();
+    TargetPatternKey pattern = (TargetPatternKey) key.argument();
     String rawPattern = pattern.getPattern();
     String errorMessage = e.getMessage();
     eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
