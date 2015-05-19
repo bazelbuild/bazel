@@ -20,10 +20,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -41,7 +44,7 @@ import javax.annotation.concurrent.Immutable;
  *
  * <p>See lib/blaze/commands/target-syntax.txt for details.
  */
-public abstract class TargetPattern {
+public abstract class TargetPattern implements Serializable {
 
   private static final Splitter SLASH_SPLITTER = Splitter.on('/');
   private static final Joiner SLASH_JOINER = Joiner.on('/');
@@ -106,7 +109,7 @@ public abstract class TargetPattern {
   }
 
   /**
-   * Return the type of the pattern. Examples include "below package" like "foo/..." and "single
+   * Return the type of the pattern. Examples include "below directory" like "foo/..." and "single
    * target" like "//x:y".
    */
   public Type getType() {
@@ -119,19 +122,67 @@ public abstract class TargetPattern {
   public abstract <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
       throws TargetParsingException, InterruptedException;
 
+  /**
+   * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
+   * {@code containedPattern} is contained by or equals this pattern. For example,
+   * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code containedPattern
+   * = TargetPattern ("//foo/...")}.
+   */
+  public abstract boolean containsBelowDirectory(TargetPattern containedPattern);
+
+  /**
+   * Returns the most specific containing directory of the patterns that could be matched by this
+   * pattern.
+   *
+   * <p>For patterns of type {@code Type.TARGETS_BELOW_DIRECTORY}, this returns the referred-to
+   * directory. For example, for "//foo/bar/...", this returns "foo/bar".
+   *
+   * <p>The returned value always has no leading "//" and no trailing "/".
+   */
+  public abstract String getDirectory();
+
   private static final class SingleTarget extends TargetPattern {
 
     private final String targetName;
+    private final String directory;
 
-    private SingleTarget(String targetName) {
+    private SingleTarget(String targetName, String directory) {
       super(Type.SINGLE_TARGET);
-      this.targetName = targetName;
+      this.targetName = Preconditions.checkNotNull(targetName);
+      this.directory = Preconditions.checkNotNull(directory);
     }
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
         throws TargetParsingException, InterruptedException {
       return resolver.getExplicitTarget(targetName);
+    }
+
+    @Override
+    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+      return false;
+    }
+
+    @Override
+    public String getDirectory() {
+      return directory;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof SingleTarget)) {
+        return false;
+      }
+      SingleTarget that = (SingleTarget) o;
+      return targetName.equals(that.targetName) && directory.equals(that.directory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getType(), targetName, directory);
     }
   }
 
@@ -141,7 +192,7 @@ public abstract class TargetPattern {
 
     private InterpretPathAsTarget(String path) {
       super(Type.PATH_AS_TARGET);
-      this.path = normalize(path);
+      this.path = normalize(Preconditions.checkNotNull(path));
     }
 
     @Override
@@ -164,8 +215,35 @@ public abstract class TargetPattern {
         }
       }
 
-      throw new TargetParsingException(
-          "couldn't determine target from filename '" + path + "'");
+      throw new TargetParsingException("couldn't determine target from filename '" + path + "'");
+    }
+
+    @Override
+    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+      return false;
+    }
+
+    @Override
+    public String getDirectory() {
+      int lastSlashIndex = path.lastIndexOf('/');
+      return lastSlashIndex < 0 ? "" : path.substring(0, lastSlashIndex);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof InterpretPathAsTarget)) {
+        return false;
+      }
+      InterpretPathAsTarget that = (InterpretPathAsTarget) o;
+      return path.equals(that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getType(), path);
     }
   }
 
@@ -181,9 +259,9 @@ public abstract class TargetPattern {
     private TargetsInPackage(String originalPattern, String pattern, String suffix,
         boolean isAbsolute, boolean rulesOnly, boolean checkWildcardConflict) {
       super(Type.TARGETS_IN_PACKAGE);
-      this.originalPattern = originalPattern;
-      this.pattern = pattern;
-      this.suffix = suffix;
+      this.originalPattern = Preconditions.checkNotNull(originalPattern);
+      this.pattern = Preconditions.checkNotNull(pattern);
+      this.suffix = Preconditions.checkNotNull(suffix);
       this.isAbsolute = isAbsolute;
       this.rulesOnly = rulesOnly;
       this.checkWildcardConflict = checkWildcardConflict;
@@ -200,6 +278,37 @@ public abstract class TargetPattern {
       }
       return resolver.getTargetsInPackage(originalPattern, removeSuffix(pattern, suffix),
           rulesOnly);
+    }
+
+    @Override
+    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+      return false;
+    }
+
+    @Override
+    public String getDirectory() {
+      return removeSuffix(pattern, suffix);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof TargetsInPackage)) {
+        return false;
+      }
+      TargetsInPackage that = (TargetsInPackage) o;
+      return isAbsolute == that.isAbsolute && rulesOnly == that.rulesOnly
+          && checkWildcardConflict == that.checkWildcardConflict
+          && originalPattern.equals(that.originalPattern)
+          && pattern.equals(that.pattern) && suffix.equals(that.suffix);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getType(), originalPattern, pattern, suffix, isAbsolute, rulesOnly,
+          checkWildcardConflict);
     }
 
     /**
@@ -236,23 +345,55 @@ public abstract class TargetPattern {
     }
   }
 
-  private static final class TargetsBelowPackage extends TargetPattern {
+  private static final class TargetsBelowDirectory extends TargetPattern {
 
     private final String originalPattern;
-    private final String pathPrefix;
+    private final String directory;
     private final boolean rulesOnly;
 
-    private TargetsBelowPackage(String originalPattern, String pathPrefix, boolean rulesOnly) {
-      super(Type.TARGETS_BELOW_PACKAGE);
-      this.originalPattern = originalPattern;
-      this.pathPrefix = pathPrefix;
+    private TargetsBelowDirectory(String originalPattern, String directory, boolean rulesOnly) {
+      super(Type.TARGETS_BELOW_DIRECTORY);
+      this.originalPattern = Preconditions.checkNotNull(originalPattern);
+      this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
     }
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
         throws TargetParsingException, InterruptedException {
-      return resolver.findTargetsBeneathDirectory(originalPattern, pathPrefix, rulesOnly);
+      return resolver.findTargetsBeneathDirectory(originalPattern, directory, rulesOnly);
+    }
+
+    @Override
+    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+      // Note that merely checking to see if the containedPattern's string expression beginsWith
+      // the TargetsBelowDirectory's directory is insufficient. "food" begins with "foo", but
+      // "//foo/..." does not contain "//food/...".
+      String containedDirectory = containedPattern.getDirectory() + "/";
+      return containedDirectory.startsWith(directory + "/");
+    }
+
+    @Override
+    public String getDirectory() {
+      return directory;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof TargetsBelowDirectory)) {
+        return false;
+      }
+      TargetsBelowDirectory that = (TargetsBelowDirectory) o;
+      return rulesOnly == that.rulesOnly && originalPattern.equals(that.originalPattern)
+          && directory.equals(that.directory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getType(), originalPattern, directory, rulesOnly);
     }
   }
 
@@ -362,9 +503,9 @@ public abstract class TargetPattern {
       if (packagePart.endsWith("/...")) {
         String realPackagePart = removeSuffix(packagePart, "/...");
         if (targetPart.isEmpty() || ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowPackage(originalPattern, realPackagePart, true);
+          return new TargetsBelowDirectory(originalPattern, realPackagePart, true);
         } else if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowPackage(originalPattern, realPackagePart, false);
+          return new TargetsBelowDirectory(originalPattern, realPackagePart, false);
         }
       }
 
@@ -380,14 +521,15 @@ public abstract class TargetPattern {
 
 
       if (isAbsolute || pattern.contains(":")) {
+        PackageAndTarget packageAndTarget;
         String fullLabel = "//" + pattern;
         try {
-          LabelValidator.validateAbsoluteLabel(fullLabel);
+          packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);
         }
-        return new SingleTarget(fullLabel);
+        return new SingleTarget(fullLabel, packageAndTarget.getPackageName());
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
@@ -444,8 +586,8 @@ public abstract class TargetPattern {
     PATH_AS_TARGET,
     /** An explicit target, eg "//foo:bar." */
     SINGLE_TARGET,
-    /** Targets below a package, eg "foo/...". */
-    TARGETS_BELOW_PACKAGE,
+    /** Targets below a directory, eg "foo/...". */
+    TARGETS_BELOW_DIRECTORY,
     /** Target in a package, eg "foo:all". */
     TARGETS_IN_PACKAGE;
   }

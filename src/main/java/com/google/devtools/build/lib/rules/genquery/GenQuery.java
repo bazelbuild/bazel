@@ -398,7 +398,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
             String.format("couldn't determine target from filename '%s'", pattern));
-      } else if (type == TargetPattern.Type.TARGETS_BELOW_PACKAGE) {
+      } else if (type == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
         throw new TargetParsingException(
             String.format("recursive target patterns are not permitted: '%s''", pattern));
       }
