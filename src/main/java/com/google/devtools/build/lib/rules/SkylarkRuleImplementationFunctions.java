@@ -71,7 +71,8 @@ public class SkylarkRuleImplementationFunctions {
    *     )
    */
   @SkylarkSignature(name = "action",
-      doc = "Creates an action that runs an executable or a shell command.",
+      doc = "Creates an action that runs an executable or a shell command. You must specify either "
+        + "<code>command</code> or <code>executable</code>.",
       objectType = SkylarkRuleContext.class,
       returnType = Environment.NoneType.class,
       mandatoryPositionals = {
@@ -91,7 +92,9 @@ public class SkylarkRuleImplementationFunctions {
             defaultValue = "None",
             doc = "a one-word description of the action, e.g. CppCompile or GoLink"),
         @Param(name = "command", type = Object.class, // string or ListOf(string) or NoneType
-            defaultValue = "None", doc = "shell command to execute"),
+            defaultValue = "None", doc = "shell command to execute. It is usually preferable to "
+            + "use <code>executable</code> instead. Arguments are available with <code>$1</code>, "
+            + "<code>$2</code>, etc."),
         @Param(name = "progress_message", type = String.class, noneable = true,
             defaultValue = "None",
             doc = "progress message to show to the user during the build, "

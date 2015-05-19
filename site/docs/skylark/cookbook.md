@@ -133,12 +133,19 @@ rule. No file is generated.
 Example of a rule that runs a shell command on an input file specified by
 the user. The output has the same name as the input, with a `.txt` suffix.
 
+While convenient, Shell commands should be used carefully. Generating the
+command-line can lead to escaping and injection issues. It can also create
+portability problems. It is often better to declare a binary target in a
+BUILD file and execute it. See the example "<a href="#execute-bin">
+executing a binary</a>".
+
 `size.bzl`:
 
 ```python
 def _impl(ctx):
   output = ctx.outputs.out
   input = ctx.file.file
+  # The command may only access files declared in inputs.
   ctx.action(
       inputs=[input],
       outputs=[output],
