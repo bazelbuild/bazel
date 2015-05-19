@@ -86,4 +86,6 @@ public class Constants {
    * Rule classes which specify iOS devices for running tests.
    */
   public static final ImmutableSet<String> IOS_DEVICE_RULE_CLASSES = ImmutableSet.of("ios_device");
+
+  public static final String ANDROID_DEFAULT_SDK = "//tools/android:sdk";
 }
