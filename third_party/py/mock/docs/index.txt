@@ -1,0 +1,411 @@
+====================================
+ Mock - Mocking and Testing Library
+====================================
+
+.. currentmodule:: mock
+
+:Author: `Michael Foord
+ <http://www.voidspace.org.uk/python/weblog/index.shtml>`_
+:Version: |release|
+:Date: 2012/10/07
+:Homepage: `Mock Homepage`_
+:Download: `Mock on PyPI`_
+:Documentation: `PDF Documentation
+ <http://www.voidspace.org.uk/downloads/mock-1.0.0.pdf>`_
+:License: `BSD License`_
+:Support: `Mailing list (testing-in-python@lists.idyll.org)
+ <http://lists.idyll.org/listinfo/testing-in-python>`_
+:Issue tracker: `Google code project
+ <http://code.google.com/p/mock/issues/list>`_
+
+.. _Mock Homepage: http://www.voidspace.org.uk/python/mock/
+.. _BSD License: http://www.voidspace.org.uk/python/license.shtml
+
+
+.. currentmodule:: mock
+
+.. module:: mock
+   :synopsis: Mock object and testing library.
+
+.. index:: introduction
+
+mock is a library for testing in Python. It allows you to replace parts of
+your system under test with mock objects and make assertions about how they
+have been used.
+
+mock is now part of the Python standard library, available as `unittest.mock
+<http://docs.python.org/py3k/library/unittest.mock.html#module-unittest.mock>`_
+in Python 3.3 onwards.
+
+mock provides a core :class:`Mock` class removing the need to create a host
+of stubs throughout your test suite. After performing an action, you can make
+assertions about which methods / attributes were used and arguments they were
+called with. You can also specify return values and set needed attributes in
+the normal way.
+
+Additionally, mock provides a :func:`patch` decorator that handles patching
+module and class level attributes within the scope of a test, along with
+:const:`sentinel` for creating unique objects. See the `quick guide`_ for
+some examples of how to use :class:`Mock`, :class:`MagicMock` and
+:func:`patch`.
+
+Mock is very easy to use and is designed for use with
+`unittest <http://pypi.python.org/pypi/unittest2>`_. Mock is based on
+the 'action -> assertion' pattern instead of `'record -> replay'` used by many
+mocking frameworks.
+
+mock is tested on Python versions 2.4-2.7, Python 3 plus the latest versions of
+Jython and PyPy.
+
+
+.. testsetup::
+
+   class ProductionClass(object):
+      def method(self, *args):
+         pass
+
+   module = sys.modules['module'] = ProductionClass
+   ProductionClass.ClassName1 = ProductionClass
+   ProductionClass.ClassName2 = ProductionClass
+
+
+
+API Documentation
+=================
+
+.. toctree::
+   :maxdepth: 2
+
+   mock
+   patch
+   helpers
+   sentinel
+   magicmock
+
+
+User Guide
+==========
+
+.. toctree::
+   :maxdepth: 2
+
+   getting-started
+   examples
+   compare
+   changelog
+
+
+.. index:: installing
+
+Installing
+==========
+
+The current version is |release|. Mock is stable and widely used. If you do
+find any bugs, or have suggestions for improvements / extensions
+then please contact us.
+
+* `mock on PyPI <http://pypi.python.org/pypi/mock>`_
+* `mock documentation as PDF
+  <http://www.voidspace.org.uk/downloads/mock-1.0.0.pdf>`_
+* `Google Code Home & Mercurial Repository <http://code.google.com/p/mock/>`_
+
+.. index:: repository
+.. index:: hg
+
+You can checkout the latest development version from the Google Code Mercurial
+repository with the following command:
+
+    ``hg clone https://mock.googlecode.com/hg/ mock``
+
+
+.. index:: pip
+.. index:: easy_install
+.. index:: setuptools
+
+If you have pip, setuptools or distribute you can install mock with:
+
+    | ``easy_install -U mock``
+    | ``pip install -U mock``
+
+Alternatively you can download the mock distribution from PyPI and after
+unpacking run:
+
+   ``python setup.py install``
+
+
+Quick Guide
+===========
+
+:class:`Mock` and :class:`MagicMock` objects create all attributes and
+methods as you access them and store details of how they have been used. You
+can configure them, to specify return values or limit what attributes are
+available, and then make assertions about how they have been used:
+
+.. doctest::
+
+    >>> from mock import MagicMock
+    >>> thing = ProductionClass()
+    >>> thing.method = MagicMock(return_value=3)
+    >>> thing.method(3, 4, 5, key='value')
+    3
+    >>> thing.method.assert_called_with(3, 4, 5, key='value')
+
+:attr:`side_effect` allows you to perform side effects, including raising an
+exception when a mock is called:
+
+.. doctest::
+
+   >>> mock = Mock(side_effect=KeyError('foo'))
+   >>> mock()
+   Traceback (most recent call last):
+    ...
+   KeyError: 'foo'
+
+   >>> values = {'a': 1, 'b': 2, 'c': 3}
+   >>> def side_effect(arg):
+   ...     return values[arg]
+   ...
+   >>> mock.side_effect = side_effect
+   >>> mock('a'), mock('b'), mock('c')
+   (1, 2, 3)
+   >>> mock.side_effect = [5, 4, 3, 2, 1]
+   >>> mock(), mock(), mock()
+   (5, 4, 3)
+
+Mock has many other ways you can configure it and control its behaviour. For
+example the `spec` argument configures the mock to take its specification
+from another object. Attempting to access attributes or methods on the mock
+that don't exist on the spec will fail with an `AttributeError`.
+
+The :func:`patch` decorator / context manager makes it easy to mock classes or
+objects in a module under test. The object you specify will be replaced with a
+mock (or other object) during the test and restored when the test ends:
+
+.. doctest::
+
+    >>> from mock import patch
+    >>> @patch('module.ClassName2')
+    ... @patch('module.ClassName1')
+    ... def test(MockClass1, MockClass2):
+    ...     module.ClassName1()
+    ...     module.ClassName2()
+
+    ...     assert MockClass1 is module.ClassName1
+    ...     assert MockClass2 is module.ClassName2
+    ...     assert MockClass1.called
+    ...     assert MockClass2.called
+    ...
+    >>> test()
+
+.. note::
+
+   When you nest patch decorators the mocks are passed in to the decorated
+   function in the same order they applied (the normal *python* order that
+   decorators are applied). This means from the bottom up, so in the example
+   above the mock for `module.ClassName1` is passed in first.
+
+   With `patch` it matters that you patch objects in the namespace where they
+   are looked up. This is normally straightforward, but for a quick guide
+   read :ref:`where to patch <where-to-patch>`.
+
+As well as a decorator `patch` can be used as a context manager in a with
+statement:
+
+.. doctest::
+
+    >>> with patch.object(ProductionClass, 'method', return_value=None) as mock_method:
+    ...     thing = ProductionClass()
+    ...     thing.method(1, 2, 3)
+    ...
+    >>> mock_method.assert_called_once_with(1, 2, 3)
+
+
+There is also :func:`patch.dict` for setting values in a dictionary just
+during a scope and restoring the dictionary to its original state when the test
+ends:
+
+.. doctest::
+
+   >>> foo = {'key': 'value'}
+   >>> original = foo.copy()
+   >>> with patch.dict(foo, {'newkey': 'newvalue'}, clear=True):
+   ...     assert foo == {'newkey': 'newvalue'}
+   ...
+   >>> assert foo == original
+
+Mock supports the mocking of Python :ref:`magic methods <magic-methods>`. The
+easiest way of using magic methods is with the :class:`MagicMock` class. It
+allows you to do things like:
+
+.. doctest::
+
+    >>> mock = MagicMock()
+    >>> mock.__str__.return_value = 'foobarbaz'
+    >>> str(mock)
+    'foobarbaz'
+    >>> mock.__str__.assert_called_with()
+
+Mock allows you to assign functions (or other Mock instances) to magic methods
+and they will be called appropriately. The `MagicMock` class is just a Mock
+variant that has all of the magic methods pre-created for you (well, all the
+useful ones anyway).
+
+The following is an example of using magic methods with the ordinary Mock
+class:
+
+.. doctest::
+
+    >>> mock = Mock()
+    >>> mock.__str__ = Mock(return_value='wheeeeee')
+    >>> str(mock)
+    'wheeeeee'
+
+For ensuring that the mock objects in your tests have the same api as the
+objects they are replacing, you can use :ref:`auto-speccing <auto-speccing>`.
+Auto-speccing can be done through the `autospec` argument to patch, or the
+:func:`create_autospec` function. Auto-speccing creates mock objects that
+have the same attributes and methods as the objects they are replacing, and
+any functions and methods (including constructors) have the same call
+signature as the real object.
+
+This ensures that your mocks will fail in the same way as your production
+code if they are used incorrectly:
+
+.. doctest::
+
+   >>> from mock import create_autospec
+   >>> def function(a, b, c):
+   ...     pass
+   ...
+   >>> mock_function = create_autospec(function, return_value='fishy')
+   >>> mock_function(1, 2, 3)
+   'fishy'
+   >>> mock_function.assert_called_once_with(1, 2, 3)
+   >>> mock_function('wrong arguments')
+   Traceback (most recent call last):
+    ...
+   TypeError: <lambda>() takes exactly 3 arguments (1 given)
+
+`create_autospec` can also be used on classes, where it copies the signature of
+the `__init__` method, and on callable objects where it copies the signature of
+the `__call__` method.
+
+
+.. index:: references
+.. index:: articles
+
+References
+==========
+
+Articles, blog entries and other stuff related to testing with Mock:
+
+* `Imposing a No DB Discipline on Django unit tests
+  <https://github.com/carljm/django-testing-slides/blob/master/models/30_no_database.md>`_
+* `mock-django: tools for mocking the Django ORM and models
+  <https://github.com/dcramer/mock-django>`_
+* `PyCon 2011 Video: Testing with mock <https://blip.tv/file/4881513>`_
+* `Mock objects in Python
+  <http://noopenblockers.com/2012/01/06/mock-objects-in-python/>`_
+* `Python: Injecting Mock Objects for Powerful Testing
+  <http://blueprintforge.com/blog/2012/01/08/python-injecting-mock-objects-for-powerful-testing/>`_
+* `Python Mock: How to assert a substring of logger output
+  <http://www.michaelpollmeier.com/python-mock-how-to-assert-a-substring-of-logger-output/>`_
+* `Mocking Django <http://www.mattjmorrison.com/2011/09/mocking-django.html>`_
+* `Mocking dates and other classes that can't be modified
+  <http://williamjohnbert.com/2011/07/how-to-unit-testing-in-django-with-mocking-and-patching/>`_
+* `Mock recipes <http://konryd.blogspot.com/2010/06/mock-recipies.html>`_
+* `Mockity mock mock - some love for the mock module
+  <http://konryd.blogspot.com/2010/05/mockity-mock-mock-some-love-for-mock.html>`_
+* `Coverage and Mock (with django)
+  <http://mattsnider.com/python/mock-and-coverage/>`_
+* `Python Unit Testing with Mock <http://www.insomnihack.com/?p=194>`_
+* `Getting started with Python Mock
+  <http://myadventuresincoding.wordpress.com/2011/02/26/python-python-mock-cheat-sheet/>`_
+* `Smart Parameter Checks with mock
+  <http://tobyho.com/2011/03/24/smart-parameter-checks-in/>`_
+* `Python mock testing techniques and tools
+  <http://agiletesting.blogspot.com/2009/07/python-mock-testing-techniques-and.html>`_
+* `How To Test Django Template Tags
+  <http://techblog.ironfroggy.com/2008/10/how-to-test.html>`_
+* `A presentation on Unit Testing with Mock
+  <http://pypap.blogspot.com/2008/10/newbie-nugget-unit-testing-with-mock.html>`_
+* `Mocking with Django and Google AppEngine
+  <http://michael-a-nelson.blogspot.com/2008/09/mocking-with-django-and-google-app.html>`_
+
+
+.. index:: tests
+.. index:: unittest2
+
+Tests
+=====
+
+Mock uses `unittest2 <http://pypi.python.org/pypi/unittest2>`_ for its own
+test suite. In order to run it, use the `unit2` script that comes with
+`unittest2` module on a checkout of the source repository:
+
+   `unit2 discover`
+
+If you have `setuptools <http://pypi.python.org/pypi/distribute>`_ as well as
+unittest2 you can run:
+
+   ``python setup.py test``
+
+On Python 3.2 you can use ``unittest`` module from the standard library.
+
+   ``python3.2 -m unittest discover``
+
+.. index:: Python 3
+
+On Python 3 the tests for unicode are skipped as they are not relevant. On
+Python 2.4 tests that use the with statements are skipped as the with statement
+is invalid syntax on Python 2.4.
+
+
+.. index:: older versions
+
+Older Versions
+==============
+
+Documentation for older versions of mock:
+
+* `mock 0.8 <http://www.voidspace.org.uk/python/mock/0.8/>`_
+* `mock 0.7 <http://www.voidspace.org.uk/python/mock/0.7/>`_
+* `mock 0.6 <http://www.voidspace.org.uk/python/mock/0.6.0/>`_
+
+Docs from the in-development version of `mock` can be found at
+`mock.readthedocs.org <http://mock.readthedocs.org>`_.
+
+
+Terminology
+===========
+
+Terminology for objects used to replace other ones can be confusing. Terms
+like double, fake, mock, stub, and spy are all used with varying meanings.
+
+In `classic mock terminology
+<http://xunitpatterns.com/Mocks,%20Fakes,%20Stubs%20and%20Dummies.html>`_
+:class:`mock.Mock` is a `spy <http://xunitpatterns.com/Test%20Spy.html>`_ that
+allows for *post-mortem* examination. This is what I call the "action ->
+assertion" [#]_ pattern of testing.
+
+I'm not however a fan of this "statically typed mocking terminology"
+promulgated by `Martin Fowler
+<http://martinfowler.com/articles/mocksArentStubs.html>`_. It confuses usage
+patterns with implementation and prevents you from using natural terminology
+when discussing mocking.
+
+I much prefer duck typing, if an object used in your test suite looks like a
+mock object and quacks like a mock object then it's fine to call it a mock, no
+matter what the implementation looks like.
+
+This terminology is perhaps more useful in less capable languages where
+different usage patterns will *require* different implementations.
+`mock.Mock()` is capable of being used in most of the different roles
+described by Fowler, except (annoyingly / frustratingly / ironically) a Mock
+itself!
+
+How about a simpler definition: a "mock object" is an object used to replace a
+real one in a system under test.
+
+.. [#] This pattern is called "AAA" by some members of the testing community;
+   "Arrange - Act - Assert".
