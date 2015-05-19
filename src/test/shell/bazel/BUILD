@@ -106,6 +106,7 @@ sh_test(
     name = "bazel_sandboxing_test",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],
+    tags = ["manual"],  # Test is still flaky.
 )
 
 test_suite(
