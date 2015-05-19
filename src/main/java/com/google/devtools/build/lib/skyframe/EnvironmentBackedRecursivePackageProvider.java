@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -84,9 +85,11 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory)
+  public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
+      ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException {
-    RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(RecursivePkgValue.key(directory));
+    RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(
+        RecursivePkgValue.key(directory, excludedSubdirectories));
     if (lookup == null) {
       // Typically a null value from Environment.getValue(k) means that either the key k is missing
       // a dependency or an exception was thrown during evaluation of k. Here, if this getValue

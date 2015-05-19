@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -92,8 +93,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory) {
-    SkyKey recursivePackageKey = RecursivePkgValue.key(directory);
+  public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
+      ImmutableSet<PathFragment> excludedSubdirectories) {
+    SkyKey recursivePackageKey = RecursivePkgValue.key(directory, excludedSubdirectories);
     if (!graph.exists(recursivePackageKey)) {
       // If the recursive package key does not exist in the graph, then it must not correspond to
       // any directory transitively containing packages, because the SkyQuery environment has
