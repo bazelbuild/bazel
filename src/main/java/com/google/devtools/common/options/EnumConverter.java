@@ -19,10 +19,10 @@ import java.util.Arrays;
 /**
  * A converter superclass for converters that parse enums.
  *
- * Just subclass this class, creating a zero aro argument constructor that
+ * <p>Just subclass this class, creating a zero aro argument constructor that
  * calls {@link #EnumConverter(Class, String)}.
  *
- * This class compares the input string to the string returned by the toString()
+ * <p>This class compares the input string to the string returned by the toString()
  * method of each enum member in a case-insensitive way. Usually, this is the
  * name of the symbol, but beware if you override toString()!
  */
@@ -51,7 +51,7 @@ public abstract class EnumConverter<T extends Enum<T>>
    * Implements {@link #convert(String)}.
    */
   @Override
-  public final T convert(String input) throws OptionsParsingException {
+  public T convert(String input) throws OptionsParsingException {
     for (T value : enumType.getEnumConstants()) {
       if (value.toString().equalsIgnoreCase(input)) {
         return value;

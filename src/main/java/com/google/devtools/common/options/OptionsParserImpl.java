@@ -421,8 +421,8 @@ class OptionsParserImpl {
     }
   }
 
-  private void addListValue(Field field, String name, Object value,
-      OptionPriority priority, String source, String implicitDependant, String expandedFrom) {
+  private void addListValue(Field field, Object value, OptionPriority priority, String source,
+      String implicitDependant, String expandedFrom) {
     ParsedOptionEntry entry = parsedValues.get(field);
     if (entry == null) {
       entry = new ParsedOptionEntry(ArrayListMultimap.create(), priority, source,
@@ -609,8 +609,8 @@ class OptionsParserImpl {
           // Note: The type of the list member is not known; Java introspection
           // only makes it available in String form via the signature string
           // for the field declaration.
-          addListValue(field, originalName, convertedValue,
-              priority, sourceFunction.apply(originalName), implicitDependant, expandedFrom);
+          addListValue(field, convertedValue, priority, sourceFunction.apply(originalName),
+              implicitDependant, expandedFrom);
         }
       }
 
@@ -683,7 +683,9 @@ class OptionsParserImpl {
   }
 
   static boolean isBooleanField(Field field) {
-    return field.getType().equals(boolean.class) || field.getType().equals(TriState.class);
+    return field.getType().equals(boolean.class)
+        || field.getType().equals(TriState.class)
+        || findConverter(field) instanceof BoolOrEnumConverter;
   }
 
   static boolean isSpecialNullDefault(String defaultValueString, Field optionField) {
