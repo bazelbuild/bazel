@@ -108,6 +108,13 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+[jarjar](https://code.google.com/p/jarjar/)
+-----------
+
+* Version: 1.4
+* License: Apache License 2.0
+
+
 [joda-time](http://www.joda.org/joda-time/)
 -----------
 

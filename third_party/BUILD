@@ -161,6 +161,11 @@ java_import(
 )
 
 java_import(
+    name = "jarjar",
+    jars = ["jarjar/jarjar-1.4.jar"],
+)
+
+java_import(
     name = "joda_time",
     jars = ["joda_time/joda-time-2.3.jar"],
 )
