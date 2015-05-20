@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -223,29 +224,30 @@ public final class ReleaseBundlingSupport {
             .add("-c")
             .add(
                 "VERSION=\"$("
-                + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo.getExecPathString()
-                + " | cut -d' ' -f2- | sed -e 's#\"#\\\"#g')\" && "
-                + "cat >" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
-                + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
-                + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
-                + "<plist version=\"1.0\">\n"
-                + "<dict>\n"
-                + "EOF\n"
+                    + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo
+                    .getExecPathString()
+                    + " | cut -d' ' -f2- | sed -e 's#\"#\\\"#g')\" && "
+                    + "cat >" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
+                    + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                    + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+                    + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+                    + "<plist version=\"1.0\">\n"
+                    + "<dict>\n"
+                    + "EOF\n"
 
-                + "if [[ -n \"${VERSION}\" ]]; then\n"
-                + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
-                + "    echo \"  <key>${KEY}</key>\n\" >> "
-                + getGeneratedVersionPlist().getExecPathString() + "\n"
-                + "    echo \"  <string>${VERSION}</string>\n\" >> "
-                + getGeneratedVersionPlist().getExecPathString() + "\n"
-                + "  done\n"
-                + "fi\n"
+                    + "if [[ -n \"${VERSION}\" ]]; then\n"
+                    + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
+                    + "    echo \"  <key>${KEY}</key>\n\" >> "
+                    + getGeneratedVersionPlist().getExecPathString() + "\n"
+                    + "    echo \"  <string>${VERSION}</string>\n\" >> "
+                    + getGeneratedVersionPlist().getExecPathString() + "\n"
+                    + "  done\n"
+                    + "fi\n"
 
-                + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
-                + "</dict>\n"
-                + "</plist>\n"
-                + "EOF\n"
+                    + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
+                    + "</dict>\n"
+                    + "</plist>\n"
+                    + "EOF\n"
             )
             .build())
         .addInput(buildInfo)
@@ -818,6 +820,9 @@ public final class ReleaseBundlingSupport {
     private void setArchitectureOptions(BuildOptions splitOptions, String iosCpu) {
       splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
       splitOptions.get(ObjcCommandLineOptions.class).iosCpu = iosCpu;
+      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
+        splitOptions.get(BuildConfiguration.Options.class).cpu = "ios_" + iosCpu;
+      }
     }
 
     @Override

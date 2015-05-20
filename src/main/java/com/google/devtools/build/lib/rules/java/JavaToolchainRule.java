@@ -45,6 +45,7 @@ public final class JavaToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder.setUndocumented()
+        .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(source_version) -->
         The Java source version (e.g., '6' or '7'). It specifies which set of code structures
         are allowed in the Java source code.

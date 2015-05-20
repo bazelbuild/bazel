@@ -606,7 +606,8 @@ public class ObjcRuleClasses {
         "objc_import",
         "objc_framework",
         "objc_proto_library",
-        "j2objc_library");
+        "j2objc_library",
+        "cc_library");
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {

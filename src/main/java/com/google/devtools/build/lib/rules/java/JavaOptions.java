@@ -288,6 +288,12 @@ public class JavaOptions extends FragmentOptions {
       help = "Check the listed constraint.")
   public List<String> checkedConstraints;
 
+  @Option(name = "experimental_disable_java",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Disables java support entirely.")
+  public boolean disableJava;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();

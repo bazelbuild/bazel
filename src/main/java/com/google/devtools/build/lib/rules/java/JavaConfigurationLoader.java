@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
@@ -47,6 +48,10 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
       throws InvalidConfigurationException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
 
+    if (javaOptions.disableJava) {
+      return null;
+    }
+
     Label javaToolchain = RedirectChaser.followRedirects(env, javaOptions.javaToolchain,
         "java_toolchain");
     return create(javaOptions, javaToolchain, cpuSupplier.getJavaCpu(buildOptions, env));
@@ -56,9 +61,10 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   public Class<? extends Fragment> creates() {
     return JavaConfiguration.class;
   }
-  
+
+  @VisibleForTesting
   public JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain, String javaCpu)
-          throws InvalidConfigurationException {
+      throws InvalidConfigurationException {
 
     boolean generateJavaDeps = javaOptions.javaDeps ||
         javaOptions.experimentalJavaClasspath != JavaClasspathMode.OFF;
