@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
+import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -162,7 +164,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   private class BazelWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
     @Override
     public ImmutableMap<String, Key> getStableKeys() {
-      return ImmutableMap.of();
+      return ImmutableMap.of(BuildInfo.BUILD_EMBED_LABEL,
+          Key.of(KeyType.STRING, options.get().embedLabel, "redacted"));
     }
 
     @Override

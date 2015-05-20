@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.rules.java.BuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.GenericBuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
@@ -32,7 +33,8 @@ public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
       .put("build.timestamp", "%BUILD_TIMESTAMP%")
       .build();
 
-  private static final Map<String, String> NONVOLATILE_KEYS = ImmutableMap.of();
+  private static final Map<String, String> NONVOLATILE_KEYS =
+      ImmutableMap.of("build.label", "%" + BuildInfo.BUILD_EMBED_LABEL + "|%");
 
   private static final Map<String, String> REDACTED_KEYS = ImmutableMap
       .<String, String>builder()
