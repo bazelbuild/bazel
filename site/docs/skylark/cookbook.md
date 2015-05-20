@@ -422,7 +422,7 @@ to its dependents.
 ```python
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.targets.deps:
+  for i in ctx.attr.deps:
     result += i.number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
 
@@ -470,7 +470,7 @@ This is a similar example, but dependencies may not provide a number.
 ```python
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.targets.deps:
+  for i in ctx.attr.deps:
     if hasattr(i, "number"):
       result += i.number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
@@ -621,8 +621,8 @@ other rules. For example, if you need to compile C++ files, you can reuse
 def _impl(ctx):
   # Aggregate the output files from the depending rules
   files = set()
-  files += ctx.target.dep_rule_1.files
-  files += ctx.target.dep_rule_2.files
+  files += ctx.attr.dep_rule_1.files
+  files += ctx.attr.dep_rule_2.files
   return struct(files=files)
 
 # This rule binds the depending rules together

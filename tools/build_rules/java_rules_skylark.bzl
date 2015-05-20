@@ -34,7 +34,7 @@ def java_library_impl(ctx):
   class_jar = ctx.outputs.class_jar
   compile_time_jars = set(order="link")
   runtime_jars = set(order="link")
-  for dep in ctx.targets.deps:
+  for dep in ctx.attr.deps:
     compile_time_jars += dep.compile_time_jars
     runtime_jars += dep.runtime_jars
 

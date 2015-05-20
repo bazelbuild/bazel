@@ -19,7 +19,7 @@ py_file_types = FileType([".py"])
 
 def collect_transitive_sources(ctx):
   source_files = set(order="compile")
-  for dep in ctx.targets.deps:
+  for dep in ctx.attr.deps:
     source_files += dep.transitive_py_files
 
   source_files += py_file_types.filter(ctx.files.srcs)

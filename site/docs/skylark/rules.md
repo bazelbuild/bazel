@@ -97,7 +97,7 @@ In the above case it's possible to access targets declared in `my_rule.deps`:
 
 ```python
 def impl(ctx):
-  for dep in ctx.targets.deps:
+  for dep in ctx.attr.deps:
     # Do something with dep
   ...
 
@@ -217,7 +217,7 @@ A depending rule might access these data as struct fields of the depending
 def depending_rule_implementation(ctx):
   ...
   s = set()
-  for dep_target in ctx.targets.deps:
+  for dep_target in ctx.attr.deps:
     s += dep_target.transitive_data
   ...
 ```
@@ -244,7 +244,7 @@ transitively from dependent rules:
 def rule_implementation(ctx):
   ...
   transitive_runfiles = set()
-  for dep in ctx.targets.special_dependencies:
+  for dep in ctx.attr.special_dependencies:
      transitive_runfiles += dep.transitive_runtime_files
 
   runfiles = ctx.runfiles(
