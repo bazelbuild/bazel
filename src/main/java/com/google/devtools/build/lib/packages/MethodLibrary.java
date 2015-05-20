@@ -1110,7 +1110,6 @@ public class MethodLibrary {
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);
-      setupMethodEnvironment(env, stringFunctions);
       setupMethodEnvironment(env, pureGlobalFunctions);
     }
   }
