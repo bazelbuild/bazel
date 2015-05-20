@@ -325,6 +325,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
 
+    private static final String TIKTOK_COMPONENT_PROCESSOR_NAME =
+        "com.google.apps.tiktok.inject.processor.ComponentProcessor";
+
+    private static final String DAGGER_PROCESSOR_PREFIX = "dagger.";
+
     public static boolean generatedByDagger(JCTree.JCClassDecl tree) {
       if (tree.sym == null) {
         return false;
@@ -334,7 +339,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         return false;
       }
       for (String value : generated.value()) {
-        if (value.startsWith("dagger.")) {
+        if (value.startsWith(DAGGER_PROCESSOR_PREFIX)) {
+          return true;
+        }
+        // additional exemption for tiktok (b/21307381)
+        if (value.equals(TIKTOK_COMPONENT_PROCESSOR_NAME)) {
           return true;
         }
       }
