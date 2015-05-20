@@ -373,6 +373,16 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     cp src/main/java/$i output/classes/$i
   done
 
+  # build-data.properties
+  git_version="non-git"
+  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+    git_version=$(git log -1 --oneline | cut -d " " -f 1 2>/dev/null || \
+      echo "non-git")
+  fi
+  cat >output/classes/build-data.properties <<EOF
+build.time=$(date)
+build.label=bazel-compile.sh-${git_version}
+EOF
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
       output third_party/javascript
 fi
