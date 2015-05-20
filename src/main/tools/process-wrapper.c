@@ -164,6 +164,15 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  int gid = getgid();
+  int egid = getegid();
+  if (gid != egid) {
+    // Switch completely to the target gid.
+    if (setregid(egid, egid) != 0) {
+      DIE("changing gid failed: setregid");
+    }
+  }
+
   // Parse the cmdline args to get the timeout and redirect files.
   argv++;
   double timeout;
