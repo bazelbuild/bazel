@@ -14,15 +14,22 @@
 package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * The main class.
  */
 public final class BazelMain {
+  private static final String BUILD_DATA_PROPERTIES = "/build-data.properties";
+
   private static final List<Class<? extends BlazeModule>> BAZEL_MODULES = ImmutableList.of(
       com.google.devtools.build.lib.bazel.BazelShutdownLoggerModule.class,
       com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
@@ -35,6 +42,35 @@ public final class BazelMain {
   );
 
   public static void main(String[] args) {
+    BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
     BlazeRuntime.main(BAZEL_MODULES, args);
+  }
+
+  /**
+   * Builds the standard build info map from the loaded properties. The returned value is the list
+   * of "build.*" properties from the build-data.properties file. The final key is the original one
+   * striped, dot replaced with a space and with first letter capitalized. If the file fails to
+   * load the returned map is empty.
+   */
+  private static ImmutableMap<String, String> tryGetBuildInfo() {
+    try (InputStream in = BazelMain.class.getResourceAsStream(BUILD_DATA_PROPERTIES)) {
+      if (in == null) {
+        return ImmutableMap.of();
+      }
+      Properties props = new Properties();
+      props.load(in);
+      ImmutableMap.Builder<String, String> buildData = ImmutableMap.builder();
+      for (Object key : props.keySet()) {
+        String stringKey = key.toString();
+        if (stringKey.startsWith("build.")) {
+          // build.label -> Build label, build.timestamp.as.int -> Build timestamp as int
+          String buildDataKey = "B" + stringKey.substring(1).replace('.', ' ');
+          buildData.put(buildDataKey, props.getProperty(stringKey, ""));
+        }
+      }
+      return buildData.build();
+    } catch (IOException ignored) {
+      return ImmutableMap.of();
+    }
   }
 }

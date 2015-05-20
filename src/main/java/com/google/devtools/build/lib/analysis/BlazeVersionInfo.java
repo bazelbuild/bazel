@@ -29,9 +29,10 @@ import java.util.logging.Logger;
  * (eg. when running non-released version), {@link #isAvailable()} returns false.
  */
 public class BlazeVersionInfo {
+  public static final String BUILD_LABEL = "Build label";
+  
   private final Map<String, String> buildData = Maps.newTreeMap();
   private static BlazeVersionInfo instance = null;
-  private static final String BUILD_LABEL = "Build label";
 
   private static final Logger LOG = Logger.getLogger(BlazeVersionInfo.class.getName());
 
