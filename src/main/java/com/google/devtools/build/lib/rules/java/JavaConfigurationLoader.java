@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.syntax.Label;
@@ -33,6 +35,12 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   public JavaConfigurationLoader(JavaCpuSupplier cpuSupplier) {
     this.cpuSupplier = cpuSupplier;
   }
+
+  @Override
+  public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+    return ImmutableSet.<Class<? extends FragmentOptions>>of(JavaOptions.class);
+  }
+
 
   @Override
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)

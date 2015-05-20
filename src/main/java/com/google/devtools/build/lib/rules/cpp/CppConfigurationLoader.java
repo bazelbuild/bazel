@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -42,6 +44,11 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public Class<? extends Fragment> creates() {
     return CppConfiguration.class;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+    return ImmutableSet.<Class<? extends FragmentOptions>>of(CppOptions.class);
   }
 
   private final Function<String, String> cpuTransformer;

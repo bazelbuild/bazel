@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 
 import javax.annotation.Nullable;
@@ -36,4 +37,9 @@ public interface ConfigurationFragmentFactory {
    * @return the exact type of the fragment this factory creates.
    */
   Class<? extends Fragment> creates();
+
+  /**
+   * Returns the option classes needed to load this fragment.
+   */
+  ImmutableSet<Class<? extends FragmentOptions>> requiredOptions();
 }

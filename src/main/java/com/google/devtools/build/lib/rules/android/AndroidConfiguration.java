@@ -181,6 +181,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public Class<? extends Fragment> creates() {
       return AndroidConfiguration.class;
     }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(Options.class);
+    }
   }
 
   private final Label sdk;

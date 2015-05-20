@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
@@ -64,6 +65,11 @@ public class J2ObjcConfiguration extends Fragment {
     @Override
     public Class<? extends Fragment> creates() {
       return J2ObjcConfiguration.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(J2ObjcCommandLineOptions.class);
     }
   }
 

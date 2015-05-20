@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -35,6 +37,11 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
 
   public PythonConfigurationLoader(Function<String, String> cpuTransformer) {
     this.cpuTransformer = cpuTransformer;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+    return ImmutableSet.of(PythonOptions.class, CppOptions.class);
   }
 
   @Nullable
