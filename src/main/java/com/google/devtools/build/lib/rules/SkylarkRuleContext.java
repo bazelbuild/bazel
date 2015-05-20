@@ -106,10 +106,6 @@ public final class SkylarkRuleContext {
 
   private final SkylarkClassObject filesObject;
 
-  private final SkylarkClassObject targetsObject;
-
-  private final SkylarkClassObject targetObject;
-
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private final ImmutableMap<Artifact, Label> artifactLabelMap;
 
@@ -190,8 +186,6 @@ public final class SkylarkRuleContext {
         new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> fileBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> filesBuilder = new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<String, Object> targetBuilder = new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<String, Object> targetsBuilder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       Type<?> type = a.getType();
       Object val = ruleContext.attributes().get(a.getName(), type);
@@ -225,13 +219,11 @@ public final class SkylarkRuleContext {
       }
       filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode).list());
       List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), mode);
-      targetsBuilder.put(skyname, SkylarkList.list(allPrereq, TransitiveInfoCollection.class));
       if (type == Type.LABEL) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), mode);
         if (prereq == null) {
           prereq = Environment.NONE;
         }
-        targetBuilder.put(skyname, prereq);
         attrBuilder.put(skyname, prereq);
       } else {
         // Type.LABEL_LIST
@@ -245,10 +237,6 @@ public final class SkylarkRuleContext {
         "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'");
     filesObject = new SkylarkClassObject(filesBuilder.build(),
         "No such files. Make sure there is a '%s' label or label_list type attribute");
-    targetObject = new SkylarkClassObject(targetBuilder.build(),
-        "No such target. Make sure there is a '%s' label type attribute");
-    targetsObject = new SkylarkClassObject(targetsBuilder.build(),
-        "No such targets. Make sure there is a '%s' label or label_list type attribute");
     executableRunfilesMap = executableRunfilesbuilder.build();
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
@@ -323,28 +311,19 @@ public final class SkylarkRuleContext {
   /**
    * See {@link RuleContext#getPrerequisite(String, Mode)}.
    */
-  @SkylarkCallable(name = "target", structField = true,
-      doc = "<b>Deprecated, use <code>ctx.attr</code> instead.</b> "
-          + "A <code>struct</code> containing prerequisite targets defined in label type "
-          + "attributes. The struct fields correspond to the attribute names. The struct value "
-          + "is always a <a href=\"#modules.Target\"><code>Target</code></a> or <code>None</code>. "
-          + "If an optional attribute is not specified in the rule, the corresponding struct "
-          + "value is <code>None</code>.")
-  public SkylarkClassObject getTarget() {
-    return targetObject;
+  @SkylarkCallable(name = "target", structField = true, documented = false)
+  public SkylarkClassObject getTarget() throws FuncallException {
+    // TODO(bazel-team): Remove function in June 2015.
+    throw new FuncallException("ctx.target has been removed, use ctx.attr instead");
   }
 
   /**
    * See {@link RuleContext#getPrerequisites(String, Mode)}.
    */
-  @SkylarkCallable(name = "targets", structField = true,
-      doc = "<b>Deprecated, use <code>ctx.attr</code> instead.</b> "
-          + "A <code>struct</code> containing prerequisite targets defined in label or label list "
-          + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <a href=\"#modules.Target\"><code>Target</code></a>s. "
-          + "If an optional attribute is not specified in the rule, an empty list is generated.")
-  public SkylarkClassObject getTargets() {
-    return targetsObject;
+  @SkylarkCallable(name = "targets", structField = true, documented = false)
+  public SkylarkClassObject getTargets() throws FuncallException {
+    // TODO(bazel-team): Remove function in June 2015.
+    throw new FuncallException("ctx.targets has been removed, use ctx.attr instead");
   }
 
   @SkylarkCallable(name = "workspace_name", structField = true,
