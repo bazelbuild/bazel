@@ -17,9 +17,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Syntax node for a dot expression.
@@ -71,29 +69,23 @@ public final class DotExpression extends Expression {
    * Returns the field of the given name of the struct objValue, or null if no such field exists.
    */
   public static Object eval(Object objValue, String name, Location loc) throws EvalException {
-    Object result = null;
     if (objValue instanceof ClassObject) {
-      result = ((ClassObject) objValue).getValue(name);
+      Object result = ((ClassObject) objValue).getValue(name);
       result = SkylarkType.convertToSkylark(result, loc);
       // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
       // so we have to disable it. This should not happen.
       SkylarkType.checkTypeAllowedInSkylark(result, loc);
-    } else {
-      try {
-        List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(), name, 0);
-        if (methods != null && !methods.isEmpty()) {
-          MethodDescriptor method = Iterables.getOnlyElement(methods);
-          if (method.getAnnotation().structField()) {
-            result = FuncallExpression.callMethod(
-                method, name, objValue, new Object[] {}, loc);
-          }
-        }
-      } catch (ExecutionException | IllegalAccessException | InvocationTargetException e) {
-        throw new EvalException(loc, "Method invocation failed: " + e);
+      return result;
+    }
+    List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(),
+          name, 0, loc);
+    if (methods != null && !methods.isEmpty()) {
+      MethodDescriptor method = Iterables.getOnlyElement(methods);
+      if (method.getAnnotation().structField()) {
+        return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc);
       }
     }
-
-    return result;
+    return null;
   }
 
   @Override

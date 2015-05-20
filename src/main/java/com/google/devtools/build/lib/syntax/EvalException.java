@@ -89,8 +89,7 @@ public class EvalException extends Exception {
    * Returns the error message with location info if exists.
    */
   public String print() { // TODO(bazel-team): do we also need a toString() method?
-    return this.getClass().getName()
-        + (getLocation() == null ? "" : " at " + getLocation()) + ": "
+    return (getLocation() == null ? "" : getLocation()) + ": "
         + (message == null ? "" : message + "\n")
         + (dueToIncompleteAST ? "due to incomplete AST\n" : "")
         + (getCause() != null && getCause().getMessage() != null ? getCause().getMessage() : "");
