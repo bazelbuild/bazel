@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -78,8 +77,6 @@ final class CompilationSupport {
   @VisibleForTesting
   static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
       ImmutableList.of("-fprofile-arcs", "-ftest-coverage", "-fprofile-dir=./coverage_output");
-
-  private static final String FRAMEWORK_SUFFIX = ".framework";
 
   /**
    * Iterable wrapper providing strong type safety for arguments to binary linking.
@@ -285,37 +282,27 @@ final class CompilationSupport {
     Artifact linkedBinary =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).singleArchitectureBinary();
 
-    ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnOnDarwinActionBuilder()
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
-            .setCommandLine(
-                linkCommandLine(extraLinkArgs, objcProvider, linkedBinary, dsymBundle, ccLibraries))
+            .setCommandLine(linkCommandLine(extraLinkArgs, objcProvider, linkedBinary, dsymBundle))
             .addOutput(linkedBinary)
             .addOutputs(dsymBundle.asSet())
             .addTransitiveInputs(objcProvider.get(LIBRARY))
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-            .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
             .build(ruleContext));
   }
 
-  private ImmutableList<Artifact> ccLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> ccLibraryBuilder = ImmutableList.builder();
-    for (LinkerInputs.LibraryToLink libraryToLink : objcProvider.get(ObjcProvider.CC_LIBRARY)) {
-      ccLibraryBuilder.add(libraryToLink.getArtifact());
-    }
-    return ccLibraryBuilder.build();
-  }
+  private static final String FRAMEWORK_SUFFIX = ".framework";
 
   private CommandLine linkCommandLine(ExtraLinkArgs extraLinkArgs,
-      ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle,
-      ImmutableList<Artifact> ccLibraries) {
+      ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
+    final CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
     if (objcProvider.is(USES_CPP)) {
       commandLine
@@ -335,7 +322,6 @@ final class CompilationSupport {
         .addExecPath("-o", linkedBinary)
         .addExecPaths(objcProvider.get(LIBRARY))
         .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
-        .addExecPaths(ccLibraries)
         .add(dylibPaths(objcProvider))
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
@@ -160,7 +159,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Bundling> NESTED_BUNDLE = new Key<>(STABLE_ORDER);
 
   /**
-   * Artifact containing information on debug symbols.
+   * Artifact containing information on debug symbols
    */
   public static final Key<Artifact> DEBUG_SYMBOLS = new Key<>(STABLE_ORDER);
 
@@ -184,11 +183,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    * Artifacts for strings source files.
    */
   public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER);
-
-  /**
-   * Linking information from cc dependencies.
-   */
-  public static final Key<LinkerInputs.LibraryToLink> CC_LIBRARY = new Key<>(LINK_ORDER);
 
   /**
    * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a

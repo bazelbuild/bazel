@@ -66,11 +66,6 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
   public Jvm create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-
-    if (javaOptions.disableJava) {
-      return null;
-    }
-
     String javaHome = javaOptions.javaBase;
     String cpu = cpuSupplier.getJavaCpu(buildOptions, env);
     if (cpu == null) {

@@ -82,9 +82,6 @@ public interface JavaSemantics {
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          if (!configuration.hasFragment(JavaConfiguration.class)) {
-            return null;
-          }
           return configuration.getFragment(JavaConfiguration.class).getToolchainLabel();
         }
       };
@@ -135,9 +132,6 @@ public interface JavaSemantics {
       new LateBoundLabel<BuildConfiguration>(JDK_LABEL) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          if (!configuration.hasFragment(Jvm.class)) {
-            return null;
-          }
           return configuration.getFragment(Jvm.class).getJvmLabel();
         }
       };
@@ -154,9 +148,6 @@ public interface JavaSemantics {
 
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          if (!configuration.hasFragment(Jvm.class)) {
-            return null;
-          }
           return configuration.getFragment(Jvm.class).getJvmLabel();
         }
       };
@@ -169,9 +160,6 @@ public interface JavaSemantics {
       new LateBoundLabel<BuildConfiguration>() {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          if (!configuration.hasFragment(JavaConfiguration.class)) {
-            return null;
-          }
           return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
         }
       };

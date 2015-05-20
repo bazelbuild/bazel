@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 
@@ -70,10 +68,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .addNonPropagatedDepObjcProviders(ruleContext.getPrerequisites("non_propagated_deps",
             Mode.TARGET, ObjcProvider.class))
-        .addDepCcHeaderProviders(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-        .addDepCcLinkProviders(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
         .addExtraImportLibraries(extraImportLibraries)

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BREAKPAD_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
@@ -58,8 +57,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -240,8 +237,6 @@ public final class ObjcCommon {
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> breakpadFile = Optional.absent();
-    private Iterable<CppCompilationContext> depCcHeaderProviders = ImmutableList.of();
-    private Iterable<CcLinkParamsProvider> depCcLinkProviders = ImmutableList.of();
 
     Builder(RuleContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -359,22 +354,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    /**
-     * Sets information from {@code cc_library} dependencies to be used during compilation.
-     */
-    public Builder addDepCcHeaderProviders(Iterable<CppCompilationContext> depCcHeaderProviders) {
-      this.depCcHeaderProviders = Iterables.concat(this.depCcHeaderProviders, depCcHeaderProviders);
-      return this;
-    }
-
-    /**
-     * Sets information from {@code cc_library} dependencies to be used during linking.
-     */
-    public Builder addDepCcLinkProviders(Iterable<CcLinkParamsProvider> depCcLinkProviders) {
-      this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, depCcLinkProviders);
-      return this;
-    }
-
     ObjcCommon build() {
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
 
@@ -393,15 +372,6 @@ public final class ObjcCommon {
           .addAll(HEADER, headers)
           .addTransitiveAndPropagate(depObjcProviders)
           .addTransitiveWithoutPropagating(directDepObjcProviders);
-
-      for (CppCompilationContext headerProvider : depCcHeaderProviders) {
-        // TODO(bazel-team): Also account for custom include settings to go into header search paths
-        objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
-      }
-      for (CcLinkParamsProvider linkProvider : depCcLinkProviders) {
-        objcProvider.addTransitiveAndPropagate(
-            CC_LIBRARY, linkProvider.getCcLinkParams(true, false).getLibraries());
-      }
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
