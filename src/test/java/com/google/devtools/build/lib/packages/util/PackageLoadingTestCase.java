@@ -83,7 +83,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         ImmutableList.<PrecomputedValue.Injected>of()
     );
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(rootDirectory), ConstantRuleVisibility.PUBLIC, true, "",
+        new PathPackageLocator(rootDirectory), ConstantRuleVisibility.PUBLIC, true, 7, "",
         UUID.randomUUID());
     setUpSkyframe(parsePackageCacheOptions());
   }
@@ -97,7 +97,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
-        ruleClassProvider.getDefaultsPackageContent(),
+        7, ruleClassProvider.getDefaultsPackageContent(),
         UUID.randomUUID());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
   }

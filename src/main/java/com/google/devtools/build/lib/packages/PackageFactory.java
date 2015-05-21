@@ -366,7 +366,7 @@ public final class PackageFactory {
     globalEnv = newGlobalEnvironment();
     threadPool = new ThreadPoolExecutor(100, 100, 3L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
-        new ThreadFactoryBuilder().setNameFormat("PackageFactory %d").build());
+        new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
     // Do not consume threads when not in use.
     threadPool.allowCoreThreadTimeOut(true);
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
@@ -386,6 +386,15 @@ public final class PackageFactory {
   public void setSyscalls(AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls) {
     this.syscalls = Preconditions.checkNotNull(syscalls);
   }
+
+  /**
+   * Sets the max number of threads to use for globbing.
+   */
+  public void setGlobbingThreads(int globbingThreads) {
+    threadPool.setCorePoolSize(globbingThreads);
+    threadPool.setMaximumPoolSize(globbingThreads);
+  }
+
 
   /**
    * Returns the static environment initialized once and shared by all packages

@@ -105,7 +105,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
     skyframeExecutor.preparePackageLoading(pkgLocator,
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
-        ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
 
     AnalysisMock analysisMock = getAnalysisMock();
     analysisMock.setupMockClient(new MockToolsConfig(rootDirectory));

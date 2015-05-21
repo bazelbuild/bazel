@@ -173,7 +173,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     );
     skyframeExecutor.preparePackageLoading(pkgLocator,
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
-        ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = new LoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
     buildView = new BuildView(directories, skyframeExecutor.getPackageManager(), ruleClassProvider,
@@ -245,7 +245,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pathPackageLocator,
         packageCacheOptions.defaultVisibility, true,
-        ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
     skyframeExecutor.invalidateFilesUnderPathForTesting(ModifiedFileSet.EVERYTHING_MODIFIED,
         rootDirectory);
 

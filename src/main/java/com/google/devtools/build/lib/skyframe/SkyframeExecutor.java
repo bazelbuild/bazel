@@ -735,8 +735,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
-      boolean showLoadingProgress,
-      String defaultsPackageContents, UUID commandId) {
+                                    boolean showLoadingProgress, int globbingThreads,
+                                    String defaultsPackageContents, UUID commandId) {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
 
@@ -748,6 +748,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setPackageLocator(pkgLocator);
 
     syscalls.set(new PerBuildSyscallCache());
+    this.pkgFactory.setGlobbingThreads(globbingThreads);
     checkPreprocessorFactory();
     emittedEventState.clear();
 
@@ -1328,7 +1329,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     preparePackageLoading(
         createPackageLocator(packageCacheOptions, directories.getWorkspace(), workingDirectory),
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        defaultsPackageContents, commandId);
+        packageCacheOptions.globbingThreads, defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();

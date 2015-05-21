@@ -120,6 +120,12 @@ public class PackageCacheOptions extends OptionsBase {
           + "'private').")
   public RuleVisibility defaultVisibility;
 
+  @Option(name = "legacy_globbing_threads",
+      defaultValue = "100",
+      category = "undocumented",
+      help = "Number of threads to use for glob evaluation.")
+  public int globbingThreads;
+
   @Option(name = "min_pkg_count_for_ct_node_eviction",
       defaultValue = "3700",
       // Why is the default value 3700? As of December 2013, a medium target loads about this many
