@@ -48,31 +48,24 @@ public class MavenJarRule implements RuleDefinition {
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("version", Type.STRING).mandatory())
-        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repositories) -->
-        A list of repositories to use to attempt to fetch the jar.
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repository) -->
+        A URL for a Maven repository to fetch the jar from.
         ${SYNOPSIS}
 
-        <p>Defaults to Maven Central ("repo1.maven.org"). If repositories are specified, they will
-          be checked in the order listed here (Maven Central will not be checked in this case,
-          unless it is on the list).</p>
+        <p>Defaults to Maven Central ("central.maven.org").</p>
 
-        <p><b>To be implemented: add a maven_repositories rule that allows a list of repositories
-        to be labeled.</b></p>
+        <p><b>To be implemented: add a maven_repository rule that allows a default repository
+        to be specified once.</b></p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("repositories", Type.STRING_LIST))
-        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(exclusions) -->
-        Transitive dependencies of this dependency that should not be downloaded.
-        ${SYNOPSIS}
+        .add(attr("repository", Type.STRING))
+        .add(attr("repositories", Type.STRING_LIST)).setUndocumented()
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1) -->
+         A SHA-1 hash of the desired jar.
+         ${SYNOPSIS}
 
-        <p>Defaults to None: Bazel will download all of the dependencies requested by the Maven
-          dependency.  If exclusions are specified, they will not be downloaded.</p>
-
-        <p>Exclusions are specified in the format "<group_id>:<artifact_id>", for example,
-          "com.google.guava:guava".</p>
-
-        <p><b>Not yet implemented.</b></p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exclusions", Type.STRING_LIST))
+         <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sha1", Type.STRING).mandatory())
         .setWorkspaceOnly()
         .build();
   }

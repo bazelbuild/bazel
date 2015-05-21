@@ -45,15 +45,15 @@ EOF
 }
 
 case "${PLATFORM}" in
-    darwin)
+  darwin)
     function nc_l() {
-          nc -l $1
-          }
+      nc -l $1
+    }
     ;;
-    *)
+  *)
     function nc_l() {
-          nc -l -p $1 -q 1
-          }
+      nc -l -p $1 -q 1
+    }
     ;;
 esac
 
@@ -98,6 +98,8 @@ EOF
   ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
 
   sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
+  # OS X doesn't have sha1sum, so use openssl.
+  sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
   serve_file $test_jar
   cd ${WORKSPACE_DIR}
 }
@@ -324,7 +326,8 @@ maven_jar(
     group_id = "com.example.carnivore",
     artifact_id = "carnivore",
     version = "1.23",
-    repositories = ['http://localhost:$nc_port/']
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -345,14 +348,14 @@ EOF
   nc_port=$(pick_random_unused_tcp_port) || exit 1
   nc_l $nc_port < $http_response &
   nc_pid=$!
-
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
     group_id = "carnivore",
     artifact_id = "carnivore",
     version = "1.23",
-    repositories = ['http://localhost:$nc_port/']
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '0000000000000000000000000000000000000000',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -360,6 +363,26 @@ EOF
   bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
   expect_log "Failed to fetch Maven dependency: Could not find artifact"
+}
+
+function test_maven_jar_mismatched_sha1() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    group_id = "com.example.carnivore",
+    artifact_id = "carnivore",
+    version = "1.23",
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '$sha256',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  kill_nc
+  expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($sha256)"
 }
 
 function test_new_remote_repo() {
@@ -427,7 +450,8 @@ maven_jar(
     group_id = "com.example.carnivore",
     artifact_id = "carnivore",
     version = "1.23",
-    repositories = ['http://localhost:$nc_port/']
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF

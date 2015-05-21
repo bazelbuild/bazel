@@ -69,17 +69,18 @@ public class HttpDownloader {
           "Error downloading " + url + " to " + destination + ": " + e.getMessage());
     }
 
+    String downloadedSha256;
     try {
-      String downloadedSha256 = getSha256(destination);
-      if (!downloadedSha256.equals(sha256)) {
-        throw new IOException(
-            "Downloaded file at " + destination + " has SHA-256 of " + downloadedSha256
-                + ", does not match expected SHA-256 (" + sha256 + ")");
-      }
+      downloadedSha256 = getHash(Hashing.sha256().newHasher(), destination);
     } catch (IOException e) {
       throw new IOException(
           "Could not hash file " + destination + ": " + e.getMessage() + ", expected SHA-256 of "
               + sha256 + ")");
+    }
+    if (!downloadedSha256.equals(sha256)) {
+      throw new IOException(
+          "Downloaded file at " + destination + " has SHA-256 of " + downloadedSha256
+              + ", does not match expected SHA-256 (" + sha256 + ")");
     }
     return destination;
   }
@@ -89,9 +90,7 @@ public class HttpDownloader {
     return Channels.newChannel(url.openStream());
   }
 
-  private String getSha256(Path path) throws IOException {
-    Hasher hasher = Hashing.sha256().newHasher();
-
+  public static String getHash(Hasher hasher, Path path) throws IOException {
     byte byteBuffer[] = new byte[BUFFER_SIZE];
     try (InputStream stream = path.getInputStream()) {
       int numBytesRead = stream.read(byteBuffer);
