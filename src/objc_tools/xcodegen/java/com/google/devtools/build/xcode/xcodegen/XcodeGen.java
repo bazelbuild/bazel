@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -31,6 +34,8 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Entry-point for the command-line Xcode project generator.
@@ -63,7 +68,28 @@ public class XcodeGen {
       controlPb = Control.parseFrom(in);
     }
     Path pbxprojPath = fileSystem.getPath(controlPb.getPbxproj());
-    Path workspaceRoot = XcodeprojGeneration.workspaceRoot(controlPb, fileSystem);
+
+    Iterator<String> srcList = allSourceFilePaths(controlPb).iterator();
+    Path workspaceRoot;
+    if (!srcList.hasNext()) {
+      workspaceRoot = XcodeprojGeneration.relativeWorkspaceRoot(pbxprojPath);
+    } else {
+      // Get the absolute path to the workspace root.
+
+      // TODO(bazel-team): Remove this hack, possibly by converting Xcodegen to be run with
+      // "bazel run" and using RUNFILES to get the workspace root. For now, this is needed to work
+      // around Xcode's handling of symlinks not playing nicely with how Bazel stores output
+      // artifacts in /private/var/tmp. This means a relative path from .xcodeproj in bazel-out to
+      // the workspace root in .xcodeproj will not work properly at certain times during
+      // Xcode/xcodebuild execution. Walking up the path of a known source file prevents having
+      // to reason about a file that might only be accessible through a symlink, like a tools jar.
+      Path relSourceFilePath = fileSystem.getPath(srcList.next());
+      Path absSourceFilePath = relSourceFilePath.toAbsolutePath();
+      workspaceRoot = absSourceFilePath;
+      for (int i = 0; i < relSourceFilePath.getNameCount(); i++) {
+        workspaceRoot = workspaceRoot.getParent();
+      }
+    }
 
     try (OutputStream out = Files.newOutputStream(pbxprojPath)) {
       // This workspace root here is relative to the PWD, so that the .xccurrentversion
@@ -77,5 +103,15 @@ public class XcodeGen {
               new PbxReferencesGrouper(fileSystem)));
       XcodeprojGeneration.write(out, project);
     }
+  }
+
+  private static Iterable<String> allSourceFilePaths(Control control) {
+    return Iterables.concat(
+        Iterables.transform(control.getTargetList(),
+                            new Function<TargetControl, List<String>>() {
+                              public List<String> apply(TargetControl tc) {
+                                return tc.getSourceFileList();
+                              }
+                            }));
   }
 }

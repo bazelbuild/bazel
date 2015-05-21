@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -71,7 +70,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -543,46 +541,5 @@ public class XcodeprojGeneration {
     }
 
     return project;
-  }
-
-  /**
-   * Returns the workspace root for the project file.
-   */
-  public static Path workspaceRoot(Control control, FileSystem fileSystem) throws IOException {
-    Iterator<String> srcList = allSourceFilePaths(control).iterator();
-    Path workspaceRoot;
-    if (!srcList.hasNext()) {
-      Path pbxprojPath = fileSystem.getPath(control.getPbxproj());
-      return XcodeprojGeneration.relativeWorkspaceRoot(pbxprojPath);
-    } else {
-      // Get the absolute path to the workspace root.
-
-      // TODO(bazel-team): Remove this hack, possibly by converting Xcodegen to be run with
-      // "bazel run" and using RUNFILES to get the workspace root. For now, this is needed to work
-      // around Xcode's handling of symlinks not playing nicely with how Bazel stores output
-      // artifacts in /private/var/tmp. This means a relative path from .xcodeproj in bazel-out to
-      // the workspace root in .xcodeproj will not work properly at certain times during
-      // Xcode/xcodebuild execution. Walking up the path of a known source file prevents having
-      // to reason about a file that might only be accessible through a symlink, like a tools jar.
-      Path relSourceFilePath = fileSystem.getPath(srcList.next());
-
-      // Symlinks need to be resolved because XCode does not play well with symlinked sources.
-      Path absSourceFilePath = relSourceFilePath.toRealPath();
-      workspaceRoot = absSourceFilePath;
-      for (int i = 0; i < relSourceFilePath.getNameCount(); i++) {
-        workspaceRoot = workspaceRoot.getParent();
-      }
-      return workspaceRoot;
-    }
-  }
-
-  private static Iterable<String> allSourceFilePaths(Control control) {
-    return Iterables.concat(
-        Iterables.transform(control.getTargetList(),
-                            new Function<TargetControl, List<String>>() {
-                              public List<String> apply(TargetControl tc) {
-                                return tc.getSourceFileList();
-                              }
-                            }));
   }
 }
