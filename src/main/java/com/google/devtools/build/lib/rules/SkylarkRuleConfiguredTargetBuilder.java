@@ -51,7 +51,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
    */
   public static ConfiguredTarget buildRule(RuleContext ruleContext,
       BaseFunction ruleImplementation) {
-    String expectError = ruleContext.attributes().get("expect_failure", Type.STRING);
+    String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     try {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
       SkylarkEnvironment env = ruleContext.getRule().getRuleClassObject()
@@ -68,8 +68,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       } else if (!(target instanceof SkylarkClassObject) && target != Environment.NONE) {
         ruleContext.ruleError("Rule implementation doesn't return a struct");
         return null;
-      } else if (!expectError.isEmpty()) {
-        ruleContext.ruleError("Expected error not found: " + expectError);
+      } else if (!expectFailure.isEmpty()) {
+        ruleContext.ruleError("Expected failure not found: " + expectFailure);
         return null;
       }
       ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
@@ -81,7 +81,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       return null;
     } catch (EvalException e) {
       // If the error was expected, return an empty target.
-      if (!expectError.isEmpty() && e.getMessage().matches(expectError)) {
+      if (!expectFailure.isEmpty() && e.getMessage().matches(expectFailure)) {
         return new com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder(ruleContext)
             .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
             .build();
