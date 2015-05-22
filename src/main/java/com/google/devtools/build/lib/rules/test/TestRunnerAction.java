@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.syntax.Label;
@@ -121,7 +122,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       int runNumber,
       BuildConfiguration configuration,
       String workspaceName) {
-    super(owner, inputs, list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
+    super(owner, inputs,
+        // Note that this action only cares about the runfiles, not the mapping.
+        new RunfilesSupplierImpl(new PathFragment("runfiles"), executionSettings.getRunfiles()),
+        list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
