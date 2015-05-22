@@ -89,6 +89,11 @@ Some differences with Python should be noted:
 * Dictionary assignment has slightly different semantics: `d["x"] = y` is
   syntactic sugar for `d = d + {"x": y}` or `d += {"x": y}`.
 
+* Dictionaries have deterministic order when iterating (sorted by key).
+
+* Sets use a custom order when iterating (see
+  [documentation](library.html#modules._top_level.set)).
+
 * Recursion is not allowed.
 
 The following Python features are not supported:

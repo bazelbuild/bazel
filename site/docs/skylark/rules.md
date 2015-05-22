@@ -12,7 +12,7 @@ it in a global variable. [See example](cookbook.md#empty).
 Attributes
 ----------
 
-An attribute is a rule argument, such as `srcs` or `deps`. You have to list
+An attribute is a rule argument, such as `srcs` or `deps`. You must list
 the attributes and their type when you define a rule.
 
 ```python
@@ -29,7 +29,7 @@ If an attribute starts with `_`, it is private and users cannot set it. It
 is useful in particular for label attributes (your rule will have an
 implicit dependency on this label).
 
-The following attributes are implicitely added to every rule: `name`,
+The following attributes are implicitly added to every rule: `name`,
 `visibility`, `deprecation`, `tags`, `testonly`, `features`.
 
 To access an attribute, use `ctx.attr.<attribute_name>`. The name and the

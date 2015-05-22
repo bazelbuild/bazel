@@ -71,7 +71,7 @@ public class SkylarkNativeModule {
           + "The label can be referenced in <code>visibility</code> attributes.",
       mandatoryNamedOnly = {
       @Param(name = "name", type = String.class,
-          doc = "A unique name for this rule.")},
+          doc = "The unique name for this rule.")},
       optionalNamedOnly = {
       @Param(name = "packages", type = SkylarkList.class, generic1 = String.class,
           defaultValue = "[]",

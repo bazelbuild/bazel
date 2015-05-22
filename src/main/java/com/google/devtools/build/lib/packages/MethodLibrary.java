@@ -689,7 +689,7 @@ public class MethodLibrary {
   @SkylarkSignature(name = "bool", returnType = Boolean.class,
       doc = "Converts an object to boolean. "
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
-      + "empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> "
+      + "empty collection. Otherwise, it returns True. As in Python, <code>bool</code> "
       + "is also a type.",
       mandatoryPositionals = {@Param(name = "x", doc = "The variable to convert.")})
   private static BuiltinFunction bool = new BuiltinFunction("bool") {
@@ -766,9 +766,9 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "enumerate",  returnType = SkylarkList.class,
-      doc = "Return a list of pairs (two-element lists), with the index (int) and the item from"
+      doc = "Return a list of pairs (two-element tuples), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
-          + "enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>\n",
+          + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
       mandatoryPositionals = {@Param(name = "list", type = SkylarkList.class, doc = "input list")},
       useLocation = true)
   private static BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
@@ -880,13 +880,14 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "getattr",
       doc = "Returns the struct's field of the given name if exists, otherwise <code>default</code>"
-          + " if specified, otherwise rasies an error. For example, <code>getattr(x, \"foobar\")"
-          + "</code> is equivalent to <code>x.foobar</code>."
-          + "Example:<br>"
+          + " if specified, otherwise raises an error. For example, <code>getattr(x, \"foobar\")"
+          + "</code> is equivalent to <code>x.foobar</code>, except that it returns "
+          + "<code>default</code> for a non-existant attribute instead of raising an error."
+          + "<br>"
           + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       mandatoryPositionals = {
-        @Param(name = "object", doc = "The struct which's field is accessed."),
+        @Param(name = "object", doc = "The struct whose field is accessed."),
         @Param(name = "name", doc = "The name of the struct field.")},
       optionalPositionals = {
         @Param(name = "default", defaultValue = "None",
@@ -1041,8 +1042,10 @@ public class MethodLibrary {
       + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
       + "<pre class=\"language-python\">\"a\" in \"abc\"   # evaluates as True\n"
       + "x = []\n"
-     + "for s in \"abc\":\n"
-      + "  x += [s]     # x == [\"a\", \"b\", \"c\"]</pre>")
+      + "for s in \"abc\":\n"
+      + "  x += [s]     # x == [\"a\", \"b\", \"c\"]</pre>\n"
+      + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
+      + "operator instead.")
   public static final class StringModule {}
 
   /**

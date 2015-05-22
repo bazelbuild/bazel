@@ -471,7 +471,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc =
         "Returns a string after expanding all references to \"Make variables\". The variables "
-      + "have to have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
+      + "must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
       + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
       + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
       + "reporting.</li>\n"
