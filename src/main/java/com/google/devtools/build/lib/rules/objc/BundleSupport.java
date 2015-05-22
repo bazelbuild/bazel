@@ -217,23 +217,31 @@ final class BundleSupport {
         intermediateArtifacts, objcProvider.get(ObjcProvider.XCDATAMODEL));
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
+      String platform = objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist();
+      CustomCommandLine.Builder commandLineBuilder = CustomCommandLine.builder()
+          .addPath(outputZip.getExecPath())
+          .add(datamodel.archiveRootForMomczip())
+          .add(IosSdkCommands.MOMC_PATH)
+          .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(objcConfiguration))
+          .add("-MOMC_PLATFORMS")
+          .add(platform);
+      if (platform.equals("iphoneos")) {
+        // Do nothing.
+      } else if (platform.equals("iphonesimulator")) {
+        // Only add IOS_TARGET_VERSION on simulator.
+        commandLineBuilder.add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion());
+      } else {
+        // Mac may need -XD_MOMC_TARGET_VERSION=10.6
+        throw new IllegalStateException("Unknown Momc platform: " + platform);
+      }
+      commandLineBuilder.add(datamodel.getContainer().getSafePathString());
+
       ruleContext.registerAction(
           ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.momczipDeployJar())
               .setMnemonic("MomCompile")
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              .setCommandLine(CustomCommandLine.builder()
-                  .addPath(outputZip.getExecPath())
-                  .add(datamodel.archiveRootForMomczip())
-                  .add(IosSdkCommands.MOMC_PATH)
-
-                  .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(objcConfiguration))
-                  .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
-                  .add("-MOMC_PLATFORMS")
-                  .add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
-                  .add("-XD_MOMC_TARGET_VERSION=10.6")
-                  .add(datamodel.getContainer().getSafePathString())
-                  .build())
+              .setCommandLine(commandLineBuilder.build())
               .build(ruleContext));
     }
   }
