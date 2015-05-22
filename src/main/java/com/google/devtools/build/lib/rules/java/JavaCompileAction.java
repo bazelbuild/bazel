@@ -411,10 +411,7 @@ public class JavaCompileAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    int count = sourceFiles.size();
-    if (count == 0) { // nothing to compile, just bundling resources and messages
-      count = resources.size() + classpathResources.size() + messages.size();
-    }
+    int count = sourceFiles.size() + resources.size() + classpathResources.size() + messages.size();
     return "Building " + outputJar.prettyPrint() + " (" + count + " files)";
   }
 
