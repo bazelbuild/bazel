@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions.cache;
 
 import com.google.common.base.Preconditions;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -41,11 +40,10 @@ public class DigestUtils {
   /**
    * Returns true iff using MD5 digests is appropriate for an artifact.
    *
-   * @param artifact Artifact in question.
    * @param isFile whether or not Artifact is a file versus a directory, isFile() on its stat.
    * @param size size of Artifact on filesystem in bytes, getSize() on its stat.
    */
-  public static boolean useFileDigest(Artifact artifact, boolean isFile, long size) {
+  public static boolean useFileDigest(boolean isFile, long size) {
     // Use timestamps for directories. Use digests for everything else.
     return isFile && size != 0;
   }

@@ -179,9 +179,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    */
   @Nullable
   private AllInputs collectInputs(Action action, Environment env) {
+    Iterable<Artifact> allKnownInputs = Iterables.concat(
+        action.getInputs(), action.getRunfilesSupplier().getArtifacts());
     if (action.inputsKnown()) {
-      return new AllInputs(action.getInputs());
+      return new AllInputs(allKnownInputs);
     }
+
     Preconditions.checkState(action.discoversInputs(), action);
     PackageRootResolverWithEnvironment resolver = new PackageRootResolverWithEnvironment(env);
     Iterable<Artifact> actionCacheInputs =
@@ -190,7 +193,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(env.valuesMissing(), action);
       return null;
     }
-    return new AllInputs(action.getInputs(), actionCacheInputs, resolver.keysRequested);
+    return new AllInputs(allKnownInputs, actionCacheInputs, resolver.keysRequested);
   }
 
   private static class AllInputs {

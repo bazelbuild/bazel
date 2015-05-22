@@ -46,6 +46,14 @@ public interface ActionInputFileCache {
   ByteString getDigest(ActionInput input) throws IOException;
 
   /**
+   * Retrieves whether or not the input Artifact is a file or symlink to an existing file.
+   *
+   * @param input the input
+   * @return true if input is a file or symlink to an existing file, otherwise false
+   */
+  boolean isFile(Artifact input);
+
+  /**
    * Retrieve the size of the file at the given path. Will usually return 0 on failure instead of
    * throwing an IOException. Returns 0 for files inaccessible to user, but available to the
    * execution environment.

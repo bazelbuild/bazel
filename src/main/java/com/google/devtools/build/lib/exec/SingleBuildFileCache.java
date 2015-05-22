@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -111,6 +112,12 @@ public class SingleBuildFileCache implements ActionInputFileCache {
   @Override
   public ByteString getDigest(ActionInput input) throws IOException {
     return pathToMetadata.getUnchecked(input).getDigest();
+  }
+
+  @Override
+  public boolean isFile(Artifact input) {
+    // We shouldn't fall back on this functionality ever.
+    throw new UnsupportedOperationException();
   }
 
   @Override

@@ -59,6 +59,7 @@ public abstract class AbstractAction implements Action {
   private final ActionOwner owner;
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   private Iterable<Artifact> inputs;
+  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> outputs;
 
   private String cachedKey;
@@ -69,11 +70,20 @@ public abstract class AbstractAction implements Action {
   protected AbstractAction(ActionOwner owner,
                            Iterable<Artifact> inputs,
                            Iterable<Artifact> outputs) {
+    this(owner, inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
+  }
+
+  protected AbstractAction(ActionOwner owner,
+      Iterable<Artifact> inputs,
+      RunfilesSupplier runfilesSupplier,
+      Iterable<Artifact> outputs) {
     Preconditions.checkNotNull(owner);
     // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = new ActionOwnerDescription(owner);
     this.inputs = CollectionUtils.makeImmutable(inputs);
     this.outputs = ImmutableSet.copyOf(outputs);
+    this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
+        "runfilesSupplier may not be null");
     Preconditions.checkArgument(!this.outputs.isEmpty(), owner);
   }
 
@@ -121,6 +131,11 @@ public abstract class AbstractAction implements Action {
   @Override
   public Iterable<Artifact> getInputs() {
     return inputs;
+  }
+
+  @Override
+  public RunfilesSupplier getRunfilesSupplier() {
+    return runfilesSupplier;
   }
 
   /**

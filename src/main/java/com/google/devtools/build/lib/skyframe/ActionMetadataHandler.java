@@ -199,7 +199,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
     }
     boolean isFile = data.isFile();
-    boolean useDigest = DigestUtils.useFileDigest(artifact, isFile, isFile ? data.getSize() : 0);
+    boolean useDigest = DigestUtils.useFileDigest(isFile, isFile ? data.getSize() : 0);
     if (useDigest && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
@@ -301,7 +301,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     // Currently this method is used only for genrule input directory checks. If we need to call
     // this on output artifacts too, this could be more efficient.
     FileArtifactValue value = getInputFileArtifactValue(artifact);
-    if (value != null && value.getDigest() != null) {
+    if (value != null && value.isFile()) {
       return true;
     }
     return artifact.getPath().isFile();

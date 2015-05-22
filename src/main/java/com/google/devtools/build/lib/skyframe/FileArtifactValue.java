@@ -42,6 +42,7 @@ public class FileArtifactValue extends ArtifactValue {
    */
   static final FileArtifactValue OMITTED_FILE_MARKER = new FileArtifactValue(null, 2, 0) {
     @Override public byte[] getDigest() { throw new UnsupportedOperationException(); }
+    @Override public boolean isFile() { throw new UnsupportedOperationException(); }
     @Override public long getSize() { throw new UnsupportedOperationException(); }
     @Override public long getModifiedTime() { throw new UnsupportedOperationException(); }
     @Override public boolean equals(Object o) { return this == o; }
@@ -87,7 +88,7 @@ public class FileArtifactValue extends ArtifactValue {
     if (isFile && digest == null) {
       digest = DigestUtils.getDigestOrFail(artifact.getPath(), size);
     }
-    if (!DigestUtils.useFileDigest(artifact, isFile, size)) {
+    if (!DigestUtils.useFileDigest(isFile, size)) {
       // In this case, we need to store the mtime because the action cache uses mtime to determine
       // if this artifact has changed. This is currently true for empty files and directories. We
       // do not optimize for this code path (by storing the mtime in a FileValue) because we do not
@@ -110,6 +111,11 @@ public class FileArtifactValue extends ArtifactValue {
   @Nullable
   byte[] getDigest() {
     return digest;
+  }
+
+  /** @return true if this is a file or a symlink to an existing file */
+  boolean isFile() {
+    return digest != null;
   }
 
   /** Gets the size of the file. Directories have size 0. */

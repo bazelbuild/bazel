@@ -24,6 +24,9 @@ import java.util.Map;
 /** Convenience wrapper around runfiles allowing lazy expansion. */
 public interface RunfilesSupplier {
 
+  /** @return the contained artifacts */
+  Iterable<Artifact> getArtifacts();
+
   /** @return the runfiles' root directories. */
   ImmutableSet<PathFragment> getRunfilesDirs();
 

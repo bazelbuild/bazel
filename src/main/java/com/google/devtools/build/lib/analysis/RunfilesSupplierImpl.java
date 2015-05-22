@@ -48,6 +48,17 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
   }
 
   @Override
+  public Iterable<Artifact> getArtifacts() {
+    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
+    for (Entry<PathFragment, Runfiles> entry : inputRunfiles.entrySet()) {
+      // TODO(bazel-team): We can likely do without middlemen here, but we should filter that at
+      // the Runfiles level.
+      builder.addAll(entry.getValue().getAllArtifacts());
+    }
+    return builder.build();
+  }
+
+  @Override
   public ImmutableSet<PathFragment> getRunfilesDirs() {
     return inputRunfiles.keySet();
   }
