@@ -119,8 +119,8 @@ layout: documentation
 <td><a href="#filegroup">filegroup</a></td>
 <td><a href="#genquery">genquery</a></td>
 <td><a href="#test_suite">test_suite</a></td>
-<td><a href="#bind">bind</a><br/><a href="#config_setting">config_setting</a><br/><a href="#genrule">genrule</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_jar">http_jar</a></td>
-<td><a href="#local_repository">local_repository</a><br/><a href="#maven_jar">maven_jar</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
+<td><a href="#bind">bind</a><br/><a href="#config_setting">config_setting</a><br/><a href="#genrule">genrule</a><br/><a href="#http_archive">http_archive</a></td>
+<td><a href="#http_jar">http_jar</a><br/><a href="#local_repository">local_repository</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
 </tr>
 </table>
 
@@ -6874,14 +6874,9 @@ http_archive(
     url = "http://example.com/openssl.zip",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//src:openssl-lib",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
 
 <h3 id="http_jar">http_jar</h3>
 
@@ -6933,14 +6928,9 @@ http_jar(
     url = "http://example.com/openssl-0.2.jar",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//jar",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@my-ssl//jar</code> as a dependency to depend on this jar.</p>
 
 <h3 id="java_plugin">java_plugin</h3>
 
@@ -7167,109 +7157,10 @@ local_repository(
     name = "my-ssl",
     path = "/home/user/ssl",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//src:openssl-lib",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
-
-<h3 id="maven_jar">maven_jar</h3>
-
-
-<p class="rule-signature">
-maven_jar(<a href="#maven_jar.name">name</a>,
-<a href="#maven_jar.artifact_id">artifact_id</a>,
-<a href="#maven_jar.exclusions">exclusions</a>,
-<a href="#maven_jar.group_id">group_id</a>,
-<a href="#maven_jar.repositories">repositories</a>,
-<a href="#maven_jar.version">version</a>)
-</p>
-
-
-<p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
-
-<h4 id="maven_jar_args">Arguments</h4>
-<ul>
-<li id="maven_jar.name"><code>name</code>: A unique name for this rule.
-<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
-<li id="maven_jar.artifact_id"><code>artifact_id</code>:
-        The artifactId of the Maven dependency.
-        <i>(String; required)</i><br/>
-
-</li>
-<li id="maven_jar.exclusions"><code>exclusions</code>:
-        Transitive dependencies of this dependency that should not be downloaded.
-        <i>(List of strings; optional)</i><br/>
-
-
-        <p>Defaults to None: Bazel will download all of the dependencies requested by the Maven
-          dependency.  If exclusions are specified, they will not be downloaded.</p>
-
-        <p>Exclusions are specified in the format "<group_id>:<artifact_id>", for example,
-          "com.google.guava:guava".</p>
-
-        <p><b>Not yet implemented.</b></p>
-</li>
-<li id="maven_jar.group_id"><code>group_id</code>:
-        The groupId of the Maven dependency.
-        <i>(String; required)</i><br/>
-
-</li>
-<li id="maven_jar.repositories"><code>repositories</code>:
-        A list of repositories to use to attempt to fetch the jar.
-        <i>(List of strings; optional)</i><br/>
-
-
-        <p>Defaults to Maven Central ("repo1.maven.org"). If repositories are specified, they will
-          be checked in the order listed here (Maven Central will not be checked in this case,
-          unless it is on the list).</p>
-
-        <p><b>To be implemented: add a maven_repositories rule that allows a list of repositories
-        to be labeled.</b></p>
-</li>
-<li id="maven_jar.version"><code>version</code>:
-        The version of the Maven dependency.
-        <i>(String; required)</i><br/>
-
-</li>
-</ul>
-
-
-<h4 id="http_jar_examples">Examples</h4>
-
-Suppose that the current repostory contains a java_library target that needs to depend on Guava.
-Using Maven, this dependency would be defined in the pom.xml file as:
-
-<pre>
-<dependency>
-    <groupId>com.google.guava</groupId>
-    <artifactId>guava</artifactId>
-    <version>18.0</version>
-</dependency>
-</pre>
-
-In Bazel, the following lines can be added to the WORKSPACE file:
-
-<pre>
-maven_jar(
-    name = "guava",
-    group_id = "com.google.guava",
-    artifact_id = "guava",
-    version = "18.0",
-)
-
-bind(
-    name = "guava-jar",
-    actual = "@guava//jar"
-)
-</pre>
-
-Then the java_library can depend on <code>//external:guava-jar</code>.
-
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency to depend on this
+library.</p>
 
 <h3 id="new_http_archive">new_http_archive</h3>
 
@@ -7352,14 +7243,10 @@ new_http_archive(
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
     build_file = "ssl.BUILD",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//:openssl-lib",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@my-ssl//:openssl-lib</code> as a dependency to depend on this
+ jar.</p>
 
 <h3 id="new_local_repository">new_local_repository</h3>
 
@@ -7376,7 +7263,7 @@ new_local_repository(<a href="#new_local_repository.name">name</a>,
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
-path, which can then be bound and used by the current build.
+<code>path</code>.
 
 <h4 id="new_local_repository_args">Arguments</h4>
 <ul>
@@ -7412,7 +7299,8 @@ path, which can then be bound and used by the current build.
 <pre class="code">
 java_library(
     name = "openssl",
-    srcs = glob(['ssl/*.java'])
+    srcs = glob(['*.java'])
+    visibility = ["//visibility:public"],
 )
 </pre>
 
@@ -7424,18 +7312,11 @@ new_local_repository(
     path = "/home/user/ssl",
     build_file = "BUILD.my-ssl",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//my-ssl:openssl",
-)
 </pre>
 
-<p>This will create a @my-ssl repository containing a my-ssl package that contains a symlink to
-/home/user/ssl named ssl (so the BUILD file must refer to paths within /home/user/ssl relative to
-ssl).</p>
-
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>This will create a <code>@my-ssl</code> repository that symlinks to <i>/home/user/ssl</i>.
+Targets can depend on this library by adding <code>@my-ssl//:openssl</code> to a target's
+dependencies.</p>
 
 <p>You can also use <code>new_local_repository</code> to include single files, not just
 directories. For example, suppose you had a jar file at /home/username/Downloads/piano.jar. You
@@ -7447,23 +7328,19 @@ new_local_repository(
     path = "/home/username/Downloads/piano.jar",
     build_file = "BUILD.piano",
 )
-
-bind(
-    name = "music",
-    actual = "@piano//piano:play-music",
-)
 </pre>
 
-<p>And creating the following BUILD file:</p>
+<p>And creating the following BUILD.piano file:</p>
 
 <pre class="code">
 java_import(
     name = "play-music",
     jars = ["piano.jar"],
+    visibility = ["//visibility:public"],
 )
 </pre>
 
-Then targets can depend on //external:music to use piano.jar.
+Then targets can depend on <code>@piano//:play-music</code> to use piano.jar.
 
 <h3 id="objc_xcodeproj">objc_xcodeproj</h3>
 

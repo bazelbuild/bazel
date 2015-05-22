@@ -137,15 +137,23 @@ rule. No file is generated.
 Example of a rule that runs a shell command on an input file specified by
 the user. The output has the same name as the input, with a `.txt` suffix.
 
+While convenient, Shell commands should be used carefully. Generating the
+command-line can lead to escaping and injection issues. It can also create
+portability problems. It is often better to declare a binary target in a
+BUILD file and execute it. See the example "<a href="#execute-bin">
+executing a binary</a>".
+
 `size.bzl`:
 
 ```python
 def _impl(ctx):
   output = ctx.outputs.out
   input = ctx.file.file
+  # The command may only access files declared in inputs.
   ctx.action(
       inputs=[input],
       outputs=[output],
+      progress_message="Getting size of %s" % input.short_path,
       command="stat -L -c%%s %s > %s" % (input.path, output.path))
 
 size = rule(
@@ -223,6 +231,7 @@ def _impl(ctx):
       inputs=ctx.files.srcs,
       outputs=[ctx.outputs.out],
       arguments=args,
+      progress_message="Merging into %s" % ctx.outputs.out.short_path,
       executable=ctx.executable._merge_tool)
 
 concat = rule(
@@ -308,6 +317,7 @@ def _impl(ctx):
       inputs=[f],
       outputs=[ctx.outputs.out],
       executable=ctx.executable.binary,
+      progress_message="Executing %s" % ctx.executable.binary.short_path,
       arguments=[
           f.path,
           ctx.outputs.out.path,  # Access the output file using
@@ -416,7 +426,7 @@ to its dependents.
 ```python
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.targets.deps:
+  for i in ctx.attr.deps:
     result += i.number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
 
@@ -464,7 +474,7 @@ This is a similar example, but dependencies may not provide a number.
 ```python
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.targets.deps:
+  for i in ctx.attr.deps:
     if hasattr(i, "number"):
       result += i.number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
@@ -615,8 +625,8 @@ other rules. For example, if you need to compile C++ files, you can reuse
 def _impl(ctx):
   # Aggregate the output files from the depending rules
   files = set()
-  files += ctx.target.dep_rule_1.files
-  files += ctx.target.dep_rule_2.files
+  files += ctx.attr.dep_rule_1.files
+  files += ctx.attr.dep_rule_2.files
   return struct(files=files)
 
 # This rule binds the depending rules together

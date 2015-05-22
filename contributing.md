@@ -16,20 +16,35 @@ and work on the Bazel code.
 
 ## Patch Acceptance Process
 
-1. Discuss your plan and design, and get agreement on our [mailing
-   list](https://groups.google.com/forum/#!forum/bazel-discuss).
-2. Prepare a git commit that implements the feature. Don't forget to add tests.
-3. Upload to [Gerrit](https://bazel-review.googlesource.com); Gerrit upload
-   requires that you have signed a
-   [Contributor License Agreement](https://cla.developers.google.com/). See the [Gerrit
-   documentation](https://gerrit-review.googlesource.com/Documentation/user-upload.html) for
-   instructions on uploading your commit.
-4. Complete a code review with a
-   [core contributor](governance.html#core-contributors).
-5. An engineer at Google applies the patch to our internal version control
+<!-- Our markdown parser doesn't support nested lists. -->
+<ol>
+<li>Discuss your plan and design, and get agreement on our <a href="https://groups.google.com/forum/#!forum/bazel-dev">mailing list</a>.
+<li>Prepare a git commit that implements the feature. Don't forget to add tests.
+<li>Create a new code review on <a href="https://bazel-review.googlesource.com">Gerrit</a>
+   by running:
+   <pre>
+$ git push https://bazel.googlesource.com/bazel HEAD:refs/for/master
+   </pre>
+   Gerrit upload requires that you:
+   <ul>
+     <li>Have signed a
+       <a href="https://cla.developers.google.com">Contributor License Agreement</a>.
+     <li>Have an automatically generated "Change Id" line in your commit message.
+       If you haven't used Gerrit before, it will print a bash command to create
+       the git hook and then you will need to run `git commit --amend` to add the
+       line.
+   </ul>
+   See the
+   <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html">Gerrit documentation</a>
+   for more information about uploading changes.
+<li>Complete a code review with a
+   <a href="governance.html#core-contributors">core contributor</a>. Amend your existing
+   commit and re-push to make changes to your patch.
+<li>An engineer at Google applies the patch to our internal version control
    system.
-6. The patch is exported as a Git commit, at which point the Gerrit code review
+<li>The patch is exported as a Git commit, at which point the Gerrit code review
    is closed.
+</ol>
 
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see

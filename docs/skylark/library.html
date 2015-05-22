@@ -41,7 +41,7 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 <br/>
 <li><h3 id="modules._top_level.bool">bool</h3>
 <code><a class="anchor" href="#modules._top_level.bool">bool</a> bool(x)</code><br>
-Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> is also a type.
+Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. As in Python, <code>bool</code> is also a type.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.bool.x"><code>x</code>: The variable to convert.
@@ -57,8 +57,8 @@ Returns a list strings: the names of the fields and methods of the parameter obj
 </ul>
 <li><h3 id="modules._top_level.enumerate">enumerate</h3>
 <code><a class="anchor" href="#modules.list">list</a> enumerate(list)</code><br>
-Return a list of pairs (two-element lists), with the index (int) and the item from the input list.
-<pre class="language-python">enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>
+Return a list of pairs (two-element tuples), with the index (int) and the item from the input list.
+<pre class="language-python">enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>
 
 <h4>Parameters</h4>
 <ul>
@@ -79,11 +79,11 @@ Raises an error that cannot be intercepted.
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
 <code>unknown getattr(object, name, default?)</code><br>
-Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise rasies an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.Example:<br><pre class="language-python">getattr(ctx.attr, "myattr")
+Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existant attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.getattr.object"><code>object</code>: The struct which's field is accessed.
+	<li id="modules._top_level.getattr.object"><code>object</code>: The struct whose field is accessed.
 	</li>
 	<li id="modules._top_level.getattr.name"><code>name</code>: The name of the struct field.
 	</li>
@@ -177,7 +177,7 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 <ul>
 	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it cannot).
 	</li>
-	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label.
+	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label. The attribute <code>name</code> is implicitly added and must not be specified. Attributes <code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly added and might be overriden.
 	</li>
 	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes a field in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
 	</li>
@@ -500,7 +500,7 @@ Returns the separator for PATH environment variable, which is ':' on Unix.
 The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
 <ul><li><h3 id="modules.ctx.action">action</h3>
 <code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(*, outputs, inputs?, executable?, arguments?, mnemonic?, command?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
-Creates an action that runs an executable or a shell command.
+Creates an action that runs an executable or a shell command. You must specify either <code>command</code> or <code>executable</code>.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.ctx.action.outputs"><code>outputs (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.File">File</a>s)</code>: list of the output files of the action
@@ -515,7 +515,7 @@ Creates an action that runs an executable or a shell command.
 	</li>
 	<li id="modules.ctx.action.mnemonic"><code>mnemonic (<a class="anchor" href="#modules.string">string</a>)</code>: a one-word description of the action, e.g. CppCompile or GoLink
 	</li>
-	<li id="modules.ctx.action.command"><code>command</code>: shell command to execute
+	<li id="modules.ctx.action.command"><code>command</code>: shell command to execute. It is usually preferable to use <code>executable</code> instead. Arguments are available with <code>$1</code>, <code>$2</code>, etc.
 	</li>
 	<li id="modules.ctx.action.progress_message"><code>progress_message (<a class="anchor" href="#modules.string">string</a>)</code>: progress message to show to the user during the build, e.g. "Compiling foo.cc to create foo.o"
 	</li>
@@ -552,7 +552,7 @@ Returns the data configuration. See the <a href="#modules.configuration">configu
 A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
 <li><h3 id="modules.ctx.expand_make_variables">expand_make_variables</h3>
 <code><a class="anchor" href="#modules.string">string</a> ctx.expand_make_variables(<a class="anchor" href="#modules.string">string</a>, <a class="anchor" href="#modules.string">string</a>, <a class="anchor" href="#modules.dict">dict</a>)</code><br>
-Returns a string after expanding all references to "Make variables". The variables have to have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:<ul><li>The name of the attribute (<code>string</code>). It's only used for error reporting.</li>
+Returns a string after expanding all references to "Make variables". The variables must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:<ul><li>The name of the attribute (<code>string</code>). It's only used for error reporting.</li>
 <li>The expression to expand (<code>string</code>). It can contain references to "Make variables".</li>
 <li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : <code>string</code>).</li></ul>
 Examples:<pre class=language-python>
@@ -588,6 +588,9 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+<li><h3 id="modules.ctx.new_file">new_file</h3>
+<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
+Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -605,12 +608,6 @@ Creates a runfiles object.
 	<li id="modules.ctx.runfiles.collect_default"><code>collect_default (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes.
 	</li>
 </ul>
-<li><h3 id="modules.ctx.target">target</h3>
-<code><a class="anchor" href="#modules.struct">struct</a> ctx.target</code><br>
-<b>Deprecated, use <code>ctx.attr</code> instead.</b> A <code>struct</code> containing prerequisite targets defined in label type attributes. The struct fields correspond to the attribute names. The struct value is always a <a href="#modules.Target"><code>Target</code></a> or <code>None</code>. If an optional attribute is not specified in the rule, the corresponding struct value is <code>None</code>.
-<li><h3 id="modules.ctx.targets">targets</h3>
-<code><a class="anchor" href="#modules.struct">struct</a> ctx.targets</code><br>
-<b>Deprecated, use <code>ctx.attr</code> instead.</b> A <code>struct</code> containing prerequisite targets defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <a href="#modules.Target"><code>Target</code></a>s. If an optional attribute is not specified in the rule, an empty list is generated.
 <li><h3 id="modules.ctx.template_action">template_action</h3>
 <code>TemplateExpansionAction ctx.template_action(*, template, output, substitutions, executable?)</code><br>
 Creates a template expansion action.
@@ -706,7 +703,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
 This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.native.package_group.name"><code>name (<a class="anchor" href="#modules.string">string</a>)</code>: A unique name for this rule.
+	<li id="modules.native.package_group.name"><code>name (<a class="anchor" href="#modules.string">string</a>)</code>: The unique name for this rule.
 	</li>
 </ul>
 <ul>
@@ -736,6 +733,7 @@ z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</co
 x = []
 for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>
+Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead.
 <ul><li><h3 id="modules.string.count">count</h3>
 <code>int string.count(sub, start?, end?)</code><br>
 Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.

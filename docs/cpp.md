@@ -161,15 +161,10 @@ download Google Test and make it available in your repository:
 
 ```python
 new_http_archive(
-    name = "gtest-repo",
+    name = "gtest",
     url = "https://googletest.googlecode.com/files/gtest-1.7.0.zip",
     sha256 = "247ca18dd83f53deb1328be17e4b1be31514cedfc1e3424f672bf11fd7e0d60d",
     build_file = "gtest.BUILD",
-)
-
-bind(
-    name = "gtest/main",
-    actual = "@gtest-repo//:main",
 )
 ```
 
@@ -177,10 +172,10 @@ Then create _gtest.BUILD_, a BUILD file to use to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-* _src/gtest-all.cc_ `#include`s all of the other files in _src/_, so we
-  need to exclude it from the compile or we'll get link errors for duplicate
-  symbols.
-* It uses header files that relative to the _include/_ directory
+* _gtest-1.7.0/src/gtest-all.cc_ `#include`s all of the other files in
+  _gtest-1.7.0/src/_, so we need to exclude it from the compile or we'll get
+  link errors for duplicate symbols.
+* It uses header files that relative to the _gtest-1.7.0/include/_ directory
   (`"gtest/gtest.h"`), so we must add that directory the includes.
 * It uses "private" header files in src/, so we add "." to the includes so it
   can `#include "src/gtest-internal-inl.h"`.
@@ -192,13 +187,13 @@ The final rule looks like this:
 cc_library(
     name = "main",
     srcs = glob(
-        ["src/*.cc"],
-        exclude = ["src/gtest-all.cc"]
+        ["gtest-1.7.0/src/*.cc"],
+        exclude = ["gtest-1.7.0/src/gtest-all.cc"]
     ),
-    hdrs = glob(["include/**/*.h"]),
+    hdrs = glob(["gtest-1.7.0/include/**/*.h"]),
     includes = [
-        ".",
-        "include"
+        "gtest-1.7.0",
+        "gtest-1.7.0/include"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -223,7 +218,7 @@ Then create a BUILD file for your tests:
 cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
-    deps = ["//external:gtest/main"],
+    deps = ["@gtest//:main"],
 )
 ```
 
