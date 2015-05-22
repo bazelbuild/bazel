@@ -57,14 +57,13 @@ EOF
   mkdir -p {zoo,red}
   cat > WORKSPACE <<EOF
 local_repository(name = 'pandas', path = '${repo2}')
-bind(name = 'red', actual = '@pandas//red:panda')
 EOF
 
   cat > zoo/BUILD <<EOF
 sh_binary(
     name = "dumper",
     srcs = ["dumper.sh"],
-    data = ["//external:red", "//red:keepers"]
+    data = ["@pandas//red:panda", "//red:keepers"]
 )
 EOF
 
@@ -117,7 +116,6 @@ EOF
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
 local_repository(name = 'endangered', path = '$repo2')
-bind(name = 'mongoose', actual = '@endangered//carnivore:mongoose')
 EOF
 
   mkdir -p zoo
@@ -126,7 +124,7 @@ java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
     main_class = "BallPit",
-    deps = ["//external:mongoose"],
+    deps = ["@endangered//carnivore:mongoose"],
 )
 EOF
 
@@ -175,10 +173,6 @@ new_local_repository(
     path = '$project_dir',
     build_file = '$build_file',
 )
-bind(
-    name = 'mongoose',
-    actual = '@endangered//:mongoose'
-)
 EOF
 
    mkdir -p zoo
@@ -187,7 +181,7 @@ java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
     main_class = "BallPit",
-    deps = ["//external:mongoose"],
+    deps = ["@endangered//:mongoose"],
 )
 EOF
 
@@ -273,17 +267,13 @@ EOF
 cc_binary(
     name = "greeter",
     srcs = ["greeter.cc"],
-    deps = ["//external:greet-lib"],
+    deps = ["@greet-ws//:greet_lib"],
 )
 EOF
   cat > WORKSPACE <<EOF
 local_repository(
     name = "greet-ws",
     path = "$external_ws",
-)
-bind(
-    name = "greet-lib",
-    actual = "@greet-ws//:greet_lib"
 )
 EOF
 
@@ -331,7 +321,7 @@ EOF
 java_library(
     name = "b",
     srcs = ["B.java"],
-    deps = ["//external:x"],
+    deps = ["@x-repo//x"],
     visibility = ["//visibility:public"],
 )
 EOF
@@ -358,11 +348,6 @@ EOF
 local_repository(
     name = "x-repo",
     path = "$external_dir",
-)
-
-bind(
-    name = "x",
-    actual = "@x-repo//x",
 )
 EOF
 
@@ -399,17 +384,12 @@ local_repository(
     name = "clib-repo",
     path = "$clib",
 )
-
-bind(
-    name = "clib",
-    actual = "@clib-repo//:clib"
-)
 EOF
   cat > BUILD <<EOF
 cc_binary(
     name = "printer",
     srcs = ["printer.cc"],
-    deps = ["//external:clib"],
+    deps = ["@clib-repo//:clib"],
 )
 EOF
   cat > printer.cc <<EOF

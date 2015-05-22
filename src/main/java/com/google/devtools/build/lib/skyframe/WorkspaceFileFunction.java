@@ -159,8 +159,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         Label nameLabel = null;
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
-          builder.addBinding(
-              nameLabel, new Binding(Label.parseRepositoryLabel(actual), loc));
+          builder.addBinding(nameLabel, new Binding(Label.parseAbsolute(actual), loc));
         } catch (SyntaxException e) {
           throw new EvalException(loc, e.getMessage());
         }

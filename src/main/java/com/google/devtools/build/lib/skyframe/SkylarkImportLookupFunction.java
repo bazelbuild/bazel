@@ -151,7 +151,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     try {
       // This code relies on PackageIdentifier.RepositoryName.toString()
-      return Label.parseRepositoryLabel(repo + "//" + pkgName.getPathString() + ":" + fileInPkg);
+      return Label.parseAbsolute(repo + "//" + pkgName.getPathString() + ":" + fileInPkg);
     } catch (SyntaxException e) {
       throw new IllegalStateException(e);
     }

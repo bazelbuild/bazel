@@ -110,15 +110,8 @@ maven_jar(
     artifact_id = "guava",
     version = "18.0",
 )
-
-bind(
-    name = "guava-jar",
-    actual = "@guava//jar"
-)
 </pre>
 
-Then the java_library can depend on <code>//external:guava-jar</code>.
-
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
 
 <!-- #END_BLAZE_RULE -->*/

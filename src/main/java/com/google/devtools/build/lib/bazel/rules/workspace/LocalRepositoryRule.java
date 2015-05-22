@@ -79,13 +79,9 @@ local_repository(
     name = "my-ssl",
     path = "/home/user/ssl",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//src:openssl-lib",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency to depend on this
+library.</p>
 
 <!-- #END_BLAZE_RULE -->*/

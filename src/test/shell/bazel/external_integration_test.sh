@@ -154,14 +154,13 @@ EOF
   cat > WORKSPACE <<EOF
 http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
     sha256 = '$sha256')
-bind(name = 'stud', actual = '@endangered//fox')
 EOF
 
   cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
-    data = ["//external:stud"],
+    data = ["@endangered//fox"],
 )
 EOF
 
@@ -183,14 +182,13 @@ function test_http_archive_no_server() {
   cat > WORKSPACE <<EOF
 http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
     sha256 = 'dummy')
-bind(name = 'stud', actual = '@endangered//fox')
 EOF
 
   cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
-    data = ["//external:stud"],
+    data = ["@endangered//fox"],
 )
 EOF
 
@@ -220,14 +218,13 @@ function test_http_archive_mismatched_sha256() {
   cat > WORKSPACE <<EOF
 http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
     sha256 = '$wrong_sha256')
-bind(name = 'stud', actual = '@endangered//fox')
 EOF
 
   cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
-    data = ["//external:stud"],
+    data = ["@endangered//fox"],
 )
 EOF
 
@@ -278,7 +275,6 @@ function test_jar_download() {
   cat > WORKSPACE <<EOF
 http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar',
     sha256 = '$sha256')
-bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
   mkdir -p zoo
@@ -287,7 +283,7 @@ java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
     main_class = "BallPit",
-    deps = ["//external:mongoose"],
+    deps = ["@endangered//jar"],
 )
 EOF
 

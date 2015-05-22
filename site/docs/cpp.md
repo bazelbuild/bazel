@@ -161,15 +161,10 @@ download Google Test and make it available in your repository:
 
 ```python
 new_http_archive(
-    name = "gtest-repo",
+    name = "gtest",
     url = "https://googletest.googlecode.com/files/gtest-1.7.0.zip",
     sha256 = "247ca18dd83f53deb1328be17e4b1be31514cedfc1e3424f672bf11fd7e0d60d",
     build_file = "gtest.BUILD",
-)
-
-bind(
-    name = "gtest/main",
-    actual = "@gtest-repo//:main",
 )
 ```
 
@@ -223,7 +218,7 @@ Then create a BUILD file for your tests:
 cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
-    deps = ["//external:gtest/main"],
+    deps = ["@gtest//:main"],
 )
 ```
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -153,8 +152,8 @@ class PackageLookupFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
     } catch (IOException | EvalException e) {
-      throw new PackageLookupFunctionException(new BuildFileContainsErrorsException(
-          PackageFunction.EXTERNAL_PACKAGE_NAME, e.getMessage()), Transience.PERSISTENT);
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(
+          ExternalPackage.NAME, e.getMessage()), Transience.PERSISTENT);
     }
     PathFragment buildFileFragment = id.getPackageFragment().getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(repositoryValue.getPath(),

@@ -343,20 +343,20 @@ public class LabelTest {
 
   @Test
   public void testRepoLabel() throws Exception {
-    Label label = Label.parseRepositoryLabel("@foo//bar/baz:bat/boo");
+    Label label = Label.parseAbsolute("@foo//bar/baz:bat/boo");
     assertEquals("@foo//bar/baz:bat/boo", label.toString());
   }
 
   @Test
   public void testNoRepo() throws Exception {
-    Label label = Label.parseRepositoryLabel("//bar/baz:bat/boo");
+    Label label = Label.parseAbsolute("//bar/baz:bat/boo");
     assertEquals("//bar/baz:bat/boo", label.toString());
   }
 
   @Test
   public void testInvalidRepo() throws Exception {
     try {
-      Label.parseRepositoryLabel("foo//bar/baz:bat/boo");
+      Label.parseAbsolute("foo//bar/baz:bat/boo");
       fail();
     } catch (SyntaxException e) {
       assertThat(e).hasMessage("invalid repository name 'foo': workspace name must start with '@'");

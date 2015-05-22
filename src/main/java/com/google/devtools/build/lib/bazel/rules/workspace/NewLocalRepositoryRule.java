@@ -71,7 +71,7 @@ ${ATTRIBUTE_SIGNATURE}
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
-path, which can then be bound and used by the current build.
+<code>path</code>.
 
 ${ATTRIBUTE_DEFINITION}
 
@@ -86,7 +86,8 @@ ${ATTRIBUTE_DEFINITION}
 <pre class="code">
 java_library(
     name = "openssl",
-    srcs = glob(['ssl/*.java'])
+    srcs = glob(['*.java'])
+    visibility = ["//visibility:public"],
 )
 </pre>
 
@@ -98,18 +99,11 @@ new_local_repository(
     path = "/home/user/ssl",
     build_file = "BUILD.my-ssl",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//my-ssl:openssl",
-)
 </pre>
 
-<p>This will create a @my-ssl repository containing a my-ssl package that contains a symlink to
-/home/user/ssl named ssl (so the BUILD file must refer to paths within /home/user/ssl relative to
-ssl).</p>
-
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>This will create a <code>@my-ssl</code> repository that symlinks to <i>/home/user/ssl</i>.
+Targets can depend on this library by adding <code>@my-ssl//:openssl</code> to a target's
+dependencies.</p>
 
 <p>You can also use <code>new_local_repository</code> to include single files, not just
 directories. For example, suppose you had a jar file at /home/username/Downloads/piano.jar. You
@@ -121,22 +115,18 @@ new_local_repository(
     path = "/home/username/Downloads/piano.jar",
     build_file = "BUILD.piano",
 )
-
-bind(
-    name = "music",
-    actual = "@piano//piano:play-music",
-)
 </pre>
 
-<p>And creating the following BUILD file:</p>
+<p>And creating the following BUILD.piano file:</p>
 
 <pre class="code">
 java_import(
     name = "play-music",
     jars = ["piano.jar"],
+    visibility = ["//visibility:public"],
 )
 </pre>
 
-Then targets can depend on //external:music to use piano.jar.
+Then targets can depend on <code>@piano//:play-music</code> to use piano.jar.
 
 <!-- #END_BLAZE_RULE -->*/

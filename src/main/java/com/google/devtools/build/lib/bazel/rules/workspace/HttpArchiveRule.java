@@ -108,13 +108,8 @@ http_archive(
     url = "http://example.com/openssl.zip",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//src:openssl-lib",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
 
 <!-- #END_BLAZE_RULE -->*/

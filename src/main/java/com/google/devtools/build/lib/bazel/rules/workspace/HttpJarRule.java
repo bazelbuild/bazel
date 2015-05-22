@@ -86,13 +86,8 @@ http_jar(
     url = "http://example.com/openssl-0.2.jar",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
-
-bind(
-    name = "openssl",
-    actual = "@my-ssl//jar",
-)
 </pre>
 
-<p>See <a href="#bind_examples">Bind</a> for how to use bound targets.</p>
+<p>Targets would specify <code>@my-ssl//jar</code> as a dependency to depend on this jar.</p>
 
 <!-- #END_BLAZE_RULE -->*/
