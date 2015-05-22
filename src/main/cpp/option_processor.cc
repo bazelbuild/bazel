@@ -47,7 +47,7 @@ OptionProcessor::RcFile::RcFile(const string& filename, int index) {
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
-    vector<RcFile>* rcfiles,
+    vector<RcFile*>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     string* error) {
   list<string> initial_import_stack;
@@ -57,12 +57,13 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
-    const string& filename,
+    const string& filename_ref,
     const int index,
-    vector<RcFile>* rcfiles,
+    vector<RcFile*>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     list<string>* import_stack,
     string* error) {
+  string filename(filename_ref);  // file
   string contents;
   if (!ReadFile(filename, &contents)) {
     // We checked for file readability before, so this is unexpected.
@@ -121,10 +122,10 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
         return blaze_exit_code::BAD_ARGV;
       }
 
-      rcfiles->push_back(RcFile(words[1], rcfiles->size()));
+      rcfiles->push_back(new RcFile(words[1], rcfiles->size()));
       import_stack->push_back(words[1]);
-      blaze_exit_code::ExitCode parse_exit_code = RcFile::Parse(
-          rcfiles->back().Filename(), rcfiles->back().Index(),
+      blaze_exit_code::ExitCode parse_exit_code =
+        RcFile::Parse(rcfiles->back()->Filename(), rcfiles->back()->Index(),
           rcfiles, rcoptions, import_stack, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
@@ -260,18 +261,19 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   if (use_master_blazerc) {
     string depot_blazerc_path = FindDepotBlazerc(workspace);
     if (!depot_blazerc_path.empty()) {
-      blazercs_.push_back(RcFile(depot_blazerc_path, blazercs_.size()));
+      blazercs_.push_back(new RcFile(depot_blazerc_path, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
     }
     string alongside_binary_blazerc = FindAlongsideBinaryBlazerc(cwd, args[0]);
     if (!alongside_binary_blazerc.empty()) {
-      blazercs_.push_back(RcFile(alongside_binary_blazerc, blazercs_.size()));
+      blazercs_.push_back(new RcFile(alongside_binary_blazerc,
+          blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
@@ -286,9 +288,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return find_blazerc_exit_code;
   }
   if (!user_blazerc_path.empty()) {
-    blazercs_.push_back(RcFile(user_blazerc_path, blazercs_.size()));
+    blazercs_.push_back(new RcFile(user_blazerc_path, blazercs_.size()));
     blaze_exit_code::ExitCode parse_exit_code =
-        blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
+        blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
     if (parse_exit_code != blaze_exit_code::SUCCESS) {
       return parse_exit_code;
     }
@@ -347,7 +349,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
     // Process all elements except the last one.
     for (; i < startup_options.size() - 1; i++) {
       const RcOption& option = startup_options[i];
-      const string& blazerc = blazercs_[option.rcfile_index()].Filename();
+      const string& blazerc = blazercs_[option.rcfile_index()]->Filename();
       process_arg_exit_code = parsed_startup_options_->ProcessArg(
           option.option(), startup_options[i + 1].option(), blazerc,
           &is_space_separated, error);
@@ -362,7 +364,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
     if (i < startup_options.size()) {
       const RcOption& option = startup_options[i];
       if (IsArg(option.option())) {
-        const string& blazerc = blazercs_[option.rcfile_index()].Filename();
+        const string& blazerc = blazercs_[option.rcfile_index()]->Filename();
         process_arg_exit_code = parsed_startup_options_->ProcessArg(
             option.option(), "", blazerc, &is_space_separated, error);
         if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
@@ -407,8 +409,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
 void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
   // Push the options mapping .blazerc numbers to filenames.
   for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
-    const RcFile& blazerc = blazercs_[i_blazerc];
-    command_arguments_.push_back("--rc_source=" + blazerc.Filename());
+    const RcFile* blazerc = blazercs_[i_blazerc];
+    command_arguments_.push_back("--rc_source=" + blazerc->Filename());
   }
 
   // Push the option defaults
@@ -462,4 +464,11 @@ const string& OptionProcessor::GetCommand() const {
 const BlazeStartupOptions& OptionProcessor::GetParsedStartupOptions() const {
   return *parsed_startup_options_.get();
 }
+
+OptionProcessor::~OptionProcessor() {
+  for (auto it : blazercs_) {
+    delete it;
+  }
+}
+
 }  // namespace blaze
