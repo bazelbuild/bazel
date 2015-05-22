@@ -22,7 +22,9 @@
 // die with raise(SIGTERM) even if the child process handles SIGTERM with
 // exit(0).
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <errno.h>
 #include <fcntl.h>
