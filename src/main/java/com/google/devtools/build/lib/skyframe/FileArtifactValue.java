@@ -45,6 +45,7 @@ public class FileArtifactValue extends ArtifactValue {
     @Override public long getSize() { throw new UnsupportedOperationException(); }
     @Override public long getModifiedTime() { throw new UnsupportedOperationException(); }
     @Override public boolean equals(Object o) { return this == o; }
+    @Override public int hashCode() { return System.identityHashCode(this); }
     @Override public String toString() { return "OMITTED_FILE_MARKER"; }
   };
 
