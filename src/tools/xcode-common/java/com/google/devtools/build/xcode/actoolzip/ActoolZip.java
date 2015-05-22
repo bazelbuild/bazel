@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.xcode.actoolzip;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,22 +34,6 @@ import java.util.Set;
  */
 public class ActoolZip implements Wrapper {
 
-  private static final Function<String, String> CANONICAL_PATH =
-      new Function<String, String>() {
-        @Override
-        public String apply(String path) {
-          File file = new File(path);
-          if (file.exists()) {
-            try {
-              return file.getCanonicalPath();
-            } catch (IOException e) {
-              // Pass through to return raw path
-            }
-          }
-          return path;
-        }
-      };
-
   @Override
   public String name() {
     return "ActoolZip";
@@ -69,7 +52,7 @@ public class ActoolZip implements Wrapper {
         .add(outputDirectory)
         // actool munges paths in some way which doesn't work if one of the directories in the path
         // is a symlink.
-        .addAll(Iterables.transform(args.subtoolExtraArgs(), CANONICAL_PATH))
+        .addAll(Iterables.transform(args.subtoolExtraArgs(), Wrappers.CANONICALIZE_IF_PATH))
         .build();
   }
 

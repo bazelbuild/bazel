@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.xcode.zippingoutput;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.singlejar.ZipCombiner;
 import com.google.devtools.build.xcode.zip.ZipInputEntry;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,6 +39,28 @@ public class Wrappers {
   private Wrappers() {
     throw new UnsupportedOperationException("static-only");
   }
+
+  /**
+   * Takes the string and canonicalizes if it is a path that exists on the file system.
+   * If it does not exist on the file system, returns the string passed in unchanged.
+   */
+  public static final Function<String, String> CANONICALIZE_IF_PATH =
+    new Function<String, String>() {
+      @Override
+      public String apply(String path) {
+        if (!path.startsWith("-")) {
+          File file = new File(path);
+          if (file.exists()) {
+            try {
+              return file.getCanonicalPath();
+            } catch (IOException e) {
+              // Pass through to return raw path
+            }
+          }
+        }
+        return path;
+      }
+    };
 
   /**
    * Executes the command specified by argsArray and wrapper, writing the output directly to this
