@@ -54,6 +54,8 @@ public final class SkyFunctions {
       SkyFunctionName.computed("TARGET_COMPLETION");
   public static final SkyFunctionName TEST_COMPLETION =
       SkyFunctionName.computed("TEST_COMPLETION");
+  public static final SkyFunctionName BUILD_CONFIGURATION =
+      SkyFunctionName.computed("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.computed("CONFIGURATION_FRAGMENT");
   public static final SkyFunctionName CONFIGURATION_COLLECTION =

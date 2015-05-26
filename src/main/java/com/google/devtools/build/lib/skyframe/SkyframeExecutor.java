@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -282,6 +283,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Predicate<PathFragment> allowedMissingInputs) {
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator,
         immutableDirectories, errorOnExternalFiles);
+    RuleClassProvider ruleClassProvider = pkgFactory.getRuleClassProvider();
     // We use an immutable map builder for the nice side effect that it throws if a duplicate key
     // is inserted.
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> map = ImmutableMap.builder();
@@ -296,9 +298,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(
-        pkgLocator, packageManager, pkgFactory.getRuleClassProvider()));
+        pkgLocator, packageManager, ruleClassProvider));
     map.put(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupFunction(
-        pkgFactory.getRuleClassProvider(), pkgFactory));
+        ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, new GlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
@@ -307,12 +309,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         reporter, pkgFactory, packageManager, showLoadingProgress, packageFunctionCache,
         numPackagesLoaded));
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
-    map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction());
+    map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
     map.put(SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider()));
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider()));
+    map.put(SkyFunctions.BUILD_CONFIGURATION, new BuildConfigurationFunction(directories));
     map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
         configurationFactory, configurationPackages));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(

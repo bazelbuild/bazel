@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -49,16 +50,19 @@ public class TransitiveTargetValue implements SkyValue {
   private NestedSet<Label> transitiveTargets;
   @Nullable private NestedSet<Label> transitiveRootCauses;
   @Nullable private NoSuchTargetException errorLoadingTarget;
+  private NestedSet<Class<? extends BuildConfiguration.Fragment>> transitiveConfigFragments;
 
   private TransitiveTargetValue(NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
       NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
       @Nullable NestedSet<Label> transitiveRootCauses,
-      @Nullable NoSuchTargetException errorLoadingTarget) {
+      @Nullable NoSuchTargetException errorLoadingTarget,
+      NestedSet<Class<? extends BuildConfiguration.Fragment>> transitiveConfigFragments) {
     this.transitiveSuccessfulPkgs = transitiveSuccessfulPkgs;
     this.transitiveUnsuccessfulPkgs = transitiveUnsuccessfulPkgs;
     this.transitiveTargets = transitiveTargets;
     this.transitiveRootCauses = transitiveRootCauses;
     this.errorLoadingTarget = errorLoadingTarget;
+    this.transitiveConfigFragments = transitiveConfigFragments;
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {
@@ -75,6 +79,7 @@ public class TransitiveTargetValue implements SkyValue {
     // TODO(bazel-team): Deal with this properly once we have efficient serialization of NestedSets.
     out.writeObject(transitiveRootCauses);
     out.writeObject(errorLoadingTarget);
+    out.writeObject(transitiveConfigFragments);
   }
 
   @SuppressWarnings("unchecked")
@@ -90,22 +95,26 @@ public class TransitiveTargetValue implements SkyValue {
     transitiveTargets = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     transitiveRootCauses = (NestedSet<Label>) in.readObject();
     errorLoadingTarget = (NoSuchTargetException) in.readObject();
+    transitiveConfigFragments =
+        (NestedSet<Class<? extends BuildConfiguration.Fragment>>) in.readObject();
   }
 
   static TransitiveTargetValue unsuccessfulTransitiveLoading(
       NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
       NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
-      NestedSet<Label> rootCauses, @Nullable NoSuchTargetException errorLoadingTarget) {
+      NestedSet<Label> rootCauses, @Nullable NoSuchTargetException errorLoadingTarget,
+      NestedSet<Class<? extends BuildConfiguration.Fragment>> transitiveConfigFragments) {
     return new TransitiveTargetValue(transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs,
-        transitiveTargets, rootCauses, errorLoadingTarget);
+        transitiveTargets, rootCauses, errorLoadingTarget, transitiveConfigFragments);
   }
 
   static TransitiveTargetValue successfulTransitiveLoading(
       NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
       NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs,
-      NestedSet<Label> transitiveTargets) {
+      NestedSet<Label> transitiveTargets,
+      NestedSet<Class<? extends BuildConfiguration.Fragment>> transitiveConfigFragments) {
     return new TransitiveTargetValue(transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs,
-        transitiveTargets, null, null);
+        transitiveTargets, null, null, transitiveConfigFragments);
   }
 
   /** Returns the error, if any, from loading the target. */
@@ -133,6 +142,29 @@ public class TransitiveTargetValue implements SkyValue {
   @Nullable
   public NestedSet<Label> getTransitiveRootCauses() {
     return transitiveRootCauses;
+  }
+
+  /**
+   * Returns the set of {@link BuildConfiguration.Fragment} classes required to configure a
+   * rule's transitive closure. These are used to instantiate the right
+   * {@link ConfigurationFragmentValue} instances for a rule's {@link BuildConfigurationValue}.
+   *
+   * <p>This provides the basis for rule-scoped configurations. For example, Java-related build
+   * flags have nothing to do with C++. So changing a Java flag shouldn't invalidate a C++ rule
+   * (unless it has transitive dependencies on other Java rules). Likewise, a C++ rule shouldn't
+   * fail because the Java configuration doesn't recognize the chosen architecture.
+   *
+   * <p>The general principle is that a rule can be influenced by the configuration parameters it
+   * directly uses and the configuration parameters its transitive dependencies use (since it
+   * reads its dependencies as part of analysis). So we need to 1) determine which configuration
+   * fragments provide these parameters, 2) load those fragments, then 3) create a configuration
+   * from them to feed the rule's configured target. This provides the first step.
+   *
+   * <p>See
+   * {@link com.google.devtools.build.lib.packages.RuleClass.Builder#requiredConfigurationFragments}
+   */
+  NestedSet<Class<? extends BuildConfiguration.Fragment>> getTransitiveConfigFragments() {
+    return transitiveConfigFragments;
   }
 
   @ThreadSafe

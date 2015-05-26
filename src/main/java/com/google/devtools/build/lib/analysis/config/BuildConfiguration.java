@@ -993,7 +993,7 @@ public final class BuildConfiguration implements Serializable {
     return builder.build();
   }
 
-  BuildConfiguration(BlazeDirectories directories,
+  public BuildConfiguration(BlazeDirectories directories,
                      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
                      BuildOptions buildOptions,
                      boolean actionsDisabled) {
