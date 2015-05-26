@@ -309,4 +309,32 @@ public class ArtifactTest {
             new PathFragment("b/c"),
             new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))).serializeToString());
   }
+  
+  @Test
+  public void testLongDirname() throws Exception {
+    String dirName = createDirNameArtifact().getDirname();
+    
+    assertThat(dirName).isEqualTo("aaa/bbb/ccc"); 
+  }
+  
+  @Test
+  public void testDirnameInExecutionDir() throws Exception {
+    Artifact artifact = new Artifact(scratch.file("/foo/bar.txt"), 
+        Root.asDerivedRoot(scratch.dir("/foo")));
+    
+    assertThat(artifact.getDirname()).isEqualTo(".");    
+  }
+  
+  @Test
+  public void testCanConstructPathFromDirAndFilename() throws Exception {
+    Artifact artifact = createDirNameArtifact();
+    String constructed =
+        String.format("%s/%s", artifact.getDirname(), artifact.getFilename());
+
+    assertThat(constructed).isEqualTo("aaa/bbb/ccc/ddd");
+  }
+  
+  private Artifact createDirNameArtifact() throws Exception {
+    return new Artifact(scratch.file("/aaa/bbb/ccc/ddd"), Root.asDerivedRoot(scratch.dir("/")));
+  }
 }

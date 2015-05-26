@@ -208,10 +208,26 @@ public class Artifact implements FileType.HasFilename, ActionInput {
     return path;
   }
 
+  
   /**
-   * Returns the base file name of this artifact.
+   * Returns the directory name of this artifact, similar to dirname(1).
+   * 
+   * <p> The directory name is always a relative path to the execution directory.
+   */
+  @SkylarkCallable(name = "dirname", structField = true, 
+      doc = "The directory name of this artifact.")
+  public final String getDirname() {
+    PathFragment parent = getExecPath().getParentDirectory();
+    
+    return (parent == null) ? "/" : parent.getSafePathString();
+  }
+  
+  /**
+   * Returns the base file name of this artifact, similar to basename(1).
    */
   @Override
+  @SkylarkCallable(name = "basename", structField = true,
+      doc = "The base file name of this artifact.")
   public final String getFilename() {
     return getExecPath().getBaseName();
   }
@@ -230,8 +246,8 @@ public class Artifact implements FileType.HasFilename, ActionInput {
    * for source artifacts if created without specifying the owner, or for special derived artifacts,
    * such as target completion middleman artifacts, build info artifacts, and the like.
    *
-   * When deserializing artifacts we end up with a dummy owner. In that case, it must be set using
-   * {@link #setArtifactOwner} before this method is called.
+   * <p>When deserializing artifacts we end up with a dummy owner. In that case, 
+   * it must be set using {@link #setArtifactOwner} before this method is called.
    */
   public final ArtifactOwner getArtifactOwner() {
     Preconditions.checkState(owner != DESERIALIZED_MARKER_OWNER, this);
