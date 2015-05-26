@@ -121,6 +121,15 @@ public class Wrappers {
     if (printOutput) {
       processBuilder = processBuilder.inheritIO();
     }
+    // Useful for logging the actual command that is being zipped up.
+    // Should expose this in output when --verbose_failures are on or -s.
+    // https://github.com/google/bazel/issues/197
+    boolean logCommand = false;
+    if (logCommand) {
+      System.out.print(System.getenv().toString() + "\n");
+      System.out.print("(" + String.join(" ", processBuilder.command()) + ")\n");
+      System.out.flush();
+    }
     Process subProcess = processBuilder.start();
     int exit = subProcess.waitFor();
     OutErr outErr = new OutErr(
