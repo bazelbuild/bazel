@@ -737,6 +737,16 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
               .allowedFileTypes(FileTypeSet.ANY_FILE))
+          /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(textual_hdrs) -->
+           The list of header files published by
+           this library to be textually included by sources in dependent rules.
+          ${SYNOPSIS}
+          <p>This is the location for declaring header files that cannot be compiled on their own;
+             that is, they always need to be textually included by other source files to build valid
+             code.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("textual_hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
+              .legacyAllowAnyFileType())
           // TODO(bazel-team): document or remove.
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
