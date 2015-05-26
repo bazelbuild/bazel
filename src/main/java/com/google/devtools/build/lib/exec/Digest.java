@@ -167,7 +167,7 @@ public class Digest {
     try {
       return MessageDigest.getInstance("md5");
     } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("MD5 not available");
+      throw new IllegalStateException("MD5 not available", e);
     }
   }
 
