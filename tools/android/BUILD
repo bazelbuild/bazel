@@ -1,14 +1,50 @@
+package(default_visibility = ["//visibility:public"])
+
+py_binary(
+    name = "merge_manifests",
+    srcs = [
+        "android_permissions.py",
+        "merge_manifests.py",
+    ],
+    deps = [
+        "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "merge_manifests_test",
+    srcs = ["merge_manifests_test.py"],
+    deps = [":merge_manifests"],
+)
+
+py_binary(
+    name = "proguard_whitelister",
+    srcs = [
+        "proguard_whitelister.py",
+    ],
+    deps = [
+        "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "proguard_whitelister_test",
+    srcs = ["proguard_whitelister_test.py"],
+    data = ["proguard_whitelister_input.cfg"],
+    deps = [
+        ":proguard_whitelister",
+    ],
+)
+
 py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_binary(
     name = "build_split_manifest",
     srcs = ["build_split_manifest.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/gflags",
     ],
@@ -25,7 +61,6 @@ py_test(
 py_binary(
     name = "incremental_install",
     srcs = ["incremental_install.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/concurrent:futures",
         "//third_party/py/gflags",
@@ -44,7 +79,6 @@ py_test(
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/gflags",
     ],
@@ -53,7 +87,6 @@ py_binary(
 py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party/py/gflags",
     ],

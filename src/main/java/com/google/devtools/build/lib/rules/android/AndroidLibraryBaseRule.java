@@ -150,7 +150,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             @Override
             public Object getDefault(AttributeMap rule) {
               return rule.isAttributeValueExplicitlySpecified("proguard_specs")
-                  ? env.getLabel("//tools/android/build:proguard_whitelister")
+                  ? env.getLabel("//tools/android:proguard_whitelister")
                   : null;
             }
         }))

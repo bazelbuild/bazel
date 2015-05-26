@@ -109,7 +109,7 @@ public final class AndroidRuleClasses {
   public static final SafeImplicitOutputsFunction JAVA_RESOURCES_JAR =
       fromTemplates("%{name}_files/java_resources.jar");
   public static final String MANIFEST_MERGE_TOOL_LABEL =
-      "//tools/android/build:merge_manifests.par";
+      "//tools/android:merge_manifests";
   public static final String BUILD_INCREMENTAL_DEXMANIFEST_LABEL =
       "//tools/android:build_incremental_dexmanifest";
   public static final String STUBIFY_MANIFEST_LABEL = "//tools/android:stubify_manifest";
