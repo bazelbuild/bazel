@@ -1,20 +1,13 @@
-package(default_visibility = ["//src/main/java:__subpackages__"])
-
-# TODO(bazel-team): Split this into multiple rules.
-java_library(
-    name = "xcode-common",
-    srcs = glob([
-        "java/com/google/devtools/build/xcode/util/*.java",
-        "java/com/google/devtools/build/xcode/common/*.java",
-    ]),
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
+package(default_visibility = ["//src/test:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/test:__subpackages__"],
+    srcs = [
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:srcs",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common:srcs",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip:srcs",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util:srcs",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/zip:srcs",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput:srcs",
+    ],
 )
