@@ -35,6 +35,7 @@ CXX=${CXX:-g++}
 CXXSTD="c++0x"
 
 unset JAVA_TOOL_OPTIONS
+unset _JAVA_OPTIONS
 
 JAVA_VERSION=${JAVA_VERSION:-"1.8"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
