@@ -36,10 +36,9 @@ IDE_OUTPUT_PATH="bazel-out/ide-classes"
 
 # Source roots.
 JAVA_PATHS="$(find src -name "*.java" | sed "s|/com/google/.*$||" | sort -u)"
-# TODO(bazel-team): Once objc_tools have buildfiles, uncomment the if below
-# if [ "$(uname -s | tr 'A-Z' 'a-z')" != "darwin" ]; then
-JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/objc_tools/")"
-# fi
+if [ "$(uname -s | tr 'A-Z' 'a-z')" != "darwin" ]; then
+  JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/objc_tools/")"
+fi
 # Android doesn't work out of the box, but should we tell users to install the
 # Android SDK?
 JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/android/")"
