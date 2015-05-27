@@ -60,6 +60,8 @@ import org.eclipse.aether.transport.http.HttpTransporterFactory;
 import java.io.IOException;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * Implementation of maven_jar.
  */
@@ -142,6 +144,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     private final String artifactId;
     private final String version;
     private final Path outputDirectory;
+    @Nullable
     private final String sha1;
     // TODO(kchodorow): change this to a single repository on 9/15.
     private final List<RemoteRepository> repositories;
@@ -152,7 +155,11 @@ public class MavenJarFunction extends HttpArchiveFunction {
       this.artifactId = mapper.get("artifact_id", Type.STRING);
       this.version = mapper.get("version", Type.STRING);
       this.outputDirectory = outputDirectory;
-      this.sha1 = mapper.get("sha1", Type.STRING);
+      if (mapper.has("sha1", Type.STRING)) {
+        this.sha1 = mapper.get("sha1", Type.STRING);
+      } else {
+        this.sha1 = null;
+      }
       if (mapper.has("repository", Type.STRING)) {
         this.repositories = ImmutableList.of(new RemoteRepository.Builder(
             "user-defined repository", "default", mapper.get("repository", Type.STRING)).build());
@@ -203,13 +210,15 @@ public class MavenJarFunction extends HttpArchiveFunction {
         throw new IOException("Failed to fetch Maven dependency: " + e.getMessage());
       }
 
-      // Verify checksum.
       Path downloadPath = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
-      Hasher hasher = Hashing.sha1().newHasher();
-      String downloadSha1 = HttpDownloader.getHash(hasher, downloadPath);
-      if (!sha1.equals(downloadSha1)) {
-        throw new IOException("Downloaded file at " + downloadPath + " has SHA-1 of "
-            + downloadSha1 + ", does not match expected SHA-1 (" + sha1 + ")");
+      // Verify checksum.
+      if (sha1 != null) {
+        Hasher hasher = Hashing.sha1().newHasher();
+        String downloadSha1 = HttpDownloader.getHash(hasher, downloadPath);
+        if (!sha1.equals(downloadSha1)) {
+          throw new IOException("Downloaded file at " + downloadPath + " has SHA-1 of "
+              + downloadSha1 + ", does not match expected SHA-1 (" + sha1 + ")");
+        }
       }
       return downloadPath;
     }

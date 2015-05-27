@@ -65,7 +65,7 @@ public class MavenJarRule implements RuleDefinition {
 
          <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("sha1", Type.STRING).mandatory())
+        .add(attr("sha1", Type.STRING))
         .setWorkspaceOnly()
         .build();
   }

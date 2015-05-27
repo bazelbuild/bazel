@@ -351,7 +351,6 @@ maven_jar(
     artifact_id = "carnivore",
     version = "1.23",
     repository = 'http://localhost:$nc_port/',
-    sha1 = '0000000000000000000000000000000000000000',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
