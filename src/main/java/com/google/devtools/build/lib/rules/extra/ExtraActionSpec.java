@@ -125,8 +125,12 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         ImmutableList.<FilesToRunProvider>of(),
         ImmutableMap.<Label, Iterable<Artifact>>of());
 
+    // Multiple actions in the same configured target need to have different names for the artifact
+    // that might be created here, so we append something that should be unique for each action.
+    String actionUniquifier = actionToShadow.getPrimaryOutput().getExecPath().getBaseName() + "."
+        + actionToShadow.getKey();
     List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
-        ".extra_action_script.sh", executionInfo);
+        "." + actionUniquifier + ".extra_action_script.sh", executionInfo);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(new ExtraAction(
