@@ -87,7 +87,7 @@ public final class LocalResourceContainer {
   private static boolean validateNoResourcesAttribute(RuleContext ruleContext) {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")) {
       ruleContext.attributeError("resources",
-          String.format("cannot be set when any of %s are defined.",
+          String.format("resources cannot be set when any of %s are defined.",
               Joiner.on(", ").join(RESOURCES_ATTRIBUTES)));
       return false;
     }
@@ -103,7 +103,7 @@ public final class LocalResourceContainer {
         ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesProvider.class);
     for (AndroidResourcesProvider provider : resources) {
       ruleContext.attributeError("srcs",
-          String.format("should not contain android_resource label %s", provider.getLabel()));
+          String.format("srcs should not contain android_resource label %s", provider.getLabel()));
       return false;
     }
     return true;
@@ -112,7 +112,7 @@ public final class LocalResourceContainer {
   private static boolean validateManifest(RuleContext ruleContext) {
     if (ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET) == null) {
       ruleContext.attributeError("manifest",
-          "is required when resource_files or assets are defined.");
+          "manifest is required when resource_files or assets are defined.");
       return false;
     }
     return true;
