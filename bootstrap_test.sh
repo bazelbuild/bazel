@@ -16,6 +16,8 @@
 
 set -eu
 
+BAZELRC=${BAZELRC:-/dev/null}
+
 function usage() {
   [ -n "${1:-}" ] && echo "Invalid command(s): $1" >&2
   echo "syntax: $0 command[,command]* [BAZEL_BIN [BAZEL_SUM]]" >&2
@@ -40,7 +42,7 @@ function parse_options() {
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 if [[ ${PLATFORM} == "darwin" ]]; then
   function md5_file() {
-    md5 $1 | sed 's|^MD5 (\(.*\)) =|\1|'
+    echo $(cat $1 | md5) $1
   }
 else
   function md5_file() {
@@ -74,12 +76,13 @@ function bootstrap() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  ${BAZEL_BIN} --blazerc=/dev/null clean || return $?
-  ${BAZEL_BIN} --blazerc=/dev/null fetch //... || return $?
-  ${BAZEL_BIN} --blazerc=/dev/null build --nostamp //src:bazel //src:tools || return $?
+  ${BAZEL_BIN} --blazerc=${BAZELRC} clean || return $?
+  ${BAZEL_BIN} --blazerc=${BAZELRC} fetch //... || return $?
+  ${BAZEL_BIN} --blazerc=${BAZELRC} build --nostamp //src:bazel //src:tools || return $?
 
   if [ -n "${BAZEL_SUM}" ]; then
-    get_outputs_sum > ${BAZEL_SUM} || return $?
+    cat bazel-genfiles/src/java.version >${BAZEL_SUM}
+    get_outputs_sum >> ${BAZEL_SUM} || return $?
   fi
 }
 
@@ -136,7 +139,7 @@ fi
 if [ $DO_TESTS ]; then
   start_test "test"
 
-  $BOOTSTRAP --blazerc=/dev/null test -k --test_output=errors //src/... || fail "Tests failed"
+  $BOOTSTRAP --blazerc=${BAZELRC} test -k --test_output=errors //src/... || fail "Tests failed"
   end_test "test"
 fi
 
