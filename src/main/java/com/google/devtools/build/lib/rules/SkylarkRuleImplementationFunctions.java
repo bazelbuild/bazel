@@ -318,7 +318,6 @@ public class SkylarkRuleImplementationFunctions {
         Boolean collectData, Boolean collectDefault,
         Location loc) throws EvalException, ConversionException {
       Runfiles.Builder builder = new Runfiles.Builder();
-      builder.setSuffix(ctx.getWorkspaceName());
       if (EvalUtils.toBoolean(collectData)) {
         builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
       }
