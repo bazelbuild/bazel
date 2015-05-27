@@ -1036,6 +1036,20 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testKwargsForbidden() throws Exception {
+    setFailFast(false);
+    parseFile("func(**dict)");
+    assertContainsEvent("**kwargs arguments are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testArgsForbidden() throws Exception {
+    setFailFast(false);
+    parseFile("func(*array)");
+    assertContainsEvent("*args arguments are not allowed in BUILD files");
+  }
+
+  @Test
   public void testOptionalArgBeforeMandatoryArgInFuncDef() throws Exception {
     setFailFast(false);
     parseFileForSkylark("def func(a, b = 'a', c):\n  return 0\n");
