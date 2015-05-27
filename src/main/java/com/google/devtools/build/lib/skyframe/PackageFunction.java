@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,7 +71,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -84,7 +84,7 @@ public class PackageFunction implements SkyFunction {
   private final EventHandler reporter;
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
-  private final ConcurrentMap<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
+  private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
@@ -101,7 +101,7 @@ public class PackageFunction implements SkyFunction {
 
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
-      ConcurrentMap<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache,
+      Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache,
       AtomicInteger numPackagesLoaded) {
     this.reporter = reporter;
 
@@ -441,7 +441,7 @@ public class PackageFunction implements SkyFunction {
     // IOException occurs. Note that the BUILD files are still parsed two times.
     ParserInputSource inputSource;
     try {
-      if (showLoadingProgress.get() && !packageFunctionCache.containsKey(packageId)) {
+      if (showLoadingProgress.get() && packageFunctionCache.getIfPresent(packageId) == null) {
         // TODO(bazel-team): don't duplicate the loading message if there are unavailable
         // Skylark dependencies.
         reporter.handle(Event.progress("Loading package: " + packageName));
@@ -467,7 +467,7 @@ public class PackageFunction implements SkyFunction {
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
           packageLookupValue.getRoot(), packageId, legacyPkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
-      packageFunctionCache.remove(packageId);
+      packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
@@ -486,7 +486,7 @@ public class PackageFunction implements SkyFunction {
           markDependenciesAndPropagateInconsistentFilesystemExceptions(pkg, env,
               globPatterns, subincludes);
     } catch (InternalInconsistentFilesystemException e) {
-      packageFunctionCache.remove(packageId);
+      packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
@@ -495,7 +495,7 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
-    packageFunctionCache.remove(packageId);
+    packageFunctionCache.invalidate(packageId);
 
     if (packageShouldBeConsideredInError) {
       throw new PackageFunctionException(new BuildFileContainsErrorsException(pkg,
@@ -713,7 +713,7 @@ public class PackageFunction implements SkyFunction {
           throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
         : ParserInputSource.create(replacementContents, buildFilePath);
-    Package.LegacyBuilder pkgBuilder = packageFunctionCache.get(packageId);
+    Package.LegacyBuilder pkgBuilder = packageFunctionCache.getIfPresent(packageId);
     if (pkgBuilder == null) {
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
       try {
