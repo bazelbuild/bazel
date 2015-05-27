@@ -128,12 +128,6 @@ void SplitStringUsing(
   }
 }
 
-vector<string> SplitQuoted(const string &contents, const char delimeter) {
-  vector<string> result;
-  SplitQuotedStringUsing(contents, delimeter, &result);
-  return result;
-}
-
 void SplitQuotedStringUsing(const string &contents, const char delimeter,
                             std::vector<string> *output) {
   size_t len = contents.length();

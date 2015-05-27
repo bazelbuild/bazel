@@ -71,8 +71,6 @@ void AddJVMSpecificArguments(const string &host_javabase,
 
 void ExecuteProgram(const string &exe, const std::vector<string> &args_vector);
 
-void ReExecute(const string &executable, int argc, const char *argv[]);
-
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
 // Returns NULL otherwise.
@@ -84,8 +82,6 @@ const char* GetUnaryOption(const char *arg,
 // Dies with a syntax error if arg starts with 'key='.
 // Returns NULL otherwise.
 bool GetNullaryOption(const char *arg, const char *key);
-
-bool CheckValidPort(const string &str, const string &option, string *error);
 
 // Enable messages mostly of interest to developers.
 bool VerboseLogging();

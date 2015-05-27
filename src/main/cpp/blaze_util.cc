@@ -267,17 +267,6 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   execv(exe.c_str(), const_cast<char**>(argv));
 }
 
-// Re-execute the blaze command line with a different binary as argv[0].
-// This function does not return on success.
-void ReExecute(const string &executable, int argc, const char *argv[]) {
-  vector<string> args;
-  args.push_back(executable);
-  for (int i = 1; i < argc; i++) {
-    args.push_back(argv[i]);
-  }
-  ExecuteProgram(args[0], args);
-}
-
 const char* GetUnaryOption(const char *arg,
                            const char *next_arg,
                            const char *key) {
@@ -305,18 +294,6 @@ bool GetNullaryOption(const char *arg, const char *key) {
   }
 
   return true;
-}
-
-bool CheckValidPort(const string &str, const string &option, string *error) {
-  int number;
-  if (blaze_util::safe_strto32(str, &number) && number > 0 && number < 65536) {
-    return true;
-  }
-
-  blaze_util::StringPrintf(error,
-      "Invalid argument to %s: '%s' (must be a valid port number).",
-      option.c_str(), str.c_str());
-  return false;
 }
 
 bool VerboseLogging() {

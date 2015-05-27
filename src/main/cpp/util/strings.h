@@ -80,11 +80,6 @@ std::vector<string> Split(const string &contents, const char delimeter);
 void SplitStringUsing(
     const string &contents, const char delimeter, std::vector<string> *output);
 
-// Splits contents by delimeter with possible elements quoted by ' or ".
-// backslashes (\) can be used to escape the quotes or delimeter. Skips
-// empty subsections.
-std::vector<string> SplitQuoted(const string &contents, const char delimeter);
-
 // Same as above, but adds results to output.
 void SplitQuotedStringUsing(const string &contents, const char delimeter,
                             std::vector<string> *output);
