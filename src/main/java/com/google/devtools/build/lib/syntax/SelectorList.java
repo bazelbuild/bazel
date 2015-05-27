@@ -97,9 +97,6 @@ public final class SelectorList {
     } else if (value instanceof SelectorValue) {
       builder.add(value);
       return ((SelectorValue) value).getType();
-    } else if (value instanceof GlobList) {
-      builder.add(((GlobList<?>) value).delegate());
-      return NATIVE_LIST_TYPE;
     } else {
       builder.add(value);
       return value.getClass();
@@ -107,7 +104,9 @@ public final class SelectorList {
   }
 
   private static boolean isListType(Class<?> type) {
-    return type == NATIVE_LIST_TYPE || type.getSuperclass() == SkylarkList.class;
+    return type == NATIVE_LIST_TYPE
+        || type.getSuperclass() == SkylarkList.class
+        || type == GlobList.class;
   }
 
   private static boolean canConcatenate(Class<?> type1, Class<?> type2) {
