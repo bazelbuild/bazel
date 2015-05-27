@@ -87,6 +87,18 @@ public final class ReleaseBundlingSupport {
   @VisibleForTesting
   static final String EXTENSION_BUNDLE_DIR_FORMAT = "PlugIns/%s.appex";
 
+  /**
+   * Command string for "sed" that tries to extract the application version number from a larger
+   * string. For example, from "foo_1.2.3_RC00" this would extract "1.2.3". This regex looks for
+   * versions of the format "x.y" or "x.y.z", which may be preceded and/or followed by other text,
+   * such as a project name or release candidate number.
+   *
+   * <p>This command also preserves double quotes around the string, if any.
+   */
+  private static final String EXTRACT_VERSION_NUMBER_SED_COMMAND =
+      "s#\\(\"\\)\\{0,1\\}\\(.*_\\)\\{0,1\\}\\([0-9][0-9]*\\(\\.[0-9][0-9]*\\)\\{1,2\\}\\)"
+      + "\\(_[^\"]*\\)\\{0,1\\}\\(\"\\)\\{0,1\\}#\\1\\3\\6#";
+
   private final Attributes attributes;
   private final BundleSupport bundleSupport;
   private final RuleContext ruleContext;
@@ -224,7 +236,8 @@ public final class ReleaseBundlingSupport {
             .add(
                 "VERSION=\"$("
                 + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo.getExecPathString()
-                + " | cut -d' ' -f2- | sed -e 's#\"#\\\"#g')\" && "
+                + " | cut -d' ' -f2- | sed -e '" + EXTRACT_VERSION_NUMBER_SED_COMMAND + "' | "
+                + "sed -e 's#\"#\\\"#g')\" && "
                 + "cat >" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
                 + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                 + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
