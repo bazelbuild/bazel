@@ -100,6 +100,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
                 + "android_binary rules.")
     public List<String> fatApkCpus;
 
+    @Option(name = "experimental_android_use_jack_for_dexing",
+        defaultValue = "false",
+        category = "semantics",
+        help = "Switches to the Jack and Jill toolchain for dexing instead of javac and dx.")
+    public boolean useJackForDexing;
+
+    @Option(name = "experimental_android_jack_sanity_checks",
+        defaultValue = "false",
+        category = "semantics",
+        help = "Enables sanity checks for Jack and Jill compilation.")
+    public boolean jackSanityChecks;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (proguard != null) {
@@ -198,6 +210,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final String cpu;
   private final boolean fatApk;
   private final Label proguard;
+  private final boolean useJackForDexing;
+  private final boolean jackSanityChecks;
 
   AndroidConfiguration(Options options, Label sdk, Label incrementalStubApplication,
       Label incrementalSplitStubApplication, Label resourcesProcessor, Label aarGenerator) {
@@ -211,6 +225,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.cpu = options.cpu;
     this.fatApk = !options.fatApkCpus.isEmpty();
     this.proguard = options.proguard;
+    this.useJackForDexing = options.useJackForDexing;
+    this.jackSanityChecks = options.jackSanityChecks;
   }
 
   @Override
@@ -257,6 +273,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean isFatApk() {
     return fatApk;
+  }
+
+  /**
+   * Returns true if Jack should be used in place of javac/dx for Android compilation.
+   */
+  public boolean isJackUsedForDexing() {
+    return useJackForDexing;
+  }
+
+  /**
+   * Returns true if Jack sanity checks should be enabled. Only relevant if isJackUsedForDexing()
+   * also returns true.
+   */
+  public boolean isJackSanityChecked() {
+    return jackSanityChecks;
   }
 
   @Override
