@@ -594,6 +594,9 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+<li><h3 id="modules.ctx.new_file">new_file</h3>
+<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
+Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -814,6 +817,14 @@ Returns a string in which the string elements of the argument have been joined b
 <code><a class="anchor" href="#modules.string">string</a> string.lower()</code><br>
 Returns the lower case version of this string.
 <br/>
+<li><h3 id="modules.string.partition">partition</h3>
+<code><a class="anchor" href="#modules.list">list</a> string.partition(sep?)</code><br>
+Splits the input string at the first occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.string.partition.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
+	</li>
+</ul>
 <li><h3 id="modules.string.replace">replace</h3>
 <code><a class="anchor" href="#modules.string">string</a> string.replace(old, new, maxsplit?)</code><br>
 Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
@@ -854,6 +865,14 @@ Returns the last index where <code>sub</code> is found, or throw an error if no 
 	<li id="modules.string.rindex.start"><code>start (int)</code>: Restrict to search from this position.
 	</li>
 	<li id="modules.string.rindex.end"><code>end (int)</code>: optional position before which to restrict to search.
+	</li>
+</ul>
+<li><h3 id="modules.string.rpartition">rpartition</h3>
+<code><a class="anchor" href="#modules.list">list</a> string.rpartition(sep?)</code><br>
+Splits the input string at the last occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.string.rpartition.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
 	</li>
 </ul>
 <li><h3 id="modules.string.split">split</h3>
