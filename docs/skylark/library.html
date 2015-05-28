@@ -253,7 +253,13 @@ zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
 Declares how the configuration should change when following a dependency. It can be either <a href="#modules._top_level.DATA_CFG">DATA_CFG</a> or <a href="#modules._top_level.HOST_CFG">HOST_CFG</a>.
 <ul></ul><hr><h2 id="modules.File">File</h2>
 This type represents a file used by the build system. It can be either a source file or a derived file produced by a rule.
-<ul><li><h3 id="modules.File.path">path</h3>
+<ul><li><h3 id="modules.File.basename">basename</h3>
+<code><a class="anchor" href="#modules.string">string</a> File.basename</code><br>
+The base file name of this artifact.
+<li><h3 id="modules.File.dirname">dirname</h3>
+<code><a class="anchor" href="#modules.string">string</a> File.dirname</code><br>
+The directory name of this artifact.
+<li><h3 id="modules.File.path">path</h3>
 <code><a class="anchor" href="#modules.string">string</a> File.path</code><br>
 The execution path of this file, relative to the execution directory. It consists of two parts, an optional first part called the <i>root</i> (see also the <a href="#modules.root">root</a> module), and the second part which is the <code>short_path</code>. The root may be empty, which it usually is for non-generated files. For generated files it usually contains a configuration-specific path fragment that encodes things like the target CPU architecture that was used while building said file.
 <li><h3 id="modules.File.short_path">short_path</h3>
@@ -588,9 +594,6 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-<li><h3 id="modules.ctx.new_file">new_file</h3>
-<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>

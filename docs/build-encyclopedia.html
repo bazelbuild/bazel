@@ -2413,6 +2413,7 @@ cc_library(<a href="#cc_library.name">name</a>,
 <a href="#cc_library.nocopts">nocopts</a>,
 <a href="#common.tags">tags</a>,
 <a href="#common.testonly">testonly</a>,
+<a href="#cc_library.textual_hdrs">textual_hdrs</a>,
 <a href="#common.visibility">visibility</a>)
 </p>
 
@@ -2699,6 +2700,15 @@ cc_library(<a href="#cc_library.name">name</a>,
           href="#cc_binary.copts">copts</a> attribute) will be removed from
           <code>COPTS</code> for purposes of compiling this rule.
           This attribute should rarely be needed.
+</li>
+<li id="cc_library.textual_hdrs"><code>textual_hdrs</code>:
+           The list of header files published by
+           this library to be textually included by sources in dependent rules.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+          <p>This is the location for declaring header files that cannot be compiled on their own;
+             that is, they always need to be textually included by other source files to build valid
+             code.</p>
 </li>
 </ul>
 
