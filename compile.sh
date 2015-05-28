@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script bootstraps building a Bazel binary without Bazel.
+# It should only be used to bootstrap Bazel itself.  The resulting
+# binary can be found at output/bazel
+
 set -o errexit
 
 cd "$(dirname "$0")"
