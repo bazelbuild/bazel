@@ -34,6 +34,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <limits.h>
 #include <limits>
 #include <vector>
 
