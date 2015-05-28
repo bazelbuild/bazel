@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -120,72 +118,12 @@ public class ObjcRuleClasses {
     ImmutableList.Builder<Artifact> j2objcLibraries = new ImmutableList.Builder<>();
 
     // TODO(bazel-team): Refactor the code to stop flattening the nested set here.
-    for (J2ObjcSource j2ObjcSource : j2ObjcSrcsProvider(ruleContext).getSrcs()) {
+    for (J2ObjcSource j2ObjcSource : J2ObjcSrcsProvider.buildFrom(ruleContext).getSrcs()) {
       j2objcLibraries.add(j2objcIntermediateArtifacts(ruleContext, j2ObjcSource).archive());
     }
 
     return j2objcLibraries.build();
   }
-
-  /**
-   * Returns a {@link J2ObjcSrcsProvider} with J2ObjC-generated ObjC file information from the
-   * current rule, and from rules that can be reached transitively through the "deps" attribute.
-   *
-   * @param ruleContext the rule context of the current rule
-   * @param currentSource J2ObjC-generated ObjC file information from the current rule to contribute
-   *     to the returned provider
-   * @return a {@link J2ObjcSrcsProvider} containing {@code currentSources} and source information
-   *         from the transitive closure.
-   */
-  public static J2ObjcSrcsProvider j2ObjcSrcsProvider(RuleContext ruleContext,
-      J2ObjcSource currentSource) {
-    return j2ObjcSrcsProvider(ruleContext, Optional.of(currentSource));
-  }
-
-  /**
-   * Returns a {@link J2ObjcSrcsProvider} with J2ObjC-generated ObjC file information from rules
-   * that can be reached transitively through the "deps" attribute.
-   *
-   * @param ruleContext the rule context of the current rule
-   * @return a {@link J2ObjcSrcsProvider} containing source information from the transitive closure.
-   */
-  public static J2ObjcSrcsProvider j2ObjcSrcsProvider(RuleContext ruleContext) {
-    return j2ObjcSrcsProvider(ruleContext, Optional.<J2ObjcSource>absent());
-  }
-
-  private static J2ObjcSrcsProvider j2ObjcSrcsProvider(RuleContext ruleContext,
-      Optional<J2ObjcSource> currentSource) {
-    NestedSetBuilder<J2ObjcSource> builder = NestedSetBuilder.stableOrder();
-    builder.addAll(currentSource.asSet());
-    boolean hasProtos = currentSource.isPresent()
-        && currentSource.get().getSourceType() == J2ObjcSource.SourceType.PROTO;
-    ImmutableSet.Builder<String> entryClasses = ImmutableSet.builder();
-
-    if (ruleContext.attributes().has("deps", Type.LABEL_LIST)) {
-      for (J2ObjcSrcsProvider provider :
-          ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcSrcsProvider.class)) {
-        builder.addTransitive(provider.getSrcs());
-        hasProtos |= provider.hasProtos();
-        entryClasses.addAll(provider.getEntryClasses());
-      }
-    }
-
-    if (ruleContext.attributes().has("exports", Type.LABEL_LIST)) {
-      for (J2ObjcSrcsProvider provider :
-          ruleContext.getPrerequisites("exports", Mode.TARGET, J2ObjcSrcsProvider.class)) {
-        builder.addTransitive(provider.getSrcs());
-        hasProtos |= provider.hasProtos();
-        entryClasses.addAll(provider.getEntryClasses());
-      }
-    }
-
-    if (ruleContext.attributes().has("entry_classes", Type.STRING_LIST)) {
-      entryClasses.addAll(ruleContext.attributes().get("entry_classes", Type.STRING_LIST));
-    }
-
-    return new J2ObjcSrcsProvider(builder.build(), entryClasses.build(), hasProtos);
-  }
-
 
   /**
    * Returns a {@link J2ObjcMappingFileProvider} containing J2ObjC mapping files from rules

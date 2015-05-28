@@ -406,7 +406,7 @@ final class CompilationSupport {
    * @return this compilation support
    */
   CompilationSupport registerJ2ObjcCompileAndArchiveActions(ObjcProvider objcProvider) {
-    J2ObjcSrcsProvider provider = ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext);
+    J2ObjcSrcsProvider provider = J2ObjcSrcsProvider.buildFrom(ruleContext);
     Iterable<J2ObjcSource> j2ObjcSources = provider.getSrcs();
     J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
 
