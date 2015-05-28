@@ -72,6 +72,7 @@ public enum ProfilerTask {
   CRITICAL_PATH("critical path", -1, 0x666699, 0),
   CRITICAL_PATH_COMPONENT("critical path component", -1, 0x666699, 0),
   IDE_BUILD_INFO("ide_build_info", -1, 0xCC6633, 0),
+  HANDLE_GC_NOTIFICATION("gc notification", -1, 0x996633, 0),
   UNKNOWN("Unknown event", -1, 0x339966, 0);
 
   // Size of the ProfilerTask value space.
