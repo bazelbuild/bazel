@@ -134,16 +134,16 @@ function setup_clean_workspace() {
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles)
 }
 
-# Clean-up all files that are not in tools or third_party to
-# restart from a clean workspace
+# Clean up all files that are not in tools directories, to restart
+# from a clean workspace
 function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     echo "Cleaning up workspace"
     cd ${WORKSPACE_DIR}
-    bazel clean  # Cleanup the output base
+    bazel clean  # Clean up the output base
 
     for i in $(ls); do
-      if [ "$i" != '*' -a "$i" != "tools" -a "$i" != "third_party" ]; then
+      if ! is_tools_directory "$i"; then
         rm -fr "$i"
       fi
     done

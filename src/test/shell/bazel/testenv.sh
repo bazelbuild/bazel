@@ -52,13 +52,25 @@ protoc_jar="${TEST_SRCDIR}/third_party/protobuf/protobuf-*.jar"
 junit_jar="${TEST_SRCDIR}/third_party/junit/junit-*.jar"
 hamcrest_jar="${TEST_SRCDIR}/third_party/hamcrest/hamcrest-*.jar"
 
-# This function copy the tools directory from Blaze.
+# This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -R ${tools_dir}/* tools
 
   chmod -R +w .
   mkdir -p tools/defaults
   touch tools/defaults/BUILD
+}
+
+# Report whether a given directory name corresponds to a tools directory.
+function is_tools_directory() {
+  case "$1" in
+    tools)
+      true
+      ;;
+    *)
+      false
+      ;;
+  esac
 }
 
 # Copy the examples of the base workspace
