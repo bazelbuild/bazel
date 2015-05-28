@@ -309,6 +309,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addProvider(LipoContextProvider.class, new LipoContextProvider(
             cppCompilationContext, ImmutableMap.copyOf(scannableMap)))
         .addProvider(CppLinkAction.Context.class, linkContext)
+        .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
             createBaselineCoverageArtifacts(ruleContext, common, ccCompilationOutputs, fake))
         .build();
