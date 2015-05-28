@@ -21,9 +21,117 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <errno.h>
+#include <memory>
 
-#include "third_party/ijar/common.h"
+#include "third_party/ijar/zip.h"
 
+namespace devtools_ijar {
+
+bool verbose = false;
+
+// Reads a JVM class from classdata_in (of the specified length), and
+// writes out a simplified class to classdata_out, advancing the
+// pointer.
+void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
+
+const char* CLASS_EXTENSION = ".class";
+const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
+
+// ZipExtractorProcessor that select only .class file and use
+// StripClass to generate an interface class, storing as a new file
+// in the specified ZipBuilder.
+class JarStripperProcessor : public ZipExtractorProcessor {
+ public:
+  JarStripperProcessor() {}
+  virtual ~JarStripperProcessor() {}
+
+  virtual void Process(const char* filename, const u4 attr,
+                       const u1* data, const size_t size);
+  virtual bool Accept(const char* filename, const u4 attr);
+
+ private:
+  // Not owned by JarStripperProcessor, see SetZipBuilder().
+  ZipBuilder* builder;
+
+ public:
+  // Set the ZipBuilder to add the ijar class to the output zip file.
+  // This pointer should not be deleted while this class is still in use and
+  // it should be set before any call to the Process() method.
+  void SetZipBuilder(ZipBuilder* builder) {
+    this->builder = builder;
+  }
+};
+
+bool JarStripperProcessor::Accept(const char* filename, const u4 attr) {
+  ssize_t offset = strlen(filename) - CLASS_EXTENSION_LENGTH;
+  if (offset >= 0) {
+    return strcmp(filename + offset, CLASS_EXTENSION) == 0;
+  }
+  return false;
+}
+
+void JarStripperProcessor::Process(const char* filename, const u4 attr,
+                                   const u1* data, const size_t size) {
+  if (verbose) {
+    fprintf(stderr, "INFO: StripClass: %s\n", filename);
+  }
+  u1 *q = builder->NewFile(filename, 0);
+  u1 *classdata_out = q;
+  StripClass(q, data, size);  // actually process it
+  size_t out_length = q - classdata_out;
+  builder->FinishFile(out_length);
+}
+
+// Opens "file_in" (a .jar file) for reading, and writes an interface
+// .jar to "file_out".
+void OpenFilesAndProcessJar(const char *file_out, const char *file_in) {
+  JarStripperProcessor processor;
+  std::unique_ptr<ZipExtractor> in(ZipExtractor::Create(file_in, &processor));
+  if (in.get() == NULL) {
+    fprintf(stderr, "Unable to open Zip file %s: %s\n", file_in,
+            strerror(errno));
+    abort();
+  }
+  u8 output_length = in->CalculateOutputLength();
+  std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
+  if (out.get() == NULL) {
+    fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
+            strerror(errno));
+    abort();
+  }
+  processor.SetZipBuilder(out.get());
+
+  // Process all files in the zip
+  if (in->ProcessAll() < 0) {
+    fprintf(stderr, "%s\n", in->GetError());
+    abort();
+  }
+
+  // Add dummy file, since javac doesn't like truly empty jars.
+  if (out->GetNumberFiles() == 0) {
+    out->WriteEmptyFile("dummy");
+  }
+  // Finish writing the output file
+  if (out->Finish() < 0) {
+    fprintf(stderr, "%s\n", out->GetError());
+    abort();
+  }
+  // Get all file size
+  size_t in_length = in->GetSize();
+  size_t out_length = out->GetSize();
+  if (verbose) {
+    fprintf(stderr, "INFO: produced interface jar: %s -> %s (%d%%).\n",
+            file_in, file_out,
+            static_cast<int>(100.0 * out_length / in_length));
+  }
+}
+
+}  // namespace devtools_ijar
+
+//
+// main method
+//
 static void usage() {
   fprintf(stderr, "Usage: ijar [-v] x.jar [x_interface.jar>]\n");
   fprintf(stderr, "Creates an interface jar from the specified jar file.\n");
@@ -69,5 +177,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "INFO: writing to '%s'.\n", filename_out);
   }
 
-  return devtools_ijar::OpenFilesAndProcessJar(filename_out, filename_in);
+  devtools_ijar::OpenFilesAndProcessJar(filename_out, filename_in);
+  return 0;
 }

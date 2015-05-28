@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +37,7 @@
 #include <limits>
 #include <vector>
 
-#include "third_party/ijar/common.h"
+#include "third_party/ijar/zip.h"
 #include <zlib.h>
 
 #define LOCAL_FILE_HEADER_SIGNATURE           0x04034b50
@@ -55,17 +56,7 @@
 #define GENERAL_PURPOSE_BIT_FLAG_SUPPORTED \
   (GENERAL_PURPOSE_BIT_FLAG_COMPRESSED | GENERAL_PURPOSE_BIT_FLAG_UTF8_ENCODED)
 
-#define STRINGIFY(x) #x
-#define SYSCALL(expr)  do { \
-                         if ((expr) < 0) { \
-                           perror(STRINGIFY(expr)); \
-                           abort(); \
-                         } \
-                       } while (0)
-
 namespace devtools_ijar {
-
-bool verbose = false;
 
 // In the absence of ZIP64 support, zip files are limited to 4GB.
 // http://www.info-zip.org/FAQ.html#limits
@@ -74,50 +65,54 @@ static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
 static bool ProcessCentralDirEntry(const u1 *&p,
                                    size_t *compressed_size,
                                    size_t *uncompressed_size,
-                                   bool *is_class_file);
+                                   char *filename,
+                                   size_t filename_size,
+                                   u4 *attr,
+                                   u4 *offset);
 
-struct JarStripper {
-  JarStripper(const u1 * const zipdata_in,
-              u1 * const zipdata_out,
-              size_t in_length,
-              const u1 * central_dir) :
-      zipdata_in_(zipdata_in),
-      zipdata_out_(zipdata_out),
-      zipdata_in_mapped_(zipdata_in),
-      zipdata_out_mapped_(zipdata_out),
-      central_dir_(central_dir),
-      in_length_(in_length),
-      p(zipdata_in),
-      q(zipdata_out),
-      central_dir_current_(central_dir) {
-    uncompressed_data_allocated_ = INITIAL_BUFFER_SIZE;
-    uncompressed_data_ =
-        reinterpret_cast<u1*>(malloc(uncompressed_data_allocated_));
+//
+// A class representing a ZipFile for reading. Its public API is exposed
+// using the ZipExtractor abstract class.
+//
+class InputZipFile : public ZipExtractor {
+ public:
+  InputZipFile(ZipExtractorProcessor *processor, int fd, off_t in_length,
+               off_t in_offset, const u1* zipdata_in, const u1* central_dir);
+  virtual ~InputZipFile();
+
+  virtual const char* GetError() {
+    if (errmsg[0] == 0) {
+      return NULL;
+    }
+    return errmsg;
   }
 
-  ~JarStripper()  {
-    free(uncompressed_data_);
+  virtual bool ProcessNext();
+  virtual void Reset();
+  virtual size_t GetSize() {
+    return in_length_;
   }
 
-  // Scan through the input .jar file, stripping each class file and
-  // emitting it to the output .jar file.  Returns the size of the
-  // output.
-  off_t Run();
+  virtual u8 CalculateOutputLength();
 
  private:
-  struct LocalFileEntry {
-    // Start of the local header (in the output buffer).
-    size_t local_header_offset;
-    size_t uncompressed_length;
+  ZipExtractorProcessor *processor;
 
-    // Start/length of the file_name in the local header.
-    u1 *file_name;
-    u2 file_name_length;
+  int fd_in;  // Input file descripor
 
-    // Start/length of the extra_field in the local header.
-    const u1 *extra_field;
-    u2 extra_field_length;
-  };
+  // InputZipFile is responsible for maintaining the following
+  // pointers. They are allocated by the Create() method before
+  // the object is actually created using mmap.
+  const u1 * const zipdata_in_;   // start of input file mmap
+  const u1 * zipdata_in_mapped_;  // start of still mapped region
+  const u1 * const central_dir_;  // central directory in input file
+
+  size_t in_length_;  // size of the input file
+  size_t in_offset_;  // offset  the input file
+
+  const u1 *p;  // input cursor
+
+  const u1* central_dir_current_;  // central dir input cursor
 
   // Buffer size is initially INITIAL_BUFFER_SIZE. It doubles in size every
   // time it is found too small, until it reaches MAX_BUFFER_SIZE. If that is
@@ -126,20 +121,6 @@ struct JarStripper {
   static const size_t INITIAL_BUFFER_SIZE = 256 * 1024;  // 256K
   static const size_t MAX_BUFFER_SIZE = 16 * 1024 * 1024;
   static const size_t MAX_MAPPED_REGION = 32 * 1024 * 1024;
-
-  const u1 * const zipdata_in_;   // start of input file mmap
-  u1 * const zipdata_out_;        // start of output file mmap
-  const u1 * zipdata_in_mapped_;  // start of still mapped region
-  u1 * zipdata_out_mapped_;       // start of still mapped region
-  const u1 * const central_dir_;  // central directory in input file
-
-  size_t in_length_;  // size of the input file
-
-  const u1 *p;  // input cursor
-  u1 *q;  // output cursor
-  const u1* central_dir_current_;  // central dir input cursor
-
-  std::vector<LocalFileEntry*> entries_;
 
   // These metadata fields are the fields of the ZIP header of the file being
   // processed.
@@ -160,31 +141,129 @@ struct JarStripper {
   u1 *uncompressed_data_;
   size_t uncompressed_data_allocated_;
 
-  // Read one entry from input zip file, and emit corresponding entry
-  // in output zip file.
-  void ProcessLocalFileEntry(size_t compressed_size, size_t uncompressed_size,
-                             bool is_class_file);
+  // Copy of the last filename entry - Null-terminated.
+  char filename[PATH_MAX];
+  // The external file attribute field
+  u4 attr;
 
-  // Add a zero-byte file called "dummy" to the output zip file.
-  void AddDummyEntry();
+  // last error
+  char errmsg[4*PATH_MAX];
 
-  // Write the ZIP central directory structure for each local file
-  // entry in "entries".
-  void WriteCentralDirectory();
+  int error(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(errmsg, 4*PATH_MAX, fmt, ap);
+    va_end(ap);
+    return -1;
+  }
 
   // Check that at least n bytes remain in the input file, otherwise
   // abort with an error message.  "state" is the name of the field
   // we're about to read, for diagnostics.
-  void EnsureRemaining(size_t n, const char *state) {
+  int EnsureRemaining(size_t n, const char *state) {
     size_t in_offset = p - zipdata_in_;
     size_t remaining = in_length_ - in_offset;
     if (n > remaining) {
-      fprintf(stderr, "Premature end of file (at offset %zd, state=%s); "
-              "expected %zd more bytes but found %zd.\n",
-              in_offset, state, n, remaining);
-      abort();
+      return error("Premature end of file (at offset %zd, state=%s); "
+                   "expected %zd more bytes but found %zd.\n",
+                   in_offset, state, n, remaining);
     }
+    return 0;
   }
+
+  // Read one entry from input zip file
+  int ProcessLocalFileEntry(size_t compressed_size, size_t uncompressed_size);
+
+  // Uncompress a file from the archive using zlib. The pointer returned
+  // is owned by InputZipFile, so it must not be freed. Advances the input
+  // cursor to the first byte after the compressed data.
+  u1* UncompressFile();
+
+  // Skip a file
+  int SkipFile(const bool compressed);
+
+  // Process a file
+  int ProcessFile(const bool compressed);
+};
+
+//
+// A class implementing ZipBuilder that represent an open zip file for writing.
+//
+class OutputZipFile : public ZipBuilder {
+ public:
+  OutputZipFile(int fd, u1 * const zipdata_out) :
+      fd_out(fd),
+      zipdata_out_(zipdata_out),
+      zipdata_out_mapped_(zipdata_out),
+      q(zipdata_out) {
+    errmsg[0] = 0;
+  }
+
+  virtual const char* GetError() {
+    if (errmsg[0] == 0) {
+      return NULL;
+    }
+    return errmsg;
+  }
+
+  virtual ~OutputZipFile() { Finish(); }
+  virtual u1* NewFile(const char* filename, const u4 attr);
+  virtual int FinishFile(size_t filelength);
+  virtual int WriteEmptyFile(const char* filename);
+  virtual size_t GetSize() {
+    return Offset(q);
+  }
+  virtual int GetNumberFiles() {
+    return entries_.size();
+  }
+  virtual int Finish();
+
+ private:
+  struct LocalFileEntry {
+    // Start of the local header (in the output buffer).
+    size_t local_header_offset;
+    size_t uncompressed_length;
+
+    // external attributes field
+    u4 external_attr;
+
+    // Start/length of the file_name in the local header.
+    u1 *file_name;
+    u2 file_name_length;
+
+    // Start/length of the extra_field in the local header.
+    const u1 *extra_field;
+    u2 extra_field_length;
+  };
+
+  int fd_out;  // file descriptor for the output file
+
+  // OutputZipFile is responsible for maintaining the following
+  // pointers. They are allocated by the Create() method before
+  // the object is actually created using mmap.
+  u1 * const zipdata_out_;        // start of output file mmap
+  u1 * zipdata_out_mapped_;       // start of still mapped region
+  u1 *q;  // output cursor
+
+  u1 *compressed_size_ptr;        // Current pointer to "compressed size" entry.
+
+  // List of entries to write the central directory
+  std::vector<LocalFileEntry*> entries_;
+
+  // last error
+  char errmsg[4*PATH_MAX];
+
+  int error(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(errmsg, 4*PATH_MAX, fmt, ap);
+    va_end(ap);
+    return -1;
+  }
+
+  // Write the ZIP central directory structure for each local file
+  // entry in "entries".
+  void WriteCentralDirectory();
 
   // Returns the offset of the pointer relative to the start of the
   // output zip file.
@@ -192,115 +271,74 @@ struct JarStripper {
     return x - zipdata_out_;
   }
 
-  // Uncompress a file from the archive using zlib. The pointer returned
-  // is owned by JarStripper, so it must not be freed. Advances the input cursor
-  // to the first byte after the compressed data.
-  u1* UncompressFile();
-
   // Write ZIP file header in the output. Since the compressed size is not
   // known in advance, it must be recorded later. This method returns a pointer
   // to "compressed size" in the file header that should be passed to
   // WriteFileSizeInLocalFileHeader() later.
-  u1* WriteLocalFileHeader();
+  u1* WriteLocalFileHeader(const char *filename, const u4 attr);
 
   // Fill in the "compressed size" and "uncompressed size" fields in a local
   // file header previously written by WriteLocalFileHeader().
   void WriteFileSizeInLocalFileHeader(u1 *compressed_size_ptr,
                                       size_t out_length);
-
-  // Process raw class data. Expects that metadata fields are filled out, i.e.
-  // extract_version_, general_purpose_bit_flag and their kin.
-  void ProcessRawClassData(const u1 *classdata_in);
-
-  // Process a compressed file as a class
-  void ProcessCompressedFile();
-
-  // Skip a compressed file
-  void SkipCompressedFile();
-
-  // Process an uncompressed file
-  void ProcessUncompressedFile();
-
-  // Skip an uncompressed file
-  void SkipUncompressedFile();
 };
 
-off_t JarStripper::Run() {
-  // Process all the entries in the central directory. Also make sure that the
-  // content pointer is in sync.
-  for (int i = 0; true; i++) {
-    size_t compressed, uncompressed;
-    bool is_class_file;
-    if (!ProcessCentralDirEntry(central_dir_current_,
-                                &compressed, &uncompressed, &is_class_file)) {
-        break;
-    }
 
-    EnsureRemaining(4, "signature");
-    u4 signature = get_u4le(p);
-    if (signature == LOCAL_FILE_HEADER_SIGNATURE) {
-      ProcessLocalFileEntry(compressed, uncompressed, is_class_file);
-    } else {
-      fprintf(stderr,
-              "local file header signature for file %d not found\n", i);
-      abort();
-    }
+
+//
+// Implementation of InputZipFile
+//
+bool InputZipFile::ProcessNext() {
+  // Process the next entry in the central directory. Also make sure that the
+  // content pointer is in sync.
+  size_t compressed, uncompressed;
+  u4 offset;
+  if (!ProcessCentralDirEntry(central_dir_current_, &compressed, &uncompressed,
+                              filename, PATH_MAX, &attr, &offset)) {
+    return false;
   }
 
-  // Add dummy file, since javac doesn't like truly empty jars.
-  if (entries_.empty()) AddDummyEntry();
+  // There might be an offset specified in the central directory that does
+  // not match the file offset, if so, correct the pointer.
+  if (offset != 0 && (p != (zipdata_in_ + in_offset_ + offset))) {
+    p = zipdata_in_ + offset;
+  }
 
-  WriteCentralDirectory();
-  return Offset(q);  // = output length
+  if (EnsureRemaining(4, "signature") < 0) {
+    return false;
+  }
+  u4 signature = get_u4le(p);
+  if (signature == LOCAL_FILE_HEADER_SIGNATURE) {
+    if (ProcessLocalFileEntry(compressed, uncompressed) < 0) {
+      return false;
+    }
+  } else {
+    error("local file header signature for file %s not found\n", filename);
+    return false;
+  }
+
+  return true;
 }
 
-void JarStripper::AddDummyEntry() {
-  const u1* file_name = (const u1*) "dummy";
-  size_t file_name_length = strlen("dummy");
-
-  LocalFileEntry *entry = new LocalFileEntry;
-  entry->local_header_offset = Offset(q);
-
-  // Output the ZIP local_file_header:
-  put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
-  put_u2le(q, 10);  // extract_version
-  put_u2le(q, 0);  // general_purpose_bit_flag
-  put_u2le(q, 0);  // compression_method
-  put_u2le(q, 0);  // last_mod_file_time
-  put_u2le(q, 0);  // last_mod_file_date
-  put_u4le(q, 0);  // crc32
-  put_u4le(q, 0);  // compressed_size
-  put_u4le(q, 0);  // uncompressed_size
-  put_u2le(q, file_name_length);
-  put_u2le(q, 0);  // extra_field_length
-  put_n(q, file_name, file_name_length);
-
-  entry->file_name_length = file_name_length;
-  entry->extra_field_length = 0;
-  entry->extra_field = (const u1*) "";
-  entry->file_name = (u1*) strdup((const char *) file_name);
-  entries_.push_back(entry);
-}
-
-void JarStripper::ProcessLocalFileEntry(
-    size_t compressed_size, size_t uncompressed_size, bool is_class_file) {
-  EnsureRemaining(26, "extract_version");
+int InputZipFile::ProcessLocalFileEntry(
+    size_t compressed_size, size_t uncompressed_size) {
+  if (EnsureRemaining(26, "extract_version") < 0) {
+    return -1;
+  }
   extract_version_ = get_u2le(p);
   general_purpose_bit_flag_ = get_u2le(p);
 
   if ((general_purpose_bit_flag_ & ~GENERAL_PURPOSE_BIT_FLAG_SUPPORTED) != 0) {
-    fprintf(stderr, "Unsupported value (0x%04x) in general purpose bit flag.\n",
-            general_purpose_bit_flag_);
-    abort();
+    return error("Unsupported value (0x%04x) in general purpose bit flag.\n",
+                 general_purpose_bit_flag_);
   }
 
   compression_method_ = get_u2le(p);
 
   if (compression_method_ != COMPRESSION_METHOD_DEFLATED &&
       compression_method_ != COMPRESSION_METHOD_STORED) {
-    fprintf(stderr, "Unsupported compression method (%d).\n",
-            compression_method_);
-    abort();
+    return error("Unsupported compression method (%d).\n",
+                 compression_method_);
   }
 
   // skip over: last_mod_file_time, last_mod_file_date, crc32
@@ -310,11 +348,15 @@ void JarStripper::ProcessLocalFileEntry(
   file_name_length_ = get_u2le(p);
   extra_field_length_ = get_u2le(p);
 
-  EnsureRemaining(file_name_length_, "file_name");
+  if (EnsureRemaining(file_name_length_, "file_name") < 0) {
+    return -1;
+  }
   file_name_ = p;
   p += file_name_length_;
 
-  EnsureRemaining(extra_field_length_, "extra_field");
+  if (EnsureRemaining(extra_field_length_, "extra_field") < 0) {
+    return -1;
+  }
   extra_field_ = p;
   p += extra_field_length_;
 
@@ -328,8 +370,7 @@ void JarStripper::ProcessLocalFileEntry(
     compressed_size_ = compressed_size;
   } else {
     if (compressed_size_ != compressed_size) {
-      fprintf(stderr, "central directory and file header inconsistent\n");
-      abort();
+      return error("central directory and file header inconsistent\n");
     }
   }
 
@@ -337,22 +378,17 @@ void JarStripper::ProcessLocalFileEntry(
     uncompressed_size_ = uncompressed_size;
   } else {
     if (uncompressed_size_ != uncompressed_size) {
-      fprintf(stderr, "central directory and file header inconsistent\n");
-      abort();
+      return error("central directory and file header inconsistent\n");
     }
   }
 
-  if (is_class_file) {
-    if (is_compressed) {
-      ProcessCompressedFile();
-    } else {
-      ProcessUncompressedFile();
+  if (processor->Accept(filename, attr)) {
+    if (ProcessFile(is_compressed) < 0) {
+      return -1;
     }
   } else {
-    if (is_compressed) {
-      SkipCompressedFile();
-    } else {
-      SkipUncompressedFile();
+    if (SkipFile(is_compressed) < 0) {
+      return -1;
     }
   }
 
@@ -369,31 +405,32 @@ void JarStripper::ProcessLocalFileEntry(
     }
   }
 
-  if (q - zipdata_out_mapped_ > MAX_MAPPED_REGION) {
-    munmap(zipdata_out_mapped_, MAX_MAPPED_REGION);
-    zipdata_out_mapped_ += MAX_MAPPED_REGION;
-  }
-
   if (p - zipdata_in_mapped_ > MAX_MAPPED_REGION) {
     munmap(const_cast<u1*>(zipdata_in_mapped_), MAX_MAPPED_REGION);
     zipdata_in_mapped_ += MAX_MAPPED_REGION;
   }
+
+  return 0;
 }
 
-void JarStripper::SkipUncompressedFile() {
-  // In this case, compressed_size_ == uncompressed_size_ (since the file is
-  // uncompressed), so we can use either.
-  if (compressed_size_ != uncompressed_size_) {
-    fprintf(stderr, "compressed size != uncompressed size, although the file "
-            "is uncompressed.\n");
-    abort();
+int InputZipFile::SkipFile(const bool compressed) {
+  if (!compressed) {
+    // In this case, compressed_size_ == uncompressed_size_ (since the file is
+    // uncompressed), so we can use either.
+    if (compressed_size_ != uncompressed_size_) {
+      return error("compressed size != uncompressed size, although the file "
+                   "is uncompressed.\n");
+    }
   }
 
-  EnsureRemaining(compressed_size_, "file_data");
+  if (EnsureRemaining(compressed_size_, "file_data") < 0) {
+    return -1;
+  }
   p += compressed_size_;
+  return 0;
 }
 
-u1* JarStripper::UncompressFile() {
+u1* InputZipFile::UncompressFile() {
   size_t in_offset = p - zipdata_in_;
   size_t remaining = in_length_ - in_offset;
   z_stream stream;
@@ -406,8 +443,8 @@ u1* JarStripper::UncompressFile() {
 
   int ret = inflateInit2(&stream, -MAX_WBITS);
   if (ret != Z_OK) {
-    fprintf(stderr, "inflateInit: %d\n", ret);
-    abort();
+    error("inflateInit: %d\n", ret);
+    return NULL;
   }
 
   int uncompressed_until_now = 0;
@@ -438,11 +475,10 @@ u1* JarStripper::UncompressFile() {
         // the decompressed data. Enlarge that buffer and try again.
 
         if (uncompressed_data_allocated_ == MAX_BUFFER_SIZE) {
-          fprintf(stderr,
-                  "ijar does not support decompressing files "
-                  "larger than %dMB.\n",
-                  (int) (MAX_BUFFER_SIZE/(1024*1024)));
-          abort();
+          error("ijar does not support decompressing files "
+                "larger than %dMB.\n",
+                (int) (MAX_BUFFER_SIZE/(1024*1024)));
+          return NULL;
         }
 
         uncompressed_data_allocated_ *= 2;
@@ -460,132 +496,38 @@ u1* JarStripper::UncompressFile() {
       case Z_STREAM_ERROR:
       case Z_NEED_DICT:
       default: {
-        fprintf(stderr, "zlib returned error code %d during inflate.\n", ret);
-        abort();
+        error("zlib returned error code %d during inflate.\n", ret);
+        return NULL;
       }
     }
   }
 }
 
-void JarStripper::SkipCompressedFile() {
-  EnsureRemaining(compressed_size_, "file_data");
-  p += compressed_size_;
-}
+int InputZipFile::ProcessFile(const bool compressed) {
+  const u1 *file_data;
+  if (compressed) {
+    file_data = UncompressFile();
+    if (file_data == NULL) {
+      return -1;
+    }
+  } else {
+    // In this case, compressed_size_ == uncompressed_size_ (since the file is
+    // uncompressed), so we can use either.
+    if (compressed_size_ != uncompressed_size_) {
+      return error("compressed size != uncompressed size, although the file "
+                   "is uncompressed.\n");
+    }
 
-u1* JarStripper::WriteLocalFileHeader() {
-    LocalFileEntry *entry = new LocalFileEntry;
-    entry->local_header_offset = Offset(q);
-    entry->file_name_length = file_name_length_;
-    entry->file_name = new u1[file_name_length_];
-    memcpy(entry->file_name, file_name_, file_name_length_);
-    entry->extra_field_length = 0;
-    entry->extra_field = (const u1*)"";
-
-    // Output the ZIP local_file_header:
-    put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
-    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
-    put_u2le(q, 0);  // general purpose bit flag
-    put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
-    put_u2le(q, 0);  // last_mod_file_time
-    put_u2le(q, 0);  // last_mod_file_date
-    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
-    u1 *compressed_size_ptr = q;
-    put_u4le(q, 0);  // compressed_size = placeholder
-    put_u4le(q, 0);  // uncompressed_size = placeholder
-    put_u2le(q, entry->file_name_length);
-    put_u2le(q, entry->extra_field_length);
-
-    put_n(q, entry->file_name, entry->file_name_length);
-    put_n(q, entry->extra_field, entry->extra_field_length);
-    entries_.push_back(entry);
-
-    return compressed_size_ptr;
-}
-
-void JarStripper::WriteFileSizeInLocalFileHeader(u1 *compressed_size_ptr,
-                                                 size_t out_length) {
-  // uncompressed size and compressed size are the same, since the output
-  // ijar is uncompressed.
-  put_u4le(compressed_size_ptr, out_length);  // compressed_size
-  put_u4le(compressed_size_ptr, out_length);  // uncompressed_size
-}
-
-void JarStripper::ProcessRawClassData(const u1 *classdata_in) {
-  if (verbose) {
-    // file_name_ is not NUL-terminated.
-    fprintf(stderr, "INFO: StripClass: %.*s\n", file_name_length_, file_name_);
+    if (EnsureRemaining(compressed_size_, "file_data") < 0) {
+      return -1;
+    }
+    file_data = p;
+    p += compressed_size_;
   }
-  u1 *compressed_size_ptr = WriteLocalFileHeader();
-
-  u1 *classdata_out = q;
-  StripClass(q, classdata_in, uncompressed_size_);  // actually process it
-  size_t out_length = q - classdata_out;
-
-  WriteFileSizeInLocalFileHeader(compressed_size_ptr, out_length);
-  entries_.back()->uncompressed_length = out_length;
+  processor->Process(filename, attr, file_data, uncompressed_size_);
+  return 0;
 }
 
-void JarStripper::ProcessCompressedFile() {
-  u1 *classdata_in = UncompressFile();
-  ProcessRawClassData(classdata_in);
-}
-
-void JarStripper::ProcessUncompressedFile() {
-  // In this case, compressed_size_ == uncompressed_size_ (since the file is
-  // uncompressed), so we can use either.
-  if (compressed_size_ != uncompressed_size_) {
-    fprintf(stderr, "compressed size != uncompressed size, although the file "
-            "is uncompressed.\n");
-    abort();
-  }
-
-  EnsureRemaining(compressed_size_, "file_data");
-  const u1 *file_data = p;
-  p += compressed_size_;
-  ProcessRawClassData(file_data);
-}
-
-void JarStripper::WriteCentralDirectory() {
-  // central directory:
-  const u1 *central_directory_start = q;
-  for (int ii = 0; ii < entries_.size(); ++ii) {
-    LocalFileEntry *entry = entries_[ii];
-    put_u4le(q, CENTRAL_FILE_HEADER_SIGNATURE);
-    put_u2le(q, 0);  // version made by
-
-    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
-    put_u2le(q, 0);  // general purpose bit flag
-    put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
-    put_u2le(q, 0);  // last_mod_file_time
-    put_u2le(q, 0);  // last_mod_file_date
-    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
-    put_u4le(q, entry->uncompressed_length);  // compressed_size
-    put_u4le(q, entry->uncompressed_length);  // uncompressed_size
-    put_u2le(q, entry->file_name_length);
-    put_u2le(q, entry->extra_field_length);
-
-    put_u2le(q, 0);  // file comment length
-    put_u2le(q, 0);  // disk number start
-    put_u2le(q, 0);  // internal file attributes
-    put_u4le(q, 0);  // external file attributes
-    // relative offset of local header:
-    put_u4le(q, entry->local_header_offset);
-
-    put_n(q, entry->file_name, entry->file_name_length);
-    put_n(q, entry->extra_field, entry->extra_field_length);
-  }
-  u4 central_directory_size = q - central_directory_start;
-
-  put_u4le(q, END_OF_CENTRAL_DIR_SIGNATURE);
-  put_u2le(q, 0);  // number of this disk
-  put_u2le(q, 0);  // number of the disk with the start of the central directory
-  put_u2le(q, entries_.size());  // # central dir entries on this disk
-  put_u2le(q, entries_.size());  // total # entries in the central directory
-  put_u4le(q, central_directory_size);  // size of the central directory
-  put_u4le(q, Offset(central_directory_start));  // offset of start of central
-                                                 // directory wrt starting disk
-  put_u2le(q, 0);  // .ZIP file comment length
-}
 
 // Reads and returns some metadata of the next file from the central directory:
 // - compressed size
@@ -599,7 +541,7 @@ void JarStripper::WriteCentralDirectory() {
 // that has a signature, so parsing it this way is safe.
 static bool ProcessCentralDirEntry(
     const u1 *&p, size_t *compressed_size, size_t *uncompressed_size,
-    bool *is_class_file) {
+    char *filename, size_t filename_size, u4 *attr, u4 *offset) {
   u4 signature = get_u4le(p);
   if (signature != CENTRAL_FILE_HEADER_SIGNATURE) {
     return false;
@@ -611,11 +553,15 @@ static bool ProcessCentralDirEntry(
   u2 file_name_length = get_u2le(p);
   u2 extra_field_length = get_u2le(p);
   u2 file_comment_length = get_u2le(p);
-  p += 12;  // skip to file name field
+  p += 4;  // skip to external file attributes field
+  *attr = get_u4le(p);
+  *offset = get_u4le(p);
   {
-    static const int len = strlen(".class");
-    *is_class_file = file_name_length >= len &&
-        memcmp(".class", p + file_name_length - len, len) == 0;
+    size_t len = (file_name_length < filename_size)
+      ? file_name_length
+      : (filename_size - 1);
+    memcpy(reinterpret_cast<void*>(filename), p, len);
+    filename[len] = 0;
   }
   p += file_name_length;
   p += extra_field_length;
@@ -623,9 +569,46 @@ static bool ProcessCentralDirEntry(
   return true;
 }
 
+// Gives a maximum bound on the size of the interface JAR. Basically, adds
+// the difference between the compressed and uncompressed sizes to the size
+// of the input file.
+u8 InputZipFile::CalculateOutputLength() {
+  const u1* current = central_dir_;
+
+  u8 compressed_size = 0;
+  u8 uncompressed_size = 0;
+  u8 skipped_compressed_size = 0;
+  u4 attr;
+  u4 offset;
+  char filename[PATH_MAX];
+
+  while (true) {
+    size_t file_compressed, file_uncompressed;
+    if (!ProcessCentralDirEntry(current,
+                                &file_compressed, &file_uncompressed,
+                                filename, PATH_MAX, &attr, &offset)) {
+      break;
+    }
+
+    if (processor->Accept(filename, attr)) {
+      compressed_size += (u8) file_compressed;
+      uncompressed_size += (u8) file_uncompressed;
+    } else {
+      skipped_compressed_size += file_compressed;
+    }
+  }
+
+  // The worst case is when the output is simply the input uncompressed. The
+  // metadata in the zip file will stay the same, so the file will grow by the
+  // difference between the compressed and uncompressed sizes.
+  return (u8) in_length_ - skipped_compressed_size
+      + (uncompressed_size - compressed_size);
+}
+
 // Given the data in the zip file, returns the offset of the central directory
 // and the number of files contained in it.
-bool FindZipCentralDirectory(const u1* bytes, size_t in_length, u4* offset) {
+bool FindZipCentralDirectory(const u1* bytes, size_t in_length,
+                             u4* offset, const u1** central_dir) {
   static const int MAX_COMMENT_LENGTH = 0xffff;
   static const int CENTRAL_DIR_LOCATOR_SIZE = 22;
   // Maximum distance of start of central dir locator from end of file
@@ -664,13 +647,16 @@ bool FindZipCentralDirectory(const u1* bytes, size_t in_length, u4* offset) {
     return false;
   }
 
+  const u1* end_of_central_dir = current;
   get_u4le(current);  // central directory locator signature, already checked
   u2 number_of_this_disk = get_u2le(current);
   u2 disk_with_central_dir = get_u2le(current);
   u2 central_dir_entries_on_this_disk = get_u2le(current);
   u2 central_dir_entries = get_u2le(current);
-  get_u4le(current);  // central directory size
+  u4 central_dir_size = get_u4le(current);
   u4 central_dir_offset = get_u4le(current);
+  u2 file_comment_length = get_u2le(current);
+  current += file_comment_length;  // set current to the end of the central dir
 
   if (number_of_this_disk != 0
     || disk_with_central_dir != 0
@@ -681,115 +667,281 @@ bool FindZipCentralDirectory(const u1* bytes, size_t in_length, u4* offset) {
 
   // Do not change output values before determining that they are OK.
   *offset = central_dir_offset;
+  // Central directory start can then be used to determine the actual
+  // starts of the zip file (which can be different in case of a non-zip
+  // header like for auto-extractable binaries).
+  *central_dir = end_of_central_dir - central_dir_size;
   return true;
 }
 
-// Gives a maximum bound on the size of the interface JAR. Basically, adds
-// the difference between the compressed and uncompressed sizes to the size
-// of the input file.
-static u8 CalculateOutputLength(const u1* central_dir, size_t in_length) {
-  const u1* current = central_dir;
-
-  u8 compressed_size = 0;
-  u8 uncompressed_size = 0;
-  u8 skipped_compressed_size = 0;
-
-  while (true) {
-    size_t file_compressed, file_uncompressed;
-    bool is_class_file;
-    if (!ProcessCentralDirEntry(current,
-                                &file_compressed, &file_uncompressed,
-                                &is_class_file)) {
-      break;
-    }
-
-    if (is_class_file) {
-      compressed_size += (u8) file_compressed;
-      uncompressed_size += (u8) file_uncompressed;
-    } else {
-      skipped_compressed_size += file_compressed;
-    }
-  }
-
-  // The worst case is when the output is simply the input uncompressed. The
-  // metadata in the zip file will stay the same, so the file will grow by the
-  // difference between the compressed and uncompressed sizes.
-  return (u8) in_length - skipped_compressed_size
-      + (uncompressed_size - compressed_size);
+void InputZipFile::Reset() {
+  central_dir_current_ = central_dir_;
+  zipdata_in_mapped_ = zipdata_in_;
+  p = zipdata_in_ + in_offset_;
 }
 
-int OpenFilesAndProcessJar(const char *file_out, const char *file_in) {
-  int fd_in = open(file_in, O_RDONLY);
+int ZipExtractor::ProcessAll() {
+  while (ProcessNext()) {}
+  if (GetError() != NULL) {
+    return -1;
+  }
+  return 0;
+}
+
+ZipExtractor* ZipExtractor::Create(const char* filename,
+                                   ZipExtractorProcessor *processor) {
+  int fd_in = open(filename, O_RDONLY);
   if (fd_in < 0) {
-    fprintf(stderr, "Can't open file %s for reading: %s.\n",
-            file_in, strerror(errno));
-    return 1;
+    return NULL;
   }
 
-  off_t length;
-  SYSCALL(length = lseek(fd_in, 0, SEEK_END));
+  off_t length = lseek(fd_in, 0, SEEK_END);
+  if (length < 0) {
+    return NULL;
+  }
 
   void *zipdata_in = mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd_in, 0);
   if (zipdata_in == MAP_FAILED) {
-    perror("mmap(in)");
-    return 1;
+    return NULL;
   }
 
   u4 central_dir_offset;
+  const u1 *central_dir = NULL;
 
   if (!devtools_ijar::FindZipCentralDirectory(
-          static_cast<const u1*>(zipdata_in), length, &central_dir_offset)) {
-    abort();
+          static_cast<const u1*>(zipdata_in), length,
+          &central_dir_offset, &central_dir)) {
+    errno = EIO;  // we don't really have a good error number
+    return NULL;
   }
+  const u1 *zipdata_start = static_cast<const u1*>(zipdata_in);
+  off_t offset = - static_cast<off_t>(zipdata_start
+                                      + central_dir_offset
+                                      - central_dir);
 
-  const u1* central_dir =
-      static_cast<const u1*>(zipdata_in) + central_dir_offset;
+  return new InputZipFile(processor, fd_in, length, offset,
+                          zipdata_start, central_dir);
+}
 
-  u8 output_length = CalculateOutputLength(central_dir, length);
-  if (output_length > kMaximumOutputSize) {
+InputZipFile::InputZipFile(ZipExtractorProcessor *processor, int fd,
+                           off_t in_length, off_t in_offset,
+                           const u1* zipdata_in, const u1* central_dir)
+  : processor(processor), fd_in(fd),
+    zipdata_in_(zipdata_in), zipdata_in_mapped_(zipdata_in),
+    central_dir_(central_dir), in_length_(in_length), in_offset_(in_offset),
+    p(zipdata_in + in_offset), central_dir_current_(central_dir) {
+  uncompressed_data_allocated_ = INITIAL_BUFFER_SIZE;
+  uncompressed_data_ =
+    reinterpret_cast<u1*>(malloc(uncompressed_data_allocated_));
+  errmsg[0] = 0;
+}
+
+InputZipFile::~InputZipFile() {
+  free(uncompressed_data_);
+  close(fd_in);
+}
+
+
+//
+// Implementation of OutputZipFile
+//
+int OutputZipFile::WriteEmptyFile(const char *filename) {
+  const u1* file_name = (const u1*) filename;
+  size_t file_name_length = strlen(filename);
+
+  LocalFileEntry *entry = new LocalFileEntry;
+  entry->local_header_offset = Offset(q);
+  entry->external_attr = 0;
+
+  // Output the ZIP local_file_header:
+  put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
+  put_u2le(q, 10);  // extract_version
+  put_u2le(q, 0);  // general_purpose_bit_flag
+  put_u2le(q, 0);  // compression_method
+  put_u2le(q, 0);  // last_mod_file_time
+  put_u2le(q, 0);  // last_mod_file_date
+  put_u4le(q, 0);  // crc32
+  put_u4le(q, 0);  // compressed_size
+  put_u4le(q, 0);  // uncompressed_size
+  put_u2le(q, file_name_length);
+  put_u2le(q, 0);  // extra_field_length
+  put_n(q, file_name, file_name_length);
+
+  entry->file_name_length = file_name_length;
+  entry->extra_field_length = 0;
+  entry->extra_field = (const u1*) "";
+  entry->file_name = (u1*) strdup((const char *) file_name);
+  entries_.push_back(entry);
+
+  return 0;
+}
+
+void OutputZipFile::WriteCentralDirectory() {
+  // central directory:
+  const u1 *central_directory_start = q;
+  for (int ii = 0; ii < entries_.size(); ++ii) {
+    LocalFileEntry *entry = entries_[ii];
+    put_u4le(q, CENTRAL_FILE_HEADER_SIGNATURE);
+    put_u2le(q, 0);  // version made by
+
+    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
+    put_u2le(q, 0);  // general purpose bit flag
+    put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
+    put_u2le(q, 0);  // last_mod_file_time
+    put_u2le(q, 0);  // last_mod_file_date
+    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
+    put_u4le(q, entry->uncompressed_length);  // compressed_size
+    put_u4le(q, entry->uncompressed_length);  // uncompressed_size
+    put_u2le(q, entry->file_name_length);
+    put_u2le(q, entry->extra_field_length);
+
+    put_u2le(q, 0);  // file comment length
+    put_u2le(q, 0);  // disk number start
+    put_u2le(q, 0);  // internal file attributes
+    put_u4le(q, entry->external_attr);  // external file attributes
+    // relative offset of local header:
+    put_u4le(q, entry->local_header_offset);
+
+    put_n(q, entry->file_name, entry->file_name_length);
+    put_n(q, entry->extra_field, entry->extra_field_length);
+  }
+  u4 central_directory_size = q - central_directory_start;
+
+  put_u4le(q, END_OF_CENTRAL_DIR_SIGNATURE);
+  put_u2le(q, 0);  // number of this disk
+  put_u2le(q, 0);  // number of the disk with the start of the central directory
+  put_u2le(q, entries_.size());  // # central dir entries on this disk
+  put_u2le(q, entries_.size());  // total # entries in the central directory
+  put_u4le(q, central_directory_size);  // size of the central directory
+  put_u4le(q, Offset(central_directory_start));  // offset of start of central
+                                                 // directory wrt starting disk
+  put_u2le(q, 0);  // .ZIP file comment length
+}
+
+u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
+    off_t file_name_length_ = strlen(filename);
+    LocalFileEntry *entry = new LocalFileEntry;
+    entry->local_header_offset = Offset(q);
+    entry->file_name_length = file_name_length_;
+    entry->file_name = new u1[file_name_length_];
+    entry->external_attr = attr;
+    memcpy(entry->file_name, filename, file_name_length_);
+    entry->extra_field_length = 0;
+    entry->extra_field = (const u1*)"";
+
+    // Output the ZIP local_file_header:
+    put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
+    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
+    put_u2le(q, 0);  // general purpose bit flag
+    put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
+    put_u2le(q, 0);  // last_mod_file_time
+    put_u2le(q, 0);  // last_mod_file_date
+    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
+    u1 *compressed_size_ptr = q;
+    put_u4le(q, 0);  // compressed_size = placeholder
+    put_u4le(q, 0);  // uncompressed_size = placeholder
+    put_u2le(q, entry->file_name_length);
+    put_u2le(q, entry->extra_field_length);
+
+    put_n(q, entry->file_name, entry->file_name_length);
+    put_n(q, entry->extra_field, entry->extra_field_length);
+    entries_.push_back(entry);
+
+    return compressed_size_ptr;
+}
+
+void OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *compressed_size_ptr,
+                                                   size_t out_length) {
+  // uncompressed size and compressed size are the same, since the output
+  // ijar is uncompressed.
+  put_u4le(compressed_size_ptr, out_length);  // compressed_size
+  put_u4le(compressed_size_ptr, out_length);  // uncompressed_size
+}
+
+int OutputZipFile::Finish() {
+  if (fd_out > 0) {
+    WriteCentralDirectory();
+    if (ftruncate(fd_out, GetSize()) < 0) {
+      return error("ftruncate(fd_out, GetSize()): %s", strerror(errno));
+    }
+    if (close(fd_out) < 0) {
+      return error("close(fd_out): %s", strerror(errno));
+    }
+    fd_out = -1;
+  }
+  return 0;
+}
+
+u1* OutputZipFile::NewFile(const char* filename, const u4 attr) {
+  compressed_size_ptr = WriteLocalFileHeader(filename, attr);
+  return q;
+}
+
+int OutputZipFile::FinishFile(size_t filelength) {
+  WriteFileSizeInLocalFileHeader(compressed_size_ptr, filelength);
+  entries_.back()->uncompressed_length = filelength;
+  q += filelength;
+  return 0;
+}
+
+ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
+  if (estimated_size > kMaximumOutputSize) {
     fprintf(stderr,
             "Uncompressed input jar has size %llu, "
             "which exceeds the maximum supported output size %llu.\n"
             "Assuming that ijar will be smaller and hoping for the best.\n",
-            output_length, kMaximumOutputSize);
-    output_length = kMaximumOutputSize;
+            estimated_size, kMaximumOutputSize);
+    estimated_size = kMaximumOutputSize;
   }
 
-  int fd_out = open(file_out, O_CREAT|O_RDWR|O_TRUNC, 0644);
+  int fd_out = open(zip_file, O_CREAT|O_RDWR|O_TRUNC, 0644);
   if (fd_out < 0) {
-    fprintf(stderr, "Can't create file %s: %s.\n",
-            file_out, strerror(errno));
-    return 1;
+    return NULL;
   }
+
   // Create mmap-able sparse file
-  SYSCALL(ftruncate(fd_out, output_length));
+  if (ftruncate(fd_out, estimated_size) < 0) {
+    return NULL;
+  }
 
   // Ensure that any buffer overflow in JarStripper will result in
   // SIGSEGV or SIGBUS by over-allocating beyond the end of the file.
-  size_t mmap_length = std::min(output_length + sysconf(_SC_PAGESIZE),
+  size_t mmap_length = std::min(estimated_size + sysconf(_SC_PAGESIZE),
                                 (u8) std::numeric_limits<size_t>::max());
 
   void *zipdata_out = mmap(NULL, mmap_length, PROT_WRITE,
                            MAP_SHARED, fd_out, 0);
   if (zipdata_out == MAP_FAILED) {
-    fprintf(stderr, "output_length=%llu\n", output_length);
-    perror("mmap(out)");
-    return 1;
+    fprintf(stderr, "output_length=%llu\n", estimated_size);
+    return NULL;
   }
 
-  JarStripper stripper((const u1*) zipdata_in, (u1*) zipdata_out,
-                       length, (const u1*) central_dir);
-  off_t out_length = stripper.Run();
-  SYSCALL(ftruncate(fd_out, out_length));
-  SYSCALL(close(fd_out));
-  SYSCALL(close(fd_in));
+  return new OutputZipFile(fd_out, (u1*) zipdata_out);
+}
 
-  if (verbose) {
-    fprintf(stderr, "INFO: produced interface jar: %s -> %s (%d%%).\n",
-            file_in, file_out, (int) (100.0 * out_length / length));
+u8 ZipBuilder::EstimateSize(char **files) {
+  struct stat statst;
+  // Digital signature field size = 6, End of central directory = 22, Total = 28
+  u8 size = 28;
+  // Count the size of all the files in the input to estimate the size of the
+  // output.
+  for (int i = 0; files[i] != NULL; i++) {
+    if (stat(files[i], &statst) != 0) {
+      fprintf(stderr, "File %s does not seem to exist.", files[i]);
+      return 0;
+    }
+    size += statst.st_size;
+    // Add sizes of Zip meta data
+    // local file header = 30 bytes
+    // data descriptor = 12 bytes
+    // central directory descriptor = 46 bytes
+    //    Total: 88bytes
+    size += 88;
+    // The filename is stored twice (once in the central directory
+    // and once in the local file header).
+    size += strlen(files[i]) * 2;
   }
-
-  return 0;
+  return size;
 }
 
 }  // namespace devtools_ijar

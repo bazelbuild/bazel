@@ -41,6 +41,23 @@ sh_test(
     shard_count = 5,
 )
 
+sh_test(
+    name = "zip_test",
+    size = "large",
+    srcs = ["zip_test.sh"],
+    args = [
+        "$(location //third_party/ijar:zipper)",
+        # We assume unzip and zip to be on the path
+        "unzip",
+        "zip",
+    ],
+    data = [
+        "testenv.sh",
+        "//src/test/shell:bashunit",
+        "//third_party/ijar:zipper",
+    ],
+)
+
 java_library(
     name = "invokedynamic",
     testonly = 1,

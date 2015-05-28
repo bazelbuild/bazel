@@ -95,23 +95,7 @@ inline void put_n(u1 *&p, const u1 *src, size_t n) {
   p += n;
 }
 
-
-// Opens "file_in" (a .jar file) for reading, and writes an interface
-// .jar to "file_out".  Returns zero on success.
-int OpenFilesAndProcessJar(const char *file_out, const char *file_in);
-
-
-// Reads a JVM class from classdata_in (of the specified length), and
-// writes out a simplified class to classdata_out, advancing the
-// pointer.
-void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
-
 extern bool verbose;
-
-// Given the data in the zip file, returns the offset of the central
-// directory and the number of files contained in it in *offset and
-// *entries, respectively.  Returns true on success, or false on error.
-bool FindZipCentralDirectory(const u1* bytes, size_t in_length, u4* offset);
 
 }  // namespace devtools_ijar
 
