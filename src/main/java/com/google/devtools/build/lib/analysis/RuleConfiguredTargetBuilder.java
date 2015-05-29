@@ -363,7 +363,7 @@ public final class RuleConfiguredTargetBuilder {
   private void checkSkylarkObjectSafe(Object value) {
     if (!isSimpleSkylarkObjectSafe(value.getClass())
         // Java transitive Info Providers are accessible from Skylark.
-        || value instanceof TransitiveInfoProvider) {
+        && !(value instanceof TransitiveInfoProvider)) {
       checkCompositeSkylarkObjectSafe(value);
     }
   }
