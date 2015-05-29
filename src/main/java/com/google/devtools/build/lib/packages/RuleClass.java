@@ -470,6 +470,8 @@ public final class RuleClass {
               name);
           attributes.put(attrName, attribute);
         }
+
+        advertisedProviders.addAll(parent.getAdvertisedProviders());
       }
       // TODO(bazel-team): move this testonly attribute setting to somewhere else
       // preferably to some base RuleClass implementation.

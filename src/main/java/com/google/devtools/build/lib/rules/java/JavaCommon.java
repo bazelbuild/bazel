@@ -159,6 +159,12 @@ public class JavaCommon {
         .build();
   }
 
+  public static ImmutableList<String> getConstraints(RuleContext ruleContext) {
+    return ruleContext.getRule().isAttrDefined("constraints", Type.STRING_LIST)
+        ? ImmutableList.copyOf(ruleContext.attributes().get("constraints", Type.STRING_LIST))
+        : ImmutableList.<String>of();
+  }
+
   public void setClassPathFragment(ClasspathConfiguredFragment classpathFragment) {
     this.classpathFragment = classpathFragment;
   }
@@ -634,7 +640,7 @@ public class JavaCommon {
    *
    * @return the value of the neverlink attribute.
    */
-  public final boolean isNeverLink() {
+  public static final boolean isNeverLink(RuleContext ruleContext) {
     return ruleContext.getRule().isAttrDefined("neverlink", Type.BOOLEAN) &&
         ruleContext.attributes().get("neverlink", Type.BOOLEAN);
   }

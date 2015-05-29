@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidAaptBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidResourceSupportRule;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
@@ -156,6 +157,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         }))
         .add(attr("$android_manifest_merge_tool", LABEL).cfg(HOST).exec().value(env.getLabel(
             AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
+        .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }
 

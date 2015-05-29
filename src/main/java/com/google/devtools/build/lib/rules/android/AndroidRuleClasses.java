@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
@@ -551,8 +552,11 @@ public final class AndroidRuleClasses {
           <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
           Android target platform.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(builder.copy("deps").cfg(ANDROID_SPLIT_TRANSITION)
-              .allowedRuleClasses(ALLOWED_DEPENDENCIES).allowedFileTypes())
+          .override(builder.copy("deps")
+              .cfg(ANDROID_SPLIT_TRANSITION)
+              .allowedRuleClasses(ALLOWED_DEPENDENCIES)
+              .allowedFileTypes()
+              .aspect(AndroidNeverlinkAspect.class))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
               .value(env.getLabel(AndroidRuleClasses.BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
@@ -664,6 +668,7 @@ com/google/common/base/Objects.class
             </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("legacy_native_support", TRISTATE).value(TriState.AUTO))
+          .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }
 

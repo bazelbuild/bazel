@@ -74,11 +74,11 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     CppCompilationContext transitiveCppDeps = common.collectTransitiveCppDeps();
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
-
+    boolean neverLink = JavaCommon.isNeverLink(ruleContext);
     JavaCompilationArgs javaCompilationArgs = common.collectJavaCompilationArgs(
-        false, common.isNeverLink(), compilationArgsFromSources());
+        false, neverLink, compilationArgsFromSources());
     JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
-        true, common.isNeverLink(), compilationArgsFromSources());
+        true, neverLink, compilationArgsFromSources());
     NestedSet<Artifact> transitiveJavaSourceJars =
         collectTransitiveJavaSourceJars(ruleContext, srcJar);
     if (srcJar != null) {
@@ -87,7 +87,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     // The "neverlink" attribute is transitive, so if it is enabled, we don't add any
     // runfiles from this target or its dependencies.
-    Runfiles runfiles = common.isNeverLink() ?
+    Runfiles runfiles = neverLink ?
         Runfiles.EMPTY :
         new Runfiles.Builder()
             // add the jars to the runfiles
@@ -120,7 +120,9 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     common.addTransitiveInfoProviders(ruleBuilder, filesToBuild, null);
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(common.isNeverLink()))
+        .add(JavaRuntimeJarProvider.class,
+            new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
+        .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
         .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(
