@@ -498,8 +498,10 @@ public final class AndroidRuleClasses {
               .value(env.getLabel("//tools/defaults:android_jar")))
           .add(attr("$android_dx_jar", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/defaults:android_dx_jar")))
-          .add(attr("$android_jar_repackager", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/android:repackage_jar")))
+          // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
+          // like all the rest of android tools.
+          .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//third_party/java/jarjar:jarjar_bin")))
           .build();
     }
 
