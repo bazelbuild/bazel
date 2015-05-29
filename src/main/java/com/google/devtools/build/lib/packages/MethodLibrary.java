@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -188,24 +189,101 @@ public class MethodLibrary {
       doc = "Returns a list of all the words in the string, using <code>sep</code>  "
           + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       mandatoryPositionals = {
-        @Param(name = "self", type = String.class, doc = "This string.")},
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sep", type = String.class, doc = "The string to split on.")},
       optionalPositionals = {
-        @Param(name = "sep", type = String.class, defaultValue = "' '",
-            doc = "The string to split on, default is space (\" \")."),
         @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "The maximum number of splits.")},
-      useEnvironment = true)
+      useEnvironment = true,
+      useLocation = true)
   private static BuiltinFunction split = new BuiltinFunction("split") {
-    public Object invoke(String self, String sep, Object maxSplitO,
-        Environment env) throws ConversionException {
+    public Object invoke(String self, String sep, Object maxSplitO, Location loc, 
+        Environment env) throws ConversionException, EvalException {
       int maxSplit = Type.INTEGER.convertOptional(
           maxSplitO, "'split' argument of 'split'", /*label*/null, -2);
       // + 1 because the last result is the remainder, and default of -2 so that after +1 it's -1
       String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(self, maxSplit + 1);
-      List<String> result = Arrays.<String>asList(ss);
-      return env.isSkylarkEnabled() ? SkylarkList.list(result, String.class) : result;
+      return convert(Arrays.<String>asList(ss), env, loc);
     }
   };
+  
+  @SkylarkSignature(name = "rsplit", objectType = StringModule.class,
+      returnType = HackHackEitherList.class,
+      doc = "Returns a list of all the words in the string, using <code>sep</code>  "
+          + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>. "
+          + "Except for splitting from the right, this method behaves like split().",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "sep", type = String.class, doc = "The string to split on.")},
+      optionalPositionals = {
+        @Param(name = "maxsplit", type = Integer.class, noneable = true,
+          defaultValue = "None", doc = "The maximum number of splits.")}, 
+      useEnvironment = true,
+      useLocation = true)
+  private static BuiltinFunction rsplit = new BuiltinFunction("rsplit") {
+    @SuppressWarnings("unused")
+    public Object invoke(String self, String sep, Object maxSplitO, Location loc, Environment env)
+        throws ConversionException, EvalException {
+      int maxSplit =
+          Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", null, -1);
+      List<String> result;
+
+      try {
+        result = stringRSplit(self, sep, maxSplit);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
+
+      return convert(result, env, loc);
+    }
+  };
+  
+  /**
+   * Splits the given string into a list of words, using {@code separator} as a 
+   * delimiter.
+   * 
+   * <p>At most {@code maxSplits} will be performed, going from right to left.
+   *
+   * @param input The input string.
+   * @param separator The separator string.
+   * @param maxSplits The maximum number of splits. Negative values mean unlimited splits.
+   * @return A list of words
+   * @throws IllegalArgumentException
+   */
+  private static List<String> stringRSplit(String input, String separator, int maxSplits)
+      throws IllegalArgumentException {
+    if (separator.isEmpty()) {
+      throw new IllegalArgumentException("Empty separator");
+    }
+
+    if (maxSplits <= 0) {
+      maxSplits = Integer.MAX_VALUE;
+    }
+
+    LinkedList<String> result = new LinkedList<>();
+    String[] parts = input.split(separator, -1);
+    int sepLen = separator.length();
+    int remainingLength = input.length();    
+    int splitsSoFar = 0;
+
+    // Copies parts from the array into the final list, starting at the end (because 
+    // it's rsplit), as long as fewer than maxSplits splits are performed. The 
+    // last spot in the list is reserved for the remaining string, whose length 
+    // has to be tracked throughout the loop.
+    for (int pos = parts.length - 1; (pos >= 0) && (splitsSoFar < maxSplits); --pos) {
+      String current = parts[pos];
+      result.addFirst(current);
+
+      ++splitsSoFar;
+      remainingLength -= sepLen + current.length();
+    }
+
+    if (splitsSoFar == maxSplits && remainingLength >= 0)   {
+      result.addFirst(input.substring(0, remainingLength));      
+    }
+    
+    return result;  
+  }
   
   @SkylarkSignature(name = "partition", objectType = StringModule.class,
       returnType = HackHackEitherList.class,
@@ -223,7 +301,7 @@ public class MethodLibrary {
     @SuppressWarnings("unused")
     public Object invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
-      return partitionWrapper(self, sep, true, env.isSkylarkEnabled(), loc);
+      return partitionWrapper(self, sep, true, env, loc);
     }
   };
 
@@ -243,7 +321,7 @@ public class MethodLibrary {
     @SuppressWarnings("unused")
     public Object invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
-      return partitionWrapper(self, sep, false, env.isSkylarkEnabled(), loc);
+      return partitionWrapper(self, sep, false, env, loc);
     }
   };
 
@@ -255,16 +333,14 @@ public class MethodLibrary {
    * @param separator The string to split on
    * @param forward A flag that controls whether the input string is split around 
    *    the first ({@code true}) or last ({@code false}) occurrence of the separator. 
-   * @param isSkylarkEnabled Controls whether a SkylarkList ({@code true})or a 
-   *    {@code java.util.List} ({@code false}) is returned
+   * @param env The current environment
    * @param loc The location that is used for potential exceptions
    * @return A list with three elements
    */
   private static Object partitionWrapper(String self, String separator, boolean forward,
-      boolean isSkylarkEnabled, Location loc) throws EvalException {
+      Environment env, Location loc) throws EvalException {
     try {
-      List<String> result = stringPartition(self, separator, forward);
-      return isSkylarkEnabled ? SkylarkList.list(result, String.class) : result;
+      return convert(stringPartition(self, separator, forward), env, loc);
     } catch (IllegalArgumentException ex) {
       throw new EvalException(loc, ex);
     }
@@ -1188,7 +1264,7 @@ public class MethodLibrary {
 
   public static final List<BaseFunction> stringFunctions = ImmutableList.<BaseFunction>of(
       count, endswith, find, index, format, join, lower, partition, replace, rfind,
-      rindex, rpartition, slice, split, startswith, strip, upper);
+      rindex, rpartition, rsplit, slice, split, startswith, strip, upper);
 
   public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
       slice);
