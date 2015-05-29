@@ -120,13 +120,15 @@ public final class PyCommon {
 
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       PythonSemantics semantics, NestedSet<Artifact> filesToBuild) {
+    PythonSourcesProvider sourcesProvider =
+        new PythonSourcesProvider(transitivePythonSources, usesSharedLibraries());
     builder
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
             new InstrumentedFilesCollector(ruleContext,
                 semantics.getCoverageInstrumentationSpec(), METADATA_COLLECTOR,
                 filesToBuild)))
-        .add(PythonSourcesProvider.class, new PythonSourcesProvider(
-            transitivePythonSources, usesSharedLibraries()))
+        .add(PythonSourcesProvider.class, sourcesProvider)
+        .addSkylarkTransitiveInfo(PythonSourcesProvider.SKYLARK_NAME, sourcesProvider)
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, transitivePythonSources)
@@ -401,4 +403,3 @@ public final class PyCommon {
     }
   }
 }
-

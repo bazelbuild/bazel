@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 @Immutable
 @SkylarkModule(name = "PythonSourcesProvider", doc = "")
 public final class PythonSourcesProvider implements TransitiveInfoProvider {
+  /** The name of the field in Skylark used to access this class. */
+  public static final String SKYLARK_NAME = "py";
 
   private final NestedSet<Artifact> transitivePythonSources;
   private final boolean usesSharedLibraries;
@@ -40,7 +42,8 @@ public final class PythonSourcesProvider implements TransitiveInfoProvider {
   /**
    * Returns the Python sources in the transitive closure of this target.
    */
-  @SkylarkCallable(name = "transitive_srcs", doc = "", structField = true)
+  @SkylarkCallable(
+      name = "transitive_sources", doc = "The transitive set of Python sources", structField = true)
   public NestedSet<Artifact> getTransitivePythonSources() {
     return transitivePythonSources;
   }
