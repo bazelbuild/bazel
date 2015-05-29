@@ -81,6 +81,7 @@ public abstract class TargetPattern implements Serializable {
   @VisibleForTesting
   static String normalize(String path) {
     Preconditions.checkArgument(!path.startsWith("/"));
+    Preconditions.checkArgument(!path.startsWith("@"));
     Iterator<String> it = SLASH_SPLITTER.split(path).iterator();
     List<String> pieces = new ArrayList<>();
     while (it.hasNext()) {
@@ -502,6 +503,16 @@ public abstract class TargetPattern implements Serializable {
       // constant (see lib/blaze/commands/target-syntax.txt).
 
       String originalPattern = pattern;
+      final boolean includesRepo = pattern.startsWith("@");
+      String repoName = "";
+      if (includesRepo) {
+        int pkgStart = pattern.indexOf("//");
+        if (pkgStart < 0) {
+          throw new TargetParsingException("Couldn't find package in target " + pattern);
+        }
+        repoName = pattern.substring(0, pkgStart);
+        pattern = pattern.substring(pkgStart);
+      }
       final boolean isAbsolute = pattern.startsWith("//");
 
       // We now absolutize non-absolute target patterns.
@@ -553,9 +564,9 @@ public abstract class TargetPattern implements Serializable {
       }
 
 
-      if (isAbsolute || pattern.contains(":")) {
+      if (includesRepo || isAbsolute || pattern.contains(":")) {
         PackageAndTarget packageAndTarget;
-        String fullLabel = "//" + pattern;
+        String fullLabel = repoName + "//" + pattern;
         try {
           packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
         } catch (BadLabelException e) {

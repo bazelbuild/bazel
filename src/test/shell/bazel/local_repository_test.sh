@@ -138,7 +138,8 @@ public class BallPit {
 }
 EOF
 
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
+  bazel build @endangered//carnivore:mongoose >& $TEST_log || \
+    fail "Expected build to succeed"
   bazel run //zoo:ball-pit >& $TEST_log
   expect_log "Tra-la!"
 }

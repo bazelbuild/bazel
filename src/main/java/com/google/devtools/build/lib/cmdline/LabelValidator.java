@@ -206,6 +206,13 @@ public final class LabelValidator {
   }
 
   /**
+   * Returns if the label starts with a repository (@whatever) or a package (//whatever).
+   */
+  public static boolean isAbsolute(String label) {
+    return label.startsWith("//") || label.startsWith("@");
+  }
+
+  /**
    * Parses the given absolute label by verifying that it starts with "//". If it contains a ':',
    * then the part after that is the target name within the package, and the part before that (but
    * without the leading "//") is the package name. However, it performs no validation on these two
@@ -217,8 +224,15 @@ public final class LabelValidator {
    * @throws BadLabelException if {@code absName} starts with "//"
    */
   public static PackageAndTarget parseAbsoluteLabel(String absName) throws BadLabelException {
-    if (!absName.startsWith("//")) {
+    if (!isAbsolute(absName)) {
       throw new BadLabelException("invalid label: " + absName);
+    }
+    if (absName.startsWith("@")) {
+      int endOfRepo = absName.indexOf("//");
+      if (endOfRepo < 0) {
+        throw new BadLabelException("invalid fully-qualified label: " + absName);
+      }
+      absName = absName.substring(endOfRepo);
     }
     // Find the package/suffix separation:
     int colonIndex = absName.indexOf(':');

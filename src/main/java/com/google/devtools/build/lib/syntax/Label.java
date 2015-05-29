@@ -135,7 +135,7 @@ public final class Label implements Comparable<Label>, Serializable {
   public static Label parseCommandLineLabel(String label, PathFragment workspaceRelativePath)
       throws SyntaxException {
     Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
-    if (isAbsolute(label)) {
+    if (LabelValidator.isAbsolute(label)) {
       return parseAbsolute(label);
     }
     int index = label.indexOf(':');
@@ -147,13 +147,6 @@ public final class Label implements Comparable<Label>, Serializable {
     // Use the String, String constructor, to make sure that the package name goes through the
     // validity check.
     return new Label(path.getPathString(), label.substring(index + 1));
-  }
-
-  /**
-   * Returns if the label starts with a repository (@whatever) or a package (//whatever).
-   */
-  private static boolean isAbsolute(String label) {
-    return label.startsWith("//") || label.startsWith("@");
   }
 
   /**
@@ -351,7 +344,7 @@ public final class Label implements Comparable<Label>, Serializable {
     if (relName.length() == 0) {
       throw new SyntaxException("empty package-relative label");
     }
-    if (isAbsolute(relName)) {
+    if (LabelValidator.isAbsolute(relName)) {
       return parseAbsolute(relName);
     } else if (relName.equals(":")) {
       throw new SyntaxException("':' is not a valid package-relative label");
