@@ -31,11 +31,10 @@ function renderTestList(tests) {
 
   // target(s) name(s)
   rows.append('div').classed('info-detail', true).text(function(j) {
-    if (j.targets.length == 1) {
-      return j.targets[0];
-    }
-    if (j.targets.length == 0) {
+    if (!j.targets || j.targets.length == 0) {
       return 'Unknown target.';
+    } else if (j.targets.length == 1) {
+      return j.targets[0];
     }
     return j.targets;
   });
