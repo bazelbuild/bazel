@@ -61,10 +61,6 @@ bool IsStandardTerminal();
 // connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
 
-// blaze's JVM arch is set at build time (--java_cpu), since the blaze java
-// process includes native code.
-bool Is64BitBlazeJavabase();
-
 // Adds JVM arguments particular to running blaze with JVM v3 or higher.
 void AddJVMSpecificArguments(const string &host_javabase,
                              std::vector<string> *result);
