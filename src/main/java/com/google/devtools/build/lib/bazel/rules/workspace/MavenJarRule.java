@@ -58,7 +58,7 @@ public class MavenJarRule implements RuleDefinition {
         to be specified once.</b></p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("repository", Type.STRING))
-        .add(attr("repositories", Type.STRING_LIST)).setUndocumented()
+        .add(attr("repositories", Type.STRING_LIST).undocumented("deprecated"))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1) -->
          A SHA-1 hash of the desired jar.
          ${SYNOPSIS}
