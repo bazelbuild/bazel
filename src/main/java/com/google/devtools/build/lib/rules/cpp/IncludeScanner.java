@@ -44,13 +44,28 @@ import java.util.Set;
  */
 public interface IncludeScanner {
   /**
-   * Processes source files and a list of includes extracted from command line
-   * flags. Adds all found files to the provided set {@code includes}. This
-   * method takes into account the path- and file-level hints that are part of
-   * this include scanner.
+   * Processes source files and a list of includes extracted from command line flags. Adds all found
+   * files to the provided set {@param includes}.
+   *
+   * <p>The resulting set will include {@param mainSource} and {@param sources}. This has no real
+   * impact in the case that we are scanning a single source file, since it is already known to be
+   * an input. However, this is necessary when we have more than one source to scan from, for
+   * example when building C++ modules. In that case we have one of two possibilities:
+   * <ol>
+   * <li>We compile a header module - there, the .cppmap file is the main source file (which we do
+   *     not include-scan, as that would require an extra parser), and thus already in the input;
+   *     all headers in the .cppmap file are our entry points for include scanning, but are not yet
+   *     in the inputs - they get added here.</li>
+   * <li>We compile an object file that uses a header module; currently using a header module
+   *     requires all headers it can reference to be available for the compilation. The header
+   *     module can reference headers that are not in the transitive include closure of the current
+   *     translation unit. Therefore, {@link CppCompileAction} adds all headers specified
+   *     transitively for compiled header modules as include scanning entry points, and we need to
+   *     add the entry points to the inputs here.</li></ol>
+   * </p>
    * 
-   * <p>{@code mainSource} is the source file relative to which the {@code cmdlineIncludes} are
-   * interpreted.
+   * <p>{@param mainSource} is the source file relative to which the {@param cmdlineIncludes} are
+   * interpreted.</p>
    */
   void process(Artifact mainSource, Collection<Artifact> sources,
       Map<Artifact, Artifact> legalOutputPaths, List<String> cmdlineIncludes,
@@ -129,21 +144,6 @@ public interface IncludeScanner {
 
           Artifact mainSource =  scannable.getMainIncludeScannerSource();
           Collection<Artifact> sources = scannable.getIncludeScannerSources();
-          // Add all include scanning entry points to the inputs; this is necessary
-          // when we have more than one source to scan from, for example when building
-          // C++ modules.
-          // In that case we have one of two cases:
-          // 1. We compile a header module - there, the .cppmap file is the main source file
-          //    (which we do not include-scan, as that would require an extra parser), and
-          //    thus already in the input; all headers in the .cppmap file are our entry points
-          //    for include scanning, but are not yet in the inputs - they get added here.
-          // 2. We compile an object file that uses a header module; currently using a header
-          //    module requires all headers it can reference to be available for the compilation.
-          //    The header module can reference headers that are not in the transitive include
-          //    closure of the current translation unit. Therefore, {@code CppCompileAction}
-          //    adds all headers specified transitively for compiled header modules as include
-          //    scanning entry points, and we need to add the entry points to the inputs here.
-          includes.addAll(sources);
           scanner.process(mainSource, sources, legalOutputPaths, cmdlineIncludes, includes,
                 actionExecutionContext);
         }
