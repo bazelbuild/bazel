@@ -117,7 +117,7 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   mode_t perm = mode & 0777;
   bool isdir = (mode & S_IFDIR) != 0;
   if (verbose_) {
-    printf("%c %O %s\n", isdir ? 'd' : 'f', perm, filename);
+    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, filename);
   }
   if (extract_) {
     char path[PATH_MAX];
@@ -143,6 +143,8 @@ void basename(const char *path, char *output, size_t output_size) {
   const char *pointer = strrchr(path, '/');
   if (pointer == NULL) {
     pointer = path;
+  } else {
+    pointer++;  // Skip the leading slash.
   }
   strncpy(output, pointer, output_size);
   output[output_size-1] = 0;
@@ -208,7 +210,7 @@ int create(char *zipfile, char **files, bool flatten, bool verbose) {
 
     if (verbose) {
       mode_t perm = statst.st_mode & 0777;
-      printf("%c %O %s\n", isdir ? 'd' : 'f', perm, path);
+      printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
     }
 
     u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));

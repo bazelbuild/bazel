@@ -66,6 +66,7 @@ function test_zipper() {
   expect_log "file"
   expect_log "other_file"
   expect_not_log "path"
+  expect_not_log "/"
 
   # Test adding leading garbage at the begining of the file (for
   # self-extractable binary).
