@@ -79,11 +79,12 @@ string MakeAbsolute(const string &path) {
   return cwdbuf + separator + path;
 }
 
-// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or `path`
-// isn't a directory. If check_perms is true, this will also make sure that
-// `path` is owned by the current user and has `mode` permissions (attempting to
-// run chmod if not). If `path` is a symlink, this will check ownership of the
-// link, not the underlying directory.
+// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
+// `path` isn't a directory. If check_perms is true, this will also
+// make sure that `path` is owned by the current user and has `mode`
+// permissions (observing the umask). It attempts to run chmod to
+// correct the mode if necessary. If `path` is a symlink, this will
+// check ownership of the link, not the underlying directory.
 static int GetDirectoryStat(const string& path, mode_t mode, bool check_perms) {
   struct stat filestat = {};
   if (stat(path.c_str(), &filestat) == -1) {
@@ -107,6 +108,10 @@ static int GetDirectoryStat(const string& path, mode_t mode, bool check_perms) {
       errno = EACCES;
       return -1;
     }
+
+    mode_t mask = umask(022);
+    umask(mask);
+    mode = (mode & ~mask);
     if ((filestat.st_mode & 0777) != mode
         && chmod(path.c_str(), mode) == -1) {
       // errno set by chmod.
