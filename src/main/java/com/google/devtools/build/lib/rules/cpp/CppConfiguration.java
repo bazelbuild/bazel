@@ -561,8 +561,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     runtimeSysroot = defaultSysroot;
 
     String sysrootFlag;
-    if (sysroot != null && !sysroot.equals(defaultSysroot)) {
-      // Only specify the --sysroot option if it is different from the built-in one.
+    if (sysroot != null) {
       sysrootFlag = "--sysroot=" + sysroot;
     } else {
       sysrootFlag = null;
