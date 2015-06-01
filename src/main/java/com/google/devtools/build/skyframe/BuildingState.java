@@ -253,8 +253,8 @@ final class BuildingState {
   }
 
   /**
-   * Puts the node in the "evaluating" state if it is not already in it. Returns whether or not the
-   * node was already evaluating. Should only be called by
+   * Puts the node in the "evaluating" state if it is not already in it. Returns true if the
+   * node wasn't already evaluating and false otherwise. Should only be called by
    * {@link NodeEntry#addReverseDepAndCheckIfDone}.
    */
   boolean startEvaluating() {
