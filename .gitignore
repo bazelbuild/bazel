@@ -9,7 +9,6 @@
 /.classpath
 /.factorypath
 /.idea/
-/fromhost/
 /base_workspace/bazel-bin
 /base_workspace/bazel-genfiles
 /base_workspace/bazel-out

@@ -18,7 +18,7 @@
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 ## Inputs
-ZIPPER=$TEST_SRCDIR/$1
+ZIPPER=${PWD}/$1
 shift
 UNZIP=$1
 shift

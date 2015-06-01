@@ -71,58 +71,6 @@ function log() {
   fi
 }
 
-function write_fromhost_build() {
-  case "${PLATFORM}" in
-    linux)
-      cat << EOF > fromhost/BUILD
-package(default_visibility = ["//visibility:public"])
-cc_library(
-  name = "libarchive",
-  srcs = [],
-  hdrs = [],
-)
-EOF
-
-      ;;
-    darwin)
-      if [[ -e $homebrew_header ]]; then
-        rm -f fromhost/*.[ah]
-        touch fromhost/empty.c
-        # For use with Homebrew.
-        archive_dir=$(dirname $(dirname $homebrew_header))
-        cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
-        cat << EOF > fromhost/BUILD
-package(default_visibility = ["//visibility:public"])
-cc_library(
-  name = "libarchive",
-  srcs = glob(["*.a"]) + ["empty.c"],
-  hdrs = glob(["*.h"]),
-  includes  = ["."],
-  linkopts = ["-lxml2", "-liconv", "-lbz2", "-lz", ],
-)
-EOF
-
-      elif [[ -e $macports_header ]]; then
-        # For use with Macports.
-        archive_dir=$(dirname $(dirname $macports_header))
-        rm -f fromhost/*.[ah]
-        touch fromhost/empty.c
-        cp "${archive_dir}"/include/{archive.h,archive_entry.h} fromhost/
-        cp "${archive_dir}"/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
-          fromhost/
-        cat << EOF > fromhost/BUILD
-package(default_visibility = ["//visibility:public"])
-cc_library(
-  name = "libarchive",
-  srcs = glob(["*.a"]) + ["empty.c"],
-  hdrs = glob(["*.h"]),
-  includes  = ["."],
-)
-EOF
-      fi
-  esac
-}
-
 # Create symlinks so we can use tools and examples from the base_workspace.
 base_workspace=$(pwd)/base_workspace
 mkdir -p "$base_workspace"
@@ -133,7 +81,7 @@ rm -f "${base_workspace}/examples" && ln -s "$(pwd)/examples" "${base_workspace}
 case "${PLATFORM}" in
 linux)
   # Sorry, no static linking on linux for now.
-  LDFLAGS="$(pkg-config libarchive --libs) -lrt $LDFLAGS"
+  LDFLAGS="-lz -lrt $LDFLAGS"
   JNILIB="libunix.so"
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java 8 installation.
@@ -144,32 +92,12 @@ linux)
 darwin)
   JNILIB="libunix.dylib"
   MD5SUM="md5"
+  LDFLAGS="-lz $LDFLAGS"
   if [[ -z "$JAVA_HOME" ]]; then
     JAVA_HOME="$(/usr/libexec/java_home -v 1.8+ 2> /dev/null)" \
       || fail "Could not find JAVA_HOME, please ensure a JDK (version 1.8+) is installed."
   fi
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
-
-  homebrew_header=$(ls -1 $(brew --prefix libarchive 2>/dev/null)/include/archive.h 2>/dev/null | head -n1)
-  macports_header=$(port contents libarchive 2>/dev/null | grep /archive.h$ | xargs)
-  if [[ -e $homebrew_header ]]; then
-      # For use with Homebrew.
-      archive_dir=$(dirname $(dirname $homebrew_header))
-      ARCHIVE_CFLAGS="-I${archive_dir}/include"
-      LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
-
-  elif [[ -e $macports_header ]]; then
-      # For use with Macports.
-      ARCHIVE_CFLAGS="-Ifromhost"
-      # Link libarchive statically
-      LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
-             fromhost/liblzma.a fromhost/libcharset.a \
-             fromhost/libbz2.a fromhost/libxml2.a \
-             fromhost/libz.a fromhost/libiconv.a \
-             $LDFLAGS"
-  else
-      log "WARNING: Could not find libarchive installation, proceeding bravely."
-  fi
 
   ;;
 
@@ -178,7 +106,7 @@ msys*|mingw*)
   PLATFORM="mingw"
   # Workaround for msys issue which causes omission of std::to_string.
   CXXFLAGS="$CXXFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
-  LDFLAGS="-larchive ${LDFLAGS}"
+  LDFLAGS="-lz $LDFLAGS"
   MD5SUM="md5sum"
   EXE_EXT=".exe"
   PATHSEP=";"
@@ -207,11 +135,6 @@ esac
 [[ -x "${PROTOC-}" ]] \
     || fail "Protobuf compiler not found in ${PROTOC-}"
 
-mkdir -p fromhost
-if [ ! -f fromhost/BUILD ]; then
-  write_fromhost_build
-fi
-
 test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
 rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
 
@@ -239,6 +162,7 @@ src/main/cpp/util/md5.cc
 src/main/cpp/util/numbers.cc
 src/main/cpp/util/port.cc
 src/main/cpp/util/strings.cc
+third_party/ijar/zip.cc
 )
 
 NATIVE_CC_FILES=(

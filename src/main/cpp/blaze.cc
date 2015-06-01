@@ -65,8 +65,7 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
-#include "archive.h"
-#include "archive_entry.h"
+#include "third_party/ijar/zip.h"
 
 using blaze_util::Md5Digest;
 using blaze_util::die;
@@ -169,49 +168,54 @@ static string GetHashedBaseDir(const string &root,
   return root + "/" + digest.String();
 }
 
+// A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
+class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
+ public:
+  GetInstallKeyFileProcessor(string *install_base_key)
+      : install_base_key_(install_base_key) {}
+
+  virtual bool Accept(const char *filename, const devtools_ijar::u4 attr) {
+    globals->extracted_binaries.push_back(filename);
+    return strcmp(filename, "install_base_key") == 0;
+  }
+
+  virtual void Process(const char *filename, const devtools_ijar::u4 attr,
+                       const devtools_ijar::u1 *data, const size_t size) {
+    string str(reinterpret_cast<const char *>(data), size);
+    blaze_util::StripWhitespace(&str);
+    if (str.size() < 32) {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "\nFailed to extract install_base_key: file too short");
+    }
+    *install_base_key_ = str;
+  }
+
+ private:
+  string *install_base_key_;
+};
+
 // Returns the install base (the root concatenated with the contents of the file
 // 'install_base_key' contained as a ZIP entry in the Blaze binary); as a side
 // effect, it also populates the extracted_binaries global variable.
 static string GetInstallBase(const string &root, const string &self_path) {
-  string key_file = "install_base_key";
-  struct archive *blaze_zip = archive_read_new();
-  archive_read_support_format_zip(blaze_zip);
-  int retval = archive_read_open_filename(blaze_zip, self_path.c_str(), 10240);
-  if (retval != ARCHIVE_OK) {
+  string install_base_key;
+  GetInstallKeyFileProcessor processor(&install_base_key);
+  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
+      devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
+  if (extractor.get() == NULL) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "\nFailed to open %s as a zip file: (%d) %s",
-        globals->options.GetProductName().c_str(), archive_errno(blaze_zip),
-        archive_error_string(blaze_zip));
+        globals->options.GetProductName().c_str(), errno, strerror(errno));
   }
-
-  struct archive_entry *entry;
-  string install_base_key;
-  while (archive_read_next_header(blaze_zip, &entry) == ARCHIVE_OK) {
-    string pathname = archive_entry_pathname(entry);
-    globals->extracted_binaries.push_back(pathname);
-
-    if (key_file == pathname) {
-      const int size = 32;
-      char buf[size];
-      int bytesRead = archive_read_data(blaze_zip, &buf, size);
-      if (bytesRead < 0) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract install_base_key: (%d) %s",
-            archive_errno(blaze_zip), archive_error_string(blaze_zip));
-      }
-      if (bytesRead < 32) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract install_base_key: file too short");
-      }
-      install_base_key = string(buf, bytesRead);
-    }
-  }
-  retval = archive_read_free(blaze_zip);
-  if (retval != ARCHIVE_OK) {
+  if (extractor->ProcessAll() < 0) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to close install_base_key's containing zip file");
+        "\nFailed to extract install_base_key: %s", extractor->GetError());
   }
 
+  if (install_base_key.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "\nFailed to find install_base_key's in zip file");
+  }
   return root + "/" + install_base_key;
 }
 
@@ -762,32 +766,20 @@ static void CollectExtractedFiles(const string &dir_path, vector<string> &files)
   closedir(dir);
 }
 
-// Actually extracts the embedded data files into the tree whose root
-// is 'embedded_binaries'.
-static void ActuallyExtractData(const string &argv0,
-                                const string &embedded_binaries) {
-  if (MakeDirectories(embedded_binaries, 0777) == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR,
-         "couldn't create '%s'", embedded_binaries.c_str());
+// A devtools_ijar::ZipExtractorProcessor to extract the files from the blaze
+// zip.
+class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
+ public:
+  ExtractBlazeZipProcessor(const string &embedded_binaries)
+      : embedded_binaries_(embedded_binaries) {}
+
+  virtual bool Accept(const char *filename, const devtools_ijar::u4 attr) {
+    return !devtools_ijar::zipattr_is_dir(attr);
   }
 
-  fprintf(stderr, "Extracting %s installation...\n",
-          globals->options.GetProductName().c_str());
-
-  struct archive *blaze_zip = archive_read_new();
-  archive_read_support_format_zip(blaze_zip);
-  int retval = archive_read_open_filename(blaze_zip, argv0.c_str(), 10240);
-  if (retval != ARCHIVE_OK) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open %s as a zip file",
-        globals->options.GetProductName().c_str());
-  }
-
-  struct archive_entry *entry;
-  string install_base_key;
-  while (archive_read_next_header(blaze_zip, &entry) == ARCHIVE_OK) {
-    string path = blaze_util::JoinPath(
-        embedded_binaries, archive_entry_pathname(entry));
+  virtual void Process(const char *filename, const devtools_ijar::u4 attr,
+                       const devtools_ijar::u1 *data, const size_t size) {
+    string path = blaze_util::JoinPath(embedded_binaries_, filename);
     if (MakeDirectories(blaze_util::Dirname(path), 0777) == -1) {
       pdie(blaze_exit_code::INTERNAL_ERROR,
            "couldn't create '%s'", path.c_str());
@@ -798,33 +790,43 @@ static void ActuallyExtractData(const string &argv0,
           "\nFailed to open extraction file: %s", strerror(errno));
     }
 
-    const void *buf;
-    size_t size;
-    int64_t offset;
-    while (true) {
-      retval = archive_read_data_block(blaze_zip, &buf, &size, &offset);
-      if (retval == ARCHIVE_EOF) {
-        break;
-      } else if (retval != ARCHIVE_OK) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract data from %s zip: (%d) %s",
-            globals->options.GetProductName().c_str(), archive_errno(blaze_zip),
-            archive_error_string(blaze_zip));
-      }
-      if (write(fd, buf, size) != size) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nError writing zipped file to %s", path.c_str());
-      }
+    if (write(fd, data, size) != size) {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "\nError writing zipped file to %s", path.c_str());
     }
     if (close(fd) != 0) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nCould not close file %s", path.c_str());
     }
   }
-  retval = archive_read_free(blaze_zip);
-  if (retval != ARCHIVE_OK) {
+
+ private:
+  const string embedded_binaries_;
+};
+
+// Actually extracts the embedded data files into the tree whose root
+// is 'embedded_binaries'.
+static void ActuallyExtractData(const string &argv0,
+                                const string &embedded_binaries) {
+  ExtractBlazeZipProcessor processor(embedded_binaries);
+  if (MakeDirectories(embedded_binaries, 0777) == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "couldn't create '%s'",
+         embedded_binaries.c_str());
+  }
+
+  fprintf(stderr, "Extracting %s installation...\n",
+          globals->options.GetProductName().c_str());
+  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
+      devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
+  if (extractor.get() == NULL) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to close %s zip", globals->options.GetProductName().c_str());
+        "\nFailed to open %s as a zip file: (%d) %s",
+        globals->options.GetProductName().c_str(), errno, strerror(errno));
+  }
+  if (extractor->ProcessAll() < 0) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "\nFailed to extract %s as a zip file: %s",
+        globals->options.GetProductName().c_str(), extractor->GetError());
   }
 
   const time_t TEN_YEARS_IN_SEC = 3600 * 24 * 365 * 10;

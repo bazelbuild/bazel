@@ -19,7 +19,7 @@ Next, open an MSYS2 shell (not the mingw32 or the mingw64 shell) either through
 a shortcut or by running the `msys2_shell.bat`. Install the dependencies:
 
 ```bash
-pacman -S libarchive-devel gcc mingw-w64-x86_64-gcc zip unzip git
+pacman -S gcc mingw-w64-x86_64-gcc zip unzip git
 ```
 
 The msys2 gcc will be used for building Bazel itself, the mingw-w64 gcc will

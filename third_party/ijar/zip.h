@@ -26,6 +26,11 @@
 
 namespace devtools_ijar {
 
+// Tells if this is a directory entry from the mode. This method
+// is safer than zipattr_to_mode(attr) & S_IFDIR because the unix
+// mode might not be set in DOS zip files.
+inline bool zipattr_is_dir(u4 attr) { return (attr & 0x10) != 0; }
+
 // Convert a Unix file mode to a ZIP file attribute
 inline u4 mode_to_zipattr(mode_t m) {
   return (((u4) m) << 16) + ((m & S_IFDIR) != 0 ? 0x10 : 0);

@@ -54,11 +54,13 @@
 
 #define GENERAL_PURPOSE_BIT_FLAG_COMPRESSED (1 << 3)
 #define GENERAL_PURPOSE_BIT_FLAG_UTF8_ENCODED (1 << 11)
+#define GENERAL_PURPOSE_BIT_FLAG_COMPRESSION_SPEED ((1 << 2) | (1 << 1))
 #define GENERAL_PURPOSE_BIT_FLAG_SUPPORTED \
-  (GENERAL_PURPOSE_BIT_FLAG_COMPRESSED | GENERAL_PURPOSE_BIT_FLAG_UTF8_ENCODED)
+  (GENERAL_PURPOSE_BIT_FLAG_COMPRESSED \
+  | GENERAL_PURPOSE_BIT_FLAG_UTF8_ENCODED \
+  | GENERAL_PURPOSE_BIT_FLAG_COMPRESSION_SPEED)
 
 namespace devtools_ijar {
-
 // In the absence of ZIP64 support, zip files are limited to 4GB.
 // http://www.info-zip.org/FAQ.html#limits
 static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
@@ -119,8 +121,11 @@ class InputZipFile : public ZipExtractor {
   // time it is found too small, until it reaches MAX_BUFFER_SIZE. If that is
   // not enough, we bail out. We only decompress class files, so they should
   // be smaller than 64K anyway, but we give a little leeway.
+  // MAX_BUFFER_SIZE must be bigger than the size of the biggest file in the
+  // ZIP. It is set to 128M here so we can uncompress the Bazel server with
+  // this library.
   static const size_t INITIAL_BUFFER_SIZE = 256 * 1024;  // 256K
-  static const size_t MAX_BUFFER_SIZE = 16 * 1024 * 1024;
+  static const size_t MAX_BUFFER_SIZE = 128 * 1024 * 1024;
   static const size_t MAX_MAPPED_REGION = 32 * 1024 * 1024;
 
   // These metadata fields are the fields of the ZIP header of the file being
