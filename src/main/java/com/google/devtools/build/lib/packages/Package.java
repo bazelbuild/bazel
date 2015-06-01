@@ -233,25 +233,19 @@ public class Package implements Serializable {
   }
 
   private void writeObject(ObjectOutputStream out) {
-    com.google.devtools.build.lib.query2.proto.proto2api.Build.Package pb =
-        PackageSerializer.serializePackage(this);
     try {
-      pb.writeDelimitedTo(out);
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
+      PackageSerializer.serializePackage(this, out);
+    } catch (IOException ioe) {
+      throw new IllegalStateException(ioe);
     }
   }
 
   private void readObject(ObjectInputStream in) throws IOException {
-    com.google.devtools.build.lib.query2.proto.proto2api.Build.Package pb =
-        com.google.devtools.build.lib.query2.proto.proto2api.Build.Package.parseDelimitedFrom(in);
-    Package pkg;
     try {
-      pkg = new PackageDeserializer(null, null).deserialize(pb);
+      deserializedPkg = new PackageDeserializer(null, null).deserialize(in);
     } catch (PackageDeserializationException e) {
       throw new IllegalStateException(e);
     }
-    deserializedPkg = pkg;
   }
 
   protected Object readResolve() {

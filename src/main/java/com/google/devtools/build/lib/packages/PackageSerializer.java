@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -55,209 +57,22 @@ import java.util.Map;
  * Functionality to serialize loaded packages.
  */
 public class PackageSerializer {
-  private static Build.SourceFile serializeInputFile(InputFile inputFile) {
-    Build.SourceFile.Builder result = Build.SourceFile.newBuilder();
-    result.setName(inputFile.getLabel().toString());
-    if (inputFile.isVisibilitySpecified()) {
-      for (Label visibilityLabel : inputFile.getVisibility().getDeclaredLabels()) {
-        result.addVisibilityLabel(visibilityLabel.toString());
-      }
-    }
-    if (inputFile.isLicenseSpecified()) {
-      result.setLicense(serializeLicense(inputFile.getLicense()));
-    }
-
-    result.setParseableLocation(serializeLocation(inputFile.getLocation()));
-    return result.build();
-  }
-
-  private static Build.Location serializeLocation(Location location) {
-    Build.Location.Builder result = Build.Location.newBuilder();
-
-    result.setStartOffset(location.getStartOffset());
-    if (location.getStartLineAndColumn() != null) {
-      result.setStartLine(location.getStartLineAndColumn().getLine());
-      result.setStartColumn(location.getStartLineAndColumn().getColumn());
-    }
-
-    result.setEndOffset(location.getEndOffset());
-    if (location.getEndLineAndColumn() != null) {
-      result.setEndLine(location.getEndLineAndColumn().getLine());
-      result.setEndColumn(location.getEndLineAndColumn().getColumn());
-    }
-
-    return result.build();
-  }
-
-  private static Build.PackageGroup serializePackageGroup(PackageGroup packageGroup) {
-    Build.PackageGroup.Builder result = Build.PackageGroup.newBuilder();
-
-    result.setName(packageGroup.getLabel().toString());
-    result.setParseableLocation(serializeLocation(packageGroup.getLocation()));
-
-    for (PackageSpecification packageSpecification : packageGroup.getPackageSpecifications()) {
-      result.addContainedPackage(packageSpecification.toString());
-    }
-
-    for (Label include : packageGroup.getIncludes()) {
-      result.addIncludedPackageGroup(include.toString());
-    }
-
-    return result.build();
-  }
-
-  private static Build.Rule serializeRule(Rule rule) {
-    Build.Rule.Builder result = Build.Rule.newBuilder();
-    result.setName(rule.getLabel().toString());
-    result.setRuleClass(rule.getRuleClass());
-    result.setParseableLocation(serializeLocation(rule.getLocation()));
-    for (Attribute attribute : rule.getAttributes()) {
-      PackageSerializer.addAttributeToProto(result, attribute,
-          getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
-          rule.isAttributeValueExplicitlySpecified(attribute), true);
-    }
-
-    return result.build();
-  }
-
-  private static List<Build.MakeVar> serializeMakeEnvironment(MakeEnvironment makeEnv) {
-    List<Build.MakeVar> result = new ArrayList<>();
-
-    for (Map.Entry<String, ImmutableList<Binding>> var : makeEnv.getBindings().entrySet()) {
-      Build.MakeVar.Builder varPb = Build.MakeVar.newBuilder();
-      varPb.setName(var.getKey());
-      for (Binding binding : var.getValue()) {
-        Build.MakeVarBinding.Builder bindingPb = Build.MakeVarBinding.newBuilder();
-        bindingPb.setValue(binding.getValue());
-        bindingPb.setPlatformSetRegexp(binding.getPlatformSetRegexp());
-        varPb.addBinding(bindingPb);
-      }
-
-      result.add(varPb.build());
-    }
-
-    return result;
-  }
-
-  private static Build.License serializeLicense(License license) {
-    Build.License.Builder result = Build.License.newBuilder();
-
-    for (License.LicenseType licenseType : license.getLicenseTypes()) {
-      result.addLicenseType(licenseType.toString());
-    }
-
-    for (Label exception : license.getExceptions()) {
-      result.addException(exception.toString());
-    }
-    return result.build();
-  }
-
-  private static Build.Event serializeEvent(Event event) {
-    Build.Event.Builder result = Build.Event.newBuilder();
-    result.setMessage(event.getMessage());
-    if (event.getLocation() != null) {
-      result.setLocation(serializeLocation(event.getLocation()));
-    }
-
-    Build.Event.EventKind kind;
-
-    switch (event.getKind()) {
-      case ERROR:
-        kind = Build.Event.EventKind.ERROR;
-        break;
-      case WARNING:
-        kind = Build.Event.EventKind.WARNING;
-        break;
-      case INFO:
-        kind = Build.Event.EventKind.INFO;
-        break;
-      case PROGRESS:
-        kind = Build.Event.EventKind.PROGRESS;
-        break;
-      default: throw new IllegalArgumentException("unexpected event type: " + event.getKind());
-    }
-
-    result.setKind(kind);
-    return result.build();
-  }
-
-  private static void serializePackageInternal(Package pkg, Build.Package.Builder builder) {
-    builder.setName(pkg.getName());
-    builder.setRepository(pkg.getPackageIdentifier().getRepository().toString());
-    builder.setBuildFilePath(pkg.getFilename().getPathString());
-    // The extra bit is needed to handle the corner case when the default visibility is [], i.e.
-    // zero labels.
-    builder.setDefaultVisibilitySet(pkg.isDefaultVisibilitySet());
-    if (pkg.isDefaultVisibilitySet()) {
-      for (Label visibilityLabel : pkg.getDefaultVisibility().getDeclaredLabels()) {
-        builder.addDefaultVisibilityLabel(visibilityLabel.toString());
-      }
-    }
-
-    builder.setDefaultTestonly(pkg.getDefaultTestOnly());
-    if (pkg.getDefaultDeprecation() != null) {
-      builder.setDefaultDeprecation(pkg.getDefaultDeprecation());
-    }
-
-    for (String defaultCopt : pkg.getDefaultCopts()) {
-      builder.addDefaultCopt(defaultCopt);
-    }
-
-    if (pkg.isDefaultHdrsCheckSet()) {
-      builder.setDefaultHdrsCheck(pkg.getDefaultHdrsCheck());
-    }
-
-    builder.setDefaultLicense(serializeLicense(pkg.getDefaultLicense()));
-
-    for (DistributionType distributionType : pkg.getDefaultDistribs()) {
-      builder.addDefaultDistrib(distributionType.toString());
-    }
-
-    for (String feature : pkg.getFeatures()) {
-      builder.addDefaultSetting(feature);
-    }
-
-    for (Label subincludeLabel : pkg.getSubincludeLabels()) {
-      builder.addSubincludeLabel(subincludeLabel.toString());
-    }
-
-    for (Label skylarkLabel : pkg.getSkylarkFileDependencies()) {
-      builder.addSkylarkLabel(skylarkLabel.toString());
-    }
-
-    for (Build.MakeVar makeVar :
-         serializeMakeEnvironment(pkg.getMakeEnvironment())) {
-      builder.addMakeVariable(makeVar);
-    }
-
-    for (Target target : pkg.getTargets()) {
-      if (target instanceof InputFile) {
-        builder.addSourceFile(serializeInputFile((InputFile) target));
-      } else if (target instanceof OutputFile) {
-        // Output files are ignored; they are recorded in rules.
-      } else if (target instanceof PackageGroup) {
-        builder.addPackageGroup(serializePackageGroup((PackageGroup) target));
-      } else if (target instanceof Rule) {
-        builder.addRule(serializeRule((Rule) target));
-      }
-    }
-
-    for (Event event : pkg.getEvents()) {
-      builder.addEvent(serializeEvent(event));
-    }
-
-    builder.setContainsErrors(pkg.containsErrors());
-    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
-  }
 
   /**
-   * Serialize a package to a protocol message. The inverse of
-   * {@link PackageDeserializer#deserialize}.
+   * Serialize a package to {@code out}. The inverse of {@link PackageDeserializer#deserialize}.
+   *
+   * <p>Writes pkg as a single
+   * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.Package} protocol buffer
+   * message.
+   *
+   * @param pkg the {@link Package} to be serialized
+   * @param out the stream to pkg's serialized representation to
+   * @throws IOException on failure writing to {@code out}
    */
-  public static Build.Package serializePackage(Package pkg) {
+  public static void serializePackage(Package pkg, OutputStream out) throws IOException {
     Build.Package.Builder builder = Build.Package.newBuilder();
     serializePackageInternal(pkg, builder);
-    return builder.build();
+    builder.build().writeDelimitedTo(out);
   }
 
   /**
@@ -501,6 +316,201 @@ public class PackageSerializer {
     }
 
     rulePb.addAttribute(attrPb);
+  }
+
+  private static Build.SourceFile serializeInputFile(InputFile inputFile) {
+    Build.SourceFile.Builder result = Build.SourceFile.newBuilder();
+    result.setName(inputFile.getLabel().toString());
+    if (inputFile.isVisibilitySpecified()) {
+      for (Label visibilityLabel : inputFile.getVisibility().getDeclaredLabels()) {
+        result.addVisibilityLabel(visibilityLabel.toString());
+      }
+    }
+    if (inputFile.isLicenseSpecified()) {
+      result.setLicense(serializeLicense(inputFile.getLicense()));
+    }
+
+    result.setParseableLocation(serializeLocation(inputFile.getLocation()));
+    return result.build();
+  }
+
+  private static Build.Location serializeLocation(Location location) {
+    Build.Location.Builder result = Build.Location.newBuilder();
+
+    result.setStartOffset(location.getStartOffset());
+    if (location.getStartLineAndColumn() != null) {
+      result.setStartLine(location.getStartLineAndColumn().getLine());
+      result.setStartColumn(location.getStartLineAndColumn().getColumn());
+    }
+
+    result.setEndOffset(location.getEndOffset());
+    if (location.getEndLineAndColumn() != null) {
+      result.setEndLine(location.getEndLineAndColumn().getLine());
+      result.setEndColumn(location.getEndLineAndColumn().getColumn());
+    }
+
+    return result.build();
+  }
+
+  private static Build.PackageGroup serializePackageGroup(PackageGroup packageGroup) {
+    Build.PackageGroup.Builder result = Build.PackageGroup.newBuilder();
+
+    result.setName(packageGroup.getLabel().toString());
+    result.setParseableLocation(serializeLocation(packageGroup.getLocation()));
+
+    for (PackageSpecification packageSpecification : packageGroup.getPackageSpecifications()) {
+      result.addContainedPackage(packageSpecification.toString());
+    }
+
+    for (Label include : packageGroup.getIncludes()) {
+      result.addIncludedPackageGroup(include.toString());
+    }
+
+    return result.build();
+  }
+
+  private static Build.Rule serializeRule(Rule rule) {
+    Build.Rule.Builder result = Build.Rule.newBuilder();
+    result.setName(rule.getLabel().toString());
+    result.setRuleClass(rule.getRuleClass());
+    result.setParseableLocation(serializeLocation(rule.getLocation()));
+    for (Attribute attribute : rule.getAttributes()) {
+      PackageSerializer.addAttributeToProto(result, attribute,
+          getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
+          rule.isAttributeValueExplicitlySpecified(attribute), true);
+    }
+
+    return result.build();
+  }
+
+  private static List<Build.MakeVar> serializeMakeEnvironment(MakeEnvironment makeEnv) {
+    List<Build.MakeVar> result = new ArrayList<>();
+
+    for (Map.Entry<String, ImmutableList<Binding>> var : makeEnv.getBindings().entrySet()) {
+      Build.MakeVar.Builder varPb = Build.MakeVar.newBuilder();
+      varPb.setName(var.getKey());
+      for (Binding binding : var.getValue()) {
+        Build.MakeVarBinding.Builder bindingPb = Build.MakeVarBinding.newBuilder();
+        bindingPb.setValue(binding.getValue());
+        bindingPb.setPlatformSetRegexp(binding.getPlatformSetRegexp());
+        varPb.addBinding(bindingPb);
+      }
+
+      result.add(varPb.build());
+    }
+
+    return result;
+  }
+
+  private static Build.License serializeLicense(License license) {
+    Build.License.Builder result = Build.License.newBuilder();
+
+    for (License.LicenseType licenseType : license.getLicenseTypes()) {
+      result.addLicenseType(licenseType.toString());
+    }
+
+    for (Label exception : license.getExceptions()) {
+      result.addException(exception.toString());
+    }
+    return result.build();
+  }
+
+  private static Build.Event serializeEvent(Event event) {
+    Build.Event.Builder result = Build.Event.newBuilder();
+    result.setMessage(event.getMessage());
+    if (event.getLocation() != null) {
+      result.setLocation(serializeLocation(event.getLocation()));
+    }
+
+    Build.Event.EventKind kind;
+
+    switch (event.getKind()) {
+      case ERROR:
+        kind = Build.Event.EventKind.ERROR;
+        break;
+      case WARNING:
+        kind = Build.Event.EventKind.WARNING;
+        break;
+      case INFO:
+        kind = Build.Event.EventKind.INFO;
+        break;
+      case PROGRESS:
+        kind = Build.Event.EventKind.PROGRESS;
+        break;
+      default: throw new IllegalArgumentException("unexpected event type: " + event.getKind());
+    }
+
+    result.setKind(kind);
+    return result.build();
+  }
+
+  private static void serializePackageInternal(Package pkg, Build.Package.Builder builder) {
+    builder.setName(pkg.getName());
+    builder.setRepository(pkg.getPackageIdentifier().getRepository().toString());
+    builder.setBuildFilePath(pkg.getFilename().getPathString());
+    // The extra bit is needed to handle the corner case when the default visibility is [], i.e.
+    // zero labels.
+    builder.setDefaultVisibilitySet(pkg.isDefaultVisibilitySet());
+    if (pkg.isDefaultVisibilitySet()) {
+      for (Label visibilityLabel : pkg.getDefaultVisibility().getDeclaredLabels()) {
+        builder.addDefaultVisibilityLabel(visibilityLabel.toString());
+      }
+    }
+
+    builder.setDefaultTestonly(pkg.getDefaultTestOnly());
+    if (pkg.getDefaultDeprecation() != null) {
+      builder.setDefaultDeprecation(pkg.getDefaultDeprecation());
+    }
+
+    for (String defaultCopt : pkg.getDefaultCopts()) {
+      builder.addDefaultCopt(defaultCopt);
+    }
+
+    if (pkg.isDefaultHdrsCheckSet()) {
+      builder.setDefaultHdrsCheck(pkg.getDefaultHdrsCheck());
+    }
+
+    builder.setDefaultLicense(serializeLicense(pkg.getDefaultLicense()));
+
+    for (DistributionType distributionType : pkg.getDefaultDistribs()) {
+      builder.addDefaultDistrib(distributionType.toString());
+    }
+
+    for (String feature : pkg.getFeatures()) {
+      builder.addDefaultSetting(feature);
+    }
+
+    for (Label subincludeLabel : pkg.getSubincludeLabels()) {
+      builder.addSubincludeLabel(subincludeLabel.toString());
+    }
+
+    for (Label skylarkLabel : pkg.getSkylarkFileDependencies()) {
+      builder.addSkylarkLabel(skylarkLabel.toString());
+    }
+
+    for (Build.MakeVar makeVar :
+         serializeMakeEnvironment(pkg.getMakeEnvironment())) {
+      builder.addMakeVariable(makeVar);
+    }
+
+    for (Target target : pkg.getTargets()) {
+      if (target instanceof InputFile) {
+        builder.addSourceFile(serializeInputFile((InputFile) target));
+      } else if (target instanceof OutputFile) {
+        // Output files are ignored; they are recorded in rules.
+      } else if (target instanceof PackageGroup) {
+        builder.addPackageGroup(serializePackageGroup((PackageGroup) target));
+      } else if (target instanceof Rule) {
+        builder.addRule(serializeRule((Rule) target));
+      }
+    }
+
+    for (Event event : pkg.getEvents()) {
+      builder.addEvent(serializeEvent(event));
+    }
+
+    builder.setContainsErrors(pkg.containsErrors());
+    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
   }
 
   // This is needed because I do not want to use the SymlinkBehavior from the
