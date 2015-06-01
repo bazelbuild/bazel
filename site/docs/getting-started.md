@@ -44,7 +44,6 @@ examples from the `examples/` directory.
 
 {% highlight bash %}
 $ cd ~/gitroot/my-project
-$ bazel fetch //...
 $ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
 Extracting Bazel installation...
 ...........
@@ -131,7 +130,6 @@ EOF
 Now build your project:
 
 {% highlight bash %}
-$ bazel fetch my-project:my-runner
 $ bazel build my-project:my-runner
 INFO: Found 1 target...
 Target //my-project:my-runner up-to-date:

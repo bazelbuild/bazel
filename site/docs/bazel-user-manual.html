@@ -657,7 +657,29 @@ Subtractive patterns:
 <h3 id='fetch'>Fetching external dependencies</h3>
 
 <p>
-  You must run <code>bazel fetch</code>:
+  By default, Bazel will download and symlink external dependencies during the
+  build. However, this can be undesirable, either because you'd like to know
+  when new external dependendencies are added or because you'd like to
+  "prefetch" dependencies (say, before a flight where you'll be offline). If you
+  would like to prevent new dependencies from being added during builds, you
+  can specify the <code>--fetch=false</code> flag.
+</p>
+
+<p>
+  If you disallow fetching during builds and Bazel finds new external
+  dependencies, your build will fail with:
+<pre>
+ERROR: /path/to/your/BUILD:1:1: error loading package 'external': to fix, run
+    bazel fetch //...
+External repository @your-repo not found and referenced by '//your:target'.
+ERROR: Loading failed; build aborted.
+</pre>
+</p>
+
+<p>
+  You can manually fetch dependencies by running <code>bazel fetch</code>. If
+  you disallow during-build fetching, you'll need to run <code>bazel
+  fetch</code>:
   <ol>
     <li>Before you build for the first time.
     <li>After you add a new external dependency.
@@ -683,27 +705,6 @@ $ bazel fetch //...
 </p>
 
 <p>
-  If you do not run <code>fetch</code> before building a target that relies on
-  external dependencies, your build will fail with:
-<pre>
-ERROR: /path/to/your/BUILD:1:1: error loading package 'external': to fix, run
-    bazel fetch //...
-External repository @your-repo not found and referenced by '//your:target'.
-ERROR: Loading failed; build aborted.
-</pre>
-</p>
-
-<p>
-  Why add an extra step, instead of just allowing the build to fetch external
-  dependencies? The fetch step is designed to provide some security and
-  predictability. It prevents external dependencies from being changed between
-  builds without the programmer knowing. Also, external dependencies are
-  immutable<a href="#mostly">*</a> between <code>fetch</code>s, which means that
-  output changes are always caused by programmer actions, not Bazel silently
-  updating dependencies.
-</p>
-
-<p>
   You do not need to run bazel fetch at all if you have all of the tools you are
   using (from library jars to the JDK itself) under your workspace root.
   However, if you're using anything outside of the workspace directory then you
@@ -711,17 +712,6 @@ ERROR: Loading failed; build aborted.
   <code>bazel build</code>.
 </p>
 
-<p id="mostly">
-  <em>
-    * External dependencies are assumed to be immutable. If you manually
-    change files in an external repository directory, Bazel will not behave
-    correctly. Similarly, if you use <code>local_repository</code> or
-    <code>new_local_repository</code> and then change the local files (e.g.,
-    update the JDK) Bazel will not notice the change and, thus, not invalidate
-    the dependencies that it should. After upgrading system tools, rerun
-    <code>bazel fetch</code> to ensure Bazel's cache is up-to-date.
-  </em>
-</p>
 <h3 id='configurations'>Build configurations and cross-compilation</h3>
 
 <p>
