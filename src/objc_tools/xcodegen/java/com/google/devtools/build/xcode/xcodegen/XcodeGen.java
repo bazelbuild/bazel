@@ -71,7 +71,11 @@ public class XcodeGen {
 
     Iterator<String> srcList = allSourceFilePaths(controlPb).iterator();
     Path workspaceRoot;
-    if (!srcList.hasNext()) {
+
+    // TODO(bazel-team): Remove this if-else clause once Bazel passes in the workspace root.
+    if (controlPb.hasWorkspaceRoot()) {
+      workspaceRoot = fileSystem.getPath(controlPb.getWorkspaceRoot());
+    } else if (!srcList.hasNext()) {
       workspaceRoot = XcodeprojGeneration.relativeWorkspaceRoot(pbxprojPath);
     } else {
       // Get the absolute path to the workspace root.

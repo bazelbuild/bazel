@@ -35,6 +35,9 @@ message Control {
   // Project-level build settings. These are shared with every target, unless
   // an individual target overrides any of them.
   repeated XcodeprojBuildSetting build_setting = 3;
+
+  // Absolute path to the root of the current Bazel user workspace.
+  optional string workspace_root = 4;
 }
 
 // Information about dependency on a separate target.
