@@ -43,6 +43,11 @@ bind(
 )
 
 bind(
+    name = "jar",
+    actual = "@local-jdk//:jar",
+)
+
+bind(
     name = "jdk-default",
     actual = "@local-jdk//:jdk-default",
 )

@@ -53,9 +53,9 @@ function setup_protoc_support() {
 cat <<EOF > third_party/BUILD
 package(default_visibility = ["//visibility:public"])
 exports_files(["protoc"])
-filegroup(
+java_import(
   name = "protobuf",
-  srcs = [ "protobuf-java.jar"])
+  jars = ["protobuf-java.jar"])
 
 EOF
 }

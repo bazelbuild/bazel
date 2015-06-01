@@ -1,8 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/genproto", "genproto")
+load("/tools/build_rules/genproto", "proto_java_library")
 
-genproto(
+proto_java_library(
     name = "test_proto",
     src = "test.proto",
 )

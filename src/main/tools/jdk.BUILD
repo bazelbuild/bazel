@@ -20,6 +20,11 @@ filegroup(
     srcs = ["bin/java"],
 )
 
+filegroup(
+    name = "jar",
+    srcs = ["bin/jar"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",

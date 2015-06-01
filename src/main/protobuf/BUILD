@@ -1,11 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/genproto", "genproto")
+load("/tools/build_rules/genproto", "proto_java_library")
 
-[genproto(
-    name = "proto_" + proto_file,
-    src = proto_file + ".proto",
-) for proto_file in [
+FILES = [
     "build",
     "deps",
     "crosstool_config",
@@ -13,7 +10,12 @@ load("/tools/build_rules/genproto", "genproto")
     "test_status",
     "bundlemerge",
     "xcodegen",
-]]
+]
+
+[proto_java_library(
+    name = "proto_" + s,
+    src = s + ".proto",
+) for s in FILES]
 
 filegroup(
     name = "srcs",
