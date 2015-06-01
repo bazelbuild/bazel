@@ -19,11 +19,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 /**
  * The collection of source jars from the transitive closure.
  */
 @Immutable
+@SkylarkModule(name = "JavaSourceJarsProvider", doc = "")
 public final class JavaSourceJarsProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Artifact> transitiveSourceJars;
@@ -46,6 +49,7 @@ public final class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /**
    * Return the source jars that are to be built when the target is on the command line.
    */
+  @SkylarkCallable(name = "source_jars", doc = "", structField = true)
   public ImmutableList<Artifact> getSourceJars() {
     return sourceJars;
   }
