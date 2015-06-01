@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
@@ -104,6 +105,23 @@ public final class NativeLibs {
    */
   public Map<String, Iterable<Artifact>> getMap() {
     return nativeLibs;
+  }
+
+  public ImmutableList<Artifact> createApkBuilderSymlinks(RuleContext ruleContext) {
+      ImmutableList.Builder<Artifact> result = ImmutableList.builder();
+    for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.entrySet()) {
+      String arch = entry.getKey();
+      for (Artifact lib : entry.getValue()) {
+        Artifact symlink = AndroidBinary.getDxArtifact(ruleContext,
+            "native_symlinks/" + arch + "/" + lib.getExecPath().getBaseName());
+        ruleContext.registerAction(new SymlinkAction(
+            ruleContext.getActionOwner(), lib, symlink,
+            "Symlinking Android native library for " + ruleContext.getLabel()));
+        result.add(symlink);
+      }
+    }
+
+    return result.build();
   }
 
   /**

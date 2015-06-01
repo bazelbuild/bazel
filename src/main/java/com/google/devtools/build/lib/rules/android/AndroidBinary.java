@@ -1042,13 +1042,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addInputArgument(javaResourceZip);
       }
 
-      for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.getMap().entrySet()) {
-        for (Artifact library : entry.getValue()) {
-          actionBuilder
-              .addArgument("-nl")
-              .addArgument(entry.getKey())
-              .addInputArgument(library);
-        }
+      ImmutableList<Artifact> nativeSymlinks = nativeLibs.createApkBuilderSymlinks(ruleContext);
+      if (!nativeSymlinks.isEmpty()) {
+        actionBuilder
+            .addInputs(nativeSymlinks)
+            .addArgument("-nf")
+            // If the native libs are "foo/bar/x86/foo.so", we need to pass "foo/bar" here
+            .addArgument(nativeSymlinks.get(0).getExecPath()
+                .getParentDirectory().getParentDirectory().getPathString());
       }
 
       if (nativeLibs.getName() != null) {
