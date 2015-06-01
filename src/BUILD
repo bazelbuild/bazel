@@ -98,7 +98,7 @@ genrule(
         "package-zip",
     ],
     outs = ["bazel"],
-    cmd = "cat $(location //src/main/cpp:client) package-zip > $@ && zip -qA $@",
+    cmd = "cat $(location //src/main/cpp:client) $(location :package-zip) > $@ && zip -qA $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
