@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -521,11 +520,16 @@ public class ConstraintSemantics {
     for (String attr : attributes.getAttributeNames()) {
       Attribute attrDef = attributes.getAttributeDefinition(attr);
       Type<?> attrType = attributes.getAttributeType(attr);
+
+      // TODO(bazel-team): support a user-definable API for choosing which attributes are checked
       if ((attrType != Type.LABEL && attrType != Type.LABEL_LIST)
           || RuleClass.isConstraintAttribute(attr)
           || attr.equals("visibility")
           || attrDef.isImplicit()
-          || attrDef.isLateBound()) {
+          || attrDef.isLateBound()
+          // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
+          // because --nodistinct_host_configuration subverts that call.
+          || attrDef.getConfigurationTransition() == Attribute.ConfigurationTransition.HOST) {
         continue;
       }
 
@@ -538,11 +542,8 @@ public class ConstraintSemantics {
           dep = ((OutputFileConfiguredTarget) dep).getGeneratingRule();
         }
         // Input files don't support environments. We may subsequently opt them into constraint
-        // checking, but for now just pass them by. Otherwise, we opt in anything that's not
-        // a host dependency.
-        // TODO(bazel-team): support choosing which attributes are subject to constraint checking
-        if (dep.getProvider(SupportedEnvironmentsProvider.class) != null
-            && !Verify.verifyNotNull(dep.getConfiguration()).isHostConfiguration()) {
+        // checking, but for now just pass them by.
+        if (dep.getProvider(SupportedEnvironmentsProvider.class) != null) {
           depsToCheck.add(dep);
         }
       }

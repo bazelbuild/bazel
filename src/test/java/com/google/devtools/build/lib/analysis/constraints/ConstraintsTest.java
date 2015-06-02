@@ -588,6 +588,22 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  public void testHostDependenciesNotCheckedNoDistinctHostConfiguration() throws Exception {
+    useConfiguration("--nodistinct_host_configuration");
+    new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
+    scratch.file("hello/BUILD",
+        "sh_binary(name = 'host_tool', srcs = ['host_tool.sh'], restricted_to = ['//foo_env:b'])",
+        "genrule(",
+        "    name = 'hello',",
+        "    srcs = [],",
+        "    outs = ['hello.out'],",
+        "    cmd = '',",
+        "    tools = [':host_tool'],",
+        "    compatible_with = ['//foo_env:a'])");
+    assertNotNull(getConfiguredTarget("//hello:hello"));
+    assertNoEvents();
+  }
+
   public void testImplicitAndLateBoundDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("foo_env").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
