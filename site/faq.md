@@ -167,7 +167,7 @@ Yes, for a simple example, see
 
 The bazel source code itself provides more complex examples, eg.
 
-  <https://github.com/google/bazel/blob/master/src/main/java/BUILD>\\
+  <https://github.com/google/bazel/blob/master/src/main/java/BUILD>
   <https://github.com/google/bazel/blob/master/src/test/java/BUILD>
 
 
@@ -388,7 +388,7 @@ It is possible to write Python rules as extensions (see below). See
 the following files for an example of generating self-contained zip
 files for python:
 
-  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
+  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>
   <https://github.com/google/bazel/tree/master/examples/py>
 
 We are working on opening up a subset of our internal Python rules, so
