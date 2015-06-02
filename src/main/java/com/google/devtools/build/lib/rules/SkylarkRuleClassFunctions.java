@@ -78,7 +78,6 @@ import java.util.concurrent.ExecutionException;
 
 /**
  * A helper class to provide an easier API for Skylark rule definitions.
- * This is experimental code.
  */
 public class SkylarkRuleClassFunctions {
 

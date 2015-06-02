@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations
- * defined using the Skylark Build Extension Language. This is experimental code.
+ * defined using the Skylark Build Extension Language.
  */
 public final class SkylarkRuleConfiguredTargetBuilder {
 
