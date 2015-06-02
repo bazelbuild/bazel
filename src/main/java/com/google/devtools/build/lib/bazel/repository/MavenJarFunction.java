@@ -160,10 +160,12 @@ public class MavenJarFunction extends HttpArchiveFunction {
       } else {
         this.sha1 = null;
       }
-      if (mapper.has("repository", Type.STRING)) {
+      if (mapper.has("repository", Type.STRING)
+          && !mapper.get("repository", Type.STRING).isEmpty()) {
         this.repositories = ImmutableList.of(new RemoteRepository.Builder(
             "user-defined repository", "default", mapper.get("repository", Type.STRING)).build());
-      } else if (mapper.has("repositories", Type.STRING_LIST)) {
+      } else if (mapper.has("repositories", Type.STRING_LIST)
+          && !mapper.get("repositories", Type.STRING_LIST).isEmpty()) {
         // TODO(kchodorow): remove after 9/15, uses deprecated list of repositories attribute.
         this.repositories = Lists.newArrayList();
         for (String repositoryUrl : mapper.get("repositories", Type.STRING_LIST)) {
