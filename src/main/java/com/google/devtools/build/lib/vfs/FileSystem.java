@@ -491,6 +491,20 @@ public abstract class FileSystem {
    */
   protected abstract Collection<Path> getDirectoryEntries(Path path) throws IOException;
 
+  protected static Dirent.Type direntFromStat(FileStatus stat) {
+    if (stat == null) {
+      return Type.UNKNOWN;
+    } else if (stat.isFile()) {
+      return Type.FILE;
+    } else if (stat.isDirectory()) {
+      return Type.DIRECTORY;
+    } else if (stat.isSymbolicLink()) {
+      return Type.SYMLINK;
+    } else {
+      return Type.UNKNOWN;
+    }
+  }
+
   /**
    * Returns a Dirents structure, listing the names of all entries within the
    * directory {@code path}, plus their types (file, directory, other).
@@ -504,19 +518,7 @@ public abstract class FileSystem {
     Collection<Path> children = getDirectoryEntries(path);
     List<Dirent> dirents = Lists.newArrayListWithCapacity(children.size());
     for (Path child : children) {
-      FileStatus stat = statNullable(child, followSymlinks);
-      Dirent.Type type;
-      if (stat == null) {
-        type = Type.UNKNOWN;
-      } else if (stat.isFile()) {
-        type = Type.FILE;
-      } else if (stat.isDirectory()) {
-        type = Type.DIRECTORY;
-      } else if (stat.isSymbolicLink()) {
-        type = Type.SYMLINK;
-      } else {
-        type = Type.UNKNOWN;
-      }
+      Dirent.Type type = direntFromStat(statNullable(child, followSymlinks));
       dirents.add(new Dirent(child.getBaseName(), type));
     }
     return dirents;
