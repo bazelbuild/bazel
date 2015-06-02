@@ -344,6 +344,20 @@ message Target {
   optional EnvironmentGroup environment_group = 6;
 }
 
+// Used to represent a series of Targets as a series of messages. Preferred
+// over repeated fields when the number of targets being serialized may result
+// in creating a serialized protocol buffer that is larger than the default
+// protocol buffer deserialization limit.
+message TargetOrTerminator {
+  oneof terminator_or_target {
+    // Is this the last message in the series?
+    bool is_terminator = 1 [default = false];
+
+    // The Target encoded in this element.
+    Target target = 2;
+  }
+}
+
 // Container for all of the blaze query results.
 message QueryResult {
   // All of the targets returned by the blaze query.
