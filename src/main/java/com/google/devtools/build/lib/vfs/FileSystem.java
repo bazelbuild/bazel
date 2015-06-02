@@ -275,7 +275,7 @@ public abstract class FileSystem {
    *         readlink(child) fails for any reason (e.g. ENOENT, EACCES), or if
    *         the chain of symbolic links exceeds 'maxLinks'.
    */
-  private Path appendSegment(Path dir, String child, int maxLinks) throws IOException {
+  protected final Path appendSegment(Path dir, String child, int maxLinks) throws IOException {
     Path naive = dir.getChild(child);
 
     PathFragment linkTarget = resolveOneLink(naive);
@@ -339,7 +339,7 @@ public abstract class FileSystem {
    * Returns the canonical path for the given path. See
    * {@link Path#resolveSymbolicLinks} for specification.
    */
-  protected final Path resolveSymbolicLinks(Path path)
+  protected Path resolveSymbolicLinks(Path path)
       throws IOException {
     Path parentNode = path.getParentDirectory();
     return parentNode == null
