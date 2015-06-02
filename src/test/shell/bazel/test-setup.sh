@@ -37,6 +37,7 @@ function setup_bazelrc() {
   cat >$TEST_TMPDIR/bazelrc <<EOF
 startup --output_user_root=${bazel_root}
 startup --host_javabase=${bazel_javabase}
+startup --host_jvm_args=-Xmx512m
 EOF
 }
 
