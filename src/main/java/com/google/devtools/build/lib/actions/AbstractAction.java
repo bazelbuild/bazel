@@ -84,7 +84,7 @@ public abstract class AbstractAction implements Action {
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
         "runfilesSupplier may not be null");
-    Preconditions.checkArgument(!this.outputs.isEmpty(), owner);
+    Preconditions.checkArgument(!this.outputs.isEmpty(), "action outputs may not be empty");
   }
 
   @Override
@@ -183,7 +183,7 @@ public abstract class AbstractAction implements Action {
   protected abstract String computeKey();
 
   @Override
-  public synchronized final String getKey() {
+  public final synchronized String getKey() {
     if (cachedKey == null) {
       cachedKey = computeKey();
     }
