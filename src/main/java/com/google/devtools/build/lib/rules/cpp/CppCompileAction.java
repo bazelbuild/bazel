@@ -476,12 +476,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public List<PathFragment> getSystemIncludeDirs() {
+    // TODO(bazel-team): parsing the command line flags here couples us to gcc-style compiler
+    // command lines; use a different way to specify system includes (for example through a
+    // system_includes attribute in cc_toolchain); note that that would disallow users from
+    // specifying system include paths via the copts attribute.
+    // Currently, this works together with the include_paths features because getCommandLine() will
+    // get the system include paths from the CppCompilationContext instead.
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
-    result.addAll(context.getSystemIncludeDirs());
-    for (String opt : cppCompileCommandLine.copts) {
-      if (opt.startsWith("-isystem") && opt.length() > 8) {
-        // We insist on the combined form "-isystemdir".
-        result.add(new PathFragment(opt.substring(8)));
+    List<String> compilerOptions = getCompilerOptions();
+    for (int i = 0; i < compilerOptions.size(); i++) {
+      String opt = compilerOptions.get(i);
+      if (opt.startsWith("-isystem")) {
+        if (opt.length() > 8) {
+          result.add(new PathFragment(opt.substring(8).trim()));
+        } else if (i + 1 < compilerOptions.size()) {
+          i++;
+          result.add(new PathFragment(compilerOptions.get(i)));
+        } else {
+          System.err.println("WARNING: dangling -isystem flag in options for " + prettyPrint());
+        }
       }
     }
     return result.build();
@@ -1255,7 +1268,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
       CcToolchainFeatures.Variables.Builder buildVariables =
           new CcToolchainFeatures.Variables.Builder();
-      if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
+      if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
+        // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
+        // in any case, but don't crash.
         buildVariables.addVariable("module_name", cppModuleMap.getName());
         buildVariables.addVariable("module_map_file",
             cppModuleMap.getArtifact().getExecPathString());
