@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Project;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
@@ -214,7 +215,13 @@ public final class XcodeSupport {
     return new ByteSource() {
       @Override
       public InputStream openStream() {
-        return XcodeGenProtos.Control.newBuilder()
+        XcodeGenProtos.Control.Builder builder = XcodeGenProtos.Control.newBuilder();
+        Path workspaceRoot = objcConfiguration.getClientWorkspaceRoot();
+        if (workspaceRoot != null) {
+          builder.setWorkspaceRoot(workspaceRoot.getPathString());
+        }
+
+        return builder
             .setPbxproj(pbxproj.getExecPathString())
             .addAllTarget(project.targets())
             .addBuildSetting(XcodeGenProtos.XcodeprojBuildSetting.newBuilder()

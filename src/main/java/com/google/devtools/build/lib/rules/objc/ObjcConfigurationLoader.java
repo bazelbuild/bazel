@@ -34,7 +34,7 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
 
-    return new ObjcConfiguration(objcOptions, options);
+    return new ObjcConfiguration(objcOptions, options, env.getBlazeDirectories());
   }
 
   @Override

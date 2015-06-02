@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +65,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSplitCpu;
   private final boolean perProtoIncludes;
   private final ConfigurationDistinguisher configurationDistinguisher;
+  @Nullable private final Path clientWorkspaceRoot;
 
   // We only load these labels if the mode which uses them is enabled. That is know as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -74,7 +77,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label dumpSymsLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options) {
+  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
+      @Nullable BlazeDirectories directories) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
@@ -94,6 +98,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.perProtoIncludes = objcOptions.perProtoIncludes;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
+    this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
   }
 
   public String getIosSdkVersion() {
@@ -293,5 +298,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean perProtoIncludes() {
     return this.perProtoIncludes;
+  }
+
+  /**
+   * Returns the absolute path of the root of Bazel client workspace. Null if passed-in
+   * {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
+   */
+  @Nullable public Path getClientWorkspaceRoot() {
+    return this.clientWorkspaceRoot;
   }
 }
