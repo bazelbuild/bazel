@@ -18,6 +18,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -31,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,25 +59,36 @@ public class RecursivePkgFunction implements SkyFunction {
     Set<PathFragment> excludedPaths = recursivePkgKey.getExcludedPaths();
 
     SkyKey fileKey = FileValue.key(rootedPath);
-    FileValue fileValue = (FileValue) env.getValue(fileKey);
+    FileValue fileValue = null;
+    try {
+      fileValue = (FileValue) env.getValueOrThrow(fileKey, InconsistentFilesystemException.class,
+          FileSymlinkCycleException.class, IOException.class);
+    } catch (InconsistentFilesystemException | FileSymlinkCycleException  | IOException e) {
+      return reportErrorAndReturn(e, rootRelativePath, env.getListener());
+    }
     if (fileValue == null) {
       return null;
     }
 
     if (!fileValue.isDirectory()) {
-      return new RecursivePkgValue(NestedSetBuilder.<String>emptySet(ORDER));
+      return RecursivePkgValue.EMPTY;
     }
 
     if (fileValue.isSymlink()) {
       // We do not follow directory symlinks when we look recursively for packages. It also
       // prevents symlink loops.
-      return new RecursivePkgValue(NestedSetBuilder.<String>emptySet(ORDER));
+      return RecursivePkgValue.EMPTY;
     }
 
     PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(
         rootRelativePath.getPathString());
-    PackageLookupValue pkgLookupValue =
-        (PackageLookupValue) env.getValue(PackageLookupValue.key(packageId));
+    PackageLookupValue pkgLookupValue;
+    try {
+      pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(PackageLookupValue.key(packageId),
+          NoSuchPackageException.class, InconsistentFilesystemException.class);
+    } catch (NoSuchPackageException | InconsistentFilesystemException e) {
+      return reportErrorAndReturn(e, rootRelativePath, env.getListener());
+    }
     if (pkgLookupValue == null) {
       return null;
     }
@@ -171,7 +184,15 @@ public class RecursivePkgFunction implements SkyFunction {
         packages.addTransitive(((RecursivePkgValue) childValue).getPackages());
       }
     }
-    return new RecursivePkgValue(packages.build());
+    return RecursivePkgValue.create(packages);
+  }
+
+  // Ignore all errors in traversal and just say there are no packages here.
+  private static RecursivePkgValue reportErrorAndReturn(Exception e, PathFragment rootRelativePath,
+      EventHandler handler) {
+    handler.handle(Event.warn("Finding packages under " + rootRelativePath + " failed, skipping: "
+        + e.getMessage()));
+    return RecursivePkgValue.EMPTY;
   }
 
   @Nullable

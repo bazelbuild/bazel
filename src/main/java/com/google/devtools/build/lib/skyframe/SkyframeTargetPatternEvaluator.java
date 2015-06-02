@@ -180,6 +180,11 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
           continue;
         }
         if (error.getException() != null) {
+          // This exception may not be a TargetParsingException because in a nokeep_going build, the
+          // target pattern parser may swallow a NoSuchPackageException but the framework will
+          // bubble it up anyway.
+          Preconditions.checkArgument(!keepGoing
+              || error.getException() instanceof TargetParsingException, error);
           errorMessage = error.getException().getMessage();
         } else if (!Iterables.isEmpty(error.getCycleInfo())) {
           errorMessage = "cycles detected during target parsing";

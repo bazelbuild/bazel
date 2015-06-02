@@ -354,6 +354,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
           }
           result.put(pattern, targetsBuilder.build());
         } else {
+          // Because the graph was always initialized via a keep_going build, we know that the
+          // exception stored here must be a TargetParsingException. Thus the comment in
+          // SkyframeTargetPatternEvaluator#parseTargetPatternKeys describing the situation in which
+          // the exception acceptance must be looser does not apply here.
           targetParsingException =
               (TargetParsingException)
                   Preconditions.checkNotNull(graph.getException(patternKey), pattern);
