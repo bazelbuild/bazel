@@ -76,9 +76,9 @@ function bootstrap() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  ${BAZEL_BIN} --blazerc=${BAZELRC} clean || return $?
-  ${BAZEL_BIN} --blazerc=${BAZELRC} fetch //... || return $?
-  ${BAZEL_BIN} --blazerc=${BAZELRC} build --nostamp //src:bazel //src:tools || return $?
+  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} clean || return $?
+  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} fetch //... || return $?
+  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} build --nostamp //src:bazel //src:tools || return $?
 
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
@@ -138,8 +138,7 @@ fi
 
 if [ $DO_TESTS ]; then
   start_test "test"
-
-  $BOOTSTRAP --blazerc=${BAZELRC} test -k --test_output=errors //src/... || fail "Tests failed"
+  $BOOTSTRAP --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} test -k --test_output=errors //src/... || fail "Tests failed"
   end_test "test"
 fi
 
