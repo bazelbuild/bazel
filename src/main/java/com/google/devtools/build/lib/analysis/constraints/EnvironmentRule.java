@@ -57,8 +57,6 @@ public final class EnvironmentRule implements RuleDefinition {
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .allowedFileTypes(FileTypeSet.NO_FILE)
             .nonconfigurable("used for defining constraint models - this shouldn't be configured"))
-        .removeAttribute(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR)
-        .removeAttribute(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .setUndocumented()
         .build();

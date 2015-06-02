@@ -756,6 +756,8 @@ public final class RuleClass {
     public <TYPE> Builder exemptFromConstraintChecking(String reason) {
       Preconditions.checkState(this.supportsConstraintChecking);
       this.supportsConstraintChecking = false;
+      attributes.remove(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR);
+      attributes.remove(RuleClass.RESTRICTED_ENVIRONMENT_ATTR);
       return this;
     }
 

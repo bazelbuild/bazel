@@ -123,6 +123,25 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     }
   }
 
+  private static final class ConstraintExemptRuleClass implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .setUndocumented()
+          .exemptFromConstraintChecking("for testing removal of restricted_to / compatible_with")
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("totally_free_rule")
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
   /**
    * Injects the rule class default rules into the default test rule class provider.
    */
@@ -133,6 +152,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     builder.addRuleDefinition(new RuleClassDefaultRule());
     builder.addRuleDefinition(new BadRuleClassDefaultRule());
     builder.addRuleDefinition(new RuleClassWithImplicitAndLateBoundDefaults());
+    builder.addRuleDefinition(new ConstraintExemptRuleClass());
     return builder.build();
   }
 
@@ -722,5 +742,21 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependingRule());
     assertNotNull(getConfiguredTarget("//hello:main"));
     assertNoEvents();
+  }
+
+  public void testConstraintExemptRulesDontHaveConstraintAttributes() throws Exception {
+    new EnvironmentGroupMaker("foo_env")
+        .setEnvironments("a", "b")
+        .setDefaults("a")
+        .make();
+    scratch.file("ihave/BUILD",
+        "totally_free_rule(",
+        "    name = 'nolimits',",
+        "    restricted_to = ['//foo_env:b']",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    assertNull(getConfiguredTarget("//ihave:nolimits"));
+    assertContainsEvent("no such attribute 'restricted_to' in 'totally_free_rule'");
   }
 }
