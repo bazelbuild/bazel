@@ -72,7 +72,7 @@ You can also add this line to your `~/.bashrc` file.
 #### 3. Install required packages:
 
 ```
-$ sudo apt-get install libarchive-dev pkg-config zip g++ zlib1g-dev
+$ sudo apt-get install pkg-config zip g++ zlib1g-dev
 ```
 
 #### 4. Build Bazel:
@@ -101,13 +101,13 @@ To build Bazel on Mac OS X:
 #### 1. Install the required packages:
 
 ```
-$ port install protobuf-cpp libarchive
+$ port install protobuf-cpp
 ```
 
 or
 
 ```
-$ brew install protobuf libarchive
+$ brew install protobuf
 ```
 
 #### 2. Build Bazel:

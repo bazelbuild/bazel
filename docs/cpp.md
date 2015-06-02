@@ -223,3 +223,20 @@ cc_test(
 ```
 
 You can then use `bazel test` to run the test.
+
+
+Adding dependencies on precompiled libraries
+--------------------------------------------
+
+If you want to use a library that you only have a compiled version of (e.g.,
+headers and a .so) wrap it in a `cc_library` rule:
+
+```python
+cc_library(
+    name = "mylib",
+    srcs = ["mylib.so"],
+    hdrs = ["mylib.h"],
+)
+```
+
+Then other C++ targets in your workspace can depend on this rule.

@@ -594,9 +594,6 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-<li><h3 id="modules.ctx.new_file">new_file</h3>
-<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -875,13 +872,27 @@ Splits the input string at the last occurrence of the separator <code>sep</code>
 	<li id="modules.string.rpartition.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
 	</li>
 </ul>
+<li><h3 id="modules.string.rsplit">rsplit</h3>
+<code><a class="anchor" href="#modules.list">list</a> string.rsplit(sep, maxsplit?)</code><br>
+Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>. Except for splitting from the right, this method behaves like split().
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.string.rsplit.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on.
+	</li>
+</ul>
+<ul>
+	<li id="modules.string.rsplit.maxsplit"><code>maxsplit (int)</code>: The maximum number of splits.
+	</li>
+</ul>
 <li><h3 id="modules.string.split">split</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.split(sep?, maxsplit?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> string.split(sep, maxsplit?)</code><br>
 Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.string.split.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on, default is space (" ").
+	<li id="modules.string.split.sep"><code>sep (<a class="anchor" href="#modules.string">string</a>)</code>: The string to split on.
 	</li>
+</ul>
+<ul>
 	<li id="modules.string.split.maxsplit"><code>maxsplit (int)</code>: The maximum number of splits.
 	</li>
 </ul>
