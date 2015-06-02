@@ -253,12 +253,17 @@ static vector<string> GetArgumentArray() {
 
   result.push_back("-Xverify:none");
 
+  vector<string> user_options;
+
+  blaze_util::SplitQuotedStringUsing(globals->options.host_jvm_args, ' ',
+                                     &user_options);
+
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
   string error;
   blaze_exit_code::ExitCode jvm_args_exit_code =
       globals->options.AddJVMArguments(globals->options.GetHostJavabase(),
-                                       &result, &error);
+                                       &result, user_options, &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
     die(jvm_args_exit_code, "%s", error.c_str());
   }
@@ -291,9 +296,7 @@ static vector<string> GetArgumentArray() {
     result.push_back("-Xdebug");
     result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
   }
-
-  blaze_util::SplitQuotedStringUsing(globals->options.host_jvm_args, ' ',
-                                     &result);
+  result.insert(result.end(), user_options.begin(), user_options.end());
 
   result.push_back("-jar");
   result.push_back(blaze_util::JoinPath(real_install_dir,

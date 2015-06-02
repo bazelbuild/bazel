@@ -101,9 +101,9 @@ class BlazeStartupOptions {
   //
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
-  blaze_exit_code::ExitCode AddJVMArguments(const string &host_javabase,
-                                            std::vector<string> *result,
-                                            string *error) const;
+  blaze_exit_code::ExitCode AddJVMArguments(
+    const string &host_javabase, std::vector<string> *result,
+    const std::vector<string> &user_options, string *error) const;
 
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.

@@ -145,7 +145,8 @@ BlazeStartupOptions::Architecture BlazeStartupOptions::GetBlazeArchitecture()
 }
 
 blaze_exit_code::ExitCode BlazeStartupOptions::AddJVMArguments(
-    const string &host_javabase, vector<string> *result, string *error) const {
+    const string &host_javabase, vector<string> *result,
+    const vector<string> &user_options, string *error) const {
   // TODO(bazel-team): see what tuning options make sense in the
   // open-source world.
   return blaze_exit_code::SUCCESS;
