@@ -29,6 +29,7 @@ public class SearchPath {
 
   /**
    * Parses a $PATH value into a list of paths. A Null search path is treated as an empty one.
+   * Relative entries in $PATH are ignored.
    */
   public static List<Path> parse(FileSystem fs, @Nullable String searchPath) {
     List<Path> paths = new ArrayList<>();
@@ -36,7 +37,11 @@ public class SearchPath {
       return paths;
     }
     for (String p : SEPARATOR.split(searchPath)) {
-      paths.add(fs.getPath(p));
+      PathFragment pf = new PathFragment(p);
+
+      if (pf.isAbsolute()) {
+        paths.add(fs.getPath(pf));
+      }
     }
     return paths;
   }
