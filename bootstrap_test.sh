@@ -143,7 +143,7 @@ fi
 if [ $DO_TESTS ]; then
   start_test "test"
   $BOOTSTRAP "${BAZEL_ARGS[@]}" test -k --test_output=errors //src/... || \
-    { cat $($BOOTSTRAP info output_base)/server/jvm.out || true; fail "Tests failed"
+    { cat $($BOOTSTRAP info output_base)/server/jvm.out || true; fail "Tests failed"; }
   end_test "test"
 fi
 
