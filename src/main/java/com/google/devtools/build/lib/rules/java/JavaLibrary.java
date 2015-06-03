@@ -223,6 +223,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(
