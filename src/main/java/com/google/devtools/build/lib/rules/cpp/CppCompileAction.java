@@ -265,16 +265,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (ruleContext == null) {
       return;
     }
+
+    Iterable<PathFragment> ignoredDirs = getValidationIgnoredDirs();
+
     // We currently do not check the output of:
     // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
     //   CcCommon.getIncludeDirsFromIncludesAttribute().
     // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
     //   to use an absolute system root, in which case the builtin include dirs might be absolute.
     for (PathFragment include : Iterables.concat(getIncludeDirs(), getSystemIncludeDirs())) {
+
+      // Ignore headers from built-in include directories.
+      if (FileSystemUtils.startsWithAny(include, ignoredDirs)) {
+        continue;
+      }
+
       if (include.isAbsolute()
           || !PathFragment.EMPTY_FRAGMENT.getRelative(include).normalize().isNormalized()) {
-        ruleContext.ruleError("The include path '" + include
-            + "' references a path outside of the execution root.");
+        ruleContext.ruleError(
+            "The include path '" + include + "' references a path outside of the execution root.");
       }
     }
   }
@@ -656,10 +665,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (optionalSourceFile != null) {
       allowedIncludes.add(optionalSourceFile);
     }
-    List<PathFragment> cxxSystemIncludeDirs =
-        cppConfiguration.getBuiltInIncludeDirectories();
-    Iterable<PathFragment> ignoreDirs = Iterables.concat(cxxSystemIncludeDirs,
-        extraSystemIncludePrefixes, context.getSystemIncludeDirs());
+    Iterable<PathFragment> ignoreDirs = getValidationIgnoredDirs();
 
     // Copy the sets to hash sets for fast contains checking.
     // Avoid immutable sets here to limit memory churn.
@@ -724,6 +730,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     errors.assertProblemFree(this, getSourceFile());
   }
 
+  private Iterable<PathFragment> getValidationIgnoredDirs() {
+    List<PathFragment> cxxSystemIncludeDirs = cppConfiguration.getBuiltInIncludeDirectories();
+    return Iterables.concat(
+        cxxSystemIncludeDirs, extraSystemIncludePrefixes, context.getSystemIncludeDirs());
+  }
+
   /**
    * Returns true if an included artifact is declared in a set of allowed
    * include directories. The simple case is that the artifact's parent
@@ -735,8 +747,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * <p>It also handles unseen non-nested-package subdirs by walking up the path looking
    * for matches.
    */
-  private static boolean isDeclaredIn(Artifact input, Set<PathFragment> declaredIncludeDirs,
-                                      Set<Artifact> declaredIncludeSrcs) {
+  private static boolean isDeclaredIn(
+      Artifact input, Set<PathFragment> declaredIncludeDirs, Set<Artifact> declaredIncludeSrcs) {
     // First check if it's listed in "srcs". If so, then its declared & OK.
     if (declaredIncludeSrcs.contains(input)) {
       return true;
