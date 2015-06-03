@@ -23,6 +23,9 @@
 source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
+# This setup is to works well on TravisCI
+JVM_ARGS_BAZELRC="startup --host_jvm_args=-Xmx512m"
+
 # Bazel
 bazel_tree="${TEST_SRCDIR}/src/test/shell/bazel/doc-srcs.zip"
 bazel_path="${TEST_SRCDIR}/src"

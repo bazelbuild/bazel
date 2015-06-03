@@ -28,6 +28,6 @@ else
     sudo apt-get install -y protobuf-compiler netcat-traditional
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
-    export JAVA_OPTS="-Xmx3000m"
+    export JAVA_OPTS="-Xmx512m"
     ./bootstrap_test.sh all
 fi

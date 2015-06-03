@@ -17,6 +17,10 @@
 set -eu
 
 BAZELRC=${BAZELRC:-/dev/null}
+BAZEL_ARGS=(--blazerc="${BAZELRC}")
+if [ -n "${JAVA_OPTS:-}" ]; then
+  BAZEL_ARGS+=("--host_jvm_args" "${JAVA_OPTS}")
+fi
 
 function usage() {
   [ -n "${1:-}" ] && echo "Invalid command(s): $1" >&2
@@ -76,9 +80,9 @@ function bootstrap() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} clean || return $?
-  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} fetch //... || return $?
-  ${BAZEL_BIN} --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} build --nostamp //src:bazel //src:tools || return $?
+  ${BAZEL_BIN} "${BAZEL_ARGS[@]}" clean || return $?
+  ${BAZEL_BIN} "${BAZEL_ARGS[@]}" fetch //... || return $?
+  ${BAZEL_BIN} "${BAZEL_ARGS[@]}" build --nostamp //src:bazel //src:tools || return $?
 
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
@@ -138,7 +142,7 @@ fi
 
 if [ $DO_TESTS ]; then
   start_test "test"
-  $BOOTSTRAP --host_jvm_args=-Xmx512m --blazerc=${BAZELRC} test -k --test_output=errors //src/... || fail "Tests failed"
+  $BOOTSTRAP "${BAZEL_ARGS[@]}" test -k --test_output=errors //src/... || fail "Tests failed"
   end_test "test"
 fi
 
