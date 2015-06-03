@@ -171,7 +171,7 @@ static string GetHashedBaseDir(const string &root,
 // A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
 class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
  public:
-  GetInstallKeyFileProcessor(string *install_base_key)
+  explicit GetInstallKeyFileProcessor(string *install_base_key)
       : install_base_key_(install_base_key) {}
 
   virtual bool Accept(const char *filename, const devtools_ijar::u4 attr) {
@@ -773,7 +773,7 @@ static void CollectExtractedFiles(const string &dir_path, vector<string> &files)
 // zip.
 class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
  public:
-  ExtractBlazeZipProcessor(const string &embedded_binaries)
+  explicit ExtractBlazeZipProcessor(const string &embedded_binaries)
       : embedded_binaries_(embedded_binaries) {}
 
   virtual bool Accept(const char *filename, const devtools_ijar::u4 attr) {
