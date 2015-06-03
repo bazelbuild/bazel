@@ -335,6 +335,28 @@ EOF
   expect_log "Tra-la!"
 }
 
+# Same as test_maven_jar, except omit sha1 implying "we don't care".
+function test_maven_jar_no_sha1() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    group_id = "com.example.carnivore",
+    artifact_id = "carnivore",
+    version = "1.23",
+    repository = 'http://localhost:$nc_port/',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  kill_nc
+  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
+  expect_log "Tra-la!"
+}
+
 function test_maven_jar_404() {
   http_response=$TEST_TMPDIR/http_response
   cat > $http_response <<EOF

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hasher;
@@ -155,11 +156,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
       this.artifactId = mapper.get("artifact_id", Type.STRING);
       this.version = mapper.get("version", Type.STRING);
       this.outputDirectory = outputDirectory;
-      if (mapper.has("sha1", Type.STRING)) {
-        this.sha1 = mapper.get("sha1", Type.STRING);
-      } else {
-        this.sha1 = null;
-      }
+      this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
+
       if (mapper.has("repository", Type.STRING)
           && !mapper.get("repository", Type.STRING).isEmpty()) {
         this.repositories = ImmutableList.of(new RemoteRepository.Builder(
@@ -214,7 +212,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
       Path downloadPath = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
       // Verify checksum.
-      if (sha1 != null) {
+      if (!Strings.isNullOrEmpty(sha1)) {
         Hasher hasher = Hashing.sha1().newHasher();
         String downloadSha1 = HttpDownloader.getHash(hasher, downloadPath);
         if (!sha1.equals(downloadSha1)) {
