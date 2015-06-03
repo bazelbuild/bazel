@@ -296,7 +296,8 @@ public class BlazeCommandDispatcher {
 
     BlazeCommand command = commandsByName.get(commandName);
     if (command == null) {
-      outErr.printErrLn("Command '" + commandName + "' not found. " + "Try 'blaze help'.");
+      outErr.printErrLn(String.format(
+          "Command '%s' not found. Try '%s help'.", commandName, Constants.PRODUCT_NAME));
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     }
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
