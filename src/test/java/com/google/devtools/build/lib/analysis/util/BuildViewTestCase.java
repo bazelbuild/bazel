@@ -868,6 +868,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner},
+   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
+   * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect,
+   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
+   * FooAspect.class. This method is necessary when an Apsect of the target, not the target itself,
+   * is creating an Artifact.
+   */
+  protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
+      Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
+    return getPackageRelativeDerivedArtifact(packageRelativePath,
+        owner.getConfiguration().getGenfilesDirectory(),
+        (AspectValue.AspectKey) AspectValue.key(
+            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory).argument());
+  }
+
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.o".
