@@ -129,6 +129,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Whether to add include path entries for every individual proto file.")
   public boolean perProtoIncludes;
 
+  @Option(name = "experimental_enable_objc_cc_deps",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
+          + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu.")
+  public boolean enableCcDeps;
+
   // This option exists because two configurations are not allowed to have the same cache key
   // (partially derived from options). Since we have multiple transitions (see
   // getPotentialSplitTransitions below) that may result in the same configuration values at runtime

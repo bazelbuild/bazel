@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -246,19 +247,19 @@ public final class ReleaseBundlingSupport {
                 + "<dict>\n"
                 + "EOF\n"
 
-                + "if [[ -n \"${VERSION}\" ]]; then\n"
-                + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
-                + "    echo \"  <key>${KEY}</key>\n\" >> "
-                + getGeneratedVersionPlist().getExecPathString() + "\n"
-                + "    echo \"  <string>${VERSION}</string>\n\" >> "
-                + getGeneratedVersionPlist().getExecPathString() + "\n"
-                + "  done\n"
-                + "fi\n"
+                    + "if [[ -n \"${VERSION}\" ]]; then\n"
+                    + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
+                    + "    echo \"  <key>${KEY}</key>\n\" >> "
+                    + getGeneratedVersionPlist().getExecPathString() + "\n"
+                    + "    echo \"  <string>${VERSION}</string>\n\" >> "
+                    + getGeneratedVersionPlist().getExecPathString() + "\n"
+                    + "  done\n"
+                    + "fi\n"
 
-                + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
-                + "</dict>\n"
-                + "</plist>\n"
-                + "EOF\n"
+                    + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
+                    + "</dict>\n"
+                    + "</plist>\n"
+                    + "EOF\n"
             )
             .build())
         .addInput(buildInfo)
@@ -831,6 +832,13 @@ public final class ReleaseBundlingSupport {
     private void setArchitectureOptions(BuildOptions splitOptions, String iosCpu) {
       splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
       splitOptions.get(ObjcCommandLineOptions.class).iosCpu = iosCpu;
+      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
+        // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
+        // This helps users of the iOS rules who do not depend on CC rules as these CPU values
+        // require additional flags to work (e.g. a custom crosstool) which now only need to be set
+        // if this feature is explicitly requested.
+        splitOptions.get(BuildConfiguration.Options.class).cpu = "ios_" + iosCpu;
+      }
     }
 
     @Override
