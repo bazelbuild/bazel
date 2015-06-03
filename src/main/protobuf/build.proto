@@ -349,13 +349,12 @@ message Target {
 // in creating a serialized protocol buffer that is larger than the default
 // protocol buffer deserialization limit.
 message TargetOrTerminator {
-  oneof terminator_or_target {
-    // Is this the last message in the series?
-    bool is_terminator = 1 [default = false];
+  // Is this the last message in the series?
+  optional bool is_terminator = 1 [default = false];
 
-    // The Target encoded in this element.
-    Target target = 2;
-  }
+  // The Target encoded in this element. Should be set iff is_terminator is
+  // false.
+  optional Target target = 2;
 }
 
 // Container for all of the blaze query results.
