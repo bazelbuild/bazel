@@ -87,6 +87,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_proguard.map");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_INSTRUMENTED_JAR =
       fromTemplates("%{name}_instrumented.jar");
+  public static final SafeImplicitOutputsFunction ANDROID_TEST_FILTERED_JAR =
+      fromTemplates("%{name}_filtered.jar");
   public static final SafeImplicitOutputsFunction ANDROID_R_TXT =
       fromTemplates("%{name}_symbols/R.txt");
   public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
