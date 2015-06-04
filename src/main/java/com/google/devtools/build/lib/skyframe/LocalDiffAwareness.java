@@ -230,7 +230,8 @@ public class LocalDiffAwareness implements DiffAwareness {
         } else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
           createdFilesAndDirectories.remove(path);
           deletedOrModifiedFilesAndDirectories.add(path);
-          if (watchKeyToDirBiMap.containsValue(path)) {
+          WatchKey deletedDirectoryKey = watchKeyToDirBiMap.inverse().get(path);
+          if (deletedDirectoryKey != null) {
             // If the deleted directory has children, then there will also be events for the
             // WatchKey of the directory itself. WatchService#poll doesn't specify the order in
             // which WatchKeys are returned, so the key for the directory itself may be processed
@@ -247,6 +248,9 @@ public class LocalDiffAwareness implements DiffAwareness {
             //  WatchKey '/root/a'
             //    WatchEvent EVENT_DELETE 'foo.txt'
             deletedTrackedDirectories.add(path);
+            // Since inotify uses inodes under the covers we cancel our registration on this key to
+            // avoid getting WatchEvents from a new directory that happens to have the same inode.
+            deletedDirectoryKey.cancel();
           }
         } else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
           // If a file was created and then modified, then the net diff is that it was
