@@ -30,4 +30,5 @@ else
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
     ./bootstrap_test.sh all
+    bazel-bin/src/bazel test --ram_utilization_factor=10 ...
 fi
