@@ -146,6 +146,13 @@ public final class BundleableFile extends Value<BundleableFile> {
   }
 
   /**
+   * Returns the artifact representing the source for this bundleable file.
+   */
+  public Artifact getBundled() {
+    return bundled;
+  }
+
+  /**
    * Returns bundle files for each given strings file. These are used to merge the strings files to
    * the final application bundle.
    */

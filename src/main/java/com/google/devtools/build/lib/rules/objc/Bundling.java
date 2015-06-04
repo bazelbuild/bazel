@@ -51,7 +51,7 @@ final class Bundling {
   static final class Builder {
     private String name;
     private String bundleDirFormat;
-    private ImmutableList.Builder<BundleableFile> extraBundleFilesBuilder = ImmutableList.builder();
+    private ImmutableList.Builder<BundleableFile> bundleFilesBuilder = ImmutableList.builder();
     private ObjcProvider objcProvider;
     private NestedSetBuilder<Artifact> infoplists = NestedSetBuilder.stableOrder();
     private IntermediateArtifacts intermediateArtifacts;
@@ -80,7 +80,7 @@ final class Bundling {
     }
 
     public Builder addExtraBundleFiles(ImmutableList<BundleableFile> extraBundleFiles) {
-      this.extraBundleFilesBuilder.addAll(extraBundleFiles);
+      this.bundleFilesBuilder.addAll(extraBundleFiles);
       return this;
     }
 
@@ -151,12 +151,15 @@ final class Bundling {
       return artifacts.build();
     }
 
-    private NestedSet<Artifact> getMergeZips(Optional<Artifact> actoolzipOutput) {
-      NestedSetBuilder<Artifact> mergeZipBuilder = NestedSetBuilder.<Artifact>stableOrder()
-          .addAll(actoolzipOutput.asSet())
-          .addAll(Xcdatamodel.outputZips(
-              Xcdatamodels.xcdatamodels(intermediateArtifacts, objcProvider.get(XCDATAMODEL))))
-          .addTransitive(objcProvider.get(MERGE_ZIP));
+    private NestedSet<Artifact> mergeZips(Optional<Artifact> actoolzipOutput) {
+      NestedSetBuilder<Artifact> mergeZipBuilder =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addAll(actoolzipOutput.asSet())
+              .addAll(
+                  Xcdatamodel.outputZips(
+                      Xcdatamodels.xcdatamodels(
+                          intermediateArtifacts, objcProvider.get(XCDATAMODEL))))
+              .addTransitive(objcProvider.get(MERGE_ZIP));
       for (Artifact xibFile : objcProvider.get(XIB)) {
         mergeZipBuilder.add(intermediateArtifacts.compiledXibFileZip(xibFile));
       }
@@ -201,6 +204,40 @@ final class Bundling {
       return actoolzipOutput;
     }
 
+    private NestedSet<BundleableFile> binaryStringsFiles() {
+      NestedSetBuilder<BundleableFile> binaryStringsBuilder = NestedSetBuilder.stableOrder();
+      for (Artifact stringsFile : objcProvider.get(STRINGS)) {
+        BundleableFile bundleFile =
+            new BundleableFile(
+                intermediateArtifacts.convertedStringsFile(stringsFile),
+                BundleableFile.flatBundlePath(stringsFile.getExecPath()));
+        binaryStringsBuilder.add(bundleFile);
+      }
+      return binaryStringsBuilder.build();
+    }
+
+    /**
+     * Filters files that would map to the same location in the bundle, adding only one copy to the
+     * set of files returned.
+     *
+     * <p>Files can have the same bundle path for various illegal reasons and errors are raised for
+     * that separately (see {@link BundleSupport#validateResources}). There are situations though
+     * where the same file exists multiple times (for example in multi-architecture builds) and
+     * would conflict when creating the bundle. In all these cases it shouldn't matter which one is
+     * included and this class will select the first one.
+     */
+    ImmutableList<BundleableFile> deduplicateByBundlePaths(
+        ImmutableList<BundleableFile> bundleFiles) {
+      ImmutableList.Builder<BundleableFile> deduplicated = ImmutableList.builder();
+      Set<String> bundlePaths = new HashSet<>();
+      for (BundleableFile bundleFile : bundleFiles) {
+        if (bundlePaths.add(bundleFile.getBundlePath())) {
+          deduplicated.add(bundleFile);
+        }
+      }
+      return deduplicated.build();
+    }
+
     public Bundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
 
@@ -208,39 +245,37 @@ final class Bundling {
       Optional<Artifact> bundleInfoplist = bundleInfoplist(bundleInfoplistInputs);
       Optional<Artifact> actoolzipOutput = actoolzipOutput();
       Optional<Artifact> combinedArchitectureBinary = combinedArchitectureBinary();
+      NestedSet<BundleableFile> binaryStringsFiles = binaryStringsFiles();
+      NestedSet<Artifact> mergeZips = mergeZips(actoolzipOutput);
 
-      NestedSet<Artifact> mergeZips = getMergeZips(actoolzipOutput);
+      bundleFilesBuilder.addAll(binaryStringsFiles).addAll(objcProvider.get(BUNDLE_FILE));
+      ImmutableList<BundleableFile> bundleFiles =
+          deduplicateByBundlePaths(bundleFilesBuilder.build());
+
       NestedSetBuilder<Artifact> bundleContentArtifactsBuilder =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(nestedBundleContentArtifacts(objcProvider.get(NESTED_BUNDLE)))
               .addAll(combinedArchitectureBinary.asSet())
               .addAll(bundleInfoplist.asSet())
               .addTransitive(mergeZips)
-              .addAll(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)));
+              .addAll(BundleableFile.toArtifacts(binaryStringsFiles))
+              .addAll(BundleableFile.toArtifacts(bundleFiles));
 
-      Set<String> bundlePaths = new HashSet<>();
-      for (Artifact stringsFile : objcProvider.get(STRINGS)) {
-        Artifact binaryStrings = intermediateArtifacts.convertedStringsFile(stringsFile);
-        BundleableFile bundleFile = new BundleableFile(
-            binaryStrings, BundleableFile.flatBundlePath(stringsFile.getExecPath()));
-        if (bundlePaths.add(bundleFile.getBundlePath())) {
-          // Filter files that would map to the same location. Files can have the same bundle path
-          // for various illegal reasons and errors are raised for that separately. Otherwise we
-          // only want a single file for a mapping in the bundle. See
-          // ReleaseBundlingSupport.validateResources for details.
-          extraBundleFilesBuilder.add(bundleFile);
-          bundleContentArtifactsBuilder.add(binaryStrings);
-        }
-      }
-
-      ImmutableList<BundleableFile> extraBundleFiles = extraBundleFilesBuilder.build();
-
-      bundleContentArtifactsBuilder.addAll(BundleableFile.toArtifacts(extraBundleFiles));
-
-      return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
-          objcProvider, bundleInfoplist, actoolzipOutput, bundleContentArtifactsBuilder.build(),
-          mergeZips, primaryBundleId, fallbackBundleId, architecture, minimumOsVersion,
-          bundleInfoplistInputs);
+      return new Bundling(
+          name,
+          bundleDirFormat,
+          combinedArchitectureBinary,
+          bundleFiles,
+          bundleInfoplist,
+          actoolzipOutput,
+          bundleContentArtifactsBuilder.build(),
+          mergeZips,
+          primaryBundleId,
+          fallbackBundleId,
+          architecture,
+          minimumOsVersion,
+          bundleInfoplistInputs,
+          objcProvider.get(NESTED_BUNDLE));
     }
   }
 
@@ -254,8 +289,7 @@ final class Bundling {
   private final String architecture;
   private final String bundleDirFormat;
   private final Optional<Artifact> combinedArchitectureBinary;
-  private final ImmutableList<BundleableFile> extraBundleFiles;
-  private final ObjcProvider objcProvider;
+  private final ImmutableList<BundleableFile> bundleFiles;
   private final Optional<Artifact> bundleInfoplist;
   private final Optional<Artifact> actoolzipOutput;
   private final NestedSet<Artifact> bundleContentArtifacts;
@@ -264,13 +298,13 @@ final class Bundling {
   private final String fallbackBundleId;
   private final String minimumOsVersion;
   private final NestedSet<Artifact> bundleInfoplistInputs;
+  private final NestedSet<Bundling> nestedBundlings;
 
   private Bundling(
       String name,
       String bundleDirFormat,
       Optional<Artifact> combinedArchitectureBinary,
-      ImmutableList<BundleableFile> extraBundleFiles,
-      ObjcProvider objcProvider,
+      ImmutableList<BundleableFile> bundleFiles,
       Optional<Artifact> bundleInfoplist,
       Optional<Artifact> actoolzipOutput,
       NestedSet<Artifact> bundleContentArtifacts,
@@ -279,12 +313,13 @@ final class Bundling {
       String fallbackBundleId,
       String architecture,
       String minimumOsVersion,
-      NestedSet<Artifact> bundleInfoplistInputs) {
+      NestedSet<Artifact> bundleInfoplistInputs,
+      NestedSet<Bundling> nestedBundlings) {
+    this.nestedBundlings = Preconditions.checkNotNull(nestedBundlings);
     this.name = Preconditions.checkNotNull(name);
     this.bundleDirFormat = Preconditions.checkNotNull(bundleDirFormat);
     this.combinedArchitectureBinary = Preconditions.checkNotNull(combinedArchitectureBinary);
-    this.extraBundleFiles = Preconditions.checkNotNull(extraBundleFiles);
-    this.objcProvider = Preconditions.checkNotNull(objcProvider);
+    this.bundleFiles = Preconditions.checkNotNull(bundleFiles);
     this.bundleInfoplist = Preconditions.checkNotNull(bundleInfoplist);
     this.actoolzipOutput = Preconditions.checkNotNull(actoolzipOutput);
     this.bundleContentArtifacts = Preconditions.checkNotNull(bundleContentArtifacts);
@@ -299,7 +334,7 @@ final class Bundling {
   /**
    * The bundle directory. For apps, this would be {@code "Payload/TARGET_NAME.app"}, which is where
    * in the bundle zip archive every file is found, including the linked binary, nested bundles, and
-   * everything returned by {@link #getExtraBundleFiles()}.
+   * everything returned by {@link #getBundleFiles()}.
    */
   public String getBundleDir() {
     return String.format(bundleDirFormat, name);
@@ -322,19 +357,18 @@ final class Bundling {
   }
 
   /**
-   * Extra bundle files to include in the bundle which are not automatically deduced by the contents
-   * of the provider. These files are placed under the bundle root (possibly nested, of course,
-   * depending on the bundle path of the files).
+   * Bundle files to include in the bundle. These files are placed under the bundle root (possibly
+   * nested, of course, depending on the bundle path of the files).
    */
-  public ImmutableList<BundleableFile> getExtraBundleFiles() {
-    return extraBundleFiles;
+  public ImmutableList<BundleableFile> getBundleFiles() {
+    return bundleFiles;
   }
 
   /**
-   * The {@link ObjcProvider} for this bundle.
+   * Returns any bundles nested in this one.
    */
-  public ObjcProvider getObjcProvider() {
-    return objcProvider;
+  public NestedSet<Bundling> getNestedBundlings() {
+    return nestedBundlings;
   }
 
   /**
