@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
@@ -69,13 +67,6 @@ public final class AndroidAaptActionHelper {
    */
   private Iterable<Artifact> getInputs() {
     if (inputs.isEmpty()) {
-      // TODO(bazel-team): When using getFilesToRun(), the middleman is
-      // not expanded. Fix by providing code to expand and use getFilesToRun here.
-      RunfilesSupport aaptRunnerRunfiles = tools.getToolRunner().getRunfilesSupport();
-      Preconditions.checkState(aaptRunnerRunfiles != null, tools.getToolRunner().getLabel());
-      // Note the below may be an overapproximation of the actual runfiles, due to "conditional
-      // artifacts" (see Runfiles.PruningManifest).
-      Iterables.addAll(inputs, aaptRunnerRunfiles.getRunfilesArtifactsWithoutMiddlemen());
       inputs.add(tools.getAndroidJar());
       inputs.add(manifest);
       Iterables.addAll(inputs, Iterables.concat(Iterables.transform(resourceContainers,
@@ -173,7 +164,6 @@ public final class AndroidAaptActionHelper {
     List<String> args = new ArrayList<>();
     args.addAll(getArgs(output, actionKind, ResourceType.RESOURCES));
     args.addAll(getArgs(output, actionKind, ResourceType.ASSETS));
-    args.add(tools.getToolRunner().getExecutable().getExecPathString());
     args.add(tools.getAapt().getExecutable().getExecPathString());
     args.add("package");
     Collections.addAll(args, outputArgs);
