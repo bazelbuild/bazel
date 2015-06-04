@@ -22,17 +22,16 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,10 +105,7 @@ public interface IncludeScanner {
 
       Set<Artifact> includes = Sets.newConcurrentHashSet();
 
-      Executor executor = actionExecutionContext.getExecutor();
-      Path execRoot = executor.getExecRoot();
-
-      final List<Path> absoluteBuiltInIncludeDirs = new ArrayList<>();
+      final List<PathFragment> absoluteBuiltInIncludeDirs = new ArrayList<>();
       Artifact builtInInclude = action.getBuiltInIncludeFile();
       if (builtInInclude != null) {
         includes.add(builtInInclude);
@@ -126,7 +122,10 @@ public interface IncludeScanner {
           Iterables.concat(ImmutableList.of(action), action.getAuxiliaryScannables())) {
 
           Map<Artifact, Artifact> legalOutputPaths = scannable.getLegalGeneratedScannerFileMap();
-          List<PathFragment> includeDirs = new ArrayList<>(scannable.getIncludeDirs());
+          // Deduplicate include directories. This can occur especially with "built-in" and "system"
+          // include directories because of the way we retrieve them. Duplicate include directories
+          // really mess up #include_next directives.
+          Set<PathFragment> includeDirs = new LinkedHashSet<>(scannable.getIncludeDirs());
           List<PathFragment> quoteIncludeDirs = scannable.getQuoteIncludeDirs();
           List<String> cmdlineIncludes = scannable.getCmdlineIncludes();
 
@@ -135,12 +134,14 @@ public interface IncludeScanner {
           // Add the system include paths to the list of include paths.
           for (PathFragment pathFragment : action.getBuiltInIncludeDirectories()) {
             if (pathFragment.isAbsolute()) {
-              absoluteBuiltInIncludeDirs.add(execRoot.getRelative(pathFragment));
+              absoluteBuiltInIncludeDirs.add(pathFragment);
             }
             includeDirs.add(pathFragment);
           }
 
-          IncludeScanner scanner = includeScannerSupplier.scannerFor(quoteIncludeDirs, includeDirs);
+          List<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
+          IncludeScanner scanner = includeScannerSupplier.scannerFor(quoteIncludeDirs,
+              includeDirList);
 
           Artifact mainSource =  scannable.getMainIncludeScannerSource();
           Collection<Artifact> sources = scannable.getIncludeScannerSources();
@@ -156,9 +157,9 @@ public interface IncludeScanner {
       // Collect inputs and output
       List<Artifact> inputs = new ArrayList<>();
       for (Artifact included : includes) {
-        if (FileSystemUtils.startsWithAny(included.getPath(), absoluteBuiltInIncludeDirs)) {
-          // Skip include files found in absolute include directories. This currently only applies
-          // to grte.
+        if (FileSystemUtils.startsWithAny(included.getPath().asFragment(),
+            absoluteBuiltInIncludeDirs)) {
+          // Skip include files found in absolute include directories.
           continue;
         }
         if (included.getRoot().getPath().getParentDirectory() == null) {
