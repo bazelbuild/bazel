@@ -274,7 +274,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   private static Target getSubincludeTarget(final Label label, Package pkg) {
-    return new FakeSubincludeTarget(label, pkg.getBuildFile().getLocation());
+    return new FakeSubincludeTarget(label, pkg);
   }
 
   @Override

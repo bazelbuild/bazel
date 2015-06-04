@@ -32,11 +32,11 @@ import java.util.Set;
 public class FakeSubincludeTarget implements Target {
 
   private final Label label;
-  private final Location location;
+  private final Package pkg;
 
-  FakeSubincludeTarget(Label label, Location location) {
+  FakeSubincludeTarget(Label label, Package pkg) {
     this.label = Preconditions.checkNotNull(label);
-    this.location = Preconditions.checkNotNull(location);
+    this.pkg = Preconditions.checkNotNull(pkg);
   }
 
   @Override
@@ -51,7 +51,7 @@ public class FakeSubincludeTarget implements Target {
 
   @Override
   public Package getPackage() {
-    throw new UnsupportedOperationException();
+    return pkg;
   }
 
   @Override
@@ -71,7 +71,7 @@ public class FakeSubincludeTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return location;
+    return pkg.getBuildFile().getLocation();
   }
 
   @Override
