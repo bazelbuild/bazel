@@ -29,6 +29,6 @@ else
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
-    ./bootstrap_test.sh all
+    ./compile.sh
     bazel-bin/src/bazel test --ram_utilization_factor=10 //src/...
 fi
