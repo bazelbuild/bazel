@@ -90,7 +90,7 @@ public class PrecomputedValue implements SkyValue {
   static final Precomputed<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "top_level_context"));
 
-  static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
+  public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
   static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
