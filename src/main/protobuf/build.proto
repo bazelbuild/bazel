@@ -21,6 +21,7 @@ package blaze_query;
 
 
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
+option java_generate_equals_and_hash = true;
 
 message License {
   repeated string license_type = 1;
