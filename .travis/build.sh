@@ -30,5 +30,5 @@ else
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
     ./compile.sh
-    bazel-bin/src/bazel test --ram_utilization_factor=10 //src/...
+    output/bazel test --ram_utilization_factor=10 //src/...
 fi
