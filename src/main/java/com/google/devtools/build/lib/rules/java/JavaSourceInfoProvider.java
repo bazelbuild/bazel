@@ -14,31 +14,172 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+
+import java.util.Collection;
 
 /**
  * A Provider describing the java sources directly belonging to a java rule.
  */
 @Immutable
 public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
+  private final Collection<Artifact> sourceFiles;
+  private final Collection<Artifact> sourceJars;
+  private final Collection<Artifact> jarFiles;
+  private final Collection<Artifact> sourceJarsForJarFiles;
+  private final Collection<Artifact> resources;
+  private final Collection<String> processorNames;
+  private final Collection<Artifact> processorPath;
 
-  private final NestedSet<Artifact> sources;
+  private JavaSourceInfoProvider(
+      Collection<Artifact> sourceFiles,
+      Collection<Artifact> sourceJars,
+      Collection<Artifact> jarFiles,
+      Collection<Artifact> sourceJarsForJarFiles,
+      Collection<Artifact> resources,
+      Collection<String> processorNames,
+      Collection<Artifact> processorPath) {
+    this.sourceFiles = sourceFiles;
+    this.sourceJars = sourceJars;
+    this.jarFiles = jarFiles;
+    this.sourceJarsForJarFiles = sourceJarsForJarFiles;
+    this.resources = resources;
+    this.processorNames = processorNames;
+    this.processorPath = processorPath;
+  }
 
-  public JavaSourceInfoProvider(NestedSet<Artifact> sources) {
-    Preconditions.checkNotNull(sources);
-    this.sources = sources;
+  /** Gets the original Java source files provided as inputs to this rule. */
+  public Collection<Artifact> getSourceFiles() {
+    return sourceFiles;
   }
 
   /**
-   * Gets the original Java source artifacts, which may be .java, source .jar, or .srcjar files.
-   * The .jars and .srcjars should contain java sources, but may include other files also.
-   * 
-   * @return the source artifacts for this JavaSourceInfoProvider
+   * Gets the original source jars provided as inputs to this rule.
+   *
+   * <p>These should contain Java source files, but can contain other files as well.
    */
-  public NestedSet<Artifact> getSources() {
-    return sources;
+  public Collection<Artifact> getSourceJars() {
+    return sourceJars;
+  }
+
+  /**
+   * Gets the original pre-built jars provided as inputs to this rule.
+   *
+   * <p>These should be used where .class files are needed or wanted in place of recompiling the
+   * sources from {@link #getSourceJarsForJarFiles()}, as this is the source of truth used by the
+   * normal Java machinery.
+   */
+  public Collection<Artifact> getJarFiles() {
+    return jarFiles;
+  }
+
+  /**
+   * Gets the source jars containing the sources of the jars contained in {@link getJarFiles()}.
+   *
+   * <p>These should be used in place of {@link #getJarFiles()} if and only if source is required.
+   */
+  public Collection<Artifact> getSourceJarsForJarFiles() {
+    return sourceJarsForJarFiles;
+  }
+
+  /** Gets the Java resources which were included in this rule's output. */
+  public Collection<Artifact> getResources() {
+    return resources;
+  }
+
+  /** Gets the names of the annotation processors which operate on this rule's sources. */
+  public Collection<String> getProcessorNames() {
+    return processorNames;
+  }
+
+  /** Gets the classpath for the annotation processors which operate on this rule's sources. */
+  public Collection<Artifact> getProcessorPath() {
+    return processorPath;
+  }
+
+  /** Constructs a JavaSourceInfoProvider using the sources in the given JavaTargetAttributes. */
+  public static JavaSourceInfoProvider fromJavaTargetAttributes(JavaTargetAttributes attributes) {
+    return new Builder()
+        .setSourceFiles(attributes.getSourceFiles())
+        .setSourceJars(attributes.getSourceJars())
+        .setJarFiles(attributes.getJarFiles())
+        .setResources(attributes.getResources())
+        .setProcessorNames(attributes.getProcessorNames())
+        .setProcessorPath(attributes.getProcessorPath())
+        .build();
+  }
+
+  /** Builder class for constructing JavaSourceInfoProviders. */
+  public static final class Builder {
+    private Collection<Artifact> sourceFiles = ImmutableList.<Artifact>of();
+    private Collection<Artifact> sourceJars = ImmutableList.<Artifact>of();
+    private Collection<Artifact> jarFiles = ImmutableList.<Artifact>of();
+    private Collection<Artifact> sourceJarsForJarFiles = ImmutableList.<Artifact>of();
+    private Collection<Artifact> resources = ImmutableList.<Artifact>of();
+    private Collection<String> processorNames = ImmutableList.<String>of();
+    private Collection<Artifact> processorPath = ImmutableList.<Artifact>of();
+
+    /** Sets the source files included as part of the sources of this rule. */
+    public Builder setSourceFiles(Collection<Artifact> sourceFiles) {
+      this.sourceFiles = Preconditions.checkNotNull(sourceFiles);
+      return this;
+    }
+
+    /** Sets the source jars included as part of the sources of this rule. */
+    public Builder setSourceJars(Collection<Artifact> sourceJars) {
+      this.sourceJars = Preconditions.checkNotNull(sourceJars);
+      return this;
+    }
+
+    /**
+     * Sets the pre-built jar files included as part of the sources of this rule.
+     */
+    public Builder setJarFiles(Collection<Artifact> jarFiles) {
+      this.jarFiles = Preconditions.checkNotNull(jarFiles);
+      return this;
+    }
+
+    /**
+     * Sets the source jars corresponding to the jar files included in this rule.
+     *
+     * <p>Used by, e.g., the srcjars attribute of {@link JavaImport}.
+     */
+    public Builder setSourceJarsForJarFiles(Collection<Artifact> sourceJarsForJarFiles) {
+      this.sourceJarsForJarFiles = Preconditions.checkNotNull(sourceJarsForJarFiles);
+      return this;
+    }
+
+    /** Sets the resources included in this rule. */
+    public Builder setResources(Collection<Artifact> resources) {
+      this.resources = Preconditions.checkNotNull(resources);
+      return this;
+    }
+
+    /** Sets the names of the annotation processors used by this rule. */
+    public Builder setProcessorNames(Collection<String> processorNames) {
+      this.processorNames = Preconditions.checkNotNull(processorNames);
+      return this;
+    }
+
+    /** Sets the classpath used by this rule for annotation processing. */
+    public Builder setProcessorPath(Collection<Artifact> processorPath) {
+      this.processorPath = Preconditions.checkNotNull(processorPath);
+      return this;
+    }
+
+    /** Constructs the JavaSourceInfoProvider from the provided Java sources. */
+    public JavaSourceInfoProvider build() {
+      return new JavaSourceInfoProvider(
+          sourceFiles,
+          sourceJars,
+          jarFiles,
+          sourceJarsForJarFiles,
+          resources,
+          processorNames,
+          processorPath);
+    }
   }
 }
