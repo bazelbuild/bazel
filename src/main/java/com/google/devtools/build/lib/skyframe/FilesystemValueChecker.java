@@ -232,7 +232,7 @@ class FilesystemValueChecker {
   }
 
   private void updateIntraBuildModifiedCounter(long time, boolean oldWasSymlink,
-      boolean newIsSymlink) throws IOException {
+      boolean newIsSymlink) {
     if (lastExecutionTimeRange != null
         && lastExecutionTimeRange.contains(time)
         && !(oldWasSymlink && newIsSymlink)) {
