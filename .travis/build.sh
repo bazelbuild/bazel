@@ -32,7 +32,7 @@ else
     cat > .bazelrc <<EOF
 test --ram_utilization_factor=10
 EOF
-    export BAZELRC="$pwd/.bazelrc"
+    export BAZELRC="$(pwd)/.bazelrc"
     ./bootstrap_test.sh all
     bazel-bin/src/bazel test //src/... //third_party/...
 fi
