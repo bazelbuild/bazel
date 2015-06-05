@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -32,6 +33,17 @@ import java.util.Map.Entry;
 public class RunfilesSupplierImpl implements RunfilesSupplier {
 
   private final ImmutableMap<PathFragment, Runfiles> inputRunfiles;
+
+  /**
+   * Create an instance for an executable.
+   *
+   * @param executable the executable the runfiles are for, used for determining the runfiles
+   *    directory
+   * @param runfiles the associated runfiles
+   */
+  public RunfilesSupplierImpl(Artifact executable, Runfiles runfiles) {
+    this(BaseSpawn.runfilesForFragment(executable.getExecPath()), runfiles);
+  }
 
   /**
    * Create an instance when you have a a single mapping.
