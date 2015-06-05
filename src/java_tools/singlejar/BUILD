@@ -53,3 +53,26 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+#
+# Bootstrapping using Skylark rules
+#
+load("/tools/build_rules/java_rules_skylark", "bootstrap_java_library", "bootstrap_java_binary")
+
+bootstrap_java_library(
+    name = "skylark-deps",
+    jars = [
+        "//third_party:jsr305-jars",
+    ],
+)
+
+bootstrap_java_binary(
+    name = "bootstrap",
+    srcs = glob(["java/**/*.java"]),
+    main_class = "com.google.devtools.build.singlejar.SingleJar",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":skylark-deps",
+        "//src/main/java:shell-skylark",
+    ],
+)

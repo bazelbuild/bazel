@@ -155,9 +155,21 @@ java_import(
     jars = ["error_prone/error_prone_core-2.0.2.jar"],
 )
 
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "error_prone-jars",
+    srcs = ["error_prone/error_prone_core-2.0.2.jar"],
+)
+
 java_import(
     name = "guava",
     jars = ["guava/guava-18.0.jar"],
+)
+
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "guava-jars",
+    srcs = ["guava/guava-18.0.jar"],
 )
 
 java_import(
@@ -168,6 +180,12 @@ java_import(
 java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
+)
+
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "jsr305-jars",
+    srcs = ["jsr305/jsr-305.jar"],
 )
 
 java_import(
@@ -197,6 +215,12 @@ java_import(
 java_import(
     name = "protobuf",
     jars = ["protobuf/protobuf-2.5.0.jar"],
+)
+
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "protobuf-jars",
+    srcs = ["protobuf/protobuf-2.5.0.jar"],
 )
 
 java_import(

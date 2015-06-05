@@ -52,10 +52,6 @@ EXE_EXT=""
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name *.jar | tr "\n" " ")
 DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} output/src)
-SINGLEJAR_DIRS="src/java_tools/singlejar/java src/main/java/com/google/devtools/build/lib/shell"
-SINGLEJAR_LIBRARIES="third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar"
-BUILDJAR_DIRS="src/java_tools/buildjar/java/com/google/devtools/build/buildjar output/src/com/google/devtools/build/lib/view/proto"
-BUILDJAR_LIBRARIES="third_party/error_prone/error_prone_core-2.0.2.jar third_party/guava/guava-18.0.jar third_party/protobuf/protobuf-2.5.0.jar third_party/jsr305/jsr-305.jar"
 
 MSYS_DLLS=""
 PATHSEP=":"
@@ -316,31 +312,7 @@ EOF
       output third_party/javascript
 fi
 
-if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
-  # Compile singlejar, a jar suitable for deployment.
-  java_compilation "SingleJar tool" "$SINGLEJAR_DIRS" "$SINGLEJAR_LIBRARIES" \
-    "output/singlejar"
-
-  create_deploy_jar "SingleJar_deploy" \
-      "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
-  mkdir -p tools/jdk
-  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
-fi
-
-if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
-  # Compile buildjar, a wrapper around javac.
-  java_compilation "JavaBuilder tool" "$BUILDJAR_DIRS" "$BUILDJAR_LIBRARIES" \
-      "output/buildjar" $JAVA_HOME/lib/tools.jar
-
-  create_deploy_jar "JavaBuilder_deploy" \
-      "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
-  mkdir -p tools/jdk
-  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
-fi
-
 cc_build "client" "objs" "output/client" ${BLAZE_CC_FILES[@]}
-
-LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar" "tools/jdk/ijar" ${IJAR_CC_FILES[@]}
 
 if [ ! -z "$JNILIB" ] ; then
   log "Compiling JNI libraries..."
@@ -397,30 +369,51 @@ zip -qA output/bazel \
 
 chmod 755 output/bazel
 
-if [[ $PLATFORM == "darwin" ]]; then
+function bootstrap_tool() {
+  output/bazel --blazerc=/dev/null build \
+      --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
+      --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+      "${@}"
+}
+
+# Compile ijar
+bootstrap_tool //third_party/ijar
+mkdir -p tools/jdk
+cp -f bazel-bin/third_party/ijar/ijar tools/jdk
+chmod 755 tools/jdk/ijar
+
+if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
+  # Compile singlejar, a jar suitable for deployment.
+  bootstrap_tool //src/java_tools/singlejar:SingleJar_deploy.jar
+  mkdir -p tools/jdk
+  cp -f bazel-bin/src/java_tools/singlejar/SingleJar_deploy.jar tools/jdk
+  chmod 644 tools/jdk/SingleJar_deploy.jar
+fi
+
+if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
+  bootstrap_tool //src/java_tools/buildjar:JavaBuilder_deploy.jar
+  mkdir -p tools/jdk
+  cp -f bazel-bin/src/java_tools/buildjar/JavaBuilder_deploy.jar tools/jdk
+  chmod 644 tools/jdk/JavaBuilder_deploy.jar
+fi
+
+if [[ $PLATFORM == "darwin" ]] && [ -z "${BAZEL_SKIP_OBJCTOOLS_COMPILATION}" ]; then
   log "Creating objc helper tools..."
 
-  zip_common="src/tools/xcode-common/java/com/google/devtools/build/xcode/zip src/tools/xcode-common/java/com/google/devtools/build/xcode/util src/java_tools/singlejar/java/com/google/devtools/build/zip src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipCombiner.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipEntryFilter.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/CopyEntryFilter.java"
+  OBJC_TOOLS="src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar \
+      src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip:ibtoolzip_deploy.jar \
+      src/objc_tools/momczip:momczip_deploy.jar \
+      src/objc_tools/bundlemerge:bundlemerge_deploy.jar \
+      src/objc_tools/plmerge:plmerge_deploy.jar \
+      src/objc_tools/xcodegen:xcodegen_deploy.jar"
+  bootstrap_tool ${OBJC_TOOLS}
 
-  java_compilation "actoolzip" "src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/actoolzip"
-  create_deploy_jar "precomp_actoolzip_deploy" "com.google.devtools.build.xcode.actoolzip.ActoolZip" "output/actoolzip"
-
-  java_compilation "ibtoolzip" "src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/ibtoolzip"
-  create_deploy_jar "precomp_ibtoolzip_deploy" "com.google.devtools.build.xcode.ibtoolzip.IbtoolZip" "output/ibtoolzip"
-
-  java_compilation "momczip" "src/objc_tools/momczip/java/com/google/devtools/build/xcode/momczip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/momczip"
-  create_deploy_jar "precomp_momczip_deploy" "com.google.devtools.build.xcode.momczip.MomcZip" "output/momczip"
-
-  java_compilation "bundlemerge" "src/objc_tools/bundlemerge/java/com/google/devtools/build/xcode/bundlemerge src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common output/src/com/google/devtools/build/xcode/bundlemerge/proto/BundleMergeProtos.java ${zip_common} third_party/java/dd_plist src/main/java/com/google/devtools/common/options" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar" "output/bundlemerge"
-  create_deploy_jar "precomp_bundlemerge_deploy" "com.google.devtools.build.xcode.bundlemerge.BundleMerge" "output/bundlemerge"
-
-  java_compilation "plmerge" "src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common third_party/java/dd_plist src/main/java/com/google/devtools/common/options ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/plmerge"
-  create_deploy_jar "precomp_plmerge_deploy" "com.google.devtools.build.xcode.plmerge.PlMerge" "output/plmerge"
-
-  java_compilation "xcodegen" "src/objc_tools/xcodegen/java/com/google/devtools/build/xcode/xcodegen src/main/java/com/google/devtools/common/options output/src/com/google/devtools/build/xcode/xcodegen/proto/XcodeGenProtos.java third_party/java/buck-ios-support/java src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common src/tools/xcode-common/java/com/google/devtools/build/xcode/util third_party/java/dd_plist" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar" "output/xcodegen"
-  create_deploy_jar "precomp_xcodegen_deploy" "com.google.devtools.build.xcode.xcodegen.XcodeGen" "output/xcodegen"
-
-  cp -f output/actoolzip/precomp_actoolzip_deploy.jar output/ibtoolzip/precomp_ibtoolzip_deploy.jar output/momczip/precomp_momczip_deploy.jar output/bundlemerge/precomp_bundlemerge_deploy.jar output/plmerge/precomp_plmerge_deploy.jar output/xcodegen/precomp_xcodegen_deploy.jar tools/objc/
+  for i in ${OBJC_TOOLS}; do
+      p=bazel-bin/$(echo $i | sed "s|:|/|")
+      cp $p tools/objc/precomp_$(basename $p)
+      chmod 0644 tools/objc/precomp_$(basename $p)
+  done
 fi
 
 # Create a bazelrc file with the base_workspace directory in the package path.

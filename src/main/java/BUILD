@@ -267,3 +267,14 @@ genrule(
     cmd = "$(location :skydoc_bin) $@",
     tools = [":skydoc_bin"],
 )
+
+#
+# Bootstrapping SingleJar using Skylark rules
+#
+load("/tools/build_rules/java_rules_skylark", "bootstrap_java_library")
+
+bootstrap_java_library(
+    name = "shell-skylark",
+    srcs = glob(["com/google/devtools/build/lib/shell/*.java"]),
+    jars = ["//third_party:guava"],
+)

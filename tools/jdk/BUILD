@@ -45,7 +45,7 @@ filegroup(
 
 java_import(
     name = "langtools-neverlink",
-    jars = ["//external:langtools"],
+    jars = ["//tools/defaults:java_langtools"],
     neverlink = 1,
 )
 
