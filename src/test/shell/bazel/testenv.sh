@@ -26,6 +26,7 @@ source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
 # Bazel
 bazel_tree="${TEST_SRCDIR}/src/test/shell/bazel/doc-srcs.zip"
 bazel_path="${TEST_SRCDIR}/src"
+bazel_data="${TEST_SRCDIR}"
 
 # Java
 jdk_dir="${TEST_SRCDIR}/external/local-jdk"

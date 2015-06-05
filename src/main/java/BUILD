@@ -87,6 +87,18 @@ java_library(
 )
 
 java_library(
+    name = "events",
+    srcs = glob(["com/google/devtools/build/lib/events/*.java"]),
+    deps = [
+        ":common",
+        ":concurrent",
+        ":vfs",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-core",
     srcs = glob(
         [
@@ -102,7 +114,6 @@ java_library(
             "com/google/devtools/build/lib/skyframe/**",
             "com/google/devtools/build/lib/webstatusserver/**/*.java",
             "com/google/devtools/build/lib/analysis/**",
-            "com/google/devtools/build/lib/events/**",
             "com/google/devtools/build/lib/rules/**",
             "com/google/devtools/build/lib/syntax/**",
             "com/google/devtools/build/docgen/**/*.java",
@@ -139,6 +150,7 @@ java_library(
         ":collect",
         ":common",
         ":concurrent",
+        ":events",
         ":options",
         ":shell",
         ":unix",

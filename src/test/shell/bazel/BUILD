@@ -104,6 +104,15 @@ sh_test(
 )
 
 sh_test(
+    name = "workspace_test",
+    srcs = ["workspace_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/java/com/google/devtools/build/workspace:generate_workspace",
+    ],
+)
+
+sh_test(
     name = "bazel_sandboxing_test",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],

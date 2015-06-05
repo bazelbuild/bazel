@@ -203,6 +203,11 @@ java_import(
 )
 
 java_import(
+    name = "plexus_component_annotations",
+    jars = ["plexus_component_annotations/plexus-component-annotations-1.6.jar"],
+)
+
+java_import(
     name = "plexus_interpolation",
     jars = ["plexus_interpolation/plexus-interpolation-1.22.jar"],
 )

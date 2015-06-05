@@ -154,14 +154,20 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-[plexus_interpolation](http://plexus.codehaus.org/plexus-components/plexus-interpolation/)
+[plexus_component_annotations](http://mvnrepository.com/artifact/org.codehaus.plexus/plexus-component-annotations)
+----------------------
+
+* Version: 1.6
+* License: Apache License 2.0
+
+[plexus_interpolation](http://mvnrepository.com/artifact/org.codehaus.plexus/plexus-interpolation)
 ----------------------
 
 * Version: 1.22
 * License: Apache License 2.0
 
 
-[plexus_utils](http://plexus.codehaus.org/plexus-utils/)
+[plexus_utils](http://mvnrepository.com/artifact/org.codehaus.plexus/plexus-utils)
 --------------
 
 * Version: 3.0.21
@@ -197,5 +203,3 @@ Testing
 
 * Version: 0.24
 * License: Apache License 2.0
-
-
