@@ -36,6 +36,7 @@ public class AndroidTools {
   private final Artifact aidlTool;
   private final Artifact frameworkAidl;
   private final FilesToRunProvider adb;
+  private final FilesToRunProvider toolRunner;
   private final FilesToRunProvider aaptJavaGenerator;
   private final FilesToRunProvider apkGenerator;
   private final FilesToRunProvider resourceProcessor;
@@ -68,6 +69,7 @@ public class AndroidTools {
         getOptionalArtifact(ruleContext, "$android_aidl_framework"),
         getOptionalToolFromArtifact(ruleContext, "$android_aapt"),
         getOptionalToolFromArtifact(ruleContext, "$adb"),
+        getOptionalTool(ruleContext, "$android_tool_runner"),
         getOptionalTool(ruleContext, "$android_aapt_java_generator"),
         getOptionalTool(ruleContext, "$android_aapt_apk_generator"),
         getOptionalTool(ruleContext, ":android_resources_processor"),
@@ -141,6 +143,7 @@ public class AndroidTools {
       Artifact frameworkAidl,
       FilesToRunProvider aapt,
       FilesToRunProvider adb,
+      FilesToRunProvider toolRunner,
       FilesToRunProvider aaptJavaGenerator,
       FilesToRunProvider apkGenerator,
       FilesToRunProvider resourceProcessor,
@@ -159,6 +162,7 @@ public class AndroidTools {
     this.aidlTool = aidlTool;
     this.frameworkAidl = frameworkAidl;
     this.adb = adb;
+    this.toolRunner = toolRunner;
     this.aaptJavaGenerator = aaptJavaGenerator;
     this.apkGenerator = apkGenerator;
     this.resourceProcessor = resourceProcessor;
@@ -193,6 +197,10 @@ public class AndroidTools {
 
   public FilesToRunProvider getAdb() {
     return androidSdk != null ? androidSdk.getAdb() : adb;
+  }
+
+  public FilesToRunProvider getToolRunner() {
+    return toolRunner;
   }
 
   public FilesToRunProvider getAaptJavaGenerator() {
@@ -301,10 +309,14 @@ public class AndroidTools {
   public SpawnAction.Builder aidlAction() {
     return androidSdk != null
         ? new SpawnAction.Builder()
-            .addInput(androidSdk.getAidl().getExecutable())
             .setExecutable(androidSdk.getAidl())
         : new SpawnAction.Builder()
-            .addInput(aidlTool)
-            .setExecutable(aidlTool);
+            // Note the below may be an overapproximation of the actual runfiles, due to
+            // "conditional artifacts" (see Runfiles.PruningManifest).
+            // TODO(bazel-team): When using getFilesToRun(), the middleman is
+            // not expanded. Fix by providing code to expand and use getFilesToRun here.
+            .addInputs(toolRunner.getRunfilesSupport().getRunfilesArtifactsWithoutMiddlemen())
+            .setExecutable(toolRunner.getExecutable())
+            .addInputArgument(aidlTool);
   }
 }
