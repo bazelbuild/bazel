@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
+import com.google.devtools.build.lib.query2.output.AspectResolver;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
@@ -281,7 +282,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     PrintStream printStream = new PrintStream(outputStream);
 
     try {
-      QueryOutputUtils.output(queryOptions, queryResult, formatter, printStream);
+      QueryOutputUtils.output(queryOptions, queryResult, formatter, printStream,
+          queryOptions.withAspectDeps 
+          ? new AspectResolver(packageProvider, getEventHandler(ruleContext))
+          : null);
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {

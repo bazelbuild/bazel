@@ -31,14 +31,14 @@ public class QueryOutputUtils {
   }
 
   public static void output(QueryOptions queryOptions, QueryEvalResult<Target> result,
-      OutputFormatter formatter, PrintStream outputStream)
-      throws IOException {
+      OutputFormatter formatter, PrintStream outputStream, AspectResolver aspectResolver)
+      throws IOException, InterruptedException {
     if (orderResults(queryOptions, formatter)) {
       formatter.output(queryOptions, ((BlazeQueryEvalResult<Target>) result).getResultGraph(),
-          outputStream);
+          outputStream, aspectResolver);
     } else {
       ((UnorderedFormatter) formatter).outputUnordered(queryOptions, result.getResultSet(),
-          outputStream);
+          outputStream, aspectResolver);
     }
   }
 }

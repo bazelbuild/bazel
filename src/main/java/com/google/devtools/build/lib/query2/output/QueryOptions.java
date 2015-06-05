@@ -137,6 +137,13 @@ public class QueryOptions extends OptionsBase {
         + "across machines.")
   public boolean relativeLocations;
 
+  @Option(name = "aspect_deps",
+      defaultValue = "false",
+      category = "query",
+      help = "If true, the dependencies from aspects should be added to targets. By default, this "
+          + "information about aspects is missing when --output is set to xml, proto or record.")
+  public boolean withAspectDeps;
+
   /**
    * Return the current options as a set of QueryEnvironment settings.
    */
