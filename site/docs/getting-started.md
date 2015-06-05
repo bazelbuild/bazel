@@ -283,7 +283,7 @@ com/example/cmdline/Runner.class
 {% endhighlight %}
 
 To deploy a `runner` binary, we need a self-contained jar. To build this, build
-runner_deploy.jar (or, more generally, _&lt;target-name&gt;_deploy.jar_):
+`runner_deploy.jar` (or, more generally, `<target-name>_deploy.jar`):
 
 {% highlight bash %}
 $ bazel build my-project/java/com/example/cmdline:runner_deploy.jar
