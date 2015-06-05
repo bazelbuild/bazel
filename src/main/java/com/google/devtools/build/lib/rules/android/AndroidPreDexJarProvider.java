@@ -18,22 +18,22 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
- * A provider for targets that build _deploy.jar files.
+ * A provider of the final Jar to be dexed for targets that build APKs.
  */
 @Immutable
-public final class AndroidDeployJarProvider implements TransitiveInfoProvider {
+public final class AndroidPreDexJarProvider implements TransitiveInfoProvider {
 
-  private final Artifact deployJar;
+  private final Artifact preDexJar;
 
 
-  public AndroidDeployJarProvider(Artifact deployJar) {
-    this.deployJar = deployJar;
+  public AndroidPreDexJarProvider(Artifact preDexJar) {
+    this.preDexJar = preDexJar;
   }
 
   /**
-   * Returns the deploy jar.
+   * Returns the jar to be dexed.
    */
-  public Artifact getDeployJar() {
-    return deployJar;
+  public Artifact getPreDexJar() {
+    return preDexJar;
   }
 }

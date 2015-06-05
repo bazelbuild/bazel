@@ -494,7 +494,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(ApkProvider.class,
             new ApkProvider(NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
                 coverageMetadata))
-        .add(AndroidDeployJarProvider.class, new AndroidDeployJarProvider(deployJar))
+        .add(AndroidPreDexJarProvider.class, new AndroidPreDexJarProvider(jarToDex))
         .addOutputGroup("mobile_install_full", fullDeployMarker)
         .addOutputGroup("mobile_install_incremental", incrementalDeployMarker)
         .addOutputGroup("mobile_install_split", splitOutputGroup);
