@@ -85,12 +85,16 @@ public class EvalUtilsTest {
     // labels and strings at toplevel.
     assertEquals("foo\nbar", EvalUtils.printValue("foo\nbar"));
     assertEquals("\"foo\\nbar\"", EvalUtils.prettyPrintValue("foo\nbar"));
+    assertEquals("foo\nbar", EvalUtils.printValue("foo\nbar"));
     assertEquals("'", EvalUtils.printValue("'"));
     assertEquals("\"'\"", EvalUtils.prettyPrintValue("'"));
     assertEquals("\"", EvalUtils.printValue("\""));
     assertEquals("\"\\\"\"", EvalUtils.prettyPrintValue("\""));
+    assertEquals("a\\b", EvalUtils.printValue("a\\b"));
+    assertEquals("\"a\\\\b\"", EvalUtils.prettyPrintValue("a\\b"));
     assertEquals("3", EvalUtils.printValue(3));
     assertEquals("3", EvalUtils.prettyPrintValue(3));
+    assertEquals("None", EvalUtils.printValue(Environment.NONE));
     assertEquals("None", EvalUtils.prettyPrintValue(Environment.NONE));
 
     assertEquals("//x:x", EvalUtils.printValue(Label.parseAbsolute("//x")));
