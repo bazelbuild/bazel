@@ -136,6 +136,11 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
     option_sources["blaze_cpu"] = rcfile;
     fprintf(stderr, "WARNING: The --blaze_cpu startup option is now ignored "
             "and will be removed in a future release\n");
+  } else if ((value = GetUnaryOption(arg, next_arg, "--bazelrc")) != NULL) {
+    if (rcfile != "") {
+      *error = "Can't specify --bazelrc in the .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
     if (rcfile != "") {
       *error = "Can't specify --blazerc in the .blazerc file.";

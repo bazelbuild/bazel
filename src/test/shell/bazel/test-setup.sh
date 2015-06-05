@@ -41,7 +41,7 @@ EOF
 }
 
 function bazel() {
-  ${bazel} --blazerc=$TEST_TMPDIR/bazelrc "$@"
+  ${bazel} --bazelrc=$TEST_TMPDIR/bazelrc "$@"
 }
 
 function setup_protoc_support() {
