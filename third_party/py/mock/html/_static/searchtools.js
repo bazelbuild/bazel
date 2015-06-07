@@ -34,7 +34,7 @@ jQuery.makeSearchSummary = function(text, keywords, hlwords) {
     rv = rv.highlightText(this, 'highlighted');
   });
   return rv;
-}
+};
 
 
 /**
@@ -217,7 +217,7 @@ var Stemmer = function() {
       w = firstch.toLowerCase() + w.substr(1);
     return w;
   }
-}
+};
 
 
 /**
@@ -275,8 +275,8 @@ var Search = {
       Search.dots.text(dotString);
       if (Search._pulse_status > -1)
         window.setTimeout(pulse, 500);
-    };
-    pulse();
+    }
+      pulse();
   },
 
   /**
@@ -334,8 +334,8 @@ var Search = {
       // only add if not already in the list
       if (!$.contains(toAppend, word))
         toAppend.push(word);
-    };
-    var highlightstring = '?highlight=' + $.urlencode(hlterms.join(" "));
+    }
+      var highlightstring = '?highlight=' + $.urlencode(hlterms.join(" "));
 
     // console.debug('SEARCH: searching for:');
     // console.info('required: ', searchterms);
@@ -357,7 +357,7 @@ var Search = {
     // lookup as object
     for (var i = 0; i < objectterms.length; i++) {
       var others = [].concat(objectterms.slice(0,i),
-                             objectterms.slice(i+1, objectterms.length))
+                             objectterms.slice(i+1, objectterms.length));
       var results = this.performObjectSearch(objectterms[i], others);
       // Assume first word is most likely to be the object,
       // other words more likely to be in description.
@@ -553,7 +553,7 @@ var Search = {
 
     return [importantResults, objectResults, unimportantResults]
   }
-}
+};
 
 $(document).ready(function() {
   Search.init();
