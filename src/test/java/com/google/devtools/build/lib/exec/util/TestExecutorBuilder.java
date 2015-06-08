@@ -35,9 +35,9 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Builder for the test instance of the {@link BlazeExecutor} class.
@@ -50,7 +50,8 @@ public class TestExecutorBuilder {
   private EventBus bus = new EventBus();
   private OptionsParser optionsParser = OptionsParser.newOptionsParser(DEFAULT_OPTIONS);
   private List<ActionContext> strategies = new ArrayList<>();
-  private Map<String, SpawnActionContext> spawnStrategyMap = new HashMap<>();
+  private Map<String, SpawnActionContext> spawnStrategyMap =
+      new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
   public TestExecutorBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;

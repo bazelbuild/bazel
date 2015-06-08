@@ -47,16 +47,11 @@ import java.util.Map;
 /**
  * Runs TestRunnerAction actions.
  */
-@ExecutionStrategy(contextType = TestActionContext.class,
-          name = { "standalone" })
+@ExecutionStrategy(contextType = TestActionContext.class, name = { "standalone" })
 public class StandaloneTestStrategy extends TestStrategy {
-  /*
-    TODO(bazel-team):
-    * tests
-    * It would be nice to get rid of (cd $TEST_SRCDIR) in the test-setup script.
-    * test timeouts.
-    * parsing XML output.
-    */
+  // TODO(bazel-team) - add tests for this strategy.
+  // TODO(bazel-team) - add support for test timeouts.
+  // TODO(bazel-team) - add support for parsing XML output.
 
   private final Path workspace;
 

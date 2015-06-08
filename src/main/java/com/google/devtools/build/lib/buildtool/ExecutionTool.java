@@ -105,6 +105,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -175,7 +176,8 @@ public class ExecutionTool {
   private ActionInputFileCache fileCache;
   private List<ActionContextProvider> actionContextProviders;
 
-  private Map<String, SpawnActionContext> spawnStrategyMap = new HashMap<>();
+  private Map<String, SpawnActionContext> spawnStrategyMap =
+      new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
   private List<ActionContext> strategies = new ArrayList<>();
 
   ExecutionTool(BlazeRuntime runtime, BuildRequest request) throws ExecutorInitException {

@@ -65,14 +65,14 @@ public class StandaloneContextProvider implements ActionContextProvider {
   }
 
   @SuppressWarnings("unchecked")
-  private final ActionContext localSpawnStrategy;
+  private final ActionContext standaloneSpawnStrategy;
   private final ImmutableList<ActionContext> strategies;
   private final BlazeRuntime runtime;
 
   public StandaloneContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
-    localSpawnStrategy = new LocalSpawnStrategy(runtime.getExecRoot(), verboseFailures);
+    standaloneSpawnStrategy = new StandaloneSpawnStrategy(runtime.getExecRoot(), verboseFailures);
     this.runtime = runtime;
 
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
@@ -90,7 +90,7 @@ public class StandaloneContextProvider implements ActionContextProvider {
       strategiesBuilder.add(sandboxedLinuxStrategy);
     }
     strategiesBuilder.add(
-        localSpawnStrategy,
+        standaloneSpawnStrategy,
         new DummyIncludeScanningContext(),
         new LocalLinkStrategy(),
         testStrategy,

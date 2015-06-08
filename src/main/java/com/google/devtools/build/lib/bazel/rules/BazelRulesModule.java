@@ -34,10 +34,13 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -64,8 +67,17 @@ public class BazelRulesModule extends BlazeModule {
         help = "Specify how to execute genrules."
             + "'standalone' means run all of them locally."
             + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)")
-
     public String genruleStrategy;
+
+    @Option(name = "strategy",
+        allowMultiple = true,
+        converter = AssignmentConverter.class,
+        defaultValue = "",
+        category = "strategy",
+        help = "Specify how to distribute compilation of other spawn actions. "
+            + "Example: 'Javac=local' means to spawn Java compilation locally. "
+            + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
+    public List<Map.Entry<String, String>> strategy;
   }
 
   private static class BazelActionContextConsumer implements ActionContextConsumer {
@@ -77,23 +89,32 @@ public class BazelRulesModule extends BlazeModule {
     }
     @Override
     public Map<String, String> getSpawnActionContexts() {
-      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+      Map<String, String> contexts = new HashMap<>();
 
-      builder.put("Genrule", options.genruleStrategy);
+      contexts.put("Genrule", options.genruleStrategy);
+
+      for (Map.Entry<String, String> strategy : options.strategy) {
+        String strategyName = strategy.getValue();
+        // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
+        // Some flag expansions use "local" as the strategy name, but the strategy is now called
+        // "standalone", so we'll translate it here.
+        if (strategyName.equals("local")) {
+          strategyName = "standalone";
+        }
+        contexts.put(strategy.getKey(), strategyName);
+      }
 
       // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
-      builder.put("", options.spawnStrategy);
+      contexts.put("", options.spawnStrategy);
 
-      return builder.build();
+      return ImmutableMap.copyOf(contexts);
     }
 
     @Override
     public Map<Class<? extends ActionContext>, String> getActionContexts() {
-      ImmutableMap.Builder<Class<? extends ActionContext>, String> builder =
-          ImmutableMap.builder();
-      builder.put(CppCompileActionContext.class, "");
-      builder.put(CppLinkActionContext.class, "");
-      return builder.build();
+      return ImmutableMap.of(
+          CppCompileActionContext.class, "",
+          CppLinkActionContext.class, "");
     }
   }
 

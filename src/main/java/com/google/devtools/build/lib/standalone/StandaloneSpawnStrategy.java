@@ -37,12 +37,12 @@ import java.util.List;
  * Strategy that uses subprocessing to execute a process.
  */
 @ExecutionStrategy(name = { "standalone" }, contextType = SpawnActionContext.class)
-public class LocalSpawnStrategy implements SpawnActionContext {
+public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
 
   private final Path processWrapper;
 
-  public LocalSpawnStrategy(Path execRoot, boolean verboseFailures) {
+  public StandaloneSpawnStrategy(Path execRoot, boolean verboseFailures) {
     this.verboseFailures = verboseFailures;
     this.processWrapper = execRoot.getRelative(
         "_bin/process-wrapper" + OsUtils.executableExtension());
