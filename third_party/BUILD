@@ -57,6 +57,11 @@ java_import(
 )
 
 java_import(
+    name = "apache_commons_pool2",
+    jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
+)
+
+java_import(
     name = "apache_httpclient",
     jars = ["apache_httpclient/httpclient-4.2.5.jar"],
 )

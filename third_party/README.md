@@ -23,6 +23,12 @@ a minimal set of extra dependencies.
 * Version: 1.1.1
 * License: Apache License 2.0.
 
+[apache_commons_pool2](https://commons.apache.org/proper/commons-pool/)
+------------------------
+
+* Version: 2.3
+* License: Apache License 2.0.
+
 
 [apache_httpclient](http://hc.apache.org/httpclient-3.x/)
 -------------------

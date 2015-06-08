@@ -165,6 +165,7 @@ java_library(
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:aether",
         "//third_party:apache_commons_compress",
+        "//third_party:apache_commons_pool2",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
