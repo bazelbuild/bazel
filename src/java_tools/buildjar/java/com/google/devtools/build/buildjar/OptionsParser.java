@@ -51,6 +51,7 @@ public final class OptionsParser {
 
   private String sourceGenDir;
   private String generatedSourcesOutputJar;
+  private String generatedClassOutputJar;
 
   private final List<String> sourceFiles = new ArrayList<>();
   private final List<String> sourceJars = new ArrayList<>();
@@ -137,6 +138,9 @@ public final class OptionsParser {
           break;
         case "--generated_sources_output":
           generatedSourcesOutputJar = getArgument(argQueue, arg);
+          break;
+        case "--classes_from_generated_sources_output":
+          generatedClassOutputJar = getArgument(argQueue, arg);
           break;
         case "--sources":
           collectFlagArguments(sourceFiles, argQueue, "-");
@@ -333,6 +337,10 @@ public final class OptionsParser {
 
   public String getGeneratedSourcesOutputJar() {
     return generatedSourcesOutputJar;
+  }
+
+  public String getGeneratedClassOutputJar() {
+    return generatedClassOutputJar;
   }
 
   public List<String> getSourceFiles() {
