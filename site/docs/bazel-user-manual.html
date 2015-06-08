@@ -3447,11 +3447,12 @@ in an environment closer to the current shell environment. Note that none of the
 
 <h4 id='flag--config'><code class='flag'>--config <var>name</var></code></h4>
 <p>
- Selects additional config sections from the rc files; for the current
+ Selects additional config section from the rc files; for the current
  <code>command</code>, it also pulls in the options from
  <code>command:name</code> if such a section exists. Note that it is currently
  only possible to provide these options on the command line, not in the rc
- files.
+ files. Can be specified multiple times to add flags from several
+ config sections.
 </p>
 
 <h4 id='flag--curses'><code class='flag'>--curses (yes|no|auto)</code></h4>
