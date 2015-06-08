@@ -19,15 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
-import com.google.devtools.build.lib.rules.cpp.LocalGccStrategy;
-import com.google.devtools.build.lib.rules.cpp.LocalLinkStrategy;
 import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -140,13 +136,6 @@ public class BazelRulesModule extends BlazeModule {
         optionsProvider.getOptions(BazelExecutionOptions.class)));
   }
   
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return SimpleActionContextProvider.of(
-        new LocalGccStrategy(optionsProvider),
-        new LocalLinkStrategy());
-  }
-
   @Subscribe
   public void gotOptions(GotOptionsEvent event) {
     optionsProvider = event.getOptions();
