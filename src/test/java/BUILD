@@ -441,6 +441,7 @@ java_binary(
     main_class = "com.google.devtools.build.lib.syntax.SkylarkShell",
     deps = [
         "//src/main/java:bazel-core",
+        "//src/main/java:events",
     ],
 )
 
