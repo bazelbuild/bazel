@@ -84,7 +84,7 @@ public class Resolver {
     }
 
     for (org.apache.maven.model.Dependency dependency : model.getDependencies()) {
-      Rule rule = Rule.create(
+      Rule rule = new Rule(
           dependency.getArtifactId(), dependency.getGroupId(), dependency.getVersion());
       if (deps.containsKey(rule.name())) {
         Rule existingDependency = deps.get(rule.name());

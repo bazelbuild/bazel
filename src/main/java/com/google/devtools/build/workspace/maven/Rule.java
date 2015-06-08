@@ -14,20 +14,31 @@
 
 package com.google.devtools.build.workspace.maven;
 
-import com.google.auto.value.AutoValue;
-
 /**
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
-@AutoValue
-public abstract class Rule {
-  static Rule create(String artifactId, String groupId, String version) {
-    return new AutoValue_Rule(artifactId, groupId, version);
+public final class Rule {
+  private final String artifactId;
+  private final String groupId;
+  private final String version;
+
+  public Rule(String artifactId, String groupId, String version) {
+    this.artifactId = artifactId;
+    this.groupId = groupId;
+    this.version = version;
   }
 
-  abstract String artifactId();
-  abstract String groupId();
-  abstract String version();
+  public String artifactId() {
+    return artifactId;
+  }
+
+  public String groupId() {
+    return groupId;
+  }
+
+  public String version() {
+    return version;
+  }
 
   String name() {
     return (groupId() + "/" + artifactId()).replaceAll("\\.", "/");
