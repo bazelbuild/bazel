@@ -56,7 +56,7 @@ function renderInfo(info) {
   $('#testInfo').empty();
   var data = [
     ['Targets: ', info['targets']],
-    ['Started at: ', showDate(new Date(info['startTime']))],
+    ['Started at: ', showDate(new Date(info['startTime']))]
   ];
   if (info['finished']) {
     data.push(['Finished at: ', showDate(new Date(info['endTime']))]);
@@ -264,8 +264,8 @@ function renderDetails(tests, predicate) {
 }
 
 function toggleVisibility() {
-  $('#testDetails > [show=false]').hide();
-  $('#testDetails > [show=true]').show();
+  $('#testDetails').find('> [show=false]').hide();
+  $('#tes').find('> [show=true] w=true]').show();
   $('[toggle=on]').siblings('[show=false]').hide();
   $('[toggle=on]').siblings('[show=true]').show();
 }
@@ -358,7 +358,7 @@ function updateVisibleCases() {
   if (textFilterActive()) {
     // expand nodes to save some clicking - if user searched for something that
     // is leaf of the tree, she definitely wants to see it
-    $('#testDetails > [show=true]').find('[toggle=off]').click();
+    $('#testDetails').find('> [show=true]').find('[toggle=off]').click();
   }
 }
 

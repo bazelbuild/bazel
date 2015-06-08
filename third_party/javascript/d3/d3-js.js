@@ -2250,7 +2250,10 @@ d3 = function() {
     x: function(x) {
       return x.toString(16);
     },
-    X: function(x) {
+      /**
+       * @return {string}
+       */
+      X: function(x) {
       return x.toString(16).toUpperCase();
     },
     g: function(x, p) {

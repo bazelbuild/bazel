@@ -32,7 +32,7 @@ if (!window.console || !console.firebug) {
  */
 jQuery.urldecode = function(x) {
   return decodeURIComponent(x).replace(/\+/g, ' ');
-}
+};
 
 /**
  * small helper function to urlencode strings
@@ -118,7 +118,10 @@ var Documentation = {
    * i18n support
    */
   TRANSLATIONS : {},
-  PLURAL_EXPR : function(n) { return n == 1 ? 0 : 1; },
+    /**
+     * @return {number}
+     */
+    PLURAL_EXPR : function(n) { return n == 1 ? 0 : 1; },
   LOCALE : 'unknown',
 
   // gettext and ngettext don't access this so that the functions
@@ -213,7 +216,7 @@ var Documentation = {
    * helper function to hide the search marks again
    */
   hideSearchWords : function() {
-    $('#searchbox .highlight-link').fadeOut(300);
+    $('#searchbo').find('.highlight-link').fadeOut(300);
     $('span.highlighted').removeClass('highlighted');
   },
 

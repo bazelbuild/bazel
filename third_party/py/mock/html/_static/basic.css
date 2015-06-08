@@ -100,9 +100,7 @@ ul.search {
 
 ul.search li {
     padding: 5px 0 5px 20px;
-    background-image: url(file.png);
-    background-repeat: no-repeat;
-    background-position: 0 7px;
+    background: url(file.png) no-repeat 0 7px;
 }
 
 ul.search li a {
