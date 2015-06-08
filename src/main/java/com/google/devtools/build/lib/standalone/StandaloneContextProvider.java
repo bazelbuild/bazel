@@ -78,6 +78,7 @@ public class StandaloneContextProvider implements ActionContextProvider {
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
         runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getClientEnv(),
         runtime.getWorkspace());
+
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
     // order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
@@ -89,15 +90,15 @@ public class StandaloneContextProvider implements ActionContextProvider {
           new LinuxSandboxedStrategy(runtime.getDirectories(), verboseFailures);
       strategiesBuilder.add(sandboxedLinuxStrategy);
     }
+
     strategiesBuilder.add(
         standaloneSpawnStrategy,
         new DummyIncludeScanningContext(),
         new LocalLinkStrategy(),
         testStrategy,
         new ExclusiveTestStrategy(testStrategy),
-        new LocalGccStrategy(buildRequest),
+        new LocalGccStrategy(),
         new FileWriteStrategy());
-
 
     this.strategies = strategiesBuilder.build();
   }
@@ -119,7 +120,8 @@ public class StandaloneContextProvider implements ActionContextProvider {
   }
 
   @Override
-  public void executionPhaseEnding()  {}
+  public void executionPhaseEnding() {
+  }
 }
 
 
