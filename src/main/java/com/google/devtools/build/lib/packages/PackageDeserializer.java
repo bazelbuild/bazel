@@ -45,11 +45,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Functionality to deserialize loaded packages.
  */
 public class PackageDeserializer {
+
+  private static final Logger LOG = Logger.getLogger(PackageDeserializer.class.getName());
 
   // Workaround for Java serialization not allowing to pass in a context manually.
   // volatile is needed to ensure that the objects are published safely.
@@ -406,6 +410,16 @@ public class PackageDeserializer {
    * @throws IOException on failures reading from {@code in}
    */
   public Package deserialize(InputStream in) throws PackageDeserializationException, IOException {
+    try {
+      return deserializeInternal(in);
+    } catch (PackageDeserializationException | RuntimeException e) {
+      LOG.log(Level.WARNING, "Failed to deserialize Package object", e);
+      throw e;
+    }
+  }
+
+  private Package deserializeInternal(InputStream in)
+      throws PackageDeserializationException, IOException {
     // Read the initial Package message so we have the data to initialize the builder. We will read
     // the Targets in individually later.
     Build.Package packagePb = Build.Package.parseDelimitedFrom(in);
