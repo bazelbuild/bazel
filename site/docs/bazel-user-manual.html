@@ -1009,21 +1009,6 @@ $ bazel fetch //...
   tools.
 </p>
 
-<h4 id='rm'><code>bazel rm</code></h4>
-<p>
-  <code>bazel rm</code> is a more limited form of <code>clean</code>,
-  that deletes only the named files.  For example:
-</p>
-<pre>
-  % bazel rm bazel-bin/foo/libfoo.a
-</pre>
-<p>
-  Some users use <code>bazel rm</code> when performing timing
-  experiments of a particular build step: by deleting a single file
-  and running a build, only that file (and others that depend on it)
-  will be rebuilt.
-</p>
-
 <h3 id='phases'>Phases of a build</h3>
 
 <p>
