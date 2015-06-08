@@ -1839,15 +1839,24 @@ the compilation of binaries during the build.
   source files. The compiler can be selected by settings the
   <a href="#flag--java_langtools"><code class='flag'>--java_langtools</code></a>
   and the
-  <a href="#flag--javac_bootclasspath"><code class='flag'>--javac_bootclasspath</code></a>
+  <a href="#flag--javabuilder_top"><code class='flag'>--javabuilder_top</code></a>
   options.
 </p>
 
 <h4 id='flag--javac_bootclasspath'><code class='flag'>--javac_bootclasspath <var>label</var></code></h4>
 <p>
-  This option specifies the label of the bootclasspath that should be used by
-  the Java compiler. This lets you compile against different versions of the
-  Java class library, for example, version 7 instead of version 6.
+  This option specifies the label of the bootstrap classes that Java code
+  should be compiled against. This option should always be set together with
+  <a href="#flag--javac_extdir"><code class='flag'>--javac_extdir</code></a>
+  when cross-compiling to a different Java platform version.
+</p>
+
+<h4 id='flag--javac_extdir'><code class='flag'>--javac_extdir <var>label</var></code></h4>
+<p>
+  This option specifies the label of the extension classes that Java code
+  should be compiled against. This option should always be set together with
+  <a href="#flag--javac_bootclasspath"><code class='flag'>--javac_bootclasspath</code></a>
+  when cross-compiling to a different Java platform version.
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
