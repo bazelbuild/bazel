@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import com.google.protobuf.MessageLite;
@@ -41,7 +42,7 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   private final InfoType info;
 
   public PseudoAction(UUID uuid, ActionOwner owner,
-      Collection<Artifact> inputs, Collection<Artifact> outputs,
+      NestedSet<Artifact> inputs, Collection<Artifact> outputs,
       String mnemonic,
       GeneratedExtension<ExtraActionInfo, InfoType> infoExtension, InfoType info) {
     super(owner, inputs, outputs);

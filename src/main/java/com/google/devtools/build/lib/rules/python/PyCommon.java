@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -220,7 +221,7 @@ public final class PyCommon {
 
     ruleContext.getAnalysisEnvironment()
         .registerAction(new PyPseudoAction(ruleContext.getActionOwner(),
-            ImmutableList.copyOf(Iterables.concat(sources, dependencies)),
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.concat(sources, dependencies)),
             ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)), "Python",
             PythonInfo.pythonInfo, info));
   }
@@ -391,7 +392,7 @@ public final class PyCommon {
     private static final UUID ACTION_UUID = UUID.fromString("8d720129-bc1a-481f-8c4c-dbe11dcef319");
 
     public PyPseudoAction(ActionOwner owner,
-        Collection<Artifact> inputs, Collection<Artifact> outputs,
+        NestedSet<Artifact> inputs, Collection<Artifact> outputs,
         String mnemonic, GeneratedExtension<ExtraActionInfo, PythonInfo> infoExtension,
         PythonInfo info) {
       super(ACTION_UUID, owner, inputs, outputs, mnemonic, infoExtension, info);
