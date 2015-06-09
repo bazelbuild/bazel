@@ -960,6 +960,21 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkSignature(name = "union", returnType = SkylarkNestedSet.class, 
+      doc = "Creates a new <a href=\"#modules.set\">set</a> that contains both "
+          + "the input set as well as all additional elements.",
+      mandatoryPositionals = {
+        @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input set"),
+        @Param(name = "newElements", type = Iterable.class, doc = "The elements to be added")},
+      useLocation = true)
+  private static final BuiltinFunction union = new BuiltinFunction("union") {
+    @SuppressWarnings("unused")
+    public SkylarkNestedSet invoke(SkylarkNestedSet input, Iterable<Object> newElements,
+        Location loc) throws EvalException {
+      return new SkylarkNestedSet(input, newElements, loc);
+    }
+  };
+  
   @SkylarkSignature(name = "enumerate",  returnType = SkylarkList.class,
       doc = "Return a list of pairs (two-element tuples), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
@@ -1277,6 +1292,8 @@ public class MethodLibrary {
   public static final List<BaseFunction> listFunctions = ImmutableList.<BaseFunction>of(
       append, extend);
 
+  public static final List<BaseFunction> setFunctions = ImmutableList.<BaseFunction>of(union);
+
   public static final List<BaseFunction> dictFunctions = ImmutableList.<BaseFunction>of(
       items, get, keys, values);
 
@@ -1299,6 +1316,7 @@ public class MethodLibrary {
     setupMethodEnvironment(env, String.class, stringFunctions);
     setupMethodEnvironment(env, List.class, listPureFunctions);
     setupMethodEnvironment(env, SkylarkList.class, listPureFunctions);
+    setupMethodEnvironment(env, SkylarkNestedSet.class, setFunctions);
     if (env.isSkylarkEnabled()) {
       env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
       setupMethodEnvironment(env, skylarkGlobalFunctions);
