@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.S
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.ERROR;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.STRICT;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
@@ -75,7 +77,7 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class for android rules.
- * 
+ *
  * <p>Helps create the java compilation as well as handling the exporting of the java compilation
  * artifacts to the other rules.
  */
@@ -91,6 +93,7 @@ public class AndroidCommon {
   private NestedSet<Artifact> transitiveSourceJars = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
+  private JackCompilationHelper jackCompilationHelper;
   private Artifact srcJar;
   private Artifact classJar;
   private Artifact gensrcJar;
@@ -109,7 +112,7 @@ public class AndroidCommon {
   }
 
   /**
-   * Creates a new AndroidCommon. 
+   * Creates a new AndroidCommon.
    * @param ruleContext The rule context associated with this instance.
    * @param common the JavaCommon instance
    * @param asNeverLink Boolean to indicate if this rule should be treated as a compile time dep
@@ -200,10 +203,17 @@ public class AndroidCommon {
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
+  Artifact compileDexWithJack(
+      MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
+    return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
+  }
+
   private void compileResources(
       JavaSemantics javaSemantics,
-      JavaCompilationArtifacts.Builder artifactsBuilder, JavaTargetAttributes.Builder attributes,
-      NestedSet<ResourceContainer> resourceContainers, ResourceContainer updatedResources) {
+      JavaCompilationArtifacts.Builder artifactsBuilder,
+      JavaTargetAttributes.Builder attributes,
+      NestedSet<ResourceContainer> resourceContainers,
+      ResourceContainer updatedResources) {
       Artifact binaryResourcesJar =
           ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
       compileResourceJar(javaSemantics, binaryResourcesJar, updatedResources.getJavaSourceJar());
@@ -318,11 +328,10 @@ public class AndroidCommon {
           attributes, artifactsBuilder);
     }
 
+    jackCompilationHelper = initJack(helper.getAttributes(), javaSemantics);
+
     initJava(
-        helper,
-        artifactsBuilder,
-        collectJavaCompilationArgs,
-        resourceApk.getResourceJavaSrcJar());
+        helper, artifactsBuilder, collectJavaCompilationArgs, resourceApk.getResourceJavaSrcJar());
     return helper.getAttributes();
   }
 
@@ -375,8 +384,33 @@ public class AndroidCommon {
     return (strict != DEFAULT && strict != STRICT) ? strict : ERROR;
   }
 
-  private void initJava(JavaCompilationHelper helper,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder, boolean collectJavaCompilationArgs,
+  JackCompilationHelper initJack(JavaTargetAttributes attributes, JavaSemantics javaSemantics) {
+    return new JackCompilationHelper.Builder()
+        // blaze infrastructure
+        .setRuleContext(ruleContext)
+        .setJavaSemantics(javaSemantics)
+        // configuration
+        .setOutputArtifact(
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
+        // tools
+        .setAndroidBaseLibraryForJack(ruleContext.getHostPrerequisiteArtifact("$android_jack"))
+        // sources
+        .addJavaSources(attributes.getSourceFiles())
+        .addSourceJars(attributes.getSourceJars())
+        .addCompiledJars(attributes.getJarFiles())
+        .addResources(attributes.getResources())
+        .addProcessorNames(attributes.getProcessorNames())
+        .addProcessorClasspathJars(attributes.getProcessorPath())
+        .addExports(JavaCommon.getExports(ruleContext))
+        .addClasspathDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))
+        .addRuntimeDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY))
+        .build();
+  }
+
+  private void initJava(
+      JavaCompilationHelper helper,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      boolean collectJavaCompilationArgs,
       @Nullable Artifact additionalSourceJar) {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
     if (additionalSourceJar != null) {
@@ -393,7 +427,7 @@ public class AndroidCommon {
 
     if (attributes.hasJarFiles()) {
       // This rule is repackaging some source jars as a java library
-      
+
       javaArtifactsBuilder.addRuntimeJars(attributes.getJarFiles());
       javaArtifactsBuilder.addCompileTimeJars(attributes.getCompileTimeJarFiles());
 
@@ -432,9 +466,10 @@ public class AndroidCommon {
       helper.createCompileTimeJarAction(jar, outputDepsProto, javaArtifactsBuilder);
     }
     javaCommon.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
-    
-    javaCommon.setClassPathFragment(new ClasspathConfiguredFragment(
-        javaCommon.getJavaCompilationArtifacts(), attributes, asNeverLink));
+
+    javaCommon.setClassPathFragment(
+        new ClasspathConfiguredFragment(
+            javaCommon.getJavaCompilationArtifacts(), attributes, asNeverLink));
     
     transitiveNeverlinkLibraries = collectTransitiveNeverlinkLibraries(
         ruleContext,
@@ -466,18 +501,28 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .add(JavaRuntimeJarProvider.class,
+        .add(
+            JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .add(AndroidResourcesProvider.class, new AndroidResourcesProvider(
-            ruleContext.getLabel(), transitiveResources))
+        .add(
+            AndroidResourcesProvider.class,
+            new AndroidResourcesProvider(ruleContext.getLabel(), transitiveResources))
         .add(AndroidIdlProvider.class, transitiveIdlImportData)
-        .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(
-            javaCompilationArgs, recursiveJavaCompilationArgs,
-            compileTimeDependencyArtifacts,
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
-        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL,
-            collectHiddenTopLevelArtifacts(ruleContext))
+        .add(
+            JavaCompilationArgsProvider.class,
+            new JavaCompilationArgsProvider(
+                javaCompilationArgs,
+                recursiveJavaCompilationArgs,
+                compileTimeDependencyArtifacts,
+                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
+        .add(
+            JackLibraryProvider.class,
+            asNeverLink
+                ? jackCompilationHelper.compileAsNeverlinkLibrary()
+                : jackCompilationHelper.compileAsLibrary())
+        .addOutputGroup(
+            OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
   }
 

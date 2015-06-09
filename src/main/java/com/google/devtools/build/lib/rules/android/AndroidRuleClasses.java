@@ -65,6 +65,8 @@ public final class AndroidRuleClasses {
       JavaSemantics.JAVA_LIBRARY_SOURCE_JAR;
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_CLASS_JAR =
       JavaSemantics.JAVA_LIBRARY_CLASS_JAR;
+  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_JACK_FILE =
+      fromTemplates("lib%{name}.jack");
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR =
       fromTemplates("%{name}.aar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_APK =
@@ -275,23 +277,27 @@ public final class AndroidRuleClasses {
 
   public static final ImplicitOutputsFunction ANDROID_LIBRARY_IMPLICIT_OUTPUTS =
       new ImplicitOutputsFunction() {
-    @Override
-    public Iterable<String> getImplicitOutputs(AttributeMap attributes) {
-      if (LocalResourceContainer.definesAndroidResources(attributes)) {
-        return fromFunctions(
-            AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
-            AndroidRuleClasses.ANDROID_RESOURCES_APK,
-            AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
-            AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
-            AndroidRuleClasses.ANDROID_LIBRARY_AAR,
-            AndroidRuleClasses.ANDROID_R_TXT).getImplicitOutputs(attributes);
-      }
-      return fromFunctions(
-          AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
-          AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
-          AndroidRuleClasses.ANDROID_LIBRARY_AAR).getImplicitOutputs(attributes);
-    }
-  };
+        @Override
+        public Iterable<String> getImplicitOutputs(AttributeMap attributes) {
+          if (LocalResourceContainer.definesAndroidResources(attributes)) {
+            return fromFunctions(
+                    AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
+                    AndroidRuleClasses.ANDROID_RESOURCES_APK,
+                    AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
+                    AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE,
+                    AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
+                    AndroidRuleClasses.ANDROID_LIBRARY_AAR,
+                    AndroidRuleClasses.ANDROID_R_TXT)
+                .getImplicitOutputs(attributes);
+          }
+          return fromFunctions(
+                  AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
+                  AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE,
+                  AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
+                  AndroidRuleClasses.ANDROID_LIBRARY_AAR)
+              .getImplicitOutputs(attributes);
+        }
+      };
 
   /**
    * Definition of the {@code android_sdk} rule.
@@ -518,6 +524,43 @@ public final class AndroidRuleClasses {
   }
 
   /**
+   * Mixin for rules which compile with Jack and Jill.
+   *
+   * @see JackCompilationHelper
+   * @see GoogleJavaSemantics#collectJackLibraries
+   */
+  public static final class JackRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("$jack", LABEL)
+              .cfg(HOST)
+              .exec()
+              .value(env.getLabel("//tools/android/jack:jack")))
+          .add(attr("$jill", LABEL)
+              .cfg(HOST)
+              .exec()
+              .value(env.getLabel("//tools/android/jack:jill")))
+          .add(attr("$resource_extractor", LABEL)
+              .cfg(HOST)
+              .exec()
+              .value(env.getLabel("//tools/android/jack:resource_extractor")))
+          .add(attr("$android_jack", LABEL)
+              .cfg(HOST)
+              .value(env.getLabel("//tools/android/jack:android_jack")))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$jack_mixin")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Base class for Android rule definitions that produce binaries.
    */
   public static final class AndroidBinaryBaseRule implements RuleDefinition {
@@ -678,12 +721,15 @@ com/google/common/base/Objects.class
 
       @Override
       public Metadata getMetadata() {
-        return RuleDefinition.Metadata.builder()
-            .name("$android_binary_base")
-            .type(RuleClassType.ABSTRACT)
-            .ancestors(AndroidRuleClasses.AndroidBaseRule.class, AndroidAaptBaseRule.class,
-                AndroidResourceSupportRule.class)
-            .build();
+      return RuleDefinition.Metadata.builder()
+          .name("$android_binary_base")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(
+              AndroidRuleClasses.AndroidBaseRule.class,
+              AndroidAaptBaseRule.class,
+              AndroidResourceSupportRule.class,
+              JackRule.class)
+          .build();
       }
   }
 

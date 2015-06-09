@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -302,13 +303,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         tools);
     Artifact jarToDex = proguardOutput.outputJar;
     Artifact debugKey = ruleContext.getHostPrerequisiteArtifact("debug_key");
-    DexingOutput dexingOutput = dex(ruleContext, androidSemantics, tools,
-        getMultidexMode(ruleContext),
-        ruleContext.getTokenizedStringListAttr("dexopts"),
-        deployJar,
-        jarToDex,
-        androidCommon,
-        resourceClasses);
+    DexingOutput dexingOutput =
+        shouldDexWithJack(ruleContext)
+            ? dexWithJack(ruleContext, androidCommon)
+            : dex(
+                ruleContext,
+                androidSemantics,
+                tools,
+                getMultidexMode(ruleContext),
+                ruleContext.getTokenizedStringListAttr("dexopts"),
+                deployJar,
+                jarToDex,
+                androidCommon,
+                resourceClasses);
 
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -728,6 +735,23 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       this.javaResourceJar = javaResourceJar;
       this.shardDexZips = ImmutableList.copyOf(shardDexZips);
     }
+  }
+
+  static boolean shouldDexWithJack(RuleContext ruleContext) {
+    return ruleContext
+        .getConfiguration()
+        .getFragment(AndroidConfiguration.class)
+        .isJackUsedForDexing();
+  }
+
+  static DexingOutput dexWithJack(RuleContext ruleContext, AndroidCommon androidCommon) {
+    Artifact classesDexZip =
+        androidCommon.compileDexWithJack(
+            getMultidexMode(ruleContext),
+            Optional.fromNullable(
+                ruleContext.getPrerequisiteArtifact("main_dex_list", Mode.TARGET)),
+            ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list());
+    return new DexingOutput(classesDexZip, null, ImmutableList.of(classesDexZip));
   }
 
   /** Dexes the ProguardedJar to generate ClassesDex that has a reference classes.dex. */
