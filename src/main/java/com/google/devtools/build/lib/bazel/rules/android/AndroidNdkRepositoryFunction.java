@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,11 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -26,14 +25,13 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * Create a repository from a directory on the local filesystem.
+ * Implementation of the {@code android_ndk} repository rule.
  */
-public class NewLocalRepositoryFunction extends RepositoryFunction {
-
+public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = getRule(repositoryName, NewLocalRepositoryRule.NAME, env);
+    Rule rule = getRule(repositoryName, AndroidNdkRepositoryRule.NAME, env);
     if (rule == null) {
       return null;
     }
@@ -44,27 +42,22 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     PathFragment pathFragment = getTargetPath(rule);
-    
-    // Link x/y/z to /some/path/to/y/z.
+
     if (!symlinkLocalRepositoryContents(
         directoryValue, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
       return null;
     }
 
-    // Link x/BUILD to <build_root>/x.BUILD.
-    return symlinkBuildFile(rule, getWorkspace(), directoryValue, env);
+    return writeBuildFile(directoryValue, "filegroup(name='ndk')");
   }
 
-  /**
-   * @see RepositoryFunction#getRule(RepositoryName, String, Environment)
-   */
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(NewLocalRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.computed(AndroidNdkRepositoryRule.NAME.toUpperCase());
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
-    return NewLocalRepositoryRule.class;
+    return AndroidNdkRepositoryRule.class;
   }
 }

@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -47,7 +46,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
   public SkyValue compute(SkyKey skyKey, SkyFunction.Environment env)
       throws RepositoryFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, NewHttpArchiveRule.NAME, env);
+    Rule rule = getRule(repositoryName, NewHttpArchiveRule.NAME, env);
     if (rule == null) {
       return null;
     }
@@ -87,13 +86,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Add WORKSPACE and BUILD files.
-    NewLocalRepositoryFunction.createWorkspaceFile(decompressedDirectory, rule);
-    FileValue buildFile = NewLocalRepositoryFunction.createBuildFile(
-        rule, getWorkspace(), outputDirectory, env);
-    if (buildFile == null) {
-      return null;
-    }
-
-    return RepositoryValue.createNew(repositoryDirectory, buildFile);
+    createWorkspaceFile(decompressedDirectory, rule);
+    return symlinkBuildFile(rule, getWorkspace(), repositoryDirectory, env);
   }
 }
