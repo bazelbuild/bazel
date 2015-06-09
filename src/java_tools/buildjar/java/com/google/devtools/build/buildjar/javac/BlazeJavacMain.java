@@ -52,7 +52,7 @@ public class BlazeJavacMain {
    * Compose {@link com.sun.tools.javac.main.Main} and perform custom setup before deferring to
    * its compile() method.
    *
-   * Historically BlazeJavacMain extended javac's Main and overrode methods to get the desired
+   * <p>Historically BlazeJavacMain extended javac's Main and overrode methods to get the desired
    * custom behaviour. That approach created incompatibilities when upgrading to newer versions of
    * javac, so composition is preferred.
    */

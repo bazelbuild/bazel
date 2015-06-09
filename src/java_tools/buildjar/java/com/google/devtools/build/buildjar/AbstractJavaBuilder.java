@@ -13,7 +13,9 @@
 // limitations under the License.
 
 package com.google.devtools.build.buildjar;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.JavacRunnerImpl;
@@ -85,9 +87,7 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
           } catch (JavacException e) {
             message[0] = e.getMessage();
           } catch (Exception e) {
-            // Some exceptions have a null message, yet the stack trace is useful
-            e.printStackTrace();
-            message[0] = "java compilation threw exception: " + e.getMessage();
+            message[0] = Throwables.getStackTraceAsString(e);
           }
         }
       }, 4L * 1024 * 1024);  // 4MB stack

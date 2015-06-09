@@ -191,7 +191,6 @@ public class JarCreator extends JarHelper {
       createJar.execute();
     } catch (IOException e) {
       e.printStackTrace();
-      System.err.println(e.getMessage());
       System.exit(1);
     }
     long stop = System.currentTimeMillis();
