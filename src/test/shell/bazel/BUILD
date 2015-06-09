@@ -119,6 +119,12 @@ sh_test(
     tags = ["manual"],  # Test is still flaky.
 )
 
+sh_test(
+    name = "bazel_worker_test",
+    srcs = ["bazel_worker_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
