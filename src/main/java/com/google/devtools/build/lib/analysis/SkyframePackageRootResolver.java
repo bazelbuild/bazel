@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -34,7 +35,8 @@ public final class SkyframePackageRootResolver implements PackageRootResolver {
   }
 
   @Override
-  public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
+  public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+      throws PackageRootResolutionException {
     return executor.getArtifactRoots(execPaths);
   }
 }

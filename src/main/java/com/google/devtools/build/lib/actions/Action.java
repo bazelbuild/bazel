@@ -120,11 +120,12 @@ public interface Action extends ActionMetadata, Describable {
    * @param inputPaths List of relative (to the execution root) input paths
    * @return List of Artifacts corresponding to inputPaths, or null if some dependencies were
    * missing and we need to try again later.
+   * @throws PackageRootResolutionException on failure to determine package roots of inputPaths
    */
   @Nullable
   Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver, PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths);
+      Collection<PathFragment> inputPaths) throws PackageRootResolutionException;
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can

@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -1795,8 +1796,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // TODO(bazel-team): Remove the "relative" guard. sysroot should always be relative, and this
     // should be enforced in the creation of CppConfiguration.
     if (getSysroot() != null && !getSysroot().isAbsolute()) {
-      Root sysrootRoot = Iterables.getOnlyElement(
+      Root sysrootRoot;
+      try {
+        sysrootRoot = Iterables.getOnlyElement(
           resolver.findPackageRoots(ImmutableList.of(getSysroot())).entrySet()).getValue();
+      } catch (PackageRootResolutionException prre) {
+        throw new ViewCreationFailedException("Failed to determine sysroot", prre);
+      }
+
       PathFragment sysrootExecPath = sysroot.getRelative(BUILT_IN_INCLUDE_PATH_FRAGMENT);
       if (sysrootRoot.getPath().getRelative(sysrootExecPath).exists()) {
         builtInIncludeFile = Preconditions.checkNotNull(
@@ -1808,7 +1815,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
     } catch (ZipException e) {
       throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
-    } catch (FdoException | IOException e) {
+    } catch (FdoException | IOException | PackageRootResolutionException e) {
       throw new ViewCreationFailedException("Error while initializing FDO support", e);
     }
   }

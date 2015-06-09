@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -508,7 +509,8 @@ public final class SkyframeActionExecutor {
   }
 
   @Nullable
-  Iterable<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver) {
+  Iterable<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
+      throws PackageRootResolutionException {
     return actionCacheChecker.getCachedInputs(action, resolver);
   }
 

@@ -26,9 +26,16 @@ import javax.annotation.Nullable;
 public interface PackageRootResolver {
 
   /**
-   * Returns mapping from execPath to Root. Some roots can equal null if the corresponding
-   * package can't be found. Returns null if for some reason we can't evaluate it.
+   * Returns mapping from execPath to Root. Root will be null if the path has no containing
+   * package.
+   *
+   * @param execPaths the paths to find {@link Root}s for
+   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we
+   *    cannot determine the result at this time (such as when used within a SkyFunction)
+   * @throws PackageRootResolutionException if unable to determine package roots or lack thereof,
+   *    typically caused by exceptions encountered while attempting to locate BUILD files
    */
   @Nullable
-  Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths);
+  Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+      throws PackageRootResolutionException;
 }

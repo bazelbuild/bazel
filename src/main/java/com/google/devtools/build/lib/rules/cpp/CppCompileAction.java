@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
@@ -105,12 +106,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
-  
+
   /**
    * A string constant for the c compilation action.
    */
   public static final String C_COMPILE = "c-compile";
-  
+
   /**
    * A string constant for the c++ compilation action.
    */
@@ -120,18 +121,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * A string constant for the c++ header parsing.
    */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
-  
+
   /**
    * A string constant for the c++ header preprocessing.
    */
   public static final String CPP_HEADER_PREPROCESSING = "c++-header-preprocessing";
-  
+
   /**
    * A string constant for the c++ module compilation action.
    * Note: currently we don't support C module compilation.
    */
   public static final String CPP_MODULE_COMPILE = "c++-module-compile";
-  
+
   /**
    * A string constant for the preprocessing assembler action.
    */
@@ -199,7 +200,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   protected CppCompileAction(ActionOwner owner,
       // TODO(bazel-team): Eventually we will remove 'features'; all functionality in 'features'
-      // will be provided by 'featureConfiguration'. 
+      // will be provided by 'featureConfiguration'.
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       Artifact sourceFile,
@@ -521,7 +522,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     return cmdlineIncludes.build();
   }
-  
+
   @Override
   public Artifact getMainIncludeScannerSource() {
     return CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())
@@ -914,7 +915,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver, PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths) {
+      Collection<PathFragment> inputPaths) throws PackageRootResolutionException {
     // Note that this method may trigger a violation of the desirable invariant that getInputs()
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
@@ -931,7 +932,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
 
-    Map<PathFragment, Artifact> resolvedArtifacts = 
+    Map<PathFragment, Artifact> resolvedArtifacts =
         artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
     if (resolvedArtifacts == null) {
       // We are missing some dependencies. We need to rerun this update later.
@@ -1175,7 +1176,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     // The value of the BUILD_FDO_TYPE macro to be defined on command line
     @Nullable private final String fdoBuildStamp;
-    
+
     public CppCompileCommandLine(Artifact sourceFile, DotdFile dotdFile, CppModuleMap cppModuleMap,
         ImmutableList<String> copts, Predicate<String> coptsFilter,
         ImmutableList<String> pluginOpts, boolean isInstrumented,
@@ -1212,7 +1213,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
       return commandLine;
     }
-    
+
     private String getActionName() {
       PathFragment sourcePath = sourceFile.getExecPath();
       if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
@@ -1243,7 +1244,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     public List<String> getCompilerOptions() {
       List<String> options = new ArrayList<>();
       CppConfiguration toolchain = cppConfiguration;
-      
+
       // pluginOpts has to be added before defaultCopts because -fplugin must precede -plugin-arg.
       options.addAll(pluginOpts);
       addFilteredOptions(options, toolchain.getCompilerOptions(features));
@@ -1289,7 +1290,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
         buildVariables.addSequenceVariable("module_files", getHeaderModulePaths());
-      }      
+      }
       if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
         buildVariables.addSequenceVariable("include_paths",
             getSafePathStrings(context.getIncludeDirs()));
@@ -1389,7 +1390,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         // from targets that are built in both modes.
         if (usePic == filename.endsWith(".pic.pcm")) {
           result.add(artifact.getExecPathString());
-        }          
+        }
       }
       return result;
     }

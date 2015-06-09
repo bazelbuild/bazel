@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -155,12 +156,12 @@ public final class ExtraAction extends SpawnAction {
   @Nullable
   @Override
   public Iterable<Artifact> resolveInputsFromCache(ArtifactResolver artifactResolver,
-      PackageRootResolver resolver, Collection<PathFragment> inputPaths) {
+      PackageRootResolver resolver, Collection<PathFragment> inputPaths)
+          throws PackageRootResolutionException {
     // We update the inputs directly from the shadowed action.
     Set<PathFragment> extraActionPathFragments =
         ImmutableSet.copyOf(Artifact.asPathFragments(extraActionInputs));
-    return shadowedAction.resolveInputsFromCache(artifactResolver,
-        resolver,
+    return shadowedAction.resolveInputsFromCache(artifactResolver, resolver,
         Collections2.filter(inputPaths, Predicates.in(extraActionPathFragments)));
   }
 
