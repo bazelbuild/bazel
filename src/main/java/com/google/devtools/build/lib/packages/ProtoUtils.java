@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static com.google.devtools.build.lib.packages.Type.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.Type.LICENSE;
@@ -65,6 +66,7 @@ public class ProtoUtils {
           .put(LICENSE, Discriminator.LICENSE)
           .put(STRING_DICT, Discriminator.STRING_DICT)
           .put(FILESET_ENTRY_LIST, Discriminator.FILESET_ENTRY_LIST)
+          .put(LABEL_DICT_UNARY, Discriminator.LABEL_DICT_UNARY)
           .put(LABEL_LIST_DICT, Discriminator.LABEL_LIST_DICT)
           .put(STRING_LIST_DICT, Discriminator.STRING_LIST_DICT)
           .put(BOOLEAN, Discriminator.BOOLEAN)

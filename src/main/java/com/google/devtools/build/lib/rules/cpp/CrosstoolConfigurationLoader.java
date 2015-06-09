@@ -14,24 +14,30 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import com.google.protobuf.UninitializedMessageException;
@@ -39,6 +45,7 @@ import com.google.protobuf.UninitializedMessageException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
@@ -46,6 +53,10 @@ import javax.annotation.Nullable;
 /**
  * A loader that reads Crosstool configuration files and creates CToolchain
  * instances from them.
+ *
+ * <p>Note that this class contains a cache for the text format -> proto objects mapping of
+ * Crosstool protos that is completely independent from Skyframe or anything else. This should be
+ * done in a saner way.
  */
 public class CrosstoolConfigurationLoader {
   private static final String CROSSTOOL_CONFIGURATION_FILENAME = "CROSSTOOL";
@@ -54,53 +65,27 @@ public class CrosstoolConfigurationLoader {
    * Cache for storing result of toReleaseConfiguration function based on path and md5 sum of
    * input file. We can use md5 because result of this function depends only on the file content.
    */
-  private static final LoadingCache<Pair<Path, String>, CrosstoolConfig.CrosstoolRelease> 
-      crosstoolReleaseCache = CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build(
-        new CacheLoader<Pair<Path, String>, CrosstoolConfig.CrosstoolRelease>() {
-          @Override
-          public CrosstoolConfig.CrosstoolRelease load(Pair<Path, String> key) throws IOException {
-            char[] data = FileSystemUtils.readContentAsLatin1(key.first);
-            return toReleaseConfiguration(key.first.getPathString(), new String(data));
-          }
-        });
-
+  private static final Cache<String, CrosstoolRelease> crosstoolReleaseCache =
+      CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build();
   /**
    * A class that holds the results of reading a CROSSTOOL file.
    */
   public static class CrosstoolFile {
-    private final Label crosstoolTop;
-    private Path crosstoolPath;
-    private CrosstoolConfig.CrosstoolRelease crosstool;
-    private String md5;
+    private final String location;
+    private final CrosstoolConfig.CrosstoolRelease crosstool;
+    private final String md5;
 
-    CrosstoolFile(Label crosstoolTop) {
-      this.crosstoolTop = crosstoolTop;
-    }
-
-    void setCrosstoolPath(Path crosstoolPath) {
-      this.crosstoolPath = crosstoolPath;
-    }
-
-    void setCrosstool(CrosstoolConfig.CrosstoolRelease crosstool) {
+    CrosstoolFile(String location, CrosstoolConfig.CrosstoolRelease crosstool, String md5) {
+      this.location = location;
       this.crosstool = crosstool;
-    }
-
-    void setMd5(String md5) {
       this.md5 = md5;
     }
 
     /**
-     * Returns the crosstool top as resolved.
+     * Returns a user-friendly location of the CROSSTOOL proto for error messages.
      */
-    public Label getCrosstoolTop() {
-      return crosstoolTop;
-    }
-
-    /**
-     * Returns the absolute path from which the CROSSTOOL file was read.
-     */
-    public Path getCrosstoolPath() {
-      return crosstoolPath;
+    public String getLocation() {
+      return location;
     }
 
     /**
@@ -145,27 +130,115 @@ public class CrosstoolConfigurationLoader {
     }
   }
 
-  private static boolean findCrosstoolConfiguration(
-      ConfigurationEnvironment env,
-      CrosstoolConfigurationLoader.CrosstoolFile file)
+  /**
+   * This class is the in-memory representation of a text-formatted Crosstool proto file.
+   *
+   * <p>This layer of abstraction is here so that we can load these protos either from BUILD files
+   * or from CROSSTOOL files.
+   *
+   * <p>An implementation of this class should override {@link #getContents()} and call
+   * the constructor with the MD5 checksum of what that method will return and a human-readable name
+   * used in error messages.
+   */
+  private abstract static class CrosstoolProto {
+    private final byte[] md5;
+    private final String name;
+
+    private CrosstoolProto(byte[] md5, String name) {
+      this.md5 = md5;
+      this.name = name;
+    }
+
+    /**
+     * The binary MD5 checksum of the proto.
+     */
+    public byte[] getMd5() {
+      return md5;
+    }
+
+    /**
+     * A user-friendly string describing the location of the proto.
+     */
+    public String getName() {
+      return name;
+    }
+
+    /**
+     * The proto itself.
+     */
+    public abstract String getContents() throws IOException;
+  }
+
+  private static CrosstoolProto getCrosstoolProtofromBuildFile(
+      ConfigurationEnvironment env, Label crosstoolTop) {
+    Target target;
+    try {
+      target = env.getTarget(crosstoolTop);
+    } catch (NoSuchThingException e) {
+      throw new IllegalStateException(e);  // Should have beeen evaluated by RedirectChaser
+    }
+
+    if (!(target instanceof Rule)) {
+      return null;
+    }
+
+    Rule rule = (Rule) target;
+    if (!(rule.getRuleClass().equals("cc_toolchain_suite"))
+        || !rule.isAttributeValueExplicitlySpecified("proto")) {
+      return null;
+    }
+
+    final String contents = NonconfigurableAttributeMapper.of(rule).get("proto", Type.STRING);
+    byte[] md5 = new Fingerprint().addBytes(contents.getBytes(UTF_8)).digestAndReset();
+    return new CrosstoolProto(md5, "cc_toolchain_suite rule " + crosstoolTop.toString()) {
+
+      @Override
+      public String getContents() throws IOException {
+        return contents;
+      }
+    };
+  }
+
+  private static CrosstoolProto getCrosstoolProtoFromCrosstoolFile(
+      ConfigurationEnvironment env, Label crosstoolTop)
       throws IOException, InvalidConfigurationException {
-    Label crosstoolTop = file.getCrosstoolTop();
-    Path path = null;
+    final Path path;
     try {
       Package containingPackage = env.getTarget(crosstoolTop.getLocalTargetLabel("BUILD"))
           .getPackage();
       if (containingPackage == null) {
-        return false;
+        return null;
       }
       path = env.getPath(containingPackage, CROSSTOOL_CONFIGURATION_FILENAME);
     } catch (SyntaxException e) {
       throw new InvalidConfigurationException(e);
     } catch (NoSuchThingException e) {
       // Handled later
+      return null;
     }
 
-    // If we can't find a file, fall back to the provided alternative.
     if (path == null || !path.exists()) {
+      return null;
+    }
+
+    return new CrosstoolProto(path.getMD5Digest(), "CROSSTOOL file " + path.getPathString()) {
+      @Override
+      public String getContents() throws IOException {
+        return new String(FileSystemUtils.readContentAsLatin1(path.getInputStream()));
+      }
+    };
+  }
+
+  private static CrosstoolFile findCrosstoolConfiguration(
+      ConfigurationEnvironment env, Label crosstoolTop)
+      throws IOException, InvalidConfigurationException {
+
+    CrosstoolProto crosstoolProto = getCrosstoolProtofromBuildFile(env, crosstoolTop);
+    if (crosstoolProto == null) {
+      crosstoolProto = getCrosstoolProtoFromCrosstoolFile(env, crosstoolTop);
+    }
+
+    if (crosstoolProto == null) {
       throw new InvalidConfigurationException("The crosstool_top you specified was resolved to '" +
           crosstoolTop + "', which does not contain a CROSSTOOL file. " +
           "You can use a crosstool from the depot by specifying its label.");
@@ -173,18 +246,22 @@ public class CrosstoolConfigurationLoader {
       // Do this before we read the data, so if it changes, we get a different MD5 the next time.
       // Alternatively, we could calculate the MD5 of the contents, which we also read, but this
       // is faster if the file comes from a file system with md5 support.
-      file.setCrosstoolPath(path);
-      String md5 = BaseEncoding.base16().lowerCase().encode(path.getMD5Digest());
+      final CrosstoolProto finalProto = crosstoolProto;
+      String md5 = BaseEncoding.base16().lowerCase().encode(finalProto.getMd5());
       CrosstoolConfig.CrosstoolRelease release;
       try {
-        release = crosstoolReleaseCache.get(new Pair<Path, String>(path, md5));
-        file.setCrosstool(release);
-        file.setMd5(md5);
+        release = crosstoolReleaseCache.get(md5, new Callable<CrosstoolRelease>() {
+          @Override
+          public CrosstoolRelease call() throws Exception {
+            return toReleaseConfiguration(finalProto.getName(), finalProto.getContents());
+          }
+        });
       } catch (ExecutionException e) {
         throw new InvalidConfigurationException(e);
       }
+
+      return new CrosstoolFile(finalProto.getName(), release, md5);
     }
-    return true;
   }
 
   /**
@@ -197,11 +274,8 @@ public class CrosstoolConfigurationLoader {
     if (crosstoolTop == null) {
       return null;
     }
-    CrosstoolConfigurationLoader.CrosstoolFile file =
-        new CrosstoolConfigurationLoader.CrosstoolFile(crosstoolTop);
     try {
-      boolean allDependenciesPresent = findCrosstoolConfiguration(env, file);
-      return allDependenciesPresent ? file : null;
+      return findCrosstoolConfiguration(env, crosstoolTop);
     } catch (IOException e) {
       throw new InvalidConfigurationException(e);
     }

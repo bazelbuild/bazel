@@ -45,6 +45,8 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
       .put(Type.TRISTATE, "Integer")
       .put(Type.LABEL, "<a href=\"build-ref.html#labels\">Label</a>")
       .put(Type.LABEL_LIST, "List of <a href=\"build-ref.html#labels\">labels</a>")
+      .put(Type.LABEL_DICT_UNARY,
+          "Dictionary mapping strings to <a href=\"build-ref.html#labels\">labels</a>")
       .put(Type.LABEL_LIST_DICT,
           "Dictionary mapping strings to lists of <a href=\"build-ref.html#labels\">labels</a>")
       .put(Type.NODEP_LABEL, "<a href=\"build-ref.html#name\">Name</a>")

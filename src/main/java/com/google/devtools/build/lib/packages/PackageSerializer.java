@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static com.google.devtools.build.lib.packages.Type.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.Type.LICENSE;
@@ -250,6 +251,17 @@ public class PackageSerializer {
             entry.addValue(dictEntryValue.toString());
           }
           attrPb.addStringListDictValue(entry);
+        }
+      }
+    } else if (type == LABEL_DICT_UNARY) {
+      for (Object value : values) {
+        Map<String, Label> dict = (Map<String, Label>) value;
+        for (Map.Entry<String, Label> dictEntry : dict.entrySet()) {
+          Build.LabelDictUnaryEntry entry = Build.LabelDictUnaryEntry.newBuilder()
+              .setKey(dictEntry.getKey())
+              .setValue(dictEntry.getValue().toString())
+              .build();
+          attrPb.addLabelDictUnaryValue(entry);
         }
       }
     } else if (type == LABEL_LIST_DICT) {

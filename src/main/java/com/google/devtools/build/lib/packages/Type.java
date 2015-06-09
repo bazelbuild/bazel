@@ -336,6 +336,11 @@ public abstract class Type<T> {
       DictType.create(STRING, LABEL_LIST);
 
   /**
+   * The type of a dictionary of {@linkplain #LABEL labels}.
+   */
+  public static final DictType<String, Label> LABEL_DICT_UNARY = DictType.create(STRING, LABEL);
+
+  /**
    * The type of a list of {@linkplain #FILESET_ENTRY FilesetEntries}.
    */
   public static final ListType<FilesetEntry> FILESET_ENTRY_LIST = ListType.create(FILESET_ENTRY);
@@ -1003,7 +1008,7 @@ public abstract class Type<T> {
    * Returns whether the specified type is a label type or not.
    */
   public static boolean isLabelType(Type<?> type) {
-    return type == LABEL || type == LABEL_LIST
+    return type == LABEL || type == LABEL_LIST || type == LABEL_DICT_UNARY
         || type == NODEP_LABEL || type == NODEP_LABEL_LIST
         || type == LABEL_LIST_DICT || type == FILESET_ENTRY_LIST;
   }
