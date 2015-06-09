@@ -13,21 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.collect.ImmutableMap;
+
+import java.util.HashMap;
+
 /**
  * Type of a nested set (defines order).
  */
 public enum Order {
 
-  STABLE_ORDER(new CompileOrderExpander<>(), new StableOrderNestedSetFactory()),
-  COMPILE_ORDER(new CompileOrderExpander<>(), new CompileOrderNestedSetFactory()),
-  LINK_ORDER(new LinkOrderExpander<>(), new LinkOrderNestedSetFactory()),
-  NAIVE_LINK_ORDER(new NaiveLinkOrderExpander<>(), new NaiveLinkOrderNestedSetFactory());
+  STABLE_ORDER("stable", new CompileOrderExpander<>(), new StableOrderNestedSetFactory()),
+  COMPILE_ORDER("compile", new CompileOrderExpander<>(), new CompileOrderNestedSetFactory()),
+  LINK_ORDER("link", new LinkOrderExpander<>(), new LinkOrderNestedSetFactory()),
+  NAIVE_LINK_ORDER("naive_link", new NaiveLinkOrderExpander<>(), 
+      new NaiveLinkOrderNestedSetFactory());
 
+  private static final ImmutableMap<String, Order> VALUES;
+  
+  private final String name;  
   private final NestedSetExpander<?> expander;
   final NestedSetFactory factory;
   private final NestedSet<?> emptySet;
 
-  private Order(NestedSetExpander<?> expander, NestedSetFactory factory) {
+  private Order(String name, NestedSetExpander<?> expander, NestedSetFactory factory) {
+    this.name = name;
     this.expander = expander;
     this.factory = factory;
     this.emptySet = new EmptyNestedSet<>(this);
@@ -49,4 +58,37 @@ public enum Order {
     return (NestedSetExpander<E>) expander;
   }
 
+  public String getName() {
+    return name;
+  }
+
+  /**
+   * Parses the given string as a set order
+   *
+   * @param name Unique name of the order
+   * @return Order The appropriate order instance
+   * @throws IllegalArgumentException If the name is not valid
+   */
+  public static Order parse(String name) {
+    if (!VALUES.containsKey(name)) {
+      throw new IllegalArgumentException("Invalid order: " + name);
+    }
+
+    return VALUES.get(name);
+  }
+
+  /**
+   * Indexes all possible values by name and stores the results in a {@code ImmutableMap}
+   */
+  static {
+    Order[] tmpValues = Order.values();
+    
+    HashMap<String, Order> entries = new HashMap<>(tmpValues.length);
+
+    for (Order current : tmpValues) {
+      entries.put(current.getName(), current);
+    }
+
+    VALUES = ImmutableMap.copyOf(entries);
+  }
 }

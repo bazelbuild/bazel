@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -951,7 +952,11 @@ public class MethodLibrary {
   private static final BuiltinFunction set = new BuiltinFunction("set") {
     public SkylarkNestedSet invoke(Object items, String order,
         Location loc) throws EvalException, ConversionException {
-      return new SkylarkNestedSet(SkylarkNestedSet.parseOrder(order, loc), items, loc);
+      try {
+        return new SkylarkNestedSet(Order.parse(order), items, loc);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
     }
   };
 

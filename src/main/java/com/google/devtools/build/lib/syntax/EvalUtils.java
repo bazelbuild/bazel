@@ -368,7 +368,7 @@ public abstract class EvalUtils {
       printList(set, "[", ", ", "]", null, buffer);
       Order order = set.getOrder();
       if (order != Order.STABLE_ORDER) {
-        buffer.append(", order = \"" + SkylarkNestedSet.orderString(order) + "\"");
+        buffer.append(", order = \"" + order.getName() + "\"");
       }
       buffer.append(")");
 
