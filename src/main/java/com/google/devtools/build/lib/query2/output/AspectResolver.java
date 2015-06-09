@@ -17,6 +17,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -128,7 +129,14 @@ public class AspectResolver {
           new BinaryPredicate<Rule, Attribute>() {
             @Override
             public boolean apply(@Nullable Rule rule, @Nullable Attribute attribute) {
-              return !attribute.getAspects().isEmpty();
+              for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
+                if (!AspectFactory.Util.create(aspectFactory).getDefinition()
+                    .getAttributes().isEmpty()) {
+                  return true;
+                }
+              }
+
+              return false;
             }
           });
 
