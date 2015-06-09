@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -35,9 +36,27 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
       name = "source_jars",
       doc = "Returns the Jars containing Java source files for the target",
       structField = true)
-  public ImmutableList<Artifact> getSourceJars() {
+  public NestedSet<Artifact> getSourceJars() {
     JavaSourceJarsProvider sourceJars = getInfo().getProvider(JavaSourceJarsProvider.class);
-    return sourceJars.getSourceJars();
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars.getSourceJars());
+  }
+
+  @SkylarkCallable(
+      name = "transitive_deps",
+      doc =  "Returns the transitive set of Jars required to build the target",
+      structField = true)
+  public NestedSet<Artifact> getTransitiveDeps() {
+    JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
+    return args.getRecursiveJavaCompilationArgs().getCompileTimeJars();
+  }
+
+  @SkylarkCallable(
+      name = "transitive_runtime_deps",
+      doc =  "Returns the transitive set of Jars required on the target's runtime classpath",
+      structField = true)
+  public NestedSet<Artifact> getTransitiveRuntimeDeps() {
+    JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
+    return args.getRecursiveJavaCompilationArgs().getRuntimeJars();
   }
 
   @SkylarkCallable(
