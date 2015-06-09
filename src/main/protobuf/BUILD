@@ -10,6 +10,7 @@ FILES = [
     "test_status",
     "bundlemerge",
     "xcodegen",
+    "worker_protocol",
 ]
 
 [proto_java_library(

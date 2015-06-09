@@ -38,7 +38,8 @@ public final class BazelMain {
       com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
       com.google.devtools.build.lib.standalone.StandaloneModule.class,
       com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
-      com.google.devtools.build.lib.webstatusserver.WebStatusServerModule.class
+      com.google.devtools.build.lib.webstatusserver.WebStatusServerModule.class,
+      com.google.devtools.build.lib.worker.WorkerModule.class
   );
 
   public static void main(String[] args) {
