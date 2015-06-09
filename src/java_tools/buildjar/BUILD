@@ -6,6 +6,7 @@ java_binary(
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
         "//src/main/protobuf:proto_deps",
+        "//src/main/protobuf:proto_worker_protocol",
         "//third_party:error_prone",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -176,7 +177,10 @@ bootstrap_java_library(
         "//third_party:protobuf-jars",
     ],
     neverlink_jars = ["//tools/defaults:java_langtools"],
-    srcjars = ["//src/main/protobuf:proto_deps_srcjar"],
+    srcjars = [
+        "//src/main/protobuf:proto_deps_srcjar",
+        "//src/main/protobuf:proto_worker_protocol_srcjar",
+    ],
 )
 
 bootstrap_java_binary(
