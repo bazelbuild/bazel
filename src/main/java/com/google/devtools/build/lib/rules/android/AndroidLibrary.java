@@ -95,8 +95,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         androidCommon.init(javaSemantics, androidSemantics, tools,
             resourceApk, transitiveIdlImportData, false, true);
 
-        Artifact classesJar = ruleContext.getImplicitOutputArtifact(
-            AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
+        Artifact classesJar = mergeJarsFromSrcs(ruleContext,
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR));
 
         Artifact aarOut = ruleContext.getImplicitOutputArtifact(
             AndroidRuleClasses.ANDROID_LIBRARY_AAR);
@@ -164,8 +164,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       Artifact aarOut = ruleContext.getImplicitOutputArtifact(
           AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
-      Artifact classesJar = ruleContext.getImplicitOutputArtifact(
-          AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
+      Artifact classesJar = mergeJarsFromSrcs(ruleContext,
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR));
 
       ResourceContainer primaryResources;
 
@@ -226,6 +226,22 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
       return targetBuilder.build();
     }
+  }
+
+  private static Artifact mergeJarsFromSrcs(RuleContext ruleContext, Artifact inputJar) {
+    ImmutableList<Artifact> jarSources = ruleContext
+        .getPrerequisiteArtifacts("srcs", Mode.TARGET).filter(JavaSemantics.JAR).list();
+    if (jarSources.isEmpty()) {
+      return inputJar;
+    }
+    Artifact mergedJar = ruleContext.getImplicitOutputArtifact(
+        AndroidRuleClasses.ANDROID_LIBRARY_AAR_CLASSES_JAR);
+    new SingleJarBuilder(ruleContext)
+        .setOutputJar(mergedJar)
+        .addInputJar(inputJar)
+        .addInputJars(jarSources)
+        .build();
+    return mergedJar;
   }
 
   private AndroidIdlProvider collectTransitiveIdlImports(RuleContext ruleContext) {
