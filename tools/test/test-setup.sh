@@ -30,4 +30,10 @@ cd "$DIR" || { echo "Could not chdir $DIR"; exit 1; }
 # This header marks where --test_output=streamed will start being printed.
 echo "-----------------------------------------------------------------------------"
 
-"./$@"
+# The path of this command-line is usually relative to the exec-root,
+# but when using --run_under it can be a "/bin/bash -c" command-line.
+
+# If the test is at the top of the tree, we have to add '.' to $PATH,
+PATH=".:$PATH"
+
+"$@"
