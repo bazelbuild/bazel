@@ -46,6 +46,11 @@ public interface ActionContextConsumer {
    *
    * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not
    * present in the map at all, the choice of the implementation is left to Blaze.
+   *
+   * <p>Matching on mnemonics is done case-insensitively so it is recommended that any
+   * implementation of this method makes sure that no two keys that refer to the same mnemonic are
+   * present in the returned map. The easiest way to assure this is to use a map created using
+   * {@code new TreeMap<>(String.CASE_INSENSITIVE_ORDER)}.
    */
   Map<String, String> getSpawnActionContexts();
 

@@ -35,9 +35,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Module implementing the rule set of Bazel.
@@ -85,7 +85,7 @@ public class BazelRulesModule extends BlazeModule {
     }
     @Override
     public Map<String, String> getSpawnActionContexts() {
-      Map<String, String> contexts = new HashMap<>();
+      Map<String, String> contexts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
       contexts.put("Genrule", options.genruleStrategy);
 
