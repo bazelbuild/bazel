@@ -23,7 +23,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.singlejar.ZipCombiner.OutputMode;
@@ -73,12 +72,6 @@ public class ZipCombinerTest {
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
   @Rule public ExpectedException thrown = ExpectedException.none();
 
-  private InputStream sampleZipStream() {
-    ZipFactory factory = new ZipFactory();
-    factory.addFile("hello.txt", "Hello World!");
-    return factory.toInputStream();
-  }
-
   private File sampleZip() throws IOException {
     ZipFactory factory = new ZipFactory();
     factory.addFile("hello.txt", "Hello World!");
@@ -98,23 +91,10 @@ public class ZipCombinerTest {
     return writeInputStreamToFile(factory.toInputStream());
   }
 
-  private InputStream sampleZipWithOneUncompressedEntryStream() {
-    ZipFactory factory = new ZipFactory();
-    factory.addFile("hello.txt", "Hello World!", false);
-    return factory.toInputStream();
-  }
-
   private File sampleZipWithOneUncompressedEntry() throws IOException {
     ZipFactory factory = new ZipFactory();
     factory.addFile("hello.txt", "Hello World!", false);
     return writeInputStreamToFile(factory.toInputStream());
-  }
-
-  private InputStream sampleZipWithTwoUncompressedEntriesStream() {
-    ZipFactory factory = new ZipFactory();
-    factory.addFile("hello.txt", "Hello World!", false);
-    factory.addFile("hello2.txt", "Hello World 2!", false);
-    return factory.toInputStream();
   }
 
   private File sampleZipWithTwoUncompressedEntries() throws IOException {
@@ -158,16 +138,6 @@ public class ZipCombinerTest {
   private void assertEntry(ZipInputStream zipInput, String filename, Date date, String content)
       throws IOException {
     assertEntry(zipInput, filename, date.getTime(), content.getBytes(ISO_8859_1));
-  }
-
-  @Test
-  public void testInputStreamZip() throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (ZipCombiner zipCombiner = new ZipCombiner(out)) {
-      zipCombiner.addZip(sampleZipStream());
-    }
-    FakeZipFile expectedResult = new FakeZipFile().addEntry("hello.txt", "Hello World!", true);
-    expectedResult.assertSame(out.toByteArray());
   }
 
   @Test
@@ -274,55 +244,6 @@ public class ZipCombinerTest {
       zipCombiner.addZip(sampleZip());
       zipCombiner.addZip(sampleZip());
     }
-    ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()));
-    assertEntry(zipInput, "hello.txt", "Hello World!");
-    assertNull(zipInput.getNextEntry());
-  }
-
-  //Returns an input stream that can only read one byte at a time.
-  private InputStream slowRead(final InputStream in) {
-    return new InputStream() {
-      @Override
-      public int read() throws IOException {
-        return in.read();
-      }
-      @Override
-      public int read(byte b[], int off, int len) throws IOException {
-        Preconditions.checkArgument(b != null);
-        Preconditions.checkArgument((len >= 0) && (off >= 0));
-        Preconditions.checkArgument(len <= b.length - off);
-        if (len == 0) {
-          return 0;
-        }
-        int value = read();
-        if (value == -1) {
-          return -1;
-        }
-        b[off] = (byte) value;
-        return 1;
-      }
-    };
-  }
-
-  @Test
-  public void testDuplicateUncompressedEntryWithSlowRead() throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ZipCombiner zipCombiner = new ZipCombiner(out);
-    zipCombiner.addZip(slowRead(sampleZipWithOneUncompressedEntryStream()));
-    zipCombiner.addZip(slowRead(sampleZipWithOneUncompressedEntryStream()));
-    zipCombiner.close();
-    ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()));
-    assertEntry(zipInput, "hello.txt", "Hello World!");
-    assertNull(zipInput.getNextEntry());
-  }
-
-  @Test
-  public void testDuplicateEntryWithSlowRead() throws IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ZipCombiner zipCombiner = new ZipCombiner(out);
-    zipCombiner.addZip(slowRead(sampleZipStream()));
-    zipCombiner.addZip(slowRead(sampleZipStream()));
-    zipCombiner.close();
     ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()));
     assertEntry(zipInput, "hello.txt", "Hello World!");
     assertNull(zipInput.getNextEntry());
@@ -473,22 +394,6 @@ public class ZipCombinerTest {
     }
     assertEquals(Arrays.asList("hello.txt", "hello2.txt"), mockFilter.calls);
     ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()));
-    assertEntry(zipInput, "hello.txt", "Hello World!\nHello World!");
-    assertNull(zipInput.getNextEntry());
-  }
-
-  @Test
-  public void testMergeStrategyWithUncompressedEntriesAndSlowRead() throws IOException {
-    MockZipEntryFilter mockFilter = new MockZipEntryFilter();
-    mockFilter.behavior.put("hello.txt", new ConcatenateStrategy());
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ZipCombiner zipCombiner = new ZipCombiner(mockFilter, out);
-    zipCombiner.addZip(slowRead(sampleZipWithOneUncompressedEntryStream()));
-    zipCombiner.addZip(slowRead(sampleZipWithTwoUncompressedEntriesStream()));
-    zipCombiner.close();
-    assertEquals(Arrays.asList("hello.txt", "hello2.txt"), mockFilter.calls);
-    ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()));
-    assertEntry(zipInput, "hello2.txt", "Hello World 2!");
     assertEntry(zipInput, "hello.txt", "Hello World!\nHello World!");
     assertNull(zipInput.getNextEntry());
   }

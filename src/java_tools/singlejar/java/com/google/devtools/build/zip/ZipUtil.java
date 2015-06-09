@@ -204,6 +204,27 @@ public class ZipUtil {
     return true;
   }
 
+  /** Read from the input stream into the array until it is full. */
+  static int readFully(InputStream in, byte[] b) throws IOException {
+    return readFully(in, b, 0, b.length);
+  }
+
+  /** Read from the input stream into the array starting at off until len bytes have been read. */
+  static int readFully(InputStream in, byte[] b, int off, int len) throws IOException {
+    if (len < 0) {
+      throw new IndexOutOfBoundsException();
+    }
+    int n = 0;
+    while (n < len) {
+      int count = in.read(b, off + n, len - n);
+      if (count < 0) {
+        return n;
+      }
+      n += count;
+    }
+    return n;
+  }
+
   static class LocalFileHeader {
     static final int SIGNATURE = 0x04034b50;
     static final int FIXED_DATA_SIZE = 30;
@@ -277,7 +298,7 @@ public class ZipUtil {
       shortToLittleEndian(buf, FILENAME_LENGTH_OFFSET, (short) name.length);
       shortToLittleEndian(buf, EXTRA_FIELD_LENGTH_OFFSET, (short) extra.getLength());
       System.arraycopy(name, 0, buf, FIXED_DATA_SIZE, name.length);
-      extra.getByteStream().read(buf, FIXED_DATA_SIZE + name.length, extra.getLength());
+      readFully(extra.getByteStream(), buf, FIXED_DATA_SIZE + name.length, extra.getLength());
 
       return buf;
     }
@@ -311,7 +332,7 @@ public class ZipUtil {
         throws IOException {
       byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
 
-      if (in.read(fixedSizeData) != FIXED_DATA_SIZE) {
+      if (readFully(in, fixedSizeData) != FIXED_DATA_SIZE) {
         throw new ZipException(
             "Unexpected end of file while reading Central Directory File Header.");
       }
@@ -324,15 +345,15 @@ public class ZipUtil {
       byte[] extraField = new byte[getUnsignedShort(fixedSizeData, EXTRA_FIELD_LENGTH_OFFSET)];
       byte[] comment = new byte[getUnsignedShort(fixedSizeData, COMMENT_LENGTH_OFFSET)];
 
-      if (name.length > 0 && in.read(name) != name.length) {
+      if (name.length > 0 && readFully(in, name) != name.length) {
         throw new ZipException(
             "Unexpected end of file while reading Central Directory File Header.");
       }
-      if (extraField.length > 0 && in.read(extraField) != extraField.length) {
+      if (extraField.length > 0 && readFully(in, extraField) != extraField.length) {
         throw new ZipException(
             "Unexpected end of file while reading Central Directory File Header.");
       }
-      if (comment.length > 0 && in.read(comment) != comment.length) {
+      if (comment.length > 0 && readFully(in, comment) != comment.length) {
         throw new ZipException(
             "Unexpected end of file while reading Central Directory File Header.");
       }
@@ -541,7 +562,7 @@ public class ZipUtil {
       }
 
       byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
-      if (in.read(fixedSizeData) != FIXED_DATA_SIZE) {
+      if (readFully(in, fixedSizeData) != FIXED_DATA_SIZE) {
         throw new ZipException(
             "Unexpected end of file while reading Zip64 End of Central Directory Record.");
       }
@@ -592,7 +613,7 @@ public class ZipUtil {
       }
 
       byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
-      if (in.read(fixedSizeData) != FIXED_DATA_SIZE) {
+      if (readFully(in, fixedSizeData) != FIXED_DATA_SIZE) {
         throw new ZipException(
             "Unexpected end of file while reading Zip64 End of Central Directory Locator.");
       }
@@ -641,7 +662,7 @@ public class ZipUtil {
       }
 
       byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
-      if (in.read(fixedSizeData) != FIXED_DATA_SIZE) {
+      if (readFully(in, fixedSizeData) != FIXED_DATA_SIZE) {
         throw new ZipException(
             "Unexpected end of file while reading End of Central Directory Record.");
       }
@@ -651,7 +672,7 @@ public class ZipUtil {
       }
 
       byte[] comment = new byte[getUnsignedShort(fixedSizeData, COMMENT_LENGTH_OFFSET)];
-      if (comment.length > 0 && in.read(comment) != comment.length) {
+      if (comment.length > 0 && readFully(in, comment) != comment.length) {
         throw new ZipException(
             "Unexpected end of file while reading End of Central Directory Record.");
       }

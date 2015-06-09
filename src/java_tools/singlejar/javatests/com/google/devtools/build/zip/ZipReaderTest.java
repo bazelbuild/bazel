@@ -348,7 +348,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testSimultaneousReads() throws IOException {
-    byte[] expectedFooData = "This if file foo. It contains a foo.".getBytes(UTF_8);
+    byte[] expectedFooData = "This is file foo. It contains a foo.".getBytes(UTF_8);
     byte[] expectedBarData = "This is a different file bar. It contains only a bar."
         .getBytes(UTF_8);
     try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
@@ -380,6 +380,44 @@ public class ZipReaderTest {
       barIn.read(barData, 10, 10);
       fooIn.read(fooData, 20, fooData.length - 20);
       barIn.read(barData, 20, barData.length - 20);
+      assertThat(fooData).isEqualTo(expectedFooData);
+      assertThat(barData).isEqualTo(expectedBarData);
+    }
+  }
+
+  @Test public void testSlowRead() throws IOException {
+    byte[] expectedFooData = "This is file foo. It contains a foo.".getBytes(UTF_8);
+    byte[] expectedBarData = "This is a different file bar. It contains only a bar."
+        .getBytes(UTF_8);
+    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+      ZipEntry foo = new ZipEntry("foo");
+      foo.setComment("foo comment.");
+      foo.setMethod(ZipEntry.DEFLATED);
+      zout.putNextEntry(foo);
+      zout.write(expectedFooData);
+      zout.closeEntry();
+
+      ZipEntry bar = new ZipEntry("bar");
+      bar.setComment("bar comment.");
+      bar.setMethod(ZipEntry.DEFLATED);
+      zout.putNextEntry(bar);
+      zout.write(expectedBarData);
+      zout.closeEntry();
+    }
+
+    try (ZipReader reader = new SlowZipReader(test, UTF_8)) {
+      ZipFileEntry fooEntry = reader.getEntry("foo");
+      ZipFileEntry barEntry = reader.getEntry("bar");
+      InputStream fooIn = reader.getInputStream(fooEntry);
+      InputStream barIn = reader.getInputStream(barEntry);
+      byte[] fooData = new byte[expectedFooData.length];
+      byte[] barData = new byte[expectedBarData.length];
+      ZipUtil.readFully(fooIn, fooData, 0, 10);
+      ZipUtil.readFully(barIn, barData, 0, 10);
+      ZipUtil.readFully(fooIn, fooData, 10, 10);
+      ZipUtil.readFully(barIn, barData, 10, 10);
+      ZipUtil.readFully(fooIn, fooData, 20, fooData.length - 20);
+      ZipUtil.readFully(barIn, barData, 20, barData.length - 20);
       assertThat(fooData).isEqualTo(expectedFooData);
       assertThat(barData).isEqualTo(expectedBarData);
     }

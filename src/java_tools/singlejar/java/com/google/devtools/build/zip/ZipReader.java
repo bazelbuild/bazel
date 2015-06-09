@@ -67,11 +67,10 @@ public class ZipReader implements Closeable, AutoCloseable {
      * @throws IOException if an I/O error has occurred
      */
     private ZipEntryInputStream(ZipFileEntry zipEntry) throws IOException {
-      stream = new BufferedInputStream(Channels.newInputStream(
-          in.getChannel().position(zipEntry.getLocalHeaderOffset())));
+      stream = getStreamAt(zipEntry.getLocalHeaderOffset());
 
       byte[] fileHeader = new byte[LocalFileHeader.FIXED_DATA_SIZE];
-      stream.read(fileHeader);
+      ZipUtil.readFully(stream, fileHeader);
 
       if (!ZipUtil.arrayStartsWith(fileHeader,
           ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
@@ -84,7 +83,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           LocalFileHeader.FILENAME_LENGTH_OFFSET);
       int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader,
           LocalFileHeader.EXTRA_FIELD_LENGTH_OFFSET);
-      stream.skip(nameLength + extraFieldLength);
+      ZipUtil.readFully(stream, new byte[nameLength + extraFieldLength]);
       rem = zipEntry.getSize();
       if (zipEntry.getMethod() == Compression.DEFLATED) {
         stream = new InflaterInputStream(stream, new Inflater(true));
@@ -157,11 +156,10 @@ public class ZipReader implements Closeable, AutoCloseable {
      * @throws IOException if an I/O error has occurred
      */
     private RawZipEntryInputStream(ZipFileEntry zipEntry) throws IOException {
-      stream = new BufferedInputStream(Channels.newInputStream(
-          in.getChannel().position(zipEntry.getLocalHeaderOffset())));
+      stream = getStreamAt(zipEntry.getLocalHeaderOffset());
 
       byte[] fileHeader = new byte[LocalFileHeader.FIXED_DATA_SIZE];
-      stream.read(fileHeader);
+      ZipUtil.readFully(stream, fileHeader);
 
       if (!ZipUtil.arrayStartsWith(fileHeader,
           ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
@@ -174,7 +172,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           LocalFileHeader.FILENAME_LENGTH_OFFSET);
       int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader,
           LocalFileHeader.EXTRA_FIELD_LENGTH_OFFSET);
-      stream.skip(nameLength + extraFieldLength);
+      ZipUtil.readFully(stream, new byte[nameLength + extraFieldLength]);
       rem = zipEntry.getCompressedSize();
     }
 
@@ -371,18 +369,15 @@ public class ZipReader implements Closeable, AutoCloseable {
    */
   private void readCentralDirectory(boolean strictEntries) throws IOException {
     long eocdLocation = findEndOfCentralDirectoryRecord();
-    InputStream stream = new BufferedInputStream(Channels.newInputStream(
-        in.getChannel().position(eocdLocation)));
+    InputStream stream = getStreamAt(eocdLocation);
     EndOfCentralDirectoryRecord.read(stream, zipData);
 
     if (zipData.isMaybeZip64()) {
       try {
-        stream = new BufferedInputStream(Channels.newInputStream(in.getChannel()
-            .position(eocdLocation - Zip64EndOfCentralDirectoryLocator.FIXED_DATA_SIZE)));
+        stream = getStreamAt(eocdLocation - Zip64EndOfCentralDirectoryLocator.FIXED_DATA_SIZE);
         Zip64EndOfCentralDirectoryLocator.read(stream, zipData);
 
-        stream = new BufferedInputStream(Channels.newInputStream(in.getChannel()
-            .position(zipData.getZip64EndOfCentralDirectoryOffset())));
+        stream = getStreamAt(zipData.getZip64EndOfCentralDirectoryOffset());
         Zip64EndOfCentralDirectory.read(stream, zipData);
       } catch (ZipException e) {
         // expected if not in Zip64 format
@@ -484,8 +479,7 @@ public class ZipReader implements Closeable, AutoCloseable {
    * @throws IOException if an I/O error has occurred
    */
   private void readCentralDirectoryFileHeaders(long count, long fileOffset) throws IOException {
-    InputStream centralDirectory = new BufferedInputStream(
-        Channels.newInputStream(in.getChannel().position(fileOffset)));
+    InputStream centralDirectory = getStreamAt(fileOffset);
     for (long i = 0; i < count; i++) {
       ZipFileEntry entry = CentralDirectoryFileHeader.read(centralDirectory, zipData.getCharset());
       zipData.addEntry(entry);
@@ -500,11 +494,19 @@ public class ZipReader implements Closeable, AutoCloseable {
    * @throws IOException if an I/O error has occurred
    */
   private void readCentralDirectoryFileHeaders(long fileOffset) throws IOException {
-    CountingInputStream centralDirectory = new CountingInputStream(new BufferedInputStream(
-        Channels.newInputStream(in.getChannel().position(fileOffset))));
+    CountingInputStream centralDirectory = new CountingInputStream(getStreamAt(fileOffset));
     while (centralDirectory.getCount() < zipData.getCentralDirectorySize()) {
       ZipFileEntry entry = CentralDirectoryFileHeader.read(centralDirectory, zipData.getCharset());
       zipData.addEntry(entry);
     }
+  }
+
+  /**
+   * Returns a new {@link InputStream} positioned at fileOffset.
+   *
+   * @throws IOException if an I/O error has occurred
+   */
+  protected InputStream getStreamAt(long fileOffset) throws IOException {
+    return new BufferedInputStream(Channels.newInputStream(in.getChannel().position(fileOffset)));
   }
 }

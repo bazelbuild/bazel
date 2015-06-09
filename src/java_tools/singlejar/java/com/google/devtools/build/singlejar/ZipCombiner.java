@@ -33,8 +33,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -118,53 +116,6 @@ public class ZipCombiner implements AutoCloseable {
      * Merge the entry.
      */
     MERGE;
-  }
-
-  /**
-   * The directory entry info used for files whose extra directory entry info is not given
-   * explicitly. It uses {@code -1} for {@link DirectoryEntryInfo#withMadeByVersion(short)}, which
-   * indicates it will be set to the same version as "needed to extract."
-   *
-   * <p>The {@link DirectoryEntryInfo#withExternalFileAttribute(int)} value is set to {@code 0},
-   * whose meaning depends on the value of {@code madeByVersion}, but is usually a reasonable
-   * default.
-   */
-  @Deprecated
-  public static final DirectoryEntryInfo DEFAULT_DIRECTORY_ENTRY_INFO =
-      new DirectoryEntryInfo((short) -1, 0);
-
-  /**
-   * Contains information related to a zip entry that is stored in the central directory record.
-   * This does not contain all the information stored in the central directory record, only the
-   * information that can be customized and is not automatically calculated or detected.
-   */
-  @Deprecated
-  public static final class DirectoryEntryInfo {
-    private final short madeByVersion;
-    private final int externalFileAttribute;
-
-    private DirectoryEntryInfo(short madeByVersion, int externalFileAttribute) {
-      this.madeByVersion = madeByVersion;
-      this.externalFileAttribute = externalFileAttribute;
-    }
-
-    /**
-     * This will be written as "made by" version in the central directory.
-     * If -1 (default) then "made by" will be the same to version "needed to extract".
-     */
-    public DirectoryEntryInfo withMadeByVersion(short madeByVersion) {
-      return new DirectoryEntryInfo(madeByVersion, externalFileAttribute);
-    }
-
-    /**
-     * This will be written as external file attribute. The meaning of this depends upon the value
-     * set with {@link #withMadeByVersion(short)}. If that value indicates a Unix source, then this
-     * value has the file mode and permission bits in the upper two bytes (e.g. possibly
-     * {@code 0100644} for a regular file).
-     */
-    public DirectoryEntryInfo withExternalFileAttribute(int externalFileAttribute) {
-      return new DirectoryEntryInfo(madeByVersion, externalFileAttribute);
-    }
   }
 
   /**
@@ -466,58 +417,6 @@ public class ZipCombiner implements AutoCloseable {
     copyStream(in, uncompressed);
 
     writeEntryFromBuffer(new ZipFileEntry(entry), uncompressed.toByteArray());
-  }
-
-  /**
-   * Adds a new entry into the output, by reading the input stream until it returns end of stream.
-   * This method does not call {@link ZipEntryFilter#accept}.
-   *
-   * @throws IOException if one of the underlying streams throws an IOException
-   *                     or if the input stream returns more data than
-   *                     supported by the ZIP format
-   * @throws IllegalStateException if an entry with the given name already
-   *                               exists
-   * @throws IllegalArgumentException if the given file name is longer than
-   *                                  supported by the ZIP format
-   */
-  @Deprecated
-  public void addFile(String filename, Date date, InputStream in,
-      DirectoryEntryInfo directoryEntryInfo) throws IOException {
-    ZipFileEntry entry = new ZipFileEntry(filename);
-    entry.setTime(date != null ? date.getTime() : new Date().getTime());
-    entry.setVersion(directoryEntryInfo.madeByVersion);
-    entry.setExternalAttributes(directoryEntryInfo.externalFileAttribute);
-    addFile(entry, in);
-  }
-
-  /**
-   * Adds the contents of a ZIP file to the combined ZIP file using the specified
-   * {@link ZipEntryFilter} to determine the appropriate action for each file. 
-   *
-   * @param in the InputStream of the ZIP file to add to the combined ZIP file
-   * @throws IOException if there is an error reading the ZIP file or writing entries to the
-   *     combined ZIP file
-   */
-  @Deprecated
-  public void addZip(InputStream in) throws IOException {
-    addZip(null, in);
-  }
-
-  /**
-   * Adds the contents of a ZIP file to the combined ZIP file using the specified
-   * {@link ZipEntryFilter} to determine the appropriate action for each file. 
-   *
-   * @param inputName the name of the ZIP file to add for providing better error messages
-   * @param in the InputStream of the ZIP file to add to the combined ZIP file
-   * @throws IOException if there is an error reading the ZIP file or writing entries to the
-   *     combined ZIP file
-   */
-  @Deprecated
-  public void addZip(String inputName, InputStream in) throws IOException {
-    File file = Files.createTempFile(inputName, null).toFile();
-    Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-    addZip(file);
-    file.deleteOnExit();
   }
 
   /**
