@@ -22,7 +22,7 @@ if [ -z "${TRAVIS_OS_NAME+x}" ]; then
 fi
 
 if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
-    brew install protobuf libarchive
+    brew install protobuf
 else
     sudo apt-get update -qq
     sudo apt-get install -y protobuf-compiler netcat-traditional
