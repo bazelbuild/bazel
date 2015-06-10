@@ -1,0 +1,72 @@
+android_sdk(
+    name = "sdk",
+    proguard = "tools/proguard/bin/proguard.sh",
+    aapt = "build-tools/%build_tools_version%/aapt",
+    dx = "build-tools/%build_tools_version%/dx",
+    main_dex_list_creator = ":main_dex_list_creator",
+    adb = "platform-tools/adb",
+    framework_aidl = "platforms/android-%api_level%/framework.aidl",
+    aidl = "build-tools/%build_tools_version%/aidl",
+    android_jar = "platforms/android-%api_level%/android.jar",
+    shrinked_android_jar = "platforms/android-%api_level%/android.jar",
+    annotations_jar = "tools/support/annotations.jar",
+    main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
+    apkbuilder = ":apkbuilder",
+    zipalign = "build-tools/%build_tools_version%/zipalign",
+    visibility = ["//visibility:public"])
+
+genrule(
+    name = "main_dex_list_creator_source",
+    srcs = [],
+    outs = ["main_dex_list_creator.sh"],
+    cmd = "cat > $@ <<'EOF'\n" +
+          "#!/bin/bash\n" +
+          "\n" +
+          "MAIN_DEX_LIST=$$1\n" +
+          "STRIPPED_JAR=$$2\n" +
+          "JAR=$$3\n" +
+          "" +
+          "DIRNAME=$$(dirname $$0)\n" +
+          "JAVA_BINARY=TBD/main_dex_list_creator_java\n" +  # Proper runfiles path comes here
+          "$$JAVA_BINARY $$STRIPPED_JAR $$JAR > $$MAIN_DEX_LIST\n" +
+          "exit $$?\n" +
+          "\n" +
+          "EOF\n",
+)
+
+sh_binary(
+    name = "main_dex_list_creator",
+    srcs = ["main_dex_list_creator.sh"],
+    data = [":main_dex_list_creator_java"],
+)
+
+java_binary(
+    name = "main_dex_list_creator_java",
+    main_class = "com.android.multidex.ClassReferenceListBuilder",
+    runtime_deps = [":dx_jar_import"],
+)
+
+java_binary(
+    name = "dx_binary",
+    main_class = "com.android.dx.command.Main",
+    runtime_deps = [":dx_jar_import"],
+)
+
+filegroup(
+    name = "dx_jar",
+    srcs = ["build-toold/%build_tools_version%/lib/dx.jar"],
+)
+
+java_import(
+    name = "dx_jar_import",
+    jars = [":dx_jar"],
+)
+
+java_binary(
+    name = "apkbuilder",
+    runtime_deps = [":sdklib"],
+    main_class = "com.android.sdklib.build.ApkBuilderMain")
+
+java_import(
+    name = "sdklib",
+    jars = ["tools/lib/sdklib.jar", "tools/lib/common.jar"])

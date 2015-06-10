@@ -36,9 +36,9 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
     return builder
         .setUndocumented()
         .setWorkspaceOnly()
-        .add(attr("path", STRING).mandatory())
-        .add(attr("build_tools", STRING).mandatory())
-        .add(attr("api_level", INTEGER).mandatory())
+        .add(attr("path", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
+        .add(attr("build_tools_version", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
+        .add(attr("api_level", INTEGER).mandatory().nonconfigurable("WORKSPACE rule"))
         .build();
   }
 
