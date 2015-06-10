@@ -29,5 +29,5 @@ else
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
-    ./bootstrap_test.sh all
+    ./compile.sh all
 fi

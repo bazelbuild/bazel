@@ -1,12 +1,5 @@
 # Packaging
 
-genrule(
-    name = "client-info-file",
-    outs = ["client_info"],
-    cmd = "touch $@",
-    executable = 1,
-)
-
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
@@ -28,7 +21,6 @@ genrule(
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:namespace-sandbox",
-        "client_info",
         "//src/main/tools:build_interface_so",
     ],
     outs = ["install_base_key"],
@@ -77,14 +69,13 @@ genrule(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:jdk-support",
         "//src/main/tools:namespace-sandbox",
-        "client_info",
         "//src/main/tools:build_interface_so",
         "install_base_key",
         ":java-version",
     ],
     outs = ["package.zip"],
     # Terrible hack to remove timestamps in the zip file
-    cmd = "mkdir $(@D)/package-zip && " +
+    cmd = "mkdir -p $(@D)/package-zip && " +
           "cp $(SRCS) $(@D)/package-zip && " +
           "touch -t 198001010000.00 $(@D)/package-zip/* && " +
           "zip -qj $@ $(@D)/package-zip/* && " +

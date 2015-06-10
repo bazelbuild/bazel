@@ -23,6 +23,7 @@ cc_library(
 cc_binary(
     name = "zipper",
     srcs = ["zip_main.cc"],
+    visibility = ["//visibility:public"],
     deps = [":zip"],
 )
 
@@ -32,5 +33,6 @@ cc_binary(
         "classfile.cc",
         "ijar.cc",
     ],
+    visibility = ["//visibility:public"],
     deps = [":zip"],
 )

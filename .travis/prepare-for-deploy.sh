@@ -26,7 +26,7 @@ function create_zip() {
   local bazel_dir
   bazel_dir=bazel-$git_hash
   mkdir $bazel_dir
-  cp bazel-bin/src/bazel $bazel_dir
+  cp output/bazel $bazel_dir
   sha256sum $bazel_dir/bazel > $bazel_dir/sha256.txt
   cat > $bazel_dir/README.md <<EOF
 Bazel binary built by Travis CI
