@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -eux
+set -ux
 
 if [ -z "${TRAVIS_OS_NAME+x}" ]; then
     echo "TRAVIS_OS_NAME not set, set it to 'linux' or 'osx' to run locally."
@@ -29,5 +29,10 @@ else
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
+    cat > .bazelrc <<EOF
+test --ram_utilization_factor=10
+EOF
+    export BAZELRC="$(pwd)/.bazelrc"
     ./bootstrap_test.sh all
+    bazel-bin/src/bazel test //src/... //third_party/...
 fi
