@@ -82,45 +82,17 @@ compiling it:
   resulting binary can be found at `bazel-bin/src/bazel`.
 
 In addition to the Bazel binary, you might want to build the various tools Bazel
-uses:
-
-* For Java support
-  * JavaBuilder is the java compiler wrapper used by Bazel and its target can be
-    found at `//src/java_tools/buildjar:JavaBuilder_deploy.jar`.
-  * SingleJar is a tool to assemble a single jar composed of all classes from
-    all jar dependencies (build the `*_deploy.jar` files), it can be found at
-    `//src/java_tools/singlejar:SingleJar_deploy.jar`.
-  * ijar is a tool to extracts the class interfaces of jars and is a third
-    party software at `//third_party/ijar`.
-* For Objective-C / iOS support
-  * actoolzip is a utility that runs OS X's actool and zips up its output for
-    further processing. It is currently compiled and placed into `tools/objc/`
-    by `compile.sh`.
-  * ibtoolzip is a utility that runs OS X's ibtool and zips up its output for
-    further processing. It is currently compiled and placed into `tools/objc/`
-    by `compile.sh`.
-  * momczip is a utility that runs OS X's momc and zips up its output for
-    further processing. It is currently compiled and placed into `tools/objc/`
-    by `compile.sh`.
-  * bundlemerge is a tool that can construct iOS bundles (such as .ipa files or
-    .bndl directories), including plist merging and zip creation. It is currently
-    compiled and placed into `tools/objc/` by `compile.sh`.
-  * plmerge is a tool used for merging plists. It is currently compiled and
-    placed into `tools/objc/` by `compile.sh`.
-  * xcodegen is a tool that assembles an Xcode project file matching Bazel build
-    targets. It is currently compiled and placed into `tools/objc/` by
-    `compile.sh`.
-  * iossim allows us to run iOS applications built by Bazel on Xcode's iOS
-    simulator and is third party software located at `//third_party/iossim`
+uses. They are located in `//src/java_tools`, `//src/objc_tools` and
+`//src/tools` and contains README files describing their respective
+utility.
 
 When modifying Bazel, you want to make sure that the following still works:
 
-* Bootstrap test with `sh bootstrap_test.sh all` after having removed the
+* Bootstrap test with `sh compile.sh all` after having removed the
   `output` directory: it rebuilds Bazel with `./compile.sh`, Bazel with the
   `compile.sh` Bazel and Bazel with the Bazel-built binary. It compares if the
   constructed Bazel builts are identical and then run all bazel tests with
-  `bazel test //src/...`.
-* ijar's tests with `bazel test //third_party/ijar/test/...`
+  `bazel test //src/... //third_party/ijar/...`.
 
 ### Debugging Bazel
 

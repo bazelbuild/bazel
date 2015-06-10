@@ -134,7 +134,7 @@ $ export PATH="$PATH:$HOME/bazel/output"
 
 You can also add this command to your `~/.bashrc` file.
 
-## Getting bash completion
+### Getting bash completion
 
 Bazel comes with a bash completion script. To install it:
 
@@ -144,5 +144,26 @@ Bazel comes with a bash completion script. To install it:
    If you don't have a completion folder, you can copy it wherever suits
    you and simply insert `source /path/to/bazel-complete.bash` in your
    `~/.bashrc` file (under OS X, put it in your `~/.bash_profile` file).
+
+### Getting zsh completion
+
+Bazel also comes with a zsh completion script. To install it:
+
+1. Add this script to a directory on your $fpath:
+
+    ```
+    fpath[1,0]=~/.zsh/completion/
+    mkdir -p ~/.zsh/completion/
+    cp scripts/zsh_completion/_bazel ~/.zsh/completion
+    ```
+
+2. Optionally, add the following to your .zshrc.
+
+    ```
+    # This way the completion script does not have to parse Bazel's options
+    # repeatedly.  The directory in cache-path must be created manually.
+    zstyle ':completion:*' use-cache on
+    zstyle ':completion:*' cache-path ~/.zsh/cache
+    ```
 
 For more information, see [Getting started](getting-started.html).
