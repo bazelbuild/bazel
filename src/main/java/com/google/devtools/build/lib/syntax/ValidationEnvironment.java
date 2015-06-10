@@ -47,6 +47,12 @@ public class ValidationEnvironment {
 
   // Whether this validation environment is not modified therefore clonable or not.
   private boolean clonable;
+  
+  /**
+   * Tracks the number of nested for loops that contain the statement that is currently being
+   * validated
+   */
+  private int loopCount = 0;
 
   public ValidationEnvironment(Set<String> builtinVariables) {
     parent = null;
@@ -173,5 +179,34 @@ public class ValidationEnvironment {
     for (Statement statement : statements) {
       statement.validate(this);
     }
+  }
+
+  /**
+   * Returns whether the current statement is inside a for loop (either in this environment or one
+   * of its parents)
+   *
+   * @return True if the current statement is inside a for loop
+   */
+  public boolean isInsideLoop() {
+    return (loopCount > 0);
+  }
+  
+  /**
+   * Signals that the block of a for loop was entered
+   */
+  public void enterLoop()   {
+    ++loopCount;
+  }
+  
+  /**
+   * Signals that the block of a for loop was left
+   *
+   * @param location The current location
+   * @throws EvalException If there was no corresponding call to
+   *         {@code ValidationEnvironment#enterLoop}
+   */
+  public void exitLoop(Location location) throws EvalException {
+    Preconditions.checkState(loopCount > 0);
+    --loopCount;
   }
 }

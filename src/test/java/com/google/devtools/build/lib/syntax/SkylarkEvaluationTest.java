@@ -248,7 +248,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  for i in ['hello', ' ', 'world']:",
         "    s = s + i",
         "  return s",
-        "s = foo()\n");
+        "s = foo()");
     assertEquals("hello world", lookup("s"));
   }
 
@@ -260,7 +260,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  for i in 'abc':",
         "    s = s + [i]",
         "  return s",
-        "s = foo()\n");
+        "s = foo()");
     assertThat((Iterable<Object>) lookup("s")).containsExactly("a", "b", "c").inOrder();
   }
 
@@ -273,7 +273,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "    s = s + i",
         "    d = ['d', 'e', 'f']",  // check that we use the old list
         "  return s",
-        "s = foo()\n");
+        "s = foo()");
     assertEquals("abc", lookup("s"));
   }
 
@@ -296,7 +296,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     checkEvalError("type 'int' is not iterable",
         "def func():",
         "  for i in mock.value_of('1'): a = i",
-        "func()\n");
+        "func()");
 
   }
 
@@ -333,6 +333,131 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("12.34.", lookup("s"));
   }
 
+  @Test
+  public void testForLoopBreak() throws Exception {
+    simpleFlowTest("break", 1);
+  }
+  
+  @Test
+  public void testForLoopContinue() throws Exception {
+    simpleFlowTest("continue", 10);
+  }
+  
+  @SuppressWarnings("unchecked")
+  private void simpleFlowTest(String statement, int expected) throws Exception {
+    eval("def foo():",
+        "  s = 0",
+        "  hit = 0", 
+        "  for i in range(0, 10):", 
+        "    s = s + 1", 
+        "    " + statement + "", 
+        "    hit = 1", 
+        "  return [s, hit]", 
+        "x = foo()");
+    assertThat((Iterable<Object>) lookup("x")).containsExactly(expected, 0).inOrder();
+  }
+  
+  @Test 
+  public void testForLoopBreakFromDeeperBlock() throws Exception {
+    flowFromDeeperBlock("break", 1);
+    flowFromNestedBlocks("break", 29);
+  }
+  
+  @Test 
+  public void testForLoopContinueFromDeeperBlock() throws Exception {
+    flowFromDeeperBlock("continue", 5);
+    flowFromNestedBlocks("continue", 39);
+  }
+  
+  private void flowFromDeeperBlock(String statement, int expected) throws Exception {
+    eval("def foo():",
+        "   s = 0", 
+        "   for i in range(0, 10):", 
+        "       if i % 2 != 0:", 
+        "           " + statement + "",
+        "       s = s + 1", 
+        "   return s", 
+        "x = foo()");
+    assertThat(lookup("x")).isEqualTo(expected);
+  }
+  
+  private void flowFromNestedBlocks(String statement, int expected) throws Exception {
+    eval("def foo2():",
+        "   s = 0", 
+        "   for i in range(1, 41):", 
+        "       if i % 2 == 0:", 
+        "           if i % 3 == 0:",
+        "               if i % 5 == 0:", 
+        "                   " + statement + "",
+        "       s = s + 1", 
+        "   return s", 
+        "y = foo2()");
+    assertThat(lookup("y")).isEqualTo(expected);
+  }
+
+  @Test
+  public void testNestedForLoopsMultipleBreaks() throws Exception {
+    nestedLoopsTest("break", 2, 6, 6);
+  }
+
+  @Test
+  public void testNestedForLoopsMultipleContinues() throws Exception {
+    nestedLoopsTest("continue", 4, 20, 20);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void nestedLoopsTest(String statement, Integer outerExpected, int firstExpected,
+      int secondExpected) throws Exception {
+    eval("def foo():",
+        "   outer = 0",
+        "   first = 0",
+        "   second = 0",
+        "   for i in range(0, 5):",
+        "       for j in range(0, 5):",
+        "           if j == 2:", 
+        "               " + statement + "",
+        "           first = first + 1",
+        "       for k in range(0, 5):",
+        "           if k == 2:", 
+        "               " + statement + "",
+        "           second = second + 1",
+        "       if i == 2:",
+        "           " + statement + "",
+        "       outer = outer + 1",
+        "   return [outer, first, second]",
+        "x = foo()");
+    assertThat((Iterable<Object>) lookup("x"))
+        .containsExactly(outerExpected, firstExpected, secondExpected).inOrder();
+  }
+  
+  @Test
+  public void testForLoopBreakError() throws Exception {
+    flowStatementInsideFunction("break");
+    flowStatementAfterLoop("break");
+  }
+
+  @Test
+  public void testForLoopContinueError() throws Exception {
+    flowStatementInsideFunction("continue");
+    flowStatementAfterLoop("continue");
+  }
+
+  private void flowStatementInsideFunction(String statement) throws Exception {
+    checkEvalErrorContains(statement + " statement must be inside a for loop", 
+        "def foo():",
+        "  " + statement + "", 
+        "x = foo()");
+  }
+  
+  private void flowStatementAfterLoop(String statement) throws Exception  {
+    checkEvalErrorContains(statement + " statement must be inside a for loop", 
+        "def foo2():",
+        "   for i in range(0, 3):",
+        "      pass",
+        "   " + statement + "", 
+        "y = foo2()");
+  }
+  
   @Test
   public void testNoneAssignment() throws Exception {
     eval("def foo(x=None):",

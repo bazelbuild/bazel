@@ -336,7 +336,7 @@ class Parser {
 
   // Keywords that exist in Python and that we don't parse.
   private static final EnumSet<TokenKind> FORBIDDEN_KEYWORDS =
-      EnumSet.of(TokenKind.AS, TokenKind.ASSERT, TokenKind.BREAK, TokenKind.CONTINUE,
+      EnumSet.of(TokenKind.AS, TokenKind.ASSERT, 
           TokenKind.DEL, TokenKind.EXCEPT, TokenKind.FINALLY, TokenKind.FROM, TokenKind.GLOBAL,
           TokenKind.IMPORT, TokenKind.IS, TokenKind.LAMBDA, TokenKind.NONLOCAL, TokenKind.RAISE,
           TokenKind.TRY, TokenKind.WITH, TokenKind.WHILE, TokenKind.YIELD);
@@ -1154,6 +1154,7 @@ class Parser {
   //     small_stmt ::= assign_stmt
   //                  | expr
   //                  | RETURN expr
+  //                  | flow_stmt
   //     assign_stmt ::= expr ('=' | augassign) expr
   //     augassign ::= ('+=' )
   // Note that these are in Python, but not implemented here (at least for now):
@@ -1171,6 +1172,8 @@ class Parser {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
       return parseReturnStatement();
+    } else if (token.kind == TokenKind.BREAK || token.kind == TokenKind.CONTINUE)   {
+      return parseFlowStatement(token.kind);
     }
     Expression expression = parseExpression();
     if (token.kind == TokenKind.EQUALS) {
@@ -1408,6 +1411,12 @@ class Parser {
     }
   }
 
+  // flow_stmt ::= break_stmt | continue_stmt
+  private FlowStatement parseFlowStatement(TokenKind kind) {
+    expect(kind);
+    return (kind == TokenKind.BREAK) ? FlowStatement.BREAK : FlowStatement.CONTINUE;
+  }
+  
   // return_stmt ::= RETURN expr
   private ReturnStatement parseReturnStatement() {
     int start = token.left;
