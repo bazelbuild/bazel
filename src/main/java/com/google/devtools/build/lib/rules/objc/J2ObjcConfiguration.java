@@ -36,6 +36,8 @@ public class J2ObjcConfiguration extends Fragment {
    * transpiler. See https://github.com/google/j2objc/wiki/j2objc for flag documentation.
    */
   private static final Set<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS = ImmutableSet.of(
+      "-encoding",
+      "UTF-8",
       "--doc-comments",
       "--extract-unsequenced",
       "--final-methods-as-functions",
