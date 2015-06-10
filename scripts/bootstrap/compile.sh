@@ -78,7 +78,7 @@ linux)
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
-  PROTOC=${PROTOC:-third_party/protobuf/protoc.linux-i686}
+  PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
   ;;
 
 darwin)
@@ -89,7 +89,7 @@ darwin)
     JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
       || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
   fi
-  PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
+  PROTOC=${PROTOC:-third_party/protobuf/protoc-osx-x86_32.exe}
   ;;
 
 msys*|mingw*)

@@ -43,10 +43,10 @@ ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 case "${PLATFORM}" in
   darwin)
-    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc.darwin"
+    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc-osx-x86_32.exe"
     ;;
   *)
-    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc.linux-i686"
+    protoc_compiler="${TEST_SRCDIR}/third_party/protobuf/protoc-linux-x86_32.exe"
     ;;
 esac
 protoc_jar="${TEST_SRCDIR}/third_party/protobuf/protobuf-*.jar"

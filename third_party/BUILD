@@ -8,11 +8,11 @@ filegroup(
 filegroup(
     name = "protoc",
     srcs = select({
-        ":windows_mingw": ["protobuf/protoc.exe"],
-        ":windows_msys64_mingw64": ["protobuf/protoc.exe"],
-        ":windows_clang": ["protobuf/protoc.exe"],
-        ":darwin": ["protobuf/protoc.darwin"],
-        "//conditions:default": ["protobuf/protoc.linux-i686"],
+        ":windows_mingw": ["protobuf/protoc-windows-x86_32.exe"],
+        ":windows_msys64_mingw64": ["protobuf/protoc-windows-x86_64.exe"],
+        ":windows_clang": ["protobuf/protoc-windows-x86_32.exe"],
+        ":darwin": ["protobuf/protoc-osx-x86_32.exe"],
+        "//conditions:default": ["protobuf/protoc-linux-x86_32.exe"],
     }),
 )
 
@@ -224,13 +224,13 @@ java_import(
 
 java_import(
     name = "protobuf",
-    jars = ["protobuf/protobuf-2.5.0.jar"],
+    jars = ["protobuf/protobuf-java-3.0.0-alpha-3.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "protobuf-jars",
-    srcs = ["protobuf/protobuf-2.5.0.jar"],
+    srcs = ["protobuf/protobuf-java-3.0.0-alpha-3.jar"],
 )
 
 java_import(
