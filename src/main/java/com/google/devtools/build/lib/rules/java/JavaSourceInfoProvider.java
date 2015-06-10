@@ -15,11 +15,14 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * A Provider describing the java sources directly belonging to a java rule.
@@ -30,7 +33,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<Artifact> sourceJars;
   private final Collection<Artifact> jarFiles;
   private final Collection<Artifact> sourceJarsForJarFiles;
-  private final Collection<Artifact> resources;
+  private final Map<PathFragment, Artifact> resources;
   private final Collection<String> processorNames;
   private final Collection<Artifact> processorPath;
 
@@ -39,7 +42,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       Collection<Artifact> sourceJars,
       Collection<Artifact> jarFiles,
       Collection<Artifact> sourceJarsForJarFiles,
-      Collection<Artifact> resources,
+      Map<PathFragment, Artifact> resources,
       Collection<String> processorNames,
       Collection<Artifact> processorPath) {
     this.sourceFiles = sourceFiles;
@@ -85,8 +88,13 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     return sourceJarsForJarFiles;
   }
 
-  /** Gets the Java resources which were included in this rule's output. */
-  public Collection<Artifact> getResources() {
+  /**
+   * Gets the Java resources which were included in this rule's output.
+   *
+   * <p>Each key in the map (a path within the jar) should correspond to the artifact which belongs
+   * at that path. The path fragment should be some suffix of the artifact's exec path.
+   */
+  public Map<PathFragment, Artifact> getResources() {
     return resources;
   }
 
@@ -100,13 +108,23 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     return processorPath;
   }
 
-  /** Constructs a JavaSourceInfoProvider using the sources in the given JavaTargetAttributes. */
-  public static JavaSourceInfoProvider fromJavaTargetAttributes(JavaTargetAttributes attributes) {
+  /**
+   * Constructs a JavaSourceInfoProvider using the sources in the given JavaTargetAttributes.
+   *
+   * @param attributes the object from which to draw the sources
+   * @param semantics semantics used to find the path for a resource within the jar
+   */
+  public static JavaSourceInfoProvider fromJavaTargetAttributes(
+      JavaTargetAttributes attributes, JavaSemantics semantics) {
+    ImmutableMap.Builder<PathFragment, Artifact> resourcesBuilder = new ImmutableMap.Builder<>();
+    for (Artifact resource : attributes.getResources()) {
+      resourcesBuilder.put(semantics.getJavaResourcePath(resource.getRootRelativePath()), resource);
+    }
     return new Builder()
         .setSourceFiles(attributes.getSourceFiles())
         .setSourceJars(attributes.getSourceJars())
         .setJarFiles(attributes.getJarFiles())
-        .setResources(attributes.getResources())
+        .setResources(resourcesBuilder.build())
         .setProcessorNames(attributes.getProcessorNames())
         .setProcessorPath(attributes.getProcessorPath())
         .build();
@@ -118,7 +136,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     private Collection<Artifact> sourceJars = ImmutableList.<Artifact>of();
     private Collection<Artifact> jarFiles = ImmutableList.<Artifact>of();
     private Collection<Artifact> sourceJarsForJarFiles = ImmutableList.<Artifact>of();
-    private Collection<Artifact> resources = ImmutableList.<Artifact>of();
+    private Map<PathFragment, Artifact> resources = ImmutableMap.<PathFragment, Artifact>of();
     private Collection<String> processorNames = ImmutableList.<String>of();
     private Collection<Artifact> processorPath = ImmutableList.<Artifact>of();
 
@@ -152,8 +170,13 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /** Sets the resources included in this rule. */
-    public Builder setResources(Collection<Artifact> resources) {
+    /**
+     * Sets the resources included in this rule.
+     *
+     * <p>Each key in the map (a path within the jar) should correspond to the artifact which
+     * belongs at that path. The path fragment should be some tail of the artifact's exec path.
+     */
+    public Builder setResources(Map<PathFragment, Artifact> resources) {
       this.resources = Preconditions.checkNotNull(resources);
       return this;
     }

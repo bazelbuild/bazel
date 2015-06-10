@@ -230,7 +230,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .add(JavaNativeLibraryProvider.class, new JavaNativeLibraryProvider(
             transitiveJavaNativeLibraries))
         .add(JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(attributes))
+            JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
         // TODO(bazel-team): this should only happen for java_plugin

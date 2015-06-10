@@ -385,10 +385,15 @@ public class AndroidCommon {
   }
 
   JackCompilationHelper initJack(JavaTargetAttributes attributes, JavaSemantics javaSemantics) {
+    ImmutableMap.Builder<PathFragment, Artifact> resourcesBuilder = new ImmutableMap.Builder<>();
+    for (Artifact resource : attributes.getResources()) {
+      resourcesBuilder.put(
+          javaSemantics.getJavaResourcePath(resource.getRootRelativePath()),
+          resource);
+    }
     return new JackCompilationHelper.Builder()
         // blaze infrastructure
         .setRuleContext(ruleContext)
-        .setJavaSemantics(javaSemantics)
         // configuration
         .setOutputArtifact(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
@@ -398,7 +403,7 @@ public class AndroidCommon {
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
         .addCompiledJars(attributes.getJarFiles())
-        .addResources(attributes.getResources())
+        .addResources(resourcesBuilder.build())
         .addProcessorNames(attributes.getProcessorNames())
         .addProcessorClasspathJars(attributes.getProcessorPath())
         .addExports(JavaCommon.getExports(ruleContext))
