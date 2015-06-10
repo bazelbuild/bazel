@@ -342,10 +342,13 @@ public final class ReleaseBundlingSupport {
     // want to link anything since that stuff is shared automatically by way of the
     // -bundle_loader linker flag.
     ObjcProvider partialObjcProvider = new ObjcProvider.Builder()
+        .addTransitiveAndPropagate(ObjcProvider.GCNO, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
+        .addTransitiveAndPropagate(ObjcProvider.INSTRUMENTED_SOURCE, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
+        .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.WEAK_SDK_FRAMEWORK, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_DIR, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_FILE, objcProvider)

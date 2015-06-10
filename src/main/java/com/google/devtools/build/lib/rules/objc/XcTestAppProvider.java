@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * Supplies information needed when a dependency serves as an {@code xctest_app}.
  */
 @Immutable
-final class XcTestAppProvider implements TransitiveInfoProvider {
+public final class XcTestAppProvider implements TransitiveInfoProvider {
   private final Artifact bundleLoader;
   private final Artifact ipa;
   private final ObjcProvider objcProvider;
