@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -42,11 +43,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * An output formatter that outputs a protocol buffer representation
@@ -63,7 +61,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
 
   private BinaryPredicate<Rule, Attribute> dependencyFilter;
   private boolean relativeLocations = false;
-  @Nullable protected AspectResolver aspectResolver = null;  // null if aspect deps are not required
+  protected AspectResolver aspectResolver;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -139,20 +137,16 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
                 .setStringValue(env.getTransitiveFileContentHashCode()));
       }
 
-      if (aspectResolver != null) {
-        Map<Attribute, Collection<Label>> aspectsDependencies =
-            aspectResolver.computeAspectDependenciesWithAttributes(target);
-        // Add information about additional attributes from aspects. 
-        for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.entrySet()) {
-          PackageSerializer.addAttributeToProto(rulePb, entry.getKey(),
-              Lists.<Object>newArrayList(entry.getValue()), null, false, false);
-        }
-        // Add all deps from aspects as rule inputs of current target.
-        for (Collection<Label> labelCollection : aspectsDependencies.values()) {
-          for (Label label : labelCollection) {
-            rulePb.addRuleInput(label.toString());
-          }
-        }
+      ImmutableMultimap<Attribute, Label> aspectsDependencies =
+          aspectResolver.computeAspectDependencies(target);
+      // Add information about additional attributes from aspects.
+      for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
+        PackageSerializer.addAttributeToProto(rulePb, entry.getKey(),
+            Lists.<Object>newArrayList(entry.getValue()), null, false, false);
+      }
+      // Add all deps from aspects as rule inputs of current target.
+      for (Label label : aspectsDependencies.values()) {
+        rulePb.addRuleInput(label.toString());
       }
 
       // Include explicit elements for all direct inputs and outputs of a rule;

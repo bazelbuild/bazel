@@ -13,79 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
 /** Utility class that determines additional dependencies of a target from its aspects. */
-public class AspectResolver {
-  private final PackageProvider packageProvider;
-  private final EventHandler eventHandler;
-
-  public AspectResolver(PackageProvider packageProvider, EventHandler eventHandler) {
-    this.packageProvider = packageProvider;
-    this.eventHandler = eventHandler;
-  }
+public interface AspectResolver {
 
   /**
-   * Compute additional dependencies of target from aspects. This method is going to load direct
-   * deps of target to determine their types. Returns map of attributes and corresponding label
-   * values.
+   * How to resolve aspect dependencies in 'blaze query'.
    */
-  Map<Attribute, Collection<Label>> computeAspectDependenciesWithAttributes(Target target)
-      throws InterruptedException {
-    Map<Attribute, Collection<Label>> aspectDependencies = new LinkedHashMap<>();
-    if (target instanceof Rule) {
-      Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
-      for (Entry<Attribute, Label> entry : transitions.entries()) {
-        Target toTarget;
-        try {
-          toTarget = packageProvider.getTarget(eventHandler, entry.getValue());
-          Map<Attribute, Collection<Label>> deps = Multimaps.asMap(
-              AspectDefinition.visitAspectsIfRequired(target, entry.getKey(), toTarget));
-          aspectDependencies.putAll(deps);
-        } catch (NoSuchThingException e) {
-          // Do nothing. One of target direct deps has an error. The dependency on the BUILD file
-          // (or one of the files included in it) will be reported in the query result of :BUILD.
-        }
+  public enum Mode {
+    // Do not report aspect dependencies
+    OFF {
+      @Override
+      public AspectResolver createResolver(PackageProvider provider, EventHandler eventHandler) {
+        return new NullAspectResolver();
       }
-    }
-    return aspectDependencies;
-  }
+    },
 
-  /**
-   * Compute additional dependencies of target from aspects. This method is going to load direct
-   * deps of target to determine their types. Returns set of labels.
-   */
-  Set<Label> computeAspectDependencies(Target target) throws InterruptedException {
-    Set<Label> labels = new LinkedHashSet<Label>();
-    for (Collection<Label> labelCollection :
-        computeAspectDependenciesWithAttributes(target).values()) {
-      labels.addAll(labelCollection);
-    }
-    return labels;
+    // Do not load dependent packages; report deps assuming all aspects defined on a rule are
+    // triggered
+    CONSERVATIVE {
+      @Override
+      public AspectResolver createResolver(PackageProvider provider, EventHandler eventHandler) {
+        return new ConservativeAspectResolver();
+      }
+    },
+
+    // Load direct dependencies and report aspects that can be triggered based on their types.
+    PRECISE {
+      @Override
+      public AspectResolver createResolver(PackageProvider provider, EventHandler eventHandler) {
+        return new PreciseAspectResolver(provider, eventHandler);
+      }
+    };
+
+    public abstract AspectResolver createResolver(
+        PackageProvider provider, EventHandler eventHandler);
   }
 
   /** The way aspect dependencies for a BUILD file are calculated. */
@@ -108,59 +80,19 @@ public class AspectResolver {
     };
 
     protected abstract Collection<Label> getDependencies(Package pkg);
-  };
-
-  Set<Label> computeBuildFileDependencies(Package pkg, BuildFileDependencyMode mode)
-      throws InterruptedException {
-    Set<Label> result = new LinkedHashSet<>();
-    result.addAll(mode.getDependencies(pkg));
-
-    Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
-    // First compute with packages can possibly affect the aspect attributes of this package:
-    // Iterate over all rules...
-    for (Target target : pkg.getTargets()) {
-
-      if (!(target instanceof Rule)) {
-        continue;
-      }
-
-      // ...figure out which direct dependencies can possibly have aspects attached to them...
-      Multimap<Attribute, Label> depsWithPossibleAspects = ((Rule) target).getTransitions(
-          new BinaryPredicate<Rule, Attribute>() {
-            @Override
-            public boolean apply(@Nullable Rule rule, @Nullable Attribute attribute) {
-              for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
-                if (!AspectFactory.Util.create(aspectFactory).getDefinition()
-                    .getAttributes().isEmpty()) {
-                  return true;
-                }
-              }
-
-              return false;
-            }
-          });
-
-      // ...and add the package of the aspect.
-      for (Label depLabel : depsWithPossibleAspects.values()) {
-        dependentPackages.add(depLabel.getPackageIdentifier());
-      }
-    }
-
-    // Then add all the subinclude labels of the packages thus found to the result.
-    for (PackageIdentifier packageIdentifier : dependentPackages) {
-      try {
-        result.add(Label.create(packageIdentifier, "BUILD"));
-        Package dependentPackage = packageProvider.getPackage(eventHandler, packageIdentifier);
-        result.addAll(mode.getDependencies(dependentPackage));
-      } catch (NoSuchPackageException e) {
-        // If the package is not found, just add its BUILD file, which is already done above.
-        // Hopefully this error is not raised when there is a syntax error in a subincluded file
-        // or something.
-      } catch (Label.SyntaxException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    return result;
   }
+
+  /**
+   * Compute additional dependencies of target from aspects. This method may load the direct deps
+   * of target to determine their types. Returns map of attributes and corresponding label values.
+   */
+  ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target)
+      throws InterruptedException;
+
+  /**
+   * Compute the labels of the BUILD and subinclude and Skylark files on which the results of the
+   * other two methods depend for a target in the given package.
+   */
+  Set<Label> computeBuildFileDependencies(Package pkg, BuildFileDependencyMode mode)
+      throws InterruptedException;
 }

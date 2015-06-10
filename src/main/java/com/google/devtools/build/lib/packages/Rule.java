@@ -20,9 +20,9 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -704,14 +704,14 @@ public final class Rule implements Target {
    */
   public Collection<? extends Label> getAspectLabelsSuperset(
       BinaryPredicate<Rule, Attribute> predicate) {
-    ImmutableMultimap.Builder<Attribute, Label> labelBuilder = ImmutableMultimap.builder();
+    LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
         AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
-        AspectDefinition.addAllAttributesOfAspect(Rule.this, labelBuilder,
+        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels,
             candidate.getDefinition(), predicate);
       }
     }
-    return labelBuilder.build().values();
+    return labels.values();
   }
 }

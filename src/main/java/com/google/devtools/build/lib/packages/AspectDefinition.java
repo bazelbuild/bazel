@@ -109,11 +109,11 @@ public final class AspectDefinition {
    */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
       Target from, Attribute attribute, Target to) {
-    ImmutableMultimap.Builder<Attribute, Label> labelBuilder = ImmutableMultimap.builder();
     // Aspect can be declared only for Rules.
     if (!(from instanceof Rule) || !(to instanceof Rule)) {
-      return labelBuilder.build();
+      return ImmutableMultimap.of();
     }
+    LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
     for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
       AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
@@ -123,16 +123,16 @@ public final class AspectDefinition {
           candidate.getDefinition().getRequiredProviders())) {
         continue;
       }
-      addAllAttributesOfAspect((Rule) from, labelBuilder, candidate.getDefinition(), Rule.ALL_DEPS);
+      addAllAttributesOfAspect((Rule) from, result, candidate.getDefinition(), Rule.ALL_DEPS);
     }
-    return labelBuilder.build();
+    return ImmutableMultimap.copyOf(result);
   }
 
   /**
    * Collects all attribute labels from the specified aspectDefinition.
    */
   public static void addAllAttributesOfAspect(Rule from,
-      ImmutableMultimap.Builder<Attribute, Label> labelBuilder, AspectDefinition aspectDefinition,
+      Multimap<Attribute, Label> labelBuilder, AspectDefinition aspectDefinition,
       BinaryPredicate<Rule, Attribute> predicate) {
     ImmutableMap<String, Attribute> attributes = aspectDefinition.getAttributes();
     for (Attribute aspectAttribute : attributes.values()) {

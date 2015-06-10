@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.output;
 
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
@@ -26,6 +27,12 @@ import java.util.Set;
  * Command-line options for the Blaze query language, revision 2.
  */
 public class QueryOptions extends OptionsBase {
+  /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
+  public static class AspectResolutionModeConverter extends EnumConverter<AspectResolver.Mode> {
+    public AspectResolutionModeConverter() {
+      super(AspectResolver.Mode.class, "Aspect resolution mode");
+    }
+  }
 
   @Option(name = "output",
       defaultValue = "label",
@@ -138,11 +145,19 @@ public class QueryOptions extends OptionsBase {
   public boolean relativeLocations;
 
   @Option(name = "aspect_deps",
-      defaultValue = "false",
+      converter = AspectResolutionModeConverter.class,
+      defaultValue = "off",
       category = "query",
-      help = "If true, the dependencies from aspects should be added to targets. By default, this "
-          + "information about aspects is missing when --output is set to xml, proto or record.")
-  public boolean withAspectDeps;
+      help = "How to resolve aspect dependencies when the output format is one of "
+          + "{xml,proto,record}. 'off' (the default) means no aspect dependencies are resolved, "
+          + "'conservative' means all possible aspect dependencies are added regardless of whether "
+          + "they are possible given the rule class of direct dependencies, 'precise' means that "
+          + "only those aspects are added that are possibly active given the rule class of the "
+          + "direct dependencies. Note that precise mode requires loading other packages to "
+          + "evaluate a single target thus making it slower than the other modes. Also note that "
+          + "even precise mode is not completely precise: the decision whether to compute an "
+          + "aspect is decided in the analysis phase, which is not run during 'blaze query'.")
+  public AspectResolver.Mode aspectDeps;
 
   /**
    * Return the current options as a set of QueryEnvironment settings.
