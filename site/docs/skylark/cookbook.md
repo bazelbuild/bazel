@@ -131,7 +131,7 @@ rule. No file is generated.
 ## <a name="shell"></a>Simple shell command
 
 Example of a rule that runs a shell command on an input file specified by
-the user. The output has the same name as the input, with a `.txt` suffix.
+the user. The output has the same name as the rule, with a `.size` suffix.
 
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
