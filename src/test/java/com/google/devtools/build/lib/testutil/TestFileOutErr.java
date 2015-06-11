@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -31,15 +32,24 @@ public class TestFileOutErr extends FileOutErr {
 
   }
 
-  private static Path newInMemoryFile(String name) {
+  public TestFileOutErr(File root) {
+    super(new FlushingFileRecordingOutputStream(newInMemoryFile(root, "out.log")),
+        new FlushingFileRecordingOutputStream(newInMemoryFile(root, "err.log")));
+  }
+
+  private static Path newInMemoryFile(File root, String name) {
     InMemoryFileSystem inMemFS = new InMemoryFileSystem();
-    Path directory = inMemFS.getPath("/inmem/file_outerr");
+    Path directory = inMemFS.getPath(root.getPath());
     try {
       FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
     return directory.getRelative(name);
+  }
+
+  private static Path newInMemoryFile(String name) {
+    return newInMemoryFile(new File("/inmem/file_outerr"), name);
   }
 
   private static class FlushingFileRecordingOutputStream extends FileRecordingOutputStream {
