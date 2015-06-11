@@ -75,18 +75,21 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Decompress.
-    Path decompressedDirectory;
+    DecompressorValue decompressed;
     try {
-      decompressedDirectory = DecompressorFactory.create(
-          rule.getTargetKind(), rule.getName(), downloadedFileValue.getPath(), outputDirectory)
-          .decompress();
-    } catch (DecompressorFactory.DecompressorException e) {
+      decompressed = (DecompressorValue) env.getValueOrThrow(
+          DecompressorValue.key(rule.getTargetKind(), rule.getName(),
+              downloadedFileValue.getPath(), outputDirectory), IOException.class);
+      if (decompressed == null) {
+        return null;
+      }
+    } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(e.getMessage()), Transience.TRANSIENT);
     }
 
     // Add WORKSPACE and BUILD files.
-    createWorkspaceFile(decompressedDirectory, rule);
+    createWorkspaceFile(decompressed.getDirectory(), rule);
     return symlinkBuildFile(rule, getWorkspace(), repositoryDirectory, env);
   }
 }

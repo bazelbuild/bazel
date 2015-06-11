@@ -1,5 +1,11 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 java_library(
     name = "libSingleJar",
     srcs = glob(["java/**/singlejar/**/*.java"]),

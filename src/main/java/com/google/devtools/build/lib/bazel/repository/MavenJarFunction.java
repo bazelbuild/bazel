@@ -22,8 +22,6 @@ import com.google.common.collect.Lists;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.bazel.repository.DecompressorFactory.DecompressorException;
-import com.google.devtools.build.lib.bazel.repository.DecompressorFactory.JarDecompressor;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -88,10 +86,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
     return downloader;
   }
 
-  @VisibleForTesting
   SkyValue createOutputTree(MavenDownloader downloader, Environment env)
       throws RepositoryFunctionException {
-
     FileValue outputDirectoryValue = createDirectory(downloader.getOutputDirectory(), env);
     if (outputDirectoryValue == null) {
       return null;
@@ -105,16 +101,18 @@ public class MavenJarFunction extends HttpArchiveFunction {
     }
 
     // Add a WORKSPACE file & BUILD file to the Maven jar.
-    JarDecompressor decompressor = new JarDecompressor(
-        MavenJarRule.NAME, downloader.getName(), repositoryJar,
-        outputDirectoryValue.realRootedPath().asPath());
-    Path repositoryDirectory = null;
+    DecompressorValue value;
     try {
-      repositoryDirectory = decompressor.decompress();
-    } catch (DecompressorException e) {
-      throw new RepositoryFunctionException(new IOException(e.getMessage()), Transience.TRANSIENT);
+      value = (DecompressorValue) env.getValueOrThrow(DecompressorValue.key(
+          MavenJarRule.NAME, downloader.getName(), repositoryJar,
+          outputDirectoryValue.realRootedPath().asPath()), IOException.class);
+      if (value == null) {
+        return null;
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    FileValue repositoryFileValue = getRepositoryDirectory(repositoryDirectory, env);
+    FileValue repositoryFileValue = getRepositoryDirectory(value.getDirectory(), env);
     if (repositoryFileValue == null) {
       return null;
     }

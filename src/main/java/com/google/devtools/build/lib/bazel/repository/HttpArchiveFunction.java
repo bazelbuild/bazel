@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.bazel.repository.DecompressorFactory.DecompressorException;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -33,8 +29,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 /**
  * Downloads a file over HTTP.
@@ -76,26 +70,23 @@ public class HttpArchiveFunction extends RepositoryFunction {
     if (directoryValue == null) {
       return null;
     }
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    URL url = null;
+
     try {
-      url = new URL(mapper.get("url", Type.STRING));
-    } catch (MalformedURLException e) {
-      throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "Error parsing URL: " + e.getMessage()),
-              Transience.PERSISTENT);
-    }
-    String sha256 = mapper.get("sha256", Type.STRING);
-    HttpDownloader downloader = new HttpDownloader(url, sha256, outputDirectory);
-    try {
-      Path archiveFile = downloader.download();
-      outputDirectory = DecompressorFactory.create(
-          rule.getTargetKind(), rule.getName(), archiveFile, outputDirectory).decompress();
+      HttpDownloadValue downloadValue = (HttpDownloadValue) env.getValueOrThrow(
+          HttpDownloadFunction.key(rule, outputDirectory), IOException.class);
+      if (downloadValue == null) {
+        return null;
+      }
+
+      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(DecompressorValue.key(
+          rule.getTargetKind(), rule.getName(), downloadValue.getPath(), outputDirectory),
+          IOException.class);
+      if (value == null) {
+        return null;
+      }
     } catch (IOException e) {
       // Assumes all IO errors transient.
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    } catch (DecompressorException e) {
-      throw new RepositoryFunctionException(new IOException(e.getMessage()), Transience.TRANSIENT);
     }
     return RepositoryValue.create(directoryValue);
   }

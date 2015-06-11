@@ -141,7 +141,11 @@ filegroup(
 )
 EOF
   what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
-  echo $what_does_the_fox_say > fox/male
+  cat > fox/male <<EOF
+#!/bin/bash
+echo $what_does_the_fox_say
+EOF
+  chmod +x fox/male
   # Add some padding to the .zip to test that Bazel's download logic can
   # handle breaking a response into chunks.
   dd if=/dev/zero of=fox/padding bs=1024 count=10240
@@ -166,11 +170,10 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/bash
-cat external/endangered/fox/male
+./external/endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
-  bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc
@@ -403,7 +406,7 @@ function test_new_remote_repo() {
   local what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
   echo $what_does_the_fox_say > fox/male
   local repo2_zip=$TEST_TMPDIR/fox.zip
-  rm $repo2_zip
+  rm -f $repo2_zip
   zip -r $repo2_zip fox
   local sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
   serve_file $repo2_zip
@@ -424,7 +427,6 @@ new_http_archive(
     sha256 = '$sha256',
     build_file = 'fox.BUILD'
 )
-bind(name = 'stud', actual = '@endangered//:fox')
 EOF
 
   mkdir -p zoo
@@ -432,7 +434,7 @@ EOF
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
-    data = ["//external:stud"],
+    data = ["@endangered//:fox"],
 )
 EOF
 
@@ -442,8 +444,6 @@ cat external/endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
-  bazel clean --expunge
-  bazel fetch //zoo:breeding-program || fail "Fetch failed"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc

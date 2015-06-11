@@ -18,7 +18,7 @@
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
-DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 
 BLAZE_CC_FILES=(
 src/main/cpp/blaze_startup_options.cc

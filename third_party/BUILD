@@ -47,11 +47,6 @@ java_import(
 )
 
 java_import(
-    name = "apache_commons_compress",
-    jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
-)
-
-java_import(
     name = "apache_commons_logging",
     jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
 )

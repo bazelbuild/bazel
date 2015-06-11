@@ -38,12 +38,11 @@ public class HttpDownloadValue implements SkyValue {
     if (this == other) {
       return true;
     }
-
-    if (other instanceof HttpDownloadValue) {
-      HttpDownloadValue otherValue = (HttpDownloadValue) other;
-      return this.path.equals(otherValue.path);
+    if (other == null || !(other instanceof HttpDownloadValue)) {
+      return false;
     }
-    return false;
+    HttpDownloadValue otherValue = (HttpDownloadValue) other;
+    return this.path.equals(otherValue.path);
   }
 
   @Override

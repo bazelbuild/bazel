@@ -437,4 +437,9 @@ public final class ZipFileEntry {
   EnumSet<Feature> getFeatureSet() {
     return featureSet;
   }
+
+  @Override
+  public String toString() {
+    return "ZipFileEntry[" + name + "]";
+  }
 }

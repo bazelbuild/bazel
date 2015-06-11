@@ -171,11 +171,6 @@ public abstract class RepositoryFunction implements SkyFunction {
     if (createSymbolicLink(buildFilePath, buildFileTarget, env) == null) {
       return null;
     }
-
-    if (buildFileValue == null) {
-      return null;
-    }
-
     return RepositoryValue.createNew(directoryValue, buildFileValue);
   }
 
@@ -201,7 +196,7 @@ public abstract class RepositoryFunction implements SkyFunction {
    * .external-repository/
    *   x/
    *     WORKSPACE
-   *     BUILD -> <build_root>/x.BUILD
+   *     BUILD -> &lt;build_root&gt;/x.BUILD
    *     z -> /some/path/to/y/z
    *     w -> /some/path/to/y/w
    *     v -> /some/path/to/y/v

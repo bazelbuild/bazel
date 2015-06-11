@@ -52,6 +52,7 @@ genrule(
     name = "doc-srcs",
     testonly = 1,
     srcs = [
+        "//src/java_tools/singlejar:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/java:srcs",
         "//src/tools/xcode-common:srcs",

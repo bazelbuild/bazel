@@ -101,7 +101,7 @@ public class HttpDownloadFunction implements SkyFunction {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof HttpDescriptor)) {
+      if (obj == null || !(obj instanceof HttpDescriptor)) {
         return false;
       }
       HttpDescriptor other = (HttpDescriptor) obj;
