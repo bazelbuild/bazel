@@ -30,5 +30,9 @@ else
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
     export JAVA_OPTS="-Xmx3000m"
+    cat > .bazelrc <<EOF
+test --ram_utilization_factor=10
+EOF
+    export BAZELRC="$(pwd)/.bazelrc"
     ./compile.sh all
 fi
