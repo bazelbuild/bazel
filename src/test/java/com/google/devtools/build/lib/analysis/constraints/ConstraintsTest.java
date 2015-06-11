@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Set;
 
@@ -42,7 +43,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     // Support files for RuleClassWithImplicitAndLateBoundDefaults:
     scratch.file("helpers/BUILD",
         "sh_library(name = 'implicit', srcs = ['implicit.sh'])",
-        "sh_library(name = 'latebound', srcs = ['latebound.sh'])");
+        "sh_library(name = 'latebound', srcs = ['latebound.sh'])",
+        "sh_library(name = 'default', srcs = ['default.sh'])");
   }
 
   /**
@@ -110,6 +112,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
                       return Label.parseAbsoluteUnchecked("//helpers:latebound");
                     }
                   }))
+          .add(Attribute.attr("normal", Type.LABEL)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .value(Label.parseAbsoluteUnchecked("//helpers:default")))
           .build();
     }
 
@@ -633,6 +638,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     // because of the implementation of UnknownRuleConfiguredTarget.
     assertDoesNotContainEvent(":implicit doesn't support expected environment");
     assertDoesNotContainEvent(":latebound doesn't support expected environment");
+    assertDoesNotContainEvent("normal doesn't support expected environment");
   }
 
   public void testOutputFilesAreChecked() throws Exception {

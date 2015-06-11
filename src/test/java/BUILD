@@ -306,6 +306,7 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java:bazel-core",
+        "//src/main/java:vfs",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

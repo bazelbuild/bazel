@@ -525,8 +525,9 @@ public class ConstraintSemantics {
       if ((attrType != Type.LABEL && attrType != Type.LABEL_LIST)
           || RuleClass.isConstraintAttribute(attr)
           || attr.equals("visibility")
-          || attrDef.isImplicit()
-          || attrDef.isLateBound()
+          // Use the same implicit deps check that query uses. This facilitates running queries to
+          // determine exactly which rules need to be constraint-annotated for depot migrations.
+          || !Rule.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
           // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
           // because --nodistinct_host_configuration subverts that call.
           || attrDef.getConfigurationTransition() == Attribute.ConfigurationTransition.HOST) {
