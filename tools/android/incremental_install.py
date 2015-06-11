@@ -555,5 +555,7 @@ if __name__ == "__main__":
   # process any additional flags in --flagfile
   if FLAGS.flagfile:
     with open(FLAGS.flagfile) as flagsfile:
+      FLAGS.Reset()
       FLAGS(sys.argv + [line.strip() for line in flagsfile.readlines()])
+
   main()
