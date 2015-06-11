@@ -98,26 +98,12 @@ Bazel on Mac OS X requires:
 
 To build Bazel on Mac OS X:
 
-#### 1. Install the required packages:
-
-```
-$ port install protobuf-cpp
-```
-
-or
-
-```
-$ brew install protobuf
-```
-
-#### 2. Build Bazel:
-
 ```
 $ cd bazel
 $ ./compile.sh
 ```
 
-#### 3. Run Bazel:
+Then you can run Bazel:
 
 ```
 $ ./output/bazel help
