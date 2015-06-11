@@ -45,7 +45,7 @@ atexit "if [ -f ${phasefile} ]; then echo >&2; cat ${phasefile} >&2; fi"
 
 function run_silent() {
   echo "${@}" >${errfile}
-  "${@}" 2>&1 >>${errfile}
+  "${@}" >>${errfile} 2>&1
   rm ${errfile}
 }
 
