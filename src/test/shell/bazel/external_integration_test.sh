@@ -319,9 +319,7 @@ function test_maven_jar() {
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
-    group_id = "com.example.carnivore",
-    artifact_id = "carnivore",
-    version = "1.23",
+    artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
     sha1 = '$sha1',
 )
@@ -342,9 +340,7 @@ function test_maven_jar_no_sha1() {
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
-    group_id = "com.example.carnivore",
-    artifact_id = "carnivore",
-    version = "1.23",
+    artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -369,9 +365,7 @@ EOF
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
-    group_id = "carnivore",
-    artifact_id = "carnivore",
-    version = "1.23",
+    artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -388,9 +382,7 @@ function test_maven_jar_mismatched_sha1() {
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
-    group_id = "com.example.carnivore",
-    artifact_id = "carnivore",
-    version = "1.23",
+    artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
     sha1 = '$sha256',
 )
@@ -464,9 +456,7 @@ function test_fetch() {
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
-    group_id = "com.example.carnivore",
-    artifact_id = "carnivore",
-    version = "1.23",
+    artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
     sha1 = '$sha1',
 )

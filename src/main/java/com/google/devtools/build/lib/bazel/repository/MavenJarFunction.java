@@ -141,9 +141,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     private static final String MAVEN_CENTRAL_URL = "http://central.maven.org/maven2/";
 
     private final String name;
-    private final String groupId;
-    private final String artifactId;
-    private final String version;
+    private final String artifact;
     private final Path outputDirectory;
     @Nullable
     private final String sha1;
@@ -152,10 +150,15 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
     public MavenDownloader(String name, AttributeMap mapper, Path outputDirectory) {
       this.name = name;
-      this.groupId = mapper.get("group_id", Type.STRING);
-      this.artifactId = mapper.get("artifact_id", Type.STRING);
-      this.version = mapper.get("version", Type.STRING);
       this.outputDirectory = outputDirectory;
+
+      if (!mapper.get("artifact", Type.STRING).isEmpty()) {
+        this.artifact = mapper.get("artifact", Type.STRING);
+      } else {
+        this.artifact = mapper.get("group_id", Type.STRING) + ":"
+            + mapper.get("artifact_id", Type.STRING) + ":"
+            + mapper.get("version", Type.STRING);
+      }
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
 
       if (mapper.has("repository", Type.STRING)
@@ -199,7 +202,12 @@ public class MavenJarFunction extends HttpArchiveFunction {
       RepositorySystemSession session = newRepositorySystemSession(system);
 
       ArtifactRequest artifactRequest = new ArtifactRequest();
-      Artifact artifact = new DefaultArtifact(groupId + ":" + artifactId + ":" + version);
+      Artifact artifact;
+      try {
+        artifact = new DefaultArtifact(this.artifact);
+      } catch (IllegalArgumentException e) {
+        throw new IOException(e.getMessage());
+      }
       artifactRequest.setArtifact(artifact);
       artifactRequest.setRepositories(repositories);
 

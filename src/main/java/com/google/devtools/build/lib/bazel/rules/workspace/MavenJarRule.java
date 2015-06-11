@@ -33,21 +33,17 @@ public class MavenJarRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(artifact_id) -->
-        The artifactId of the Maven dependency.
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(artifact) -->
+        A description of a Maven artifact.
         ${SYNOPSIS}
+
+        <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
+        see <a href="#maven_jar_examples">the documentation below</a> for an example.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("artifact_id", Type.STRING).mandatory())
-        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(group_id) -->
-        The groupId of the Maven dependency.
-        ${SYNOPSIS}
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("group_id", Type.STRING).mandatory())
-        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(version) -->
-        The version of the Maven dependency.
-        ${SYNOPSIS}
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("version", Type.STRING).mandatory())
+        .add(attr("artifact", Type.STRING))
+        .add(attr("artifact_id", Type.STRING).undocumented("deprecated"))
+        .add(attr("group_id", Type.STRING).undocumented("deprecated"))
+        .add(attr("version", Type.STRING).undocumented("deprecated"))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repository) -->
         A URL for a Maven repository to fetch the jar from.
         ${SYNOPSIS}
@@ -88,7 +84,7 @@ ${ATTRIBUTE_SIGNATURE}
 
 ${ATTRIBUTE_DEFINITION}
 
-<h4 id="http_jar_examples">Examples</h4>
+<h4 id="maven_jar_examples">Examples</h4>
 
 Suppose that the current repostory contains a java_library target that needs to depend on Guava.
 Using Maven, this dependency would be defined in the pom.xml file as:
@@ -101,17 +97,16 @@ Using Maven, this dependency would be defined in the pom.xml file as:
 </dependency>
 </pre>
 
-In Bazel, the following lines can be added to the WORKSPACE file:
+With Bazel, add the following lines to the WORKSPACE file:
 
 <pre>
 maven_jar(
     name = "guava",
-    group_id = "com.google.guava",
-    artifact_id = "guava",
-    version = "18.0",
+    artifact = "com.google.guava:guava:18.0",
+    sha1 = "d664fbfc03d2e5ce9cab2a44fb01f1d0bf9dfebeccc1a473b1f9ea31f79f6f99",
 )
 </pre>
 
-<p>Targets would specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
+<p>Targets can specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
 
 <!-- #END_BLAZE_RULE -->*/
