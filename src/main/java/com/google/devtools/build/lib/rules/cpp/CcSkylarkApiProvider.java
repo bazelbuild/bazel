@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -39,5 +41,39 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   public NestedSet<Artifact> getTransitiveHeaders() {
     CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
     return ccContext.getDeclaredIncludeSrcs();
+  }
+
+  @SkylarkCallable(
+      name = "libs",
+      structField = true,
+      doc =
+          "Returns the immutable set of libraries for either "
+              + "FULLY STATIC mode (linkopts=[\"-static\"]) or MOSTLY STATIC mode (linkstatic=1) "
+              + "(possibly empty but never None)")
+  public NestedSet<Artifact> getLibraries() {
+    NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
+    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    if (ccLinkParams == null) {
+      return libs.build();
+    }
+    for (LinkerInput lib : ccLinkParams.getCcLinkParams(true, false).getLibraries()) {
+      libs.add(lib.getArtifact());
+    }
+    return libs.build();
+  }
+
+  @SkylarkCallable(
+      name = "link_flags",
+      structField = true,
+      doc =
+          "Returns the immutable list of flags given to the C++ linker command for either "
+              + "FULLY STATIC mode (linkopts=[\"-static\"]) or MOSTLY STATIC mode (linkstatic=1) "
+              + "(possibly empty but never None)")
+  public ImmutableList<String> getLinkopts() {
+    CcLinkParamsProvider ccLinkParams = getInfo().getProvider(CcLinkParamsProvider.class);
+    if (ccLinkParams == null) {
+      return ImmutableList.of();
+    }
+    return ccLinkParams.getCcLinkParams(true, false).flattenedLinkopts();
   }
 }
