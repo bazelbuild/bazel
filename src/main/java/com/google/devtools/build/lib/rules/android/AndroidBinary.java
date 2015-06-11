@@ -381,9 +381,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact stubData = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.STUB_APPLICATION_DATA);
-    Artifact stubDex = getStubDex(ruleContext, javaSemantics, androidSemantics, tools);
     ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
-        .classesDex(stubDex)
+        .classesDex(getStubDex(ruleContext, javaSemantics, androidSemantics, tools, false))
         .resourceApk(incrementalResourceApk.getArtifact())
         .javaResourceZip(dexingOutput.javaResourceJar)
         .nativeLibs(nativeLibs)
@@ -468,7 +467,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact splitMainApk = getDxArtifact(ruleContext, "split_main.apk");
     ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
         .resourceApk(splitMainApkResources)
-        .classesDex(stubDex)
+        .classesDex(getStubDex(ruleContext, javaSemantics, androidSemantics, tools, true))
         .signingKey(debugKey)
         .message("Generating split main apk")
         .build(splitMainApk));
@@ -577,9 +576,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static Artifact getStubDex(RuleContext ruleContext, JavaSemantics javaSemantics,
-      AndroidSemantics androidSemantics, AndroidTools tools) {
+      AndroidSemantics androidSemantics, AndroidTools tools, boolean split) {
     JavaCompilationArgs dep = ruleContext
-        .getPrerequisite(":incremental_stub_application", Mode.TARGET)
+        .getPrerequisite(
+            split ? ":incremental_split_stub_application" : ":incremental_stub_application",
+            Mode.TARGET)
         .getProvider(JavaCompilationArgsProvider.class)
         .getJavaCompilationArgs();
 
@@ -587,13 +588,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addRuntimeClassPathEntries(dep.getRuntimeJars())
         .build();
 
-    Artifact stubDeployJar = getDxArtifact(ruleContext, "stub_deploy.jar");
+    Artifact stubDeployJar = getDxArtifact(ruleContext,
+        split ? "split_stub_deploy.jar" : "stub_deploy.jar");
     new DeployArchiveBuilder(javaSemantics, ruleContext)
         .setOutputJar(stubDeployJar)
         .setAttributes(attributes)
         .build();
 
-    Artifact stubDex = getDxArtifact(ruleContext, "stub_application.dex");
+    Artifact stubDex = getDxArtifact(ruleContext,
+        split ? "split_stub_application.dex" : "stub_application.dex");
     AndroidCommon.createDexAction(
         ruleContext,
         androidSemantics,
