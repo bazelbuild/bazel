@@ -25,6 +25,11 @@ filegroup(
     srcs = ["bin/jar"],
 )
 
+filegroup(
+    name = "javac",
+    srcs = ["bin/javac"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",

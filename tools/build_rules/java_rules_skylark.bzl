@@ -16,8 +16,6 @@ java_filetype = FileType([".java"])
 jar_filetype = FileType([".jar"])
 srcjar_filetype = FileType([".jar", ".srcjar"])
 
-JAVA_PATH='tools/jdk/jdk/bin/'
-
 def is_windows(config):
   return config.fragment(cpp).compiler.startswith("windows_")
 
@@ -69,7 +67,7 @@ def java_library_impl(ctx):
       cmd += "unzip %s -d %s >/dev/null\n" % (file.path, java_output)
 
   if ctx.files.srcs or ctx.files.srcjars:
-    cmd += JAVA_PATH + "javac"
+    cmd += ctx.file._javac.path
     cmd += " " + " ".join(javac_options)
     if compile_time_jars:
       cmd += " -classpath '" + cmd_helper.join_paths(path_separator(ctx), compile_time_jars) + "'"
@@ -79,7 +77,7 @@ def java_library_impl(ctx):
   # stick them in the root of the jar.
   for r in ctx.files.resources:
     cmd += "cp %s %s\n" % (r.path, build_output)
-  cmd += (JAVA_PATH + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
+  cmd += (ctx.file._jar.path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
   ctx.action(
     inputs = (sources + compile_time_jars_list + [sources_param_file] +
@@ -113,7 +111,7 @@ def java_binary_impl(ctx):
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   for jar in library_result.runtime_jars:
     cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-  cmd += (JAVA_PATH + "jar cmf " + manifest.path + " " +
+  cmd += (ctx.file._jar.path + " cmf " + manifest.path + " " +
          deploy_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
 
@@ -146,7 +144,7 @@ def java_binary_impl(ctx):
         "fi",
         "",
 
-        "jvm_bin=%s" % (ctx.file.javabin.path),
+        "jvm_bin=%s" % (ctx.file._java.path),
         "if [[ ! -x ${jvm_bin} ]]; then",
         "  jvm_bin=$(which java)",
         "fi",
@@ -190,6 +188,9 @@ def java_import_impl(ctx):
 
 
 java_library_attrs = {
+    "_java": attr.label(default=Label("//tools/jdk:java"), single_file=True),
+    "_javac": attr.label(default=Label("//tools/jdk:javac"), single_file=True),
+    "_jar": attr.label(default=Label("//tools/jdk:jar"), single_file=True),
     "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
     "resources": attr.label_list(allow_files=True),
     "srcs": attr.label_list(allow_files=java_filetype),
@@ -219,7 +220,6 @@ bootstrap_java_library = rule(
 java_binary_attrs_common = java_library_attrs + {
     "jvm_flags": attr.string_list(),
     "jvm": attr.label(default=Label("//tools/jdk:jdk"), allow_files=True),
-    "javabin": attr.label(default=Label("//tools/jdk:java"), single_file=True),
     "args": attr.string_list(),
 }
 

@@ -116,10 +116,6 @@ function create_new_workspace() {
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
   ln -s "${ijar_path}" tools/jdk/ijar
 
-  if [[ -d ${jdk_dir} ]] ; then
-    ln -s ${jdk_dir} tools/jdk/jdk
-  fi
-
   touch WORKSPACE
 }
 

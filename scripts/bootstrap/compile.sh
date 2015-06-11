@@ -127,7 +127,6 @@ esac
     || fail "Protobuf compiler not found in ${PROTOC-}"
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
-rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
 
 JAVAC="${JAVA_HOME}/bin/javac"
 

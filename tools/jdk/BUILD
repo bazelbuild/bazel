@@ -20,6 +20,16 @@ filegroup(
     srcs = ["//external:java"],
 )
 
+filegroup(
+    name = "jar",
+    srcs = ["//external:jar"],
+)
+
+filegroup(
+    name = "javac",
+    srcs = ["//external:javac"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",

@@ -48,6 +48,11 @@ bind(
 )
 
 bind(
+    name = "javac",
+    actual = "@local-jdk//:javac",
+)
+
+bind(
     name = "jdk-default",
     actual = "@local-jdk//:jdk-default",
 )
