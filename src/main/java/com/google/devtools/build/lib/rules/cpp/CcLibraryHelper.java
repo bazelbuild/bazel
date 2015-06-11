@@ -767,7 +767,7 @@ public final class CcLibraryHelper {
       if (model.getGeneratesPicHeaderModule()) {
         contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
       }
-      if (model.getGeratesNoPicHeaderModule()) {
+      if (model.getGeneratesNoPicHeaderModule()) {
         contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
       }
     }

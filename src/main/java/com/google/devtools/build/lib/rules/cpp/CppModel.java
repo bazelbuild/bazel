@@ -239,14 +239,14 @@ public final class CppModel {
   /**
    * @return whether this target needs to generate pic actions.
    */
-  public boolean getGeneratePicActions() {
+  private boolean getGeneratePicActions() {
     return CppHelper.usePic(ruleContext, false);
   }
 
   /**
    * @return whether this target needs to generate non-pic actions.
    */
-  public boolean getGenerateNoPicActions() {
+  private boolean getGenerateNoPicActions() {
     return
         // If we always need pic for everything, then don't bother to create a no-pic action.
         (!CppHelper.usePic(ruleContext, true) || !CppHelper.usePic(ruleContext, false))
@@ -267,7 +267,7 @@ public final class CppModel {
   /**
    * @return whether this target needs to generate a non-pic header module.
    */
-  public boolean getGeratesNoPicHeaderModule() {
+  public boolean getGeneratesNoPicHeaderModule() {
     return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES) && !fake
         && getGenerateNoPicActions();
   }
