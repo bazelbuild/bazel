@@ -146,12 +146,12 @@ public class QueryOptions extends OptionsBase {
 
   @Option(name = "aspect_deps",
       converter = AspectResolutionModeConverter.class,
-      defaultValue = "off",
+      defaultValue = "conservative",
       category = "query",
       help = "How to resolve aspect dependencies when the output format is one of "
-          + "{xml,proto,record}. 'off' (the default) means no aspect dependencies are resolved, "
-          + "'conservative' means all possible aspect dependencies are added regardless of whether "
-          + "they are possible given the rule class of direct dependencies, 'precise' means that "
+          + "{xml,proto,record}. 'off' means no aspect dependencies are resolved, 'conservative' "
+          + "(the default) means all declared aspect dependencies are added regardless of whether "
+          + "they are viable given the rule class of direct dependencies, 'precise' means that "
           + "only those aspects are added that are possibly active given the rule class of the "
           + "direct dependencies. Note that precise mode requires loading other packages to "
           + "evaluate a single target thus making it slower than the other modes. Also note that "
