@@ -29,11 +29,11 @@ package com.google.devtools.build.lib.analysis;
  * <li>Overloading a method name multiple times is forbidden.</li>
  * <li>The return type of a method must satisfy one of the following conditions:
  * <ul>
- * <li>It must be from the set of {String, Integer, int, Boolean, bool, Label, PathFragment,
+ *  <li>It must be from the set of {String, Integer, int, Boolean, bool, Label, PathFragment,
  * Artifact}, OR</li>
- * <li>it must be an ImmutableList/List/Collection/Iterable of T, where T is either
+ *  <li>it must be an ImmutableList/List/Collection/Iterable of T, where T is either
  * one of the types above with a default serializer or T implements ValueSerializer), OR</li>
- * <li>it must be serializable (TBD)</li>
+ *  <li>it must be serializable (TBD)</li>
  * </ul>
  * <li>If the method takes arguments, it must declare a custom serializer (TBD).</li>
  * </ul>
@@ -49,7 +49,8 @@ package com.google.devtools.build.lib.analysis;
  * being O(n^2): in a long dependency chain, if every target adds one single artifact, storing the
  * transitive closures of every rule would take 1+2+3+...+n-1+n = O(n^2) memory.
  *
- * <p>In order to avoid this, we introduce the concept of nested sets. A nested set is an immutable
+ * <p>In order to avoid this, we introduce the concept of nested sets, {@link com.google.devtools
+ * .build.lib.collect.nestedset.NestedSet}. A nested set is an immutable
  * data structure that can contain direct members and other nested sets (recursively). Nested sets
  * are iterable and can be flattened into ordered sets, where the order depends on which
  * implementation of NestedSet you pick.

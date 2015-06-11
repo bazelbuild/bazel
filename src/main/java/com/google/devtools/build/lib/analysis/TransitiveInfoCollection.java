@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * <ul>
  * <li>The associated Target (which will usually be a Rule)
  * <li>Its own configuration (the configured target does not have access to other configurations,
- * e.g. the host configuration, though)
+ * e.g. the host configuration)
  * <li>The transitive info providers and labels of its direct dependencies.
  * </ul>
  *
@@ -70,7 +70,7 @@ import javax.annotation.Nullable;
  * <li>Serialize / deserialize individual configured targets at will, making it possible for
  * example to swap out part of the analysis state if there is memory pressure or to move them in
  * persistent storage so that the state can be reconstructed at a different time or in a
- * different process. The stretch goal is to eventually facilitate cross-uses caching of this
+ * different process. The stretch goal is to eventually facilitate cross-user caching of this
  * information.
  * </ul>
  *

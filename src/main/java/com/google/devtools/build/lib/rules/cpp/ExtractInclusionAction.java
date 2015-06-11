@@ -29,6 +29,9 @@ import java.io.IOException;
  * An action which greps for includes over a given .cc or .h file.
  * This is a part of the work required for C++ include scanning.
  *
+ * <p>For generated files, it is advantageous to do this remotely, to avoid having to download
+ * the generated file.
+ *
  * <p>Note that this may run grep-includes over-optimistically, where we previously
  * had not. For example, consider a cc_library of generated headers. If another
  * library depends on it, and only references one of the headers, the other
