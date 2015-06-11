@@ -1,5 +1,5 @@
 #!/bin/bash -eu
 
-STUBPATH=$(python -c "import os.path; print os.path.realpath('$0');")
+STUBPATH=$(%python_binary% -c "import os.path; print(os.path.realpath('$0'));")
 export PYTHONPATH=$STUBPATH.runfiles
-exec python ${PYTHONPATH}/%main% $@
+exec %python_binary% ${PYTHONPATH}/%main% $@

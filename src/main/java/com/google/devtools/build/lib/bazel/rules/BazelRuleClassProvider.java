@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
@@ -184,6 +185,7 @@ public class BazelRuleClassProvider {
           CppOptions.class,
           JavaOptions.class,
           PythonOptions.class,
+          BazelPythonConfiguration.Options.class,
           ObjcCommandLineOptions.class,
           J2ObjcCommandLineOptions.class
       );
@@ -310,6 +312,7 @@ public class BazelRuleClassProvider {
     builder.addConfigurationFragment(new CppConfigurationLoader(
         Functions.<String>identity()));
     builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
+    builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
     builder.addConfigurationFragment(new JvmConfigurationLoader(JAVA_CPU_SUPPLIER));
     builder.addConfigurationFragment(new JavaConfigurationLoader(JAVA_CPU_SUPPLIER));
     builder.addConfigurationFragment(new ObjcConfigurationLoader());
