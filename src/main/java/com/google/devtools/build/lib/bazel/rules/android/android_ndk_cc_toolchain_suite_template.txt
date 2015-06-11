@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_toolchain_suite(
+    name = "toolchain",
+    toolchains = { %toolchain_map% },
+    proto = """
+major_version: "android"
+minor_version: ""
+default_target_cpu: "%default_cpu%"
+%toolchain_protos%
+""")
+
+cc_library(
+    name = "malloc",
+    srcs = [],
+)
+
+%toolchains%

@@ -13,16 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Implementation of the {@code android_ndk} repository rule.
@@ -48,7 +56,55 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    return writeBuildFile(directoryValue, "filegroup(name='ndk')");
+    AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
+    String ruleName = rule.getName();
+    String apiLevel = attributes.get("api_level", Type.INTEGER).toString();
+    List<String> cpus = ImmutableList.of("arm");  // TODO(bazel-team): autodetect
+    String abi = "armeabi-v7a";  // TODO(bazel-team): Should this be an attribute on the rule?
+    String compiler = "4.9";  // TODO(bazel-team): Should this be an attribute on the rule?
+
+    String ccToolchainSuiteTemplate;
+    String ccToolchainTemplate;
+    String toolchainTemplate;
+
+    try {
+      ccToolchainSuiteTemplate = ResourceFileLoader.loadResource(
+          AndroidNdkRepositoryFunction.class, "android_ndk_cc_toolchain_suite_template.txt");
+      ccToolchainTemplate = ResourceFileLoader.loadResource(
+          AndroidNdkRepositoryFunction.class, "android_ndk_cc_toolchain_template.txt");
+      toolchainTemplate = ResourceFileLoader.loadResource(
+          AndroidNdkRepositoryFunction.class, "android_ndk_toolchain_template.txt");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+
+    StringBuilder toolchainMap = new StringBuilder();
+    StringBuilder toolchainProtos = new StringBuilder();
+    StringBuilder toolchains = new StringBuilder();
+
+    for (String cpu : cpus) {
+      toolchainMap.append(String.format("\"%s\": \":cc-compiler-%s\", ", cpu, cpu));
+      toolchainProtos.append(toolchainTemplate
+          .replace("%repository%", ruleName)
+          .replace("%cpu%", cpu)
+          .replace("%abi%", abi)
+          .replace("%api_level%", apiLevel)
+          .replace("%compiler%", compiler));
+      toolchains.append(ccToolchainTemplate
+          .replace("%repository%", ruleName)
+          .replace("%cpu%", cpu)
+          .replace("%abi%", abi)
+          .replace("%api_level%", apiLevel)
+          .replace("%compiler%", compiler));
+    }
+
+    String buildFile = ccToolchainSuiteTemplate
+        .replace("%toolchain_map%", toolchainMap)
+        .replace("%toolchain_protos%", toolchainProtos)
+        .replace("%toolchains%", toolchains)
+        .replace("%default_cpu%", cpus.get(0));
+
+    return writeBuildFile(directoryValue, buildFile);
   }
 
   @Override

@@ -1,0 +1,41 @@
+filegroup(
+    name = "%cpu%-android-%compiler%-toolchain",
+    srcs = glob([
+        "toolchains/%cpu%-linux-androideabi-%compiler%/**",
+    ]),
+    output_licenses = ["unencumbered"],
+)
+
+filegroup(
+    name = "%cpu%-android-%api_level%-%compiler%-files",
+    srcs = [
+        ":everything-%api_level%-%compiler%",
+        ":%cpu%-android-%compiler%-toolchain",
+    ],
+)
+
+cc_toolchain(
+    name = "cc-compiler-%cpu%",
+    all_files = ":%cpu%-android-%api_level%-%compiler%-files",
+    compiler_files = ":%cpu%-android-%compiler%-toolchain",
+    cpu = "%cpu%",
+    dwp_files = ":%cpu%-android-%compiler%-toolchain",
+    dynamic_runtime_libs = [":%cpu%-android-%compiler%-toolchain"],
+    linker_files = ":%cpu%-android-%compiler%-toolchain",
+    objcopy_files = ":%cpu%-android-%compiler%-toolchain",
+    static_runtime_libs = [":%cpu%-android-%compiler%-toolchain"],
+    strip_files = ":%cpu%-android-%compiler%-toolchain",
+    supports_param_files = 0,
+)
+
+filegroup(
+    name = "everything-%api_level%-%cpu%",
+    srcs = glob(
+        [
+            "platforms/android-%api_level%/arch-%cpu%/usr/include/**/*.h",
+            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.a",
+            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.o",
+            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.so",
+        ],
+    ),
+)
