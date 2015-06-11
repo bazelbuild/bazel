@@ -217,9 +217,15 @@ public interface NodeEntry {
   boolean isChanged();
 
   /**
-   * Marks this node dirty, or changed if {@code isChanged} is true. The node  is put in the
+   * Marks this node dirty, or changed if {@code isChanged} is true. The node is put in the
    * just-created state. It will be re-evaluated if necessary during the evaluation phase,
    * but if it has not changed, it will not force a re-evaluation of its parents.
+   *
+   * <p>{@code markDirty(b)} must not be called on an undone node if {@code isChanged() == b}.
+   * It is the caller's responsibility to ensure that this does not happen.  Calling
+   * {@code markDirty(false)} when {@code isChanged() == true} has no effect. The idea here is that
+   * the caller will only ever want to call {@code markDirty()} a second time if a transition from a
+   * dirty-unchanged state to a dirty-changed state is required.
    *
    * @return The direct deps and value of this entry, or null if the entry has already been marked
    * dirty. In the latter case, the caller should abort its handling of this node, since another
