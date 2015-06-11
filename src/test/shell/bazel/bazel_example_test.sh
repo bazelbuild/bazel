@@ -49,10 +49,10 @@ function assert_binary_run_from_subdir() {
 function test_java() {
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
-  assert_build ${java_pkg}:hello-lib ./bazel-bin/${java_pkg}/libhello-lib.jar
-  assert_build ${java_pkg}:custom-greeting ./bazel-bin/${java_pkg}/libcustom-greeting.jar
-  assert_build ${java_pkg}:hello-world ./bazel-bin/${java_pkg}/hello-world
-  assert_build ${java_pkg}:hello-resources ./bazel-bin/${java_pkg}/hello-resources
+  assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
+  assert_build_output ./bazel-bin/${java_pkg}/libcustom-greeting.jar ${java_pkg}:custom-greeting
+  assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
+  assert_build_output ./bazel-bin/${java_pkg}/hello-resources ${java_pkg}:hello-resources
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
 }
 
@@ -77,16 +77,16 @@ function test_java_test_with_workspace_name() {
 workspace(name = "toto")
 EOF
 
-  assert_build ${java_pkg}:hello-world ./bazel-bin/${java_pkg}/hello-world
+  assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
 }
 
 function test_genrule_and_genquery() {
   # The --javabase flag is to force the tools/jdk:jdk label to be used
   # so it appears in the dependency list.
-  assert_build "--javabase=//tools/jdk examples/gen:genquery" ./bazel-bin/examples/gen/genquery
+  assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery --javabase=//tools/jdk
   local want=./bazel-genfiles/examples/gen/genrule.txt
-  assert_build "--javabase=//tools/jdk examples/gen:genrule" $want
+  assert_build_output $want examples/gen:genrule --javabase=//tools/jdk
 
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"
@@ -98,9 +98,9 @@ function test_genrule_and_genquery() {
 }
 
 function test_native_python() {
-  assert_build "//examples/py_native:bin"
-  assert_test_ok "//examples/py_native:test"
-  assert_test_fails "//examples/py_native:fail"
+  assert_build //examples/py_native:bin --python2_path=python
+  assert_test_ok //examples/py_native:test --python2_path=python
+  assert_test_fails //examples/py_native:fail --python2_path=python
 }
 
 #
@@ -124,9 +124,9 @@ function test_python() {
 
 function test_java_skylark() {
   local java_pkg=examples/java-skylark/src/main/java/com/example/myproject
-  assert_build ${java_pkg}:hello-lib ./bazel-bin/${java_pkg}/libhello-lib.jar
-  assert_build ${java_pkg}:hello-data ./bazel-bin/${java_pkg}/hello-data
-  assert_build ${java_pkg}:hello-world ./bazel-bin/${java_pkg}/hello-world
+  assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
+  assert_build_output ./bazel-bin/${java_pkg}/hello-data ${java_pkg}:hello-data
+  assert_build_output ./bazel-bin/${java_pkg}/hello-world ${java_pkg}:hello-world
   # we built hello-world but hello-data is still there.
   want=./bazel-bin/${java_pkg}/hello-data
   test -x $want || fail "executable $want not found"
@@ -144,7 +144,7 @@ function test_java_test_skylark() {
 function test_protobuf() {
   setup_protoc_support
   local jar=bazel-bin/examples/proto/libtest_proto.jar
-  assert_build //examples/proto:test_proto $jar
+  assert_build_output $jar //examples/proto:test_proto
   unzip -v $jar | grep -q 'KeyVal\.class' \
     || fail "Did not find KeyVal class in proto jar."
 }

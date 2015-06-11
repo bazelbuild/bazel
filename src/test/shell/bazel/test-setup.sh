@@ -168,21 +168,24 @@ function tear_down() {
 # Simples assert to make the tests more readable
 #
 function assert_build() {
-  bazel build -s $1 || fail "Failed to build $1"
+  bazel build -s $* || fail "Failed to build $*"
+}
 
-  if [ -n "${2:-}" ]; then
-    test -f "$2" || fail "Output $2 not found for target $1"
-  fi
+function assert_build_output() {
+  local OUTPUT=$1
+  shift
+  assert_build "$*"
+  test -f "$OUTPUT" || fail "Output $OUTPUT not found for target $*"
 }
 
 function assert_test_ok() {
-  bazel test --test_output=errors $1 \
+  bazel test --test_output=errors $* \
     || fail "Test $1 failed while expecting success"
 }
 
 function assert_test_fails() {
-  bazel test --test_output=errors $1 >& $TEST_log \
-    && fail "Test $1 succeed while expecting failure" \
+  bazel test --test_output=errors $* >& $TEST_log \
+    && fail "Test $* succeed while expecting failure" \
     || true
   expect_log "$1.*FAILED"
 }
