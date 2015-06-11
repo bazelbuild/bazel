@@ -1576,6 +1576,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * build. (Corresponds to $(OBJCOPY) in make-dbg.) Relative paths are
    * relative to the execution root.
    */
+  @SkylarkCallable(name = "objcopy_executable", structField = true,
+      doc = "Path to GNU binutils 'objcopy' binary")
   public PathFragment getObjCopyExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.OBJCOPY);
   }
@@ -1585,6 +1587,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * by this build.  This binary should support compilation of both C (*.c)
    * and C++ (*.cc) files. Relative paths are relative to the execution root.
    */
+  @SkylarkCallable(name = "compiler_executable", structField = true,
+      doc = "Path to C/C++ compiler binary")
   public PathFragment getCppExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.GCC);
   }
@@ -1628,6 +1632,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * by this build. Used only for testing. Relative paths are relative to the
    * execution root.
    */
+  @SkylarkCallable(name = "nm_executable", structField = true,
+      doc = "Path to GNU binutils 'nm' binary")
   public PathFragment getNmExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.NM);
   }
@@ -1637,6 +1643,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * used by this build. Used only for testing. Relative paths are relative to
    * the execution root.
    */
+  @SkylarkCallable(name = "objdump_executable", structField = true,
+      doc = "Path to GNU binutils 'objdump' binary")
   public PathFragment getObjdumpExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.OBJDUMP);
   }
@@ -1645,6 +1653,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the path to the GNU binutils 'ar' binary to use for this build.
    * Relative paths are relative to the execution root.
    */
+  @SkylarkCallable(name = "ar_executable", structField = true,
+      doc = "Path to GNU binutils 'ar' binary")
   public PathFragment getArExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.AR);
   }
@@ -1653,6 +1663,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the path to the GNU binutils 'strip' executable that should be used
    * by this build. Relative paths are relative to the execution root.
    */
+  @SkylarkCallable(name = "strip_executable", structField = true,
+      doc = "Path to GNU binutils 'strip' binary")
   public PathFragment getStripExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.STRIP);
   }
