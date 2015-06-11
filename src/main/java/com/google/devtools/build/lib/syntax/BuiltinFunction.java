@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
@@ -152,16 +151,14 @@ public class BuiltinFunction extends BaseFunction {
     } catch (InvocationTargetException x) {
       Throwable e = x.getCause();
       if (e instanceof EvalException) {
-        throw (EvalException) e;
+        throw ((EvalException) e).ensureLocation(loc);
       } else if (e instanceof InterruptedException) {
         throw (InterruptedException) e;
-      } else if (e instanceof ConversionException
-          || e instanceof ClassCastException
+      } else if (e instanceof ClassCastException
           || e instanceof ExecutionException
           || e instanceof IllegalStateException) {
-        throw new EvalException(loc, e);
+        throw new EvalException(loc, "in call to " + getName(), e);
       } else if (e instanceof IllegalArgumentException) {
-        // Assume it was thrown by SkylarkType.cast and has a good message.
         throw new EvalException(loc, "Illegal argument in call to " + getName(), e);
       } else {
         throw badCallException(loc, e, args);

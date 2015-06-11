@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobList;
@@ -359,7 +360,7 @@ public abstract class Type<T> {
    *  ConversionException is thrown when a type-conversion fails; it contains
    *  an explanatory error message.
    */
-  public static class ConversionException extends Exception {
+  public static class ConversionException extends EvalException {
     private static String message(Type<?> type, Object value, String what) {
       StringBuilder builder = new StringBuilder();
       builder.append("expected value of type '").append(type).append("'");
@@ -373,11 +374,11 @@ public abstract class Type<T> {
     }
 
     private ConversionException(Type<?> type, Object value, String what) {
-      super(message(type, value, what));
+      super(null, message(type, value, what));
     }
 
     private ConversionException(String message) {
-      super(message);
+      super(null, message);
     }
   }
 

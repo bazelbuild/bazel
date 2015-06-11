@@ -32,7 +32,7 @@ import java.util.logging.Level;
  */
 public class EvalException extends Exception {
 
-  private final Location location;
+  private Location location;
   private final String message;
   private final boolean dueToIncompleteAST;
 
@@ -115,6 +115,18 @@ public class EvalException extends Exception {
    */
   public boolean isDueToIncompleteAST() {
     return dueToIncompleteAST;
+  }
+
+  /**
+   * Ensures that this EvalException has proper location information.
+   * Does nothing if the exception already had a location, or if no location is provided.
+   * @return this EvalException, in fluent style.
+   */
+  public EvalException ensureLocation(Location loc) {
+    if (location == null && loc != null) {
+      location = loc;
+    }
+    return this;
   }
 
   /**

@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -631,24 +629,22 @@ public abstract class SkylarkType {
 
   /** Cast a List or SkylarkList object into an Iterable of the given type. null means empty List */
   public static <TYPE> Iterable<TYPE> castList(
-      Object obj, final Class<TYPE> type, final String what) throws ConversionException {
+      Object obj, final Class<TYPE> type, final String what) throws EvalException {
     if (obj == null) {
       return ImmutableList.of();
     }
-    return Iterables.transform(com.google.devtools.build.lib.packages.Type.LIST.convert(obj, what),
-        new com.google.common.base.Function<Object, TYPE>() {
-          @Override
-          public TYPE apply(Object input) {
-            try {
-              return type.cast(input);
-            } catch (ClassCastException e) {
-              throw new IllegalArgumentException(String.format(
-                  "expected %s type for '%s' but got %s instead",
-                  EvalUtils.getDataTypeNameFromClass(type), what,
-                  EvalUtils.getDataTypeName(input)));
-            }
-          }
-    });
+    List<TYPE> results = new ArrayList<>();
+    for (Object object : com.google.devtools.build.lib.packages.Type.LIST.convert(obj, what)) {
+      try {
+        results.add(type.cast(object));
+      } catch (ClassCastException e) {
+        throw new EvalException(null, String.format(
+            "Illegal argument: expected %s type for '%s' but got %s instead",
+            EvalUtils.getDataTypeNameFromClass(type), what,
+            EvalUtils.getDataTypeName(object)));
+      }
+    }
+    return results;
   }
 
   /**
@@ -660,21 +656,22 @@ public abstract class SkylarkType {
    */
   @SuppressWarnings("unchecked")
   public static <KEY_TYPE, VALUE_TYPE> Map<KEY_TYPE, VALUE_TYPE> castMap(Object obj,
-      Class<KEY_TYPE> keyType, Class<VALUE_TYPE> valueType, String what) {
+      Class<KEY_TYPE> keyType, Class<VALUE_TYPE> valueType, String what)
+      throws EvalException {
     if (obj == null) {
       return ImmutableMap.of();
     }
     if (!(obj instanceof Map<?, ?>)) {
-      throw new IllegalArgumentException(String.format(
-          "expected a dictionary for %s but got %s instead",
+      throw new EvalException(null, String.format(
+          "Illegal argument: expected a dictionary for %s but got %s instead",
           what, EvalUtils.getDataTypeName(obj)));
     }
 
     for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
       if (!keyType.isAssignableFrom(input.getKey().getClass())
           || !valueType.isAssignableFrom(input.getValue().getClass())) {
-        throw new IllegalArgumentException(String.format(
-            "expected <%s, %s> type for '%s' but got <%s, %s> instead",
+        throw new EvalException(null, String.format(
+            "Illegal argument: expected <%s, %s> type for '%s' but got <%s, %s> instead",
             keyType.getSimpleName(), valueType.getSimpleName(), what,
             EvalUtils.getDataTypeName(input.getKey()),
             EvalUtils.getDataTypeName(input.getValue())));
