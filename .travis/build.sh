@@ -23,6 +23,7 @@ fi
 
 if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
     # TODO(dmarting) ./compile.sh all
+    true
 else
     sudo apt-get update -qq
     sudo apt-get install -y netcat-traditional
