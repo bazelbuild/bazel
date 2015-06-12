@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -91,24 +90,6 @@ public class BaseSpawn implements Spawn {
       ActionMetadata action,
       ResourceSet localResources) {
     this(arguments, environment, executionInfo, runfilesManifests, EmptyRunfilesSupplier.INSTANCE,
-        action, localResources);
-  }
-
-  /**
-   * Returns a new Spawn.
-   */
-  public BaseSpawn(List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      // TODO(bazel-team): have this always be non-null.
-      @Nullable Artifact runfilesManifest,
-      ActionMetadata action,
-      ResourceSet localResources) {
-    this(arguments, environment, executionInfo,
-        ((runfilesManifest != null)
-            ? ImmutableMap.of(runfilesForFragment(new PathFragment(arguments.get(0))),
-            runfilesManifest)
-            : ImmutableMap.<PathFragment, Artifact>of()),
         action, localResources);
   }
 
