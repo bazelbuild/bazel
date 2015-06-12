@@ -23,4 +23,19 @@ public class BuildInfo {
    * Named constants for the BuildInfo keys.
    */
   public static final String BUILD_EMBED_LABEL = "BUILD_EMBED_LABEL";
+  
+  /**
+   * The name of the user that performs the build.
+   */
+  public static final String BUILD_USER = "BUILD_USER";
+
+  /**
+   * The host where the build happens
+   */
+  public static final String BUILD_HOST = "BUILD_HOST";
+
+  /**
+   * Build time as milliseconds since epoch
+   */
+  public static final String BUILD_TIMESTAMP = "BUILD_TIMESTAMP";
 }
