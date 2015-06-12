@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.DumpCommand;
 import com.google.devtools.build.lib.runtime.commands.HelpCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.MobileInstallCommand;
@@ -1573,6 +1574,7 @@ public final class BlazeRuntime {
         new BuildCommand(),
         new CanonicalizeCommand(),
         new CleanCommand(),
+        new DumpCommand(),
         new HelpCommand(),
         new InfoCommand(),
         new MobileInstallCommand(),
