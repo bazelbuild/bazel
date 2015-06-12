@@ -120,4 +120,5 @@ class OptionProcessor {
 };
 
 }  // namespace blaze
+
 #endif  // BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_

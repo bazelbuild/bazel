@@ -36,14 +36,12 @@ extern char **environ;
 
 namespace blaze {
 
-OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option) {
-  rcfile_index_ = rcfile_index;
-  option_ = option;
+OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option)
+    : rcfile_index_(rcfile_index), option_(option) {
 }
 
-OptionProcessor::RcFile::RcFile(const string& filename, int index) {
-  filename_ = filename;
-  index_ = index;
+OptionProcessor::RcFile::RcFile(const string& filename, int index)
+    : filename_(filename), index_(index) {
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
