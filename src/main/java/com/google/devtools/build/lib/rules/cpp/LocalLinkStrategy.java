@@ -43,8 +43,7 @@ public final class LocalLinkStrategy extends LinkStrategy {
   public void exec(CppLinkAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    List<String> argv =
-        action.prepareCommandLine(executor.getExecRoot(), null);
+    List<String> argv = action.getCommandLine();
     executor.getSpawnActionContext(action.getMnemonic()).exec(
         new BaseSpawn.Local(argv, ImmutableMap.<String, String>of(), action),
         actionExecutionContext);

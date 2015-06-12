@@ -14,16 +14,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.List;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
@@ -62,27 +55,14 @@ public class ParameterFile {
     SHELL_QUOTED;
   }
 
-  // Parameter file location.
-  private final Path execRoot;
-  private final PathFragment execPath;
-  private final Charset charset;
-  private final ParameterFileType type;
-
   @VisibleForTesting
   public static final FileType PARAMETER_FILE = FileType.of(".params");
 
   /**
    * Creates a parameter file with the given parameters.
    */
-  public ParameterFile(Path execRoot, PathFragment execPath, Charset charset,
-      ParameterFileType type) {
-    Preconditions.checkNotNull(type);
-    this.execRoot = execRoot;
-    this.execPath = execPath;
-    this.charset = Preconditions.checkNotNull(charset);
-    this.type = Preconditions.checkNotNull(type);
+  private ParameterFile() {
   }
-
   /**
    * Derives an exec path from a given exec path by appending <code>".params"</code>.
    */
@@ -90,25 +70,4 @@ public class ParameterFile {
     return original.replaceName(original.getBaseName() + "-2.params");
   }
 
-  /**
-   * Returns the path for the parameter file.
-   */
-  public Path getPath() {
-    return execRoot.getRelative(execPath);
-  }
-
-  /**
-   * Writes the arguments from the list into the parameter file according to
-   * the style selected in the constructor.
-   */
-  public void writeContent(List<String> arguments) throws ExecException {
-    Iterable<String> actualArgs = (type == ParameterFileType.SHELL_QUOTED) ?
-        ShellEscaper.escapeAll(arguments) : arguments;
-    Path file = getPath();
-    try {
-      FileSystemUtils.writeLinesAs(file, charset, actualArgs);
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("could not write param file '" + file + "'", e);
-    }
-  }
 }

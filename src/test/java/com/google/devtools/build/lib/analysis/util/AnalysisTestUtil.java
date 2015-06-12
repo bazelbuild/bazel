@@ -60,6 +60,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Utilities for analysis phase tests.
+ */
 public final class AnalysisTestUtil {
 
   /**
@@ -293,7 +296,9 @@ public final class AnalysisTestUtil {
     }
   }
 
-  public static final AnalysisEnvironment STUB_ANALYSIS_ENVIRONMENT = new AnalysisEnvironment() {
+  public static final AnalysisEnvironment STUB_ANALYSIS_ENVIRONMENT = new StubAnalysisEnvironment();
+
+  public static class StubAnalysisEnvironment implements AnalysisEnvironment {
     @Override
     public void registerAction(Action... action) {
     }

@@ -25,21 +25,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
@@ -197,56 +197,23 @@ public final class CppLinkAction extends AbstractAction {
   }
 
   /**
-   * Prepares and returns the command line specification for this link.
-   * Splits appropriate parts into a .params file and adds any required
-   * linkstamp compilation steps.
+   * Returns the command line specification for this link, included any required linkstamp
+   * compilation steps. The command line may refer to a .params file.
    *
    * @return a finalized command line suitable for execution
    */
-  public final List<String> prepareCommandLine(Path execRoot, List<String> inputFiles)
+  public final List<String> getCommandLine()
       throws ExecException {
     List<String> commandlineArgs;
     // Try to shorten the command line by use of a parameter file.
     // This makes the output with --subcommands (et al) more readable.
     if (linkCommandLine.canBeSplit()) {
-      PathFragment paramExecPath = ParameterFile.derivePath(
-          outputLibrary.getArtifact().getExecPath());
-      Pair<List<String>, List<String>> split = linkCommandLine.splitCommandline(paramExecPath);
+      Pair<List<String>, List<String>> split = linkCommandLine.splitCommandline();
       commandlineArgs = split.first;
-      writeToParamFile(execRoot, paramExecPath, split.second);
-      if (inputFiles != null) {
-        inputFiles.add(paramExecPath.getPathString());
-      }
     } else {
       commandlineArgs = linkCommandLine.getRawLinkArgv();
     }
     return linkCommandLine.finalizeWithLinkstampCommands(commandlineArgs);
-  }
-
-  private static void writeToParamFile(Path workingDir, PathFragment paramExecPath,
-      List<String> paramFileArgs) throws ExecException {
-    // Create parameter file.
-    ParameterFile paramFile = new ParameterFile(workingDir, paramExecPath, ISO_8859_1,
-        ParameterFileType.UNQUOTED);
-    Path paramFilePath = paramFile.getPath();
-    try {
-      // writeContent() fails for existing files that are marked readonly.
-      paramFilePath.delete();
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("could not delete file '" + paramFilePath + "'", e);
-    }
-    paramFile.writeContent(paramFileArgs);
-
-    // Normally Blaze chmods all output files automatically (see
-    // SkyframeActionExecutor#setOutputsReadOnlyAndExecutable), but this params file is created
-    // out-of-band and is not declared as an output. By chmodding the file, other processes
-    // can observe this file being created.
-    try {
-      paramFilePath.setWritable(false);
-      paramFilePath.setExecutable(true);  // for consistency with other action outputs
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("could not chmod param file '" + paramFilePath + "'", e);
-    }
   }
 
   @Override
@@ -655,6 +622,11 @@ public final class CppLinkAction extends AbstractAction {
           interfaceOutputLibrary == null ? null : interfaceOutputLibrary.getArtifact(),
           symbolCountOutput);
 
+      final PathFragment paramFileFragment =
+          supportsParamFiles
+              ? ParameterFile.derivePath(outputLibrary.getArtifact().getExecPath())
+              : null;
+
       LinkCommandLine linkCommandLine = new LinkCommandLine.Builder(configuration, getOwner())
           .setOutput(outputLibrary.getArtifact())
           .setInterfaceOutput(interfaceOutput)
@@ -673,7 +645,7 @@ public final class CppLinkAction extends AbstractAction {
           .setUseTestOnlyFlags(useTestOnlyFlags)
           .setNeedWholeArchive(needWholeArchive)
           .setInterfaceSoBuilder(getInterfaceSoBuilder())
-          .setSupportsParamFiles(supportsParamFiles)
+          .setParamFileFragment(paramFileFragment)
           .build();
 
       // Compute the set of inputs - we only need stable order here.
@@ -691,16 +663,24 @@ public final class CppLinkAction extends AbstractAction {
               needWholeArchive, cppConfiguration.archiveType()));
       // getPrimaryInput returns the first element, and that is a public interface - therefore the
       // order here is important.
-      Iterable<Artifact> inputs = IterablesChain.<Artifact>builder()
+      IterablesChain.Builder<Artifact> inputsBuilder = IterablesChain.<Artifact>builder()
           .add(ImmutableList.copyOf(LinkerInputs.toLibraryArtifacts(nonLibraries)))
           .add(dependencyInputsBuilder.build())
-          .add(ImmutableIterable.from(expandedInputs))
-          .deduplicate()
-          .build();
+          .add(ImmutableIterable.from(expandedInputs));
+
+      if (linkCommandLine.canBeSplit()) {
+        Artifact paramFile = createArtifact(
+            ParameterFile.derivePath(outputLibrary.getArtifact().getRootRelativePath()));
+        inputsBuilder.add(ImmutableList.of(paramFile));
+        Action parameterFileWriteAction = new ParameterFileWriteAction(
+            getOwner(), paramFile, linkCommandLine.paramCmdLine(),
+            ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
+        analysisEnvironment.registerAction(parameterFileWriteAction);
+      }
 
       return new CppLinkAction(
           getOwner(),
-          inputs,
+          inputsBuilder.deduplicate().build(),
           actionOutputs,
           cppConfiguration,
           outputLibrary,
