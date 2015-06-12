@@ -570,152 +570,184 @@ public final class AndroidRuleClasses {
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(srcs) -->
-          The list of source files that are processed to create the target.
-          ${SYNOPSIS}
-          <p><code>srcs</code> files of type <code>.java</code> are compiled.
-          <em>For readability's sake</em>, it is not good to put the name of a
-          generated <code>.java</code> source file into the <code>srcs</code>.
-          Instead, put the depended-on rule name in the <code>srcs</code>, as
-          described below.
-          </p>
-          <p><code>srcs</code> files of type <code>.srcjar</code> are unpacked and
-          compiled. (This is useful if you need to generate a set of .java files with
-          a genrule or build extension.)
-          </p>
-          <p>This rule currently forces source and class compatibility with Java 6.
-          </p>
-          <p><code>srcs</code> files of type <code>.jar</code> are linked in.
-          (This is useful if you have third-party <code>.jar</code> files
-          with no source.)
-          </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.JAR,
-                  JavaSemantics.SOURCE_JAR))
+           The list of source files that are processed to create the target.
+           ${SYNOPSIS}
+           <p><code>srcs</code> files of type <code>.java</code> are compiled.
+           <em>For readability's sake</em>, it is not good to put the name of a
+           generated <code>.java</code> source file into the <code>srcs</code>.
+           Instead, put the depended-on rule name in the <code>srcs</code>, as
+           described below.
+           </p>
+           <p><code>srcs</code> files of type <code>.srcjar</code> are unpacked and
+           compiled. (This is useful if you need to generate a set of .java files with
+           a genrule or build extension.)
+           </p>
+           <p>This rule currently forces source and class compatibility with Java 6.
+           </p>
+           <p><code>srcs</code> files of type <code>.jar</code> are linked in.
+           (This is useful if you have third-party <code>.jar</code> files
+           with no source.)
+           </p>
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("srcs", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(
+                      JavaSemantics.JAVA_SOURCE, JavaSemantics.JAR, JavaSemantics.SOURCE_JAR))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(deps) -->
-          The list of other libraries to be linked in to the binary target.
-          ${SYNOPSIS}
-          Permitted library types are: <code>android_library</code>,
-          <code>java_library</code> with <code>android</code> constraint and
-          <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
-          Android target platform.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(builder.copy("deps")
-              .cfg(ANDROID_SPLIT_TRANSITION)
-              .allowedRuleClasses(ALLOWED_DEPENDENCIES)
-              .allowedFileTypes()
-              .aspect(AndroidNeverlinkAspect.class))
+           The list of other libraries to be linked in to the binary target.
+           ${SYNOPSIS}
+           Permitted library types are: <code>android_library</code>,
+           <code>java_library</code> with <code>android</code> constraint and
+           <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
+           Android target platform.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .override(
+              builder
+                  .copy("deps")
+                  .cfg(ANDROID_SPLIT_TRANSITION)
+                  .allowedRuleClasses(ALLOWED_DEPENDENCIES)
+                  .allowedFileTypes()
+                  .aspect(AndroidNeverlinkAspect.class)
+                  .aspect(JackAspect.class))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
-          .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
-          .add(attr("$stubify_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.STUBIFY_MANIFEST_LABEL)))
-          .add(attr("$shuffle_jars", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/android:shuffle_jars")))
-          .add(attr("$merge_dexzips", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/android:merge_dexzips")))
-          .add(attr("$incremental_install", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(INCREMENTAL_INSTALL_LABEL)))
-          .add(attr("$build_split_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(BUILD_SPLIT_MANIFEST_LABEL)))
-          .add(attr("$strip_resources", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.STRIP_RESOURCES_LABEL)))
-          .add(attr(":incremental_stub_application", LABEL)
-              .value(AndroidRuleClasses.INCREMENTAL_STUB_APPLICATION))
-          .add(attr(":incremental_split_stub_application", LABEL)
-              .value(AndroidRuleClasses.INCREMENTAL_SPLIT_STUB_APPLICATION))
+          .add(
+              attr("$build_incremental_dexmanifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(AndroidRuleClasses.BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
+          .add(
+              attr("$stubify_manifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(AndroidRuleClasses.STUBIFY_MANIFEST_LABEL)))
+          .add(
+              attr("$shuffle_jars", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel("//tools/android:shuffle_jars")))
+          .add(
+              attr("$merge_dexzips", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel("//tools/android:merge_dexzips")))
+          .add(
+              attr("$incremental_install", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(INCREMENTAL_INSTALL_LABEL)))
+          .add(
+              attr("$build_split_manifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(BUILD_SPLIT_MANIFEST_LABEL)))
+          .add(
+              attr("$strip_resources", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(AndroidRuleClasses.STRIP_RESOURCES_LABEL)))
+          .add(
+              attr(":incremental_stub_application", LABEL)
+                  .value(AndroidRuleClasses.INCREMENTAL_STUB_APPLICATION))
+          .add(
+              attr(":incremental_split_stub_application", LABEL)
+                  .value(AndroidRuleClasses.INCREMENTAL_SPLIT_STUB_APPLICATION))
 
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_key) -->
-          File containing debug keystore to be used to sign debug apk.
-          ${SYNOPSIS}
-          Points to a location of debug keystore file that is different than default
-          debug key. Usually you do not want to use key other than default key, so
-          this attribute should be omitted.
-          <p><em class="harmful">WARNING: Do not use your production keys, they should be
-          strictly safeguarded and not kept in your source tree</em>.</p>
-          <p>This keystore must contain a single key named "AndroidDebugKey", and
-          have a keystore password of "android".
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("debug_key", LABEL).cfg(HOST).legacyAllowAnyFileType()
-              .value(env.getLabel("//tools/android:debug_keystore")))
+           File containing debug keystore to be used to sign debug apk.
+           ${SYNOPSIS}
+           Points to a location of debug keystore file that is different than default
+           debug key. Usually you do not want to use key other than default key, so
+           this attribute should be omitted.
+           <p><em class="harmful">WARNING: Do not use your production keys, they should be
+           strictly safeguarded and not kept in your source tree</em>.</p>
+           <p>This keystore must contain a single key named "AndroidDebugKey", and
+           have a keystore password of "android".
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_key", LABEL)
+                  .cfg(HOST)
+                  .legacyAllowAnyFileType()
+                  .value(env.getLabel("//tools/android:debug_keystore")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
-          Additional command-line flags for the dx tool when generating classes.dex.
-          ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           Additional command-line flags for the dx tool when generating classes.dex.
+           ${SYNOPSIS}
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dexopts", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dex_shards) -->
-          Number of shards dexing should be decomposed into.
-          ${SYNOPSIS}
-          This is makes dexing much faster at the expense of app installation and startup time. The
-          larger the binary, the more shards should be used. 25 is a good value to start
-          experimenting with.
-          <p>
-          Note that each shard will result in at least one dex in the final app. For this reason,
-          setting this to more than 1 is not recommended for release binaries.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           Number of shards dexing should be decomposed into.
+           ${SYNOPSIS}
+           This is makes dexing much faster at the expense of app installation and startup time. The
+           larger the binary, the more shards should be used. 25 is a good value to start
+           experimenting with.
+           <p>
+           Note that each shard will result in at least one dex in the final app. For this reason,
+           setting this to more than 1 is not recommended for release binaries.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dex_shards", INTEGER).value(1))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
-          Command line options to pass to the main dex list builder.
-          ${SYNOPSIS}
-          Use this option to affect the classes included in the main dex list.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           Command line options to pass to the main dex list builder.
+           ${SYNOPSIS}
+           Use this option to affect the classes included in the main dex list.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list_opts", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list) -->
 
-          A text file contains a list of class file names. Classes defined by those class files are
-          put in the primary classes.dex. e.g.:<pre class="code">
-android/support/multidex/MultiDex$V19.class
-android/support/multidex/MultiDex.class
-android/support/multidex/MultiDexApplication.class
-com/google/common/base/Objects.class
-          </pre>
-          ${SYNOPSIS}
-          Must be used with <code>multidex="manual_main_dex"</code>.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           A text file contains a list of class file names. Classes defined by those class files are
+           put in the primary classes.dex. e.g.:<pre class="code">
+           android/support/multidex/MultiDex$V19.class
+           android/support/multidex/MultiDex.class
+           android/support/multidex/MultiDexApplication.class
+           com/google/common/base/Objects.class
+           </pre>
+           ${SYNOPSIS}
+           Must be used with <code>multidex="manual_main_dex"</code>.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list", LABEL).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_specs) -->
-          Files to be used as Proguard specification.
-          ${SYNOPSIS}
-          This file will describe the set of specifications to be used by Proguard.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           Files to be used as Proguard specification.
+           ${SYNOPSIS}
+           This file will describe the set of specifications to be used by Proguard.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_generate_mapping) -->
-          Whether to generate Proguard mapping file.
-          ${SYNOPSIS}
-          The mapping file will be generated only if <code>proguard_specs</code> is
-          specified. This file will list the mapping between the original and
-          obfuscated class, method, and field names.
-          <p><em class="harmful">WARNING: If you use this attribute, your Proguard specification
-          should contain neither <code>-dontobfuscate</code> nor <code>-printmapping</code>.
-          </em>.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("proguard_generate_mapping", BOOLEAN).value(false)
-              .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+           Whether to generate Proguard mapping file.
+           ${SYNOPSIS}
+           The mapping file will be generated only if <code>proguard_specs</code> is
+           specified. This file will list the mapping between the original and
+           obfuscated class, method, and field names.
+           <p><em class="harmful">WARNING: If you use this attribute, your Proguard specification
+           should contain neither <code>-dontobfuscate</code> nor <code>-printmapping</code>.
+           </em>.</p>
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("proguard_generate_mapping", BOOLEAN)
+                  .value(false)
+                  .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(legacy_native_support) -->
-          Enables legacy native support, where pre-compiled native libraries are copied
-          directly into the APK.
-          ${SYNOPSIS}
-          Possible values:
-          <ul>
-              <li><code>legacy_native_support = 1</code>: Pre-built .so files found in the
-                dependencies of cc_libraries in the transitive closure will be copied into
-                the APK without being modified in any way. All cc_libraries in the transitive
-                closure of this rule must wrap .so files. (<em class="harmful">deprecated</em> -
-                legacy_native_support = 0 will become the default and this attribute will be
-                removed in a future Blaze release.)</li>
-              <li><code>legacy_native_support = 0</code>: Native dependencies in the transitive
-                closure will be linked together into a single lib[ruleName].so
-                before being placed in the APK. This ensures that, e.g., only one copy of
-                //base will be loaded into memory. This lib[ruleName].so can be loaded
-                via System.loadLibrary as normal.</li>
-              <li><code>legacy_native_support = -1</code>: Linking is controlled by the
-                <a href="blaze-user-manual.html#flag--legacy_android_native_support">
-                --[no]legacy_android_native_support</a> Blaze flag.</li>
-            </ul>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+           Enables legacy native support, where pre-compiled native libraries are copied
+           directly into the APK.
+           ${SYNOPSIS}
+           Possible values:
+           <ul>
+           <li><code>legacy_native_support = 1</code>: Pre-built .so files found in the
+           dependencies of cc_libraries in the transitive closure will be copied into
+           the APK without being modified in any way. All cc_libraries in the transitive
+           closure of this rule must wrap .so files. (<em class="harmful">deprecated</em> -
+           legacy_native_support = 0 will become the default and this attribute will be
+           removed in a future Blaze release.)</li>
+           <li><code>legacy_native_support = 0</code>: Native dependencies in the transitive
+           closure will be linked together into a single lib[ruleName].so
+           before being placed in the APK. This ensures that, e.g., only one copy of
+           //base will be loaded into memory. This lib[ruleName].so can be loaded
+           via System.loadLibrary as normal.</li>
+           <li><code>legacy_native_support = -1</code>: Linking is controlled by the
+           <a href="blaze-user-manual.html#flag--legacy_android_native_support">
+           --[no]legacy_android_native_support</a> Blaze flag.</li>
+           </ul>
+           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("legacy_native_support", TRISTATE).value(TriState.AUTO))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.IjarB
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 
 /**
  * Rule definition for the java_import rule.
@@ -43,6 +44,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
                 "java_library", "java_import", "cc_library", "cc_binary"))
             .allowedFileTypes()  // none allowed
             .validityPredicate(ANY_EDGE))
+        .advertiseProvider(JavaSourceInfoProvider.class)
         .build();
 
   }
