@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -116,15 +117,19 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
    */
   public static JavaSourceInfoProvider fromJavaTargetAttributes(
       JavaTargetAttributes attributes, JavaSemantics semantics) {
-    ImmutableMap.Builder<PathFragment, Artifact> resourcesBuilder = new ImmutableMap.Builder<>();
+    Map<PathFragment, Artifact> resourcesMap = new LinkedHashMap<>();
     for (Artifact resource : attributes.getResources()) {
-      resourcesBuilder.put(semantics.getJavaResourcePath(resource.getRootRelativePath()), resource);
+      /* The resources are passed in iteration order to the javac command line;
+       * javac chooses the last resource with a given path to make it into the jar.
+       * So too shall we overwrite the values that have come before and end up with the last of the
+       * colliding resources. */
+      resourcesMap.put(semantics.getJavaResourcePath(resource.getRootRelativePath()), resource);
     }
     return new Builder()
         .setSourceFiles(attributes.getSourceFiles())
         .setSourceJars(attributes.getSourceJars())
         .setJarFiles(attributes.getJarFiles())
-        .setResources(resourcesBuilder.build())
+        .setResources(ImmutableMap.copyOf(resourcesMap))
         .setProcessorNames(attributes.getProcessorNames())
         .setProcessorPath(attributes.getProcessorPath())
         .build();
