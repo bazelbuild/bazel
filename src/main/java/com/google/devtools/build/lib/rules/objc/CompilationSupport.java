@@ -102,7 +102,7 @@ public final class CompilationSupport {
 
   @VisibleForTesting
   static final String FILE_IN_SRCS_AND_HDRS_ERROR_FORMAT =
-      "File '%s' is in both srcs in hdrs.";
+      "File '%s' is in both srcs and hdrs.";
 
   /**
    * Returns information about the given rule's compilation artifacts.
