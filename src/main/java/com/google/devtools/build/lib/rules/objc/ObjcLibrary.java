@@ -76,6 +76,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
+        .setGeneratesModuleMap()
         .addExtraImportLibraries(extraImportLibraries)
         .addDepObjcProviders(extraDepObjcProviders)
         .build();

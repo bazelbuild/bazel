@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,7 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
-final class IntermediateArtifacts {
+public final class IntermediateArtifacts {
 
   /**
    * Extension used on the temporary dsym bundle location. Must end in {@code .dSYM} for dsymutil
@@ -269,5 +272,14 @@ final class IntermediateArtifacts {
    */
   public Artifact runnerScript() {
     return appendExtension("_runner.sh");
+  }
+
+  /**
+   * {@link CppModuleMap} used to enforce proper usage of private headers.
+   */
+  public CppModuleMap moduleMap() {
+    Artifact mapFile =
+        appendExtension(Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()));
+    return new CppModuleMap(mapFile, ownerLabel.toString());
   }
 }

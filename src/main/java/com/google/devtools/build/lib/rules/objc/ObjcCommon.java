@@ -34,11 +34,13 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INSTRUMENTED_SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -60,10 +62,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -91,6 +95,10 @@ public final class ObjcCommon {
     }
 
     ImmutableList<Artifact> hdrs() {
+      // Some rules may compile but not have the "hdrs" attribute".
+      if (!ruleContext.attributes().has("hdrs", Type.LABEL_LIST)) {
+        return ImmutableList.of();
+      }
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
     }
 
@@ -176,6 +184,37 @@ public final class ObjcCommon {
       }
       return optionsProvider.getCopts();
     }
+
+    /**
+     * The clang module maps of direct dependencies of this rule. These are needed to generate
+     * this rule's module map.
+     */
+    public List<CppModuleMap> directDepModuleMaps() {
+      // Make sure all dependencies that have headers are included here. If a module map is missing,
+      // its private headers will be treated as public!
+      ArrayList<CppModuleMap> moduleMaps = new ArrayList<>();
+      collectModuleMapsFromAttributeIfExists(moduleMaps, "deps");
+      collectModuleMapsFromAttributeIfExists(moduleMaps, "non_propagated_deps");
+      return moduleMaps;
+    }
+
+    /**
+     * Collects all module maps from the targets in a certain attribute and adds them into
+     * {@code moduleMaps}.
+     *
+     * @param moduleMaps an {@link ArrayList} to collect the module maps into
+     * @param attribute the name of a label list attribute to collect module maps from
+     */
+    private void collectModuleMapsFromAttributeIfExists(ArrayList<CppModuleMap> moduleMaps,
+        String attribute) {
+      if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+        Iterable<ObjcProvider> providers =
+            ruleContext.getPrerequisites(attribute, Mode.TARGET, ObjcProvider.class);
+        for (ObjcProvider provider : providers) {
+          moduleMaps.addAll(provider.get(TOP_LEVEL_MODULE_MAP).toCollection());
+        }
+      }
+    }
   }
 
   /**
@@ -234,9 +273,9 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
-    private Iterable<Artifact> headers = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
+    private boolean generatesModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> breakpadFile = Optional.absent();
@@ -319,11 +358,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    public Builder addHeaders(Iterable<Artifact> headers) {
-      this.headers = Iterables.concat(this.headers, headers);
-      return this;
-    }
-
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
@@ -331,6 +365,15 @@ public final class ObjcCommon {
 
     Builder setAlwayslink(boolean alwayslink) {
       this.alwayslink = alwayslink;
+      return this;
+    }
+
+    /**
+     * Specifies that this target has a clang module map. This should be called if this target
+     * compiles sources or exposes headers for other targets to use.
+     */
+    Builder setGeneratesModuleMap() {
+      this.generatesModuleMap = true;
       return this;
     }
 
@@ -390,7 +433,6 @@ public final class ObjcCommon {
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
           .addAll(INCLUDE, userHeaderSearchPaths)
           .addAll(DEFINE, defines)
-          .addAll(HEADER, headers)
           .addTransitiveAndPropagate(depObjcProviders)
           .addTransitiveWithoutPropagating(directDepObjcProviders);
 
@@ -442,8 +484,11 @@ public final class ObjcCommon {
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         Iterable<Artifact> allSources =
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
-        objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
-        objcProvider.addAll(SOURCE, allSources);
+        objcProvider
+            .addAll(HEADER, artifacts.getAdditionalHdrs())
+            .addAll(HEADER, artifacts.getPrivateHdrs())
+            .addAll(LIBRARY, artifacts.getArchive().asSet())
+            .addAll(SOURCE, allSources);
         BuildConfiguration configuration = context.getConfiguration();
         RegexFilter filter = configuration.getInstrumentationFilter();
         if (configuration.isCodeCoverageEnabled()
@@ -478,6 +523,12 @@ public final class ObjcCommon {
           objcProvider.add(FORCE_LOAD_FOR_XCODEGEN,
               "$(WORKSPACE_ROOT)/" + archive.getExecPath().getSafePathString());
         }
+      }
+
+      if (this.generatesModuleMap) {
+        CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+        objcProvider.addWithoutPropagating(TOP_LEVEL_MODULE_MAP, moduleMap);
+        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
       }
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet())

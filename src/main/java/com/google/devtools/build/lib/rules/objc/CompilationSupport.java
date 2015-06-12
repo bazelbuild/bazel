@@ -24,12 +24,15 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
@@ -39,8 +42,10 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -49,6 +54,9 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
@@ -56,7 +64,9 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -65,7 +75,7 @@ import java.util.List;
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-final class CompilationSupport {
+public final class CompilationSupport {
 
   @VisibleForTesting
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
@@ -90,18 +100,23 @@ final class CompilationSupport {
     }
   }
 
+  @VisibleForTesting
+  static final String FILE_IN_SRCS_AND_HDRS_ERROR_FORMAT =
+      "File '%s' is in both srcs in hdrs.";
+
   /**
    * Returns information about the given rule's compilation artifacts.
    */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
+    PrerequisiteArtifacts srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
+        .errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
-        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
-            .errorsForNonMatching(SRCS_TYPE)
-            .list())
+        .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
         .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
             .errorsForNonMatching(NON_ARC_SRCS_TYPE)
             .list())
+        .addPrivateHdrs(srcs.filter(HEADERS).list())
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
@@ -113,7 +128,7 @@ final class CompilationSupport {
   /**
    * Creates a new compilation support for the given rule.
    */
-  CompilationSupport(RuleContext ruleContext) {
+  public CompilationSupport(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.attributes = new CompilationAttributes(ruleContext);
   }
@@ -126,10 +141,14 @@ final class CompilationSupport {
    */
   CompilationSupport registerCompileAndArchiveActions(ObjcCommon common) {
     if (common.getCompilationArtifacts().isPresent()) {
+      registerGenerateModuleMapAction(common.getCompilationArtifacts());
+      IntermediateArtifacts intermediateArtifacts =
+          ObjcRuleClasses.intermediateArtifacts(ruleContext);
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
-          ObjcRuleClasses.intermediateArtifacts(ruleContext),
+          intermediateArtifacts,
           common.getObjcProvider(),
+          intermediateArtifacts.moduleMap(),
           ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
     return this;
@@ -141,20 +160,20 @@ final class CompilationSupport {
    */
   private void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
       IntermediateArtifacts intermediateArtifacts, ObjcProvider objcProvider,
-      boolean isCodeCoverageEnabled) {
+      CppModuleMap moduleMap, boolean isCodeCoverageEnabled) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
       registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fobjc-arc"),
+          objcProvider, moduleMap, intermediateArtifacts, ImmutableList.of("-fobjc-arc"),
           isCodeCoverageEnabled);
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
       registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"),
+          objcProvider, moduleMap, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"),
           isCodeCoverageEnabled);
     }
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
@@ -167,6 +186,7 @@ final class CompilationSupport {
       Artifact objFile,
       Optional<Artifact> pchFile,
       ObjcProvider objcProvider,
+      CppModuleMap moduleMap,
       IntermediateArtifacts intermediateArtifacts,
       Iterable<String> otherFlags,
       boolean isCodeCoverageEnabled) {
@@ -183,8 +203,10 @@ final class CompilationSupport {
     }
     commandLine
         .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
-        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(
-            objcProvider, objcConfiguration))
+        .add("-fmodule-maps")
+        .add("-fmodule-map-file=" + moduleMap.getArtifact().getExecPath())
+        .add("-fmodule-name=" + moduleMap.getName())
+        .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration))
         .add(objcConfiguration.getCoptsForCompilationMode())
         .addBeforeEachPath(
             "-iquote", ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
@@ -208,6 +230,7 @@ final class CompilationSupport {
         .addOutputs(gcnoFiles.build())
         .addTransitiveInputs(objcProvider.get(HEADER))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
+        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
         .addInputs(pchFile.asSet())
         .build(ruleContext));
   }
@@ -277,6 +300,54 @@ final class CompilationSupport {
     }
 
     registerLinkAction(objcProvider, extraLinkArgs, extraLinkInputs, dsymBundle);
+    return this;
+  }
+
+  /**
+   * Registers an action that will generate a clang module map for this target, using the hdrs
+   * attribute of this rule and the module maps of direct dependencies.
+   *
+   * @param moduleMap the module map to generate
+   * @param compilationArtifacts an optional {@link CompilationArtifacts} object that contains
+   *     additional headers to be included in the module map
+   */
+  public CompilationSupport registerGenerateModuleMapAction(
+      Optional<CompilationArtifacts> compilationArtifacts) {
+    Iterable<Artifact> publicHeaders = attributes.hdrs();
+    Iterable<Artifact> privateHeaders = ImmutableList.<Artifact>of();
+    if (compilationArtifacts.isPresent()) {
+      CompilationArtifacts artifacts = compilationArtifacts.get();
+      publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
+      privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
+    }
+    return registerGenerateModuleMapAction(
+        ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap(),
+        publicHeaders, privateHeaders, attributes.directDepModuleMaps());
+  }
+
+  /**
+   * Registers an action that will generate a clang module map.
+   *
+   * @param moduleMap the module map to generate
+   * @param publicHeaders the headers that should be directly accessible by dependers
+   * @param privateHeaders the headers that should only be directly accessible by this module
+   * @param moduleMapDeps the module maps to depend on
+   */
+  private CompilationSupport registerGenerateModuleMapAction(
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders,
+      List<CppModuleMap> moduleMapDeps) {
+    // TODO(bazel-team): The current clang (clang-600.0.57) on Darwin doesn't seem to support
+    // 'textual'. In order to enable -fmodules, we will need to wait until it does and change
+    // compiledModule to false, or ensure that no headers have any conditional #error directives.
+    ruleContext.registerAction(new CppModuleMapAction(ruleContext.getActionOwner(),
+        moduleMap,
+        privateHeaders,
+        publicHeaders,
+        moduleMapDeps,
+        ImmutableList.<PathFragment>of(),
+        /*compiledModule=*/true,
+        /*moduleMapHomeIsCwd=*/false,
+        /*generateSubModules=*/false));
     return this;
   }
 
@@ -440,16 +511,39 @@ final class CompilationSupport {
               : j2ObjcSource;
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, sourceToCompile);
+      // The module map that the above intermediateArtifacts would point to is a combination of
+      // the current target and the java target. Instead, we want the one generated for that source,
+      // but there is no easy way to get that. So for now, compile the source with the module map
+      // (and therefore module name) for this rule. If private headers are introduced for J2Objc
+      // sources, this will have to be reworked.
+      // TODO(bazel-team): Generate module maps with J2Objc sources, and use that here.
+      CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
       CompilationArtifacts compilationArtifact = new CompilationArtifacts.Builder()
           .addNonArcSrcs(sourceToCompile.getObjcSrcs())
           .setIntermediateArtifacts(intermediateArtifacts)
           .setPchFile(Optional.<Artifact>absent())
           .build();
       registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
-          ruleContext.getConfiguration().isCodeCoverageEnabled());
+          moduleMap, ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
 
     return this;
+  }
+
+  /**
+   * Registers actions that generates a module map for all {@link J2ObjcSource}s in
+   * {@link J2ObjcSrcsProvider}.
+   *
+   * @return this compilation support
+   */
+  public CompilationSupport registerJ2ObjcGenerateModuleMapAction(J2ObjcSrcsProvider provider) {
+    ArrayList<Artifact> headers = new ArrayList<>();
+    for (J2ObjcSource j2ObjcSource : provider.getSrcs()) {
+      headers.addAll(ImmutableList.copyOf(j2ObjcSource.getObjcHdrs()));
+    }
+    return registerGenerateModuleMapAction(
+        ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap(),
+        headers, ImmutableList.<Artifact>of(), ImmutableList.<CppModuleMap>of());
   }
 
   private void registerJ2ObjcDeadCodeRemovalActions(Iterable<J2ObjcSource> j2ObjcSources,
@@ -521,6 +615,16 @@ final class CompilationSupport {
           "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
 
+    // Check for overlap between srcs and hdrs.
+    if (ruleContext.attributes().has("srcs", Type.LABEL_LIST)) {
+      Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
+      Set<Artifact> srcsSet =
+          new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+      for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
+        String path = header.getRootRelativePath().toString();
+        ruleContext.attributeError("srcs", String.format(FILE_IN_SRCS_AND_HDRS_ERROR_FORMAT, path));
+      }
+    }
     return this;
   }
 
