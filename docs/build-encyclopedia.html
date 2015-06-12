@@ -7128,11 +7128,9 @@ library.</p>
 
 <p class="rule-signature">
 maven_jar(<a href="#maven_jar.name">name</a>,
-<a href="#maven_jar.artifact_id">artifact_id</a>,
-<a href="#maven_jar.group_id">group_id</a>,
+<a href="#maven_jar.artifact">artifact</a>,
 <a href="#maven_jar.repository">repository</a>,
-<a href="#maven_jar.sha1">sha1</a>,
-<a href="#maven_jar.version">version</a>)
+<a href="#maven_jar.sha1">sha1</a>)
 </p>
 
 
@@ -7142,15 +7140,13 @@ maven_jar(<a href="#maven_jar.name">name</a>,
 <ul>
 <li id="maven_jar.name"><code>name</code>: A unique name for this rule.
 <i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
-<li id="maven_jar.artifact_id"><code>artifact_id</code>:
-        The artifactId of the Maven dependency.
-        <i>(String; required)</i><br/>
+<li id="maven_jar.artifact"><code>artifact</code>:
+        A description of a Maven artifact.
+        <i>(String; optional)</i><br/>
 
-</li>
-<li id="maven_jar.group_id"><code>group_id</code>:
-        The groupId of the Maven dependency.
-        <i>(String; required)</i><br/>
 
+        <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
+        see <a href="#maven_jar_examples">the documentation below</a> for an example.
 </li>
 <li id="maven_jar.repository"><code>repository</code>:
         A URL for a Maven repository to fetch the jar from.
@@ -7169,15 +7165,10 @@ maven_jar(<a href="#maven_jar.name">name</a>,
 
          <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
 </li>
-<li id="maven_jar.version"><code>version</code>:
-        The version of the Maven dependency.
-        <i>(String; required)</i><br/>
-
-</li>
 </ul>
 
 
-<h4 id="http_jar_examples">Examples</h4>
+<h4 id="maven_jar_examples">Examples</h4>
 
 Suppose that the current repostory contains a java_library target that needs to depend on Guava.
 Using Maven, this dependency would be defined in the pom.xml file as:
@@ -7190,18 +7181,17 @@ Using Maven, this dependency would be defined in the pom.xml file as:
 </dependency>
 </pre>
 
-In Bazel, the following lines can be added to the WORKSPACE file:
+With Bazel, add the following lines to the WORKSPACE file:
 
 <pre>
 maven_jar(
     name = "guava",
-    group_id = "com.google.guava",
-    artifact_id = "guava",
-    version = "18.0",
+    artifact = "com.google.guava:guava:18.0",
+    sha1 = "d664fbfc03d2e5ce9cab2a44fb01f1d0bf9dfebeccc1a473b1f9ea31f79f6f99",
 )
 </pre>
 
-<p>Targets would specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
+<p>Targets can specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
 
 <h3 id="new_http_archive">new_http_archive</h3>
 
