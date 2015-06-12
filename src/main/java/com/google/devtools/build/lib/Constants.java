@@ -87,5 +87,6 @@ public class Constants {
    */
   public static final ImmutableSet<String> IOS_DEVICE_RULE_CLASSES = ImmutableSet.of("ios_device");
 
-  public static final String ANDROID_DEFAULT_SDK = "//tools/android:sdk";
+  public static final String ANDROID_DEFAULT_SDK = "//tools/android:sdk".toString();
+  public static final boolean ANDROID_ALLOW_SDK_FILEGROUP = Boolean.valueOf(false);
 }

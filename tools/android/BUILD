@@ -1,5 +1,37 @@
 package(default_visibility = ["//visibility:public"])
 
+filegroup(name = "sdk")
+
+filegroup(
+    name = "incremental_stub_application",
+    srcs = [],
+)
+
+filegroup(
+    name = "incremental_split_stub_application",
+    srcs = [],
+)
+
+sh_binary(
+    name = "aar_generator",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "resources_processor",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "merge_dexzips",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "shuffle_jars",
+    srcs = ["fail.sh"],
+)
+
 py_binary(
     name = "merge_manifests",
     srcs = [

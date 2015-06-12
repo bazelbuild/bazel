@@ -89,11 +89,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidCommon androidCommon = new AndroidCommon(
         ruleContext, javaCommon, true /* asNeverLink */, true /* exportDeps */);
+    AndroidTools tools = AndroidTools.fromRuleContext(ruleContext);
+    if (tools == null) {
+      return null;
+    }
     try {
       RuleConfiguredTargetBuilder builder =
           init(ruleContext, filesBuilder,
               getTransitiveResourceContainers(ruleContext, ImmutableList.of("resources", "deps")),
-              javaCommon, androidCommon, javaSemantics, androidSemantics,
+              javaCommon, androidCommon, javaSemantics, androidSemantics, tools,
               ImmutableList.<String>of("deps"));
       return builder.build();
     } catch (RuleConfigurationException e) {
@@ -103,7 +107,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  public static RuleConfiguredTargetBuilder init(
+  private static RuleConfiguredTargetBuilder init(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       NestedSet<ResourceContainer> resourceContainers,
@@ -111,6 +115,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon androidCommon,
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
+      AndroidTools tools,
       List<String> depsAttributes) {
     // TODO(bazel-team): Find a way to simplify this code.
     // treeKeys() means that the resulting map sorts the entries by key, which is necessary to
@@ -145,8 +150,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       configurationMap.put(config.getCpu(), ruleContext.getConfiguration());
       toolchainMap.put(config.getCpu(), CppHelper.getToolchain(ruleContext));
     }
-
-    AndroidTools tools = AndroidTools.fromRuleContext(ruleContext);
 
     NativeLibs nativeLibs = shouldLinkNativeDeps(ruleContext)
         ? NativeLibs.fromLinkedNativeDeps(ruleContext, androidSemantics.getNativeDepsFileName(),

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -55,6 +56,11 @@ public class AndroidTools {
     AndroidSdkProvider androidSdk = androidSdkDep == null
         ? null
         : androidSdkDep.getProvider(AndroidSdkProvider.class);
+    if (androidSdk == null && !Constants.ANDROID_ALLOW_SDK_FILEGROUP) {
+      ruleContext.ruleError(
+          "No Android SDK found. Use the --android_sdk command line option to specify one.");
+      return null;
+    }
 
     return new AndroidTools(
         ruleContext,

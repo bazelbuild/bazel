@@ -66,7 +66,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
     @Option(name = "android_sdk",
-            defaultValue = Constants.ANDROID_DEFAULT_SDK,
+            defaultValue = "null",
             category = "version",
             converter = LabelConverter.class,
             help = "Specifies Android SDK/platform that is used to build Android applications.")
@@ -118,7 +118,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         labelMap.put("android_proguard", proguard);
       }
 
-      labelMap.put("android_sdk", sdk);
+      labelMap.put("android_sdk", realSdk());
+
       labelMap.put("android_incremental_stub_application",
           AndroidRuleClasses.DEFAULT_INCREMENTAL_STUB_APPLICATION);
       labelMap.put("android_incremental_split_stub_application",
@@ -127,15 +128,25 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       labelMap.put("android_aar_generator", AndroidRuleClasses.DEFAULT_AAR_GENERATOR);
     }
 
+    // This method is here because Constants.ANDROID_DEFAULT_SDK cannot be a constant, because we
+    // replace the class file in the .jar after compilation. However, that means that we cannot use
+    // it as an attribute value in an annotation.
+    private Label realSdk() {
+      return sdk == null
+          ? Label.parseAbsoluteUnchecked(Constants.ANDROID_DEFAULT_SDK)
+          : sdk;
+    }
+
     @Override
     public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
       Map<String, Set<Label>> result = new TreeMap<>();
-      addLabel(result, "ANDROID_AIDL_TOOL", "static_aidl_tool");
-      addLabel(result, "ANDROID_AIDL_FRAMEWORK", "aidl_framework");
-      addLabel(result, "ANDROID_AAPT", "static_aapt_tool");
-      addLabel(result, "ANDROID_ADB", "static_adb_tool");
-      addLabel(result, "ANDROID_APKBUILDER", "apkbuilder_tool");
-      addLabel(result, "ANDROID_DX_JAR", "dx_jar");
+      Label realSdk = realSdk();
+      addLabel(result, realSdk, "ANDROID_AIDL_TOOL", "static_aidl_tool");
+      addLabel(result, realSdk, "ANDROID_AIDL_FRAMEWORK", "aidl_framework");
+      addLabel(result, realSdk, "ANDROID_AAPT", "static_aapt_tool");
+      addLabel(result, realSdk, "ANDROID_ADB", "static_adb_tool");
+      addLabel(result, realSdk, "ANDROID_APKBUILDER", "apkbuilder_tool");
+      addLabel(result, realSdk, "ANDROID_DX_JAR", "dx_jar");
       return result;
     }
 
@@ -144,7 +155,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
     }
 
-    private void addLabel(Map<String, Set<Label>> map, String key, String localLabel) {
+    private void addLabel(Map<String, Set<Label>> map, Label sdk, String key, String localLabel) {
       try {
         map.put(key, ImmutableSet.of(sdk.getLocalTargetLabel(localLabel)));
       } catch (SyntaxException e) {
@@ -166,7 +177,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
       Options options = buildOptions.get(Options.class);
-      Label sdk = RedirectChaser.followRedirects(env, options.sdk, "android_sdk");
+      Label sdk = RedirectChaser.followRedirects(env, options.realSdk(), "android_sdk");
       Label incrementalStubApplication = RedirectChaser.followRedirects(env,
           AndroidRuleClasses.DEFAULT_INCREMENTAL_STUB_APPLICATION,
           "android_incremental_stub_application");

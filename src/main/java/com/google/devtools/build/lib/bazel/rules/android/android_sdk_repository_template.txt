@@ -1,3 +1,5 @@
+package(default_visibility = ["//visibility:public"])
+
 android_sdk(
     name = "sdk",
     proguard = "tools/proguard/bin/proguard.sh",
@@ -12,8 +14,7 @@ android_sdk(
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
     apkbuilder = ":apkbuilder",
-    zipalign = "build-tools/%build_tools_version%/zipalign",
-    visibility = ["//visibility:public"])
+    zipalign = "build-tools/%build_tools_version%/zipalign")
 
 genrule(
     name = "main_dex_list_creator_source",

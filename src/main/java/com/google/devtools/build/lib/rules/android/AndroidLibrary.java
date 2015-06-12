@@ -70,6 +70,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         collectTransitiveProguardConfigs(ruleContext);
     AndroidIdlProvider transitiveIdlImportData = collectTransitiveIdlImports(ruleContext);
     AndroidTools tools = AndroidTools.fromRuleContext(ruleContext);
+    if (tools == null) {
+      return null;
+    }
+
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       try {
         if (!LocalResourceContainer.validateRuleContext(ruleContext)) {
