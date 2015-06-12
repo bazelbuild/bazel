@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.Digest;
@@ -239,9 +240,15 @@ public class ActionMetadataHandler implements MetadataHandler {
         // same file, because the other one will be missing its digest.
         fileValue = fileValueFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow),
             tsgm);
+        // Ensure the digest supplied matches the actual digest if it exists.
         byte[] fileDigest = fileValue.getDigest();
-        Preconditions.checkState(fileDigest == null || Arrays.equals(digest, fileDigest),
-            "%s %s %s", artifact, digest, fileDigest);
+        if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
+          BaseEncoding base16 = BaseEncoding.base16();
+          String digestString = (digest != null) ? base16.encode(digest) : "null";
+          String fileDigestString = (fileDigest != null) ? base16.encode(fileDigest) : "null";
+          throw new IllegalStateException("Expected digest " + digestString + " for artifact "
+              + artifact + ", but got " + fileDigestString);
+        }
         outputArtifactData.put(artifact, fileValue);
       } catch (IOException e) {
         // Do nothing - we just failed to inject metadata. Real error handling will be done later,
