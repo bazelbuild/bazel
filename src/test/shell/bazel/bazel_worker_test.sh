@@ -69,7 +69,7 @@ function test_compiles_hello_library_using_persistent_javac() {
   # both BSD and GNU tools so that this works under Linux and OS X.
   bazel_children=$(ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${bazel_pid} " | cut -d' ' -f2)
   bazel shutdown || fail "shutdown failed"
-  sleep 3
+  sleep 10
   unkilled_children=$(for pid in $bazel_children; do ps -p $pid | sed 1d; done)
   if [ ! -z "$unkilled_children" ]; then
     fail "Worker processes were still running: ${unkilled_children}"
