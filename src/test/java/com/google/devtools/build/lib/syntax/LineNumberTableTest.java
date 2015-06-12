@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,8 +29,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LineNumberTableTest {
   private LineNumberTable create(String buffer) {
-    return LineNumberTable.create(buffer.toCharArray(),
-        new Scratch().resolve("/fake/file"));
+    return LineNumberTable.create(buffer.toCharArray(), new PathFragment("/fake/file"));
   }
 
   @Test

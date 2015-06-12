@@ -712,7 +712,7 @@ public class PackageFunction implements SkyFunction {
       List<Statement> preludeStatements, SkylarkImportResult importResult)
           throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
-        : ParserInputSource.create(replacementContents, buildFilePath);
+        : ParserInputSource.create(replacementContents, buildFilePath.asFragment());
     Package.LegacyBuilder pkgBuilder = packageFunctionCache.getIfPresent(packageId);
     if (pkgBuilder == null) {
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());

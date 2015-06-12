@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,8 +52,7 @@ public class ParserInputSourceTest {
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.resolve(pathName);
-    ParserInputSource input = ParserInputSource.create(content, path);
+    ParserInputSource input = ParserInputSource.create(content, new PathFragment(pathName));
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
   }
@@ -61,9 +61,8 @@ public class ParserInputSourceTest {
   public void testCreateFromCharArray() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.resolve(pathName);
     char[] contentChars = content.toCharArray();
-    ParserInputSource input = ParserInputSource.create(contentChars, path);
+    ParserInputSource input = ParserInputSource.create(contentChars, new PathFragment(pathName));
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
   }
@@ -94,15 +93,14 @@ public class ParserInputSourceTest {
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
-    Path path = scratch.resolve("/will/not/try/to/read");
-    ParserInputSource.create("Content provided as string.", path);
+    ParserInputSource.create(
+        "Content provided as string.", new PathFragment("/will/not/try/to/read"));
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
-    Path path = scratch.resolve("/will/not/try/to/read");
     char[] content = "Content provided as char array.".toCharArray();
-    ParserInputSource.create(content, path);
+    ParserInputSource.create(content, new PathFragment("/will/not/try/to/read"));
   }
 
   @Test

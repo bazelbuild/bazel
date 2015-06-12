@@ -23,11 +23,11 @@ import java.io.Serializable;
 /**
  * A Location is a range of characters within a file.
  *
- * The start and end locations may be the same, in which case the Location
+ * <p>The start and end locations may be the same, in which case the Location
  * denotes a point in the file, not a range.  The path may be null, indicating
  * an unknown file.
  *
- * Implementations of Location should be optimised for speed of construction,
+ * <p>Implementations of Location should be optimised for speed of construction,
  * not speed of attribute access, as far more Locations are created during
  * parsing than are ever used to display error messages.
  */
@@ -38,10 +38,10 @@ public abstract class Location implements Serializable {
     private final PathFragment path;
     private final LineAndColumn startLineAndColumn;
 
-    private LocationWithPathAndStartColumn(Path path, int startOffSet, int endOffSet,
+    private LocationWithPathAndStartColumn(PathFragment path, int startOffSet, int endOffSet,
         LineAndColumn startLineAndColumn) {
       super(startOffSet, endOffSet);
-      this.path = path != null ? path.asFragment() : null;
+      this.path = path;
       this.startLineAndColumn = startLineAndColumn;
     }
 
@@ -60,7 +60,7 @@ public abstract class Location implements Serializable {
   /**
    * Returns a Location with a given Path, start and end offset and start line and column info. 
    */
-  public static Location fromPathAndStartColumn(Path path,  int startOffSet, int endOffSet,
+  public static Location fromPathAndStartColumn(PathFragment path,  int startOffSet, int endOffSet,
       LineAndColumn startLineAndColumn) {
     return new LocationWithPathAndStartColumn(path, startOffSet, endOffSet, startLineAndColumn);
   }
@@ -70,14 +70,17 @@ public abstract class Location implements Serializable {
    * region within the file.  Try to use a more specific location if possible.
    */
   public static Location fromFile(Path path) {
-    return fromFileAndOffsets(path, 0, 0);
+    return fromFileAndOffsets(path.asFragment(), 0, 0);
   }
 
+  public static Location fromPathFragment(PathFragment path) {
+    return fromFileAndOffsets(path, 0, 0);
+  }
   /**
    * Returns a Location relating to the subset of file 'path', starting at
    * 'startOffset' and ending at 'endOffset'.
    */
-  public static Location fromFileAndOffsets(final Path path,
+  public static Location fromFileAndOffsets(final PathFragment path,
                                             int startOffset,
                                             int endOffset) {
     return new LocationWithPathAndStartColumn(path, startOffset, endOffset, null);
@@ -113,7 +116,7 @@ public abstract class Location implements Serializable {
    * Returns the path of the file to which the start/end offsets refer.  May be
    * null if the file name information is not available.
    *
-   * This method is intentionally abstract, as a space optimisation.  Some
+   * <p>This method is intentionally abstract, as a space optimisation.  Some
    * subclass instances implement sharing of common data (e.g. tables for
    * convering offsets into line numbers) and this enables them to share the
    * Path value in the same way.

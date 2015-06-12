@@ -205,7 +205,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     super.setUp();
     testBuildfilePath = scratch.resolve("/home/user/workspace/testpackage/BUILD");
     testRuleLocation = Location.fromPathAndStartColumn(
-        testBuildfilePath, 0, 0, new LineAndColumn(TEST_RULE_DEFINED_AT_LINE, 0));
+        testBuildfilePath.asFragment(), 0, 0, new LineAndColumn(TEST_RULE_DEFINED_AT_LINE, 0));
   }
 
   private Package.Builder createDummyPackageBuilder() {

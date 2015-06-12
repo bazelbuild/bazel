@@ -1097,7 +1097,7 @@ public final class PackageFactory {
       EventHandler eventHandler) throws InterruptedException {
     ParserInputSource inputSource = maybeGetParserInputSource(buildFile, eventHandler);
     if (inputSource == null) {
-      return Preprocessor.Result.transientError(buildFile);
+      return Preprocessor.Result.transientError(buildFile.asFragment());
     }
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
     try {
@@ -1128,7 +1128,7 @@ public final class PackageFactory {
     } catch (IOException e) {
       eventHandler.handle(Event.error(Location.fromFile(buildFile),
                      "preprocessing failed: " + e.getMessage()));
-      return Preprocessor.Result.transientError(buildFile);
+      return Preprocessor.Result.transientError(buildFile.asFragment());
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;

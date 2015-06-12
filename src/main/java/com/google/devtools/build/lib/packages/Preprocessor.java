@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.Set;
@@ -119,12 +119,12 @@ public interface Preprocessor {
           /*containsTransientErrors=*/false);
     }
 
-    public static Result invalidSyntax(Path buildFile) {
+    public static Result invalidSyntax(PathFragment buildFile) {
       return new Result(ParserInputSource.create("", buildFile), /*preprocessed=*/true,
           /*containsPersistentErrors=*/true, /*containsTransientErrors=*/false);
     }
 
-    public static Result transientError(Path buildFile) {
+    public static Result transientError(PathFragment buildFile) {
       return new Result(ParserInputSource.create("", buildFile), /*preprocessed=*/false,
           /*containsPersistentErrors=*/false, /*containsTransientErrors=*/true);
     }

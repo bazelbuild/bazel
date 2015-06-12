@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -67,7 +68,7 @@ public class BuildFileAST extends ASTNode {
           result.statements.get(0).getLocation().getStartOffset(),
           result.statements.get(result.statements.size() - 1).getLocation().getEndOffset()));
     } else {
-      setLocation(Location.fromFile(lexer.getFilename()));
+      setLocation(Location.fromPathFragment(lexer.getFilename()));
     }
   }
 
@@ -222,7 +223,8 @@ public class BuildFileAST extends ASTNode {
     Lexer lexer = new Lexer(input, eventHandler, false);
     Parser.ParseResult result =
         Parser.parseFileForSkylark(lexer, eventHandler, locator, validationEnvironment);
-    return new BuildFileAST(lexer, ImmutableList.<Statement>of(), result, input.contentHashCode());
+    return new BuildFileAST(lexer, ImmutableList.<Statement>of(), result,
+        HashCode.fromBytes(file.getMD5Digest()).toString());
   }
 
   /**

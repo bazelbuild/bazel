@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -62,8 +61,8 @@ public final class Lexer {
    */
   private static class LocationInfo {
     final LineNumberTable lineNumberTable;
-    final Path filename;
-    LocationInfo(Path filename, LineNumberTable lineNumberTable) {
+    final PathFragment filename;
+    LocationInfo(PathFragment filename, LineNumberTable lineNumberTable) {
       this.filename = filename;
       this.lineNumberTable = lineNumberTable;
     }
@@ -94,8 +93,8 @@ public final class Lexer {
     this.pos = 0;
     this.parsePython = parsePython;
     this.eventHandler = eventHandler;
-    this.locationInfo = new LocationInfo(input.getPath(),
-        LineNumberTable.create(buffer, input.getPath()));
+    this.locationInfo =
+        new LocationInfo(input.getPath(), LineNumberTable.create(buffer, input.getPath()));
 
     indentStack.push(0);
     tokenize();
@@ -109,7 +108,7 @@ public final class Lexer {
    * Returns the filename from which the lexer's input came. Returns a dummy
    * value if the input came from a string.
    */
-  public Path getFilename() {
+  public PathFragment getFilename() {
     return locationInfo.filename;
   }
 
@@ -164,8 +163,8 @@ public final class Lexer {
 
     @Override
     public PathFragment getPath() {
-      Path path = lineNumberTable.getPath(getStartOffset());
-      return path != null ? path.asFragment() : null;
+      PathFragment path = lineNumberTable.getPath(getStartOffset());
+      return path;
     }
 
     @Override

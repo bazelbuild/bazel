@@ -27,8 +27,8 @@ public class LocationTest extends EventTestTemplate {
 
   @Test
   public void fromFile() throws Exception {
-    Location location = Location.fromFile(path);
-    assertEquals(path.asFragment(), location.getPath());
+    Location location = Location.fromPathFragment(path);
+    assertEquals(path, location.getPath());
     assertEquals(0, location.getStartOffset());
     assertEquals(0, location.getEndOffset());
     assertNull(location.getStartLineAndColumn());
@@ -38,7 +38,7 @@ public class LocationTest extends EventTestTemplate {
   
   @Test
   public void testPrintRelative() throws Exception {
-    Location location = Location.fromFile(path);
+    Location location = Location.fromPathFragment(path);
     assertEquals("/path/to/workspace/my/sample/path.txt:1",
         location.print(new PathFragment("/some/other/path"), new PathFragment("baz")));
     assertEquals("new/sample/path.txt:1",

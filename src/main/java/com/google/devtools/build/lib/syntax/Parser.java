@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -159,7 +160,7 @@ class Parser {
 
   private CachingPackageLocator locator;
 
-  private List<Path> includedFiles;
+  private List<PathFragment> includedFiles;
 
   private Parser(
       Lexer lexer,
@@ -252,7 +253,7 @@ class Parser {
     return result;
   }
 
-  private void addIncludedFiles(List<Path> files) {
+  private void addIncludedFiles(List<PathFragment> files) {
     this.includedFiles.addAll(files);
   }
 
@@ -622,7 +623,7 @@ class Parser {
       Path path = packagePath.getParentDirectory();
       Path file = path.getRelative(label.getName());
 
-      if (this.includedFiles.contains(file)) {
+      if (this.includedFiles.contains(file.asFragment())) {
         reportError(location, "Recursive inclusion of file '" + path + "'");
         return;
       }

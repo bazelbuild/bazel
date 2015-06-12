@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -50,9 +50,9 @@ abstract class LineNumberTable implements Serializable {
   /**
    * Returns the path corresponding to the given offset.
    */
-  abstract Path getPath(int offset);
+  abstract PathFragment getPath(int offset);
 
-  static LineNumberTable create(char[] buffer, Path path) {
+  static LineNumberTable create(char[] buffer, PathFragment path) {
     // If #line appears within a BUILD file, we assume it has been preprocessed
     // by gconfig2blaze.  We ignore all actual newlines and compute the logical
     // LNT based only on the presence of #line markers.
@@ -72,10 +72,10 @@ abstract class LineNumberTable implements Serializable {
      * A mapping from line number (line >= 1) to character offset into the file.
      */
     private final int[] linestart;
-    private final Path path;
+    private final PathFragment path;
     private final int bufferLength;
 
-    private Regular(char[] buffer, Path path) {
+    private Regular(char[] buffer, PathFragment path) {
       // Compute the size.
       int size = 2;
       for (int i = 0; i < buffer.length; i++) {
@@ -132,7 +132,7 @@ abstract class LineNumberTable implements Serializable {
     }
 
     @Override
-    Path getPath(int offset) {
+    PathFragment getPath(int offset) {
       return path;
     }
 
@@ -161,9 +161,9 @@ abstract class LineNumberTable implements Serializable {
     private static class SingleHashLine implements Serializable {
       private final int offset;
       private final int line;
-      private final Path path;
+      private final PathFragment path;
 
-      SingleHashLine(int offset, int line, Path path) {
+      SingleHashLine(int offset, int line, PathFragment path) {
         this.offset = offset;
         this.line = line;
         this.path = path;
@@ -181,10 +181,10 @@ abstract class LineNumberTable implements Serializable {
     private static final Pattern pattern = Pattern.compile("\n#line ([0-9]+) \"([^\"\\n]+)\"");
 
     private final List<SingleHashLine> table;
-    private final Path defaultPath;
+    private final PathFragment defaultPath;
     private final int bufferLength;
 
-    private HashLine(char[] buffer, Path defaultPath) {
+    private HashLine(char[] buffer, PathFragment defaultPath) {
       // Not especially efficient, but that's fine: we just exec'd Python.
       String bufString = new String(buffer);
       Matcher m = pattern.matcher(bufString);
@@ -223,7 +223,7 @@ abstract class LineNumberTable implements Serializable {
     }
 
     @Override
-    Path getPath(int offset) {
+    PathFragment getPath(int offset) {
       SingleHashLine hashLine = getHashLine(offset);
       return hashLine == null ? defaultPath : hashLine.path;
     }

@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +37,7 @@ public abstract class ParserInputSource {
    * Returns the path of the input source. Note: Once constructed, this object
    * will never re-read the content from path.
    */
-  public abstract Path getPath();
+  public abstract PathFragment getPath();
 
   /**
    * Create an input source instance by (eagerly) reading from the file at
@@ -53,7 +53,7 @@ public abstract class ParserInputSource {
       throw new IOException("Unexpected short read from file '" + path
           + "' (expected " + path.getFileSize() + ", got " + content.length + " bytes)");
     }
-    return create(content, path);
+    return create(content, path.asFragment());
   }
 
   /**
@@ -61,7 +61,7 @@ public abstract class ParserInputSource {
    * this source.  Path will be used in error messages etc. but we will *never*
    * attempt to read the content from path.
    */
-  public static ParserInputSource create(String content, Path path) {
+  public static ParserInputSource create(String content, PathFragment path) {
     return create(content.toCharArray(), path);
   }
 
@@ -70,7 +70,7 @@ public abstract class ParserInputSource {
    * this source.  Path will be used in error messages etc. but we will *never*
    * attempt to read the content from path.
    */
-  public static ParserInputSource create(final char[] content, final Path path) {
+  public static ParserInputSource create(final char[] content, final PathFragment path) {
     return new ParserInputSource() {
 
       @Override
@@ -79,7 +79,7 @@ public abstract class ParserInputSource {
       }
 
       @Override
-      public Path getPath() {
+      public PathFragment getPath() {
         return path;
       }
     };
@@ -97,16 +97,9 @@ public abstract class ParserInputSource {
    */
   public static ParserInputSource create(InputStream in, Path path) throws IOException {
     try {
-      return create(new String(FileSystemUtils.readContentAsLatin1(in)), path);
+      return create(new String(FileSystemUtils.readContentAsLatin1(in)), path.asFragment());
     } finally {
       in.close();
     }
-  }
-
-  /**
-   * Returns a hash code calculated from the string content of this file.
-   */
-  public String contentHashCode() throws IOException {
-    return HashCode.fromBytes(getPath().getMD5Digest()).toString();
   }
 }

@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +41,7 @@ public class LexerTest {
    * error handler beforehand.
    */
   private Lexer createLexer(String input) {
-    Path somePath = new Scratch().resolve("/some/path.txt");
+    PathFragment somePath = new PathFragment("/some/path.txt");
     ParserInputSource inputSource = ParserInputSource.create(input, somePath);
     Reporter reporter = new Reporter();
     reporter.addHandler(new EventHandler() {
