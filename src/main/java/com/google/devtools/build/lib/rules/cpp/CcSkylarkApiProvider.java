@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A class that exposes the C++ providers to Skylark. It is intended to provide a
@@ -75,5 +76,31 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider {
       return ImmutableList.of();
     }
     return ccLinkParams.getCcLinkParams(true, false).flattenedLinkopts();
+  }
+
+  @SkylarkCallable(
+      name = "compile_flags",
+      structField = true,
+      doc =
+          "Returns the immutable set of flags used to compile this target "
+              + "(possibly empty but never None).")
+  public ImmutableList<String> getCcFlags() {
+    CppCompilationContext ccContext = getInfo().getProvider(CppCompilationContext.class);
+
+    ImmutableList.Builder<String> options = ImmutableList.builder();
+    for (String define : ccContext.getDefines()) {
+      options.add("-D" + define);
+    }
+    for (PathFragment path : ccContext.getSystemIncludeDirs()) {
+      options.add("-isystem " + path.getSafePathString());
+    }
+    for (PathFragment path : ccContext.getIncludeDirs()) {
+      options.add("-I " + path.getSafePathString());
+    }
+    for (PathFragment path : ccContext.getQuoteIncludeDirs()) {
+      options.add("-iquote " + path.getSafePathString());
+    }
+
+    return options.build();
   }
 }
