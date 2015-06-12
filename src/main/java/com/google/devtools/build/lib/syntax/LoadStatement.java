@@ -28,6 +28,7 @@ public final class LoadStatement extends Statement {
       + "It should either start with a slash or refer to a file in the current directory.";
   private final ImmutableList<Ident> symbols;
   private final PathFragment importPath;
+  private final String pathString;
 
   /**
    * Constructs an import statement.
@@ -35,6 +36,7 @@ public final class LoadStatement extends Statement {
   LoadStatement(String path, List<Ident> symbols) {
     this.symbols = ImmutableList.copyOf(symbols);
     this.importPath = new PathFragment(path + ".bzl");
+    this.pathString = path;
   }
 
   public ImmutableList<Ident> getSymbols() {
@@ -72,11 +74,35 @@ public final class LoadStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
+    validateLoadPath();
+    
     if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
       throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
     }
     for (Ident symbol : symbols) {
       env.declare(symbol.getName(), getLocation());
+    }
+  }
+
+  /**
+   * Throws an exception if the path argument to load() does starts with more than one forward
+   * slash ('/')
+   *
+   * @throws EvalException if the path is empty or starts with two forward slashes
+   */
+  private void validateLoadPath() throws EvalException {
+    String error = null;
+
+    if (pathString.isEmpty()) {
+      error = "Path argument to load() must not be empty";
+    } else if (pathString.startsWith("//")) {
+      error =
+          "First argument of load() is a path, not a label. "
+          + "It should start with a single slash if it is an absolute path.";
+    }
+
+    if (error != null) {
+      throw new EvalException(getLocation(), error);
     }
   }
 }

@@ -1075,6 +1075,7 @@ class Parser {
       return;
     }
     String path = (String) token.value;
+    
     nextToken();
     expect(TokenKind.COMMA);
 

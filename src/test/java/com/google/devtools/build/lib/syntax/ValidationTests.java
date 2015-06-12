@@ -316,6 +316,18 @@ public class ValidationTests extends EvaluationTestCase {
   }
 
   @Test
+  public void testLoadWithTooManySlashes() throws Exception {
+    String error =
+        "First argument of load() is a path, not a label. "
+        + "It should start with a single slash if it is an absolute path.";
+
+    checkError(error, "load('//', 'a')\n");
+    checkError(error, "load('//extension', 'a')\n");
+    checkError(error, "load('///', 'a')\n");
+    checkError(error, "load('///extension', 'a')\n");
+  }
+
+  @Test
   public void testLoadRelativePathOneSegment() throws Exception {
     parse("load('extension', 'a')\n");
   }
