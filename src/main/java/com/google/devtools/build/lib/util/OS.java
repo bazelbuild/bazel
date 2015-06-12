@@ -14,13 +14,21 @@
 package com.google.devtools.build.lib.util;
 
 /**
- * An operating system.
+ * Detects the running operating system and returns a describing enum value.
  */
 public enum OS {
-  DARWIN,
-  LINUX,
-  WINDOWS,
-  UNKNOWN;
+  DARWIN("osx", "Mac OS X"),
+  LINUX("linux", "Linux"),
+  WINDOWS("windows", "Windows"),
+  UNKNOWN("", "");
+
+  private final String canonicalName;
+  private final String detectionName;
+
+  OS(String canonicalName, String detectionName) {
+    this.canonicalName = canonicalName;
+    this.detectionName = detectionName;
+  }
 
   /**
    * The current operating system.
@@ -28,16 +36,27 @@ public enum OS {
   public static OS getCurrent() {
     return HOST_SYSTEM;
   }
-  // We inject a the OS name through blaze.os, so we can have
-  // some coverage for Windows specific code on Linux.
-  private static String getOsName() {
-    String override = System.getProperty("blaze.os");
-    return override == null ? System.getProperty("os.name") : override;
+
+  public String getCanonicalName() {
+    return canonicalName;
   }
 
-  private static final OS HOST_SYSTEM =
-      "Mac OS X".equals(getOsName()) ? OS.DARWIN : (
-      "Linux".equals(getOsName()) ? OS.LINUX : (
-          getOsName().contains("Windows") ? OS.WINDOWS : OS.UNKNOWN));
-}
+  // We inject a the OS name through blaze.os, so we can have
+  // some coverage for Windows specific code on Linux.
+  private static OS determineCurrentOs() {
+    String osName = System.getProperty("blaze.os");
+    if (osName == null) {
+      osName = System.getProperty("os.name");
+    }
 
+    for (OS os : OS.values()) {
+      if (os.detectionName.equals(osName)) {
+        return os;
+      }
+    }
+
+    return OS.UNKNOWN;
+  }
+
+  private static final OS HOST_SYSTEM = determineCurrentOs();
+}

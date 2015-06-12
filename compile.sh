@@ -26,7 +26,6 @@ cd "$(dirname "$0")"
 
 source scripts/bootstrap/buildenv.sh
 
-
 function usage() {
   [ -n "${1:-build}" ] && echo "Invalid command(s): $1" >&2
   echo "syntax: $0 [command[,command]* [BAZEL_BIN [BAZEL_SUM]]]" >&2

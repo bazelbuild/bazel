@@ -12,7 +12,8 @@ filegroup(
         ":windows_msys64_mingw64": ["protobuf/protoc-windows-x86_64.exe"],
         ":windows_clang": ["protobuf/protoc-windows-x86_32.exe"],
         ":darwin": ["protobuf/protoc-osx-x86_32.exe"],
-        "//conditions:default": ["protobuf/protoc-linux-x86_32.exe"],
+        ":k8": ["protobuf/protoc-linux-x86_64.exe"],
+        ":piii": ["protobuf/protoc-linux-x86_32.exe"],
     }),
 )
 
@@ -284,5 +285,15 @@ config_setting(
 
 config_setting(
     name = "darwin",
-    values = {"cpu": "darwin"},
+    values = {"host_cpu": "darwin"},
+)
+
+config_setting(
+    name = "k8",
+    values = {"host_cpu": "k8"},
+)
+
+config_setting(
+    name = "piii",
+    values = {"host_cpu": "piii"},
 )

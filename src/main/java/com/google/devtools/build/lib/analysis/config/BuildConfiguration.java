@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -403,12 +404,20 @@ public final class BuildConfiguration implements Serializable {
     @Override
     public String convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
+        // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
+        // linux-x86_64, darwin includes the CPU architecture, ...).
         switch (OS.getCurrent()) {
           case DARWIN:
             return "darwin";
-          default:
-            return "k8";
+          case LINUX:
+            switch (CPU.getCurrent()) {
+              case X86_32:
+                return "piii";
+              case X86_64:
+                return "k8";
+            }
         }
+        return "unknown";
       }
       return input;
     }

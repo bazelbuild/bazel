@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +24,12 @@ WORKSPACE_DIR="$(dirname $(dirname ${DIR}))"
 JAVA_VERSION=${JAVA_VERSION:-1.8}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+
+MACHINE_TYPE="$(uname -m)"
+MACHINE_IS_64BIT='no'
+if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' ]; then
+  MACHINE_IS_64BIT='yes'
+fi
 
 ATEXIT_=""
 function atexit() {
