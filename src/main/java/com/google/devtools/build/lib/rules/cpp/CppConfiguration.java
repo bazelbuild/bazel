@@ -928,6 +928,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the libc version string (e.g. "glibc-2.2.2").
    */
+  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
   public String getTargetLibc() {
     return targetLibc;
   }
