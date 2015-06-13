@@ -142,15 +142,15 @@ public class BaseFunctionTest extends EvaluationTestCase {
         + "b1 = bar(name='foo', type='jpg', version=42)\n"
         + "b2 = bar()\n");
 
-    assertThat(EvalUtils.prettyPrintValue(lookup("v1")))
+    assertThat(Printer.repr(lookup("v1")))
         .isEqualTo("(1, 2, 3, 4, 5, 6, 7, 8, (), {})");
-    assertThat(EvalUtils.prettyPrintValue(lookup("v2")))
+    assertThat(Printer.repr(lookup("v2")))
         .isEqualTo("(1, \"x\", \"y\", \"z\", 5, 6, 7, 9, (\"t\",), {\"i\": 0})");
 
     // NB: the conversion to a TreeMap below ensures the keys are sorted.
-    assertThat(EvalUtils.prettyPrintValue(
+    assertThat(Printer.repr(
         new TreeMap<String, Object>((Map<String, Object>) lookup("b1"))))
         .isEqualTo("{\"name\": \"foo\", \"type\": \"jpg\", \"version\": 42}");
-    assertThat(EvalUtils.prettyPrintValue(lookup("b2"))).isEqualTo("{}");
+    assertThat(Printer.repr(lookup("b2"))).isEqualTo("{}");
   }
 }

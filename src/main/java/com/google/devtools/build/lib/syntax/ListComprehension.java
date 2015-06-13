@@ -120,7 +120,7 @@ public final class ListComprehension extends Expression {
 
     @Override
     public String toString() {
-      return String.format("for %s in %s", variables.toString(), EvalUtils.prettyPrintValue(list));
+      return String.format("for %s in %s", variables.toString(), Printer.repr(list));
     }
   }
 

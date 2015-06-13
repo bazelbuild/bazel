@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.util.StringUtilities;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -270,12 +269,7 @@ public final class FuncallExpression extends Expression {
     if (obj != null) {
       sb.append(obj).append(".");
     }
-    sb.append(func);
-    try {
-      EvalUtils.printList(args, "(", ", ", ")", null, sb);
-    } catch (IOException x) {
-      throw new RuntimeException("Error while printing", x);
-    }
+    Printer.printList(sb.append(func), args, "(", ", ", ")", null);
     return sb.toString();
   }
 
@@ -331,7 +325,7 @@ public final class FuncallExpression extends Expression {
         } else {
           throw new EvalException(loc,
               "Method invocation returned None, please contact Skylark developers: " + methodName
-              + "(" + EvalUtils.prettyPrintValues(", ", ImmutableList.copyOf(args))  + ")");
+              + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
       result = SkylarkType.convertToSkylark(result, method);

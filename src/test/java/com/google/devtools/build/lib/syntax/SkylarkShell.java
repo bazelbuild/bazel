@@ -72,7 +72,7 @@ class SkylarkShell {
       try {
         Object result = ev.eval(input);
         if (result != null) {
-          System.out.println(EvalUtils.prettyPrintValue(result));
+          System.out.println(Printer.repr(result));
         }
       } catch (Exception e) {
         e.printStackTrace();

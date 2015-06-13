@@ -542,7 +542,7 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testListComprehensionOnDictionaryCompositeExpression() throws Exception {
     eval("d = {1:'a',2:'b'}\n" + "l = [d[x] for x in d]");
-    assertEquals("[\"a\", \"b\"]", EvalUtils.prettyPrintValue(lookup("l")));
+    assertEquals("[\"a\", \"b\"]", Printer.repr(lookup("l")));
   }
 
   @Test

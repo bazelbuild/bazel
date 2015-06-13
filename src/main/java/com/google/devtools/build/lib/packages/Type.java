@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -367,9 +368,9 @@ public abstract class Type<T> {
       if (what != null) {
         builder.append(" for ").append(what);
       }
-      builder.append(", but got '");
-      EvalUtils.printValue(value, builder);
-      builder.append("' (").append(EvalUtils.getDataTypeName(value)).append(")");
+      builder.append(", but got ");
+      Printer.write(builder, value);
+      builder.append(" (").append(EvalUtils.getDataTypeName(value)).append(")");
       return builder.toString();
     }
 

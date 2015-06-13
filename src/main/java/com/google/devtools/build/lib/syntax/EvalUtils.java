@@ -14,32 +14,20 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.Formattable;
-import java.util.Formatter;
-import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
-import java.util.MissingFormatWidthException;
 import java.util.Set;
 
 /**
@@ -316,187 +304,6 @@ public abstract class EvalUtils {
     return isTuple ? ImmutableList.copyOf(seq) : seq;
   }
 
-  /**
-   * Print build-language value 'o' in display format into the specified buffer.
-   */
-  public static void printValue(Object o, Appendable buffer) {
-    // Exception-swallowing wrapper due to annoying Appendable interface.
-    try {
-      printValueX(o, buffer);
-    } catch (IOException e) {
-      throw new AssertionError(e); // can't happen
-    }
-  }
-
-  private static void printValueX(Object o, Appendable buffer)
-      throws IOException {
-    if (o == null) {
-      throw new NullPointerException(); // Java null is not a build language value.
-    } else if (o instanceof String || o instanceof Integer || o instanceof Double) {
-      buffer.append(o.toString());
-
-    } else if (o == Environment.NONE) {
-      buffer.append("None");
-
-    } else if (o == Boolean.TRUE) {
-      buffer.append("True");
-
-    } else if (o == Boolean.FALSE) {
-      buffer.append("False");
-
-    } else if (o instanceof List<?>) {
-      List<?> seq = (List<?>) o;
-      printList(seq, isImmutable(seq), buffer);
-
-    } else if (o instanceof SkylarkList) {
-      SkylarkList list = (SkylarkList) o;
-      printList(list.toList(), list.isTuple(), buffer);
-
-    } else if (o instanceof Map<?, ?>) {
-      Map<?, ?> dict = (Map<?, ?>) o;
-      printList(dict.entrySet(), "{", ", ", "}", null, buffer);
-
-    } else if (o instanceof Map.Entry<?, ?>) {
-      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
-      prettyPrintValue(entry.getKey(), buffer);
-      buffer.append(": ");
-      prettyPrintValue(entry.getValue(), buffer);
-
-    } else if (o instanceof SkylarkNestedSet) {
-      SkylarkNestedSet set = (SkylarkNestedSet) o;
-      buffer.append("set(");
-      printList(set, "[", ", ", "]", null, buffer);
-      Order order = set.getOrder();
-      if (order != Order.STABLE_ORDER) {
-        buffer.append(", order = \"" + order.getName() + "\"");
-      }
-      buffer.append(")");
-
-    } else if (o instanceof BaseFunction) {
-      BaseFunction func = (BaseFunction) o;
-      buffer.append("<function " + func.getName() + ">");
-
-    } else if (o instanceof FilesetEntry) {
-      FilesetEntry entry = (FilesetEntry) o;
-      buffer.append("FilesetEntry(srcdir = ");
-      prettyPrintValue(entry.getSrcLabel().toString(), buffer);
-      buffer.append(", files = ");
-      prettyPrintValue(makeStringList(entry.getFiles()), buffer);
-      buffer.append(", excludes = ");
-      prettyPrintValue(makeList(entry.getExcludes()), buffer);
-      buffer.append(", destdir = ");
-      prettyPrintValue(entry.getDestDir().getPathString(), buffer);
-      buffer.append(", strip_prefix = ");
-      prettyPrintValue(entry.getStripPrefix(), buffer);
-      buffer.append(", symlinks = \"");
-      buffer.append(entry.getSymlinkBehavior().toString());
-      buffer.append("\")");
-    } else if (o instanceof PathFragment) {
-      buffer.append(((PathFragment) o).getPathString());
-    } else {
-      buffer.append(o.toString());
-    }
-  }
-
-  public static void printList(Iterable<?> list,
-      String before, String separator, String after, String singletonTerminator, Appendable buffer)
-      throws IOException {
-    boolean printSeparator = false; // don't print the separator before the first element
-    int len = 0;
-    buffer.append(before);
-    for (Object o : list) {
-      if (printSeparator) {
-        buffer.append(separator);
-      }
-      prettyPrintValue(o, buffer);
-      printSeparator = true;
-      len++;
-    }
-    if (singletonTerminator != null && len == 1) {
-      buffer.append(singletonTerminator);
-    }
-    buffer.append(after);
-  }
-
-  public static void printList(Iterable<?> list, boolean isTuple, Appendable buffer)
-      throws IOException {
-    if (isTuple) {
-      printList(list, "(", ", ", ")", ",", buffer);
-    } else {
-      printList(list, "[", ", ", "]", null, buffer);
-    }
-  }
-
-  private static List<?> makeList(Collection<?> list) {
-    return list == null ? Lists.newArrayList() : Lists.newArrayList(list);
-  }
-
-  private static List<String> makeStringList(List<Label> labels) {
-    if (labels == null) { return Collections.emptyList(); }
-    List<String> strings = Lists.newArrayListWithCapacity(labels.size());
-    for (Label label : labels) {
-      strings.add(label.toString());
-    }
-    return strings;
-  }
-
-  /**
-   * Print build-language value 'o' in parseable format into the specified
-   * buffer. (Only differs from printValueX in treatment of strings at toplevel,
-   * i.e. not within a sequence or dict)
-   */
-  public static void prettyPrintValue(Object o, Appendable buffer) {
-    // Exception-swallowing wrapper due to annoying Appendable interface.
-    try {
-      prettyPrintValueX(o, buffer);
-    } catch (IOException e) {
-      throw new AssertionError(e); // can't happen
-    }
-  }
-
-  private static void prettyPrintValueX(Object o, Appendable buffer)
-      throws IOException {
-    if (o instanceof Label) {
-      o = o.toString();  // Pretty-print a label like a string
-    }
-    if (o instanceof String) {
-      Printer.writeString(buffer, (String) o);
-    } else {
-      printValueX(o, buffer);
-    }
-  }
-
-  /**
-   * Pretty-print value 'o' to a string. Convenience overloading of
-   * prettyPrintValue(Object, Appendable).
-   */
-  public static String prettyPrintValue(Object o) {
-    StringBuilder buffer = new StringBuilder();
-    prettyPrintValue(o, buffer);
-    return buffer.toString();
-  }
-
-  /**
-   * Pretty-print values of 'o' separated by the separator.
-   */
-  public static String prettyPrintValues(String separator, Iterable<Object> o) {
-    return Joiner.on(separator).join(Iterables.transform(o, new Function<Object, String>() {
-      @Override
-      public String apply(Object input) {
-        return prettyPrintValue(input);
-      }
-    }));
-  }
-
-  /**
-   * Print value 'o' to a string. Convenience overloading of printValue(Object, Appendable).
-   */
-  public static String printValue(Object o) {
-    StringBuilder buffer = new StringBuilder();
-    printValue(o, buffer);
-    return buffer.toString();
-  }
-
   public static Object checkNotNull(Expression expr, Object obj) throws EvalException {
     if (obj == null) {
       throw new EvalException(expr.getLocation(),
@@ -504,98 +311,6 @@ public abstract class EvalUtils {
           + "This was generated by '" + expr + "'");
     }
     return obj;
-  }
-
-  /**
-   * Convert BUILD language objects to Formattable so JDK can render them correctly.
-   * Don't do this for numeric or string types because we want %d, %x, %s to work.
-   */
-  private static Object makeFormattable(final Object o) {
-    if (o instanceof Integer || o instanceof Double || o instanceof String) {
-      return o;
-    } else {
-      return new Formattable() {
-        @Override
-        public String toString() {
-          return "Formattable[" + o + "]";
-        }
-
-        @Override
-        public void formatTo(Formatter formatter, int flags, int width,
-            int precision) {
-          printValue(o, formatter.out());
-        }
-      };
-    }
-  }
-
-  private static final Object[] EMPTY = new Object[0];
-
-  /*
-   * N.B. MissingFormatWidthException is the only kind of IllegalFormatException
-   * whose constructor can take and display arbitrary error message, hence its use below.
-   */
-
-  /**
-   * Perform Python-style string formatting. Implemented by delegation to Java's
-   * own string formatting routine to avoid reinventing the wheel. In more
-   * obscure cases, semantics follow JDK (not Python) rules.
-   *
-   * @param pattern a format string.
-   * @param tuple a tuple containing positional arguments
-   */
-  public static String formatString(String pattern, List<?> tuple)
-      throws IllegalFormatException {
-    int count = countPlaceholders(pattern);
-    if (count < tuple.size()) {
-      throw new MissingFormatWidthException(
-          "not all arguments converted during string formatting");
-    }
-
-    List<Object> args = new ArrayList<>();
-
-    for (Object o : tuple) {
-      args.add(makeFormattable(o));
-    }
-
-    try {
-      return String.format(pattern, args.toArray(EMPTY));
-    } catch (IllegalFormatException e) {
-      throw new MissingFormatWidthException(
-          "invalid arguments for format string");
-    }
-  }
-
-  private static int countPlaceholders(String pattern) {
-    int length = pattern.length();
-    boolean afterPercent = false;
-    int i = 0;
-    int count = 0;
-    while (i < length) {
-      switch (pattern.charAt(i)) {
-        case 's':
-        case 'd':
-          if (afterPercent) {
-            count++;
-            afterPercent = false;
-          }
-          break;
-
-        case '%':
-          afterPercent = !afterPercent;
-          break;
-
-        default:
-          if (afterPercent) {
-            throw new MissingFormatWidthException("invalid arguments for format string");
-          }
-          afterPercent = false;
-          break;
-      }
-      i++;
-    }
-
-    return count;
   }
 
   /**

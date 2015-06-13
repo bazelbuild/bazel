@@ -279,7 +279,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     // TODO(blaze-team): (2009) refactor to use assertContainsEvent
     Iterator<String> expectedMessages = Arrays.asList(
         "expected value of type 'list(label)' for attribute 'my-labellist-attr' "
-        + "in 'ruleA' rule, but got 'foobar' (string)",
+        + "in 'ruleA' rule, but got \"foobar\" (string)",
         "no such attribute 'bogus-attr' in 'ruleA' rule",
         "missing value for mandatory "
         + "attribute 'my-string-attr' in 'ruleA' rule",

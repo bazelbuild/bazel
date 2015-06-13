@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
@@ -309,7 +310,7 @@ public abstract class OutputFormatter implements Serializable {
           // Display it as a list (and not as a tuple). Attributes can never be tuples.
           value = new ArrayList<>((List<?>) value);
         }
-        EvalUtils.prettyPrintValue(value, out);
+        Printer.write(out, value);
         out.println(",");
       }
       out.printf(")\n%n");
@@ -345,7 +346,7 @@ public abstract class OutputFormatter implements Serializable {
    * shows the lowest rank for a given node, i.e. the length of the shortest
    * path from a zero-rank node to it.
    *
-   * If the result came from a <code>deps(x)</code> query, then the MINRANKs
+   * <p>If the result came from a <code>deps(x)</code> query, then the MINRANKs
    * correspond to the shortest path from x to each of its prerequisites.
    */
   private static class MinrankOutputFormatter extends OutputFormatter {
@@ -396,7 +397,7 @@ public abstract class OutputFormatter implements Serializable {
    * highest rank for a given node, i.e. the length of the longest non-cyclic
    * path from a zero-rank node to it.
    *
-   * If the result came from a <code>deps(x)</code> query, then the MAXRANKs
+   * <p>If the result came from a <code>deps(x)</code> query, then the MAXRANKs
    * correspond to the longest path from x to each of its prerequisites.
    */
   private static class MaxrankOutputFormatter extends OutputFormatter {

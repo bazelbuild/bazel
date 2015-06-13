@@ -190,19 +190,18 @@ public final class BinaryOperatorExpression extends Expression {
             if (rval instanceof List<?>) {
               List<?> rlist = (List<?>) rval;
               if (EvalUtils.isTuple(rlist)) {
-                return EvalUtils.formatString(pattern, rlist);
+                return Printer.format(pattern, rlist);
               }
               /* string % list: fall thru */
             }
             if (rval instanceof SkylarkList) {
               SkylarkList rlist = (SkylarkList) rval;
               if (rlist.isTuple()) {
-                return EvalUtils.formatString(pattern, rlist.toList());
+                return Printer.format(pattern, rlist.toList());
               }
             }
 
-            return EvalUtils.formatString(pattern,
-                                          Collections.singletonList(rval));
+            return Printer.format(pattern, Collections.singletonList(rval));
           } catch (IllegalFormatException e) {
             throw new EvalException(getLocation(), e.getMessage());
           }

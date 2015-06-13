@@ -60,7 +60,7 @@ public final class DotExpression extends Expression {
         }
       }
       throw new EvalException(getLocation(), String.format("Object of type '%s' has no field %s",
-              EvalUtils.getDataTypeName(objValue), EvalUtils.prettyPrintValue(name)));
+              EvalUtils.getDataTypeName(objValue), Printer.repr(name)));
     }
     return result;
   }

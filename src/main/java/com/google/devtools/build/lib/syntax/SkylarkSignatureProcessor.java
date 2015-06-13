@@ -193,7 +193,7 @@ public class SkylarkSignatureProcessor {
     } else if (defaultValue != null && enforcedType != null) {
       Preconditions.checkArgument(enforcedType.contains(defaultValue),
           "In function '%s', parameter '%s' has default value %s that isn't of enforced type %s",
-          name, param.name(), EvalUtils.prettyPrintValue(defaultValue), enforcedType);
+          name, param.name(), Printer.repr(defaultValue), enforcedType);
     }
     return new Parameter.Optional<>(param.name(), officialType, defaultValue);
   }
