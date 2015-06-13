@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -38,7 +37,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
-        .setGeneratesModuleMap()
         .addExtraImportLibraries(
             ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
         .addDepObjcProviders(
@@ -49,7 +47,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     new CompilationSupport(ruleContext)
-        .registerGenerateModuleMapAction(Optional.<CompilationArtifacts>absent())
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 

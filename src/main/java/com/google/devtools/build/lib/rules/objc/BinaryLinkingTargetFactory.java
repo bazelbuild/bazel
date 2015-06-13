@@ -181,7 +181,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
-        .setGeneratesModuleMap()
         .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
         .setLinkedBinary(intermediateArtifacts.singleArchitectureBinary());
 

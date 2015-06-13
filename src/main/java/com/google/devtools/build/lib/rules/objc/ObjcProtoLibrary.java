@@ -156,18 +156,16 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addNonArcSrcs(protoGeneratedSources)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setPchFile(Optional.<Artifact>absent())
-        .addAdditionalHdrs(protoGeneratedHeaders)
-        .addAdditionalHdrs(protoGeneratedSources)
         .build();
 
     ImmutableSet.Builder<PathFragment> searchPathEntriesBuilder =
         new ImmutableSet.Builder<PathFragment>()
             .add(workspaceRelativeOutputDir);
-    if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).perProtoIncludes()) {
+     if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).perProtoIncludes()) {
       searchPathEntriesBuilder
           .add(generatedProtoDir)
           .addAll(Iterables.transform(protoGeneratedHeaders, PARENT_PATHFRAGMENT));
-    }
+     }    
     ImmutableSet<PathFragment> searchPathEntries = searchPathEntriesBuilder.build();
 
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
@@ -176,7 +174,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addDepObjcProviders(ruleContext.getPrerequisites(
             ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setGeneratesModuleMap()
+        .addHeaders(protoGeneratedHeaders)
+        .addHeaders(protoGeneratedSources)
         .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()

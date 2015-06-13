@@ -83,7 +83,7 @@ public class ObjcRuleClasses {
         ruleContext.getBinOrGenfilesDirectory());
   }
 
-  public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
+  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
     return new IntermediateArtifacts(
         ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
         ruleContext.getLabel(), /*archiveFileNameSuffix=*/"");
@@ -314,20 +314,7 @@ public class ObjcRuleClasses {
 
   private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
-  /**
-   * Header files, which are not compiled directly, but may be included/imported from source files.
-   */
-  static final FileType HEADERS = FileType.of(".h");
-
-  /**
-   * Files allowed in the srcs attribute. This includes private headers.
-   */
-  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, HEADERS);
-
-  /**
-   * Files that should actually be compiled.
-   */
-  static final FileTypeSet COMPILABLE_SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES);
+  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES);
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
@@ -507,8 +494,8 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(hdrs) -->
-          The list of C, C++, Objective-C, and Objective-C++ files that are
-          included as headers by source files in this rule or by users of this library.
+          The list of Objective-C files that are included as headers by source
+          files in this rule or by users of this library.
           ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
@@ -564,13 +551,12 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
-          The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
+          The list of C, C++, Objective-C, and Objective-C++ files that are
+          processed to create the library target.
           ${SYNOPSIS}
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in this target,
-          but not by any targets that depend on this rule.
+          These are your checked-in source files, plus any generated files.
+          These are compiled into .o files with Clang, so headers should not go
+          here (see the hdrs attribute).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("srcs", LABEL_LIST)
               .direct_compile_time_input()
