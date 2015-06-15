@@ -132,6 +132,7 @@ java_library(
         "com/google/devtools/build/lib/**/*.html",
         "com/google/devtools/build/lib/**/*.css",
         "com/google/devtools/build/lib/**/*.js",
+        "com/google/devtools/build/lib/**/*.WORKSPACE",
     ]) + [
         "//third_party:d3-js",
         "//third_party:jquery",

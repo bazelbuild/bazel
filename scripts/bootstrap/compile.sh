@@ -309,7 +309,7 @@ cp src/main/tools/build_interface_so ${OUTPUT_DIR}/build_interface_so
 cp src/main/tools/jdk.* ${OUTPUT_DIR}
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.WORKSPACE jdk.BUILD"
+TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD"
 
 (cd ${OUTPUT_DIR}/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd ${OUTPUT_DIR}/ ; echo "${JAVA_VERSION}" > java.version)

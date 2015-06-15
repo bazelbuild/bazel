@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.lang.reflect.Constructor;
@@ -76,7 +75,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * Builder for {@link ConfiguredRuleClassProvider}.
    */
   public static class Builder implements RuleDefinitionEnvironment {
-    private final List<PathFragment> defaultWorkspaceFiles = new ArrayList<>();
+    private final StringBuilder defaultWorkspaceFile = new StringBuilder();
     private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
@@ -93,8 +92,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses = ImmutableMap.of();
 
-    public void addWorkspaceFile(PathFragment defaultWorkspace) {
-      defaultWorkspaceFiles.add(defaultWorkspace);
+    public void addWorkspaceFile(String contents) {
+      defaultWorkspaceFile.append(contents);
     }
 
     public Builder setPrerequisiteValidator(PrerequisiteValidator prerequisiteValidator) {
@@ -200,7 +199,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return new ConfiguredRuleClassProvider(
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
-          ImmutableList.copyOf(defaultWorkspaceFiles),
+          defaultWorkspaceFile.toString(),
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragments),
@@ -235,7 +234,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * A list of relative paths to the WORKSPACE files needed to provide external dependencies for
    * the rule classes.
    */
-  private ImmutableList<PathFragment> defaultWorkspaceFiles;
+  String defaultWorkspaceFile;
 
   /**
    * Maps rule class name to the metaclass instance for that rule.
@@ -273,7 +272,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public ConfiguredRuleClassProvider(
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
-      ImmutableList<PathFragment> defaultWorkspaceFiles,
+      String defaultWorkspaceFile,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
@@ -283,7 +282,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
-    this.defaultWorkspaceFiles = defaultWorkspaceFiles;
+    this.defaultWorkspaceFile = defaultWorkspaceFile;
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragments = configurationFragments;
@@ -376,7 +375,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public List<PathFragment> getWorkspaceFiles() {
-    return defaultWorkspaceFiles;
+  public String getDefaultWorkspaceFile() {
+    return defaultWorkspaceFile;
   }
 }

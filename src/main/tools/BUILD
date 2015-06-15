@@ -24,7 +24,6 @@ filegroup(
     name = "jdk-support",
     srcs = [
         "jdk.BUILD",
-        "jdk.WORKSPACE",
     ],
 )
 

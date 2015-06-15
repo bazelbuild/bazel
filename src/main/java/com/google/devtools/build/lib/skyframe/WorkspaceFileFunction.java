@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.ExternalPackage.Builder.NoSuchBind
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -49,7 +50,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -61,10 +61,15 @@ public class WorkspaceFileFunction implements SkyFunction {
 
   private final PackageFactory packageFactory;
   private final Path installDir;
+  private final RuleClassProvider ruleClassProvider;
 
-  WorkspaceFileFunction(PackageFactory packageFactory, BlazeDirectories directories) {
+  WorkspaceFileFunction(
+      RuleClassProvider ruleClassProvider,
+      PackageFactory packageFactory,
+      BlazeDirectories directories) {
     this.packageFactory = packageFactory;
     this.installDir = directories.getEmbeddedBinariesRoot();
+    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -78,18 +83,19 @@ public class WorkspaceFileFunction implements SkyFunction {
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     Builder builder = new Builder(repoWorkspace);
-    List<PathFragment> workspaceFiles = packageFactory.getRuleClassProvider().getWorkspaceFiles();
-    for (PathFragment workspaceFile : workspaceFiles) {
-      workspaceRoot = RootedPath.toRootedPath(installDir, workspaceFile);
-      if (env.getValue(FileValue.key(workspaceRoot)) == null) {
-        return null;
-      }
-      parseWorkspaceFile(installDir.getRelative(workspaceFile), builder);
-    }
+    parseWorkspaceFile(
+        ParserInputSource.create(
+            ruleClassProvider.getDefaultWorkspaceFile(), new PathFragment("DEFAULT.WORKSPACE")),
+        builder);
     if (!workspaceFileValue.exists()) {
       return new PackageValue(builder.build());
     }
-    parseWorkspaceFile(repoWorkspace, builder);
+    try {
+      ParserInputSource repoWorkspaceSource = ParserInputSource.create(repoWorkspace);
+      parseWorkspaceFile(repoWorkspaceSource, builder);
+    } catch (IOException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
+    }
     try {
       builder.resolveBindTargets(packageFactory.getRuleClass(BIND));
     } catch (NoSuchBindingException e) {
@@ -102,24 +108,16 @@ public class WorkspaceFileFunction implements SkyFunction {
     return new PackageValue(builder.build());
   }
 
-  private void parseWorkspaceFile(Path workspaceFilePath, Builder builder)
+  private void parseWorkspaceFile(ParserInputSource source, Builder builder)
       throws WorkspaceFileFunctionException, InterruptedException {
     StoredEventHandler localReporter = new StoredEventHandler();
     BuildFileAST buildFileAST;
-    ParserInputSource inputSource = null;
-
-    try {
-      inputSource = ParserInputSource.create(workspaceFilePath);
-    } catch (IOException e) {
-      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
-    }
-    buildFileAST = BuildFileAST.parseBuildFile(inputSource, localReporter, null, false);
+    buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, null, false);
     if (buildFileAST.containsErrors()) {
       localReporter.handle(Event.error("WORKSPACE file could not be parsed"));
     } else {
       if (!evaluateWorkspaceFile(buildFileAST, builder, localReporter)) {
-        localReporter.handle(
-            Event.error("Error evaluating WORKSPACE file " + workspaceFilePath));
+        localReporter.handle(Event.error("Error evaluating WORKSPACE file " + source.getPath()));
       }
     }
 

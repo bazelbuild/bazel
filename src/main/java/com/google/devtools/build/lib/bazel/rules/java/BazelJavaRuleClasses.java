@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Set;
 
@@ -345,13 +344,5 @@ public class BazelJavaRuleClasses {
               BazelCppRuleClasses.CcLinkingRule.class)
           .build();
     }
-  }
-
-  /**
-   * Returns the relative path to the WORKSPACE file describing the external dependencies necessary
-   * for the Java rules.
-   */
-  public static PathFragment getDefaultWorkspace() {
-    return new PathFragment("jdk.WORKSPACE");
   }
 }

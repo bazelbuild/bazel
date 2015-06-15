@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,9 +43,10 @@ public interface RuleClassProvider {
   ValidationEnvironment getSkylarkValidationEnvironment();
 
   /**
-   * Returns paths to the WORKSPACE files needed to provide external dependencies for built-in
-   * rules.  The PathFragments are relative to Bazel's install directory. Returns an empty list if
-   * there are none defined.
+   * Returns the default content of the WORKSPACE file.
+   *
+   * <p>Used to provide external dependencies for built-in rules. Rules defined here can be
+   * overwritten in the WORKSPACE file in the actual workspace.
    */
-  List<PathFragment> getWorkspaceFiles();
+  String getDefaultWorkspaceFile();
 }

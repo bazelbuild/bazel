@@ -105,6 +105,9 @@ import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.workspace.BindRule;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
+
+import java.io.IOException;
 
 /**
  * A rule class provider implementing the rules Bazel knows.
@@ -253,7 +256,13 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelPyBinaryRule());
     builder.addRuleDefinition(new BazelPyTestRule());
 
-    builder.addWorkspaceFile(BazelJavaRuleClasses.getDefaultWorkspace());
+    try {
+      builder.addWorkspaceFile(
+          ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.IjarBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
