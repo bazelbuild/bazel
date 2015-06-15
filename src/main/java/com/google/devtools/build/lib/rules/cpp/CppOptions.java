@@ -42,8 +42,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Command-line options for C++.
@@ -153,29 +151,6 @@ public class CppOptions extends FragmentOptions {
   public static class HdrsCheckConverter extends EnumConverter<HeadersCheckingMode> {
     public HdrsCheckConverter() {
       super(HeadersCheckingMode.class, "Headers check mode");
-    }
-  }
-
-  /**
-   * Checks whether a string is a valid regex pattern and compiles it.
-   */
-  public static class NullableRegexPatternConverter implements Converter<Pattern> {
-
-    @Override
-    public Pattern convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        return null;
-      }
-      try {
-        return Pattern.compile(input);
-      } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a valid Java regular expression";
     }
   }
 
