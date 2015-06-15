@@ -129,6 +129,32 @@ actions. There are three ways to create output files in Skylark:
 All output files must have exactly one generating action. See the
 [library](library.html#modules.ctx.outputs) for more context.
 
+Default outputs
+---------------
+
+Every rule has a set of default outputs. This is used:
+
+* When the user runs `bazel build` on your target. Bazel will build the default
+  outputs of the rule.
+
+* When the target is used as a dependency to another rule. A rule can access
+  the default outputs by using [target.files](library.html#modules.Target.files).
+  This is the case for example if you use a rule in the `srcs` attribute of a
+  `genrule`.
+
+To decide what goes in the default outputs of a rule, use the `files` provider.
+If unspecified, it will contain all the declared outputs.
+
+```python
+def _impl(ctx):
+  # ...
+  return struct(files = set([file1, file2]))
+```
+
+This can be useful for exposing files generated with
+[ctx.new_file](library#modules.ctx.new_file). You can also have "implicit
+outputs", i.e. files that are declared in the rule, but not in the default
+outputs (like `_deploy.jar` in `java_binary`).
 
 Actions
 -------
