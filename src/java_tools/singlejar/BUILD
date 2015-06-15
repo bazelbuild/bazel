@@ -50,6 +50,7 @@ java_test(
     name = "zipTests",
     srcs = glob(["javatests/**/zip/**/*.java"]),
     args = ["com.google.devtools.build.zip.ZipTests"],
+    tags = ["zip"],
     deps = [
         ":zip",
         "//src/test/java:testutil",

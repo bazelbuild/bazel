@@ -150,13 +150,27 @@ java_library(
     deps = [":BazelJavaCompiler"],
 )
 
+# For the -Xbootclasspath option of the java_test of buildjar
+genrule(
+    name = "langtools-test",
+    testonly = 1,
+    srcs = ["//tools/defaults:java_langtools"],
+    outs = ["langtools-test.jar"],
+    cmd = "cp $< $@",
+)
+
 java_test(
     name = "BazelJavaCompilerTest",
     size = "small",
     srcs = ["javatests/com/google/devtools/build/java/bazel/BazelJavaCompilerTest.java"],
     args = ["com.google.devtools.build.java.bazel.BazelJavaCompilerTest"],
+    jvm_flags = [
+        # Simulates how Bazel invokes JavaBuilder
+        "-Xbootclasspath/p:$${TEST_SRCDIR}/src/java_tools/buildjar/langtools-test.jar",
+    ],
     deps = [
         ":BazelJavaCompiler",
+        ":langtools-test",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

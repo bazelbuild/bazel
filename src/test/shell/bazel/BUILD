@@ -1,16 +1,24 @@
 package(default_visibility = ["//visibility:private"])
 
+genrule(
+    name = "langtools-copy",
+    testonly = 1,
+    srcs = ["//tools/defaults:java_langtools"],
+    outs = ["langtools.jar"],
+    cmd = "cp $< $@",
+)
+
 filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
         "test-setup.sh",
         "testenv.sh",
+        ":langtools-copy",
         "//examples:srcs",
         "//external:bootclasspath",
         "//external:extdir",
         "//external:jdk-default",
-        "//external:langtools",
         "//src:bazel",
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",

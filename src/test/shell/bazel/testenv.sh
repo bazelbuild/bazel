@@ -30,9 +30,11 @@ bazel_data="${TEST_SRCDIR}"
 
 # Java
 jdk_dir="${TEST_SRCDIR}/external/local-jdk"
+langtools="${TEST_SRCDIR}/src/test/shell/bazel/langtools.jar"
 
 # Tools directory location
 tools_dir="${TEST_SRCDIR}/tools"
+EXTRA_BAZELRC="build --java_langtools=//tools/jdk:test-langtools"
 
 # Java tooling
 javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
@@ -68,7 +70,12 @@ hamcrest_jar="${TEST_SRCDIR}/third_party/hamcrest/hamcrest-*.jar"
 
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
-  cp -R ${tools_dir}/* tools
+  cp -RL ${tools_dir}/* tools
+  # To support custom langtools
+  cp ${langtools} tools/jdk/langtools.jar
+  cat >>tools/jdk/BUILD <<'EOF'
+filegroup(name = "test-langtools", srcs = ["langtools.jar"])
+EOF
 
   chmod -R +w .
   mkdir -p tools/defaults
