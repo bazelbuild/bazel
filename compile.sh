@@ -153,7 +153,7 @@ fi
 if [ $DO_TESTS ]; then
   new_step "Running tests"
   display "."
-  $BAZEL --blazerc=${BAZELRC} test \
+  $BAZEL --blazerc=${BAZELRC} --nomaster_blazerc test \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
       || fail "Tests failed"

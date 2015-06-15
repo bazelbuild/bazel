@@ -183,6 +183,17 @@ string OptionProcessor::FindAlongsideBinaryBlazerc(const string& cwd,
 }
 
 
+// Return the path of the bazelrc file that sits in /etc.
+// This allows for installing Bazel on system-wide directory.
+string OptionProcessor::FindSystemWideBlazerc() {
+  string path = BlazeStartupOptions::SystemWideRcPath();
+  if (!path.empty() && !access(path.c_str(), R_OK)) {
+    return path;
+  }
+  return "";
+}
+
+
 // Return the path the the user rc file.  If cmdLineRcFile != NULL,
 // use it, dying if it is not readable.  Otherwise, return the first
 // readable file called rc_basename from [workspace, $HOME]
@@ -273,6 +284,15 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     if (!alongside_binary_blazerc.empty()) {
       blazercs_.push_back(new RcFile(alongside_binary_blazerc,
           blazercs_.size()));
+      blaze_exit_code::ExitCode parse_exit_code =
+          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
+      if (parse_exit_code != blaze_exit_code::SUCCESS) {
+        return parse_exit_code;
+      }
+    }
+    string system_wide_blazerc = FindSystemWideBlazerc();
+    if (!system_wide_blazerc.empty()) {
+      blazercs_.push_back(new RcFile(system_wide_blazerc, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
           blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {

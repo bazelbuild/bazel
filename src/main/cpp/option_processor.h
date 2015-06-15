@@ -64,6 +64,7 @@ class OptionProcessor {
   virtual string FindDepotBlazerc(const string& workspace);
   virtual string FindAlongsideBinaryBlazerc(const string& cwd,
                                             const string& arg0);
+  virtual string FindSystemWideBlazerc();
   virtual blaze_exit_code::ExitCode FindUserBlazerc(const char* cmdLineRcFile,
                                                     const string& rc_basename,
                                                     const string& workspace,

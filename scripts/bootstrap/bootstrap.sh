@@ -39,11 +39,13 @@ function bazel_bootstrap() {
   if [[ ! ${BAZEL_SKIP_TOOL_COMPILATION-} =~ "$2" ]]; then
     log "Building $2"
     if [ -n "${4-}" ]; then
-      ${BAZEL} --blazerc=${BAZELRC} build ${BAZEL_ARGS} \
+      ${BAZEL} --nomaster_blazerc --blazerc=${BAZELRC} \
+          build ${BAZEL_ARGS} \
           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
           "${EMBED_LABEL_ARG[@]}" $1
     else
-      run_silent ${BAZEL} --blazerc=${BAZELRC} build ${BAZEL_ARGS} \
+      run_silent ${BAZEL} --nomaster_blazerc --blazerc=${BAZELRC} \
+          build ${BAZEL_ARGS} \
           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
           "${EMBED_LABEL_ARG[@]}" $1
     fi
@@ -74,8 +76,10 @@ function bootstrap_test() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  run_silent ${BAZEL_BIN} --blazerc=${BAZELRC} clean || return $?
-  run_silent ${BAZEL_BIN} --blazerc=${BAZELRC} build --fetch --nostamp \
+  run_silent ${BAZEL_BIN} --nomaster_blazerc --blazerc=${BAZELRC} clean \
+      || return $?
+  run_silent ${BAZEL_BIN} --nomaster_blazerc --blazerc=${BAZELRC} build \
+      --fetch --nostamp \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       //src:bazel //src:tools || return $?
   if [ -n "${BAZEL_SUM}" ]; then

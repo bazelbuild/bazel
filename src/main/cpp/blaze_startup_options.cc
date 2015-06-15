@@ -161,4 +161,8 @@ void BlazeStartupOptions::WorkspaceRcFileSearchPath(
   candidates->push_back("tools/bazel.rc");
 }
 
+string BlazeStartupOptions::SystemWideRcPath() {
+  return "/etc/bazel.bazelrc";
+}
+
 }  // namespace blaze
