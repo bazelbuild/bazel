@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
+import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -185,8 +186,7 @@ abstract class LineNumberTable implements Serializable {
     private final int bufferLength;
 
     private HashLine(char[] buffer, PathFragment defaultPath) {
-      // Not especially efficient, but that's fine: we just exec'd Python.
-      String bufString = new String(buffer);
+      CharSequence bufString = CharBuffer.wrap(buffer);
       Matcher m = pattern.matcher(bufString);
       List<SingleHashLine> unorderedTable = new ArrayList<>();
       while (m.find()) {
