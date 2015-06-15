@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.concurrent;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -56,10 +57,15 @@ public abstract class BatchedKeyedLockerTest extends KeyedLockerTest {
     return new Supplier<KeyedLocker.AutoUnlocker>() {
       @Override
       public AutoUnlocker get() {
-        // We call lockBatch with a set whose iteration order is different each time, for the sake
+        Set<String> keys;
+        synchronized (this) {
+          // The Iterable returned by Iterables#cycle isn't threadsafe.
+          keys = ImmutableSet.copyOf(permutationsIter.next());
+        }
+        // Each time, we call lockBatch with a set whose iteration order is different, for the sake
         // of trying to tickle hypothetical concurrency bugs resulting from bad KeyedLocker
         // implementations not being careful about ordering.
-        return batchLocker.lockBatch(ImmutableSet.copyOf(permutationsIter.next()));
+        return batchLocker.lockBatch(keys);
       }
     };
   }
@@ -119,7 +125,7 @@ public abstract class BatchedKeyedLockerTest extends KeyedLockerTest {
     Set<Set<String>> powerSet = Sets.powerSet(
         ImmutableSet.of("k1", "k2", "k3", "k4", "k5", "k6", "k8", "k9", "k10"));
     for (final Set<String> keys : powerSet) {
-      executorService.submit(new Runnable() {
+      executorService.submit(wrapper.wrap(new Runnable() {
         @Override
         public void run() {
           if (keys.size() == 1) {
@@ -140,9 +146,10 @@ public abstract class BatchedKeyedLockerTest extends KeyedLockerTest {
           }
           count.incrementAndGet();
         }
-      });
+      }));
     }
     boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       Thread.currentThread().interrupt();
       throw new InterruptedException();

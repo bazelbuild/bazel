@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker;
 import com.google.devtools.build.lib.concurrent.KeyedLocker.AutoUnlocker.IllegalUnlockException;
@@ -40,9 +41,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Base class for tests for {@link KeyedLocker} implementations. */
 public abstract class KeyedLockerTest {
-  private static final int NUM_EXECUTOR_THREADS = 2;
+  private static final int NUM_EXECUTOR_THREADS = 1000;
   private KeyedLocker<String> locker;
   protected ExecutorService executorService;
+  protected ThrowableRecordingRunnableWrapper wrapper;
 
   protected abstract KeyedLocker<String> makeFreshLocker();
 
@@ -50,6 +52,7 @@ public abstract class KeyedLockerTest {
   public void setUp_KeyedLockerTest() {
     locker = makeFreshLocker();
     executorService = Executors.newFixedThreadPool(NUM_EXECUTOR_THREADS);
+    wrapper = new ThrowableRecordingRunnableWrapper("KeyedLockerTest");
   }
 
   @After
@@ -160,9 +163,10 @@ public abstract class KeyedLockerTest {
       }
     };
     for (int i = 0; i < NUM_EXECUTOR_THREADS; i++) {
-      executorService.submit(runnable);
+      executorService.submit(wrapper.wrap(runnable));
     }
     boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
@@ -204,9 +208,10 @@ public abstract class KeyedLockerTest {
         }
       }
     };
-    executorService.submit(runnable1);
-    executorService.submit(runnable2);
+    executorService.submit(wrapper.wrap(runnable1));
+    executorService.submit(wrapper.wrap(runnable2));
     boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted || runnableInterrupted.get()) {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
@@ -257,9 +262,10 @@ public abstract class KeyedLockerTest {
       }
     };
     for (int i = 0; i < NUM_EXECUTOR_THREADS; i++) {
-      executorService.submit(runnable);
+      executorService.submit(wrapper.wrap(runnable));
     }
     boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted || runnableInterrupted.get()) {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
