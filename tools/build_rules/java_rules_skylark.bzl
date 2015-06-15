@@ -63,7 +63,7 @@ def java_library_impl(ctx):
   if ctx.files.srcjars:
     files += " @" + javalist_output
     for file in ctx.files.srcjars:
-      cmd += "jar tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (file.path, java_output, javalist_output)
+      cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (ctx.file._jar.path, file.path, java_output, javalist_output)
       cmd += "unzip %s -d %s >/dev/null\n" % (file.path, java_output)
 
   if ctx.files.srcs or ctx.files.srcjars:
