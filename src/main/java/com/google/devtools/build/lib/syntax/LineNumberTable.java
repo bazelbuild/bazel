@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * their buffer using {@link #create}. The client can then ask for the line and column given a
  * position using ({@link #getLineAndColumn(int)}).
  */
-abstract class LineNumberTable implements Serializable {
+public abstract class LineNumberTable implements Serializable {
 
   /**
    * Returns the (line, column) pair for the specified offset.
@@ -67,7 +67,7 @@ abstract class LineNumberTable implements Serializable {
    * offsets of newlines.
    */
   @Immutable
-  private static class Regular extends LineNumberTable  {
+  public static class Regular extends LineNumberTable {
 
     /**
      * A mapping from line number (line >= 1) to character offset into the file.
@@ -76,7 +76,7 @@ abstract class LineNumberTable implements Serializable {
     private final PathFragment path;
     private final int bufferLength;
 
-    private Regular(char[] buffer, PathFragment path) {
+    public Regular(char[] buffer, PathFragment path) {
       // Compute the size.
       int size = 2;
       for (int i = 0; i < buffer.length; i++) {
@@ -154,7 +154,7 @@ abstract class LineNumberTable implements Serializable {
    */
   // TODO(bazel-team): Use binary search instead of linear search.
   @Immutable
-  private static class HashLine extends LineNumberTable {
+  public static class HashLine extends LineNumberTable {
 
     /**
      * Represents a "#line" directive
@@ -185,7 +185,7 @@ abstract class LineNumberTable implements Serializable {
     private final PathFragment defaultPath;
     private final int bufferLength;
 
-    private HashLine(char[] buffer, PathFragment defaultPath) {
+    public HashLine(char[] buffer, PathFragment defaultPath) {
       CharSequence bufString = CharBuffer.wrap(buffer);
       Matcher m = pattern.matcher(bufString);
       List<SingleHashLine> unorderedTable = new ArrayList<>();
