@@ -95,6 +95,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_filtered.jar");
   public static final SafeImplicitOutputsFunction ANDROID_R_TXT =
       fromTemplates("%{name}_symbols/R.txt");
+  public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS_TXT =
+      fromTemplates("%{name}_symbols/local-R.txt");
   public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
       fromTemplates("%{name}_files/stub/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction FULL_DEPLOY_MARKER =

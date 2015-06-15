@@ -222,12 +222,13 @@ public final class ApplicationManifest {
           resourceContainers,
           tools,
           rTxt,
-          ImmutableList.<String>of(), /* configurationFilters */
+          null, /* configurationFilters */
           ImmutableList.<String>of(), /* uncompressedExtensions */
           ImmutableList.<String>of(), /* densities */
-          null, /* String applicationId */
+          ImmutableList.<String>of(), /* String applicationId */
           null, /* String versionCode */
           null, /* String versionName */
+          null, /* Artifact symbolsTxt */ 
           incremental,
           data,
           proguardCfg);
@@ -244,14 +245,14 @@ public final class ApplicationManifest {
       NestedSet<ResourceContainer> resourceContainers,
       AndroidTools tools,
       Artifact rTxt,
+      Artifact symbolsTxt,
       List<String> configurationFilters,
       List<String> uncompressedExtensions,
       List<String> densities,
       String applicationId,
       String versionCode,
       String versionName,
-      boolean incremental,
-      Artifact proguardCfg) {
+      boolean incremental, Artifact proguardCfg) {
     try {
       LocalResourceContainer data = new LocalResourceContainer.Builder()
           .withAssets(
@@ -272,6 +273,7 @@ public final class ApplicationManifest {
           resourceContainers,
           tools,
           rTxt,
+          symbolsTxt,
           configurationFilters,
           uncompressedExtensions,
           densities,
@@ -295,6 +297,7 @@ public final class ApplicationManifest {
       NestedSet<ResourceContainer> resourceContainers,
       AndroidTools tools,
       Artifact rTxt,
+      Artifact symbolsTxt,
       List<String> configurationFilters,
       List<String> uncompressedExtensions,
       List<String> densities,
@@ -302,13 +305,13 @@ public final class ApplicationManifest {
       String versionCode,
       String versionName,
       boolean incremental,
-      LocalResourceContainer data,
-      Artifact proguardCfg) {
+      LocalResourceContainer data, Artifact proguardCfg) {
     ResourceContainer resourceContainer = checkForInlinedResources(
         new AndroidResourceContainerBuilder()
             .withData(data)
             .withManifest(getManifest())
             .withROutput(rTxt)
+            .withSymbolsFile(symbolsTxt)
             .buildFromRule(ruleContext, resourceApk),
         resourceContainers,
         ruleContext);
@@ -332,6 +335,7 @@ public final class ApplicationManifest {
     if (!incremental) {
       builder
           .setRTxtOut(resourceContainer.getRTxt())
+          .setSymbolsTxt(resourceContainer.getSymbolsTxt())
           .setSourceJarOut(resourceContainer.getJavaSourceJar());
     }
 
@@ -472,7 +476,7 @@ public final class ApplicationManifest {
         resourceContainer.getRoots(ResourceType.ASSETS),
         resourceContainer.getRoots(ResourceType.RESOURCES),
         resourceContainer.isManifestExported(),
-        resourceContainer.getRTxt());
+        resourceContainer.getRTxt(), null);
 
     aaptActionHelper.createGenerateProguardAction(proguardCfg);
 

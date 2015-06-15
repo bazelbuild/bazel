@@ -30,6 +30,7 @@ public final class AndroidResourceContainerBuilder {
   private Artifact manifest;
   private Artifact rOutput;
   private boolean inlineConstants = false;
+  private Artifact symbolsFile;
 
   /** Provides the resources and assets for the ResourceContainer. */
   public AndroidResourceContainerBuilder withData(LocalResourceContainer data) {
@@ -70,7 +71,8 @@ public final class AndroidResourceContainerBuilder {
             data.getAssetRoots(),
             data.getResourceRoots(),
             ruleContext.attributes().get("exports_manifest", Type.BOOLEAN),
-            rOutput);
+            rOutput,
+            symbolsFile);
   }
 
   private String getJavaPackage(RuleContext ruleContext, Artifact apk) {
@@ -96,5 +98,10 @@ public final class AndroidResourceContainerBuilder {
     return ruleContext.attributes().isAttributeValueExplicitlySpecified("rename_manifest_package")
         ? ruleContext.attributes().get("rename_manifest_package", Type.STRING)
         : null;
+  }
+
+  public AndroidResourceContainerBuilder withSymbolsFile(Artifact symbolsFile) {
+    this.symbolsFile = symbolsFile;
+    return this;
   }
 }

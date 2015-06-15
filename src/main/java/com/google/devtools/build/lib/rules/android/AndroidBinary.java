@@ -176,14 +176,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceContainers,
           tools,
           null, /* Artifact rTxt */
+          null, /* Artifact symbolsTxt */
           ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
           ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
           ruleContext.getTokenizedStringListAttr("densities"),
           ruleContext.attributes().get("application_id", Type.STRING),
           getExpandedMakeVarsForAttr(ruleContext, "version_code"),
           getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-          false,
-          getProguardConfigArtifact(ruleContext, ""));
+          false, getProguardConfigArtifact(ruleContext, ""));
       incrementalResourceApk = applicationManifest.addStubApplication(ruleContext)
           .packWithDataAndResources(ruleContext
                   .getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
@@ -191,14 +191,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceContainers,
               tools,
               null, /* Artifact rTxt */
+              null, /* Artifact symbolsTxt */
               ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.getTokenizedStringListAttr("densities"),
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true,
-              getProguardConfigArtifact(ruleContext, "incremental"));
+              true, getProguardConfigArtifact(ruleContext, "incremental"));
       splitResourceApk = applicationManifest
           .createSplitManifest(ruleContext, "android_resources", false)
           .packWithDataAndResources(getDxArtifact(ruleContext, "android_resources.ap_"),
@@ -206,14 +206,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceContainers,
               tools,
               null, /* Artifact rTxt */
+              null, /* Artifact symbolsTxt */
               ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.getTokenizedStringListAttr("densities"),
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true,
-              getProguardConfigArtifact(ruleContext, "incremental_split"));
+              true, getProguardConfigArtifact(ruleContext, "incremental_split"));
     } else {
       // Retrieve the resources from the resources attribute on the android_binary rule
       // and recompile them if necessary.

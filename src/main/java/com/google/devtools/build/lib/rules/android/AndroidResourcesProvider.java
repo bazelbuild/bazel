@@ -97,6 +97,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
     private final boolean manifestExported;
     private final Artifact javaSourceJar;
     private final Artifact rTxt;
+    private Artifact symbolsTxt;
 
     public ResourceContainer(Label label,
         String javaPackage,
@@ -110,7 +111,8 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
         ImmutableList<PathFragment> assetsRoots,
         ImmutableList<PathFragment> resourcesRoots,
         boolean manifestExported,
-        Artifact rTxt) {
+        Artifact rTxt,
+        Artifact symbolsTxt) {
       this.javaSourceJar = javaSourceJar;
       this.manifestExported = manifestExported;
       this.label = Preconditions.checkNotNull(label);
@@ -124,6 +126,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
       this.assetsRoots = Preconditions.checkNotNull(assetsRoots);
       this.resourcesRoots = Preconditions.checkNotNull(resourcesRoots);
       this.rTxt = rTxt;
+      this.symbolsTxt = symbolsTxt;
     }
 
     public Label getLabel() {
@@ -168,6 +171,11 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
 
     public Artifact getRTxt() {
       return rTxt;
+    }
+
+
+    public Artifact getSymbolsTxt() {
+      return symbolsTxt;
     }
 
     public ImmutableList<PathFragment> getRoots(ResourceType resourceType) {
