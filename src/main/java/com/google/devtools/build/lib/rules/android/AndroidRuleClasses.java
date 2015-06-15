@@ -653,22 +653,6 @@ public final class AndroidRuleClasses {
               attr(":incremental_split_stub_application", LABEL)
                   .value(AndroidRuleClasses.INCREMENTAL_SPLIT_STUB_APPLICATION))
 
-          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_key) -->
-           File containing debug keystore to be used to sign debug apk.
-           ${SYNOPSIS}
-           Points to a location of debug keystore file that is different than default
-           debug key. Usually you do not want to use key other than default key, so
-           this attribute should be omitted.
-           <p><em class="harmful">WARNING: Do not use your production keys, they should be
-           strictly safeguarded and not kept in your source tree</em>.</p>
-           <p>This keystore must contain a single key named "AndroidDebugKey", and
-           have a keystore password of "android".
-           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr("debug_key", LABEL)
-                  .cfg(HOST)
-                  .legacyAllowAnyFileType()
-                  .value(env.getLabel("//tools/android:debug_keystore")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
            Additional command-line flags for the dx tool when generating classes.dex.
            ${SYNOPSIS}

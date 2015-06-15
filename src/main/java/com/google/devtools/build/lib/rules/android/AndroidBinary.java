@@ -305,7 +305,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardMapping,
         tools);
     Artifact jarToDex = proguardOutput.outputJar;
-    Artifact debugKey = ruleContext.getHostPrerequisiteArtifact("debug_key");
     DexingOutput dexingOutput =
         shouldDexWithJack(ruleContext)
             ? dexWithJack(ruleContext, androidCommon)
@@ -325,7 +324,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact signedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_SIGNED_APK);
 
-    ApkActionBuilder apkBuilder = new ApkActionBuilder(ruleContext, tools)
+    ApkActionBuilder apkBuilder = new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .classesDex(dexingOutput.classesDexZip)
         .resourceApk(resourceApk.getArtifact())
         .javaResourceZip(dexingOutput.javaResourceJar)
@@ -337,7 +336,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     ruleContext.registerAction(apkBuilder
         .message("Generating signed apk")
-        .signingKey(debugKey)
+        .sign(true)
         .build(signedApk));
 
     Artifact zipAlignedApk = zipalignApk(
@@ -384,12 +383,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact stubData = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.STUB_APPLICATION_DATA);
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .classesDex(getStubDex(ruleContext, javaSemantics, androidSemantics, tools, false))
         .resourceApk(incrementalResourceApk.getArtifact())
         .javaResourceZip(dexingOutput.javaResourceJar)
         .nativeLibs(nativeLibs)
-        .signingKey(debugKey)
+        .sign(true)
         .javaResourceFile(stubData)
         .message("Generating incremental apk")
         .build(incrementalApk));
@@ -416,10 +415,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact splitApkResources = createSplitApkResources(
           ruleContext, tools, applicationManifest, splitName, true);
       Artifact splitApk = getDxArtifact(ruleContext, splitName + ".apk");
-      ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+      ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
           .classesDex(dexingOutput.shardDexZips.get(i))
           .resourceApk(splitApkResources)
-          .signingKey(debugKey)
+          .sign(true)
           .message("Generating split dex apk " + (i + 1))
           .build(splitApk));
       splitApkSetBuilder.add(splitApk);
@@ -428,9 +427,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact nativeSplitApkResources = createSplitApkResources(
         ruleContext, tools, applicationManifest, "native", false);
     Artifact nativeSplitApk = getDxArtifact(ruleContext, "native.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .resourceApk(nativeSplitApkResources)
-        .signingKey(debugKey)
+        .sign(true)
         .message("Generating split native apk")
         .nativeLibs(nativeLibs)
         .build(nativeSplitApk));
@@ -439,18 +438,18 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact javaSplitApkResources = createSplitApkResources(
         ruleContext, tools, applicationManifest, "java_resources", false);
     Artifact javaSplitApk = getDxArtifact(ruleContext, "java_resources.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .resourceApk(javaSplitApkResources)
         .javaResourceZip(dexingOutput.javaResourceJar)
-        .signingKey(debugKey)
+        .sign(true)
         .message("Generating split Java resource apk")
         .build(javaSplitApk));
     splitApkSetBuilder.add(javaSplitApk);
 
     Artifact resourceSplitApk = getDxArtifact(ruleContext, "android_resources.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .resourceApk(splitResourceApk.getArtifact())
-        .signingKey(debugKey)
+        .sign(true)
         .message("Generating split Android resource apk")
         .build(resourceSplitApk));
     splitApkSetBuilder.add(resourceSplitApk);
@@ -468,10 +467,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> splitApks = splitApkSetBuilder.build();
     Artifact splitMainApk = getDxArtifact(ruleContext, "split_main.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, tools)
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics, tools)
         .resourceApk(splitMainApkResources)
         .classesDex(getStubDex(ruleContext, javaSemantics, androidSemantics, tools, true))
-        .signingKey(debugKey)
+        .sign(true)
         .message("Generating split main apk")
         .build(splitMainApk));
     splitApkSetBuilder.add(splitMainApk);
@@ -977,10 +976,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    */
   private static final class ApkActionBuilder {
     private final RuleContext ruleContext;
+    private final AndroidSemantics semantics;
     private final AndroidTools tools;
 
+    private boolean sign;
     private String message;
-    private Artifact signingKey;
     private Artifact classesDex;
     private Artifact resourceApk;
     private Artifact javaResourceZip;
@@ -989,8 +989,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     private Artifact javaResourceFile;
     private NativeLibs nativeLibs = NativeLibs.EMPTY;
 
-    private ApkActionBuilder(RuleContext ruleContext, AndroidTools tools) {
+    private ApkActionBuilder(
+        RuleContext ruleContext, AndroidSemantics semantics, AndroidTools tools) {
       this.ruleContext = ruleContext;
+      this.semantics = semantics;
       this.tools = tools;
     }
 
@@ -1052,12 +1054,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     /**
-     * Sets the key to be used for signing the APK.
-     *
-     * <p>If set to null (the default), the APK will not be signed.
+     * Sets if the APK will be signed. By default, it won't be.
      */
-    public ApkActionBuilder signingKey(Artifact signingKey) {
-      this.signingKey = signingKey;
+    public ApkActionBuilder sign(boolean sign) {
+      this.sign = sign;
       return this;
     }
 
@@ -1100,12 +1100,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addInput(javaResourceFile);
       }
 
-      if (signingKey == null) {
-        actionBuilder.addArgument("-u");
-      } else {
-        actionBuilder.addArgument("-ks").addArgument(signingKey.getExecPathString());
-        actionBuilder.addInput(signingKey);
-      }
+      semantics.addSigningArguments(ruleContext, sign, actionBuilder);
 
       actionBuilder
           .addArgument("-z")

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ApplicationManifest;
@@ -60,6 +61,19 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   @Override
   public ImmutableList<String> getDxJvmArguments() {
     return ImmutableList.of();
+  }
+
+  @Override
+  public void addSigningArguments(
+      RuleContext ruleContext, boolean sign, SpawnAction.Builder actionBuilder) {
+    // ApkBuilder reads the signing key from the debug.keystore file, thus, we are at its mercy
+    // for hermeticity. It turns out, it's not easy to coax ApkBuilder to read this key from a
+    // file specified on the command line. Currently, it checks $ANDROID_SDK_HOME, $USER_HOME then
+    // $HOME which means that we could make it hermetic by setting $ANDROID_SDK_HOME for the
+    // ApkBuilder invocation.
+    if (!sign) {
+      actionBuilder.addArgument("-u");
+    }
   }
 
   @Override

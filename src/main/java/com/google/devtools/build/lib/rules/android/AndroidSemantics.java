@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -60,6 +61,13 @@ public interface AndroidSemantics {
    * JVM arguments to be passed to the command line of dx.
    */
   ImmutableList<String> getDxJvmArguments();
+
+  /**
+   * Adds command line arguments and inputs to a {@code ApkBuilder} invocation to control how to
+   * sign the app.
+   */
+  void addSigningArguments(
+      RuleContext ruleContext, boolean sign, SpawnAction.Builder actionBuilder);
 
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
