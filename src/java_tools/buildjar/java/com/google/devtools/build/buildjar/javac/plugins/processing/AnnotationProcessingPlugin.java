@@ -15,6 +15,7 @@
 package com.google.devtools.build.buildjar.javac.plugins.processing;
 
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
@@ -42,34 +43,32 @@ public class AnnotationProcessingPlugin extends BlazeJavaCompilerPlugin {
   @Override
   public void postAttribute(Env<AttrContext> env) {
     if (toplevels.add(env.toplevel)) {
-      recordSymbols(env.toplevel);
+      recordInfo(env.toplevel);
     }
   }
 
-  /**
-   * For each top-level type, record the path prefixes of that type's class,
-   * and all inner and anonymous classes declared inside that type.
-   *
-   * <p>e.g. for j.c.g.Foo we record the prefix j/c/g/Foo, which will match
-   * j/c/g/Foo.class, j/c/g/Foo$Inner.class, j/c/g/Foo$1.class, etc.
-   */
-  private void recordSymbols(JCCompilationUnit toplevel) {
-    if (toplevel.sourcefile == null) {
-      return;
+  private void recordInfo(JCCompilationUnit toplevel) {
+    CompilationUnit.Builder builder = CompilationUnit.newBuilder();
+
+    if (toplevel.sourcefile != null) {
+      // FileObject#getName() returns the original exec root-relative path of
+      // the source file, which is want we want.
+      // Paths.get(sourcefile.toUri()) would absolutize the path.
+      Path path = Paths.get(toplevel.sourcefile.getName());
+      builder.setPath(processingModule.stripSourceRoot(path).toString());
+      builder.setGeneratedByAnnotationProcessor(processingModule.isGenerated(path));
     }
-    Path sourcePath = Paths.get(toplevel.sourcefile.toUri());
-    if (!processingModule.isGeneratedSource(sourcePath)) {
-      return;
-    }
-    String packageBase = "";
+
     if (toplevel.getPackageName() != null) {
-      packageBase = toplevel.getPackageName().toString().replace('.', '/') + "/";
+      builder.setPkg(toplevel.getPackageName().toString());
     }
+
     for (JCTree decl : toplevel.defs) {
       if (decl instanceof JCClassDecl) {
-        String pathPrefix = packageBase + ((JCClassDecl) decl).getSimpleName();
-        processingModule.recordPrefix(pathPrefix);
+        builder.addTopLevel(((JCClassDecl) decl).getSimpleName().toString());
       }
     }
+
+    processingModule.recordUnit(builder.build());
   }
 }

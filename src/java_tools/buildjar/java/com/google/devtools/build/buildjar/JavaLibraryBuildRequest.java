@@ -141,9 +141,10 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getSourceGenDir() != null) {
       processingBuilder.setSourceGenDir(Paths.get(optionsParser.getSourceGenDir()));
     }
-    if (optionsParser.getClassDir() != null) {
-      processingBuilder.setClassDir(Paths.get(optionsParser.getClassDir()));
+    if (optionsParser.getManifestProtoPath() != null) {
+      processingBuilder.setManifestProtoPath(Paths.get(optionsParser.getManifestProtoPath()));
     }
+    processingBuilder.addAllSourceRoots(optionsParser.getSourceRoots());
     this.processingModule = processingBuilder.build();
 
     ImmutableList.Builder<BlazeJavaCompilerPlugin> pluginsBuilder =
@@ -184,7 +185,7 @@ public final class JavaLibraryBuildRequest {
     this.javacOpts = ImmutableList.copyOf(optionsParser.getJavacOpts());
     this.sourceGenDir = optionsParser.getSourceGenDir();
     this.generatedSourcesOutputJar = optionsParser.getGeneratedSourcesOutputJar();
-    this.generatedClassOutputJar = optionsParser.getGeneratedClassOutputJar();
+    this.generatedClassOutputJar = optionsParser.getManifestProtoPath();
   }
 
   public ImmutableList<String> getJavacOpts() {

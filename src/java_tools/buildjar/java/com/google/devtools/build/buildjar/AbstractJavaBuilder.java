@@ -168,14 +168,12 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
         if (build.getGeneratedSourcesOutputJar() != null) {
           buildGensrcJar(build, err);
         }
-        if (build.getGeneratedClassOutputJar() != null) {
-          buildGenclassJar(build);
-        }
       }
       successful = true;
     } finally {
       build.getDependencyModule().emitUsedClasspath(build.getClassPath());
       build.getDependencyModule().emitDependencyInformation(build.getClassPath(), successful);
+      build.getProcessingModule().emitManifestProto();
       shutdown(err);
     }
   }
