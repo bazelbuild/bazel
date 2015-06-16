@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Lists;
-
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.io.Serializable;

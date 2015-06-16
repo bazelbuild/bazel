@@ -95,9 +95,9 @@ public class LValue implements Serializable {
       if (variableType != null && !variableType.equals(resultType)
           && !resultType.equals(Environment.NoneType.class)
           && !variableType.equals(Environment.NoneType.class)) {
-        throw new EvalException(loc, String.format("Incompatible variable types, "
-            + "trying to assign %s (type of %s) to variable %s which is already %s",
-            Printer.repr(result),
+        throw new EvalException(loc, Printer.format("Incompatible variable types, "
+            + "trying to assign %r (type of %s) to variable %s which is already %s",
+            result,
             EvalUtils.getDataTypeName(result),
             ident.getName(),
             EvalUtils.getDataTypeNameFromClass(variableType)));

@@ -607,7 +607,7 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testPercOnObjectInvalidFormat() throws Exception {
     update("obj", createObjWithStr());
-    checkEvalError("invalid arguments for format string", "'%d' % obj");
+    checkEvalError("invalid argument str marker for format pattern %d", "'%d' % obj");
   }
 
   @SuppressWarnings("unchecked")

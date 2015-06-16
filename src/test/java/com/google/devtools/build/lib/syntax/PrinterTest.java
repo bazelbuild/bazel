@@ -98,9 +98,9 @@ public class PrinterTest {
                  Printer.repr(makeFilesetEntry()));
   }
 
-  private void checkFormatPositionalFails(String format, List<?> tuple, String errorMessage) {
+  private void checkFormatPositionalFails(String errorMessage, String format, Object... arguments) {
     try {
-      Printer.format(format, tuple);
+      Printer.format(format, arguments);
       fail();
     } catch (IllegalFormatException e) {
       assertThat(e).hasMessage(errorMessage);
@@ -109,28 +109,36 @@ public class PrinterTest {
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertEquals("foo 3", Printer.format("%s %d", makeTuple("foo", 3)));
+    assertEquals("foo 3", Printer.formatString("%s %d", makeTuple("foo", 3)));
+    assertEquals("foo 3", Printer.format("%s %d", "foo", 3));
 
     // Note: formatString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertThat(Printer.format("", makeTuple())).isEmpty();
-    assertEquals("foo", Printer.format("%s", makeTuple("foo")));
-    assertEquals("3.14159", Printer.format("%s", makeTuple(3.14159)));
-    checkFormatPositionalFails("%s", makeTuple(1, 2, 3),
-        "not all arguments converted during string formatting");
-    assertEquals("%foo", Printer.format("%%%s", makeTuple("foo")));
-    checkFormatPositionalFails("%%s", makeTuple("foo"),
-        "not all arguments converted during string formatting");
-    checkFormatPositionalFails("% %s", makeTuple("foo"),
-        "invalid arguments for format string");
-    assertEquals("[1, 2, 3]", Printer.format("%s", makeTuple(makeList(1, 2, 3))));
-    assertEquals("(1, 2, 3)", Printer.format("%s", makeTuple(makeTuple(1, 2, 3))));
-    assertEquals("[]", Printer.format("%s", makeTuple(makeList())));
-    assertEquals("()", Printer.format("%s", makeTuple(makeTuple())));
+    assertThat(Printer.formatString("", makeTuple())).isEmpty();
+    assertEquals("foo", Printer.format("%s", "foo"));
+    assertEquals("3.14159", Printer.format("%s", 3.14159));
+    checkFormatPositionalFails("not all arguments converted during string formatting",
+        "%s", 1, 2, 3);
+    assertEquals("%foo", Printer.format("%%%s", "foo"));
+    checkFormatPositionalFails("not all arguments converted during string formatting",
+        "%%s", "foo");
+    checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
+        "% %s", "foo");
+    assertEquals("[1, 2, 3]", Printer.format("%s", makeList(1, 2, 3)));
+    assertEquals("(1, 2, 3)", Printer.format("%s", makeTuple(1, 2, 3)));
+    assertEquals("[]", Printer.format("%s", makeList()));
+    assertEquals("()", Printer.format("%s", makeTuple()));
+    assertEquals("% 1 \"2\" 3", Printer.format("%% %d %r %s", 1, "2", "3"));
 
-    checkFormatPositionalFails("%.3g", makeTuple(), "invalid arguments for format string");
-    checkFormatPositionalFails("%.3g", makeTuple(1, 2), "invalid arguments for format string");
-    checkFormatPositionalFails("%.s", makeTuple(), "invalid arguments for format string");
+    checkFormatPositionalFails(
+        "invalid argument \"1\" for format pattern %d",
+        "%d", "1");
+    checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.3g\"",
+        "%.3g");
+    checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.3g\"",
+        "%.3g", 1, 2);
+    checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
+        "%.s");
   }
 
   private String createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior symlinkBehavior) {

@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Formattable;
@@ -183,6 +182,14 @@ public final class Printer {
     }
   }
 
+  private static Appendable append(Appendable buffer, CharSequence s, int start, int end) {
+    try {
+      return buffer.append(s, start, end);
+    } catch (IOException e) {
+      throw new AssertionError(e);
+    }
+  }
+
   private static Appendable backslashChar(Appendable buffer, char c) {
     return append(append(buffer, '\\'), c);
   }
@@ -320,8 +327,10 @@ public final class Printer {
   /**
    * Convert BUILD language objects to Formattable so JDK can render them correctly.
    * Don't do this for numeric or string types because we want %d, %x, %s to work.
+   * This function is intended for use in assertions such as Precondition.checkArgument
+   * so that you only pay the cost of computing the string when the assertion passes.
    */
-  private static Object strFormattable(final Object o) {
+  public static Object strFormattable(final Object o) {
     if (o instanceof Integer || o instanceof Double || o instanceof String) {
       return o;
     } else {
@@ -339,7 +348,29 @@ public final class Printer {
     }
   }
 
-  private static final Object[] EMPTY = new Object[0];
+  /**
+   * Convert BUILD language objects to Formattable so JDK can render them correctly.
+   * Don't do this for numeric or string types because we want %d, %x, %s to work.
+   * This function is intended for use in assertions such as Precondition.checkArgument
+   * so that you only pay the cost of computing the string when the assertion passes.
+   */
+  public static Object reprFormattable(final Object o) {
+    if (o instanceof Integer || o instanceof Double) {
+      return o;
+    } else {
+      return new Formattable() {
+        @Override
+        public String toString() {
+          return repr(o);
+        }
+
+        @Override
+        public void formatTo(Formatter formatter, int flags, int width, int precision) {
+          write(formatter.out(), o);
+        }
+      };
+    }
+  }
 
   /*
    * N.B. MissingFormatWidthException is the only kind of IllegalFormatException
@@ -347,63 +378,102 @@ public final class Printer {
    */
 
   /**
-   * Perform Python-style string formatting. Implemented by delegation to Java's
-   * own string formatting routine to avoid reinventing the wheel. In more
-   * obscure cases, semantics follow JDK (not Python) rules.
+   * Perform Python-style string formatting.
    *
    * @param pattern a format string.
-   * @param tuple a tuple containing positional arguments
+   * @param arguments a tuple containing positional arguments.
+   * @return the formatted string.
    */
-  public static String format(String pattern, List<?> tuple) throws IllegalFormatException {
-    int count = countPlaceholders(pattern);
-    if (count != tuple.size()) {
+  public static String formatString(String pattern, List<?> arguments)
+      throws IllegalFormatException {
+    return format(new StringBuilder(), pattern, arguments).toString();
+  }
+
+  /**
+   * Perform Python-style string formatting.
+   *
+   * @param pattern a format string.
+   * @param arguments positional arguments.
+   * @return the formatted string.
+   */
+  public static String format(String pattern, Object... arguments)
+      throws IllegalFormatException {
+    return formatString(pattern, ImmutableList.copyOf(arguments));
+  }
+
+  /**
+   * Perform Python-style string formatting, as per pattern % tuple
+   * Limitations: only %d %s %r %% are supported.
+   *
+   * @param buffer an Appendable to output to.
+   * @param pattern a format string.
+   * @param arguments a list containing positional arguments.
+   * @return the buffer, in fluent style.
+   */
+  // TODO(bazel-team): support formatting arguments, and more complex Python patterns.
+  public static Appendable format(Appendable buffer, String pattern, List<?> arguments)
+      throws IllegalFormatException {
+    // N.B. MissingFormatWidthException is the only kind of IllegalFormatException
+    // whose constructor can take and display arbitrary error message, hence its use below.
+
+    int length = pattern.length();
+    int argLength = arguments.size();
+    int i = 0; // index of next character in pattern
+    int a = 0; // index of next argument in arguments
+
+    while (i < length) {
+      int p = pattern.indexOf('%', i);
+      if (p == -1) {
+        append(buffer, pattern, i, length);
+        break;
+      }
+      if (p > i) {
+        append(buffer, pattern, i, p);
+      }
+      if (p == length - 1) {
+        throw new MissingFormatWidthException(
+            "incomplete format pattern ends with %: " + repr(pattern));
+      }
+      char directive = pattern.charAt(p + 1);
+      i = p + 2;
+      switch (directive) {
+        case '%':
+          append(buffer, '%');
+          continue;
+        case 'd':
+        case 'r':
+        case 's':
+          if (a >= argLength) {
+            throw new MissingFormatWidthException("not enough arguments for format pattern "
+                + repr(pattern) + ": " + repr(SkylarkList.tuple(arguments)));
+          }
+          Object argument = arguments.get(a++);
+          switch (directive) {
+            case 'd':
+              if (argument instanceof Integer) {
+                append(buffer, argument.toString());
+                continue;
+              } else {
+                throw new MissingFormatWidthException(
+                    "invalid argument " + repr(argument) + " for format pattern %d");
+              }
+            case 'r':
+              write(buffer, argument);
+              continue;
+            case 's':
+              print(buffer, argument);
+              continue;
+          }
+        default:
+          throw new MissingFormatWidthException(
+              "unsupported format character " + repr(String.valueOf(directive))
+              + " at index " + (p + 1) + " in " + repr(pattern));
+      }
+    }
+    if (a < argLength) {
       throw new MissingFormatWidthException(
           "not all arguments converted during string formatting");
     }
-
-    List<Object> args = new ArrayList<>();
-
-    for (Object o : tuple) {
-      args.add(strFormattable(o));
-    }
-
-    try {
-      return String.format(pattern, args.toArray(EMPTY));
-    } catch (IllegalFormatException e) {
-      throw new MissingFormatWidthException(
-          "invalid arguments for format string");
-    }
-  }
-
-  private static int countPlaceholders(String pattern) {
-    int length = pattern.length();
-    boolean afterPercent = false;
-    int i = 0;
-    int count = 0;
-    while (i < length) {
-      switch (pattern.charAt(i)) {
-        case 's':
-        case 'd':
-          if (afterPercent) {
-            count++;
-            afterPercent = false;
-          }
-          break;
-
-        case '%':
-          afterPercent = !afterPercent;
-          break;
-
-        default:
-          if (afterPercent) {
-            throw new MissingFormatWidthException("invalid arguments for format string");
-          }
-          afterPercent = false;
-          break;
-      }
-      i++;
-    }
-
-    return count;
+    return buffer;
   }
 }
