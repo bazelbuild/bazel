@@ -453,6 +453,27 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testForBreakContinue() throws Exception {
+    List<Statement> file = parseFileForSkylark(
+        "def foo():",
+        "  for i in [1, 2]:",
+        "    break",
+        "    continue");
+    assertThat(file).hasSize(1);
+    List<Statement> body = ((FunctionDefStatement) file.get(0)).getStatements();
+    assertThat(body).hasSize(1);
+
+    List<Statement> loop = ((ForStatement) body.get(0)).block();
+    assertThat(loop).hasSize(2);
+
+    assertThat(loop.get(0)).isEqualTo(FlowStatement.BREAK);
+    assertLocation(34, 40, loop.get(0).getLocation());
+
+    assertThat(loop.get(1)).isEqualTo(FlowStatement.CONTINUE);
+    assertLocation(44, 52, loop.get(1).getLocation());
+  }
+
+  @Test
   public void testListLiterals1() throws Exception {
     ListLiteral list = (ListLiteral) parseExpression("[0,1,2]");
     assertFalse(list.isTuple());

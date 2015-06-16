@@ -1416,10 +1416,14 @@ class Parser {
 
   // flow_stmt ::= break_stmt | continue_stmt
   private FlowStatement parseFlowStatement(TokenKind kind) {
+    int start = token.left;
     expect(kind);
-    return (kind == TokenKind.BREAK) ? FlowStatement.BREAK : FlowStatement.CONTINUE;
+    return setLocation(
+        kind == TokenKind.BREAK ? FlowStatement.BREAK : FlowStatement.CONTINUE,
+        start,
+        token.right);
   }
-  
+
   // return_stmt ::= RETURN expr
   private ReturnStatement parseReturnStatement() {
     int start = token.left;
