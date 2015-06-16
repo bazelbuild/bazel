@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -48,7 +49,6 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
@@ -198,17 +198,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Override
   public Set<Target> getTransitiveClosure(Set<Target> targets) {
     Set<Target> visited = new HashSet<>();
-    List<Target> result = new ArrayList<>(targets);
-    int i = 0;
-    while (i < result.size()) {
-      for (Target dep : getFwdDeps(result.get(i))) {
-        if (visited.add(dep)) {
-          result.add(dep);
-        }
-      }
-      i++;
+    Collection<Target> current = targets;
+    while (!current.isEmpty()) {
+      Collection<Target> toVisit = Collections2.filter(current,
+          Predicates.not(Predicates.in(visited)));
+      current = getFwdDeps(toVisit);
+      visited.addAll(toVisit);
     }
-    return ImmutableSet.copyOf(result);
+    return ImmutableSet.copyOf(visited);
   }
 
   // Implemented with a breadth-first search.
