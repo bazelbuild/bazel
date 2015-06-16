@@ -22,8 +22,15 @@ if [ -z "${TRAVIS_OS_NAME+x}" ]; then
 fi
 
 if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
-    # TODO(dmarting) ./compile.sh all
-    true
+    export JAVA_VERSION=1.7
+    sed -i.bak 's/_version = "8",/_version = "7",/' tools/jdk/BUILD
+    cat .travis/jdk7.WORKSPACE >WORKSPACE
+    # Ignore zip tests as they requires to much space and jdk8 stuff
+    cat <<'EOF' >.bazelrc
+build --test_tag_filters -zip,-jdk8
+EOF
+    export BAZELRC=$PWD/.bazelrc
+    ./compile.sh all
 else
     sudo apt-get update -qq
     sudo apt-get install -y netcat-traditional

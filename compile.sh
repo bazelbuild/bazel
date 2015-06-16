@@ -154,6 +154,7 @@ if [ $DO_TESTS ]; then
   new_step "Running tests"
   display "."
   $BAZEL --blazerc=${BAZELRC} --nomaster_blazerc test \
+      --build_tests_only \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
       || fail "Tests failed"
