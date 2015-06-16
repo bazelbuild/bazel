@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
@@ -381,12 +382,13 @@ public abstract class DependencyResolver {
         // TODO(bazel-team): We should check if the implementation tries to access an undeclared
         // fragment.
         Object actualValue = lateBoundDefault.getDefault(rule, actualConfig);
+        if (EvalUtils.isNullOrNone(actualValue)) {
+          continue;
+        }
         if (attribute.getType() == Type.LABEL) {
           Label label;
           label = Type.LABEL.cast(actualValue);
-          if (label != null) {
-            builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
-          }
+          builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
         } else if (attribute.getType() == Type.LABEL_LIST) {
           for (Label label : Type.LABEL_LIST.cast(actualValue)) {
             builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
