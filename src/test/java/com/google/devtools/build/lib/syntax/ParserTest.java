@@ -351,6 +351,13 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testBreak() {
+    setFailFast(false);
+    parseExpression("break");
+    assertContainsEvent("syntax error at 'break': expected expression");
+  }
+
+  @Test
   public void testTry() {
     setFailFast(false);
     parseExpression("try: 1 + 1");
