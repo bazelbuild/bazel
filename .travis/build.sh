@@ -27,7 +27,7 @@ if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
     cat .travis/jdk7.WORKSPACE >WORKSPACE
     # Ignore zip tests as they requires to much space and jdk8 stuff
     cat <<'EOF' >.bazelrc
-build --test_tag_filters -zip,-jdk8
+build --test_tag_filters -zip,-jdk8,-skyframe
 EOF
     export BAZELRC=$PWD/.bazelrc
     ./compile.sh all
