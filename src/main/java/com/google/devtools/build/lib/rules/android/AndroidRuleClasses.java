@@ -118,24 +118,31 @@ public final class AndroidRuleClasses {
   public static final SafeImplicitOutputsFunction JAVA_RESOURCES_JAR =
       fromTemplates("%{name}_files/java_resources.jar");
   public static final String MANIFEST_MERGE_TOOL_LABEL =
-      "//tools/android:merge_manifests";
+      Constants.ANDROID_DEP_PREFIX + "merge_manifests";
   public static final String BUILD_INCREMENTAL_DEXMANIFEST_LABEL =
-      "//tools/android:build_incremental_dexmanifest";
-  public static final String STUBIFY_MANIFEST_LABEL = "//tools/android:stubify_manifest";
-  public static final String INCREMENTAL_INSTALL_LABEL = "//tools/android:incremental_install";
-  public static final String BUILD_SPLIT_MANIFEST_LABEL = "//tools/android:build_split_manifest";
-  public static final String STRIP_RESOURCES_LABEL = "//tools/android:strip_resources";
+      Constants.ANDROID_DEP_PREFIX + "build_incremental_dexmanifest";
+  public static final String STUBIFY_MANIFEST_LABEL =
+      Constants.ANDROID_DEP_PREFIX + "stubify_manifest";
+  public static final String INCREMENTAL_INSTALL_LABEL =
+      Constants.ANDROID_DEP_PREFIX + "incremental_install";
+  public static final String BUILD_SPLIT_MANIFEST_LABEL =
+      Constants.ANDROID_DEP_PREFIX + "build_split_manifest";
+  public static final String STRIP_RESOURCES_LABEL =
+      Constants.ANDROID_DEP_PREFIX + "strip_resources";
 
   public static final Label DEFAULT_ANDROID_SDK =
-      Label.parseAbsoluteUnchecked(Constants.ANDROID_DEFAULT_SDK);
+      Label.parseAbsoluteUnchecked(
+          Constants.ANDROID_DEFAULT_SDK);
   public static final Label DEFAULT_INCREMENTAL_STUB_APPLICATION =
-      Label.parseAbsoluteUnchecked("//tools/android:incremental_stub_application");
+      Label.parseAbsoluteUnchecked(
+          Constants.ANDROID_DEP_PREFIX + "incremental_stub_application");
   public static final Label DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
-      Label.parseAbsoluteUnchecked("//tools/android:incremental_split_stub_application");
+      Label.parseAbsoluteUnchecked(
+          Constants.ANDROID_DEP_PREFIX + "incremental_split_stub_application");
   public static final Label DEFAULT_RESOURCES_PROCESSOR =
-      Label.parseAbsoluteUnchecked("//tools/android:resources_processor");
+      Label.parseAbsoluteUnchecked(Constants.ANDROID_DEP_PREFIX + "resources_processor");
   public static final Label DEFAULT_AAR_GENERATOR =
-      Label.parseAbsoluteUnchecked("//tools/android:aar_generator");
+      Label.parseAbsoluteUnchecked(Constants.ANDROID_DEP_PREFIX + "aar_generator");
 
   public static final LateBoundLabel<BuildConfiguration> INCREMENTAL_STUB_APPLICATION =
       new LateBoundLabel<BuildConfiguration>(DEFAULT_INCREMENTAL_STUB_APPLICATION) {
@@ -503,13 +510,6 @@ public final class AndroidRuleClasses {
           These compiler options are passed to javac after the global compiler options.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("javacopts", STRING_LIST))
-          // $android_jar must be in the target configuration because it points to an
-          // android_tools_defaults_jar rule, and that needs the configuration to fetch the actual
-          // android.jar .
-          .add(attr("$android_jar", LABEL)
-              .value(env.getLabel("//tools/defaults:android_jar")))
-          .add(attr("$android_dx_jar", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/defaults:android_dx_jar")))
           // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
           // like all the rest of android tools.
           .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
@@ -627,12 +627,12 @@ public final class AndroidRuleClasses {
               attr("$shuffle_jars", LABEL)
                   .cfg(HOST)
                   .exec()
-                  .value(env.getLabel("//tools/android:shuffle_jars")))
+                  .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "shuffle_jars")))
           .add(
               attr("$merge_dexzips", LABEL)
                   .cfg(HOST)
                   .exec()
-                  .value(env.getLabel("//tools/android:merge_dexzips")))
+                  .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "merge_dexzips")))
           .add(
               attr("$incremental_install", LABEL)
                   .cfg(HOST)
@@ -654,7 +654,6 @@ public final class AndroidRuleClasses {
           .add(
               attr(":incremental_split_stub_application", LABEL)
                   .value(AndroidRuleClasses.INCREMENTAL_SPLIT_STUB_APPLICATION))
-
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
            Additional command-line flags for the dx tool when generating classes.dex.
            ${SYNOPSIS}

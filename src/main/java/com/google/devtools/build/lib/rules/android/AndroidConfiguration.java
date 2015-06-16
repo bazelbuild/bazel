@@ -141,12 +141,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
       Map<String, Set<Label>> result = new TreeMap<>();
       Label realSdk = realSdk();
-      addLabel(result, realSdk, "ANDROID_AIDL_TOOL", "static_aidl_tool");
-      addLabel(result, realSdk, "ANDROID_AIDL_FRAMEWORK", "aidl_framework");
-      addLabel(result, realSdk, "ANDROID_AAPT", "static_aapt_tool");
-      addLabel(result, realSdk, "ANDROID_ADB", "static_adb_tool");
-      addLabel(result, realSdk, "ANDROID_APKBUILDER", "apkbuilder_tool");
-      addLabel(result, realSdk, "ANDROID_DX_JAR", "dx_jar");
+      if (Constants.ANDROID_ALLOW_SDK_FILEGROUP) {
+        addLabel(result, realSdk, "ANDROID_AIDL_TOOL", "static_aidl_tool");
+        addLabel(result, realSdk, "ANDROID_AIDL_FRAMEWORK", "aidl_framework");
+        addLabel(result, realSdk, "ANDROID_AAPT", "static_aapt_tool");
+        addLabel(result, realSdk, "ANDROID_ADB", "static_adb_tool");
+        addLabel(result, realSdk, "ANDROID_APKBUILDER", "apkbuilder_tool");
+        addLabel(result, realSdk, "ANDROID_DX_JAR", "dx_jar");
+      }
       return result;
     }
 

@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -163,7 +164,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.isAttributeValueExplicitlySpecified("proguard_specs")
-                            ? env.getLabel("//tools/android:proguard_whitelister")
+                            ? env.getLabel(Constants.ANDROID_DEP_PREFIX + "proguard_whitelister")
                             : null;
                       }
                     }))

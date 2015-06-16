@@ -84,7 +84,7 @@ public class PrinterTest {
     assertEquals("[1, (\"foo\", \"bar\"), 3]",
                  Printer.repr(makeList(1, tuple, 3)));
 
-    Map<Object, Object> dict = ImmutableMap.of(
+    Map<Object, Object> dict = ImmutableMap.<Object, Object>of(
         1, tuple,
         2, list,
         "foo", makeList());
