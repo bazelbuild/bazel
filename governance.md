@@ -29,29 +29,27 @@ list), but this will hopefully change over time.
    [Skylark](docs/skylark/concepts.html), in a `contrib/` directory or similar with clearly documented
    support policies.
 
-3. We accept well-written, well-tested cleanup and refactoring changes.
+3. We accept well-written, well-tested bug fixes to built-in rules.
 
-4. We accept well-written, well-tested bug fixes to built-in rules.
-
-5. We accept well-written, well-tested feature contributions if a core contributor assumes support
+4. We accept well-written, well-tested feature contributions if a core contributor assumes support
    responsibilities, i.e., readily answers support questions and works on bugs. This includes
    feature contributions from external contributors. If there is no core contributor to support a
    feature, then we will deprecate and subsequently delete the feature - we will give three months'
    notice in such cases.
 
-6. We will not accept untested changes, except in very rare cases.
+5. We will not accept untested changes, except in very rare cases.
 
-7. We require a pre-commit code review from a core contributor for all changes. For the time being,
+6. We require a pre-commit code review from a core contributor for all changes. For the time being,
    we will have to continue making changes across the internal and external code bases, which will
    be reviewed internal to Google.
 
-8. We will roll back changes if they break the internal development processes of any of the core
+7. We will roll back changes if they break the internal development processes of any of the core
    contributors.
 
-9. We will move towards an open governance model where multiple parties have commit access,
+8. We will move towards an open governance model where multiple parties have commit access,
    roll-back rights, and can provide explicit support for features or rules.
 
-10. We will work with interested parties to improve existing extension points and to establish new
+9. We will work with interested parties to improve existing extension points and to establish new
     extension points if they do not run counter to the internal requirements of any of the core
     contributors.
 
