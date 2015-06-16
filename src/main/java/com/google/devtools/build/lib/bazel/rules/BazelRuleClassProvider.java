@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.common.BazelActionListenerRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelExtraActionRule;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
@@ -293,6 +295,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new AndroidRuleClasses.AndroidBinaryBaseRule());
     builder.addRuleDefinition(new AndroidRuleClasses.JackRule());
     builder.addRuleDefinition(new AndroidBinaryOnlyRule());
+    builder.addRuleDefinition(new AndroidLibraryBaseRule());
+    builder.addRuleDefinition(new BazelAndroidLibraryRule());
     builder.addRuleDefinition(new BazelAndroidBinaryRule());
 
     builder.addRuleDefinition(new BazelIosTestRule());
