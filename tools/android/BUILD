@@ -131,3 +131,8 @@ py_test(
         ":stubify_manifest",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

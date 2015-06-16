@@ -419,8 +419,8 @@ local_repository(
     path = "$external_dir",
 )
 EOF
-  bazel fetch //external:* || fail "Fetch failed"
-  bazel query 'deps(//external:*)' >& $TEST_log || fail "query failed"
+  bazel fetch //external:my-repo || fail "Fetch failed"
+  bazel query 'deps(//external:my-repo)' >& $TEST_log || fail "query failed"
   expect_log "//external:my-repo"
 }
 

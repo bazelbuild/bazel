@@ -7,6 +7,7 @@ exports_files(["test_sharding_compliant"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//tools/android:srcs",
         "//tools/jdk:srcs",
         "//tools/genrule:srcs",
         "//tools/cpp:srcs",

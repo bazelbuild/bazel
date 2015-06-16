@@ -75,6 +75,12 @@ public class BazelAnalysisMock extends AnalysisMock {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")");
     config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
+    config.create("tools/android/BUILD",
+        "filegroup(name = 'sdk')",
+        "filegroup(name = 'aar_generator')",
+        "filegroup(name = 'resources_processor')",
+        "filegroup(name = 'incremental_stub_application')",
+        "filegroup(name = 'incremental_split_stub_application')");
     config.create("tools/genrule/BUILD",
         "exports_files(['genrule-setup.sh'])");
   }
