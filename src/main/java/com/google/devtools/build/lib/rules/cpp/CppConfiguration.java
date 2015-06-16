@@ -82,6 +82,13 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "cpp", doc = "A configuration fragment for C++")
 @Immutable
 public class CppConfiguration extends BuildConfiguration.Fragment {
+
+  /**
+   * String indicating a Mac system, for example when used in a crosstool configuration's host or
+   * target system name.
+   */
+  public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
+
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
