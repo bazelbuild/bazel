@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
@@ -166,6 +167,11 @@ final class Bundling {
       for (Artifact storyboard : objcProvider.get(STORYBOARD)) {
         mergeZipBuilder.add(intermediateArtifacts.compiledStoryboardZip(storyboard));
       }
+
+      if (objcProvider.is(USES_SWIFT)) {
+        mergeZipBuilder.add(intermediateArtifacts.swiftFrameworksFileZip());
+      }
+
       return mergeZipBuilder.build();
     }
 
@@ -434,7 +440,7 @@ final class Bundling {
   public NestedSet<Artifact> getBundleContentArtifacts() {
     return bundleContentArtifacts;
   }
-  
+
   /**
    * Returns primary bundle ID to use, can be null.
    */

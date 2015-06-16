@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -32,12 +33,14 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLU
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -146,17 +149,24 @@ final class CompilationSupport {
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
-      registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fobjc-arc"),
-          isCodeCoverageEnabled);
+      if (ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
+        registerSwiftCompileAction(sourceFile, objFile, intermediateArtifacts);
+      } else {
+        registerCompileAction(sourceFile, objFile, objcProvider, intermediateArtifacts,
+            compilationArtifacts, ImmutableList.of("-fobjc-arc"), isCodeCoverageEnabled);
+      }
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
-      registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, intermediateArtifacts, ImmutableList.of("-fno-objc-arc"),
-          isCodeCoverageEnabled);
+      registerCompileAction(nonArcSourceFile, objFile, objcProvider, intermediateArtifacts,
+          compilationArtifacts, ImmutableList.of("-fno-objc-arc"), isCodeCoverageEnabled);
     }
+
+    if (compilationArtifacts.hasSwiftSources()) {
+      registerSwiftModuleMergeAction(intermediateArtifacts, compilationArtifacts);
+    }
+
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerArchiveActions(intermediateArtifacts, objFiles, archive);
     }
@@ -165,14 +175,15 @@ final class CompilationSupport {
   private void registerCompileAction(
       Artifact sourceFile,
       Artifact objFile,
-      Optional<Artifact> pchFile,
       ObjcProvider objcProvider,
       IntermediateArtifacts intermediateArtifacts,
+      CompilationArtifacts compilationArtifacts,
       Iterable<String> otherFlags,
       boolean isCodeCoverageEnabled) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
     ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Artifact> additionalInputs = new ImmutableList.Builder<>();
     if (isCodeCoverageEnabled) {
       coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
       gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
@@ -181,6 +192,14 @@ final class CompilationSupport {
     if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
       commandLine.add("-stdlib=libc++");
     }
+
+    if (compilationArtifacts.hasSwiftSources()) {
+      // Add the directory that contains merged TargetName-Swift.h header to search path, in case
+      // any of ObjC files use it.
+      commandLine.add("-I");
+      commandLine.addPath(intermediateArtifacts.swiftHeader().getExecPath().getParentDirectory());
+      additionalInputs.add(intermediateArtifacts.swiftHeader());
+    }
     commandLine
         .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
         .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(
@@ -188,7 +207,7 @@ final class CompilationSupport {
         .add(objcConfiguration.getCoptsForCompilationMode())
         .addBeforeEachPath(
             "-iquote", ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
-        .addBeforeEachExecPath("-include", pchFile.asSet())
+        .addBeforeEachExecPath("-include", compilationArtifacts.getPchFile().asSet())
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
         .add(otherFlags)
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
@@ -204,11 +223,114 @@ final class CompilationSupport {
         .setExecutable(CLANG)
         .setCommandLine(commandLine.build())
         .addInput(sourceFile)
+        .addInputs(additionalInputs.build())
         .addOutput(objFile)
         .addOutputs(gcnoFiles.build())
         .addTransitiveInputs(objcProvider.get(HEADER))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-        .addInputs(pchFile.asSet())
+        .addInputs(compilationArtifacts.getPchFile().asSet())
+        .build(ruleContext));
+  }
+
+  /**
+   * Compiles a single swift file.
+   *
+   * @param sourceFile the artifact to compile
+   * @param objFile the resulting object artifact
+   */
+  private void registerSwiftCompileAction(
+      Artifact sourceFile,
+      Artifact objFile,
+      IntermediateArtifacts intermediateArtifacts) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+
+    // Compiling a single swift file requires knowledge of all of the other
+    // swift files in the same module. The primary file ({@code sourceFile}) is
+    // compiled to an object file, while the remaining files are used to resolve
+    // symbols (they behave like c/c++ headers in this context).
+    ImmutableSet.Builder<Artifact> otherSwiftSourcesBuilder = ImmutableSet.builder();
+    for (Artifact otherSourceFile : compilationArtifacts(ruleContext).getSrcs()) {
+      if (ObjcRuleClasses.SWIFT_SOURCES.matches(otherSourceFile.getFilename())
+          && otherSourceFile != sourceFile) {
+        otherSwiftSourcesBuilder.add(otherSourceFile);
+      }
+    }
+    ImmutableSet<Artifact> otherSwiftSources = otherSwiftSourcesBuilder.build();
+
+    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
+        .add("-frontend")
+        .add("-emit-object")
+        .add("-target").add(IosSdkCommands.swiftTarget(objcConfiguration))
+        .add("-sdk").add(IosSdkCommands.sdkDir(objcConfiguration))
+        .add("-enable-objc-interop");
+
+    if (objcConfiguration.generateDebugSymbols()) {
+      commandLine.add("-g");
+    }
+
+    commandLine
+      .add("-Onone")
+      .add("-module-name").add(getModuleName())
+      .add("-parse-as-library")
+      .addExecPath("-primary-file", sourceFile)
+      .addExecPaths(otherSwiftSources)
+      .addExecPath("-o", objFile)
+      .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile));
+
+    // Add all ObjC headers to the compiler, in case Swift code is calling into Objc
+    // TODO(bazel-team): This can be augmented by an explicit bridging header field in the rule.
+    commandLine.addBeforeEachExecPath("-import-objc-header", attributes.hdrs());
+
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        .setMnemonic("SwiftCompile")
+        .setExecutable(SWIFT)
+        .setCommandLine(commandLine.build())
+        .addInput(sourceFile)
+        .addInputs(otherSwiftSources)
+        .addInputs(attributes.hdrs())
+        .addOutput(objFile)
+        .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
+        .build(ruleContext));
+  }
+
+  /**
+   * Merges multiple .partial_swiftmodule files together. Also produces a swift header that can be
+   * used by Objective-C code.
+   */
+  private void registerSwiftModuleMergeAction(
+      IntermediateArtifacts intermediateArtifacts,
+      CompilationArtifacts compilationArtifacts) {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+
+    ImmutableList.Builder<Artifact> moduleFiles = new ImmutableList.Builder<>();
+    for (Artifact src : compilationArtifacts.getSrcs()) {
+      if (ObjcRuleClasses.SWIFT_SOURCES.matches(src.getFilename())) {
+        moduleFiles.add(intermediateArtifacts.swiftModuleFile(src));
+      }
+    }
+
+    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
+    commandLine.add("-frontend");
+    commandLine.add("-emit-module");
+    commandLine.add("-sdk").add(IosSdkCommands.sdkDir(objcConfiguration));
+    commandLine.add("-target").add(IosSdkCommands.swiftTarget(objcConfiguration));
+    if (objcConfiguration.generateDebugSymbols()) {
+      commandLine.add("-g");
+    }
+
+    commandLine.add("-module-name").add(getModuleName());
+    commandLine.add("-parse-as-library");
+    commandLine.addExecPaths(moduleFiles.build());
+    commandLine.addExecPath("-o", intermediateArtifacts.swiftModule());
+    commandLine.addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader());
+
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        .setMnemonic("SwiftModuleMerge")
+        .setExecutable(SWIFT)
+        .setCommandLine(commandLine.build())
+        .addInputs(moduleFiles.build())
+        .addOutput(intermediateArtifacts.swiftModule())
+        .addOutput(intermediateArtifacts.swiftHeader())
         .build(ruleContext));
   }
 
@@ -343,6 +465,13 @@ final class CompilationSupport {
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       commandLine.add(LINKER_COVERAGE_FLAGS);
+    }
+
+    if (objcProvider.is(USES_SWIFT)) {
+      commandLine
+          .add("-L").add(IosSdkCommands.swiftLibDir(objcConfiguration))
+          .add("-Xlinker").add("-rpath")
+          .add("-Xlinker").add("@executable_path/Frameworks");
     }
 
     // Call to dsymutil for debug symbol generation must happen in the link action.
@@ -564,5 +693,12 @@ final class CompilationSupport {
   private String stripSuffix(String str, String suffix) {
     // TODO(bazel-team): Throw instead of returning null?
     return str.endsWith(suffix) ? str.substring(0, str.length() - suffix.length()) : null;
+  }
+
+  /**
+   * Returns the name of Swift module for this target.
+   */
+  private String getModuleName() {
+    return ruleContext.getLabel().getName();
   }
 }

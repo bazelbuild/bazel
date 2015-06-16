@@ -111,6 +111,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
         tools/objc/precomp_actoolzip_deploy.jar
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip:ibtoolzip_deploy.jar \
         tools/objc/precomp_ibtoolzip_deploy.jar
+    bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar \
+        tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
     bazel_bootstrap //src/objc_tools/momczip:momczip_deploy.jar \
         tools/objc/precomp_momczip_deploy.jar
     bazel_bootstrap //src/objc_tools/bundlemerge:bundlemerge_deploy.jar \

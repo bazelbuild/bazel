@@ -183,6 +183,28 @@ final class IntermediateArtifacts {
   }
 
   /**
+   * The swift module produced by compiling the {@code source} artifact.
+   */
+  public Artifact swiftModuleFile(Artifact source) {
+    return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".partial_swiftmodule"),
+        binDirectory);
+  }
+
+  /**
+   * Integrated swift module for this target.
+   */
+  public Artifact swiftModule() {
+    return appendExtension(".swiftmodule");
+  }
+
+  /**
+   * Integrated swift header for this target.
+   */
+  public Artifact swiftHeader() {
+    return appendExtension("-Swift.h");
+  }
+
+  /**
    * The artifact for the .gcno file that should be generated when compiling the {@code source}
    * artifact.
    */
@@ -233,6 +255,14 @@ final class IntermediateArtifacts {
   public Artifact compiledXibFileZip(Artifact originalFile) {
     return appendExtension(
         "/" + FileSystemUtils.replaceExtension(originalFile.getExecPath(), ".nib.zip"));
+  }
+
+  /**
+   * Returns the artifact which is the output of running swift-stdlib-tool and copying resulting
+   * dylibs.
+   */
+  public Artifact swiftFrameworksFileZip() {
+    return appendExtension(".swiftstdlib.zip");
   }
 
   /**

@@ -199,7 +199,13 @@ public final class ObjcProvider implements TransitiveInfoProvider {
      * Indicates that C++ (or Objective-C++) is used in any source file. This affects how the linker
      * is invoked.
     */
-    USES_CPP;
+    USES_CPP,
+
+    /**
+     * Indicates that Swift source files are present. This affects bundling, compiling and linking
+     * actions.
+     */
+    USES_SWIFT
   }
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;

@@ -84,6 +84,28 @@ public class IosSdkCommands {
     return platformDir(configuration) + "/Developer/Library/Frameworks";
   }
 
+  /**
+   * Returns swift libraries path.
+   */
+  public static String swiftLibDir(ObjcConfiguration configuration) {
+    return DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/"
+        + swiftPlatform(configuration);
+  }
+
+  /**
+   * Returns a platform name string suitable for use in Swift tools.
+   */
+  public static String swiftPlatform(ObjcConfiguration configuration) {
+    return getPlatformPlistName(configuration).toLowerCase();
+  }
+
+  /**
+   * Returns the target string for swift compiler. For example, "x86_64-apple-ios8.2"
+   */
+  public static String swiftTarget(ObjcConfiguration configuration) {
+    return configuration.getIosCpu() + "-apple-" + "ios" + configuration.getIosSdkVersion();
+  }
+
   private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
     ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
     for (PathFragment path : paths) {

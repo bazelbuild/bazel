@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GCNO;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
@@ -455,12 +456,19 @@ public final class ObjcCommon {
         }
 
         boolean usesCpp = false;
+        boolean usesSwift = false;
         for (Artifact sourceFile :
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
           usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+          usesSwift = usesSwift || ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getExecPath());
         }
+
         if (usesCpp) {
           objcProvider.add(FLAG, USES_CPP);
+        }
+
+        if (usesSwift) {
+          objcProvider.add(FLAG, USES_SWIFT);
         }
       }
 

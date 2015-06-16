@@ -61,10 +61,13 @@ public class ObjcRuleClasses {
       IosSdkCommands.DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/bin";
   static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
   static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
+  static final PathFragment SWIFT = new PathFragment(BIN_DIR + "/swift");
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
   static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
+  static final PathFragment SWIFT_STDLIB_TOOL = new PathFragment(BIN_DIR + "/swift-stdlib-tool");
+
   private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 
   private ObjcRuleClasses() {
@@ -312,9 +315,11 @@ public class ObjcRuleClasses {
    */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
+  static final FileType SWIFT_SOURCES = FileType.of(".swift");
+
   private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
-  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES);
+  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, SWIFT_SOURCES);
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
@@ -452,6 +457,8 @@ public class ObjcRuleClasses {
               .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
           .add(attr("$ibtoolzip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:ibtoolzip_deploy.jar")))
+          .add(attr("$swiftstdlibtoolzip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:swiftstdlibtoolzip_deploy.jar")))
           .build();
     }
     @Override

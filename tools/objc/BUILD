@@ -39,6 +39,12 @@ java_binary(
     main_class = "com.google.devtools.build.xcode.xcodegen.XcodeGen",
 )
 
+java_binary(
+    name = "swiftstdlibtoolzip",
+    srcs = [":precomp_xcodegen_deploy.jar"],
+    main_class = "com.google.devtools.build.xcode.swiftstdlibtoolzip.SwiftStdlibToolZip",
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -68,6 +69,7 @@ final class CompilationArtifacts {
   private final Iterable<Artifact> nonArcSrcs;
   private final Optional<Artifact> archive;
   private final Optional<Artifact> pchFile;
+  private final boolean hasSwiftSources;
 
   private CompilationArtifacts(
       Iterable<Artifact> srcs,
@@ -78,6 +80,12 @@ final class CompilationArtifacts {
     this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
     this.archive = Preconditions.checkNotNull(archive);
     this.pchFile = Preconditions.checkNotNull(pchFile);
+    this.hasSwiftSources = Iterables.any(this.srcs, new Predicate<Artifact>() {
+      @Override
+      public boolean apply(Artifact artifact) {
+        return ObjcRuleClasses.SWIFT_SOURCES.matches(artifact.getExecPath());
+      }
+    });
   }
 
   public Iterable<Artifact> getSrcs() {
@@ -94,5 +102,12 @@ final class CompilationArtifacts {
 
   public Optional<Artifact> getPchFile() {
     return pchFile;
+  }
+
+  /**
+   * Returns true if any of this target's srcs are Swift source files.
+   */
+  public boolean hasSwiftSources() {
+    return hasSwiftSources;
   }
 }
