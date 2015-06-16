@@ -752,44 +752,49 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(target_device) -->
-          The device against which to run the test.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(IosTest.TARGET_DEVICE, LABEL)
-              .allowedFileTypes()
-              .allowedRuleClasses("ios_device"))
+           The device against which to run the test.
+           ${SYNOPSIS}
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr(IosTest.TARGET_DEVICE, LABEL)
+                  .allowedFileTypes()
+                  .allowedRuleClasses("ios_device"))
           /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(xctest) -->
-          Whether this target contains tests using the XCTest testing framework.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(IosTest.IS_XCTEST, BOOLEAN))
+           Whether this target contains tests using the XCTest testing framework.
+           ${SYNOPSIS}
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr(IosTest.IS_XCTEST, BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(xctest_app) -->
-          A <code>objc_binary</code> target that contains the app bundle to test against in XCTest.
-          This attribute is only valid if <code>xctest</code> is true.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(IosTest.XCTEST_APP, LABEL)
-              .value(new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
-                      ? env.getLabel("//tools/objc:xctest_app")
-                      : null;
-                }
-              })
-              .allowedFileTypes()
-              // TODO(bazel-team): Remove objc_binary once it stops exporting XcTestAppProvider.
-              .allowedRuleClasses("objc_binary", "ios_application"))
-          .override(attr("infoplist", LABEL)
-              .value(new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
-                      ? env.getLabel("//tools/objc:xctest_infoplist")
-                      : null;
-                }
-              })
-              .allowedFileTypes(PLIST_TYPE))
+           A <code>objc_binary</code> target that contains the app bundle to test against in XCTest.
+           This attribute is only valid if <code>xctest</code> is true.
+           ${SYNOPSIS}
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr(IosTest.XCTEST_APP, LABEL)
+                  .value(
+                      new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
+                              ? env.getLabel("//tools/objc:xctest_app")
+                              : null;
+                        }
+                      })
+                  .allowedFileTypes()
+                  // TODO(bazel-team): Remove objc_binary once it stops exporting XcTestAppProvider.
+                  .allowedRuleClasses("objc_binary", "ios_application"))
+          .override(
+              attr("infoplist", LABEL)
+                  .value(
+                      new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
+                              ? env.getLabel("//tools/objc:xctest_infoplist")
+                              : null;
+                        }
+                      })
+                  .allowedFileTypes(PLIST_TYPE))
           .build();
     }
     @Override
