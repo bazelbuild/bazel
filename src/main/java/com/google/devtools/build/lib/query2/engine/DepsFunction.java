@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -66,16 +68,12 @@ final class DepsFunction implements QueryFunction {
     // We need to iterate depthBound + 1 times.
     for (int i = 0; i <= depthBound; i++) {
       List<T> next = new ArrayList<>();
-      for (T node : current) {
-        if (!visited.add(node)) {
-          // Already visited; if we see a node in a later round, then we don't need to visit it
-          // again, because the depth at which we see it at must be greater than or equal to the
-          // last visit.
-          continue;
-        }
-
-        next.addAll(env.getFwdDeps(node));
-      }
+      // Filter already visited nodes: if we see a node in a later round, then we don't need to
+      // visit it again, because the depth at which we see it at must be greater than or equal to
+      // the last visit.
+      next.addAll(env.getFwdDeps(Iterables.filter(current,
+          Predicates.not(Predicates.in(visited)))));
+      visited.addAll(current);
       if (next.isEmpty()) {
         // Exit when there are no more nodes to visit.
         break;

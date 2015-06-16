@@ -155,8 +155,14 @@ public interface QueryEnvironment<T> {
   /** Returns the direct forward dependencies of the specified target. */
   Collection<T> getFwdDeps(T target);
 
+  /** Returns the direct forward dependencies of the specified targets. */
+  Collection<T> getFwdDeps(Iterable<T> targets);
+
   /** Returns the direct reverse dependencies of the specified target. */
   Collection<T> getReverseDeps(T target);
+
+  /** Returns the direct reverse dependencies of the specified targets. */
+  Collection<T> getReverseDeps(Iterable<T> targets);
 
   /**
    * Returns the forward transitive closure of all of the targets in
