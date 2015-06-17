@@ -91,6 +91,13 @@ public class ZipFunction implements SkyFunction {
     if (isDirectory) {
       FileSystemUtils.createDirectoryAndParents(outputPath);
     } else {
+      // TODO(kchodorow): should be able to be removed when issue #236 is resolved, but for now
+      // this delete+rewrite is required or the build will error out if outputPath exists here.
+      // The zip file is not re-unzipped when the WORKSPACE file is changed (because it is assumed
+      // to be immutable) but is on server restart (which is a bug).
+      if (outputPath.exists()) {
+        outputPath.delete();
+      }
       File outputFile = outputPath.getPathFile();
       Files.copy(reader.getInputStream(entry), outputFile.toPath());
       outputPath.chmod(permissions);
