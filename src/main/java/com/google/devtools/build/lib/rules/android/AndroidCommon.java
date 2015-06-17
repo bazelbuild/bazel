@@ -330,6 +330,9 @@ public class AndroidCommon {
     }
 
     jackCompilationHelper = initJack(helper.getAttributes(), javaSemantics);
+    if (jackCompilationHelper == null) {
+      return null;
+    }
 
     initJava(
         helper, artifactsBuilder, collectJavaCompilationArgs, resourceApk.getResourceJavaSrcJar());

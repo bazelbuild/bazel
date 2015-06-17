@@ -100,6 +100,9 @@ public final class JackAspect implements ConfiguredAspectFactory {
             .addDeps(getPotentialDependency(ruleContext, "deps"))
             .addRuntimeDeps(getPotentialDependency(ruleContext, "runtime_deps"))
             .build();
+    if (jackHelper == null) {
+      return null;
+    }
 
     JackLibraryProvider result =
         JavaCommon.isNeverLink(ruleContext)

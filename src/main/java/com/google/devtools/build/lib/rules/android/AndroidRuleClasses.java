@@ -551,6 +551,7 @@ public final class AndroidRuleClasses {
               .value(env.getLabel("//tools/android/jack:resource_extractor")))
           .add(attr("$android_jack", LABEL)
               .cfg(HOST)
+              .singleArtifact()
               .value(env.getLabel("//tools/android/jack:android_jack")))
           .build();
     }

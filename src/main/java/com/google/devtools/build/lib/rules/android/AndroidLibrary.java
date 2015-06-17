@@ -97,8 +97,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             false,
             null /* proguardCfgOut */);
 
-        androidCommon.init(javaSemantics, androidSemantics, tools,
-            resourceApk, transitiveIdlImportData, false, true);
+        if (androidCommon.init(javaSemantics, androidSemantics, tools,
+            resourceApk, transitiveIdlImportData, false, true) == null) {
+          return null;
+        }
 
         Artifact classesJar = mergeJarsFromSrcs(ruleContext,
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR));
@@ -145,9 +147,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
       AndroidCommon androidCommon = new AndroidCommon(ruleContext, javaCommon);
       ResourceApk resourceApk = ResourceApk.fromTransitiveResources(transitiveResources);
-      androidCommon.init(javaSemantics, androidSemantics, tools,
-          resourceApk, transitiveIdlImportData, false, true);
-
+      if (androidCommon.init(javaSemantics, androidSemantics, tools,
+          resourceApk, transitiveIdlImportData, false, true) == null) {
+        return null;
+      }
 
       RuleConfiguredTargetBuilder targetBuilder = androidCommon.addTransitiveInfoProviders(
           new RuleConfiguredTargetBuilder(ruleContext), tools);

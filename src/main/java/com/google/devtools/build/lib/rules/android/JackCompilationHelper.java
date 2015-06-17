@@ -808,13 +808,13 @@ public final class JackCompilationHelper {
               .getConfiguration()
               .getFragment(AndroidConfiguration.class)
               .isJackSanityChecked();
-      FilesToRunProvider jackBinary =
-          Preconditions.checkNotNull(ruleContext.getExecutablePrerequisite("$jack", Mode.HOST));
-      FilesToRunProvider jillBinary =
-          Preconditions.checkNotNull(ruleContext.getExecutablePrerequisite("$jill", Mode.HOST));
+      FilesToRunProvider jackBinary = ruleContext.getExecutablePrerequisite("$jack", Mode.HOST);
+      FilesToRunProvider jillBinary = ruleContext.getExecutablePrerequisite("$jill", Mode.HOST);
       FilesToRunProvider resourceExtractorBinary =
-          Preconditions.checkNotNull(
-              ruleContext.getExecutablePrerequisite("$resource_extractor", Mode.HOST));
+          ruleContext.getExecutablePrerequisite("$resource_extractor", Mode.HOST);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
 
       return new JackCompilationHelper(
           Preconditions.checkNotNull(ruleContext),

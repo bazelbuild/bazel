@@ -99,6 +99,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               getTransitiveResourceContainers(ruleContext, ImmutableList.of("resources", "deps")),
               javaCommon, androidCommon, javaSemantics, androidSemantics, tools,
               ImmutableList.<String>of("deps"));
+      if (builder == null) {
+        return null;
+      }
       return builder.build();
     } catch (RuleConfigurationException e) {
       Preconditions.checkArgument(ruleContext.hasErrors(),
@@ -256,6 +259,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     JavaTargetAttributes resourceClasses = androidCommon.init(
         javaSemantics, androidSemantics, tools, resourceApk, AndroidIdlProvider.EMPTY,
         ruleContext.getConfiguration().isCodeCoverageEnabled(), true);
+    if (resourceClasses == null) {
+      return null;
+    }
 
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR));
