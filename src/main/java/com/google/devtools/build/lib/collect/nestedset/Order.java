@@ -18,19 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 
 /**
- * Type of a nested set (defines order).
+ * Type of a nested set (defines order). For explanation what these ordering mean,
+ * see CompileOrderExpander, LinkOrderExpander, NaiveLinkOrderExpander.
  */
 public enum Order {
 
   STABLE_ORDER("stable", new CompileOrderExpander<>(), new StableOrderNestedSetFactory()),
   COMPILE_ORDER("compile", new CompileOrderExpander<>(), new CompileOrderNestedSetFactory()),
   LINK_ORDER("link", new LinkOrderExpander<>(), new LinkOrderNestedSetFactory()),
-  NAIVE_LINK_ORDER("naive_link", new NaiveLinkOrderExpander<>(), 
+  NAIVE_LINK_ORDER("naive_link", new NaiveLinkOrderExpander<>(),
       new NaiveLinkOrderNestedSetFactory());
 
   private static final ImmutableMap<String, Order> VALUES;
-  
-  private final String name;  
+
+  private final String name;
   private final NestedSetExpander<?> expander;
   final NestedSetFactory factory;
   private final NestedSet<?> emptySet;
@@ -82,7 +83,7 @@ public enum Order {
    */
   static {
     Order[] tmpValues = Order.values();
-    
+
     HashMap<String, Order> entries = new HashMap<>(tmpValues.length);
 
     for (Order current : tmpValues) {
