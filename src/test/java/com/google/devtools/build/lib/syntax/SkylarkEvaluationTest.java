@@ -469,6 +469,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testReassignment() throws Exception {
+    eval("def foo(x=None):",
+        "  x = 1",
+        "  x = [1, 2]",
+        "  x = 'str'",
+        "  return x",
+        "s = foo()");
+    assertThat(lookup("s")).isEqualTo("str");
+  }
+
+  @Test
   public void testJavaCalls() throws Exception {
     update("mock", new Mock());
     eval("b = mock.is_empty('a')");

@@ -86,21 +86,12 @@ public class LValue implements Serializable {
       // with the same name exists. In this case an Exception needs to be thrown.
       SkylarkEnvironment skylarkEnv = (SkylarkEnvironment) env;
       if (skylarkEnv.hasBeenReadGlobalVariable(ident.getName())) {
-        throw new EvalException(loc, "Variable '" + ident.getName()
-            + "' is referenced before assignment."
-            + "The variable is defined in the global scope.");
-      }
-      Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
-      Class<?> resultType = EvalUtils.getSkylarkType(result.getClass());
-      if (variableType != null && !variableType.equals(resultType)
-          && !resultType.equals(Environment.NoneType.class)
-          && !variableType.equals(Environment.NoneType.class)) {
-        throw new EvalException(loc, Printer.format("Incompatible variable types, "
-            + "trying to assign %r (type of %s) to variable %s which is already %s",
-            result,
-            EvalUtils.getDataTypeName(result),
-            ident.getName(),
-            EvalUtils.getDataTypeNameFromClass(variableType)));
+        throw new EvalException(
+            loc,
+            String.format(
+                "Variable '%s' is referenced before assignment. "
+                    + "The variable is defined in the global scope.",
+                ident.getName()));
       }
     }
     env.update(ident.getName(), result);
