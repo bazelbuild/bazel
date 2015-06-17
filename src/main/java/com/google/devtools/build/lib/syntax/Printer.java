@@ -135,7 +135,9 @@ public final class Printer {
       append(buffer, "<function " + func.getName() + ">");
 
     } else if (o instanceof Label) {
+      append(buffer, "Label(");
       write(buffer, o.toString());
+      append(buffer, ')');
 
     } else if (o instanceof FilesetEntry) {
            FilesetEntry entry = (FilesetEntry) o;

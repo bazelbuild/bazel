@@ -70,7 +70,7 @@ public class PrinterTest {
     assertEquals("None", Printer.repr(Environment.NONE));
 
     assertEquals("//x:x", Printer.str(Label.parseAbsolute("//x")));
-    assertEquals("\"//x:x\"", Printer.repr(Label.parseAbsolute("//x")));
+    assertEquals("Label(\"//x:x\")", Printer.repr(Label.parseAbsolute("//x")));
 
     List<?> list = makeList("foo", "bar");
     List<?> tuple = makeTuple("foo", "bar");
