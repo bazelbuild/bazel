@@ -19,9 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
+import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
+import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
 import com.google.devtools.build.lib.rules.genquery.GenQuery;
@@ -110,7 +113,8 @@ public class BazelRulesModule extends BlazeModule {
     public Map<Class<? extends ActionContext>, String> getActionContexts() {
       return ImmutableMap.of(
           CppCompileActionContext.class, "",
-          CppLinkActionContext.class, "");
+          CppLinkActionContext.class, "",
+          WriteAdbArgsActionContext.class, "");
     }
   }
 
@@ -128,6 +132,12 @@ public class BazelRulesModule extends BlazeModule {
     return command.builds()
         ? ImmutableList.<Class<? extends OptionsBase>>of(BazelExecutionOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
+  }
+
+  @Override
+  public Iterable<ActionContextProvider> getActionContextProviders() {
+    return ImmutableList.<ActionContextProvider>of(new SimpleActionContextProvider(
+        new WriteAdbArgsActionContext(runtime.getClientEnv().get("HOME"))));
   }
 
   @Override
