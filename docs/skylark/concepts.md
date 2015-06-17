@@ -104,7 +104,7 @@ The following Python features are not supported:
 
 * `class` (see `struct` function)
 * `import` (see `load` statement)
-* `while`, `yield`
+* `while`, `yield`, `break`, `continue`
 * `lambda`
 * `try`, `raise`, `except`, `finally` (see `fail` for fatal errors).
 * most builtin functions, most methods
