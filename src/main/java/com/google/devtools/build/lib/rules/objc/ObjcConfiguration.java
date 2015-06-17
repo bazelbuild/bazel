@@ -49,7 +49,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
 
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
-      ImmutableList.of("-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
+      ImmutableList.of(
+          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra", "-g");
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;

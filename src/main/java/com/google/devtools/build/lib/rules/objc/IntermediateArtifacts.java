@@ -119,10 +119,21 @@ final class IntermediateArtifacts {
 
   /**
    * The artifact which is the binary (or library) which is comprised of one or more .a files linked
-   * together.
+   * together. Compared to the artifact returned by {@link #unstrippedSingleArchitectureBinary},
+   * this artifact is stripped of symbol table when --compilation_mode=opt is specified.
    */
-  public Artifact singleArchitectureBinary() {
+  public Artifact strippedSingleArchitectureBinary() {
     return appendExtension("_bin");
+  }
+
+  /**
+   * The artifact which is the binary (or library) which is comprised of one or more .a files linked
+   * together. It also contains full debug symbol information, compared to the artifact returned
+   * by {@link #strippedSingleArchitectureBinary}. This artifact will serve as input for the symbol
+   * strip action and is only created when --compilation_mode=opt is specified.
+   */
+  public Artifact unstrippedSingleArchitectureBinary() {
+    return appendExtension("_bin_unstripped");
   }
 
   /**
