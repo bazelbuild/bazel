@@ -144,7 +144,7 @@ public final class SkylarkAttr {
               "allowed rule classes for attribute definition"));
     }
 
-    Iterable<String> values = castList(arguments.get("values"), String.class);
+    Iterable<Object> values = castList(arguments.get("values"), Object.class);
     if (!Iterables.isEmpty(values)) {
       builder.allowedValues(new AllowedValueSet(values));
     }
@@ -179,7 +179,7 @@ public final class SkylarkAttr {
             defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
-        @Param(name = "values", type = SkylarkList.class, generic1 = String.class,
+        @Param(name = "values", type = SkylarkList.class, generic1 = Integer.class,
             defaultValue = "[]", doc = VALUES_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
