@@ -85,7 +85,7 @@ final class IntermediateArtifacts {
   }
 
   /**
-   * The output of using {@code actooloribtoolzip} to run {@code actool} for a given bundle which is
+   * The output of using {@code actoolzip} to run {@code actool} for a given bundle which is
    * merged under the {@code .app} or {@code .bundle} directory root.
    */
   public Artifact actoolzipOutput() {
