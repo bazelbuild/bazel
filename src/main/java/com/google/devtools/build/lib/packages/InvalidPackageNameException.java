@@ -19,11 +19,12 @@ package com.google.devtools.build.lib.packages;
  */
 public class InvalidPackageNameException extends NoSuchPackageException {
 
-  public InvalidPackageNameException(String packageName, String message) {
-    super(packageName, message);
+  public InvalidPackageNameException(PackageIdentifier packageIdentifier, String message) {
+    super(packageIdentifier, message);
   }
 
-  public InvalidPackageNameException(String packageName, String message, Throwable cause) {
-    super(packageName, message, cause);
+  public InvalidPackageNameException(
+      PackageIdentifier packageIdentifier, String message, Throwable cause) {
+    super(packageIdentifier, message, cause);
   }
 }

@@ -22,11 +22,12 @@ package com.google.devtools.build.lib.packages;
 // longer a child of NoSuchPackageException.
 public class DuplicatePackageException extends NoSuchPackageException {
 
-  public DuplicatePackageException(String packageName, String message) {
-    super(packageName, message);
+  public DuplicatePackageException(PackageIdentifier packageIdentifier, String message) {
+    super(packageIdentifier, message);
   }
 
-  public DuplicatePackageException(String packageName, String message, Throwable cause) {
-    super(packageName, message, cause);
+  public DuplicatePackageException(PackageIdentifier packageIdentifier, String message,
+                                   Throwable cause) {
+    super(packageIdentifier, message, cause);
   }
 }

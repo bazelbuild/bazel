@@ -64,7 +64,7 @@ public final class TargetMarkerFunction implements SkyFunction {
         // This means the label's package doesn't exist. E.g. there is no package 'a' and we are
         // trying to build the target for label 'a:b/foo'.
         throw new TargetMarkerFunctionException(new BuildFileNotFoundException(
-            pkgForLabel.getPathString(), "BUILD file not found on package path for '"
+            label.getPackageIdentifier(), "BUILD file not found on package path for '"
                 + pkgForLabel.getPathString() + "'"));
       }
       if (!containingPackageLookupValue.getContainingPackageName().equals(

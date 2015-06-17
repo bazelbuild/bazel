@@ -52,19 +52,19 @@ class PackageLookupFunction implements SkyFunction {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
     if (!packageKey.getRepository().isDefault()) {
-      return computeExternalPackageLookupValue(skyKey, env);
+      return computeExternalPackageLookupValue(skyKey, env, packageKey);
     } else if (packageKey.getPackageFragment().equals(new PathFragment(ExternalPackage.NAME))) {
-      return computeWorkspaceLookupValue(env);
+      return computeWorkspaceLookupValue(env, packageKey);
     }
-    PathFragment pkg = packageKey.getPackageFragment();
-    String pkgName = pkg.getPathString();
-    String packageNameErrorMsg = LabelValidator.validatePackageName(pkgName);
+
+    String packageNameErrorMsg = LabelValidator.validatePackageName(
+        packageKey.getPackageFragment().getPathString());
     if (packageNameErrorMsg != null) {
-      return PackageLookupValue.invalidPackageName("Invalid package name '" + pkgName + "': "
+      return PackageLookupValue.invalidPackageName("Invalid package name '" + packageKey + "': "
           + packageNameErrorMsg);
     }
 
-    if (deletedPackages.get().contains(pkg.getPathString())) {
+    if (deletedPackages.get().contains(packageKey.getPackageFragment().toString())) {
       return PackageLookupValue.deletedPackage();
     }
 
@@ -73,7 +73,7 @@ class PackageLookupFunction implements SkyFunction {
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
     // fixed once we have nicer continuation support [skyframe-loading]
     for (Path packagePathEntry : pkgLocator.getPathEntries()) {
-      PackageLookupValue value = getPackageLookupValue(env, packagePathEntry, pkg);
+      PackageLookupValue value = getPackageLookupValue(env, packagePathEntry, packageKey);
       if (value == null || value.packageExists()) {
         return value;
       }
@@ -88,7 +88,8 @@ class PackageLookupFunction implements SkyFunction {
   }
 
   @Nullable
-  private FileValue getFileValue(RootedPath buildFileRootedPath, Environment env)
+  private FileValue getFileValue(
+      RootedPath buildFileRootedPath, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException {
     String basename = buildFileRootedPath.asPath().getBaseName();
     SkyKey fileSkyKey = FileValue.key(buildFileRootedPath);
@@ -97,16 +98,14 @@ class PackageLookupFunction implements SkyFunction {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
           FileSymlinkCycleException.class, InconsistentFilesystemException.class);
     } catch (IOException e) {
-      String pkgName = buildFileRootedPath.getRelativePath().getParentDirectory().getPathString();
       // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
       // BuildFileNotFoundException.
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(pkgName,
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
           "IO errors while looking for " + basename + " file reading "
               + buildFileRootedPath.asPath() + ": " + e.getMessage(), e),
           Transience.PERSISTENT);
     } catch (FileSymlinkCycleException e) {
-      String pkgName = buildFileRootedPath.asPath().getPathString();
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(pkgName,
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
           "Symlink cycle detected while trying to find " + basename + " file "
               + buildFileRootedPath.asPath()),
           Transience.PERSISTENT);
@@ -118,11 +117,11 @@ class PackageLookupFunction implements SkyFunction {
   }
 
   private PackageLookupValue getPackageLookupValue(Environment env, Path packagePathEntry,
-      PathFragment pkgFragment) throws PackageLookupFunctionException {
-    PathFragment buildFileFragment = pkgFragment.getChild("BUILD");
+      PackageIdentifier packageIdentifier) throws PackageLookupFunctionException {
+    PathFragment buildFileFragment = packageIdentifier.getPackageFragment().getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry,
         buildFileFragment);
-    FileValue fileValue = getFileValue(buildFileRootedPath, env);
+    FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
     if (fileValue == null) {
       return null;
     }
@@ -135,11 +134,12 @@ class PackageLookupFunction implements SkyFunction {
   /**
    * Gets a PackageLookupValue from a different Bazel repository.
    *
-   * To do this, it looks up the "external" package and finds a path mapping for the repository
-   * name.
+   * <p>To do this, it looks up the "external" package and finds a path mapping for the repository
+   * name.</p>
    */
   private PackageLookupValue computeExternalPackageLookupValue(
-      SkyKey skyKey, Environment env) throws PackageLookupFunctionException {
+      SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
+      throws PackageLookupFunctionException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
     SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
     RepositoryValue repositoryValue = null;
@@ -149,16 +149,14 @@ class PackageLookupFunction implements SkyFunction {
       if (repositoryValue == null) {
         return null;
       }
-    } catch (NoSuchPackageException e) {
-      throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
-    } catch (IOException | EvalException e) {
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(
-          ExternalPackage.NAME, e.getMessage()), Transience.PERSISTENT);
+    } catch (NoSuchPackageException | IOException | EvalException e) {
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
+          Transience.PERSISTENT);
     }
     PathFragment buildFileFragment = id.getPackageFragment().getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(repositoryValue.getPath(),
         buildFileFragment);
-    FileValue fileValue = getFileValue(buildFileRootedPath, env);
+    FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
     if (fileValue == null) {
       return null;
     }
@@ -177,7 +175,8 @@ class PackageLookupFunction implements SkyFunction {
    * Look for a WORKSPACE file on each package path.  If none is found, use the last package path
    * and pretend it was found there.
    */
-  private SkyValue computeWorkspaceLookupValue(Environment env)
+  private SkyValue computeWorkspaceLookupValue(
+      Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     Path lastPackagePath = null;
@@ -185,7 +184,7 @@ class PackageLookupFunction implements SkyFunction {
       lastPackagePath = packagePathEntry;
       RootedPath workspacePath = RootedPath.toRootedPath(
           packagePathEntry, new PathFragment("WORKSPACE"));
-      FileValue value = getFileValue(workspacePath, env);
+      FileValue value = getFileValue(workspacePath, env, packageIdentifier);
       if (value == null) {
         return null;
       }

@@ -144,6 +144,23 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_non_existent_external_ref() {
+  mkdir zoo
+  touch zoo/BallPit.java
+  cat > zoo/BUILD <<EOF
+java_binary(
+    name = "ball-pit",
+    srcs = ["BallPit.java"],
+    main_class = "BallPit",
+    deps = ["@common//carnivore:mongoose"],
+)
+EOF
+
+  bazel build //zoo:ball-pit >& $TEST_log && \
+    fail "Expected build to fail"
+  expect_log "no such package '@common//carnivore'"
+}
+
 function test_new_local_repository() {
   bazel clean
 

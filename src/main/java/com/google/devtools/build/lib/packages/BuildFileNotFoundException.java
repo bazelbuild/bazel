@@ -20,12 +20,12 @@ package com.google.devtools.build.lib.packages;
  */
 public class BuildFileNotFoundException extends NoSuchPackageException {
 
-  public BuildFileNotFoundException(String packageName, String message) {
-    super(packageName, message);
+  public BuildFileNotFoundException(PackageIdentifier packageIdentifier, String message) {
+    super(packageIdentifier, message);
   }
 
-  public BuildFileNotFoundException(String packageName, String message,
+  public BuildFileNotFoundException(PackageIdentifier packageIdentifier, String message,
       Throwable cause) {
-    super(packageName, message, cause);
+    super(packageIdentifier, message, cause);
   }
 }

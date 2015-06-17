@@ -422,7 +422,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           transitiveChildException = e;
         }
       } catch (NoSuchPackageException e) {
-        if (depLabel.getPackageName().equals(e.getPackageName())) {
+        if (depLabel.getPackageIdentifier().equals(e.getPackageId())) {
           directChildException = e;
         } else {
           childKey = entry.getKey();

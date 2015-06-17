@@ -1072,11 +1072,11 @@ public final class PackageFactory {
         packageId.getPackageFragment().getPathString());
     if (error != null) {
       throw new BuildFileNotFoundException(
-          packageId.toString(), "illegal package name: '" + packageId + "' (" + error + ")");
+          packageId, "illegal package name: '" + packageId + "' (" + error + ")");
     }
     ParserInputSource inputSource = maybeGetParserInputSource(buildFile, eventHandler);
     if (inputSource == null) {
-      throw new BuildFileContainsErrorsException(packageId.toString(), "IOException occured");
+      throw new BuildFileContainsErrorsException(packageId, "IOException occured");
     }
 
     Package result = createPackage((new ExternalPackage.Builder(

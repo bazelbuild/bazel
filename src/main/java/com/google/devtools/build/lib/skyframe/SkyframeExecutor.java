@@ -1256,8 +1256,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             reportCycles(result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
             // or loading phase
-            throw new BuildFileContainsErrorsException(pkgName.toString(),
-                "Cycle encountered while loading package " + pkgName);
+            throw new BuildFileContainsErrorsException(
+                pkgName, "Cycle encountered while loading package " + pkgName);
           }
           Throwable e = error.getException();
           // PackageFunction should be catching, swallowing, and rethrowing all transitive

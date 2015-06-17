@@ -22,30 +22,31 @@ import javax.annotation.Nullable;
  */
 public abstract class NoSuchPackageException extends NoSuchThingException {
 
-  private final String packageName;
+  private final PackageIdentifier packageId;
 
-  public NoSuchPackageException(String packageName, String message) {
-    this(packageName, "no such package", message);
+  public NoSuchPackageException(PackageIdentifier packageId, String message) {
+    this(packageId, "no such package", message);
   }
 
-  public NoSuchPackageException(String packageName, String message,
+  public NoSuchPackageException(PackageIdentifier packageId, String message,
       Throwable cause) {
-    this(packageName, "no such package", message, cause);
+    this(packageId, "no such package", message, cause);
   }
 
-  protected NoSuchPackageException(String packageName, String messagePrefix, String message) {
-    super(messagePrefix + " '" + packageName + "': " + message);
-    this.packageName = packageName;
+  protected NoSuchPackageException(
+      PackageIdentifier packageId, String messagePrefix, String message) {
+    super(messagePrefix + " '" + packageId + "': " + message);
+    this.packageId = packageId;
   }
 
-  protected NoSuchPackageException(String packageName, String messagePrefix, String message,
-      Throwable cause) {
-    super(messagePrefix + " '" + packageName + "': " + message, cause);
-    this.packageName = packageName;
+  protected NoSuchPackageException(PackageIdentifier packageId, String messagePrefix,
+      String message, Throwable cause) {
+    super(messagePrefix + " '" + packageId + "': " + message, cause);
+    this.packageId = packageId;
   }
 
-  public String getPackageName() {
-    return packageName;
+  public PackageIdentifier getPackageId() {
+    return packageId;
   }
 
   /**

@@ -31,13 +31,13 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
-import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -112,11 +112,11 @@ public class PackageFunction implements SkyFunction {
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
-  private static void maybeThrowFilesystemInconsistency(String packageName,
+  private static void maybeThrowFilesystemInconsistency(PackageIdentifier packageIdentifier,
       Exception skyframeException, boolean packageWasInError)
           throws InternalInconsistentFilesystemException {
     if (!packageWasInError) {
-      throw new InternalInconsistentFilesystemException(packageName, "Encountered error '"
+      throw new InternalInconsistentFilesystemException(packageIdentifier, "Encountered error '"
           + skyframeException.getMessage() + "' but didn't encounter it when doing the same thing "
           + "earlier in the build");
     }
@@ -130,7 +130,8 @@ public class PackageFunction implements SkyFunction {
    * don't care about any skyframe errors since the package knows whether it's in error or not.
    */
   private static Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean>
-  getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(String packageName,
+  getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
+      PackageIdentifier packageIdentifier,
       Iterable<SkyKey> depKeys, Environment env, boolean packageWasInError)
           throws InternalInconsistentFilesystemException {
     Preconditions.checkState(
@@ -149,9 +150,9 @@ public class PackageFunction implements SkyFunction {
           builder.put(pkgName, value);
         }
       } catch (BuildFileNotFoundException e) {
-        maybeThrowFilesystemInconsistency(packageName, e, packageWasInError);
+        maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(packageName, e);
+        throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       } catch (FileSymlinkCycleException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
@@ -161,8 +162,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static boolean markFileDepsAndPropagateInconsistentFilesystemExceptions(
-      String packageName, Iterable<SkyKey> depKeys, Environment env, boolean packageWasInError)
-          throws InternalInconsistentFilesystemException {
+      PackageIdentifier packageIdentifier, Iterable<SkyKey> depKeys, Environment env,
+      boolean packageWasInError) throws InternalInconsistentFilesystemException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.FILE)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -172,20 +173,20 @@ public class PackageFunction implements SkyFunction {
       try {
         entry.getValue().get();
       } catch (IOException e) {
-        maybeThrowFilesystemInconsistency(packageName, e, packageWasInError);
+        maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (FileSymlinkCycleException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(packageName, e);
+        throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       }
     }
     return packageShouldBeInError;
   }
 
   private static boolean markGlobDepsAndPropagateInconsistentFilesystemExceptions(
-      String packageName, Iterable<SkyKey> depKeys, Environment env, boolean packageWasInError)
-          throws InternalInconsistentFilesystemException {
+      PackageIdentifier packageIdentifier, Iterable<SkyKey> depKeys, Environment env,
+      boolean packageWasInError) throws InternalInconsistentFilesystemException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -196,12 +197,12 @@ public class PackageFunction implements SkyFunction {
       try {
         entry.getValue().get();
       } catch (IOException | BuildFileNotFoundException e) {
-        maybeThrowFilesystemInconsistency(packageName, e, packageWasInError);
+        maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (FileSymlinkCycleException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(packageName, e);
+        throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       }
     }
     return packageShouldBeInError;
@@ -234,8 +235,9 @@ public class PackageFunction implements SkyFunction {
       subincludePackageLookupDepKeys.add(PackageLookupValue.key(label.getPackageFragment()));
     }
     Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean> subincludePackageLookupResult =
-        getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(pkg.getName(),
-            subincludePackageLookupDepKeys, env, packageWasOriginallyInError);
+        getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
+            pkg.getPackageIdentifier(), subincludePackageLookupDepKeys, env,
+            packageWasOriginallyInError);
     Map<PathFragment, PackageLookupValue> subincludePackageLookupDeps =
         subincludePackageLookupResult.getFirst();
     packageShouldBeInError |= subincludePackageLookupResult.getSecond();
@@ -253,15 +255,16 @@ public class PackageFunction implements SkyFunction {
         if (subincludeFilePath != null) {
           if (!subincludePackageLookupValue.packageExists()) {
             // Legacy blaze puts a non-null path when only when the package does indeed exist.
-            throw new InternalInconsistentFilesystemException(pkg.getName(), String.format(
-                "Unexpected package in %s. Was it modified during the build?", subincludeFilePath));
+            throw new InternalInconsistentFilesystemException(pkg.getPackageIdentifier(),
+                String.format("Unexpected package in %s. Was it modified during the build?",
+                    subincludeFilePath));
           }
           // Sanity check for consistency of Skyframe and legacy blaze.
           Path subincludeFilePathSkyframe =
               subincludePackageLookupValue.getRoot().getRelative(label.toPathFragment());
           if (!subincludeFilePathSkyframe.equals(subincludeFilePath)) {
-            throw new InternalInconsistentFilesystemException(pkg.getName(), String.format(
-                "Inconsistent package location for %s: '%s' vs '%s'. "
+            throw new InternalInconsistentFilesystemException(pkg.getPackageIdentifier(),
+                String.format("Inconsistent package location for %s: '%s' vs '%s'. "
                 + "Was the source tree modified during the build?",
                 label.getPackageFragment(), subincludeFilePathSkyframe, subincludeFilePath));
           }
@@ -275,7 +278,7 @@ public class PackageFunction implements SkyFunction {
       }
     }
     packageShouldBeInError |= markFileDepsAndPropagateInconsistentFilesystemExceptions(
-        pkg.getName(), subincludeFileDepKeys, env, packageWasOriginallyInError);
+        pkg.getPackageIdentifier(), subincludeFileDepKeys, env, packageWasOriginallyInError);
 
     // TODO(bazel-team): In the long term, we want to actually resolve the glob patterns within
     // Skyframe. For now, just logging the glob requests provides correct incrementality and
@@ -295,7 +298,7 @@ public class PackageFunction implements SkyFunction {
       globDepKeys.add(globSkyKey);
     }
     packageShouldBeInError |= markGlobDepsAndPropagateInconsistentFilesystemExceptions(
-        pkg.getName(), globDepKeys, env, packageWasOriginallyInError);
+        pkg.getPackageIdentifier(), globDepKeys, env, packageWasOriginallyInError);
     return packageShouldBeInError;
   }
 
@@ -326,8 +329,8 @@ public class PackageFunction implements SkyFunction {
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
     if (pkg.containsErrors()) {
-      throw new PackageFunctionException(new BuildFileContainsErrorsException("external",
-          "Package 'external' contains errors"),
+      throw new PackageFunctionException(new BuildFileContainsErrorsException(
+          ExternalPackage.PACKAGE_IDENTIFIER, "Package 'external' contains errors"),
           pkg.containsTemporaryErrors() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
 
@@ -352,7 +355,7 @@ public class PackageFunction implements SkyFunction {
     } catch (InconsistentFilesystemException e) {
       // This error is not transient from the perspective of the PackageFunction.
       throw new PackageFunctionException(
-          new InternalInconsistentFilesystemException(packageName, e), Transience.PERSISTENT);
+          new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
     }
     if (packageLookupValue == null) {
       return null;
@@ -363,10 +366,10 @@ public class PackageFunction implements SkyFunction {
         case NO_BUILD_FILE:
         case DELETED_PACKAGE:
         case NO_EXTERNAL_PACKAGE:
-          throw new PackageFunctionException(new BuildFileNotFoundException(packageName,
+          throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
-          throw new PackageFunctionException(new InvalidPackageNameException(packageName,
+          throw new PackageFunctionException(new InvalidPackageNameException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         default:
           // We should never get here.
@@ -428,7 +431,7 @@ public class PackageFunction implements SkyFunction {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
-      throw new PackageFunctionException(new BadPreludeFileException(packageName, e.getMessage()),
+      throw new PackageFunctionException(new BadPreludeFileException(packageId, e.getMessage()),
           Transience.PERSISTENT);
     }
     if (astLookupValue == null) {
@@ -452,10 +455,10 @@ public class PackageFunction implements SkyFunction {
       env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       // Note that we did this work, so we should conservatively report this error as transient.
       throw new PackageFunctionException(new BuildFileContainsErrorsException(
-          packageName, e.getMessage()), Transience.TRANSIENT);
+          packageId, e.getMessage()), Transience.TRANSIENT);
     }
     SkylarkImportResult importResult = fetchImportsFromBuildFile(buildFilePath, buildFileFragment,
-        packageId.getRepository(), preludeStatements, inputSource, packageName, env);
+        packageId, preludeStatements, inputSource, env);
     if (importResult == null) {
       return null;
     }
@@ -507,9 +510,9 @@ public class PackageFunction implements SkyFunction {
   }
 
   private SkylarkImportResult fetchImportsFromBuildFile(Path buildFilePath,
-      PathFragment buildFileFragment, RepositoryName repo,
-      List<Statement> preludeStatements, ParserInputSource inputSource,
-      String packageName, Environment env) throws PackageFunctionException {
+      PathFragment buildFileFragment, PackageIdentifier packageIdentifier,
+      List<Statement> preludeStatements, ParserInputSource inputSource, Environment env)
+      throws PackageFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
           inputSource, preludeStatements, eventHandler, null, true);
@@ -528,8 +531,8 @@ public class PackageFunction implements SkyFunction {
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     try {
       for (PathFragment importFile : imports) {
-        SkyKey importsLookupKey =
-            SkylarkImportLookupValue.key(repo, buildFileFragment, importFile);
+        SkyKey importsLookupKey = SkylarkImportLookupValue.key(
+            packageIdentifier.getRepository(), buildFileFragment, importFile);
         SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
             env.getValueOrThrow(importsLookupKey, SkylarkImportFailedException.class,
                 InconsistentFilesystemException.class, ASTLookupInputException.class,
@@ -541,14 +544,14 @@ public class PackageFunction implements SkyFunction {
       }
     } catch (SkylarkImportFailedException e) {
       env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
-      throw new PackageFunctionException(new BuildFileContainsErrorsException(packageName,
+      throw new PackageFunctionException(new BuildFileContainsErrorsException(packageIdentifier,
           e.getMessage()), Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
-      throw new PackageFunctionException(new InternalInconsistentFilesystemException(packageName,
-          e), Transience.PERSISTENT);
+      throw new PackageFunctionException(new InternalInconsistentFilesystemException(
+          packageIdentifier, e), Transience.PERSISTENT);
     } catch (ASTLookupInputException e) {
       // The load syntax is bad in the BUILD file so BuildFileContainsErrorsException is OK.
-      throw new PackageFunctionException(new BuildFileContainsErrorsException(packageName,
+      throw new PackageFunctionException(new BuildFileContainsErrorsException(packageIdentifier,
           e.getMessage()), Transience.PERSISTENT);
     } catch (BuildFileNotFoundException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -622,7 +625,7 @@ public class PackageFunction implements SkyFunction {
       }
       ContainingPackageLookupValue containingPackageLookupValue =
           getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
-              pkgId.getPackageFragment().getPathString(), containingPkgLookupValues.get(key), env);
+              pkgId, containingPkgLookupValues.get(key), env);
       if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, target.getLabel(),
           target.getLocation(), containingPackageLookupValue)) {
         pkgBuilder.removeTarget(target);
@@ -636,7 +639,7 @@ public class PackageFunction implements SkyFunction {
       }
       ContainingPackageLookupValue containingPackageLookupValue =
           getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
-              pkgId.getPackageFragment().getPathString(), containingPkgLookupValues.get(key), env);
+              pkgId, containingPkgLookupValues.get(key), env);
       if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, subincludeLabel,
           /*location=*/null, containingPackageLookupValue)) {
         pkgBuilder.setContainsErrors();
@@ -646,7 +649,8 @@ public class PackageFunction implements SkyFunction {
 
   @Nullable
   private static ContainingPackageLookupValue
-  getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(String packageName,
+  getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
+      PackageIdentifier packageIdentifier,
       ValueOrException3<BuildFileNotFoundException, InconsistentFilesystemException,
       FileSymlinkCycleException> containingPkgLookupValueOrException, Environment env)
           throws InternalInconsistentFilesystemException {
@@ -656,7 +660,7 @@ public class PackageFunction implements SkyFunction {
       env.getListener().handle(Event.error(null, e.getMessage()));
       return null;
     } catch (InconsistentFilesystemException e) {
-      throw new InternalInconsistentFilesystemException(packageName, e);
+      throw new InternalInconsistentFilesystemException(packageIdentifier, e);
     }
   }
 
@@ -745,17 +749,17 @@ public class PackageFunction implements SkyFunction {
      * Used to represent a filesystem inconsistency discovered outside the
      * {@link PackageFunction}.
      */
-    public InternalInconsistentFilesystemException(String packageName,
+    public InternalInconsistentFilesystemException(PackageIdentifier packageIdentifier,
         InconsistentFilesystemException e) {
-      super(packageName, e.getMessage(), e);
+      super(packageIdentifier, e.getMessage(), e);
       // This is not a transient error from the perspective of the PackageFunction.
       this.isTransient = false;
     }
 
     /** Used to represent a filesystem inconsistency discovered by the {@link PackageFunction}. */
-    public InternalInconsistentFilesystemException(String packageName,
+    public InternalInconsistentFilesystemException(PackageIdentifier packageIdentifier,
         String inconsistencyMessage) {
-      this(packageName, new InconsistentFilesystemException(inconsistencyMessage));
+      this(packageIdentifier, new InconsistentFilesystemException(inconsistencyMessage));
       this.isTransient = true;
     }
 
@@ -766,13 +770,14 @@ public class PackageFunction implements SkyFunction {
 
   private static class BadWorkspaceFileException extends NoSuchPackageException {
     private BadWorkspaceFileException(String message) {
-      super("external", "Error encountered while dealing with the WORKSPACE file: " + message);
+      super(ExternalPackage.PACKAGE_IDENTIFIER,
+          "Error encountered while dealing with the WORKSPACE file: " + message);
     }
   }
 
   private static class BadPreludeFileException extends NoSuchPackageException {
-    private BadPreludeFileException(String packageName, String message) {
-      super(packageName, "Error encountered while reading the prelude file: " + message);
+    private BadPreludeFileException(PackageIdentifier packageIdentifier, String message) {
+      super(packageIdentifier, "Error encountered while reading the prelude file: " + message);
     }
   }
 

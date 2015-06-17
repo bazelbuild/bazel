@@ -35,12 +35,14 @@ import java.util.Map.Entry;
  */
 public class ExternalPackage extends Package {
   public static final String NAME = "external";
+  public static final PackageIdentifier PACKAGE_IDENTIFIER =
+      PackageIdentifier.createInDefaultRepo(NAME);
 
   private Map<Label, Binding> bindMap;
   private Map<RepositoryName, Rule> repositoryMap;
 
   ExternalPackage() {
-    super(PackageIdentifier.createInDefaultRepo(NAME));
+    super(PACKAGE_IDENTIFIER);
   }
 
   /**

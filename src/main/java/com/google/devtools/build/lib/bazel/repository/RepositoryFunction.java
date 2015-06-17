@@ -264,7 +264,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new RepositoryFunctionException(
           new BuildFileNotFoundException(
-              ExternalPackage.NAME, "Could not load //external package"),
+              ExternalPackage.PACKAGE_IDENTIFIER, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     if (packageValue == null) {
@@ -275,7 +275,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     if (rule == null) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              ExternalPackage.NAME,
+              ExternalPackage.PACKAGE_IDENTIFIER,
               "The repository named '" + repositoryName + "' could not be resolved"),
           Transience.PERSISTENT);
     }

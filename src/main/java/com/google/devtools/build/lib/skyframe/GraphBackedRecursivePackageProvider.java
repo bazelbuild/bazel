@@ -62,8 +62,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,
       // because the SkyQuery environment has already loaded the universe.
-      throw new BuildFileNotFoundException(packageName.toString(),
-          "BUILD file not found on package path");
+      throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
     return pkgValue.getPackage();
   }

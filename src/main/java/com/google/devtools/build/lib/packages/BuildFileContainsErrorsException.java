@@ -24,17 +24,17 @@ public class BuildFileContainsErrorsException extends NoSuchPackageException {
 
   private Package pkg;
 
-  public BuildFileContainsErrorsException(String packageName, String message) {
-    super(packageName, "error loading package", message);
+  public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message) {
+    super(packageIdentifier, "error loading package", message);
   }
 
-  public BuildFileContainsErrorsException(String packageName, String message,
+  public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message,
       Throwable cause) {
-    super(packageName, "error loading package", message, cause);
+    super(packageIdentifier, "error loading package", message, cause);
   }
 
   public BuildFileContainsErrorsException(Package pkg, String msg) {
-    this(pkg.getName(), msg);
+    this(pkg.getPackageIdentifier(), msg);
     this.pkg = pkg;
   }
 

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -89,7 +90,8 @@ public class PathPackageLocator implements Serializable {
   public Path getPackageBuildFile(String packageName) throws NoSuchPackageException {
     Path buildFile  = getPackageBuildFileNullable(packageName, UnixGlob.DEFAULT_SYSCALLS_REF);
     if (buildFile == null) {
-      throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
+      throw new BuildFileNotFoundException(PackageIdentifier.createInDefaultRepo(packageName),
+          "BUILD file not found on package path");
     }
     return buildFile;
   }

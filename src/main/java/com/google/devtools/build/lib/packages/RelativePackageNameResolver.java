@@ -56,7 +56,8 @@ public class RelativePackageNameResolver {
       isAbsolute = true;
       relativePkg = pkg.substring(2);
     } else if (pkg.startsWith("/")) {
-      throw new InvalidPackageNameException(pkg,
+      throw new InvalidPackageNameException(
+          PackageIdentifier.createInDefaultRepo(pkg),
           "package name cannot start with a single slash");
     } else {
       isAbsolute = false;
@@ -72,7 +73,8 @@ public class RelativePackageNameResolver {
     PathFragment result = isAbsolute ? relative : offset.getRelative(relative);
     result = result.normalize();
     if (result.containsUplevelReferences()) {
-      throw new InvalidPackageNameException(pkg,
+      throw new InvalidPackageNameException(
+          PackageIdentifier.createInDefaultRepo(pkg),
           "package name contains too many '..' segments");
     }
 
