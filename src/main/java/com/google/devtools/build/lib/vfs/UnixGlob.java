@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
@@ -73,11 +74,15 @@ public final class UnixGlob {
                                                       FilesystemCalls syscalls,
                                                       boolean checkForInterruption,
                                                       ThreadPoolExecutor threadPool) {
-    GlobVisitor visitor = (threadPool == null)
-        ? new GlobVisitor(checkForInterruption)
-        : new GlobVisitor(threadPool, checkForInterruption);
-    return visitor.globAsync(base, patterns, excludePatterns, excludeDirectories, dirPred,
-                             syscalls);
+    Preconditions.checkNotNull(threadPool, "%s %s", base, patterns);
+    try {
+      return new GlobVisitor(threadPool, checkForInterruption)
+          .globAsync(base, patterns, excludePatterns, excludeDirectories, dirPred, syscalls);
+    } catch (IOException e) {
+      // We are evaluating asynchronously, so no exceptions should be thrown until the future is
+      // retrieved.
+      throw new IllegalStateException(e);
+    }
   }
 
   /**
@@ -459,10 +464,10 @@ public final class UnixGlob {
     }
 
     /**
-     * Executes the glob asynchronously.
+     * Executes the glob asynchronously. {@link #setThreadPool} must have been called already with a
+     * non-null argument.
      *
-     * @param checkForInterrupt if the returned future may throw
-     *   InterruptedException.
+     * @param checkForInterrupt if the returned future may throw InterruptedException.
      */
     public Future<List<Path>> globAsync(boolean checkForInterrupt) {
       return globAsyncInternal(base, patterns, excludes, excludeDirectories, pathFilter,
@@ -610,7 +615,7 @@ public final class UnixGlob {
 
     public Future<List<Path>> globAsync(Path base, Collection<String> patterns,
         Collection<String> excludePatterns, boolean excludeDirectories,
-        Predicate<Path> dirPred, FilesystemCalls syscalls) {
+        Predicate<Path> dirPred, FilesystemCalls syscalls) throws IOException {
 
       FileStatus baseStat = syscalls.statNullable(base, Symlinks.FOLLOW);
       if (baseStat == null || patterns.isEmpty()) {
@@ -662,35 +667,39 @@ public final class UnixGlob {
         final List<String[]> excludePatterns,
         final int excludeIdx,
         final Collection<Path> results, final Cache<String, Pattern> cache,
-        final Predicate<Path> dirPred, final FilesystemCalls syscalls) {
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
-          try {
-            reallyGlob(base, baseIsDir, patternParts, idx, excludeDirectories,
-                excludePatterns, excludeIdx, results, cache, dirPred, syscalls);
-          } catch (IOException e) {
-            throw new IORuntimeException(e);
-          } catch (InterruptedException e) {
-            // When we get to this point, the main thread already knows that the
-            // globbing has been interrupted, so we do not need to report the
-            // error condition.
-          } finally {
-            Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
+        final Predicate<Path> dirPred, final FilesystemCalls syscalls) throws IOException {
+      try {
+        enqueue(new Runnable() {
+          @Override
+          public void run() {
+            Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
+            try {
+              reallyGlob(base, baseIsDir, patternParts, idx, excludeDirectories,
+                  excludePatterns, excludeIdx, results, cache, dirPred, syscalls);
+            } catch (IOException e) {
+              throw new IORuntimeException(e);
+            } catch (InterruptedException e) {
+              // When we get to this point, the main thread already knows that the
+              // globbing has been interrupted, so we do not need to report the
+              // error condition.
+            } finally {
+              Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
+            }
           }
-        }
 
-        @Override
-        public String toString() {
-          return String.format(
-              "%s glob(include=[%s], exclude=[%s], exclude_directories=%s)",
-              base.getPathString(),
-              "\"" + Joiner.on("\", \"").join(patternParts) + "\"",
-              "\"" + Joiner.on("\", \"").join(excludePatterns) + "\"",
-              excludeDirectories);
-        }
-      });
+          @Override
+          public String toString() {
+            return String.format(
+                "%s glob(include=[%s], exclude=[%s], exclude_directories=%s)",
+                base.getPathString(),
+                "\"" + Joiner.on("\", \"").join(patternParts) + "\"",
+                "\"" + Joiner.on("\", \"").join(excludePatterns) + "\"",
+                excludeDirectories);
+          }
+        });
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      }
 
     }
 

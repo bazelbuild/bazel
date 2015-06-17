@@ -31,6 +31,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -51,9 +53,18 @@ public class GlobTest {
 
   private Path tmpPath;
   private FileSystem fs;
+  private Path throwOnReaddir = null;
   @Before
   public void setUp() throws Exception {
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem() {
+      @Override
+      public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+        if (path.equals(throwOnReaddir)) {
+          throw new FileNotFoundException(path.getPathString());
+        }
+        return super.readdir(path, followSymlinks);
+      }
+    };
     tmpPath = fs.getPath("/globtmp");
     for (String dir : ImmutableList.of("foo/bar/wiz",
                          "foo/barnacle/wiz",
@@ -362,6 +373,18 @@ public class GlobTest {
     // Note that these are not in the result: ".", ".."
     assertGlobMatches("*", "not.hidden", "foo", "fool", "food", ".hidden", "..also.hidden");
     assertGlobMatches("*.hidden", "not.hidden");
+  }
+
+  @Test
+  public void testIOException() throws Exception {
+    throwOnReaddir = fs.getPath("/throw_on_readdir");
+    throwOnReaddir.createDirectory();
+    try {
+      new UnixGlob.Builder(throwOnReaddir).addPattern("**").glob();
+      fail();
+    } catch (IOException e) {
+      // Expected.
+    }
   }
 
   @Test
