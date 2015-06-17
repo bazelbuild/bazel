@@ -13,7 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -33,6 +39,15 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return entry;
   }
 
+  private Map<SkyKey, NodeEntry> getEntries(Iterable<SkyKey> keys) {
+    Map<SkyKey, NodeEntry> result = graph.getBatch(keys);
+    Preconditions.checkState(result.size() == Iterables.size(keys), "%s %s", keys, result);
+    for (Map.Entry<SkyKey, NodeEntry> entry : result.entrySet()) {
+      Preconditions.checkState(entry.getValue().isDone(), entry);
+    }
+    return result;
+  }
+
   @Override
   public boolean exists(SkyKey key) {
     NodeEntry entry = graph.get(key);
@@ -43,6 +58,21 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   @Override
   public SkyValue getValue(SkyKey key) {
     return getEntry(key).getValue();
+  }
+
+  private static final Function<NodeEntry, SkyValue> GET_SKY_VALUE_FUNCTION =
+      new Function<NodeEntry, SkyValue>() {
+        @Nullable
+        @Override
+        public SkyValue apply(NodeEntry entry) {
+          return entry.isDone() ? entry.getValue() : null;
+        }
+      };
+
+  @Override
+  public Map<SkyKey, SkyValue> getValuesMaybe(Iterable<SkyKey> keys) {
+    return Maps.filterValues(Maps.transformValues(graph.getBatch(keys), GET_SKY_VALUE_FUNCTION),
+        Predicates.notNull());
   }
 
   @Nullable
@@ -57,8 +87,34 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return getEntry(key).getDirectDeps();
   }
 
+  private static final Function<NodeEntry, Iterable<SkyKey>> GET_DIRECT_DEPS_FUNCTION =
+      new Function<NodeEntry, Iterable<SkyKey>>() {
+        @Override
+        public Iterable<SkyKey> apply(NodeEntry entry) {
+          return entry.getDirectDeps();
+        }
+      };
+
+  @Override
+  public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) {
+    return Maps.transformValues(getEntries(keys), GET_DIRECT_DEPS_FUNCTION);
+  }
+
   @Override
   public Iterable<SkyKey> getReverseDeps(SkyKey key) {
     return getEntry(key).getReverseDeps();
+  }
+
+  private static final Function<NodeEntry, Iterable<SkyKey>> GET_REVERSE_DEPS_FUNCTION =
+      new Function<NodeEntry, Iterable<SkyKey>>() {
+        @Override
+        public Iterable<SkyKey> apply(NodeEntry entry) {
+          return entry.getReverseDeps();
+        }
+      };
+
+  @Override
+  public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) {
+    return Maps.transformValues(getEntries(keys), GET_REVERSE_DEPS_FUNCTION);
   }
 }

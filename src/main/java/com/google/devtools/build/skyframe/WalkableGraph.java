@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.Collection;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -40,6 +41,12 @@ public interface WalkableGraph {
   SkyValue getValue(SkyKey key);
 
   /**
+   * Returns a map giving the values of the given keys for done keys. Keys not present in the graph
+   * or whose nodes are not done will not be present in the returned map.
+   */
+  Map<SkyKey, SkyValue> getValuesMaybe(Iterable<SkyKey> keys);
+
+  /**
    * Returns the exception thrown when computing the node with the given key, if any. If the node
    * was computed successfully, returns null. A node with this key must exist in the graph.
    */
@@ -52,10 +59,22 @@ public interface WalkableGraph {
   Iterable<SkyKey> getDirectDeps(SkyKey key);
 
   /**
-   * Returns the reverse dependencies of the node with the given key. A node with this key must
-   * exist in the graph.
+   * Returns a map giving the direct dependencies of the nodes with the given keys. Same semantics
+   * as {@link #getDirectDeps(SkyKey)}.
    */
+  Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys);
+
+    /**
+     * Returns the reverse dependencies of the node with the given key. A node with this key must
+     * exist in the graph.
+     */
   Iterable<SkyKey> getReverseDeps(SkyKey key);
+
+  /**
+   * Returns a map giving the reverse dependencies of the nodes with the given keys. Same semantics
+   * as {@link #getReverseDeps(SkyKey)}.
+   */
+  Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys);
 
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
