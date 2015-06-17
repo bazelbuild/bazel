@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.Type;
@@ -42,39 +44,42 @@ import java.util.Map;
 /**
  * A helper class to provide Attr module in Skylark.
  */
-@SkylarkModule(name = "attr", namespace = true, onlyLoadingPhase = true,
-    doc = "Module for creating new attributes. "
-    + "They are only for use with the <code>rule</code> function.")
+@SkylarkModule(
+    name = "attr",
+    namespace = true,
+    onlyLoadingPhase = true,
+    doc =
+        "Module for creating new attributes. "
+            + "They are only for use with the <code>rule</code> function.")
 public final class SkylarkAttr {
 
   private static final String MANDATORY_DOC =
       "set to True if users have to explicitely specify the value";
 
-  private static final String NON_EMPTY_DOC =
-      "set to True if the attribute must not be empty";
+  private static final String NON_EMPTY_DOC = "set to True if the attribute must not be empty";
 
   private static final String ALLOW_FILES_DOC =
-      "whether File targets are allowed. Can be True, False (default), or "
-      + "a FileType filter.";
+      "whether File targets are allowed. Can be True, False (default), or " + "a FileType filter.";
 
   private static final String ALLOW_RULES_DOC =
       "which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
-      + "compatiblity), use providers instead.";
+          + "compatiblity), use providers instead.";
 
-  private static final String FLAGS_DOC =
-      "deprecated, will be removed";
+  private static final String FLAGS_DOC = "deprecated, will be removed";
 
-  private static final String DEFAULT_DOC =
-      "sets the default value of the attribute.";
+  private static final String DEFAULT_DOC = "sets the default value of the attribute.";
 
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. "
-      + "For example, use DATA_CFG or HOST_CFG.";
+      "configuration of the attribute. " + "For example, use DATA_CFG or HOST_CFG.";
 
   private static final String EXECUTABLE_DOC =
       "set to True if the labels have to be executable. This means the label must refer to an "
-      + "executable file, or to a rule that outputs an executable file. Access the labels with "
-      + "<code>ctx.executable.&lt;attribute_name&gt;</code>.";
+          + "executable file, or to a rule that outputs an executable file. Access the labels "
+          + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
+
+  private static final String VALUES_DOC =
+      "specify the list of allowed values for the attribute. An error is raised if any other "
+          + "value is given.";
 
   private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Environment.NONE;
@@ -139,6 +144,11 @@ public final class SkylarkAttr {
               "allowed rule classes for attribute definition"));
     }
 
+    Iterable<String> values = castList(arguments.get("values"), String.class);
+    if (!Iterables.isEmpty(values)) {
+      builder.allowedValues(new AllowedValueSet(values));
+    }
+
     if (containsNonNoneKey(arguments, "providers")) {
       builder.mandatoryProviders(castList(arguments.get("providers"), String.class));
     }
@@ -169,16 +179,19 @@ public final class SkylarkAttr {
             defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
+        @Param(name = "values", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = VALUES_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
   private static BuiltinFunction integer = new BuiltinFunction("int") {
       public Attribute.Builder<?> invoke(Integer defaultInt,
-          SkylarkList flags, Boolean mandatory, Object cfg,
+          SkylarkList flags, Boolean mandatory, SkylarkList values, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultInt, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+                "default", defaultInt, "flags", flags, "mandatory", mandatory, "values", values,
+                "cfg", cfg),
             Type.INTEGER, ast, env);
       }
     };
@@ -194,16 +207,19 @@ public final class SkylarkAttr {
             defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class,
             defaultValue = "False", doc = MANDATORY_DOC),
+        @Param(name = "values", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]", doc = VALUES_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
   private static BuiltinFunction string = new BuiltinFunction("string") {
       public Attribute.Builder<?> invoke(String defaultString,
-          SkylarkList flags, Boolean mandatory, Object cfg,
+          SkylarkList flags, Boolean mandatory, SkylarkList values, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultString, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+                "default", defaultString, "flags", flags, "mandatory", mandatory, "values", values,
+                "cfg", cfg),
             Type.STRING, ast, env);
       }
     };
