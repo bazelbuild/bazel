@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
+import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
@@ -87,8 +88,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return new RuleClass("ruleA", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE,
         DUMMY_CONFIGURED_TARGET_FACTORY, PredicatesWithMessage.<Rule>alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null, null,
-        ImmutableSet.<Class<?>>of(), false, true,
+        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null,
+        NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(), false, true,
         attr("my-string-attr", STRING).mandatory().build(),
         attr("my-label-attr", LABEL).mandatory().legacyAllowAnyFileType()
             .value(Label.parseAbsolute("//default:label")).build(),
@@ -106,8 +107,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return new RuleClass("ruleB", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attributes.toArray(new Attribute[0]));
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attributes.toArray(new Attribute[0]));
   }
 
   public void testRuleClassBasics() throws Exception {
@@ -218,7 +219,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass depsRuleClass = new RuleClass("ruleDeps", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true,
         attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
         attr("list2", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
         attr("list3", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
@@ -247,8 +249,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass = new RuleClass("ruleVis", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("visibility", Arrays.asList("//visibility:legacy_public"));
 
@@ -332,8 +334,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
                                               "stuff-%{outs}-bar"),
         RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attr("outs", OUTPUT_LIST).build());
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attr("outs", OUTPUT_LIST).build());
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("outs", Collections.singletonList("explicit_out"));
@@ -353,8 +355,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass = new RuleClass("ruleClass", false, false, false, false, false, false,
         ImplicitOutputsFunction.fromTemplates("%{dirname}lib%{basename}.bar"), RuleClass.NO_CHANGE,
         DUMMY_CONFIGURED_TARGET_FACTORY, PredicatesWithMessage.<Rule>alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null, null,
-        ImmutableSet.<Class<?>>of(), false, true);
+        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS,
+        null, ImmutableSet.<Class<?>>of(), false, true);
 
     Rule rule = createRule(ruleClass, "myRule", Collections.<String, Object>emptyMap(),
         testRuleLocation);
@@ -374,8 +376,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return new RuleClass("ruleClass", false, false, false, false, false, false,
         ImplicitOutputsFunction.fromTemplates("empty"), RuleClass.NO_CHANGE,
         DUMMY_CONFIGURED_TARGET_FACTORY, PredicatesWithMessage.<Rule>alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null, null,
-        ImmutableSet.<Class<?>>of(), false, true,
+        PREFERRED_DEPENDENCY_PREDICATE, ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS,
+        null, ImmutableSet.<Class<?>>of(), false, true,
         attr("condition", BOOLEAN).value(false).build(),
         attr("declared1", BOOLEAN).value(false).build(),
         attr("declared2", BOOLEAN).value(false).build(),
@@ -517,8 +519,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ImplicitOutputsFunction.fromTemplates("first-%{name}", "second-%{name}", "out-%{outs}"),
         RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attr("outs", OUTPUT_LIST).build());
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attr("outs", OUTPUT_LIST).build());
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("outs", ImmutableList.of("third", "fourth"));
@@ -540,7 +542,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass = new RuleClass("ruleA", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true,
         attr("a", STRING_LIST).mandatory().build(),
         attr("b", STRING_LIST).mandatory().build(),
         attr("c", STRING_LIST).mandatory().build(),
@@ -625,8 +628,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         "ruleMNE", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attributes);
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attributes);
     return mandNonEmptyRuleClass;
   }
 
@@ -636,8 +639,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
         "ruleMNE", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(), false, true,
-        attr("list", LABEL_LIST).nonEmpty().legacyAllowAnyFileType().value(emptyList).build());
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        false, true, attr("list", LABEL_LIST)
+        .nonEmpty().legacyAllowAnyFileType().value(emptyList).build());
 
     Map<String, Object> attributeValues = new LinkedHashMap<>();
     reporter.removeHandler(failFastHandler);
@@ -721,8 +725,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass parentRuleClass = new RuleClass("parent_rule", false, false, false, false, false,
         false, ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
-        ImmutableSet.<Class<?>>of(), null, null, ImmutableSet.<Class<?>>of(DummyFragment.class),
-        false, true, attr("attr", STRING).build());
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null,
+        ImmutableSet.<Class<?>>of(DummyFragment.class), false, true, attr("attr", STRING).build());
     return parentRuleClass;
   }
 

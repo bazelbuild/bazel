@@ -220,6 +220,11 @@ public class ExternalPackage extends Package {
           ast.getLocation());
       addEvents(eventHandler.getEvents());
       repositoryMap.put(RepositoryName.create("@" + tempRule.getName()), tempRule);
+      for (Map.Entry<String, Label> entry :
+          ruleClass.getExternalBindingsFunction().apply(tempRule).entrySet()) {
+          Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey());
+          addBinding(nameLabel, new Binding(entry.getValue(), tempRule.getLocation()));
+      }
       return this;
     }
 

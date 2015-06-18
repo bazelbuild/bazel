@@ -17,13 +17,21 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.workspace.WorkspaceBaseRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.WorkspaceConfiguredTargetFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.syntax.Label;
+
+import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * Definition of the {@code android_sdk} repository rule.
@@ -31,11 +39,22 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 public class AndroidSdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_sdk_repository";
 
+  public static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
+      new Function< Rule, Map<String, Label>>() {
+        @Nullable
+        @Override
+        public Map<String, Label> apply(Rule rule) {
+          return ImmutableMap.of(
+              "android/sdk", Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:sdk"));
+        }
+      };
+
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .setUndocumented()
         .setWorkspaceOnly()
+        .setExternalBindingsFunction(BINDINGS_FUNCTION)
         .add(attr("path", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
         .add(attr("build_tools_version", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
         .add(attr("api_level", INTEGER).mandatory().nonconfigurable("WORKSPACE rule"))

@@ -20,10 +20,13 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -91,6 +94,8 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class RuleClass {
+  public static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
+        Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
   /**
    * A constraint for the package name of the Rule instances.
    */
@@ -428,6 +433,8 @@ public final class RuleClass {
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private List<Class<?>> advertisedProviders = new ArrayList<>();
     private BaseFunction configuredTargetFunction = null;
+    private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
+        NO_EXTERNAL_BINDINGS;
     private SkylarkEnvironment ruleDefinitionEnvironment = null;
     private Set<Class<?>> configurationFragments = new LinkedHashSet<>();
     private boolean failIfMissingConfigurationFragment;
@@ -510,10 +517,13 @@ public final class RuleClass {
           == (configuredTargetFactory == null && configuredTargetFunction == null));
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
+      Preconditions.checkState(workspaceOnly || externalBindingsFunction == NO_EXTERNAL_BINDINGS);
+
       return new RuleClass(name, skylarkExecutable, documented, publicByDefault, binaryOutput,
           workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction, configurator,
           configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
+          externalBindingsFunction,
           ruleDefinitionEnvironment, configurationFragments, failIfMissingConfigurationFragment,
           supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
     }
@@ -688,6 +698,11 @@ public final class RuleClass {
       return this;
     }
 
+    public Builder setExternalBindingsFunction(Function<? super Rule, Map<String, Label>> func) {
+      this.externalBindingsFunction = func;
+      return this;
+    }
+
     /**
      *  Sets the rule definition environment. Meant for Skylark usage.
      */
@@ -841,6 +856,11 @@ public final class RuleClass {
   @Nullable private final BaseFunction configuredTargetFunction;
 
   /**
+   * Returns the extra bindings a workspace function adds to the WORKSPACE file.
+   */
+  private final Function<? super Rule, Map<String, Label>> externalBindingsFunction;
+
+  /**
    * The Skylark rule definition environment of this RuleClass.
    * Null for non Skylark executable RuleClasses.
    */
@@ -900,6 +920,7 @@ public final class RuleClass {
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
       ImmutableSet<Class<?>> advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
+      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
       Set<Class<?>> allowedConfigurationFragments, boolean failIfMissingConfigurationFragment,
       boolean supportsConstraintChecking,
@@ -917,6 +938,7 @@ public final class RuleClass {
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
+    this.externalBindingsFunction = externalBindingsFunction;
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
     // Do not make a defensive copy as builder does that already
     this.attributes = attributes;
@@ -1509,6 +1531,14 @@ public final class RuleClass {
    */
   @Nullable public BaseFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
+  }
+
+  /**
+   * Returns a function that computes the external bindings a repository function contributes to
+   * the WORKSPACE file.
+   */
+  public Function<? super Rule, Map<String, Label>> getExternalBindingsFunction() {
+    return externalBindingsFunction;
   }
 
   /**
