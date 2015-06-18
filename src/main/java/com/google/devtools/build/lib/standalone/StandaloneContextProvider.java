@@ -17,14 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -43,7 +40,7 @@ import java.io.IOException;
 /**
  * Provide a standalone, local execution context.
  */
-public class StandaloneContextProvider implements ActionContextProvider {
+public class StandaloneContextProvider extends ActionContextProvider {
 
   /**
    * a IncludeScanningContext that does nothing. Since local execution does not need to
@@ -107,21 +104,4 @@ public class StandaloneContextProvider implements ActionContextProvider {
   public Iterable<ActionContext> getActionContexts() {
     return strategies;
   }
-
-  @Override
-  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
-  }
-
-  @Override
-  public void executionPhaseStarting(
-      ActionInputFileCache actionInputFileCache,
-      ActionGraph actionGraph,
-      Iterable<Artifact> topLevelArtifacts) throws ExecutorInitException {
-  }
-
-  @Override
-  public void executionPhaseEnding() {
-  }
 }
-
-

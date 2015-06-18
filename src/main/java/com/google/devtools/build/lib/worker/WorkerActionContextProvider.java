@@ -15,40 +15,22 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 
 /**
  * Factory for the Worker-based execution strategy.
  */
-final class WorkerActionContextProvider implements ActionContextProvider {
+final class WorkerActionContextProvider extends ActionContextProvider {
   private final ImmutableList<ActionContext> strategies;
 
   public WorkerActionContextProvider(BuildRequest buildRequest, WorkerPool workers) {
-    this.strategies = ImmutableList.<ActionContext>of(new WorkerSpawnStrategy(buildRequest,
-        workers));
+    this.strategies =
+        ImmutableList.<ActionContext>of(new WorkerSpawnStrategy(buildRequest, workers));
   }
 
   @Override
   public Iterable<ActionContext> getActionContexts() {
     return strategies;
-  }
-
-  @Override
-  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
-  }
-
-  @Override
-  public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-      ActionGraph actionGraph, Iterable<Artifact> topLevelArtifacts)
-      throws ExecutorInitException, InterruptedException {
-  }
-
-  @Override
-  public void executionPhaseEnding() {
   }
 }

@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.rules.fileset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BlazeExecutor;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
@@ -41,7 +38,7 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
   /**
    * Factory class.
    */
-  public static class Provider implements ActionContextProvider {
+  public static class Provider extends ActionContextProvider {
     private FilesetActionContextImpl impl;
     private final Reporter reporter;
     private final ThreadPoolExecutor filesetPool;
@@ -65,15 +62,6 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
     public Iterable<ActionContext> getActionContexts() {
       return ImmutableList.<ActionContext>of(impl);
     }
-
-    @Override
-    public void executorCreated(Iterable<ActionContext> usedStrategies) {}
-
-    @Override
-    public void executionPhaseStarting(
-        ActionInputFileCache actionInputFileCache,
-        ActionGraph actionGraph,
-        Iterable<Artifact> topLevelArtifacts) {}
 
     @Override
     public void executionPhaseEnding() {

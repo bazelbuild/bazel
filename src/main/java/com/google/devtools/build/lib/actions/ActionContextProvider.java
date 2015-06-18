@@ -20,32 +20,32 @@ import com.google.devtools.build.lib.actions.Executor.ActionContext;
  *
  * <p>For more information, see {@link ActionContextConsumer}.
  */
-public interface ActionContextProvider {
+public abstract class ActionContextProvider {
   /**
    * Returns the execution strategies that are provided by this object.
    *
    * <p>These may or may not actually end up in the executor depending on the command line options
    * and other factors influencing how the executor is set up.
    */
-  Iterable<ActionContext> getActionContexts();
+  public abstract Iterable<ActionContext> getActionContexts();
 
   /**
    * Called when the executor is constructed. The parameter contains all the contexts that were
    * selected for this execution phase.
    */
-  void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException;
+  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {}
 
   /**
    * Called when the execution phase is started.
    */
-  void executionPhaseStarting(
+  public void executionPhaseStarting(
       ActionInputFileCache actionInputFileCache,
       ActionGraph actionGraph,
       Iterable<Artifact> topLevelArtifacts)
-          throws ExecutorInitException, InterruptedException;
+      throws ExecutorInitException, InterruptedException {}
 
   /**
    * Called when the execution phase is finished.
    */
-  void executionPhaseEnding();
+  public void executionPhaseEnding() {}
 }
