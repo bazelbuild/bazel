@@ -23,10 +23,12 @@ import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -114,6 +116,8 @@ public class BazelRulesModule extends BlazeModule {
       return ImmutableMap.<Class<? extends ActionContext>, String>builder()
           .put(CppCompileActionContext.class, "")
           .put(CppLinkActionContext.class, "")
+          .put(IncludeScanningContext.class, "")
+          .put(FileWriteActionContext.class, "")
           .put(WriteAdbArgsActionContext.class, "")
           .build();
     }
