@@ -1,0 +1,3 @@
+StdRedirect is a library that we DYLD_INSERT when running applications on the simulator so that we can redirect stdout and stderr.
+
+StdRedirect only builds/runs on Darwin.

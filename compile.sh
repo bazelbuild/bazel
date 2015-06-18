@@ -121,6 +121,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
         tools/objc/precomp_plmerge_deploy.jar
     bazel_bootstrap //src/objc_tools/xcodegen:xcodegen_deploy.jar \
         tools/objc/precomp_xcodegen_deploy.jar
+    bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
+        tools/objc/StdRedirect.dylib
   fi
 fi
 
