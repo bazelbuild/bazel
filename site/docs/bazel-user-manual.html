@@ -2338,12 +2338,14 @@ either to the terminal, or to additional log files.
   default.  When disabled, progress messages are suppressed.
 </p>
 
-<h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit <var>n</var></code></h4>
+<h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit
+    <var>n</var></code></h4>
 <p>
   This option causes bazel to display only
-  one progress message per <code>n</code> seconds. If <code>n</code> is -1,
-  all progress messages will be displayed. The default value for this
-  option is -1.
+  one progress message per <code>n</code> seconds, where <var>n</var> is a real number.
+  If <code>n</code> is -1, all progress messages will be displayed. The default value for
+  this option is 0.03, meaning bazel will limit the progress messages to one per every
+  0.03 seconds.
 </p>
 
 <h4 id='flag--show_result'><code class='flag'>--show_result <var>n</var></code></h4>
