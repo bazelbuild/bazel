@@ -93,7 +93,7 @@ public abstract class KeyedFrequencyStoreTest {
     for (int i = 0; i < NUM_EXECUTOR_THREADS; i++) {
       executorService.submit(wrapper.wrap(runnable));
     }
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    boolean interrupted = ExecutorUtil.interruptibleShutdown(executorService);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       Thread.currentThread().interrupt();

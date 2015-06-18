@@ -25,7 +25,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
+import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -162,7 +162,7 @@ class FilesystemValueChecker {
       executor.submit(wrapper.wrap(job));
     }
 
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executor);
+    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     LOG.info("Completed output file stat checks");
     if (interrupted) {
@@ -318,7 +318,7 @@ class FilesystemValueChecker {
       }));
     }
 
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executor);
+    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       throw new InterruptedException();

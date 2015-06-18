@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
+import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.events.Event;
@@ -1063,7 +1063,7 @@ public final class ParallelEvaluator implements Evaluator {
     //
     // TODO(bazel-team): Come up with a better design for graph cleaning such that we can respond
     // to interrupts in constant time.
-    boolean newlyInterrupted = ExecutorShutdownUtil.uninterruptibleShutdown(executor);
+    boolean newlyInterrupted = ExecutorUtil.uninterruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (newlyInterrupted || alreadyInterrupted) {
       throw new InterruptedException();

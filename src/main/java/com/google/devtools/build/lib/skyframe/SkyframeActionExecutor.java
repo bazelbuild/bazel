@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
+import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.events.Event;
@@ -289,7 +289,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       executor.execute(
           wrapper.wrap(actionRegistration(shard, actionGraph, artifactPathMap, badActionMap)));
     }
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executor);
+    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       throw new InterruptedException();

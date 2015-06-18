@@ -148,7 +148,7 @@ public abstract class BatchedKeyedLockerTest extends KeyedLockerTest {
         }
       }));
     }
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
+    boolean interrupted = ExecutorUtil.interruptibleShutdown(executorService);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     if (interrupted) {
       Thread.currentThread().interrupt();

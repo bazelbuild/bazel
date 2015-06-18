@@ -23,12 +23,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Utilities for safely shutting down executors.
- * TODO(bazel-team): Rename this class to something like "ExecutorUtil".
+ * Useful utilities for executors.
  */
-public class ExecutorShutdownUtil {
+public class ExecutorUtil {
 
-  private ExecutorShutdownUtil() {
+  private ExecutorUtil() {
   }
 
   /**
