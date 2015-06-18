@@ -52,6 +52,7 @@ function copy_to_upload_dir() {
   echo "$bazel_zip moved to $upload_dir"
 }
 
+mkdir -p ci
 if [ "${TRAVIS_OS_NAME-}" = "linux" ]; then
   create_zip
   copy_to_upload_dir
