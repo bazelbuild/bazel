@@ -318,7 +318,7 @@ Creates an attribute of type bool. Its default value is False.
 	</li>
 </ul>
 <li><h3 id="modules.attr.int">int</h3>
-<code>Builder attr.int(*, default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.int(*, default?, flags?, mandatory?, values?, cfg?)</code><br>
 Creates an attribute of type int.
 <h4>Parameters</h4>
 <ul>
@@ -327,6 +327,8 @@ Creates an attribute of type int.
 	<li id="modules.attr.int.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
 	</li>
 	<li id="modules.attr.int.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	</li>
+	<li id="modules.attr.int.values"><code>values (<a class="anchor" href="#modules.list">list</a> of ints)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
 	<li id="modules.attr.int.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
@@ -422,7 +424,7 @@ Creates an attribute of type list of outputs. Its default value is <code>[]</cod
 	</li>
 </ul>
 <li><h3 id="modules.attr.string">string</h3>
-<code>Builder attr.string(*, default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.string(*, default?, flags?, mandatory?, values?, cfg?)</code><br>
 Creates an attribute of type string.
 <h4>Parameters</h4>
 <ul>
@@ -431,6 +433,8 @@ Creates an attribute of type string.
 	<li id="modules.attr.string.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
 	</li>
 	<li id="modules.attr.string.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	</li>
+	<li id="modules.attr.string.values"><code>values (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
 	<li id="modules.attr.string.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
@@ -612,9 +616,6 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-<li><h3 id="modules.ctx.new_file">new_file</h3>
-<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>

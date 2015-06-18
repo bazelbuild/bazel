@@ -4,20 +4,21 @@ layout: community
 
 # Contributing to Bazel
 
-If you wish to contribute, prefer using Gerrit over GitHub pull request. We
-might redirect you to Gerrit if you send us a non-trivial change in a GitHub
-Pull Request.
+We welcome contributions! This page covers setting up your machine to develop
+Bazel and, when you've made a patch, how to submit it.
 
 ## How can I contribute to Bazel?
 
-You should first read the [Bazel governance plan](governance.html). Then you can
-read this page that explains how to submit a patch to Bazel, as well as how to set-up
-and work on the Bazel code.
+In general, we prefer contributions that fix bugs or add features (as opposed to
+stylistic, refactoring, or "cleanup" changes). Please check with us on the
+[dev list](https://groups.google.com/forum/#!forum/bazel-dev) before investing
+a lot of time in a patch.
 
 ## Patch Acceptance Process
 
 <!-- Our markdown parser doesn't support nested lists. -->
 <ol>
+<li>Read the [Bazel governance plan](governance.html).</li>
 <li>Discuss your plan and design, and get agreement on our <a href="https://groups.google.com/forum/#!forum/bazel-dev">mailing list</a>.
 <li>Prepare a git commit that implements the feature. Don't forget to add tests.
 <li>Create a new code review on <a href="https://bazel-review.googlesource.com">Gerrit</a>
