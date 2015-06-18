@@ -74,7 +74,7 @@ public final class LinkCommandLine extends CommandLine {
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
   private final boolean needWholeArchive;
-  private final PathFragment paramFileExecPath;
+  @Nullable private final Artifact paramFile;
   @Nullable private final Artifact interfaceSoBuilder;
 
   private LinkCommandLine(
@@ -96,7 +96,7 @@ public final class LinkCommandLine extends CommandLine {
       boolean nativeDeps,
       boolean useTestOnlyFlags,
       boolean needWholeArchive,
-      PathFragment paramFileFragment,
+      @Nullable Artifact paramFile,
       Artifact interfaceSoBuilder) {
     Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
         "you can't link an interface dynamic library directly");
@@ -143,7 +143,8 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.needWholeArchive = needWholeArchive;
-    this.paramFileExecPath = paramFileFragment;
+    this.paramFile = paramFile;
+
     // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
     this.interfaceSoBuilder =
         ((linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) && (interfaceOutput != null))
@@ -157,7 +158,8 @@ public final class LinkCommandLine extends CommandLine {
    * non-null if {@link #getLinkTargetType} is {@code DYNAMIC_LIBRARY} and an interface shared
    * object was requested.
    */
-  @Nullable public Artifact getInterfaceOutput() {
+  @Nullable
+  public Artifact getInterfaceOutput() {
     return interfaceOutput;
   }
 
@@ -168,6 +170,11 @@ public final class LinkCommandLine extends CommandLine {
    */
   @Nullable public Artifact getSymbolCountsOutput() {
     return symbolCountsOutput;
+  }
+
+  @Nullable
+  public Artifact getParamFile() {
+    return paramFile;
   }
 
   /**
@@ -250,14 +257,13 @@ public final class LinkCommandLine extends CommandLine {
 
   /**
    * Splits the link command-line into a part to be written to a parameter file, and the remaining
-   * actual command line to be executed (which references the parameter file). Call {@link
-   * #canBeSplit} first to check if the command-line can be split.
+   * actual command line to be executed (which references the parameter file). Should only be used
+   * if getParamFile() is not null.
    *
    * @throws IllegalStateException if the command-line cannot be split
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() {
-    Preconditions.checkState(canBeSplit());
     List<String> args = getRawLinkArgv();
     if (linkTargetType.isStaticLibraryLink()) {
       // Ar link commands can also generate huge command lines.
@@ -265,7 +271,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> commandlineArgs = new ArrayList<>();
       commandlineArgs.add(args.get(0));
 
-      commandlineArgs.add("@" + paramFileExecPath.getPathString());
+      commandlineArgs.add("@" + paramFile.getExecPath().getPathString());
       return Pair.of(commandlineArgs, paramFileArgs);
     } else {
       // Gcc link commands tend to generate humongous commandlines for some targets, which may
@@ -275,7 +281,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> commandlineArgs = new ArrayList<>();
       extractArgumentsForParamFile(args, commandlineArgs, paramFileArgs);
 
-      commandlineArgs.add("-Wl,@" + paramFileExecPath.getPathString());
+      commandlineArgs.add("-Wl,@" + paramFile.getExecPath().getPathString());
       return Pair.of(commandlineArgs, paramFileArgs);
     }
   }
@@ -286,7 +292,7 @@ public final class LinkCommandLine extends CommandLine {
    * @throws IllegalStateException if the command-line cannot be split
    */
   CommandLine paramCmdLine() {
-    Preconditions.checkState(canBeSplit());
+    Preconditions.checkNotNull(paramFile);
     return new CommandLine() {
       @Override
       public Iterable<String> arguments() {
@@ -295,25 +301,6 @@ public final class LinkCommandLine extends CommandLine {
     };
   }
 
-  boolean canBeSplit() {
-    if (paramFileExecPath == null) {
-      return false;
-    }
-    switch (linkTargetType) {
-      // We currently can't split dynamic library links if they have interface outputs. That was
-      // probably an unintended side effect of the change that introduced interface outputs.
-      case DYNAMIC_LIBRARY:
-        return interfaceOutput == null;
-      case EXECUTABLE:
-      case STATIC_LIBRARY:
-      case PIC_STATIC_LIBRARY:
-      case ALWAYS_LINK_STATIC_LIBRARY:
-      case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        return true;
-      default:
-        return false;
-    }
-  }
 
   private static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
       List<String> paramFileArgs) {
@@ -419,6 +406,19 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     return argv;
+  }
+
+  List<String> getCommandLine() {
+    List<String> commandlineArgs;
+    // Try to shorten the command line by use of a parameter file.
+    // This makes the output with --subcommands (et al) more readable.
+    if (paramFile != null) {
+      Pair<List<String>, List<String>> split = splitCommandline();
+      commandlineArgs = split.first;
+    } else {
+      commandlineArgs = getRawLinkArgv();
+    }
+    return finalizeWithLinkstampCommands(commandlineArgs);
   }
 
   @Override
@@ -946,7 +946,7 @@ public final class LinkCommandLine extends CommandLine {
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
     private boolean needWholeArchive;
-    private PathFragment paramFileFragment;
+    @Nullable private Artifact paramFile;
     @Nullable private Artifact interfaceSoBuilder;
 
     public Builder(BuildConfiguration configuration, ActionOwner owner) {
@@ -966,10 +966,26 @@ public final class LinkCommandLine extends CommandLine {
         actualLinkstampCompileOptions = ImmutableList.copyOf(
             Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
-      return new LinkCommandLine(configuration, owner, output, interfaceOutput,
-          symbolCountsOutput, buildInfoHeaderArtifacts, linkerInputs, runtimeInputs, linkTargetType,
-          linkStaticness, linkopts, features, linkstamps, actualLinkstampCompileOptions,
-          runtimeSolibDir, nativeDeps, useTestOnlyFlags, needWholeArchive, paramFileFragment,
+      return new LinkCommandLine(
+          configuration,
+          owner,
+          output,
+          interfaceOutput,
+          symbolCountsOutput,
+          buildInfoHeaderArtifacts,
+          linkerInputs,
+          runtimeInputs,
+          linkTargetType,
+          linkStaticness,
+          linkopts,
+          features,
+          linkstamps,
+          actualLinkstampCompileOptions,
+          runtimeSolibDir,
+          nativeDeps,
+          useTestOnlyFlags,
+          needWholeArchive,
+          paramFile,
           interfaceSoBuilder);
     }
 
@@ -1131,8 +1147,8 @@ public final class LinkCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder setParamFileFragment(PathFragment paramFragment) {
-      this.paramFileFragment = paramFragment;
+    public Builder setParamFile(Artifact paramFile) {
+      this.paramFile = paramFile;
       return this;
     }
   }

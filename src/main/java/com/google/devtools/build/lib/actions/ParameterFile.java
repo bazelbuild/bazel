@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
  * {@code gcc @param_file}. Note that the parameter file needs to be explicitly
@@ -64,7 +63,7 @@ public class ParameterFile {
   private ParameterFile() {
   }
   /**
-   * Derives an exec path from a given exec path by appending <code>".params"</code>.
+   * Derives an path from a given path by appending <code>".params"</code>.
    */
   public static PathFragment derivePath(PathFragment original) {
     return original.replaceName(original.getBaseName() + "-2.params");
