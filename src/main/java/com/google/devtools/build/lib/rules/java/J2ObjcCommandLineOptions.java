@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -23,15 +23,17 @@ import com.google.devtools.common.options.Option;
 import java.util.List;
 
 /**
- * Command-line Options for J2ObjC translation of Java source code to ObjC.
+ * Command-line options for J2ObjC translation of Java source code to ObjC.
+ * These command line options are used by Java rules that can be transpiled
+ * (specifically, J2ObjCAspects thereof).
  */
 public class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(name = "j2objc_translation_flags",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
       defaultValue = "",
-      category = "undocumented",
-      help = "Specifies the translation flags for the J2ObjC transpiler."
+      category = "flags",
+      help = "Additional options to pass to the J2ObjC tool."
       )
   public List<String> translationFlags;
 

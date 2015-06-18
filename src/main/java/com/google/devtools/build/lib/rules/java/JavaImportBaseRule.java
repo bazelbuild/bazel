@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * A base rule for building the java_import rule.
@@ -36,6 +37,8 @@ public class JavaImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class,
+            J2ObjcConfiguration.class)
         .add(attr(":host_jdk", LABEL)
             .cfg(HOST)
             .value(JavaSemantics.HOST_JDK))
@@ -71,6 +74,7 @@ public class JavaImportBaseRule implements RuleDefinition {
         .add(attr("constraints", STRING_LIST)
             .orderIndependent()
             .nonconfigurable("used in Attribute.validityPredicate implementations (loading time)"))
+        .advertiseProvider(JavaSourceInfoProvider.class)
         .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }

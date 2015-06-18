@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -28,7 +28,9 @@ import java.util.Collections;
 import java.util.Set;
 
 /**
- * A J2ObjC transpiler configuration containing J2ObjC translation flags.
+ * A J2ObjC transpiler configuration fragment containing J2ObjC translation flags.
+ * This configuration fragment is used by Java rules that can be transpiled
+ * (specifically, J2ObjCAspects thereof).
  */
 public class J2ObjcConfiguration extends Fragment {
   /**
