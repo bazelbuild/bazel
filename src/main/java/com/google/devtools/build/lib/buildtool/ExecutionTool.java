@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -98,6 +101,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -174,31 +178,64 @@ public class ExecutionTool {
   private final BuildRequest request;
   private BlazeExecutor executor;
   private ActionInputFileCache fileCache;
-  private List<ActionContextProvider> actionContextProviders;
+  private final ImmutableList<ActionContextProvider> actionContextProviders;
 
   private Map<String, SpawnActionContext> spawnStrategyMap =
       new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
   private List<ActionContext> strategies = new ArrayList<>();
 
-  ExecutionTool(BlazeRuntime runtime, BuildRequest request) throws ExecutorInitException {
+  private ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
+      ActionContextConsumer... extraConsumers) {
+    ImmutableList.Builder<ActionContextConsumer> builder = ImmutableList.builder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      builder.addAll(module.getActionContextConsumers());
+    }
+    builder.addAll(Arrays.asList(extraConsumers));
+    return builder.build();
+  }
+
+  private ImmutableList<ActionContextProvider> getActionContextProvidersFromModules(
+      ActionContextProvider... extraProviders) {
+    ImmutableList.Builder<ActionContextProvider> builder = ImmutableList.builder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      builder.addAll(module.getActionContextProviders());
+    }
+    builder.addAll(Arrays.asList(extraProviders));
+    return builder.build();
+  }
+
+  ExecutionTool(final BlazeRuntime runtime, BuildRequest request) throws ExecutorInitException {
     this.runtime = runtime;
     this.request = request;
 
-    List<ActionContextConsumer> actionContextConsumers = new ArrayList<>();
-    actionContextProviders = new ArrayList<>();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      Iterables.addAll(actionContextProviders, module.getActionContextProviders());
-      Iterables.addAll(actionContextConsumers, module.getActionContextConsumers());
-    }
-
-    actionContextProviders.add(new FilesetActionContextImpl.Provider(
-        runtime.getReporter(), runtime.getWorkspaceName()));
-
-    strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
-
+    this.actionContextProviders =
+        getActionContextProvidersFromModules(
+            new FilesetActionContextImpl.Provider(
+                runtime.getReporter(), runtime.getWorkspaceName()),
+            new SimpleActionContextProvider(
+                new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools())));
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
-    strategies.add(strategyConverter.getStrategy(FilesetActionContext.class, ""));
-    strategies.add(strategyConverter.getStrategy(WorkspaceStatusAction.Context.class, ""));
+
+    ImmutableList<ActionContextConsumer> actionContextConsumers =
+        getActionContextConsumersFromModules(
+            // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own,
+            // instead these dependencies should be added to the ActionContextConsumer of the module
+            // that actually depends on them.
+            new ActionContextConsumer() {
+              @Override
+              public Map<String, String> getSpawnActionContexts() {
+                return ImmutableMap.of();
+              }
+
+              @Override
+              public Map<Class<? extends ActionContext>, String> getActionContexts() {
+                return ImmutableMap.<Class<? extends ActionContext>, String>builder()
+                    .put(FilesetActionContext.class, "")
+                    .put(WorkspaceStatusAction.Context.class, "")
+                    .put(SymlinkTreeActionContext.class, "")
+                    .build();
+              }
+            });
 
     for (ActionContextConsumer consumer : actionContextConsumers) {
       // There are many different SpawnActions, and we want to control the action context they use
@@ -209,26 +246,24 @@ public class ExecutionTool {
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, entry.getValue());
         if (context == null) {
-          throw makeExceptionForInvalidStrategyValue(entry.getValue(), "spawn",
+          throw makeExceptionForInvalidStrategyValue(
+              entry.getValue(),
+              "spawn",
               strategyConverter.getValidValues(SpawnActionContext.class));
         }
-
         spawnStrategyMap.put(entry.getKey(), context);
       }
 
       for (Map.Entry<Class<? extends ActionContext>, String> entry :
           consumer.getActionContexts().entrySet()) {
         ActionContext context = strategyConverter.getStrategy(entry.getKey(), entry.getValue());
-        if (context != null) {
-          strategies.add(context);
-        } else if (!entry.getValue().isEmpty()) {
-          // If the action context consumer requested the default value (by passing in the empty
-          // string), we do not throw the exception, because we assume that whoever put together
-          // the modules in this Blaze binary knew what they were doing.
-          throw makeExceptionForInvalidStrategyValue(entry.getValue(),
+        if (context == null) {
+          throw makeExceptionForInvalidStrategyValue(
+              entry.getValue(),
               strategyConverter.getUserFriendlyName(entry.getKey()),
               strategyConverter.getValidValues(entry.getKey()));
         }
+        strategies.add(context);
       }
     }
 

@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.LinkStrategy;
-import com.google.devtools.build.lib.rules.test.TestStrategy;
 
 import java.util.Map;
 
@@ -44,10 +42,8 @@ public class StandaloneContextConsumer implements ActionContextConsumer {
     actionContexts.put(SpawnActionContext.class, "standalone");
 
     // C++.
-    actionContexts.put(LinkStrategy.class, "");
     actionContexts.put(IncludeScanningContext.class, "");
     actionContexts.put(CppCompileActionContext.class, "");
-    actionContexts.put(TestStrategy.class, "");
     actionContexts.put(FileWriteActionContext.class, "");
 
     return actionContexts.build();
