@@ -48,31 +48,20 @@ public interface WalkableGraph {
 
   /**
    * Returns the exception thrown when computing the node with the given key, if any. If the node
-   * was computed successfully, returns null. A node with this key must exist in the graph.
+   * was computed successfully, returns null. A node with this key must exist and be done in the
+   * graph.
    */
   @Nullable Exception getException(SkyKey key);
 
   /**
-   * Returns the direct dependencies of the node with the given key. A node with this key must exist
-   * in the graph.
-   */
-  Iterable<SkyKey> getDirectDeps(SkyKey key);
-
-  /**
-   * Returns a map giving the direct dependencies of the nodes with the given keys. Same semantics
-   * as {@link #getDirectDeps(SkyKey)}.
+   * Returns a map giving the direct dependencies of the nodes with the given keys. A node for each
+   * given key must exist and be done in the graph.
    */
   Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys);
 
-    /**
-     * Returns the reverse dependencies of the node with the given key. A node with this key must
-     * exist in the graph.
-     */
-  Iterable<SkyKey> getReverseDeps(SkyKey key);
-
   /**
-   * Returns a map giving the reverse dependencies of the nodes with the given keys. Same semantics
-   * as {@link #getReverseDeps(SkyKey)}.
+   * Returns a map giving the reverse dependencies of the nodes with the given keys. A node for each
+   * given key must exist and be done in the graph.
    */
   Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys);
 

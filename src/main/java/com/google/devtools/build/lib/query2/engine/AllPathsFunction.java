@@ -19,8 +19,9 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -65,11 +66,11 @@ public class AllPathsFunction implements QueryFunction {
 
     Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
     Set<T> result = intersection(reachableFromX, toValue);
-    LinkedList<T> worklist = new LinkedList<>(result);
-
-    T n;
-    while ((n = worklist.poll()) != null) {
-      for (T np : env.getReverseDeps(n)) {
+    Collection<T> worklist = result;
+    while (!worklist.isEmpty()) {
+      Collection<T> reverseDeps = env.getReverseDeps(worklist);
+      worklist = new ArrayList<>();
+      for (T np : reverseDeps) {
         if (reachableFromX.contains(np)) {
           if (result.add(np)) {
             worklist.add(np);

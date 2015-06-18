@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -126,10 +127,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return TransitiveTargetValue.key(value.getLabel());
   }
 
-  private Collection<Target> getRawFwdDeps(Target target) {
-    return makeTargets(graph.getDirectDeps(makeKey(target)));
-  }
-
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
     ImmutableMap.Builder<Target, Collection<Target>> result = ImmutableMap.builder();
 
@@ -141,10 +138,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private Map<Target, Collection<Target>> getRawFwdDeps(Iterable<Target> targets) {
     return makeTargetsMap(graph.getDirectDeps(makeKeys(targets)));
-  }
-
-  private Collection<Target> getRawReverseDeps(Target target) {
-    return makeTargets(graph.getReverseDeps(makeKey(target)));
   }
 
   private Map<Target, Collection<Target>> getRawReverseDeps(Iterable<Target> targets) {
@@ -174,11 +167,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   @Override
-  public Collection<Target> getFwdDeps(Target target) {
-    return filterFwdDeps(target, getRawFwdDeps(target));
-  }
-
-  @Override
   public Collection<Target> getFwdDeps(Iterable<Target> targets) {
     Set<Target> result = new HashSet<>();
     for (Map.Entry<Target, Collection<Target>> entry : getRawFwdDeps(targets).entrySet()) {
@@ -197,11 +185,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       }
     });
 
-  }
-
-  @Override
-  public Collection<Target> getReverseDeps(Target target) {
-    return filterReverseDeps(target, getRawReverseDeps(target));
   }
 
   @Override
@@ -240,7 +223,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       if (to.equals(current)) {
         return ImmutableSet.copyOf(Digraph.getPathToTreeNode(nodeToParent, to));
       }
-      for (Target dep : getFwdDeps(current)) {
+      for (Target dep : getFwdDeps(ImmutableList.of(current))) {
         if (!nodeToParent.containsKey(dep)) {
           nodeToParent.put(dep, current);
           toVisit.addFirst(dep);
