@@ -294,7 +294,7 @@ public final class UnixGlob {
   /**
    * Filesystem calls required for glob().
    */
-  public static interface FilesystemCalls {
+  public interface FilesystemCalls {
     /**
      * Get directory entries and their types.
      */
