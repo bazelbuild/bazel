@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FI
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GCNO;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -428,10 +429,14 @@ public final class ObjcCommon {
             .addAll(GENERAL_RESOURCE_FILE, attributes.resources())
             .addAll(GENERAL_RESOURCE_FILE, attributes.strings())
             .addAll(GENERAL_RESOURCE_FILE, attributes.xibs())
+            .addAll(
+                GENERAL_RESOURCE_DIR, xcodeStructuredResourceDirs(attributes.structuredResources()))
             .addAll(BUNDLE_FILE, BundleableFile.flattenedRawResourceFiles(attributes.resources()))
-            .addAll(BUNDLE_FILE,
+            .addAll(
+                BUNDLE_FILE,
                 BundleableFile.structuredRawResourceFiles(attributes.structuredResources()))
-            .addAll(XCASSETS_DIR,
+            .addAll(
+                XCASSETS_DIR,
                 uniqueContainers(attributes.assetCatalogs(), ASSET_CATALOG_CONTAINER_TYPE))
             .addAll(ASSET_CATALOG, attributes.assetCatalogs())
             .addAll(XCDATAMODEL, attributes.datamodels())
@@ -590,6 +595,29 @@ public final class ObjcCommon {
     for (Artifact artifact : artifacts) {
       containers.addAll(ObjcCommon.nearestContainerMatching(containerType, artifact).asSet());
     }
+    return containers.build();
+  }
+
+  /**
+   * Returns the Xcode structured resource directory paths.
+   *
+   * <p>For a checked-in source artifact "//a/b/res/sub_dir/d" included by objc rule "//a/b:c",
+   * "a/b/res" will be returned. For a generated source artifact "res/sub_dir/d" owned by genrule
+   * "//a/b:c", "bazel-out/.../genfiles/a/b/res" will be returned.
+   *
+   * <p>When XCode sees a included resource directory of "a/b/res", the entire directory structure
+   * up to "res" will be copied into the app bundle.
+   */
+  private static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
+    ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
+    for (Artifact artifact : artifacts) {
+      PathFragment ownerRuleDirectory = artifact.getArtifactOwner().getLabel().getPackageFragment();
+      String containerName =
+          artifact.getRootRelativePath().relativeTo(ownerRuleDirectory).getSegment(0);
+      PathFragment rootExecPath = artifact.getRoot().getExecPath();
+      containers.add(rootExecPath.getRelative(ownerRuleDirectory.getRelative(containerName)));
+    }
+
     return containers.build();
   }
 

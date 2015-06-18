@@ -115,6 +115,13 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> GENERAL_RESOURCE_FILE = new Key<>(STABLE_ORDER);
 
   /**
+   * Resource directories added to {@link TargetControl#getGeneralResourceFileList()} when running
+   * Xcodegen. When copying files inside resource directories to the app bundle, XCode will preserve
+   * the directory structures of the copied files.
+   */
+  public static final Key<PathFragment> GENERAL_RESOURCE_DIR = new Key<>(STABLE_ORDER);
+
+  /**
    * Exec paths of {@code .bundle} directories corresponding to imported bundles to link.
    * These are passed to Xcodegen.
    */
