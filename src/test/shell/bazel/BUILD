@@ -37,6 +37,12 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_rust_example_test",
+    srcs = ["bazel_rust_example_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_rules_test",
     srcs = ["bazel_rules_test.sh"],
     data = [":test-deps"],
