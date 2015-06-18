@@ -75,6 +75,10 @@ public class SyntaxTreeVisitor {
     visit(node.getListExpression());
   }
 
+  public void visit(LoadStatement node) {
+    visitAll(node.getSymbols());
+  }
+
   public void visit(ListLiteral node) {
     visitAll(node.getElements());
   }
@@ -95,38 +99,26 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(IfStatement node) {
-    for (ConditionalStatements stmt : node.getThenBlocks()) {
-      visit(stmt);
-    }
-    for (Statement stmt : node.getElseBlock()) {
-      visit(stmt);
-    }
+    visitAll(node.getThenBlocks());
+    visitAll(node.getElseBlock());
   }
 
   public void visit(ConditionalStatements node) {
     visit(node.getCondition());
-    for (Statement stmt : node.getStmts()) {
-      visit(stmt);
-    }
+    visitAll(node.getStmts());
   }
 
   public void visit(FunctionDefStatement node) {
     visit(node.getIdent());
     List<Expression> defaults = node.getArgs().getDefaultValues();
     if (defaults != null) {
-      for (Expression expr : defaults) {
-        visit(expr);
-      }
+      visitAll(defaults);
     }
-    for (Statement stmt : node.getStatements()) {
-      visit(stmt);
-    }
+    visitAll(node.getStatements());
   }
 
   public void visit(DictionaryLiteral node) {
-    for (DictionaryEntryLiteral entry : node.getEntries()) {
-      visit(entry);
-    }
+    visitAll(node.getEntries());
   }
 
   public void visit(DictionaryEntryLiteral node) {
