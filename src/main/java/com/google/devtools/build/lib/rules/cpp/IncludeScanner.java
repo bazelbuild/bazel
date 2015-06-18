@@ -67,7 +67,8 @@ public interface IncludeScanner {
    * interpreted.</p>
    */
   void process(Artifact mainSource, Collection<Artifact> sources,
-      Map<Artifact, Artifact> legalOutputPaths, List<String> cmdlineIncludes,
+      Map<Artifact, Artifact> legalOutputPaths, List<PathFragment> includeDirs,
+      List<PathFragment> quoteIncludeDirs, List<String> cmdlineIncludes,
       Set<Artifact> includes, ActionExecutionContext actionExecutionContext)
       throws IOException, ExecException, InterruptedException;
 
@@ -145,8 +146,8 @@ public interface IncludeScanner {
 
           Artifact mainSource =  scannable.getMainIncludeScannerSource();
           Collection<Artifact> sources = scannable.getIncludeScannerSources();
-          scanner.process(mainSource, sources, legalOutputPaths, cmdlineIncludes, includes,
-                actionExecutionContext);
+          scanner.process(mainSource, sources, legalOutputPaths, quoteIncludeDirs,
+              includeDirList, cmdlineIncludes, includes, actionExecutionContext);
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(e.getMessage());

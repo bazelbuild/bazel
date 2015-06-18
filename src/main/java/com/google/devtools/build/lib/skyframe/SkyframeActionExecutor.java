@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -94,7 +95,7 @@ import javax.annotation.Nullable;
  * Action executor: takes care of preparing an action for execution, executing it, validating that
  * all output artifacts were created, error reporting, etc.
  */
-public final class SkyframeActionExecutor {
+public final class SkyframeActionExecutor implements ActionExecutionContextFactory {
   private final Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private final ResourceManager resourceManager;
@@ -444,8 +445,9 @@ public final class SkyframeActionExecutor {
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  ActionExecutionContext constructActionExecutionContext(
-      PerActionFileCache graphFileCache, MetadataHandler metadataHandler,
+  @Override
+  public ActionExecutionContext getContext(
+      ActionInputFileCache graphFileCache, MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
@@ -1054,7 +1056,7 @@ public final class SkyframeActionExecutor {
     private final ActionInputFileCache perActionCache;
     private final ActionInputFileCache perBuildFileCache;
 
-    private DelegatingPairFileCache(PerActionFileCache mainCache,
+    private DelegatingPairFileCache(ActionInputFileCache mainCache,
         ActionInputFileCache perBuildFileCache) {
       this.perActionCache = mainCache;
       this.perBuildFileCache = perBuildFileCache;

@@ -352,7 +352,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
       }
       actionExecutionContext =
-          skyframeActionExecutor.constructActionExecutionContext(perActionFileCache,
+          skyframeActionExecutor.getContext(perActionFileCache,
               metadataHandler, state.expandedMiddlemen);
       if (!state.hasExecutedAction()) {
         state.value = skyframeActionExecutor.executeAction(action,

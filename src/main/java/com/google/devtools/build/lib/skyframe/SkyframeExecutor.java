@@ -32,6 +32,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -669,6 +670,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public EventBus getEventBus() {
     return eventBus.get();
+  }
+
+  public ActionExecutionContextFactory getActionExecutionContextFactory() {
+    return skyframeActionExecutor;
   }
 
   /**

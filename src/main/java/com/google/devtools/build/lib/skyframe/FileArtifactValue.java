@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,7 +35,13 @@ public class FileArtifactValue extends ArtifactValue {
   /** Data for Middleman artifacts that did not have data specified. */
   static final FileArtifactValue DEFAULT_MIDDLEMAN = new FileArtifactValue(null, 0, 0);
   /** Data that marks that a file is not present on the filesystem. */
-  static final FileArtifactValue MISSING_FILE_MARKER = new FileArtifactValue(null, 1, 0);
+  @VisibleForTesting
+  public static final FileArtifactValue MISSING_FILE_MARKER = new FileArtifactValue(null, 1, 0) {
+    @Override
+    public boolean exists() {
+      return false;
+    }
+  };
 
   /**
    * Represents an omitted file- we are aware of it but it doesn't exist. All access methods
@@ -70,7 +77,8 @@ public class FileArtifactValue extends ArtifactValue {
     this.mtime = mtime;
   }
 
-  static FileArtifactValue create(Artifact artifact) throws IOException {
+  @VisibleForTesting
+  public static FileArtifactValue create(Artifact artifact) throws IOException {
     Path path = artifact.getPath();
     FileStatus stat = path.stat();
     boolean isFile = stat.isFile();
@@ -109,7 +117,7 @@ public class FileArtifactValue extends ArtifactValue {
   }
 
   @Nullable
-  byte[] getDigest() {
+  public byte[] getDigest() {
     return digest;
   }
 
@@ -119,7 +127,7 @@ public class FileArtifactValue extends ArtifactValue {
   }
 
   /** Gets the size of the file. Directories have size 0. */
-  long getSize() {
+  public long getSize() {
     return size;
   }
 
@@ -131,6 +139,10 @@ public class FileArtifactValue extends ArtifactValue {
   long getModifiedTime() {
     Preconditions.checkState(size == 0, "%s %s %s", digest, mtime, size);
     return mtime;
+  }
+
+  public boolean exists() {
+    return true;
   }
 
   @Override

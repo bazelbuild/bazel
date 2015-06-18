@@ -39,7 +39,7 @@ import java.util.Collection;
 public abstract class ArtifactValue implements SkyValue {
 
   @ThreadSafe
-  static SkyKey key(Artifact artifact, boolean isMandatory) {
+  public static SkyKey key(Artifact artifact, boolean isMandatory) {
     return new SkyKey(SkyFunctions.ARTIFACT, artifact.isSourceArtifact()
         ? new OwnedArtifact(artifact, isMandatory)
         : new OwnedArtifact(artifact));
@@ -74,6 +74,11 @@ public abstract class ArtifactValue implements SkyValue {
     return TO_ARTIFACT.apply((OwnedArtifact) key.argument());
   }
 
+  public static boolean equalWithOwner(Artifact first, Artifact second) {
+    return first.equals(second)
+        && first.getArtifactOwner().equals(second.getArtifactOwner());
+  }
+
   /**
    * Artifacts are compared using just their paths, but in Skyframe, the configured target that owns
    * an artifact must also be part of the comparison. For example, suppose we build //foo:foo in
@@ -92,7 +97,7 @@ public abstract class ArtifactValue implements SkyValue {
    * since outside of Skyframe it is quite crucial that Artifacts with different owners be able to
    * compare equal.
    */
-  public static class OwnedArtifact {
+  static class OwnedArtifact {
     private final Artifact artifact;
     // Always true for derived artifacts.
     private final boolean isMandatory;
@@ -133,9 +138,7 @@ public abstract class ArtifactValue implements SkyValue {
       }
       OwnedArtifact thatOwnedArtifact = ((OwnedArtifact) that);
       Artifact thatArtifact = thatOwnedArtifact.artifact;
-      return artifact.equals(thatArtifact)
-          && artifact.getArtifactOwner().equals(thatArtifact.getArtifactOwner())
-          && isMandatory == thatOwnedArtifact.isMandatory;
+      return equalWithOwner(artifact, thatArtifact) && isMandatory == thatOwnedArtifact.isMandatory;
     }
 
     Artifact getArtifact() {

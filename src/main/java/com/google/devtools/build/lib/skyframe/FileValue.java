@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public abstract class FileValue implements SkyValue {
 
-  boolean exists() {
+  public boolean exists() {
     return realFileStateValue().getType() != Type.NONEXISTENT;
   }
 
