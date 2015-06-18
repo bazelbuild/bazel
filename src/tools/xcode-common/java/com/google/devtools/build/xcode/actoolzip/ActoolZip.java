@@ -48,6 +48,10 @@ public class ActoolZip implements Wrapper {
   public Iterable<String> subCommand(Arguments args, String outputDirectory) {
     return new ImmutableList.Builder<String>()
         .add(args.subtoolCmd())
+        .add("--output-format").add("human-readable-text")
+        .add("--notices")
+        .add("--warnings")
+        .add("--compress-pngs")
         .add("--compile")
         .add(outputDirectory)
         // actool munges paths in some way which doesn't work if one of the directories in the path
