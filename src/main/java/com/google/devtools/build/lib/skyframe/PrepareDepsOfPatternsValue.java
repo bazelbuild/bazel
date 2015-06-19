@@ -27,6 +27,13 @@ import java.util.Objects;
  * The value returned by {@link PrepareDepsOfPatternsFunction}. Because that function is
  * invoked only for its side effect (i.e. ensuring the graph contains targets matching the
  * pattern sequence and their transitive dependencies), this value carries no information.
+ *
+ * <p>Because the returned value is always the same object, this value and the
+ * {@link PrepareDepsOfPatternsFunction} which computes it are incompatible with change pruning. It
+ * should only be requested by consumers who do not require reevaluation when
+ * {@link PrepareDepsOfPatternsFunction} is reevaluated. Safe consumers include, e.g., top-level
+ * consumers, and other functions which invoke {@link PrepareDepsOfPatternsFunction} solely for its
+ * side-effects.
  */
 @Immutable
 @ThreadSafe
@@ -42,7 +49,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
         new TargetPatternSequence(patterns, policy, offset));
   }
 
-  /** The argument value for SkyKeys of {@link PrepareDepsOfPatternsFunction}. */
+  /** The argument value for {@link SkyKey}s of {@link PrepareDepsOfPatternsFunction}. */
   @ThreadSafe
   public static class TargetPatternSequence implements Serializable {
     private final ImmutableList<String> patterns;
