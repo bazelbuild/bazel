@@ -13,7 +13,7 @@ Supported platforms:
 
 Java:
 
-*   Java JDK 8 or later
+*   Java JDK 7 or later
 
 ## Downloading Bazel
 
@@ -30,21 +30,12 @@ $ git clone https://github.com/google/bazel.git
 
 To build Bazel on Ubuntu:
 
-#### 1. Install JDK 8:
+#### 1. Install JDK 7:
 
-**Ubuntu Trusty (14.04 LTS).** OpenJDK 8 is not available on Trusty. To
-install Oracle JDK 8:
-
-```
-$ sudo add-apt-repository ppa:webupd8team/java
-$ sudo apt-get update
-$ sudo apt-get install oracle-java8-installer
-```
-
-**Ubuntu Utopic (14.10).** To install OpenJDK 8:
+**Ubuntu Utopic (14.10) and Trusty (14.04 LTS).** To install OpenJDK 7:
 
 ```
-$ sudo apt-get install openjdk-8-jdk
+$ sudo apt-get install openjdk-7-jdk
 ```
 
 #### 2. Set the `JAVA_HOME` environment variable.
@@ -55,16 +46,16 @@ First, check to see if it's already set:
 $ echo $JAVA_HOME
 ```
 
-If this prints the path to the JDK 8 root directory, proceed to the next
+If this prints the path to the JDK 7 root directory, proceed to the next
 step. Otherwise, find the Java `bin` directory using `which javac` and use
 `javac -version` to verify that you have the right JDK version. Then set
 the `JAVA_HOME` environment variable to the `bin` directory parent.
 
-For example, if the path is `/usr/lib/jvm/jdk1.8.0/bin/javac`, set the
-`JAVA_HOME` variable to `/usr/lib/jvm/jdk1.8.0`:
+For example, if the path is `/usr/lib/jvm/jdk1.7.0/bin/javac`, set the
+`JAVA_HOME` variable to `/usr/lib/jvm/jdk1.7.0`:
 
 ```
-$ export JAVA_HOME=/usr/lib/jvm/jdk1.8.0
+$ export JAVA_HOME=/usr/lib/jvm/jdk1.7.0
 ```
 
 You can also add this line to your `~/.bashrc` file.
@@ -91,7 +82,7 @@ Bazel on Mac OS X requires:
 
 * MacPorts or Homebrew for installing required packages.
 
-* An installation of JDK 8.
+* An installation of JDK 7.
 
 * For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with
   iOS SDK 8.1 installed on your system.

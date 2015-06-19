@@ -73,8 +73,8 @@ filegroup(
 java_toolchain(
     name = "toolchain",
     encoding = "UTF-8",
-    source_version = "8",
-    target_version = "8",
+    source_version = "7",
+    target_version = "7",
 )
 
 exports_files([
