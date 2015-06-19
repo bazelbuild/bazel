@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -196,6 +198,20 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     helper.setCreateDynamicLibrary(createDynamicLibrary);
     helper.setDynamicLibraryPath(soImplFilename);
 
+    // If "srcs" is configurable, the .so output is always declared because the logic that
+    // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen. Here,
+    // where we *do* have the correct value, it may not contain any source files to generate an
+    // .so with. If that's the case, register a fake generating action to prevent a "no generating
+    // action for this artifact" error.
+    if (!createDynamicLibrary && ruleContext.attributes().isConfigurable("srcs", Type.LABEL_LIST)) {
+      PathFragment solib = CppHelper.getLinkedFilename(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
+      Artifact solibArtifact = ruleContext.getAnalysisEnvironment()
+          .getDerivedArtifact(solib, ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
+          ImmutableList.of(solibArtifact), "configurable \"srcs\" triggers an implicit .so output "
+          + "even though there are no sources to compile in this configuration"));
+    }
+
     /*
      * Add the libraries from srcs, if any. For static/mostly static
      * linking we setup the dynamic libraries if there are no static libraries
@@ -347,37 +363,31 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns true if the rule (which must be a cc_library rule)
-   * appears to have no object files.  This only looks at the rule
-   * itself, not at any other rules (from this package or other
+   * Returns true if the rule (which must be a cc_library rule) appears to have no object files.
+   * This only looks at the rule itself, not at any other rules (from this package or other
    * packages) that it might reference.
    *
-   * <p>
-   * In some cases, this may return "false" even
-   * though the rule actually has no object files.
+   * <p>In some cases, this may return "false" even though the rule actually has no object files.
    * For example, it will return false for a rule such as
-   * <code>cc_library(name = 'foo', srcs = [':bar'])</code>
-   * because we can't tell what ':bar' is; it might
-   * be a genrule that generates a source file, or it might
-   * be a genrule that generates a header file.
+   * <code>cc_library(name = 'foo', srcs = [':bar'])</code> because we can't tell what ':bar' is;
+   * it might be a genrule that generates a source file, or it might be a genrule that generates a
+   * header file. Likewise,
+   * <code>cc_library(name = 'foo', srcs = select({':a': ['foo.cc'], ':b': []}))</code> returns
+   * "false" even though the sources *may* be empty. This reflects the fact that there's no way
+   * to tell which value "srcs" will take without knowing the rule's configuration.
    *
-   * <p>
-   * In other cases, this may return "true" even
-   * though the rule actually does have object files.
+   * <p>In other cases, this may return "true" even though the rule actually does have object files.
    * For example, it will return true for a rule such as
-   * <code>cc_library(name = 'foo', srcs = ['bar.h'])</code>
-   * but as in the other example above, we can't tell whether
-   * 'bar.h' is a file name or a rule name, and 'bar.h' could
-   * in fact be the name of a genrule that generates a source file.
+   * <code>cc_library(name = 'foo', srcs = ['bar.h'])</code> but as in the other example above,
+   * we can't tell whether 'bar.h' is a file name or a rule name, and 'bar.h' could in fact be the
+   * name of a genrule that generates a source file.
    */
   public static boolean appearsToHaveNoObjectFiles(AttributeMap rule) {
-    // Temporary hack while configurable attributes is under development. This has no effect
-    // for any rule that doesn't use configurable attributes.
-    // TODO(bazel-team): remove this hack for a more principled solution.
-    try {
-      rule.get("srcs", Type.LABEL_LIST);
-    } catch (IllegalArgumentException e) {
-      // "srcs" is actually a configurable selector. Assume object files are possible somewhere.
+    if ((rule instanceof RawAttributeMapper) && rule.isConfigurable("srcs", Type.LABEL_LIST)) {
+      // Since this method gets called by loading phase logic (e.g. the cc_library implicit outputs
+      // function), the attribute mapper may not be able to resolve configurable attributes. When
+      // that's the case, there's no way to know which value a configurable "srcs" will take, so
+      // we conservatively assume object files are possible.
       return false;
     }
 

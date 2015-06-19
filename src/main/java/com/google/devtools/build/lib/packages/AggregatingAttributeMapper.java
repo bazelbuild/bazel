@@ -381,6 +381,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         return type.cast(directMap.get(attributeName));
       }
 
+      @Override
+      public <T> boolean isConfigurable(String attributeName, Type<T> type) {
+        return owner.isConfigurable(attributeName, type);
+      }
+
       @Override public String getName() { return owner.getName(); }
       @Override public Label getLabel() { return owner.getLabel(); }
       @Override public Iterable<String> getAttributeNames() {

@@ -50,6 +50,12 @@ public interface AttributeMap {
   <T> T get(String attributeName, Type<T> type);
 
   /**
+   * Returns true if the given attribute is configurable for this rule instance, false
+   * otherwise.
+   */
+  <T> boolean isConfigurable(String attributeName, Type<T> type);
+
+  /**
    * Returns the names of all attributes covered by this map.
    */
   Iterable<String> getAttributeNames();

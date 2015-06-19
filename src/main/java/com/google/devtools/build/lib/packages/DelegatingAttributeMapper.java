@@ -46,6 +46,11 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public <T> boolean isConfigurable(String attributeName, Type<T> type) {
+    return delegate.isConfigurable(attributeName, type);
+  }
+
+  @Override
   public Iterable<String> getAttributeNames() {
     return delegate.getAttributeNames();
   }

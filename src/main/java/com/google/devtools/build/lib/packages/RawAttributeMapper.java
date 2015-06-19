@@ -75,14 +75,6 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Returns true if the given attribute is configurable for this rule instance, false
-   * otherwise.
-   */
-  public <T> boolean isConfigurable(String attributeName, Type<T> type) {
-    return getSelectorList(attributeName, type) != null;
-  }
-
-  /**
    * If the attribute is configurable for this rule instance, returns its configuration
    * keys. Else returns an empty list.
    */

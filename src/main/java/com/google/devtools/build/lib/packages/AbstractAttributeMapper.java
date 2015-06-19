@@ -159,6 +159,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
   }
 
+  @Override
+  public <T> boolean isConfigurable(String attributeName, Type<T> type) {
+    return getSelectorList(attributeName, type) != null;
+  }
+
   /**
    * Returns a {@link Type.SelectorList} for the given attribute if the attribute is configurable
    * for this rule, null otherwise.
