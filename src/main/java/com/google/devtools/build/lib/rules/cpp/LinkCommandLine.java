@@ -58,7 +58,7 @@ public final class LinkCommandLine extends CommandLine {
   private final BuildConfiguration configuration;
   private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
-  private final Artifact output;
+  @Nullable private final Artifact output;
   @Nullable private final Artifact interfaceOutput;
   @Nullable private final Artifact symbolCountsOutput;
   private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
@@ -124,8 +124,12 @@ public final class LinkCommandLine extends CommandLine {
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.owner = Preconditions.checkNotNull(owner);
-    this.output = Preconditions.checkNotNull(output);
+    this.output = output;
     this.interfaceOutput = interfaceOutput;
+    if (interfaceOutput != null) {
+      Preconditions.checkNotNull(this.output);
+    }
+
     this.symbolCountsOutput = symbolCountsOutput;
     this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
     this.linkerInputs = Preconditions.checkNotNull(linkerInputs);
