@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -32,7 +33,7 @@ public class ImmutableDiff implements Differencer.Diff {
   }
 
   @Override
-  public Iterable<SkyKey> changedKeysWithoutNewValues() {
+  public Collection<SkyKey> changedKeysWithoutNewValues() {
     return valuesToInvalidate;
   }
 

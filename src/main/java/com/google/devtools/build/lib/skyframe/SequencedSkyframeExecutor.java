@@ -284,38 +284,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
           diffAwarenessManager.getDiff(pathEntry);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
-        LOG.info("DiffAwareness treating all sources as modified for " + pathEntry);
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {
-        LOG.info(diffInfoLogString(pathEntry,
-            modifiedFileSet.getModifiedFileSet().modifiedSourceFiles()));
         modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
       }
     }
     handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
     handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
-  }
-
-  private static String diffInfoLogString(Path pathEntry,
-      ImmutableSet<PathFragment> modifiedFileSet) {
-    int numModified = modifiedFileSet.size();
-    StringBuilder result = new StringBuilder("DiffAwareness found ")
-        .append(numModified)
-        .append(" modified source files for ")
-        .append(pathEntry.getPathString());
-
-    if (numModified > 0) {
-      Iterable<String> trimmed = PathFragment.safePathStrings(
-          Iterables.limit(modifiedFileSet, 5));
-      result.append(": ")
-          .append(Joiner.on(", ").join(trimmed));
-
-      if (numModified > 5) {
-        result.append(", ...");
-      }
-    }
-
-    return result.toString();
   }
 
   /**
@@ -334,7 +309,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       Iterable<SkyKey> dirtyValues = getSkyKeysPotentiallyAffected(
           modifiedFileSet.modifiedSourceFiles(), pathEntry);
-      handleChangedFiles(new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
+      handleChangedFiles(ImmutableList.of(pathEntry),
+          new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
       processableModifiedFileSet.markProcessed();
     }
   }
@@ -349,11 +325,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     if (pathEntriesWithoutDiffInformation.isEmpty()) {
       return;
     }
+
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
     buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
         DEFAULT_THREAD_COUNT, reporter);
+
     FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm, null);
     // We need to manually check for changes to known files. This entails finding all dirty file
     // system values under package roots for which we don't have diff information. If at least
@@ -364,19 +342,24 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Partition by package path entry.
     Multimap<Path, SkyKey> skyKeysByPathEntry = partitionSkyKeysByPackagePathEntry(
         ImmutableSet.copyOf(pkgLocator.get().getPathEntries()), filesystemSkyKeys);
+
     // Contains all file system values that we need to check for dirtiness.
+    List<Path> pathEntriesChecked =
+        Lists.newArrayListWithCapacity(pathEntriesWithoutDiffInformation.size());
     List<Iterable<SkyKey>> valuesToCheckManually = Lists.newArrayList();
     for (Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
       Path pathEntry = pair.getFirst();
       valuesToCheckManually.add(skyKeysByPathEntry.get(pathEntry));
+      pathEntriesChecked.add(pathEntry);
     }
+
     Differencer.Diff diff = fsnc.getDirtyFilesystemValues(Iterables.concat(valuesToCheckManually));
-    handleChangedFiles(diff);
+    handleChangedFiles(pathEntriesChecked, diff);
+
     for (Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
-      DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet = pair.getSecond();
-      processableModifiedFileSet.markProcessed();
+      pair.getSecond().markProcessed();
     }
   }
 
@@ -404,13 +387,43 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return multimapBuilder.build();
   }
 
-  private void handleChangedFiles(Differencer.Diff diff) {
-    recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
-    recordingDiffer.inject(diff.changedKeysWithNewValues());
-    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithoutNewValues());
-    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithNewValues().keySet());
-    incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
-    incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
+  private void handleChangedFiles(List<Path> pathEntries, Differencer.Diff diff) {
+    Collection<SkyKey> changedKeysWithoutNewValues = diff.changedKeysWithoutNewValues();
+    Map<SkyKey, ? extends SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
+
+    logDiffInfo(pathEntries, changedKeysWithoutNewValues, changedKeysWithNewValues);
+
+    recordingDiffer.invalidate(changedKeysWithoutNewValues);
+    recordingDiffer.inject(changedKeysWithNewValues);
+    modifiedFiles += getNumberOfModifiedFiles(changedKeysWithoutNewValues);
+    modifiedFiles += getNumberOfModifiedFiles(changedKeysWithNewValues.keySet());
+    incrementalBuildMonitor.accrue(changedKeysWithoutNewValues);
+    incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
+  }
+
+  private static void logDiffInfo(Iterable<Path> pathEntries,
+      Collection<SkyKey> changedWithoutNewValue,
+      Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
+    int numModified = changedWithNewValue.size() + changedWithoutNewValue.size();
+    StringBuilder result = new StringBuilder("DiffAwareness found ")
+        .append(numModified)
+        .append(" modified source files and directory listings for ")
+        .append(Joiner.on(", ").join(pathEntries));
+
+    if (numModified > 0) {
+      Iterable<SkyKey> allModifiedKeys = Iterables.concat(changedWithoutNewValue,
+          changedWithNewValue.keySet());
+      Iterable<SkyKey> trimmed = Iterables.limit(allModifiedKeys, 5);
+
+      result.append(": ")
+          .append(Joiner.on(", ").join(trimmed));
+
+      if (numModified > 5) {
+        result.append(", ...");
+      }
+    }
+
+    LOG.info(result.toString());
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {

@@ -371,7 +371,7 @@ class FilesystemValueChecker {
     }
 
     @Override
-    public Iterable<SkyKey> changedKeysWithoutNewValues() {
+    public Collection<SkyKey> changedKeysWithoutNewValues() {
       return concurrentDirtyKeysWithoutNewValues;
     }
 
