@@ -63,8 +63,11 @@ layout: documentation
 
   <h3>Rules</h3>
 
-<table id="rules" summary="Table of rules sorted by language">
-<colgroup span="5" width="20%"></colgroup>
+<h4>Language-specific Rules</h4>
+
+<table class="table table-condensed table-striped"
+    summary="Table of rules sorted by language">
+<colgroup span="6" width="20%"></colgroup>
 <tr><th>Language</th><th>Binary rules</th><th>Library rules</th><th>Test rules</th><th>Other rules</th><th></th></tr>
 <tr>
 <td class="lang">C / C++</td>
@@ -85,7 +88,7 @@ layout: documentation
 <tr>
 <td class="lang">Objective-C</td>
 <td><a href="#ios_application">ios_application</a><br/><a href="#ios_device">ios_device</a><br/><a href="#ios_extension">ios_extension</a><br/><a href="#ios_extension_binary">ios_extension_binary</a><br/><a href="#objc_binary">objc_binary</a></td>
-<td><a href="#objc_bundle">objc_bundle</a><br/><a href="#objc_bundle_library">objc_bundle_library</a><br/><a href="#objc_framework">objc_framework</a><br/><a href="#objc_import">objc_import</a><br/><a href="#objc_library">objc_library</a><br/><a href="#objc_proto_library">objc_proto_library</a></td>
+<td><a href="#j2objc_library">j2objc_library</a><br/><a href="#objc_bundle">objc_bundle</a><br/><a href="#objc_bundle_library">objc_bundle_library</a><br/><a href="#objc_framework">objc_framework</a><br/><a href="#objc_import">objc_import</a><br/><a href="#objc_library">objc_library</a><br/><a href="#objc_proto_library">objc_proto_library</a></td>
 <td><a href="#experimental_ios_test">experimental_ios_test</a><br/><a href="#ios_test">ios_test</a></td>
 <td><a href="#objc_xcodeproj">objc_xcodeproj</a></td>
 <td></td>
@@ -106,7 +109,15 @@ layout: documentation
 <td></td>
 <td></td>
 </tr>
-<tr><th>&nbsp;</th></tr><tr><th colspan="5">Rules that do not apply to a specific programming language</th></tr><tr>
+
+
+</table>
+<h4>Rules that do not apply to a specific programming language</h4>
+
+<table class="table table-condensed table-striped"
+    summary="Table of rules not specific to a programming language">
+<colgroup span="6" width="20%"></colgroup>
+<tr>
 <td class="lang">Extra Actions</td>
 <td><a href="#action_listener">action_listener</a></td>
 <td><a href="#extra_action">extra_action</a></td>
@@ -122,9 +133,9 @@ layout: documentation
 <td><a href="#bind">bind</a><br/><a href="#config_setting">config_setting</a><br/><a href="#genrule">genrule</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_jar">http_jar</a></td>
 <td><a href="#local_repository">local_repository</a><br/><a href="#maven_jar">maven_jar</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
 </tr>
+
+
 </table>
-
-
 <h2 id="common-definitions">Common definitions</h2>
 
 <p>This section defines various terms and concepts that are common to
@@ -1496,6 +1507,10 @@ Objective-C libraries.</p>
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="ios_extension_binary.weak_sdk_frameworks"><code>weak_sdk_frameworks</code>:
           Names of SDK frameworks to weakly link with. For instance,
@@ -2120,6 +2135,10 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="objc_binary.weak_sdk_frameworks"><code>weak_sdk_frameworks</code>:
           Names of SDK frameworks to weakly link with. For instance,
@@ -2779,16 +2798,20 @@ cc_library(
   not <code>baz.h</code>.
 </p>
 
-<table class="grid">
-  <tr><th>Including file</th><th>Allowed inclusions</th></tr>
-  <tr><td>foo.h</td><td>bar.h</td></tr>
-  <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
-  <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
-  <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
-  <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
-  <tr><td>baz.h</td><td>baz-impl.h</td></tr>
-  <tr><td>baz-impl.h</td><td>baz.h</td></tr>
-  <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+<table class="table table-striped table-bordered table-condensed">
+  <thead>
+    <tr><th>Including file</th><th>Allowed inclusions</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>foo.h</td><td>bar.h</td></tr>
+    <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
+    <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
+    <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
+    <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
+    <tr><td>baz.h</td><td>baz-impl.h</td></tr>
+    <tr><td>baz-impl.h</td><td>baz.h</td></tr>
+    <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+  </tbody>
 </table>
 
 <p>
@@ -2815,6 +2838,66 @@ cc_library(
   does not directly depend on <code>baz</code>. Currently, no error is produced
   in that case, but such error checking may be added in the future.
 </p>
+
+<h3 id="j2objc_library">j2objc_library</h3>
+
+
+<p class="rule-signature">
+j2objc_library(<a href="#j2objc_library.name">name</a>,
+<a href="#j2objc_library.deps">deps</a>,
+<a href="#j2objc_library.copts">copts</a>,
+<a href="#common.deprecation">deprecation</a>,
+<a href="#common.distribs">distribs</a>,
+<a href="#j2objc_library.entry_classes">entry_classes</a>,
+<a href="#common.features">features</a>,
+<a href="#common.licenses">licenses</a>,
+<a href="#common.tags">tags</a>,
+<a href="#common.testonly">testonly</a>,
+<a href="#common.visibility">visibility</a>)
+</p>
+
+
+<p>This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a>
+to translate Java source files to Objective-C, which then can be used used as dependencies of
+<code>objc_library</code> and <code>objc_binary</code> rules. More information about J2ObjC
+can be found <a href="http://j2objc.org">here</a>.
+</p>
+
+
+<h4 id="j2objc_library_args">Arguments</h4>
+<ul>
+<li id="j2objc_library.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="j2objc_library.deps"><code>deps</code>:
+          A list of <code>j2objc_library</code>, <code>java_library</code>
+          and <code>java_import</code> targets that contain
+          Java files to be transpiled to Objective-C.
+          <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+</li>
+<li id="j2objc_library.copts"><code>copts</code>:
+          Extra flags to pass to the compiler.
+          <i>(List of strings; optional)</i><br/>
+
+          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+</li>
+<li id="j2objc_library.entry_classes"><code>entry_classes</code>:
+          The list of Java classes whose translated ObjC counterparts will be referenced directly
+          by user ObjC code. This attibute is required if flag <code>--j2objc_dead_code_removal
+          </code> is on. The Java classes should be specified in their canonical names as defined by
+          <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
+          Language Specification.</a>
+          <i>(List of strings; optional)</i><br/>
+
+          When flag <code>--j2objc_dead_code_removal</code> is specified, the list of entry classes
+          will be collected transitively and used as entry points to perform dead code analysis.
+          Unused classes will then be removed from the final ObjC app bundle.
+</li>
+</ul>
+
 
 <h3 id="java_import">java_import</h3>
 
@@ -3270,6 +3353,10 @@ the final iOS application.
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="objc_bundle_library.xibs"><code>xibs</code>:
           Files which are .xib resources, possibly localizable.
@@ -3530,6 +3617,10 @@ attributes supported by <code>objc_library</code>.</p>
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="objc_import.weak_sdk_frameworks"><code>weak_sdk_frameworks</code>:
           Names of SDK frameworks to weakly link with. For instance,
@@ -3796,6 +3887,10 @@ objc_library(<a href="#objc_library.name">name</a>,
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="objc_library.weak_sdk_frameworks"><code>weak_sdk_frameworks</code>:
           Names of SDK frameworks to weakly link with. For instance,
@@ -4682,6 +4777,10 @@ on both iOS simulator and real devices.
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="experimental_ios_test.target_device"><code>target_device</code>:
            The device against which to run the test.
@@ -5043,6 +5142,10 @@ on both iOS simulator and real devices.
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
 </li>
 <li id="ios_test.target_device"><code>target_device</code>:
            The device against which to run the test.
