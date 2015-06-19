@@ -153,13 +153,19 @@ java_import(
 
 java_import(
     name = "error_prone",
-    jars = ["error_prone/error_prone_core-2.0.2.jar"],
+    jars = [
+        "error_prone/error_prone_core-2.0.3.jar",
+        "error_prone/error_prone_annotations-2.0.3.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "error_prone-jars",
-    srcs = ["error_prone/error_prone_core-2.0.2.jar"],
+    srcs = [
+        "error_prone/error_prone_annotations-2.0.3.jar",
+        "error_prone/error_prone_core-2.0.3.jar",
+    ],
 )
 
 java_import(
