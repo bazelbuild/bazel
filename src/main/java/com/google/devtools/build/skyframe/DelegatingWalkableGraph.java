@@ -19,6 +19,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -70,9 +71,27 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       };
 
   @Override
-  public Map<SkyKey, SkyValue> getValuesMaybe(Iterable<SkyKey> keys) {
+  public Map<SkyKey, SkyValue> getDoneValues(Iterable<SkyKey> keys) {
     return Maps.filterValues(Maps.transformValues(graph.getBatch(keys), GET_SKY_VALUE_FUNCTION),
         Predicates.notNull());
+  }
+
+  @Override
+  public Map<SkyKey, Exception> getMissingAndExceptions(Iterable<SkyKey> keys) {
+    Map<SkyKey, Exception> result = new HashMap<>();
+    Map<SkyKey, NodeEntry> graphResult = graph.getBatch(keys);
+    for (SkyKey key : keys) {
+      NodeEntry nodeEntry = graphResult.get(key);
+      if (nodeEntry == null || !nodeEntry.isDone()) {
+        result.put(key, null);
+      } else {
+        ErrorInfo errorInfo = nodeEntry.getErrorInfo();
+        if (errorInfo != null) {
+          result.put(key, errorInfo.getException());
+        }
+      }
+    }
+    return result;
   }
 
   @Nullable

@@ -44,7 +44,16 @@ public interface WalkableGraph {
    * Returns a map giving the values of the given keys for done keys. Keys not present in the graph
    * or whose nodes are not done will not be present in the returned map.
    */
-  Map<SkyKey, SkyValue> getValuesMaybe(Iterable<SkyKey> keys);
+  Map<SkyKey, SkyValue> getDoneValues(Iterable<SkyKey> keys);
+
+  /**
+   * Returns a map giving exceptions associated to the given keys for done keys. Keys not present in
+   * the graph or whose nodes are not done will be present in the returned map, with null value. In
+   * other words, if {@code key} is in {@param keys}, then the returned map will contain an entry
+   * for {@code key} if and only if the node for {@code key} did <i>not</i> evaluate successfully
+   * without error.
+   */
+  Map<SkyKey, Exception> getMissingAndExceptions(Iterable<SkyKey> keys);
 
   /**
    * Returns the exception thrown when computing the node with the given key, if any. If the node
