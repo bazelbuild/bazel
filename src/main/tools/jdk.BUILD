@@ -52,3 +52,14 @@ filegroup(
     name = "jdk-default",
     srcs = glob(["bin/*"]),
 )
+
+filegroup(
+    name = "langtools",
+    srcs = ["lib/tools.jar"],
+)
+
+java_import(
+    name = "langtools-neverlink",
+    jars = ["lib/tools.jar"],
+    neverlink = 1,
+)
