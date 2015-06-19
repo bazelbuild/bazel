@@ -902,16 +902,20 @@ cc_library(
   not <code>baz.h</code>.
 </p>
 
-<table class="grid">
-  <tr><th>Including file</th><th>Allowed inclusions</th></tr>
-  <tr><td>foo.h</td><td>bar.h</td></tr>
-  <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
-  <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
-  <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
-  <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
-  <tr><td>baz.h</td><td>baz-impl.h</td></tr>
-  <tr><td>baz-impl.h</td><td>baz.h</td></tr>
-  <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+<table class="table table-striped table-bordered table-condensed">
+  <thead>
+    <tr><th>Including file</th><th>Allowed inclusions</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>foo.h</td><td>bar.h</td></tr>
+    <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
+    <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
+    <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
+    <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
+    <tr><td>baz.h</td><td>baz-impl.h</td></tr>
+    <tr><td>baz-impl.h</td><td>baz.h</td></tr>
+    <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+  </tbody>
 </table>
 
 <p>

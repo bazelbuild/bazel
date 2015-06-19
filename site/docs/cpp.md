@@ -25,7 +25,7 @@ you have the following directory structure:
         main.cc
 ```
 
-If _b/main.cc_ needs to include b.h then we'd create the following _b/BUILD_
+If `b/main.cc` needs to include b.h then we'd create the following `b/BUILD`
 file:
 
 ```python
@@ -42,14 +42,14 @@ cc_binary(
 )
 ```
 
-_b/main.cc_ would have the following include statement:
+`b/main.cc` would have the following include statement:
 
 ```cpp
 #include "b/b.h"
 ```
 
-Note that the full path from the package root is used. If we want _b/main.cc_ to
-also depend on _a/a.h_, we'd add the rule to _a/BUILD_:
+Note that the full path from the package root is used. If we want `b/main.cc` to
+also depend on `a/a.h`, we'd add the rule to `a/BUILD`:
 
 ```python
 cc_library(
@@ -60,7 +60,7 @@ cc_library(
 )
 ```
 
-Then we'd add a dependency to _b/BUILD_:
+Then we'd add a dependency to `b/BUILD`:
 
 ```python
 cc_binary(
@@ -73,21 +73,21 @@ cc_binary(
 )
 ```
 
-And the following include to _b/main.cc_:
+And the following include to `b/main.cc`:
 
 ```cpp
 #include "a/a.h"
 ```
 
-_b/main.cc_ will then be able to access symbols from _a/a.h_ or _b/b.h_.
+`b/main.cc` will then be able to access symbols from `a/a.h` or `b/b.h`.
 
 Transitive includes
 -------------------
 
 If a file includes a header then the file's rule should depend on that header's
 library.  Conversely, only direct dependencies need to be specified as
-dependencies.  For example, suppose _sandwich.h_ includes _bread.h_ and
-_bread.h_ includes _flour.h_.  _sandwich.h_ doesn't include _flour.h_ (who wants
+dependencies.  For example, suppose `sandwich.h` includes `bread.h` and
+`bread.h` includes `flour.h`.  `sandwich.h` doesn't include `flour.h` (who wants
 flour in their sandwich?), so the BUILD file would look like:
 
 ```python
@@ -134,10 +134,10 @@ directory structure:
             some_lib.cc
 ```
 
-Bazel will expect _some_lib.h_ to be included as
-`third_party/some_lib/include/some_lib.h`, but suppose _some_lib.cc_ includes
+Bazel will expect `some_lib.h` to be included as
+`third_party/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
 `"include/some_lib.h"`.  To make that include path valid,
-_third\_party/some_lib/BUILD_ will need to specify that the _some_lib/_
+`third_party/some_lib/BUILD` will need to specify that the `some_lib/`
 directory is an include directory:
 
 ```python
@@ -150,13 +150,13 @@ cc_library(
 ```
 
 This is especially useful for external dependencies, as their header files
-must otherwise be included with an "external/[repository-name]/" prefix.
+must otherwise be included with an `external/[repository-name]/` prefix.
 
 Including external libraries: an example
 ----------------------------------------
 
 Suppose you are using [Google Test](https://code.google.com/p/googletest/). You
-can use one of the `new_` repository functions in the _WORKSPACE_ file to
+can use one of the `new_` repository functions in the `WORKSPACE` file to
 download Google Test and make it available in your repository:
 
 ```python
@@ -168,14 +168,14 @@ new_http_archive(
 )
 ```
 
-Then create _gtest.BUILD_, a BUILD file to use to compile Google Test.
+Then create `gtest.BUILD`, a BUILD file to use to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-* _gtest-1.7.0/src/gtest-all.cc_ `#include`s all of the other files in
-  _gtest-1.7.0/src/_, so we need to exclude it from the compile or we'll get
+* `gtest-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
+  `gtest-1.7.0/src/`, so we need to exclude it from the compile or we'll get
   link errors for duplicate symbols.
-* It uses header files that relative to the _gtest-1.7.0/include/_ directory
+* It uses header files that relative to the `gtest-1.7.0/include/` directory
   (`"gtest/gtest.h"`), so we must add that directory the includes.
 * It uses "private" header files in src/, so we add "." to the includes so it
   can `#include "src/gtest-internal-inl.h"`.
