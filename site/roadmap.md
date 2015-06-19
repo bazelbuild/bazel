@@ -70,7 +70,7 @@ The following features/capabilities will be available in the alpha:
 *   Support for referencing remote source repositories via HTTP
 *   Support for extensibility via an interpreted Python subset (Skylark)
 
-### <a name="beta"></a>Beta release (target date: 2015-06)
+### <a name="beta"></a>Beta release (target date: 2015-07)
 
 The beta release will add support for additional languages and platform and
 various other fully supported features. In particular, the following
@@ -81,7 +81,7 @@ features/capabilities will be available:
     infrastructure
 *   Support for referencing transitive sources via Maven
 *   Support for prefetching and caching remote dependencies
-*   Support for building and testing Android apps
+*   Support for building Android apps
 *   Support for testing iOS apps
 *   Support for building and deploying Docker images
 
@@ -89,6 +89,7 @@ features/capabilities will be available:
 
 *   Binary releases of Bazel at least monthly
 *   Full support for build action sandboxing
+*   Support for testing Android apps
 *   Support for distributed caching of build artifacts
 *   All Bazel tests currently in Google's repository are ported to GitHub
 *   The external repository is primary
