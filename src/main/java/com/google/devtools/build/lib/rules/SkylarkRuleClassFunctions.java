@@ -190,7 +190,8 @@ public class SkylarkRuleClassFunctions {
       optionalPositionals = {
         @Param(name = "test", type = Boolean.class, defaultValue = "False",
             doc = "Whether this rule is a test rule. "
-            + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
+            + "If True, the rule must end with <code>_test</code> (otherwise it cannot), "
+            + "and there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute name "
             + "to an attribute object (see <a href=\"#modules.attr\">attr</a> module). "
@@ -215,6 +216,7 @@ public class SkylarkRuleClassFunctions {
             doc = "If true, the files will be generated in the genfiles directory instead of the "
             + "bin directory. This is used for compatibility with existing rules.")},
       useAst = true, useEnvironment = true)
+  @SuppressWarnings("unused")  // used via reflection.
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
       @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
       // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
@@ -240,7 +242,7 @@ public class SkylarkRuleClassFunctions {
             builder.addOrOverrideAttribute(attrBuilder.build(attrName));
           }
         }
-        if (executable) {
+        if (executable || test) {
           builder.addOrOverrideAttribute(
               attr("$is_executable", BOOLEAN).value(true)
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
