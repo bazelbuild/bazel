@@ -102,22 +102,32 @@ after sending a signal to the test process or any children thereof.</p>
 <p id="timeout">The whole test target (not individual methods or tests) is given a
 limited amount of time to run to completion. The time limit for a test is based
 on its timeout attribute according to the following table:</p>
-<table>
-  <tr><th>timeout</th><th>Time Limit (sec.)</th></tr>
-  <tr><td><code>short</code></td><td>60</td></tr>
-  <tr><td><code>moderate</code></td><td>300</td></tr>
-  <tr><td><code>long</code></td><td>900</td></tr>
-  <tr><td><code>eternal</code></td><td>3600</td></tr>
+
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>timeout</th><th>Time Limit (sec.)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>short</code></td><td>60</td></tr>
+    <tr><td><code>moderate</code></td><td>300</td></tr>
+    <tr><td><code>long</code></td><td>900</td></tr>
+    <tr><td><code>eternal</code></td><td>3600</td></tr>
+  </tbody>
 </table>
 
 <p id="size">Tests which do not explicitly specify a timeout have one implied based on the
 test's <code>size</code> as follows:</p>
-<table>
-  <tr><th>size</th><th>Implied timeout label</th></tr>
-  <tr><td><code>small</code></td><td>short</td></tr>
-  <tr><td><code>medium</code></td><td>moderate</td></tr>
-  <tr><td><code>large</code></td><td>long</td></tr>
-  <tr><td><code>enormous</code></td><td>eternal</td></tr>
+
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>size</th><th>Implied timeout label</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>small</code></td><td>short</td></tr>
+    <tr><td><code>medium</code></td><td>moderate</td></tr>
+    <tr><td><code>large</code></td><td>long</td></tr>
+    <tr><td><code>enormous</code></td><td>eternal</td></tr>
+  </tbody>
 </table>
 <p>For example a "large" test with no explicit timeout setting will be allotted
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
@@ -155,43 +165,48 @@ The test runner should not pass any other arguments to a
 test unless the user explicitly requests it.</p>
 
 <p>The initial environment block shall be composed as follows:</p>
-<table>
-  <tr><th>Variable</th><th>Value</th><th>Status</th></tr>
 
-  <tr><td><code>HOME</code></td><td>value of <code>$TEST_TMPDIR</code></td><td>recommended</td></tr>
-  <tr><td><code>JAVA_RUNFILES</code></td><td>value of <code>$TEST_SRCDIR</code></td><td>required</td></tr>
-  <tr><td><code>LANG</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LANGUAGE</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_ALL</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_COLLATE</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_CTYPE</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_MESSAGES</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_MONETARY</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_NUMERIC</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LC_TIME</code></td><td><i>unset</i></td><td>required</td></tr>
-  <tr><td><code>LD_LIBRARY_PATH</code></td><td>colon-separated list of directories containing shared libraries</td><td>optional</td></tr>
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>Variable</th><th>Value</th><th>Status</th></tr>
+  </thead>
+  <tbody>
 
-  <tr><td><code>LOGNAME</code></td><td>value of <code>$USER</code></td><td>required</td></tr>
+    <tr><td><code>HOME</code></td><td>value of <code>$TEST_TMPDIR</code></td><td>recommended</td></tr>
+    <tr><td><code>JAVA_RUNFILES</code></td><td>value of <code>$TEST_SRCDIR</code></td><td>required</td></tr>
+    <tr><td><code>LANG</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LANGUAGE</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_ALL</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_COLLATE</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_CTYPE</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_MESSAGES</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_MONETARY</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_NUMERIC</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LC_TIME</code></td><td><i>unset</i></td><td>required</td></tr>
+    <tr><td><code>LD_LIBRARY_PATH</code></td><td>colon-separated list of directories containing shared libraries</td><td>optional</td></tr>
 
-  <tr><td><code>PATH</code></td><td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td><td>recommended</td></tr>
-  <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR</code></td><td>recommended</td></tr>
-  <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
-  <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
-  <tr><td><code>TEST_RANDOM_SEED</code></td><td>See <a href="bazel-user-manual.html#other_options_for_blaze_test">this table</a>.</td><td>optional</td></tr>
-  <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
-  <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
-  <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
-  <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
-  <tr><td><code>TEST_TIMEOUT</code></td><td><code>300</code></td><td>optional</td></tr>
-  <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
-  <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
+    <tr><td><code>LOGNAME</code></td><td>value of <code>$USER</code></td><td>required</td></tr>
 
-  </td><td>optional</td></tr>
-  <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
-  <tr><td><code>TZ</code></td><td><code>US/Pacific</code></td><td>required</td></tr>
+    <tr><td><code>PATH</code></td><td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td><td>recommended</td></tr>
+    <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR</code></td><td>recommended</td></tr>
+    <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
+    <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
+    <tr><td><code>TEST_RANDOM_SEED</code></td><td>See <a href="bazel-user-manual.html#other_options_for_blaze_test">this table</a>.</td><td>optional</td></tr>
+    <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
+    <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
+    <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
+    <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
+    <tr><td><code>TEST_TIMEOUT</code></td><td><code>300</code></td><td>optional</td></tr>
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
 
-  <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
+    </td><td>optional</td></tr>
+    <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
+    <tr><td><code>TZ</code></td><td><code>US/Pacific</code></td><td>required</td></tr>
 
+    <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
+
+  </tbody>
 </table>
 <br>
 <p>The environment may contain additional entries.  Tests should not depend on the
@@ -220,23 +235,28 @@ any other open file descriptors.</p>
 to their default action.</p>
 
 <p>The initial resource limits, both soft and hard, should be set as follows:</p>
-<table>
-  <tr><th>Resource</th><th>Limit</th></tr>
-  <tr><td>RLIMIT_AS</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_CORE</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_CPU</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_DATA</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_FSIZE</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_LOCKS</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_MEMLOCK</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_MSGQUEUE</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_NICE</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_NOFILE</td><td>at least 1024</td></tr>
-  <tr><td>RLIMIT_NPROC</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_RSS</td><td>unlimited</td></tr>
-  <tr><td>RLIMIT_RTPRIO</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_SIGPENDING</td><td>unspecified</td></tr>
-  <tr><td>RLIMIT_STACK</td><td>unlimited, or 2044KB &lt;= rlim &lt;= 8192KB</td></tr>
+
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>Resource</th><th>Limit</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>RLIMIT_AS</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_CORE</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_CPU</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_DATA</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_FSIZE</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_LOCKS</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_MEMLOCK</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_MSGQUEUE</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_NICE</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_NOFILE</td><td>at least 1024</td></tr>
+    <tr><td>RLIMIT_NPROC</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_RSS</td><td>unlimited</td></tr>
+    <tr><td>RLIMIT_RTPRIO</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_SIGPENDING</td><td>unspecified</td></tr>
+    <tr><td>RLIMIT_STACK</td><td>unlimited, or 2044KB &lt;= rlim &lt;= 8192KB</td></tr>
+  </tbody>
 </table>
 
 <p>The initial process times (as returned by <code>times()</code>) and resource
@@ -357,53 +377,54 @@ prematurely and mark it as having failed.</p>
   meaning.
 </p>
 
-<table>
-<tr>
-  <th>Tag</th>
-  <th>Meaning</th>
-</tr>
-<tr>
-  <th><code>exclusive</code></th>
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>Tag</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th><code>exclusive</code></th>
 
-  <td>run no other test at the same time</td>
-</tr>
-<tr>
-  <th><code>external</code></th>
-  <td>test has an external dependency; disable test caching</td>
-</tr>
-<tr>
-  <th><code>large</code></th>
-  <td><code>test_suite</code> convention; suite of large tests<br/>
+      <td>run no other test at the same time</td>
+    </tr>
+    <tr>
+      <th><code>external</code></th>
+      <td>test has an external dependency; disable test caching</td>
+    </tr>
+    <tr>
+      <th><code>large</code></th>
+      <td><code>test_suite</code> convention; suite of large tests<br/>
 
-  </td>
-</tr>
+      </td>
+    </tr>
 
-<tr>
-  <th><code>manual</code></th>
+    <tr>
+      <th><code>manual</code></th>
 
-  <td>run test only if mentioned explicitly (not in a wildcard <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
-</tr>
-<tr>
-  <th><code>medium</code></th>
+      <td>run test only if mentioned explicitly (not in a wildcard <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
+    </tr>
+    <tr>
+      <th><code>medium</code></th>
 
-  <td><code>test_suite</code> convention; suite of medium tests
-</tr>
+      <td><code>test_suite</code> convention; suite of medium tests
+    </tr>
 
-<tr>
-  <th><code>small</code></th>
+    <tr>
+      <th><code>small</code></th>
 
-  <td><code>test_suite</code> convention; suite of small tests</td>
-</tr>
+      <td><code>test_suite</code> convention; suite of small tests</td>
+    </tr>
 
-<tr>
-  <th><code>smoke</code></th>
+    <tr>
+      <th><code>smoke</code></th>
 
-  <td>
-    <code>test_suite</code> convention; means it should be run before committing code changes
-    into the version control system
-  </td>
-</tr>
+      <td>
+        <code>test_suite</code> convention; means it should be run before committing code changes
+        into the version control system
+      </td>
+    </tr>
 
+  </tbody>
 </table>
 
 </body>

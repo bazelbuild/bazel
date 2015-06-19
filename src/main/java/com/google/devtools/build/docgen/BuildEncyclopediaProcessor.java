@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
@@ -231,13 +232,6 @@ public class BuildEncyclopediaProcessor {
 
   private Map<String, String> generateBEHeaderMapping(Iterable<RuleDocumentation> docEntries)
       throws BuildEncyclopediaDocException {
-    StringBuilder sb = new StringBuilder();
-
-    sb.append("<table id=\"rules\" summary=\"Table of rules sorted by language\">\n")
-      .append("<colgroup span=\"5\" width=\"20%\"></colgroup>\n")
-      .append("<tr><th>Language</th><th>Binary rules</th><th>Library rules</th>"
-        + "<th>Test rules</th><th>Other rules</th><th></th></tr>\n");
-
     // Separate rule families into language-specific and generic ones.
     Set<String> languageSpecificRuleFamilies = new TreeSet<>();
     Set<String> genericRuleFamilies = new TreeSet<>();
@@ -247,26 +241,43 @@ public class BuildEncyclopediaProcessor {
     Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping = new HashMap<>();
     createRuleMapping(docEntries, ruleMapping);
 
-    // Generate the table.
-    for (String ruleFamily : languageSpecificRuleFamilies) {
-      generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+    String languageSpecificTable;
+    {
+      StringBuilder sb = new StringBuilder();
+
+      sb.append("<colgroup span=\"6\" width=\"20%\"></colgroup>\n")
+        .append("<tr><th>Language</th><th>Binary rules</th><th>Library rules</th>"
+          + "<th>Test rules</th><th>Other rules</th><th></th></tr>\n");
+
+      // Generate the table.
+      for (String ruleFamily : languageSpecificRuleFamilies) {
+        generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+      }
+      languageSpecificTable = sb.toString();
     }
 
-    sb.append("<tr><th>&nbsp;</th></tr>");
-    sb.append("<tr><th colspan=\"5\">Rules that do not apply to a "
-            + "specific programming language</th></tr>");
-    for (String ruleFamily : genericRuleFamilies) {
-      generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+    String otherRulesTable;
+    {
+      StringBuilder sb = new StringBuilder();
+
+      sb.append("<colgroup span=\"6\" width=\"20%\"></colgroup>\n");
+      for (String ruleFamily : genericRuleFamilies) {
+        generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+      }
+      otherRulesTable = sb.toString();
     }
-    sb.append("</table>\n");
-    return ImmutableMap.<String, String>of(DocgenConsts.VAR_HEADER_TABLE, sb.toString(),
-        DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES),
-        DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES),
-        DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES),
-        DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
+
+    return new ImmutableMap.Builder<String, String>()
+        .put(DocgenConsts.VAR_LANG_SPECIFIC_HEADER_TABLE, languageSpecificTable)
+        .put(DocgenConsts.VAR_OTHER_RULES_HEADER_TABLE, otherRulesTable)
+        .put(DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES))
+        .put(DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES))
+        .put(DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES))
+        .put(DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries))
+        .build();
   }
 
   /**

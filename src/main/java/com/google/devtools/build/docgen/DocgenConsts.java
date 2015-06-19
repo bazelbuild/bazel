@@ -45,7 +45,8 @@ public class DocgenConsts {
   public static final String VAR_ATTRIBUTE_SIGNATURE = "ATTRIBUTE_SIGNATURE";
   public static final String VAR_ATTRIBUTE_DEFINITION = "ATTRIBUTE_DEFINITION";
   public static final String VAR_NAME = "NAME";
-  public static final String VAR_HEADER_TABLE = "HEADER_TABLE";
+  public static final String VAR_LANG_SPECIFIC_HEADER_TABLE = "LANG_SPECIFIC_HEADER_TABLE";
+  public static final String VAR_OTHER_RULES_HEADER_TABLE = "OTHER_RULES_HEADER_TABLE";
   public static final String VAR_COMMON_ATTRIBUTE_DEFINITION = "COMMON_ATTRIBUTE_DEFINITION";
   public static final String VAR_TEST_ATTRIBUTE_DEFINITION = "TEST_ATTRIBUTE_DEFINITION";
   public static final String VAR_BINARY_ATTRIBUTE_DEFINITION = "BINARY_ATTRIBUTE_DEFINITION";
