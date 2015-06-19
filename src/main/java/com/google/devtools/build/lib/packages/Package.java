@@ -126,8 +126,7 @@ public class Package implements Serializable {
   protected Map<String, Target> targets;
 
   /**
-   * Default visibility for rules that do not specify it. null is interpreted
-   * as VISIBILITY_PRIVATE.
+   * Default visibility for rules that do not specify it.
    */
   private RuleVisibility defaultVisibility;
   private boolean defaultVisibilitySet;
@@ -332,7 +331,7 @@ public class Package implements Serializable {
         rule.setContainsErrors();
       }
     }
-    this.filename = builder.filename;
+    this.filename = builder.getFilename();
     this.packageDirectory = filename.getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getPathFragment());
@@ -388,7 +387,7 @@ public class Package implements Serializable {
   /**
    * Returns the source root (a directory) beneath which this package's BUILD file was found.
    *
-   * Assumes invariant:
+   * <p> Assumes invariant:
    * {@code getSourceRoot().getRelative(packageId.getPathFragment()).equals(getPackageDirectory())}
    */
   public Path getSourceRoot() {
@@ -447,7 +446,7 @@ public class Package implements Serializable {
   /**
    * Returns the label of this package's BUILD file.
    *
-   * Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> --
+   * <p> Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> --
    * though not necessarily: data in a subdirectory of a test package may use a
    * different filename to avoid inadvertently creating a new package.
    */
@@ -604,11 +603,7 @@ public class Package implements Serializable {
    * Returns the default visibility for this package.
    */
   public RuleVisibility getDefaultVisibility() {
-    if (defaultVisibility != null) {
-      return defaultVisibility;
-    } else {
-      return ConstantRuleVisibility.PRIVATE;
-    }
+    return defaultVisibility;
   }
 
   /**
@@ -773,11 +768,11 @@ public class Package implements Serializable {
      */
     protected Package pkg;
 
-    protected Path filename = null;
+    private Path filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
     private MakeEnvironment.Builder makeEnv = null;
-    private RuleVisibility defaultVisibility = null;
+    private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
     private List<String> features = new ArrayList<>();
@@ -994,7 +989,7 @@ public class Package implements Serializable {
     /**
      * Initializes the default set of distributions for targets in this package.
      *
-     * TODO(bazel-team): (2011) consider moving the license & distribs info into Metadata--maybe
+     * <p> TODO(bazel-team): (2011) consider moving the license & distribs info into Metadata--maybe
      * even in the Build language.
      */
     void setDefaultDistribs(Set<DistributionType> dists) {
@@ -1174,7 +1169,7 @@ public class Package implements Serializable {
      * Checks if any labels in the given list appear multiple times and reports an appropriate
      * error message if so. Returns true if no duplicates were found, false otherwise.
      *
-     * TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
+     * <p> TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
      * integrate with RuleClass.checkForDuplicateLabels.
      */
     private static boolean checkForDuplicateLabels(Collection<Label> labels, String owner,

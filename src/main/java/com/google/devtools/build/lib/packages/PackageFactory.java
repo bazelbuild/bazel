@@ -491,7 +491,7 @@ public final class PackageFactory {
         }
       };
 
-  protected static GlobList<String> callGlob(@Nullable PackageContext originalContext,
+  static GlobList<String> callGlob(@Nullable PackageContext originalContext,
       boolean async, Object include, Object exclude, boolean excludeDirs,
       FuncallExpression ast, Environment env)
       throws EvalException, ConversionException, InterruptedException {
@@ -562,7 +562,7 @@ public final class PackageFactory {
         @Param(name = "path", type = String.class,
             doc = "a path.")},
       documented = false, useLocation = true)
-  protected static final BuiltinFunction.Factory newMockSubincludeFunction =
+  private static final BuiltinFunction.Factory newMockSubincludeFunction =
       new BuiltinFunction.Factory("mocksubinclude") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("mocksubinclude", this) {
@@ -581,25 +581,6 @@ public final class PackageFactory {
               }
 
               context.pkgBuilder.addSubinclude(label, path);
-              return Environment.NONE;
-            }
-          };
-        }
-      };
-
-  /**
-   * Fake function: subinclude calls are ignored
-   * They will disappear after the Python preprocessing.
-   */
-  @SkylarkSignature(name = "subinclude", returnType = Environment.NoneType.class,
-      mandatoryPositionals = {@Param(name = "file", doc = "(ignored)")},
-      doc = "fake function to skip over subinclude statements",
-      documented = false)
-  private static BuiltinFunction.Factory newSubincludeFunction =
-      new BuiltinFunction.Factory("subinclude") {
-        public BuiltinFunction create() {
-          return new BuiltinFunction("subinclude", this) {
-            public Environment.NoneType invoke(Object file) {
               return Environment.NONE;
             }
           };
@@ -633,7 +614,7 @@ public final class PackageFactory {
         @Param(name = "defaults", type = HackHackEitherList.class, generic1 = Object.class,
             doc = "A list of Labels.")}, // TODO(bazel-team): document what that is
       documented = false, useLocation = true)
-  protected static final BuiltinFunction.Factory newEnvironmentGroupFunction =
+  private static final BuiltinFunction.Factory newEnvironmentGroupFunction =
       new BuiltinFunction.Factory("environment_group") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("environment_group", this) {
@@ -679,7 +660,7 @@ public final class PackageFactory {
             noneable = true, defaultValue = "None",
             doc = "A list of strings specifying the licenses used in the exported code.")},
       documented = false, useAst = true, useEnvironment = true)
-  protected static final BuiltinFunction.Factory newExportsFilesFunction =
+  private static final BuiltinFunction.Factory newExportsFilesFunction =
       new BuiltinFunction.Factory("exports_files") {
         public BuiltinFunction create () {
           return new BuiltinFunction("exports_files", this) {
@@ -751,7 +732,7 @@ public final class PackageFactory {
         @Param(name = "license_strings", type = HackHackEitherList.class, generic1 = String.class,
             doc = "A list of strings, the names of the licenses used.")},
       documented = false, useLocation = true)
-  protected static final BuiltinFunction.Factory newLicensesFunction =
+  private static final BuiltinFunction.Factory newLicensesFunction =
       new BuiltinFunction.Factory("licenses") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("licenses", this) {
@@ -780,7 +761,7 @@ public final class PackageFactory {
         @Param(name = "distribution_strings", type = Object.class,
             doc = "The distributions.")},
       documented = false, useLocation = true)
-  protected static final BuiltinFunction.Factory newDistribsFunction =
+  private static final BuiltinFunction.Factory newDistribsFunction =
       new BuiltinFunction.Factory("distribs") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("distribs", this) {
@@ -813,7 +794,7 @@ public final class PackageFactory {
             defaultValue = "[]",
             doc = "A list of Label specifiers for the files to include.")},
       documented = false, useAst = true, useEnvironment = true)
-  protected static final BuiltinFunction.Factory newPackageGroupFunction =
+  private static final BuiltinFunction.Factory newPackageGroupFunction =
       new BuiltinFunction.Factory("package_group") {
         public BuiltinFunction create() {
           return new BuiltinFunction("package_group", this) {
@@ -1107,7 +1088,6 @@ public final class PackageFactory {
    * Preprocesses the given BUILD file, executing {@code globber.onInterrupt()} on an
    * {@link InterruptedException}.
    */
-  // Used outside of bazel!
   public Preprocessor.Result preprocess(
       PackageIdentifier packageId,
       Path buildFile,
@@ -1204,8 +1184,7 @@ public final class PackageFactory {
     return builder.build();
   }
 
-  private void buildPkgEnv(Environment pkgEnv, String packageName,
-      PackageContext context, RuleFactory ruleFactory) {
+  private void buildPkgEnv(Environment pkgEnv, PackageContext context, RuleFactory ruleFactory) {
     pkgEnv.update("distribs", newDistribsFunction.apply(context));
     pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/false));
     pkgEnv.update("mocksubinclude", newMockSubincludeFunction.apply(context));
@@ -1213,10 +1192,7 @@ public final class PackageFactory {
     pkgEnv.update("exports_files", newExportsFilesFunction.apply());
     pkgEnv.update("package_group", newPackageGroupFunction.apply());
     pkgEnv.update("package", newPackageFunction(packageArguments));
-    pkgEnv.update("subinclude", newSubincludeFunction.apply());
     pkgEnv.update("environment_group", newEnvironmentGroupFunction.apply(context));
-
-    pkgEnv.update("PACKAGE_NAME", packageName);
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass);
@@ -1257,8 +1233,7 @@ public final class PackageFactory {
     StoredEventHandler eventHandler = new StoredEventHandler();
     Environment pkgEnv = new Environment(globalEnv, eventHandler);
 
-    Package.LegacyBuilder pkgBuilder =
-        new Package.LegacyBuilder(packageId);
+    Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId);
 
     pkgBuilder.setGlobber(globber)
         .setFilename(buildFilePath)
@@ -1274,7 +1249,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:`
     PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
-    buildPkgEnv(pkgEnv, packageId.toString(), context, ruleFactory);
+    buildPkgEnv(pkgEnv, context, ruleFactory);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
@@ -1327,8 +1302,7 @@ public final class PackageFactory {
     // Important: Environment should be unreachable by the end of this method!
     Environment pkgEnv = new Environment();
 
-    Package.LegacyBuilder pkgBuilder =
-        new Package.LegacyBuilder(packageId);
+    Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId);
 
     pkgBuilder.setFilename(buildFilePath)
         .setMakeEnv(pkgMakeEnv)
@@ -1339,7 +1313,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
-    buildPkgEnv(pkgEnv, packageId.toString(), context, ruleFactory);
+    buildPkgEnv(pkgEnv, context, ruleFactory);
     pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
@@ -1360,9 +1334,9 @@ public final class PackageFactory {
    * @return true if the build file contains no redefinitions of built-in
    *         functions
    */
-  private static boolean validateAssignmentStatements(Environment pkgEnv,
-                                                      BuildFileAST ast,
-                                                      EventHandler eventHandler) {
+  // TODO(bazel-team): Remove this check. It should be moved to LValue.assign
+  private static boolean validateAssignmentStatements(
+      Environment pkgEnv, BuildFileAST ast, EventHandler eventHandler) {
     for (Statement stmt : ast.getStatements()) {
       if (stmt instanceof AssignmentStatement) {
         Expression lvalue = ((AssignmentStatement) stmt).getLValue().getExpression();
