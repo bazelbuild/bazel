@@ -117,6 +117,6 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
    * method in {@link com.google.devtools.build.lib.skyframe.TargetPatternFunction}, which then
    * returns null in accordance with the skyframe missing dependency policy.
    */
-  class MissingDepException extends RuntimeException {
+  static class MissingDepException extends RuntimeException {
   }
 }
