@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
-import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorProneOptionsPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
 import com.google.devtools.build.buildjar.javac.plugins.filemanager.FileManagerInitializationPlugin;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -125,7 +125,7 @@ public abstract class BazelJavaBuilder {
     ImmutableList<BlazeJavaCompilerPlugin> plugins =
         ImmutableList.<BlazeJavaCompilerPlugin>of(
             new FileManagerInitializationPlugin(),
-            new ErrorProneOptionsPlugin());
+            new ErrorPronePlugin());
     JavaLibraryBuildRequest build =
         new JavaLibraryBuildRequest(args, plugins, new DependencyModule.Builder());
     build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));

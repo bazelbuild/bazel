@@ -8,7 +8,10 @@ java_binary(
 
 java_library(
     name = "hello-lib",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = ["HelloErrorProne.java"],
+    ),
 )
 
 java_binary(
@@ -21,6 +24,11 @@ java_library(
     name = "custom-greeting",
     srcs = ["Greeter.java"],
     resources = ["//examples/java-native/src/main/resources:greeting"],
+)
+
+java_library(
+    name = "hello-error-prone",
+    srcs = ["HelloErrorProne.java"],
 )
 
 filegroup(

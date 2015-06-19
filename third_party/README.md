@@ -114,6 +114,13 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+[javac](https://github.com/google/error-prone-javac)
+-------
+
+* Version: 1.9.0-dev-r2644-1
+* License: GNU GPL v2 with Classpath exception
+
+
 [jarjar](https://code.google.com/p/jarjar/)
 -----------
 

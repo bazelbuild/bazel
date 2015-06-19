@@ -25,6 +25,7 @@ filegroup(
         "//src/test/shell:bashunit",
         "//third_party:srcs",
         "//third_party/ijar",
+        "//third_party/java/jdk/langtools:srcs",
         "//tools:srcs",
     ],
 )

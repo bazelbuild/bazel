@@ -34,10 +34,12 @@ langtools="${TEST_SRCDIR}/src/test/shell/bazel/langtools.jar"
 
 # Tools directory location
 tools_dir="${TEST_SRCDIR}/tools"
+langtools_dir="${TEST_SRCDIR}/third_party/java/jdk/langtools"
 EXTRA_BAZELRC="build --java_langtools=//tools/jdk:test-langtools"
 
 # Java tooling
 javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
+langtools_path="${TEST_SRCDIR}/third_party/java/jdk/langtools/javac.jar"
 singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
@@ -77,6 +79,9 @@ function copy_tools_directory() {
 filegroup(name = "test-langtools", srcs = ["langtools.jar"])
 EOF
 
+  mkdir -p third_party/java/jdk/langtools
+  cp -R ${langtools_dir}/* third_party/java/jdk/langtools
+
   chmod -R +w .
   mkdir -p tools/defaults
   touch tools/defaults/BUILD
@@ -85,7 +90,7 @@ EOF
 # Report whether a given directory name corresponds to a tools directory.
 function is_tools_directory() {
   case "$1" in
-    tools)
+    third_party|tools)
       true
       ;;
     *)

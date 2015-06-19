@@ -110,8 +110,12 @@ function create_new_workspace() {
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
   mkdir tools
+  mkdir -p third_party/java/jdk/langtools
 
   copy_tools_directory
+
+  [ -e third_party/java/jdk/langtools/javac.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac.jar
 
   ln -s "${javabuilder_path}" tools/jdk/JavaBuilder_deploy.jar
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
@@ -177,6 +181,15 @@ function assert_build_output() {
   shift
   assert_build "$*"
   test -f "$OUTPUT" || fail "Output $OUTPUT not found for target $*"
+}
+
+function assert_build_fails() {
+  bazel build -s $1 >& $TEST_log \
+    && fail "Test $1 succeed while expecting failure" \
+    || true
+  if [ -n "${2:-}" ]; then
+    expect_log "$2"
+  fi
 }
 
 function assert_test_ok() {

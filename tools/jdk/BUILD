@@ -50,12 +50,12 @@ filegroup(
 
 filegroup(
     name = "langtools",
-    srcs = ["//external:langtools"],
+    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
 )
 
 java_import(
     name = "langtools-neverlink",
-    jars = ["//tools/defaults:java_langtools"],
+    jars = [":langtools"],
     neverlink = 1,
 )
 
