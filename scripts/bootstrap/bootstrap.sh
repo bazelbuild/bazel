@@ -77,7 +77,7 @@ function bootstrap_test() {
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   run_silent ${BAZEL_BIN} --nomaster_blazerc --blazerc=${BAZELRC} clean \
-      || return $?
+      --expunge || return $?
   run_silent ${BAZEL_BIN} --nomaster_blazerc --blazerc=${BAZELRC} build \
       --fetch --nostamp \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
