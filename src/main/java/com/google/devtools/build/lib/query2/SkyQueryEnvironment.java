@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -65,6 +65,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * {@link AbstractBlazeQueryEnvironment} that introspects the Skyframe graph to find forward and
@@ -119,10 +121,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       throw new QueryException(e.getMessage());
     }
     return super.evaluateQuery(expr);
-  }
-
-  private static SkyKey makeKey(Target value) {
-    return TransitiveTargetValue.key(value.getLabel());
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
@@ -305,10 +303,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Override
   public Target getTarget(Label label) throws TargetNotFoundException, QueryException {
     SkyKey packageKey = getPackageKeyAndValidateLabel(label);
-    checkExistence(packageKey);
+    if (!graph.exists(packageKey)) {
+      throw new QueryException(packageKey + " does not exist in graph");
+    }
     try {
-      PackageValue packageValue =
-          (PackageValue) graph.getValue(packageKey);
+      PackageValue packageValue = (PackageValue) graph.getValue(packageKey);
       if (packageValue != null) {
         return packageValue.getPackage().getTarget(label.getName());
       } else {
@@ -334,16 +333,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     }
   }
 
-  private static Target getExistingTarget(Label label,
-      GraphBackedRecursivePackageProvider provider) {
-    StoredEventHandler handler = new StoredEventHandler();
-    try {
-      return provider.getTarget(handler, label);
-    } catch (NoSuchThingException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   @Override
   protected Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
       Collection<String> patterns) throws QueryException, TargetParsingException {
@@ -363,12 +352,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         TargetPatternValue value = (TargetPatternValue) graph.getValue(patternKey);
         if (value != null) {
           ResolvedTargets.Builder<Target> targetsBuilder = ResolvedTargets.builder();
-          for (Label label : value.getTargets().getTargets()) {
-            targetsBuilder.add(getExistingTarget(label, provider));
-          }
-          for (Label label : value.getTargets().getFilteredTargets()) {
-            targetsBuilder.remove(getExistingTarget(label, provider));
-          }
+          targetsBuilder.addAll(makeTargetsFromLabels(value.getTargets().getTargets()));
+          targetsBuilder.removeAll(makeTargetsFromLabels(value.getTargets().getFilteredTargets()));
           result.put(pattern, targetsBuilder.build());
         } else {
           // Because the graph was always initialized via a keep_going build, we know that the
@@ -412,27 +397,48 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return makeTargetsWithAssociations(keys).values();
   }
 
-  private Map<SkyKey, Target> makeTargetsWithAssociations(Iterable<SkyKey> keys) {
-    Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = ArrayListMultimap.create();
-    for (SkyKey key : keys) {
-      SkyFunctionName functionName = key.functionName();
+  private static final Function<SkyKey, Label> SKYKEY_TO_LABEL = new Function<SkyKey, Label>() {
+    @Nullable
+    @Override
+    public Label apply(SkyKey skyKey) {
+      SkyFunctionName functionName = skyKey.functionName();
       if (!functionName.equals(SkyFunctions.TRANSITIVE_TARGET)) {
         // Skip non-targets.
+        return null;
+      }
+      return (Label) skyKey.argument();
+    }
+  };
+
+  private Map<SkyKey, Target> makeTargetsWithAssociations(Iterable<SkyKey> keys) {
+    return makeTargetsWithAssociations(keys, SKYKEY_TO_LABEL);
+  }
+
+  private Collection<Target> makeTargetsFromLabels(Iterable<Label> labels) {
+    return makeTargetsWithAssociations(labels, Functions.<Label>identity()).values();
+  }
+
+  private <E> Map<E, Target> makeTargetsWithAssociations(Iterable<E> keys,
+      Function<E, Label> toLabel) {
+    Multimap<SkyKey, E> packageKeyToTargetKeyMap = ArrayListMultimap.create();
+    for (E key : keys) {
+      Label label = toLabel.apply(key);
+      if (label == null) {
         continue;
       }
       try {
-        packageKeyToTargetKeyMap.put(getPackageKeyAndValidateLabel((Label) key.argument()), key);
+        packageKeyToTargetKeyMap.put(getPackageKeyAndValidateLabel(label), key);
       } catch (QueryException e) {
         // Skip disallowed labels.
       }
     }
-    ImmutableMap.Builder<SkyKey, Target> result = ImmutableMap.builder();
+    ImmutableMap.Builder<E, Target> result = ImmutableMap.builder();
     Map<SkyKey, SkyValue> packageMap = graph.getDoneValues(packageKeyToTargetKeyMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> entry : packageMap.entrySet()) {
-      for (SkyKey targetKey : packageKeyToTargetKeyMap.get(entry.getKey())) {
+      for (E targetKey : packageKeyToTargetKeyMap.get(entry.getKey())) {
         try {
           result.put(targetKey, ((PackageValue) entry.getValue()).getPackage()
-              .getTarget(((Label) targetKey.argument()).getName()));
+              .getTarget((toLabel.apply(targetKey)).getName()));
         } catch (NoSuchTargetException e) {
           // Skip missing target.
         }
@@ -448,12 +454,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         return TransitiveTargetValue.key(target.getLabel());
       }
     });
-  }
-
-  private void checkExistence(SkyKey key) throws QueryException {
-    if (!graph.exists(key)) {
-      throw new QueryException(key + " does not exist in graph");
-    }
   }
 
   @Override
