@@ -38,6 +38,10 @@ message Control {
 
   // Absolute path to the root of the current Bazel user workspace.
   optional string workspace_root = 4;
+
+  // CPU architectures (armv7, arm64, i386, x86_64, etc.) used to build for
+  // targets in the project.pbxproj file.
+  repeated string cpu_architecture = 5;
 }
 
 // Information about dependency on a separate target.

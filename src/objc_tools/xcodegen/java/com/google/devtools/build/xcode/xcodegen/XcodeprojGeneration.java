@@ -331,6 +331,23 @@ public class XcodeprojGeneration {
     return (NSArray) NSObject.wrap(result.build().asList());
   }
 
+  /**
+   * Returns the {@code ARCHS} array for a target's build config given the list of architecture
+   * strings. If none is given, an array with default architectures "armv7" and "arm64" will be
+   * returned.
+   */
+  private static NSArray cpuArchitectures(Iterable<String> architectures) {
+    if (Iterables.isEmpty(architectures)) {
+      return new NSArray(new NSString("armv7"), new NSString("arm64"));
+    } else {
+      ImmutableSet.Builder<NSString> result = new ImmutableSet.Builder<>();
+      for (String architecture : architectures) {
+        result.add(new NSString(architecture));
+      }
+      return (NSArray) NSObject.wrap(result.build().asList());
+    }
+  }
+
   private static PBXFrameworksBuildPhase buildLibraryInfo(
       LibraryObjects libraryObjects, TargetControl target) {
     BuildPhaseBuilder builder = libraryObjects.newBuildPhase();
@@ -370,8 +387,7 @@ public class XcodeprojGeneration {
         RelativePaths.fromString(fileSystem, control.getPbxproj()));
 
     NSDictionary projBuildConfigMap = new NSDictionary();
-    projBuildConfigMap.put("ARCHS", new NSArray(
-        new NSString("armv7"), new NSString("arm64")));
+    projBuildConfigMap.put("ARCHS", cpuArchitectures(control.getCpuArchitectureList()));
     projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
     projBuildConfigMap.put("SDKROOT", "iphoneos");
     projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
