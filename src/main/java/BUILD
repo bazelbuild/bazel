@@ -11,7 +11,7 @@ java_library(
 java_library(
     name = "actions",
     srcs = glob([
-        "com/google/devtools/build/lib/actions/**",
+        "com/google/devtools/build/lib/actions/**/*.java",
     ]),
     deps = [
         ":collect",
@@ -32,7 +32,7 @@ java_library(
 java_library(
     name = "cmdline",
     srcs = glob([
-        "com/google/devtools/build/lib/cmdline/**",
+        "com/google/devtools/build/lib/cmdline/*.java",
     ]),
     deps = [
         ":common",
@@ -163,7 +163,7 @@ java_library(
 java_library(
     name = "skyframe-base",
     srcs = glob([
-        "com/google/devtools/build/skyframe/**",
+        "com/google/devtools/build/skyframe/*.java",
     ]),
     deps = [
         ":collect",
@@ -179,10 +179,10 @@ java_library(
     name = "analysis-exec-rules-skyframe",
     srcs = glob(
         [
-            "com/google/devtools/build/lib/analysis/**",
-            "com/google/devtools/build/lib/exec/**",
-            "com/google/devtools/build/lib/rules/**",
-            "com/google/devtools/build/lib/skyframe/**",
+            "com/google/devtools/build/lib/analysis/**/*.java",
+            "com/google/devtools/build/lib/exec/*.java",
+            "com/google/devtools/build/lib/rules/**/*.java",
+            "com/google/devtools/build/lib/skyframe/*.java",
         ],
         exclude = [
             "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
@@ -219,7 +219,7 @@ java_library(
 java_library(
     name = "genquery",
     srcs = glob([
-        "com/google/devtools/build/lib/rules/genquery/**",
+        "com/google/devtools/build/lib/rules/genquery/*.java",
     ]),
     deps = [
         ":actions",
@@ -246,7 +246,7 @@ java_library(
 java_library(
     name = "graph",
     srcs = glob([
-        "com/google/devtools/build/lib/graph/**",
+        "com/google/devtools/build/lib/graph/*.java",
     ]),
     deps = [
         "//third_party:guava",
@@ -256,7 +256,7 @@ java_library(
 java_library(
     name = "query2",
     srcs = glob([
-        "com/google/devtools/build/lib/query2/**",
+        "com/google/devtools/build/lib/query2/**/*.java",
     ]),
     deps = [
         ":analysis-exec-rules-skyframe",
@@ -281,12 +281,12 @@ java_library(
         [
             "com/google/devtools/build/docgen/**/*.java",
             "com/google/devtools/build/lib/bazel/**/*.java",
-            "com/google/devtools/build/lib/buildtool/**",
+            "com/google/devtools/build/lib/buildtool/**/*.java",
             "com/google/devtools/build/lib/runtime/**/*.java",
-            "com/google/devtools/build/lib/server/**",
-            "com/google/devtools/build/lib/standalone/**",
+            "com/google/devtools/build/lib/server/**/*.java",
+            "com/google/devtools/build/lib/standalone/*.java",
             "com/google/devtools/build/lib/webstatusserver/**/*.java",
-            "com/google/devtools/build/lib/worker/**",
+            "com/google/devtools/build/lib/worker/*.java",
         ],
     ),
     resources = glob([
