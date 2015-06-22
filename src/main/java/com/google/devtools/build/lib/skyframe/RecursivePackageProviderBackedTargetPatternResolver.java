@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
@@ -47,7 +46,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private final PathPackageLocator pkgPath;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
-      final RecursivePackageProvider recursivePackageProvider,
+      RecursivePackageProvider recursivePackageProvider,
       EventHandler eventHandler,
       FilteringPolicy policy,
       PathPackageLocator pkgPath) {
@@ -120,22 +119,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private ResolvedTargets<Target> getTargetsInPackage(String originalPattern,
       PathFragment packageNameFragment, FilteringPolicy policy)
       throws TargetParsingException, InterruptedException {
-    String packageName = packageNameFragment.toString();
-
-    // It's possible for this check to pass, but for
-    // Label.validatePackageNameFull to report an error because the
-    // package name is illegal.  That's a little weird, but we can live with
-    // that for now--see test case: testBadPackageNameButGoodEnoughForALabel.
-    if (LabelValidator.validatePackageName(packageName) != null) {
-      throw new TargetParsingException("'" + packageName + "' is not a valid package name");
-    }
-    if (!isPackage(packageName)) {
-      throw new TargetParsingException(
-          TargetPatternResolverUtil.getParsingErrorMessage(
-              "no such package '" + packageName + "': BUILD file not found on package path",
-              originalPattern));
-    }
-
+    TargetPatternResolverUtil.validatePatternPackage(originalPattern, packageNameFragment, this);
     try {
       Package pkg = getPackage(PackageIdentifier.createInDefaultRepo(packageNameFragment));
       return TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
@@ -163,15 +147,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-
-    PathFragment pathFragment = getPathFragment(directory);
-
-    ImmutableSet.Builder<PathFragment> excludedPathFragmentsBuilder = ImmutableSet.builder();
-    for (String excludedDirectory : excludedSubdirectories) {
-      excludedPathFragmentsBuilder.add(getPathFragment(excludedDirectory));
-    }
-    ImmutableSet<PathFragment> excludedPathFragments = excludedPathFragmentsBuilder.build();
-
+    ImmutableSet<PathFragment> excludedPathFragments =
+        TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
+    PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
     ResolvedTargets.Builder<Target> targetBuilder = ResolvedTargets.builder();
     for (Path root : pkgPath.getPathEntries()) {
       RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
@@ -199,18 +177,6 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       }
     }
     return filteredBuilder.build();
-  }
-
-  private static PathFragment getPathFragment(String pathPrefix) throws TargetParsingException {
-    PathFragment directory = new PathFragment(pathPrefix);
-    if (directory.containsUplevelReferences()) {
-      throw new TargetParsingException("up-level references are not permitted: '"
-          + directory.getPathString() + "'");
-    }
-    if (!pathPrefix.isEmpty() && (LabelValidator.validatePackageName(pathPrefix) != null)) {
-      throw new TargetParsingException("'" + pathPrefix + "' is not a valid package name");
-    }
-    return directory;
   }
 }
 
