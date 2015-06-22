@@ -25,10 +25,13 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -44,7 +47,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * An object that encapsulates runfiles. Conceptually, the runfiles are a map of paths to files,
@@ -56,6 +58,7 @@ import javax.annotation.concurrent.Immutable;
  * manifests" (see {@link PruningManifest}).
  */
 @Immutable
+@SkylarkModule(name = "runfiles", doc = "An interface for a set of runfiles.")
 public final class Runfiles {
   private static final Function<SymlinkEntry, Artifact> TO_ARTIFACT =
       new Function<SymlinkEntry, Artifact>() {
@@ -254,6 +257,11 @@ public final class Runfiles {
    * Returns the collection of runfiles as artifacts, including both unconditional artifacts
    * and pruning manifest candidates.
    */
+  @SkylarkCallable(
+    name = "files",
+    doc = "Returns the set of runfiles as artifacts",
+    structField = true
+  )
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts.addAll(unconditionalArtifacts.toCollection());
@@ -274,6 +282,7 @@ public final class Runfiles {
   /**
    * Returns the symlinks.
    */
+  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks", structField = true)
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
   }
