@@ -2,7 +2,7 @@ Objective C Examples
 ======
 
 The example in this directory show typical use of Objective C libraries,
-binaries and imports. Because they build iOS an application they can only be run
+binaries and imports. Because they build an iOS application they can only be run
 on Mac OSX.
 
 Build the top-level application with
