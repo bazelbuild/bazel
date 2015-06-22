@@ -2,8 +2,56 @@ package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
     name = "shell",
-    srcs = glob(["com/google/devtools/build/lib/shell/*.java"]),
+    srcs = glob([
+        "com/google/devtools/build/lib/shell/*.java",
+    ]),
     deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "actions",
+    srcs = glob([
+        "com/google/devtools/build/lib/actions/**",
+    ]),
+    deps = [
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":options",
+        ":packages",
+        ":skyframe-base",
+        ":vfs",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "cmdline",
+    srcs = glob([
+        "com/google/devtools/build/lib/cmdline/**",
+    ]),
+    deps = [
+        ":common",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "collect",
+    srcs = glob([
+        "com/google/devtools/build/lib/collect/**/*.java",
+    ]),
+    deps = [
+        ":common",
+        ":shell",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -30,6 +78,55 @@ java_library(
 )
 
 java_library(
+    name = "events",
+    srcs = glob([
+        "com/google/devtools/build/lib/events/*.java",
+    ]),
+    deps = [
+        ":common",
+        ":concurrent",
+        ":vfs",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "options",
+    srcs = glob([
+        "com/google/devtools/common/options/*.java",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "packages",
+    srcs = glob([
+        "com/google/devtools/build/lib/packages/*.java",
+        "com/google/devtools/build/lib/pkgcache/*.java",
+        "com/google/devtools/build/lib/syntax/*.java",
+    ]),
+    exports = [":cmdline"],
+    deps = [
+        ":cmdline",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":options",
+        ":vfs",
+        "//src/main/protobuf:proto_build",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "unix",
     srcs = glob([
         "com/google/devtools/build/lib/unix/*.java",
@@ -39,29 +136,6 @@ java_library(
     deps = [
         ":common",
         ":shell",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "collect",
-    srcs = glob([
-        "com/google/devtools/build/lib/collect/**/*.java",
-    ]),
-    deps = [
-        ":common",
-        ":shell",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "options",
-    srcs = glob(["com/google/devtools/common/options/*.java"]),
-    visibility = ["//visibility:public"],
-    deps = [
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -87,12 +161,115 @@ java_library(
 )
 
 java_library(
-    name = "events",
-    srcs = glob(["com/google/devtools/build/lib/events/*.java"]),
+    name = "skyframe-base",
+    srcs = glob([
+        "com/google/devtools/build/skyframe/**",
+    ]),
     deps = [
+        ":collect",
         ":common",
         ":concurrent",
+        ":events",
         ":vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "analysis-exec-rules-skyframe",
+    srcs = glob(
+        [
+            "com/google/devtools/build/lib/analysis/**",
+            "com/google/devtools/build/lib/exec/**",
+            "com/google/devtools/build/lib/rules/**",
+            "com/google/devtools/build/lib/skyframe/**",
+        ],
+        exclude = [
+            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+            "com/google/devtools/build/lib/rules/genquery/**",
+        ],
+    ) + [
+        "com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java",
+    ],
+    deps = [
+        ":actions",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":graph",
+        ":options",
+        ":packages",
+        ":shell",
+        ":skyframe-base",
+        ":vfs",
+        "//src/main/protobuf:proto_bundlemerge",
+        "//src/main/protobuf:proto_crosstool_config",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//src/main/protobuf:proto_test_status",
+        "//src/main/protobuf:proto_xcodegen",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "genquery",
+    srcs = glob([
+        "com/google/devtools/build/lib/rules/genquery/**",
+    ]),
+    deps = [
+        ":actions",
+        ":analysis-exec-rules-skyframe",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":graph",
+        ":options",
+        ":packages",
+        ":query2",
+        ":shell",
+        ":skyframe-base",
+        ":vfs",
+        "//src/main/protobuf:proto_crosstool_config",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "graph",
+    srcs = glob([
+        "com/google/devtools/build/lib/graph/**",
+    ]),
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "query2",
+    srcs = glob([
+        "com/google/devtools/build/lib/query2/**",
+    ]),
+    deps = [
+        ":analysis-exec-rules-skyframe",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":graph",
+        ":options",
+        ":packages",
+        ":skyframe-base",
+        ":vfs",
+        "//src/main/protobuf:proto_build",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -103,28 +280,13 @@ java_library(
     srcs = glob(
         [
             "com/google/devtools/build/docgen/**/*.java",
-            "com/google/devtools/build/lib/actions/**",
-            "com/google/devtools/build/lib/analysis/**",
             "com/google/devtools/build/lib/bazel/**/*.java",
             "com/google/devtools/build/lib/buildtool/**",
-            "com/google/devtools/build/lib/cmdline/**",
-            "com/google/devtools/build/lib/exec/**",
-            "com/google/devtools/build/lib/graph/**",
-            "com/google/devtools/build/lib/packages/**",
-            "com/google/devtools/build/lib/pkgcache/**",
-            "com/google/devtools/build/lib/query2/**",
-            "com/google/devtools/build/lib/rules/**",
             "com/google/devtools/build/lib/runtime/**/*.java",
             "com/google/devtools/build/lib/server/**",
-            "com/google/devtools/build/lib/skyframe/**",
             "com/google/devtools/build/lib/standalone/**",
-            "com/google/devtools/build/lib/syntax/**",
             "com/google/devtools/build/lib/webstatusserver/**/*.java",
             "com/google/devtools/build/lib/worker/**",
-            "com/google/devtools/build/skyframe/**",
-        ],
-        exclude = [
-            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
         ],
     ),
     resources = glob([
@@ -148,24 +310,27 @@ java_library(
         "//third_party:plexus_utils",
     ],
     deps = [
+        ":actions",
+        ":analysis-exec-rules-skyframe",
         ":collect",
         ":common",
         ":concurrent",
         ":events",
+        ":genquery",
+        ":graph",
         ":options",
+        ":packages",
+        ":query2",
         ":shell",
+        ":skyframe-base",
         ":unix",
         ":vfs",
         "//src/java_tools/singlejar:zip",
         "//src/main/protobuf:proto_build",
-        "//src/main/protobuf:proto_bundlemerge",
         "//src/main/protobuf:proto_crosstool_config",
         "//src/main/protobuf:proto_extra_actions_base",
         "//src/main/protobuf:proto_test_status",
         "//src/main/protobuf:proto_worker_protocol",
-        "//src/main/protobuf:proto_xcodegen",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:aether",
         "//third_party:apache_commons_pool2",
         "//third_party:auto_value",
@@ -235,9 +400,11 @@ java_library(
         ":bazel-core",
     ],
     deps = [
+        ":analysis-exec-rules-skyframe",
         ":bazel-core",
         ":common",
-        "//src/main/java:vfs",
+        ":packages",
+        ":vfs",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -253,6 +420,7 @@ java_binary(
     srcs = ["com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     deps = [
+        ":analysis-exec-rules-skyframe",
         ":common",
         ":docgen_javalib",
     ],
