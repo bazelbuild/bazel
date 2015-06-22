@@ -263,7 +263,7 @@ public class MethodLibrary {
     }
 
     LinkedList<String> result = new LinkedList<>();
-    String[] parts = input.split(separator, -1);
+    String[] parts = input.split(Pattern.quote(separator), -1);
     int sepLen = separator.length();
     int remainingLength = input.length();    
     int splitsSoFar = 0;
