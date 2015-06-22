@@ -77,9 +77,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
-    NestedSetBuilder<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder()
-            .add(intermediateArtifacts.strippedSingleArchitectureBinary());
+    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
+        .add(intermediateArtifacts.singleArchitectureBinary());
 
     new CompilationSupport(ruleContext)
         .registerJ2ObjcCompileAndArchiveActions(objcProvider)
@@ -166,27 +165,24 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
-    ObjcCommon.Builder builder =
-        new ObjcCommon.Builder(ruleContext)
-            .setCompilationAttributes(new CompilationAttributes(ruleContext))
-            .setResourceAttributes(new ResourceAttributes(ruleContext))
-            .setCompilationArtifacts(compilationArtifacts)
-            .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-            .addDepObjcProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
-            .addDepCcHeaderProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-            .addDepCcLinkProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
-            .addDepObjcProviders(
-                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-            .addNonPropagatedDepObjcProviders(
-                ruleContext.getPrerequisites(
-                    "non_propagated_deps", Mode.TARGET, ObjcProvider.class))
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false)
-            .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
-            .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
+    ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext)
+        .setCompilationAttributes(new CompilationAttributes(ruleContext))
+        .setResourceAttributes(new ResourceAttributes(ruleContext))
+        .setCompilationArtifacts(compilationArtifacts)
+        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
+        .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
+        .addDepCcHeaderProviders(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
+        .addDepCcLinkProviders(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
+        .addDepObjcProviders(
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+        .addNonPropagatedDepObjcProviders(
+            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setAlwayslink(false)
+        .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
+        .setLinkedBinary(intermediateArtifacts.singleArchitectureBinary());
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
       builder.setBreakpadFile(intermediateArtifacts.breakpadSym());

@@ -67,7 +67,6 @@ public class ObjcRuleClasses {
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
   static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
   static final PathFragment SWIFT_STDLIB_TOOL = new PathFragment(BIN_DIR + "/swift-stdlib-tool");
-  static final PathFragment STRIP = new PathFragment(BIN_DIR + "/strip");
 
   private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 

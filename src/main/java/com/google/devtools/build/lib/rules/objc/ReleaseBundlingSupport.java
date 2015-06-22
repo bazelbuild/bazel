@@ -217,7 +217,7 @@ public final class ReleaseBundlingSupport {
     } else {
       maybeSignedIpa = registerBundleSigningActions(ipaOutput);
     }
-
+    
     registerEmbedLabelPlistAction();
 
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
@@ -417,8 +417,8 @@ public final class ReleaseBundlingSupport {
     } else {
       extraBundleFiles = ImmutableList.of();
     }
-
-    String primaryBundleId = null;
+    
+    String primaryBundleId = null; 
     String fallbackBundleId = null;
 
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("bundle_id")) {
@@ -463,7 +463,7 @@ public final class ReleaseBundlingSupport {
     NestedSetBuilder<Artifact> linkedBinariesBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(attributes.dependentLinkedBinaries());
     if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
-      linkedBinariesBuilder.add(intermediateArtifacts.strippedSingleArchitectureBinary());
+      linkedBinariesBuilder.add(intermediateArtifacts.singleArchitectureBinary());
     }
     return linkedBinariesBuilder.build();
   }
@@ -700,14 +700,14 @@ public final class ReleaseBundlingSupport {
         .add("Frameworks")
         .addPath(ObjcRuleClasses.SWIFT_STDLIB_TOOL)
         .add("--platform").add(IosSdkCommands.swiftPlatform(objcConfiguration))
-        .addExecPath("--scan-executable", intermediateArtifacts.strippedSingleArchitectureBinary());
+        .addExecPath("--scan-executable", intermediateArtifacts.singleArchitectureBinary());
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.swiftStdlibToolDeployJar())
             .setMnemonic("SwiftStdlibCopy")
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
-            .addInput(intermediateArtifacts.strippedSingleArchitectureBinary())
+            .addInput(intermediateArtifacts.singleArchitectureBinary())
             .build(ruleContext));
   }
 
