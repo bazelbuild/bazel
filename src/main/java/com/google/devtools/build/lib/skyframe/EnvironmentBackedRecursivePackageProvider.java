@@ -33,9 +33,6 @@ import com.google.devtools.build.skyframe.SkyKey;
  * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods
  * may throw {@link MissingDepException} if the package values this depends on haven't been
  * calculated and added to its environment.
- *
- * <p>That exception will be caught by the compute method in {@link TargetPatternFunction}, which
- * then returns {@code null} in accordance with the skyframe missing dependency policy.
  */
 public final class EnvironmentBackedRecursivePackageProvider implements RecursivePackageProvider {
 
@@ -88,6 +85,8 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException {
+    PathFragment rootedPathFragment = directory.getRelativePath();
+    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, rootedPathFragment);
     RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(
         RecursivePkgValue.key(directory, excludedSubdirectories));
     if (lookup == null) {

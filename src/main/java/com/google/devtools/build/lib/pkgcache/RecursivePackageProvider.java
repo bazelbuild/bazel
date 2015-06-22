@@ -25,8 +25,8 @@ public interface RecursivePackageProvider extends PackageProvider {
   /**
    * Returns the names of all the packages under a given directory.
    * @param directory a {@link RootedPath} specifying the directory to search
-   * @param excludedSubdirectories a set of {@link PathFragment}s specifying transitive
-   *    subdirectories beneath {@code directory} to exclude
+   * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath
+   *     {@code directory}, specifying transitive subdirectories to exclude
    */
   Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
       ImmutableSet<PathFragment> excludedSubdirectories);

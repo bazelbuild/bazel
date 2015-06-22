@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -293,9 +294,9 @@ public class PathFragmentTest {
   @Test
   public void testSubFragment() throws Exception {
     assertPath("/foo/bar/baz",
-               new PathFragment("/foo/bar/baz").subFragment(0, 3));
+        new PathFragment("/foo/bar/baz").subFragment(0, 3));
     assertPath("foo/bar/baz",
-               new PathFragment("foo/bar/baz").subFragment(0, 3));
+        new PathFragment("foo/bar/baz").subFragment(0, 3));
     assertPath("/foo/bar",
                new PathFragment("/foo/bar/baz").subFragment(0, 2));
     assertPath("bar/baz",
@@ -355,6 +356,61 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void testFilterPathsStartingWith() {
+    // Retains everything:
+    ImmutableSet<PathFragment> allUnderA = toPathsSet("a/b", "a/c", "a/d");
+    assertThat(PathFragment.filterPathsStartingWith(allUnderA, new PathFragment("a")))
+        .containsExactlyElementsIn(allUnderA);
+
+    // Retains some but not others:
+    ImmutableSet<PathFragment> mixed = toPathsSet("a/b", "a/c", "b/c");
+    assertThat(PathFragment.filterPathsStartingWith(mixed,
+        new PathFragment("a"))).containsExactlyElementsIn(toPathsSet("a/b", "a/c"));
+
+    // Retains none:
+    assertThat(PathFragment.filterPathsStartingWith(allUnderA, new PathFragment("b"))).isEmpty();
+
+    // Retains paths equal to the startingWithPath:
+    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a"),
+        new PathFragment("a"))).containsExactlyElementsIn(toPathsSet("a"));
+
+    // Retains everything when startingWithPath is the empty fragment:
+    assertThat(PathFragment.filterPathsStartingWith(mixed, PathFragment.EMPTY_FRAGMENT))
+        .containsExactlyElementsIn(mixed);
+
+    // Supports multi-segment startingWithPaths:
+    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a/b/c", "a/b/d", "a/c/d"),
+        new PathFragment("a/b"))).containsExactlyElementsIn(toPathsSet("a/b/c", "a/b/d"));
+  }
+
+  @Test
+  public void testCheckAllPathsStartWithButAreNotEqualTo() {
+    // Check passes:
+    PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a/c"),
+        new PathFragment("a"));
+
+    // Check trivially passes:
+    PathFragment.checkAllPathsAreUnder(ImmutableList.<PathFragment>of(),
+        new PathFragment("a"));
+
+    // Check fails when some path does not start with startingWithPath:
+    try {
+      PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "b/c"),
+          new PathFragment("a"));
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+
+    // Check fails when some path is equal to startingWithPath:
+    try {
+      PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a"),
+          new PathFragment("a"));
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test
   public void testEndsWith() {
     PathFragment foobar = new PathFragment("/foo/bar");
     PathFragment foobarRelative = new PathFragment("foo/bar");
@@ -397,6 +453,14 @@ public class PathFragmentTest {
       paths.add(new PathFragment(s));
     }
     return paths;
+  }
+
+  static ImmutableSet<PathFragment> toPathsSet(String... strs) {
+    ImmutableSet.Builder<PathFragment> builder = ImmutableSet.builder();
+    for (String str : strs) {
+      builder.add(new PathFragment(str));
+    }
+    return builder.build();
   }
 
   @Test

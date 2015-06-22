@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -260,6 +261,34 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
     return Iterables.transform(fragments, TO_SAFE_PATH_STRING);
+  }
+
+  /** Returns the subset of {@code paths} that start with {@code startingWithPath}. */
+  public static ImmutableSet<PathFragment> filterPathsStartingWith(Set<PathFragment> paths,
+      PathFragment startingWithPath) {
+    return ImmutableSet.copyOf(Iterables.filter(paths, startsWithPredicate(startingWithPath)));
+  }
+
+  public static Predicate<PathFragment> startsWithPredicate(final PathFragment prefix) {
+    return new Predicate<PathFragment>() {
+      @Override
+      public boolean apply(PathFragment pathFragment) {
+        return pathFragment.startsWith(prefix);
+      }
+    };
+  }
+
+  /**
+  * Throws {@link IllegalArgumentException} if {@code paths} contains any paths that
+  * are equal to {@code startingWithPath} or that are not beneath {@code startingWithPath}.
+  */
+  public static void checkAllPathsAreUnder(Iterable<PathFragment> paths,
+      PathFragment startingWithPath) {
+    for (PathFragment path : paths) {
+      Preconditions.checkArgument(
+          !path.equals(startingWithPath) && path.startsWith(startingWithPath),
+              "%s is not beneath %s", path, startingWithPath);
+    }
   }
 
   private String joinSegments(char separatorChar) {
