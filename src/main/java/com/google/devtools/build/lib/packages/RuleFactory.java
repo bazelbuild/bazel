@@ -69,15 +69,21 @@ public class RuleFactory {
    * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
    * to do so if, for example, the rule has errors).</p>
    */
-  static Rule createRule(Package.Builder pkgBuilder, RuleClass ruleClass,
-      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
+  static Rule createRule(
+      Package.Builder pkgBuilder,
+      RuleClass ruleClass,
+      Map<String, Object> attributeValues,
+      EventHandler eventHandler,
+      FuncallExpression ast,
       Location location)
       throws InvalidRuleException, NameConflictException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
     Object nameObject = attributeValues.get("name");
-    if (!(nameObject instanceof String)) {
+    if (nameObject == null) {
       throw new InvalidRuleException(ruleClassName + " rule has no 'name' attribute");
+    } else if (!(nameObject instanceof String)) {
+      throw new InvalidRuleException(ruleClassName + " 'name' attribute must be a string");
     }
     String name = (String) nameObject;
     Label label;
@@ -88,14 +94,14 @@ public class RuleFactory {
     } catch (Label.SyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    boolean inWorkspaceFile = location.getPath() != null
-        && location.getPath().getBaseName().contains("WORKSPACE");
+    boolean inWorkspaceFile =
+        location.getPath() != null && location.getPath().getBaseName().contains("WORKSPACE");
     if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(ruleClass + " must be in the WORKSPACE file "
-          + "(used by " + label + ")");
+      throw new RuleFactory.InvalidRuleException(
+          ruleClass + " must be in the WORKSPACE file " + "(used by " + label + ")");
     } else if (!ruleClass.getWorkspaceOnly() && inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(ruleClass + " cannot be in the WORKSPACE file "
-          + "(used by " + label + ")");
+      throw new RuleFactory.InvalidRuleException(
+          ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
     try {
