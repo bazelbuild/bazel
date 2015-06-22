@@ -136,6 +136,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu.")
   public boolean enableCcDeps;
 
+  @Option(name = "objc_enable_binary_stripping",
+      defaultValue = "false",
+      category = "flags",
+      help = "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+          + "strippings will be performed if both this flag and --compilationMode=opt are "
+          + "specified.")
+  public boolean enableBinaryStripping;
+
   // This option exists because two configurations are not allowed to have the same cache key
   // (partially derived from options). Since we have multiple transitions (see
   // getPotentialSplitTransitions below) that may result in the same configuration values at runtime

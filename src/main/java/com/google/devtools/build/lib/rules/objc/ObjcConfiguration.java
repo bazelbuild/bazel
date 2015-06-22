@@ -49,7 +49,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
 
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
-      ImmutableList.of("-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
+      ImmutableList.of(
+          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;
@@ -64,6 +65,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> iosMultiCpus;
   private final String iosSplitCpu;
   private final boolean perProtoIncludes;
+  private final boolean enableBinaryStripping;
   private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final Path clientWorkspaceRoot;
 
@@ -97,6 +99,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.perProtoIncludes = objcOptions.perProtoIncludes;
+    this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
   }
@@ -298,6 +301,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean perProtoIncludes() {
     return this.perProtoIncludes;
+  }
+
+  /**
+   * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
+   * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
+   */
+  public boolean shouldStripBinary() {
+    return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
   }
 
   /**
