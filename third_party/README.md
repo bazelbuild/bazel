@@ -211,8 +211,8 @@ Testing
 * License: Eclipse Public License Version 1.0
 
 
-[truth](http://truth0.github.io/)
+[truth](http://google.github.io/truth/)
 -------
 
-* Version: 0.24
+* Version: 0.27
 * License: Apache License 2.0

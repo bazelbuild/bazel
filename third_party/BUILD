@@ -262,7 +262,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.24+.jar"],
+    jars = ["truth/truth-0.27.jar"],
 )
 
 # To be used by the skylark example.
