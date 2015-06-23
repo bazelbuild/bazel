@@ -34,6 +34,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.io.InputStream;
+import java.util.List;
 
 /**
  * Support for Objc rule types that export an Xcode provider or generate xcode project files.
@@ -221,17 +222,27 @@ public final class XcodeSupport {
           builder.setWorkspaceRoot(workspaceRoot.getPathString());
         }
 
+        List<String> multiCpus = objcConfiguration.getIosMultiCpus();
+        if (multiCpus.isEmpty()) {
+          builder.addCpuArchitecture(objcConfiguration.getIosCpu());
+        } else {
+          builder.addAllCpuArchitecture(multiCpus);
+        }
+
         return builder
             .setPbxproj(pbxproj.getExecPathString())
             .addAllTarget(project.targets())
-            .addBuildSetting(XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
-                .setName("IPHONEOS_DEPLOYMENT_TARGET")
-                .setValue(objcConfiguration.getMinimumOs())
-                .build())
-            .addBuildSetting(XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
-                .setName("DEBUG_INFORMATION_FORMAT")
-                .setValue(objcConfiguration.generateDebugSymbols() ? "dwarf-with-dsym" : "dwarf")
-                .build())
+            .addBuildSetting(
+                XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
+                    .setName("IPHONEOS_DEPLOYMENT_TARGET")
+                    .setValue(objcConfiguration.getMinimumOs())
+                    .build())
+            .addBuildSetting(
+                XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
+                    .setName("DEBUG_INFORMATION_FORMAT")
+                    .setValue(
+                        objcConfiguration.generateDebugSymbols() ? "dwarf-with-dsym" : "dwarf")
+                    .build())
             .build()
             .toByteString()
             .newInput();
