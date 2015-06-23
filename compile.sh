@@ -157,7 +157,20 @@ fi
 if [ $DO_TESTS ]; then
   new_step "Running tests"
   display "."
+  [ -n "$JAVAC_VERSION" ] || get_java_version
+  if [[ ! "${BAZEL_TEST_FILTERS-}" =~ "-jdk8" ]] \
+      && [ "8" -gt ${JAVAC_VERSION#*.} ]; then
+    display "$WARNING Your version of Java is lower than 1.8!"
+    display "$WARNING Deactivating Java 8 tests, please use a JDK 8 to fully"
+    display "$WARNING test Bazel."
+    if [ -n "${BAZEL_TEST_FILTERS-}" ]; then
+      BAZEL_TEST_FILTERS="${BAZEL_TEST_FILTERS},-jdk8"
+    else
+      BAZEL_TEST_FILTERS="-jdk8"
+    fi
+  fi
   $BAZEL --blazerc=${BAZELRC} --nomaster_blazerc test \
+      --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \

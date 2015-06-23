@@ -23,21 +23,17 @@ fi
 
 if [[ $TRAVIS_OS_NAME = 'osx' ]]; then
     export JAVA_VERSION=1.7
-    sed -i.bak 's/_version = "8",/_version = "7",/' tools/jdk/BUILD
-    cat .travis/jdk7.WORKSPACE >WORKSPACE
-    # Ignore zip tests as they requires to much space and jdk8 stuff
-    cat <<'EOF' >.bazelrc
-build --test_tag_filters -zip,-jdk8,-skyframe
-EOF
-    export BAZELRC=$PWD/.bazelrc
+    # Ignore zip tests as they requires to much space.
+    export BAZEL_TEST_FILTERS="-zip,-skyframe"
     ./compile.sh all
 else
     sudo apt-get update -qq
     sudo apt-get install -y netcat-traditional
     sudo update-alternatives --set nc /bin/nc.traditional
     export JAVA_HOME=/usr/lib/jvm/java-8-oracle
-    export JAVA_OPTS="-Xmx3000m"
     cat > .bazelrc <<EOF
+startup --host_jvm_args=-Xmx2500m
+startup --host_jvm_args=-Xms2500m"
 test --ram_utilization_factor=10
 EOF
     export BAZELRC="$(pwd)/.bazelrc"

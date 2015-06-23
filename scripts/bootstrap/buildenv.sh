@@ -81,6 +81,7 @@ function clear_log() {
 
 LEAVES="\xF0\x9F\x8D\x83"
 INFO="\033[32mINFO\033[0m:"
+WARNING="\033[31mWARN\033[0m:"
 
 first_step=1
 function new_step() {
@@ -109,3 +110,20 @@ else
     md5sum $1
   }
 fi
+
+# Gets the java version from JAVA_HOME
+# Sets JAVAC and JAVAC_VERSION with respectively the path to javac and
+# the version of javac.
+function get_java_version() {
+  test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
+  JAVAC="${JAVA_HOME}/bin/javac"
+  [[ -x "${JAVAC}" ]] \
+    || fail "JAVA_HOME ($JAVA_HOME) is not a path to a working JDK."
+
+  JAVAC_VERSION=$("${JAVAC}" -version 2>&1)
+  if [[ "$JAVAC_VERSION" =~ ^"javac "(1\.([789]|[1-9][0-9])).*$ ]]; then
+    JAVAC_VERSION=${BASH_REMATCH[1]}
+  else
+    fail "Cannot determine JDK version, please set \$JAVA_HOME."
+  fi
+}

@@ -134,22 +134,10 @@ esac
 [[ -x "${PROTOC-}" ]] \
     || fail "Protobuf compiler not found in ${PROTOC-}"
 
-test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
-
-JAVAC="${JAVA_HOME}/bin/javac"
-
-[[ -x "${JAVAC}" ]] \
-    || fail "JAVA_HOME ($JAVA_HOME) is not a path to a working JDK."
-
 # Check that javac -version returns a upper version than $JAVA_VERSION.
-JAVAC_VERSION=$("${JAVAC}" -version 2>&1)
-if [[ "$JAVAC_VERSION" =~ ^"javac "(1\.([789]|[1-9][0-9])).*$ ]]; then
-  JAVAC_VERSION=${BASH_REMATCH[1]}
-  [ ${JAVA_VERSION#*.} -le ${JAVAC_VERSION#*.} ] || \
-     fail "JDK version (${JAVAC_VERSION}) is lower than ${JAVA_VERSION}, please set \$JAVA_HOME."
-else
-  fail "Cannot determine JDK version, please set \$JAVA_HOME."
-fi
+get_java_version
+[ ${JAVA_VERSION#*.} -le ${JAVAC_VERSION#*.} ] || \
+  fail "JDK version (${JAVAC_VERSION}) is lower than ${JAVA_VERSION}, please set \$JAVA_HOME."
 
 JAR="${JAVA_HOME}/bin/jar"
 
