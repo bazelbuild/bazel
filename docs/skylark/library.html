@@ -183,7 +183,7 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it cannot).
+	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it cannot), and there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
 	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label. The attribute <code>name</code> is implicitly added and must not be specified. Attributes <code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly added and might be overriden.
 	</li>
@@ -623,7 +623,7 @@ Creates a new file object, derived from the given file and suffix. Does not actu
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
 <li><h3 id="modules.ctx.runfiles">runfiles</h3>
-<code>Runfiles ctx.runfiles(files?, transitive_files?, collect_data?, collect_default?)</code><br>
+<code><a class="anchor" href="#modules.runfiles">runfiles</a> ctx.runfiles(files?, transitive_files?, collect_data?, collect_default?)</code><br>
 Creates a runfiles object.
 <h4>Parameters</h4>
 <ul>
@@ -745,6 +745,14 @@ A root for files. The roots are the directories containing files, and they are m
 <ul><li><h3 id="modules.root.path">path</h3>
 <code><a class="anchor" href="#modules.string">string</a> root.path</code><br>
 Returns the relative path from the exec root to the actual root.
+</ul><hr><h2 id="modules.runfiles">runfiles</h2>
+An interface for a set of runfiles.
+<ul><li><h3 id="modules.runfiles.files">files</h3>
+<code>set runfiles.files</code><br>
+Returns the set of runfiles as artifacts
+<li><h3 id="modules.runfiles.symlinks">symlinks</h3>
+<code>set runfiles.symlinks</code><br>
+Returns the set of symlinks
 </ul><hr><h2 id="modules.set">set</h2>
 A language built-in type that supports (nested) sets. Sets can be created using the <a href="#modules._top_level.set">set</a> function, and they support the <code>+</code> operator to extend the set with more elements or to nest other sets inside of it. Examples:<br><pre class=language-python>s = set([1, 2])
 s += [3]           # s == {1, 2, 3}
