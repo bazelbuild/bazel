@@ -48,7 +48,6 @@ import java.util.Map;
 public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
   // TODO(bazel-team) - add support for test timeouts.
-  // TODO(bazel-team) - add support for parsing XML output.
 
   private final Path workspace;
 
@@ -76,7 +75,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         workspace, actionExecutionContext.getExecutor().getExecRoot(), executionOptions)
         .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
-    Map<String, String> env = getEnv(action, runfilesDir, testTmpDir);
+
+    TestRunnerAction.ResolvedPaths resolvedPaths =
+        action.resolve(actionExecutionContext.getExecutor().getExecRoot());
+    Map<String, String> env = getEnv(action, runfilesDir, testTmpDir, resolvedPaths);
     Spawn spawn =
         new BaseSpawn(
             // Bazel lacks much of the tooling for coverage, so we don't attempt to pass a coverage
@@ -129,14 +131,24 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private Map<String, String> getEnv(TestRunnerAction action, Path runfilesDir, Path tmpDir) {
+  private Map<String, String> getEnv(
+      TestRunnerAction action,
+      Path runfilesDir,
+      Path tmpDir,
+      TestRunnerAction.ResolvedPaths resolvedPaths) {
     Map<String, String> vars = getDefaultTestEnvironment(action);
     BuildConfiguration config = action.getConfiguration();
 
     vars.putAll(config.getDefaultShellEnvironment());
     vars.putAll(action.getTestEnv());
+
+    /*
+     * TODO(bazel-team): the paths below are absolute,
+     * making test actions impossible to cache remotely.
+     */
     vars.put("TEST_SRCDIR", runfilesDir.getPathString());
     vars.put("TEST_TMPDIR", tmpDir.getPathString());
+    vars.put("XML_OUTPUT_FILE", resolvedPaths.getXmlOutputPath().getPathString());
 
     return vars;
   }
