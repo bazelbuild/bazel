@@ -172,6 +172,7 @@ java_library(
         ":events",
         ":vfs",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -211,6 +212,7 @@ java_library(
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:guava",
+        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:protobuf",
     ],
