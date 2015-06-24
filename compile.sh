@@ -132,8 +132,8 @@ fi
 #
 if [ $DO_CHECKSUM ]; then
   new_step "Determinism test"
-  BAZEL_SUM=${BAZEL_SUM:-bazel-out/bazel_checksum}
-  if [ ! -f ${BAZEL_SUM} ]; then
+  if [ ! -f ${BAZEL_SUM:-x} ]; then
+    BAZEL_SUM=bazel-out/bazel_checksum
     log "First build"
     bootstrap_test ${BAZEL} ${BAZEL_SUM}
   else
