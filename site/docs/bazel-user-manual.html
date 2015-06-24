@@ -284,15 +284,13 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
   this option when performing release builds, or automated tests that
   invoke Bazel.
 </p>
+
 <p>
   Aside from the configuration file described above, Bazel also looks
-  for a master configuration file next to the binary. The name of this
-  file is the same as the name of the binary with the
-  string <code>.bazelrc</code> attached.  This file is not intended to
-  be user-modifiable; its purpose is for the Bazel team to be able to
-  turn experimental features on or off immediately without releasing a
-  new Bazel version, should an urgent need arise.  Reading of this file
-  can be disabled using the <code class='flag'>--nomaster_bazelrc</code> option.
+  for a master configuration file next to the binary, in the workspace
+  at <code>tools/bazel.rc</code> or system-wide at
+  <code>/etc/bazel.bazelrc</code>. These files are here to support
+  installation-wide options or options shared between users.
 </p>
 <p>
   Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text
