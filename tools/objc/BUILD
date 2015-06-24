@@ -41,7 +41,7 @@ java_binary(
 
 java_binary(
     name = "swiftstdlibtoolzip",
-    srcs = [":precomp_xcodegen_deploy.jar"],
+    srcs = [":precomp_swiftstdlibtoolzip_deploy.jar"],
     main_class = "com.google.devtools.build.xcode.swiftstdlibtoolzip.SwiftStdlibToolZip",
 )
 
