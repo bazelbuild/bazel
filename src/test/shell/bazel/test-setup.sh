@@ -106,6 +106,7 @@ workspaces=()
 function create_new_workspace() {
   set -e
   new_workspace_dir=${1:-$(mktemp -d ${TEST_TMPDIR}/workspace.XXXXXXXX)}
+  rm -fr ${new_workspace_dir}
   mkdir -p ${new_workspace_dir}
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
@@ -128,6 +129,7 @@ function create_new_workspace() {
 function setup_clean_workspace() {
   export WORKSPACE_DIR=${TEST_TMPDIR}/workspace
   echo "setting up client in ${WORKSPACE_DIR}"
+  rm -fr ${WORKSPACE_DIR}
   create_new_workspace ${WORKSPACE_DIR}
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] || \
     { echo "Failed to create workspace" >&2; exit 1; }
