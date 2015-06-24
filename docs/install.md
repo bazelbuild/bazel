@@ -35,7 +35,7 @@ To build Bazel on Ubuntu:
 **Ubuntu Utopic (14.10) and Trusty (14.04 LTS).** To install OpenJDK 7:
 
 ```
-$ sudo apt-get install openjdk-7-jdk
+$ sudo apt-get install openjdk-7-jdk openjdk-7-source
 ```
 
 #### 2. Set the `JAVA_HOME` environment variable.

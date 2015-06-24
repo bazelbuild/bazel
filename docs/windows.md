@@ -46,7 +46,7 @@ Running Bazel on Windows
 Running Bazel on Windows requires a few additional steps due to the differences
 between the native POSIX environment and the Windows environment.
 
-First, since Blaze uses symlinks, the current Windows user needs to have the
+First, since Bazel uses symlinks, the current Windows user needs to have the
 permission to create symlinks. This permission is off by default for
 non-administrator users. The easiest workaround is to run the msys2 shell
 as administrator (right click shortcut -> Run As Administrator).
