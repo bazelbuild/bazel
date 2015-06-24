@@ -73,6 +73,7 @@ filegroup(
 java_toolchain(
     name = "toolchain",
     encoding = "UTF-8",
+    jvm_opts = ["-client"],
     source_version = "7",
     target_version = "7",
 )
