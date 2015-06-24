@@ -47,7 +47,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         The directly depended upon proto_library rules.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("deps", LABEL_LIST)
+        .add(attr("deps", LABEL_LIST)
             .allowedRuleClasses("proto_library", "filegroup")
             .legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
@@ -85,9 +85,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_proto_library")
         .factoryClass(ObjcProtoLibrary.class)
-        .ancestors(
-            BaseRuleClasses.RuleBase.class,
-            ObjcRuleClasses.ObjcProtoRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.ObjcProtoRule.class)
         .build();
   }
 }
