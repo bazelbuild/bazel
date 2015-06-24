@@ -1527,6 +1527,17 @@ $ bazel fetch //...
   command line <em>after</em> these options.
 </p>
 
+<h5 id='-extra_checks'><code>-extra_checks[:(off|on)]</code></h5>
+
+<p>
+  This javac option enables extra correctness checks. Any problems found will
+  be presented as errors.
+  Either <code>-extra_checks</code> or <code>-extra_checks:on</code> may be used
+  to force the checks to be turned on. <code>-extra_checks:off</code> completely
+  disables the analysis.
+  When this option is not specified, the default behavior is used.
+</p>
+
 <h4 id='flag--strict_java_deps'><code class='flag'>--strict_java_deps
     (default|strict|off|warn|error)</code></h4>
 <p>
