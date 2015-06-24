@@ -262,7 +262,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
       blazerc = GetUnaryOption(arg_chr, next_arg_chr, "--bazelrc");
     }
     if (use_master_blazerc &&
-        GetNullaryOption(arg_chr, "--nomaster_blazerc")) {
+        (GetNullaryOption(arg_chr, "--nomaster_blazerc") ||
+            GetNullaryOption(arg_chr, "--nomaster_bazelrc"))) {
       use_master_blazerc = false;
     }
   }

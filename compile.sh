@@ -169,7 +169,7 @@ if [ $DO_TESTS ]; then
       BAZEL_TEST_FILTERS="-jdk8"
     fi
   fi
-  $BAZEL --blazerc=${BAZELRC} --nomaster_blazerc test \
+  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \

@@ -153,6 +153,13 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["blazerc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
+             GetNullaryOption(arg, "--master_bazelrc")) {
+    if (rcfile != "") {
+      *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["blazerc"] = rcfile;
   } else if (GetNullaryOption(arg, "--batch")) {
     batch = true;
     option_sources["batch"] = rcfile;
