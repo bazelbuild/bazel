@@ -29,8 +29,9 @@ If an attribute starts with `_`, it is private and users cannot set it. It
 is useful in particular for label attributes (your rule will have an
 implicit dependency on this label).
 
-The following attributes are implicitly added to every rule: `name`,
-`visibility`, `deprecation`, `tags`, `testonly`, `features`.
+The following attributes are implicitly added to every rule: `deprecation`,
+`features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
+following attributes: `args`, `flaky`, `local`, `shard_count`, `size`, `timeout`.
 
 To access an attribute, use `ctx.attr.<attribute_name>`. The name and the
 package of a rule are available with `ctx.label.name` and `ctx.label.package`.
