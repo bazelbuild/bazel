@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -597,7 +598,7 @@ public class ObjcRuleClasses {
           The list of targets that are linked together to form the final bundle.
           ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("deps", LABEL_LIST)
+          .override(attr("deps", LABEL_LIST)
               .direct_compile_time_input()
               .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
               .allowedFileTypes())
@@ -630,7 +631,11 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_compiling_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CompileDependencyRule.class, OptionsRule.class, CoptsRule.class)
+          .ancestors(
+              BaseRuleClasses.RuleBase.class,
+              CompileDependencyRule.class,
+              OptionsRule.class,
+              CoptsRule.class)
           .build();
     }
   }
@@ -808,7 +813,11 @@ public class ObjcRuleClasses {
           .name("$ios_test_base_rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(
-              ReleaseBundlingRule.class, LinkingRule.class, XcodegenRule.class, SimulatorRule.class)
+              CompilingRule.class,
+              ReleaseBundlingRule.class,
+              LinkingRule.class,
+              XcodegenRule.class,
+              SimulatorRule.class)
           .build();
     }
   }
