@@ -154,8 +154,8 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.3.jar",
-        "error_prone/error_prone_annotations-2.0.3.jar",
+        "error_prone/error_prone_core-2.0.4.jar",
+        "error_prone/error_prone_annotations-2.0.4.jar",
     ],
 )
 
@@ -163,8 +163,8 @@ java_import(
 filegroup(
     name = "error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotations-2.0.3.jar",
-        "error_prone/error_prone_core-2.0.3.jar",
+        "error_prone/error_prone_annotations-2.0.4.jar",
+        "error_prone/error_prone_core-2.0.4.jar",
     ],
 )
 

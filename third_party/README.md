@@ -69,7 +69,7 @@ a minimal set of extra dependencies.
 [Error Prone](https://github.com/google/error-prone)
 -------------
 
-* Version: 2.0.3
+* Version: 2.0.4
 * License: Apache License 2.0
 
 [Buck (iOS support)](http://facebook.github.io/buck/)
