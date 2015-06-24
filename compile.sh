@@ -82,7 +82,7 @@ fi
 #
 # Bootstrap bazel using the previous bazel binary = release binary
 #
-if [ -z "${EMBED_LABEL-}" ]; then
+if [ "${EMBED_LABEL-x}" = "x" ]; then
   # Add a default label when unspecified
   git_sha1=$(git_sha1)
   EMBED_LABEL="head (@${git_sha1:-non-git})"
