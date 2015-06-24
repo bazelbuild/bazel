@@ -53,7 +53,9 @@ atexit "if [ -f ${phasefile} ]; then echo >&2; cat ${phasefile} >&2; fi"
 
 function run_silent() {
   echo "${@}" >${errfile}
-  "${@}" >>${errfile} 2>&1
+  # TODO(kchodorow): figure out why this doesn't exit on a non-zero exit code,
+  # even though errexit is set.
+  "${@}" >>${errfile} 2>&1 || exit $?
   rm ${errfile}
 }
 
