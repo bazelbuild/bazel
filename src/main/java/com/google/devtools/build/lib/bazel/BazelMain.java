@@ -30,7 +30,7 @@ import java.util.Properties;
 public final class BazelMain {
   private static final String BUILD_DATA_PROPERTIES = "/build-data.properties";
 
-  private static final List<Class<? extends BlazeModule>> BAZEL_MODULES = ImmutableList.of(
+  public static final List<Class<? extends BlazeModule>> BAZEL_MODULES = ImmutableList.of(
       com.google.devtools.build.lib.bazel.BazelShutdownLoggerModule.class,
       com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
       com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,

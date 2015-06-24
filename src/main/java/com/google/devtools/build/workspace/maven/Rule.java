@@ -14,43 +14,87 @@
 
 package com.google.devtools.build.workspace.maven;
 
+import com.google.common.collect.Lists;
+
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
+
+import java.util.List;
+
 /**
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
 public final class Rule {
-  private final String artifactId;
-  private final String groupId;
-  private final String version;
+  private final Artifact artifact;
+  private final List<String> parents;
 
-  public Rule(String artifactId, String groupId, String version) {
-    this.artifactId = artifactId;
-    this.groupId = groupId;
-    this.version = version;
+  public Rule(String artifactStr) throws InvalidRuleException {
+    try {
+      this.artifact = new DefaultArtifact(artifactStr);
+    } catch (IllegalArgumentException e) {
+      throw new InvalidRuleException(e.getMessage());
+    }
+    this.parents = Lists.newArrayList();
+  }
+
+  public Rule(String artifactId, String groupId, String version)
+      throws InvalidRuleException {
+    this(groupId + ":" + artifactId + ":" + version);
+  }
+
+  public void addParent(String parent) {
+    parents.add(parent);
   }
 
   public String artifactId() {
-    return artifactId;
+    return artifact.getArtifactId();
   }
 
   public String groupId() {
-    return groupId;
+    return artifact.getGroupId();
   }
 
   public String version() {
-    return version;
+    return artifact.getVersion();
   }
 
+  /**
+   * A unique name for this artifact to use in maven_jar's name attribute.
+   */
   String name() {
     return (groupId() + "/" + artifactId()).replaceAll("\\.", "/");
   }
 
+  public Artifact getArtifact() {
+    return artifact;
+  }
+
+  public String toMavenArtifactString() {
+    return groupId() + ":" + artifactId() + ":" + version();
+  }
+
+  /**
+   * The way this jar should be stringified for the WORKSPACE file.
+   */
   @Override
   public String toString() {
-    return "maven_jar(\n"
+    StringBuilder builder = new StringBuilder();
+    for (String parent : parents) {
+      builder.append("# " + parent + "\n");
+    }
+    builder.append("maven_jar(\n"
         + "    name = \"" + name() + "\",\n"
-        + "    artifact_id = \"" + artifactId() + "\",\n"
-        + "    group_id = \"" + groupId() + "\",\n"
-        + "    version = \"" + version() + "\",\n"
-        + ")";
+        + "    artifact = \"" + toMavenArtifactString() + "\",\n"
+        + ")");
+    return builder.toString();
+  }
+
+  /**
+   * Exception thrown if the rule could not be created.
+   */
+  public static class InvalidRuleException extends Exception {
+    InvalidRuleException(String message) {
+      super(message);
+    }
   }
 }

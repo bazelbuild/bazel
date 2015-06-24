@@ -15,6 +15,8 @@ java_library(
     deps = [
         ":rule",
         "//src/main/java:events",
+        "//src/main/java:maven-connector",
+        "//src/main/java:vfs",
         "//third_party:aether",
         "//third_party:guava",
         "//third_party:maven_model",
@@ -25,5 +27,11 @@ java_library(
 java_library(
     name = "rule",
     srcs = ["Rule.java"],
-    deps = ["//third_party:auto_value"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build:__subpackages__",
+    ],
+    deps = [
+        "//third_party:aether",
+        "//third_party:guava",
+    ],
 )

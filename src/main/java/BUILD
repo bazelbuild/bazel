@@ -288,7 +288,10 @@ java_library(
             "com/google/devtools/build/lib/server/**/*.java",
             "com/google/devtools/build/lib/standalone/*.java",
             "com/google/devtools/build/lib/webstatusserver/**/*.java",
-            "com/google/devtools/build/lib/worker/*.java",
+            "com/google/devtools/build/lib/worker/**",
+        ],
+        exclude = [
+            "com/google/devtools/build/lib/bazel/repository/MavenConnector.java",
         ],
     ),
     resources = glob([
@@ -301,7 +304,10 @@ java_library(
         "//third_party:d3-js",
         "//third_party:jquery",
     ],
-    visibility = ["//src/test/java:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/test/java:__subpackages__",
+    ],
     runtime_deps = [
         "//third_party:aether",
         "//third_party:apache_commons_logging",
@@ -320,6 +326,7 @@ java_library(
         ":events",
         ":genquery",
         ":graph",
+        ":maven-connector",
         ":options",
         ":packages",
         ":query2",
@@ -343,6 +350,15 @@ java_library(
         "//third_party:jsr330_inject",
         "//third_party:maven_model",
         "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "maven-connector",
+    srcs = ["com/google/devtools/build/lib/bazel/repository/MavenConnector.java"],
+    deps = [
+        "//third_party:aether",
+        "//third_party:maven_model",
     ],
 )
 

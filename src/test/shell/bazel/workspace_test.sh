@@ -55,11 +55,9 @@ EOF
 function test_minimal_pom() {
   write_pom
 
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace &> $TEST_log || \
-    fail "generating workspace failed"
-  expect_log "artifact_id = \"x\","
-  expect_log "group_id = \"com.y.z\","
-  expect_log "version = \"3.2.1\","
+  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
+    --maven_project=$(pwd) &> $TEST_log || fail "generating workspace failed"
+  expect_log "artifact = \"com.y.z:x:3.2.1\","
 }
 
 function test_parent_pom_inheritence() {
@@ -86,15 +84,13 @@ function test_parent_pom_inheritence() {
 </project>
 EOF
 
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace my-module &> $TEST_log || \
+  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
+    --maven_project=$(pwd)/my-module &> $TEST_log || \
     fail "generating workspace failed"
   expect_log "name = \"com/y/z/x\","
-  expect_log "artifact_id = \"x\","
-  expect_log "group_id = \"com.y.z\","
-  expect_log "version = \"3.2.1\","
+  expect_log "artifact = \"com.y.z:x:3.2.1\","
   expect_log "name = \"com/z/w/x\","
-  expect_log "group_id = \"com.z.w\","
-  expect_log "version = \"1.2.3\","
+  expect_log "artifact = \"com.z.w:x:1.2.3\","
 }
 
 run_suite "workspace tests"
