@@ -31,14 +31,10 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * Configuration fragment for Android rules.
@@ -138,31 +134,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
 
     @Override
-    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
-      Map<String, Set<Label>> result = new TreeMap<>();
-      Label realSdk = realSdk();
-      if (Constants.ANDROID_ALLOW_SDK_FILEGROUP) {
-        addLabel(result, realSdk, "ANDROID_AIDL_TOOL", "static_aidl_tool");
-        addLabel(result, realSdk, "ANDROID_AIDL_FRAMEWORK", "aidl_framework");
-        addLabel(result, realSdk, "ANDROID_AAPT", "static_aapt_tool");
-        addLabel(result, realSdk, "ANDROID_ADB", "static_adb_tool");
-        addLabel(result, realSdk, "ANDROID_APKBUILDER", "apkbuilder_tool");
-        addLabel(result, realSdk, "ANDROID_DX_JAR", "dx_jar");
-      }
-      return result;
-    }
-
-    @Override
     public ImmutableList<String> getDefaultsRules() {
       return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
-    }
-
-    private void addLabel(Map<String, Set<Label>> map, Label sdk, String key, String localLabel) {
-      try {
-        map.put(key, ImmutableSet.of(sdk.getLocalTargetLabel(localLabel)));
-      } catch (SyntaxException e) {
-        throw new IllegalStateException("Invalid label for " + key + ": " + localLabel, e);
-      }
     }
 
     @Override

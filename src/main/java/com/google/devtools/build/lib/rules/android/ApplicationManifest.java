@@ -203,7 +203,6 @@ public final class ApplicationManifest {
       Artifact resourceApk,
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
-      AndroidTools tools,
       Artifact rTxt,
       boolean incremental,
       Artifact proguardCfg) {
@@ -220,7 +219,6 @@ public final class ApplicationManifest {
       return createApk(resourceApk,
           ruleContext,
           resourceContainers,
-          tools,
           rTxt,
           null, /* configurationFilters */
           ImmutableList.<String>of(), /* uncompressedExtensions */
@@ -243,7 +241,6 @@ public final class ApplicationManifest {
       Artifact resourceApk,
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
-      AndroidTools tools,
       Artifact rTxt,
       Artifact symbolsTxt,
       List<String> configurationFilters,
@@ -271,7 +268,6 @@ public final class ApplicationManifest {
       return createApk(resourceApk,
           ruleContext,
           resourceContainers,
-          tools,
           rTxt,
           symbolsTxt,
           configurationFilters,
@@ -295,7 +291,6 @@ public final class ApplicationManifest {
   private ResourceApk createApk(Artifact resourceApk,
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
-      AndroidTools tools,
       Artifact rTxt,
       Artifact symbolsTxt,
       List<String> configurationFilters,
@@ -317,7 +312,7 @@ public final class ApplicationManifest {
         ruleContext);
 
     AndroidResourcesProcessorBuilder builder =
-        new AndroidResourcesProcessorBuilder(tools, ruleContext)
+        new AndroidResourcesProcessorBuilder(ruleContext)
             .setApkOut(resourceContainer.getApk())
             .setConfigurationFilters(configurationFilters)
             .setUncompressedExtensions(uncompressedExtensions)
@@ -370,8 +365,7 @@ public final class ApplicationManifest {
   }
 
   /** Uses the resource apk from the resources attribute, as opposed to recompiling. */
-  public ResourceApk useCurrentResources(RuleContext ruleContext, AndroidTools tools,
-      Artifact proguardCfg) {
+  public ResourceApk useCurrentResources(RuleContext ruleContext, Artifact proguardCfg) {
     ResourceContainer resourceContainer = Iterables.getOnlyElement(
         AndroidCommon.getAndroidResources(ruleContext).getTransitiveAndroidResources());
     NestedSet<ResourceContainer> resourceContainers =
@@ -386,8 +380,7 @@ public final class ApplicationManifest {
     new AndroidAaptActionHelper(
         ruleContext,
         resourceContainer.getManifest(),
-        Lists.newArrayList(resourceContainer),
-        tools).createGenerateProguardAction(proguardCfg);
+        Lists.newArrayList(resourceContainer)).createGenerateProguardAction(proguardCfg);
 
     return new ResourceApk(
         resourceContainer.getApk(),
@@ -409,7 +402,6 @@ public final class ApplicationManifest {
       Artifact resourceApk,
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
-      AndroidTools tools,
       boolean createSource,
       Artifact proguardCfg) {
 
@@ -434,7 +426,7 @@ public final class ApplicationManifest {
     // resources. The resulting sources and apk will combine all the resources
     // contained in the transitive closure of the binary.
     AndroidAaptActionHelper aaptActionHelper = new AndroidAaptActionHelper(ruleContext,
-        getManifest(), Lists.newArrayList(resourceContainers), tools);
+        getManifest(), Lists.newArrayList(resourceContainers));
 
     List<String> resourceConfigurationFilters =
         ruleContext.getTokenizedStringListAttr("resource_configuration_filters");

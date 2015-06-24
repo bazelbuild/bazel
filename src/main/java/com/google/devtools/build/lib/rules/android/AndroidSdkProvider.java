@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
@@ -57,6 +60,32 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
     this.apkBuilder = apkBuilder;
     this.proguard = proguard;
     this.zipalign = zipalign;
+  }
+
+  /**
+   * Returns the Android SDK associated with the rule being analyzed or null if the Android SDK is
+   * not specified.
+   */
+  public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
+    TransitiveInfoCollection androidSdkDep =
+        ruleContext.getPrerequisite(":android_sdk", Mode.TARGET);
+    AndroidSdkProvider androidSdk = androidSdkDep == null
+        ? null : androidSdkDep.getProvider(AndroidSdkProvider.class);
+
+    return androidSdk;
+  }
+
+  /**
+   * Signals an error if the Android SDK cannot be found.
+   */
+  public static boolean verifyPresence(RuleContext ruleContext) {
+    if (fromRuleContext(ruleContext) == null) {
+      ruleContext.ruleError(
+          "No Android SDK found. Use the --android_sdk command line option to specify one.");
+      return false;
+    }
+
+    return true;
   }
 
   public Artifact getFrameworkAidl() {

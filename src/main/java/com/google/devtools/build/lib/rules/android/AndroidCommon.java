@@ -163,8 +163,9 @@ public class AndroidCommon {
    * the {@link com.google.devtools.build.lib.actions.Artifact} {@code dxJar}.
    */
   public static void createDexAction(
-      RuleContext ruleContext, AndroidSemantics semantics, AndroidTools tools, Artifact jarToDex,
-      Artifact classesDex, List<String> dexOptions, boolean multidex, Artifact mainDexList) {
+      RuleContext ruleContext,
+      Artifact jarToDex, Artifact classesDex, List<String> dexOptions, boolean multidex,
+      Artifact mainDexList) {
     List<String> args = new ArrayList<>();
     args.add("--dex");
     // Add --no-locals to coverage builds. Otherwise local variable debug information is not
@@ -191,7 +192,8 @@ public class AndroidCommon {
     args.add("--output=" + classesDex.getExecPathString());
     args.add(jarToDex.getExecPathString());
 
-    SpawnAction.Builder builder = tools.dxAction(semantics)
+    SpawnAction.Builder builder = new SpawnAction.Builder()
+        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
         .addInput(jarToDex)
         .addOutput(classesDex)
         .addArguments(args)
@@ -305,14 +307,14 @@ public class AndroidCommon {
 
   public JavaTargetAttributes init(
       JavaSemantics javaSemantics, AndroidSemantics androidSemantics,
-      AndroidTools tools, ResourceApk resourceApk, AndroidIdlProvider transitiveIdlImportData,
+      ResourceApk resourceApk, AndroidIdlProvider transitiveIdlImportData,
       boolean addCoverageSupport, boolean collectJavaCompilationArgs) {
     ImmutableList<Artifact> extraSources =
         resourceApk.isLegacy() || resourceApk.getResourceJavaSrcJar() == null
             ? ImmutableList.<Artifact>of()
             : ImmutableList.of(resourceApk.getResourceJavaSrcJar());
     JavaTargetAttributes.Builder attributes = init(
-        tools, androidSemantics,
+        androidSemantics,
         transitiveIdlImportData,
         resourceApk.getTransitiveResources(),
         extraSources);
@@ -340,7 +342,6 @@ public class AndroidCommon {
   }
 
   private JavaTargetAttributes.Builder init(
-      AndroidTools tools,
       AndroidSemantics androidSemantics,
       AndroidIdlProvider transitiveIdlImportData,
       NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources,
@@ -360,7 +361,8 @@ public class AndroidCommon {
     JavaTargetAttributes.Builder attributes = javaCommon.initCommon(
         extraSrcsBuilder.addAll(translatedIdlSources.values()).build());
 
-    attributes.setBootClassPath(ImmutableList.of(tools.getAndroidJar()));
+    attributes.setBootClassPath(ImmutableList.of(
+        AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
     return attributes;
   }
 
@@ -494,10 +496,10 @@ public class AndroidCommon {
   }
 
   public RuleConfiguredTargetBuilder addTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, AndroidTools tools) {
+      RuleConfiguredTargetBuilder builder) {
     if (!idls.isEmpty()) {
       generateAndroidIdlActions(
-          ruleContext, tools, idls, transitiveIdlImportData, translatedIdlSources);
+          ruleContext, idls, transitiveIdlImportData, translatedIdlSources);
     }
 
     Runfiles runfiles = new Runfiles.Builder()
@@ -649,11 +651,12 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  private void generateAndroidIdlActions(RuleContext ruleContext, AndroidTools tools,
+  private void generateAndroidIdlActions(RuleContext ruleContext,
       Collection<Artifact> idls, AndroidIdlProvider transitiveIdlImportData,
       Map<Artifact, Artifact> translatedIdlSources) {
     FilesToRunProvider toolRunner =
         ruleContext.getExecutablePrerequisite("$android_tool_runner", Mode.HOST);
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     Set<Artifact> preprocessedIdls = new LinkedHashSet<>();
     List<String> preprocessedArgs = new ArrayList<>();
 
@@ -663,7 +666,7 @@ public class AndroidCommon {
     }
 
     // preprocess each aidl file
-    preprocessedArgs.add("-p" + tools.getFrameworkAidl().getExecPathString());
+    preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
     PathFragment rulePackage = ruleContext.getRule().getLabel().getPackageFragment();
     String ruleName = ruleContext.getRule().getName();
     for (Artifact idl : idls) {
@@ -676,7 +679,7 @@ public class AndroidCommon {
       preprocessedIdls.add(preprocessed);
       preprocessedArgs.add("-p" + preprocessed.getExecPathString());
 
-      createAndroidIdlPreprocessAction(ruleContext, tools, toolRunner, idl, preprocessed);
+      createAndroidIdlPreprocessAction(ruleContext, toolRunner, idl, preprocessed);
     }
 
     // aggregate all preprocessed aidl files
@@ -686,17 +689,19 @@ public class AndroidCommon {
         ruleContext.getConfiguration().getMiddlemanDirectory());
 
     for (Artifact idl : translatedIdlSources.keySet()) {
-      createAndroidIdlAction(ruleContext, tools, toolRunner, idl,
+      createAndroidIdlAction(ruleContext, toolRunner, idl,
           transitiveIdlImportData.getTransitiveIdlImports(),
           preprocessedIdlsMiddleman, translatedIdlSources.get(idl), preprocessedArgs);
     }
   }
 
-  private void createAndroidIdlPreprocessAction(RuleContext ruleContext, AndroidTools tools,
+  private void createAndroidIdlPreprocessAction(RuleContext ruleContext,
       FilesToRunProvider toolRunner, Artifact idl, Artifact preprocessed) {
     RunfilesSupport toolRunnerRunfiles = toolRunner.getRunfilesSupport();
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     Preconditions.checkState(toolRunnerRunfiles != null, toolRunner.getLabel());
-    ruleContext.registerAction(tools.aidlAction()
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setExecutable(sdk.getAidl())
         // Note the below may be an overapproximation of the actual runfiles, due to "conditional
         // artifacts" (see Runfiles.PruningManifest).
         // TODO(bazel-team): When using getFilesToRun(), the middleman is
@@ -711,17 +716,19 @@ public class AndroidCommon {
         .build(ruleContext));
   }
 
-  private void createAndroidIdlAction(RuleContext ruleContext, AndroidTools tools,
+  private void createAndroidIdlAction(RuleContext ruleContext,
       FilesToRunProvider toolRunner,
       Artifact idl, Iterable<Artifact> idlImports, Artifact preprocessedIdls,
       Artifact output, List<String> preprocessedArgs) {
     RunfilesSupport toolRunnerRunfiles = toolRunner.getRunfilesSupport();
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     Preconditions.checkState(toolRunnerRunfiles != null, toolRunner.getLabel());
-    ruleContext.registerAction(tools.aidlAction()
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setExecutable(sdk.getAidl())
         .addInput(idl)
         .addInputs(idlImports)
         .addInput(preprocessedIdls)
-        .addInput(tools.getFrameworkAidl())
+        .addInput(sdk.getFrameworkAidl())
         .addOutput(output)
         .addArgument("-b") // Fail if trying to compile a parcelable.
         .addArguments(preprocessedArgs)
