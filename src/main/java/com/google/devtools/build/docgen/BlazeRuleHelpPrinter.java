@@ -35,10 +35,10 @@ public class BlazeRuleHelpPrinter {
   public static String getRuleDoc(String ruleName, ConfiguredRuleClassProvider provider) {
     if (ruleDocMap == null) {
       try {
-        BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(provider);
-        Map<String, RuleDocumentation> ruleDocs = processor.collectAndProcessRuleDocs(
+        BuildDocCollector collector = new BuildDocCollector(provider, false);
+        Map<String, RuleDocumentation> ruleDocs = collector.collect(
             new String[] {"java/com/google/devtools/build/lib/view",
-                "java/com/google/devtools/build/lib/rules"}, false);
+                "java/com/google/devtools/build/lib/rules"});
         ruleDocMap = new HashMap<>();
         for (RuleDocumentation ruleDoc : ruleDocs.values()) {
           ruleDocMap.put(ruleDoc.getRuleName(), ruleDoc);

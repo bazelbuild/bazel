@@ -300,6 +300,7 @@ java_library(
         "com/google/devtools/build/lib/**/*.css",
         "com/google/devtools/build/lib/**/*.js",
         "com/google/devtools/build/lib/**/*.WORKSPACE",
+        "com/google/devtools/build/lib/**/*.vm",
     ]) + [
         "//third_party:d3-js",
         "//third_party:jquery",
@@ -342,6 +343,7 @@ java_library(
         "//src/main/protobuf:proto_worker_protocol",
         "//third_party:aether",
         "//third_party:apache_commons_pool2",
+        "//third_party:apache_velocity",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
@@ -401,7 +403,10 @@ filegroup(
 
 filegroup(
     name = "be-template_files",
-    srcs = glob(["com/google/devtools/build/docgen/templates/**/*.html"]),
+    srcs = glob([
+        "com/google/devtools/build/docgen/templates/**/*.html",
+        "com/google/devtools/build/docgen/templates/**/*.vm",
+    ]),
 )
 
 java_library(
@@ -423,6 +428,7 @@ java_library(
         ":common",
         ":packages",
         ":vfs",
+        "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -459,7 +465,10 @@ genrule(
            " $$PWD/src/main/java/com/google/devtools/build/lib" +
            " $$PWD" +
            " && cp $$PWD/build-encyclopedia.html $@"),
-    tools = [":docgen_bin"],
+    tools = [
+        ":docgen_bin",
+        ":docgen_javalib",
+    ],
 )
 
 genrule(

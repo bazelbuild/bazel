@@ -1,3 +1,7 @@
+#parse("com/google/devtools/build/docgen/templates/header-comment.vm")
+
+#parse("com/google/devtools/build/docgen/templates/be-header.vm")
+
 <!-- ============================================
                       binary
      ============================================
@@ -238,3 +242,5 @@ in your genrule's cmd attribute.
 
 ${SECTION_OTHER}
 
+
+#parse("com/google/devtools/build/docgen/templates/be-footer.vm")

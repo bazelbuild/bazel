@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.docgen;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
@@ -26,16 +25,11 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,9 +37,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * A class to assemble documentation for the Build Encyclopedia. The
- * program parses the documentation fragments of rule-classes and
- * generates the html format documentation.
+ * A class to assemble documentation for the Build Encyclopedia. This class uses
+ * {@link BuildDocCollector} to extract documentation fragments from rule classes.
  */
 public class BuildEncyclopediaProcessor {
   private static final Predicate<String> RULE_WORTH_DOCUMENTING = new Predicate<String>() {
@@ -73,118 +66,23 @@ public class BuildEncyclopediaProcessor {
   public void generateDocumentation(String[] inputDirs, String outputRootDir)
       throws BuildEncyclopediaDocException, IOException {
     File buildEncyclopediaPath = setupDirectories(outputRootDir);
-    try (BufferedWriter bw = new BufferedWriter(new FileWriter(buildEncyclopediaPath))) {
-      bw.write(DocgenConsts.HEADER_COMMENT);
-      bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
 
-      Map<String, RuleDocumentation> ruleDocEntries = collectAndProcessRuleDocs(inputDirs, false);
-      warnAboutUndocumentedRules(
-          Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
-      writeRuleClassDocs(ruleDocEntries.values(), bw);
+    Page page = TemplateEngine.newPage(
+        "com/google/devtools/build/docgen/templates/build-encyclopedia.vm");
 
-      bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
-      bw.write(SourceFileReader.readTemplateContents(DocgenConsts.FOOTER_TEMPLATE));
-    }
+    BuildDocCollector collector = new BuildDocCollector(ruleClassProvider, false);
+    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs);
+    warnAboutUndocumentedRules(
+        Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
+    writeRuleClassDocs(ruleDocEntries.values(), page);
+    page.write(buildEncyclopediaPath);
   }
 
-  /**
-   * Collects all the rule and attribute documentation present in inputDirs, integrates the
-   * attribute documentation in the rule documentation and returns the rule documentation.
-   */
-  public Map<String, RuleDocumentation> collectAndProcessRuleDocs(String[] inputDirs,
-      boolean printMessages) throws BuildEncyclopediaDocException, IOException {
-    // RuleDocumentations are generated in order (based on rule type then alphabetically).
-    // The ordering is also used to determine in which rule doc the common attribute docs are
-    // generated (they are generated at the first appearance).
-    Map<String, RuleDocumentation> ruleDocEntries = new TreeMap<>();
-    // RuleDocumentationAttribute objects equal based on attributeName so they have to be
-    // collected in a List instead of a Set.
-    ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries =
-        LinkedListMultimap.create();
-
-    // Map of rule class name to file that defined it.
-    Map<String, File> ruleClassFiles = new HashMap<>();
-
-    // Set of files already processed. The same file may be encountered multiple times because
-    // directories are processed recursively, and an input directory may be a subdirectory of
-    // another one.
-    Set<File> processedFiles = new HashSet<>();
-
-    for (String inputDir : inputDirs) {
-      if (printMessages) {
-        System.out.println(" Processing input directory: " + inputDir);
-      }
-      int ruleNum = ruleDocEntries.size();
-      collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, attributeDocEntries,
-          new File(inputDir));
-      if (printMessages) {
-        System.out.println(
-          " " + (ruleDocEntries.size() - ruleNum) + " rule documentations found.");
-      }
-    }
-
-    processAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
-    return ruleDocEntries;
-  }
-
-  /**
-   * Go through all attributes of all documented rules and search the best attribute documentation
-   * if exists. The best documentation is the closest documentation in the ancestor graph. E.g. if
-   * java_library.deps documented in $rule and $java_rule then the one in $java_rule is going to
-   * apply since it's a closer ancestor of java_library.
-   */
-  private void processAttributeDocs(Iterable<RuleDocumentation> ruleDocEntries,
-      ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries)
-          throws BuildEncyclopediaDocException {
-    for (RuleDocumentation ruleDoc : ruleDocEntries) {
-      RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(ruleDoc.getRuleName());
-      if (ruleClass != null) {
-        if (ruleClass.isDocumented()) {
-          Class<? extends RuleDefinition> ruleDefinition =
-              ruleClassProvider.getRuleClassDefinition(ruleDoc.getRuleName());
-          for (Attribute attribute : ruleClass.getAttributes()) {
-            String attrName = attribute.getName();
-            List<RuleDocumentationAttribute> attributeDocList =
-                attributeDocEntries.get(attrName);
-            if (attributeDocList != null) {
-              // There are attribute docs for this attribute.
-              // Search the closest one in the ancestor graph.
-              // Note that there can be only one 'closest' attribute since we forbid multiple
-              // inheritance of the same attribute in RuleClass.
-              int minLevel = Integer.MAX_VALUE;
-              RuleDocumentationAttribute bestAttributeDoc = null;
-              for (RuleDocumentationAttribute attributeDoc : attributeDocList) {
-                int level = attributeDoc.getDefinitionClassAncestryLevel(ruleDefinition);
-                if (level >= 0 && level < minLevel) {
-                  bestAttributeDoc = attributeDoc;
-                  minLevel = level;
-                }
-              }
-              if (bestAttributeDoc != null) {
-                ruleDoc.addAttribute(bestAttributeDoc);
-              // If there is no matching attribute doc try to add the common.
-              } else if (ruleDoc.getRuleType().equals(RuleType.BINARY)
-                  && PredefinedAttributes.BINARY_ATTRIBUTES.containsKey(attrName)) {
-                ruleDoc.addAttribute(PredefinedAttributes.BINARY_ATTRIBUTES.get(attrName));
-              } else if (ruleDoc.getRuleType().equals(RuleType.TEST)
-                  && PredefinedAttributes.TEST_ATTRIBUTES.containsKey(attrName)) {
-                ruleDoc.addAttribute(PredefinedAttributes.TEST_ATTRIBUTES.get(attrName));
-              } else if (PredefinedAttributes.COMMON_ATTRIBUTES.containsKey(attrName)) {
-                ruleDoc.addAttribute(PredefinedAttributes.COMMON_ATTRIBUTES.get(attrName));
-              }
-            }
-          }
-        }
-      } else {
-        throw ruleDoc.createException("Can't find RuleClass for " + ruleDoc.getRuleName());
-      }
-    }
-  }
 
   /**
    * Categorizes, checks and prints all the rule-class documentations.
    */
-  private void writeRuleClassDocs(Iterable<RuleDocumentation> docEntries, BufferedWriter bw)
+  private void writeRuleClassDocs(Iterable<RuleDocumentation> docEntries, Page page)
       throws BuildEncyclopediaDocException, IOException {
     Set<RuleDocumentation> binaryDocs = new TreeSet<>();
     Set<RuleDocumentation> libraryDocs = new TreeSet<>();
@@ -217,20 +115,15 @@ public class BuildEncyclopediaProcessor {
       }
     }
 
-    bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
-    bw.write(SourceFileReader.readTemplateContents(DocgenConsts.HEADER_TEMPLATE,
-        generateBEHeaderMapping(docEntries)));
+    renderBeHeader(docEntries, page);
 
-    Map<String, String> sectionMapping = ImmutableMap.of(
-        DocgenConsts.VAR_SECTION_BINARY,   getRuleDocs(binaryDocs),
-        DocgenConsts.VAR_SECTION_LIBRARY,  getRuleDocs(libraryDocs),
-        DocgenConsts.VAR_SECTION_TEST,     getRuleDocs(testDocs),
-        DocgenConsts.VAR_SECTION_OTHER,    getRuleDocs(otherDocs));
-    bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
-    bw.write(SourceFileReader.readTemplateContents(DocgenConsts.BODY_TEMPLATE, sectionMapping));
+    page.add(DocgenConsts.VAR_SECTION_BINARY, getRuleDocs(binaryDocs));
+    page.add(DocgenConsts.VAR_SECTION_LIBRARY, getRuleDocs(libraryDocs));
+    page.add(DocgenConsts.VAR_SECTION_TEST, getRuleDocs(testDocs));
+    page.add(DocgenConsts.VAR_SECTION_OTHER, getRuleDocs(otherDocs));
   }
 
-  private Map<String, String> generateBEHeaderMapping(Iterable<RuleDocumentation> docEntries)
+  private void renderBeHeader(Iterable<RuleDocumentation> docEntries, Page page)
       throws BuildEncyclopediaDocException {
     // Separate rule families into language-specific and generic ones.
     Set<String> languageSpecificRuleFamilies = new TreeSet<>();
@@ -266,18 +159,18 @@ public class BuildEncyclopediaProcessor {
       }
       otherRulesTable = sb.toString();
     }
-
-    return new ImmutableMap.Builder<String, String>()
-        .put(DocgenConsts.VAR_LANG_SPECIFIC_HEADER_TABLE, languageSpecificTable)
-        .put(DocgenConsts.VAR_OTHER_RULES_HEADER_TABLE, otherRulesTable)
-        .put(DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES))
-        .put(DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES))
-        .put(DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES))
-        .put(DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries))
-        .build();
+    page.add(DocgenConsts.VAR_LANG_SPECIFIC_HEADER_TABLE, languageSpecificTable);
+    page.add(DocgenConsts.VAR_OTHER_RULES_HEADER_TABLE, otherRulesTable);
+    page.add(DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION,
+        generateCommonAttributeDocs(
+            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES));
+    page.add(DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION,
+        generateCommonAttributeDocs(
+            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES));
+    page.add(DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION,
+        generateCommonAttributeDocs(
+            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES));
+    page.add(DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
   }
 
   /**
@@ -396,49 +289,6 @@ public class BuildEncyclopediaProcessor {
       sb.append(doc.getHtmlDocumentation());
     }
     return sb.toString();
-  }
-
-  /**
-   * Goes through all the html files and subdirs under inputPath and collects the rule
-   * and attribute documentations using the ruleDocEntries and attributeDocEntries variable.
-   */
-  public void collectDocs(
-      Set<File> processedFiles,
-      Map<String, File> ruleClassFiles,
-      Map<String, RuleDocumentation> ruleDocEntries,
-      ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries,
-      File inputPath) throws BuildEncyclopediaDocException, IOException {
-    if (processedFiles.contains(inputPath)) {
-      return;
-    }
-
-    if (inputPath.isFile()) {
-      if (DocgenConsts.JAVA_SOURCE_FILE_SUFFIX.apply(inputPath.getName())) {
-        SourceFileReader sfr = new SourceFileReader(
-            ruleClassProvider, inputPath.getAbsolutePath());
-        sfr.readDocsFromComments();
-        for (RuleDocumentation d : sfr.getRuleDocEntries()) {
-          String ruleName = d.getRuleName();
-          if (ruleDocEntries.containsKey(ruleName)
-              && !ruleClassFiles.get(ruleName).equals(inputPath)) {
-            System.err.printf("WARNING: '%s' from '%s' overrides value already in map from '%s'\n",
-                d.getRuleName(), inputPath, ruleClassFiles.get(ruleName));
-          }
-          ruleClassFiles.put(ruleName, inputPath);
-          ruleDocEntries.put(ruleName, d);
-        }
-        if (attributeDocEntries != null) {
-          // Collect all attribute documentations from this file.
-          attributeDocEntries.putAll(sfr.getAttributeDocEntries());
-        }
-      }
-    } else if (inputPath.isDirectory()) {
-      for (File childPath : inputPath.listFiles()) {
-        collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, attributeDocEntries, childPath);
-      }
-    }
-
-    processedFiles.add(inputPath);
   }
 
   private File setupDirectories(String outputRootDir) {
