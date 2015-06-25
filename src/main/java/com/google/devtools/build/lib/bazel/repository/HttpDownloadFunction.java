@@ -76,7 +76,7 @@ public class HttpDownloadFunction implements SkyFunction {
     }
     String sha256 = mapper.get("sha256", Type.STRING);
     return new SkyKey(
-        SkyFunctionName.computed(NAME),
+        SkyFunctionName.create(NAME),
         new HttpDownloadFunction.HttpDescriptor(url, sha256, outputDirectory));
   }
 

@@ -109,7 +109,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(Ascii.toUpperCase(MavenJarRule.NAME));
+    return SkyFunctionName.create(Ascii.toUpperCase(MavenJarRule.NAME));
   }
 
   /**

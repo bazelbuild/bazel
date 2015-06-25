@@ -42,8 +42,7 @@ import javax.annotation.Nullable;
  */
 public class GraphTester {
 
-  // TODO(bazel-team): Split this for computing and non-computing values?
-  public static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
+  public static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
   private final Set<SkyKey> modifiedValues = new LinkedHashSet<>();

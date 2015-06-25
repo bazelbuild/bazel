@@ -78,7 +78,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
    */
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(AndroidSdkRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.create(AndroidSdkRepositoryRule.NAME.toUpperCase());
   }
 
   @Override

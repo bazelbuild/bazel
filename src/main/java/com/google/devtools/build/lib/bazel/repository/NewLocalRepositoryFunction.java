@@ -60,7 +60,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
    */
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(NewLocalRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.create(NewLocalRepositoryRule.NAME.toUpperCase());
   }
 
   @Override

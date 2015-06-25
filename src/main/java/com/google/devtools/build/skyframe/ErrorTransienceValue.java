@@ -18,8 +18,7 @@ package com.google.devtools.build.skyframe;
  * failure.
  */
 public final class ErrorTransienceValue implements SkyValue {
-  public static final SkyFunctionName FUNCTION_NAME =
-      new SkyFunctionName("ERROR_TRANSIENCE", false);
+  public static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.create("ERROR_TRANSIENCE");
 
   ErrorTransienceValue() {}
 

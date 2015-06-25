@@ -18,20 +18,18 @@ import com.google.common.base.Predicate;
 import java.io.Serializable;
 import java.util.Set;
 
-/**
- * An identifier for a {@code SkyFunction}.
- */
+/** An identifier for a {@code SkyFunction}. */
 public final class SkyFunctionName implements Serializable {
-  public static SkyFunctionName computed(String name) {
-    return new SkyFunctionName(name, true);
+
+  /** Create a SkyFunctionName identified by {@code name}. */
+  public static SkyFunctionName create(String name) {
+    return new SkyFunctionName(name);
   }
 
   private final String name;
-  private final boolean isComputed;
 
-  public SkyFunctionName(String name, boolean isComputed) {
+  private SkyFunctionName(String name) {
     this.name = name;
-    this.isComputed = isComputed;
   }
 
   @Override
@@ -54,14 +52,6 @@ public final class SkyFunctionName implements Serializable {
   @Override
   public int hashCode() {
     return name.hashCode();
-  }
-
-  /**
-   * Returns whether the values of this type are computed. The computation of a computed value must
-   * be deterministic and may only access requested dependencies.
-   */
-  public boolean isComputed() {
-    return isComputed;
   }
 
   /**

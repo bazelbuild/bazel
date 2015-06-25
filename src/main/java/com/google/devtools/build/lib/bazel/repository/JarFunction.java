@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  */
 public class JarFunction implements SkyFunction {
 
-  public static final SkyFunctionName NAME = SkyFunctionName.computed("JAR_FUNCTION");
+  public static final SkyFunctionName NAME = SkyFunctionName.create("JAR_FUNCTION");
 
   /**
    * The .jar can be used compressed, so this just exposes it in a way Bazel can use.

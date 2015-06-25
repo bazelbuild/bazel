@@ -93,7 +93,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(HttpArchiveRule.NAME.toUpperCase());
+    return SkyFunctionName.create(HttpArchiveRule.NAME.toUpperCase());
   }
 
   @Override

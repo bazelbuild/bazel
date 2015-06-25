@@ -1356,7 +1356,7 @@ public final class ParallelEvaluator implements Evaluator {
    * ArrayDeque does not permit null elements.
    */
   private static final SkyKey CHILDREN_FINISHED =
-      new SkyKey(new SkyFunctionName("MARKER", false), "MARKER");
+      new SkyKey(SkyFunctionName.create("MARKER"), "MARKER");
 
   /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
   private static final int MAX_CYCLES = 20;

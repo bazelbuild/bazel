@@ -38,7 +38,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(NewHttpArchiveRule.NAME);
+    return SkyFunctionName.create(NewHttpArchiveRule.NAME);
   }
 
   @Nullable

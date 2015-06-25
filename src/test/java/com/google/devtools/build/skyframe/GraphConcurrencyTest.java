@@ -47,7 +47,7 @@ import java.util.concurrent.Executors;
 public abstract class GraphConcurrencyTest {
 
   private static final SkyFunctionName SKY_FUNCTION_NAME =
-      new SkyFunctionName("GraphConcurrencyTestKey", /*isComputed=*/false);
+      SkyFunctionName.create("GraphConcurrencyTestKey");
   private ProcessableGraph graph;
   private ThrowableRecordingRunnableWrapper wrapper;
   protected abstract ProcessableGraph getGraph();

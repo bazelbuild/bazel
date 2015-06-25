@@ -135,7 +135,7 @@ public class BazelRepositoryModule extends BlazeModule {
         new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
 
     // Helper SkyFunctions.
-    builder.put(SkyFunctionName.computed(HttpDownloadFunction.NAME), new HttpDownloadFunction());
+    builder.put(SkyFunctionName.create(HttpDownloadFunction.NAME), new HttpDownloadFunction());
     builder.put(JarFunction.NAME, new JarFunction());
     builder.put(ZipFunction.NAME, new ZipFunction());
     return builder.build();

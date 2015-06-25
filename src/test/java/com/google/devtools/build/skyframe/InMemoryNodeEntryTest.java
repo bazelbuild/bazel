@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
 @RunWith(JUnit4.class)
 public class InMemoryNodeEntryTest {
 
-  private static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
+  private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private static final NestedSet<TaggedEvents> NO_EVENTS =
       NestedSetBuilder.<TaggedEvents>emptySet(Order.STABLE_ORDER);
 

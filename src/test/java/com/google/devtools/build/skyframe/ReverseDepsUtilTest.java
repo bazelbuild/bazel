@@ -32,7 +32,7 @@ import java.util.List;
 @RunWith(Parameterized.class)
 public class ReverseDepsUtilTest {
 
-  private static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
+  private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private final int numElements;
 
   @Parameters

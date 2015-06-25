@@ -1483,8 +1483,8 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void testFunctionCrashTrace() throws Exception {
-    final SkyFunctionName childType = new SkyFunctionName("child", false);
-    final SkyFunctionName parentType = new SkyFunctionName("parent", false);
+    final SkyFunctionName childType = SkyFunctionName.create("child");
+    final SkyFunctionName parentType = SkyFunctionName.create("parent");
 
     class ChildFunction implements SkyFunction {
       @Override

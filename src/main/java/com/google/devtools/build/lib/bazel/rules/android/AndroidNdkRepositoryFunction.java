@@ -109,7 +109,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(AndroidNdkRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.create(AndroidNdkRepositoryRule.NAME.toUpperCase());
   }
 
   @Override

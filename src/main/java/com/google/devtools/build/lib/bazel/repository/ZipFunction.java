@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  */
 public class ZipFunction implements SkyFunction {
 
-  public static final SkyFunctionName NAME = SkyFunctionName.computed("ZIP_FUNCTION");
+  public static final SkyFunctionName NAME = SkyFunctionName.create("ZIP_FUNCTION");
 
   /**
    * This unzips the zip file to a sibling directory of {@link DecompressorDescriptor#archivePath}.

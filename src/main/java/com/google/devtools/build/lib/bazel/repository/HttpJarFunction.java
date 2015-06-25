@@ -40,7 +40,7 @@ public class HttpJarFunction extends HttpArchiveFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.computed(HttpJarRule.NAME.toUpperCase());
+    return SkyFunctionName.create(HttpJarRule.NAME.toUpperCase());
   }
 
   @Override
