@@ -10,10 +10,24 @@ a minimal set of extra dependencies.
 * License: Eclipse Public License
 
 
+[android_common](http://mvnrepository.com/artifact/com.android.tools/sdk-common)
+----------------------------
+
+* Version: 22.8.4
+* License: Apache License 2.0.
+
+
 [apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
 ----------------------------
 
 * Version: 3.2.1
+* License: Apache License 2.0.
+
+
+[apache_commons_compress](http://commons.apache.org/proper/commons-compress/)
+----------------------------
+
+* Version: 1.9
 * License: Apache License 2.0.
 
 

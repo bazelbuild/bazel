@@ -12,14 +12,14 @@ filegroup(
     srcs = [],
 )
 
-sh_binary(
+filegroup(
     name = "aar_generator",
-    srcs = ["fail.sh"],
+    srcs = ["//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction"],
 )
 
-sh_binary(
+filegroup(
     name = "resources_processor",
-    srcs = ["fail.sh"],
+    srcs = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction"],
 )
 
 sh_binary(

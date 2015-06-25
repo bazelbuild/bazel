@@ -90,7 +90,7 @@ EOF
 # Report whether a given directory name corresponds to a tools directory.
 function is_tools_directory() {
   case "$1" in
-    third_party|tools)
+    third_party|tools|src)
       true
       ;;
     *)

@@ -43,8 +43,25 @@ java_import(
 )
 
 java_import(
+    name = "android_common",
+    jars = [
+        "android_common/com.android.tools.build_builder_0.13.3.jar",
+        "android_common/com.android.tools.build_builder-model_0.13.3.jar",
+        "android_common/com.android.tools.build_manifest-merger_23.1.3.jar",
+        "android_common/com.android.tools_common_23.1.3.jar",
+        "android_common/com.android.tools_sdk-common_23.1.3.jar",
+        "android_common/com.android.tools_sdklib_23.1.3.jar",
+    ],
+)
+
+java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.1.jar"],
+)
+
+java_import(
+    name = "apache_commons_compress",
+    jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
 )
 
 java_import(

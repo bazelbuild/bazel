@@ -45,6 +45,29 @@ function bazel() {
   ${bazel} --bazelrc=$TEST_TMPDIR/bazelrc "$@"
 }
 
+function setup_android_support() {
+  mkdir -p src/tools/android/java/com/google/devtools/build/android
+  cat <<EOF > src/tools/android/java/com/google/devtools/build/android/BUILD
+sh_binary(
+    name = "AarGeneratorAction",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "AndroidResourceProcessingAction",
+    srcs = ["fail.sh"],
+)
+EOF
+
+  cat <<EOF > src/tools/android/java/com/google/devtools/build/android/fail.sh
+#!/bin/bash
+
+exit 1
+EOF
+
+  chmod +x src/tools/android/java/com/google/devtools/build/android/fail.sh
+}
+
 function setup_protoc_support() {
   mkdir -p third_party
   [ -e third_party/protoc ] || ln -s ${protoc_compiler} third_party/protoc
@@ -121,6 +144,8 @@ function create_new_workspace() {
   ln -s "${javabuilder_path}" tools/jdk/JavaBuilder_deploy.jar
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
   ln -s "${ijar_path}" tools/jdk/ijar
+
+  setup_android_support
 
   touch WORKSPACE
 }
