@@ -62,6 +62,7 @@ public class FakeCppCompileAction extends CppCompileAction {
   FakeCppCompileAction(ActionOwner owner,
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
+      CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
@@ -78,8 +79,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       ImmutableList<PathFragment> extraSystemIncludePrefixes,
       @Nullable String fdoBuildStamp,
       RuleContext ruleContext) {
-    super(owner, features, featureConfiguration, sourceFile, sourceLabel, mandatoryInputs,
-        outputFile, dotdFile, null, null, null,
+    super(owner, features, featureConfiguration, variables, sourceFile, sourceLabel,
+        mandatoryInputs, outputFile, dotdFile, null, null, null,
         configuration, cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.

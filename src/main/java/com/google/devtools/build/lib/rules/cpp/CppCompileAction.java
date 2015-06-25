@@ -70,7 +70,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -203,6 +202,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // will be provided by 'featureConfiguration'.
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
+      CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
@@ -244,8 +244,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       inputsKnown = true;
     }
     this.cppCompileCommandLine = new CppCompileCommandLine(sourceFile, dotdFile,
-        context.getCppModuleMap(), copts, coptsFilter, pluginOpts,
-        (gcnoFile != null), features, featureConfiguration, fdoBuildStamp);
+        copts, coptsFilter, pluginOpts, (gcnoFile != null), features,
+        featureConfiguration, variables, fdoBuildStamp);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
@@ -1166,31 +1166,32 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public final class CppCompileCommandLine {
     private final Artifact sourceFile;
     private final DotdFile dotdFile;
-    private final CppModuleMap cppModuleMap;
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
     private final List<String> pluginOpts;
     private final boolean isInstrumented;
     private final Collection<String> features;
     private final FeatureConfiguration featureConfiguration;
+    private final CcToolchainFeatures.Variables variables;
 
     // The value of the BUILD_FDO_TYPE macro to be defined on command line
     @Nullable private final String fdoBuildStamp;
 
-    public CppCompileCommandLine(Artifact sourceFile, DotdFile dotdFile, CppModuleMap cppModuleMap,
+    public CppCompileCommandLine(Artifact sourceFile, DotdFile dotdFile,
         ImmutableList<String> copts, Predicate<String> coptsFilter,
         ImmutableList<String> pluginOpts, boolean isInstrumented,
         Collection<String> features, FeatureConfiguration featureConfiguration,
+        CcToolchainFeatures.Variables variables,
         @Nullable String fdoBuildStamp) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
       this.dotdFile = Preconditions.checkNotNull(dotdFile);
-      this.cppModuleMap = cppModuleMap;
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.pluginOpts = Preconditions.checkNotNull(pluginOpts);
       this.isInstrumented = isInstrumented;
       this.features = Preconditions.checkNotNull(features);
       this.featureConfiguration = featureConfiguration;
+      this.variables = variables;
       this.fdoBuildStamp = fdoBuildStamp;
     }
 
@@ -1264,9 +1265,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         addFilteredOptions(options, toolchain.getCxxOptions(features));
       }
 
-      // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
-      options.addAll(copts);
-
       for (String warn : cppConfiguration.getCWarns()) {
         options.add("-W" + warn);
       }
@@ -1279,34 +1277,20 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         options.add("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
       }
 
-      CcToolchainFeatures.Variables.Builder buildVariables =
-          new CcToolchainFeatures.Variables.Builder();
-      if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-        // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
-        // in any case, but don't crash.
-        buildVariables.addVariable("module_name", cppModuleMap.getName());
-        buildVariables.addVariable("module_map_file",
-            cppModuleMap.getArtifact().getExecPathString());
-      }
-      if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
-        buildVariables.addSequenceVariable("module_files", getHeaderModulePaths());
-      }
-      if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
-        buildVariables.addSequenceVariable("include_paths",
-            getSafePathStrings(context.getIncludeDirs()));
-        buildVariables.addSequenceVariable("quote_include_paths",
-            getSafePathStrings(context.getQuoteIncludeDirs()));
-        buildVariables.addSequenceVariable("system_include_paths",
-            getSafePathStrings(context.getSystemIncludeDirs()));
-      }
       // TODO(bazel-team): This needs to be before adding getUnfilteredCompilerOptions() and after
       // adding the warning flags until all toolchains are migrated; currently toolchains use the
       // unfiltered compiler options to inject include paths, which is superseded by the feature
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
-      options.addAll(featureConfiguration.getCommandLine(getActionName(), buildVariables.build()));
+      addFilteredOptions(options,
+          featureConfiguration.getCommandLine(getActionName(), variables));
 
       options.addAll(toolchain.getUnfilteredCompilerOptions(features));
+
+      // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
+      // Make sure these are added after the options from the feature configuration, so that
+      // those options can be overriden.
+      options.addAll(copts);
 
       // GCC gives randomized names to symbols which are defined in
       // an anonymous namespace but have external linkage.  To make
@@ -1357,42 +1341,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
 
       return options;
-    }
-
-    /**
-     * Get the safe path strings for a list of paths to use in the build variables.
-     */
-    private Collection<String> getSafePathStrings(Collection<PathFragment> paths) {
-      ImmutableSet.Builder<String> result = ImmutableSet.builder();
-      for (PathFragment path : paths) {
-        result.add(path.getSafePathString());
-      }
-      return result.build();
-    }
-
-    /**
-     * Select .pcm inputs to pass on the command line depending on whether we are in pic or non-pic
-     * mode.
-     */
-    private Collection<String> getHeaderModulePaths() {
-      Collection<String> result = new LinkedHashSet<>();
-      NestedSet<Artifact> artifacts = featureConfiguration.isEnabled(
-          CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES)
-          ? context.getTopLevelHeaderModules()
-          : context.getAdditionalInputs();
-      for (Artifact artifact : artifacts) {
-        String filename = artifact.getFilename();
-        if (!filename.endsWith(".pcm")) {
-          continue;
-        }
-        // Depending on whether this specific compile action is pic or non-pic, select the
-        // corresponding header modules. Note that the compilation context might give us both
-        // from targets that are built in both modes.
-        if (usePic == filename.endsWith(".pic.pcm")) {
-          result.add(artifact.getExecPathString());
-        }
-      }
-      return result;
     }
 
     // For each option in 'in', add it to 'out' unless it is matched by the 'coptsFilter' regexp.

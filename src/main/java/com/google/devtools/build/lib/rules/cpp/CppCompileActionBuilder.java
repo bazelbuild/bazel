@@ -54,6 +54,7 @@ public class CppCompileActionBuilder {
   private final ActionOwner owner;
   private final List<String> features = new ArrayList<>();
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
+  private CcToolchainFeatures.Variables variables;
   private final Artifact sourceFile;
   private final Label sourceLabel;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
@@ -261,15 +262,15 @@ public class CppCompileActionBuilder {
     // Copying the collections is needed to make the builder reusable.
     if (fake) {
       return new FakeCppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
-          sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile, tempOutputFile,
-          dotdFile, configuration, cppConfiguration, context, actionContext,
+          variables, sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile,
+          tempOutputFile, dotdFile, configuration, cppConfiguration, context, actionContext,
           ImmutableList.copyOf(copts), ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 
       return new CppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
-          sourceFile, sourceLabel, realMandatoryInputs, outputFile, dotdFile,
+          variables, sourceFile, sourceLabel, realMandatoryInputs, outputFile, dotdFile,
           gcnoFile, getDwoFile(outputFile, analysisEnvironment, cppConfiguration),
           optionalSourceFile, configuration, cppConfiguration, context,
           actionContext, ImmutableList.copyOf(copts),
@@ -287,6 +288,14 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setFeatureConfiguration(
       FeatureConfiguration featureConfiguration) {
     this.featureConfiguration = featureConfiguration;
+    return this;
+  }
+  
+  /**
+   * Sets the feature build variables to be used for the action. 
+   */
+  public CppCompileActionBuilder setVariables(CcToolchainFeatures.Variables variables) {
+    this.variables = variables;
     return this;
   }
 

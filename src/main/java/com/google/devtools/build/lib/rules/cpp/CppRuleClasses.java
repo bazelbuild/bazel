@@ -145,4 +145,24 @@ public class CppRuleClasses {
    * A string constant for the include_paths feature.
    */
   public static final String INCLUDE_PATHS = "include_paths";
+
+  /**
+   * A string constant for the fdo_instrument feature.
+   */
+  public static final String FDO_INSTRUMENT = "fdo_instrument";
+
+  /**
+   * A string constant for the fdo_optimize feature.
+   */
+  public static final String FDO_OPTIMIZE = "fdo_optimize";
+
+  /**
+   * A string constant for the autofdo feature.
+   */
+  public static final String AUTOFDO = "autofdo";
+
+  /**
+   * A string constant for the lipo feature.
+   */
+  public static final String LIPO = "lipo";
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -290,6 +293,77 @@ public final class CppModel {
   }
 
   /**
+   * Get the safe path strings for a list of paths to use in the build variables.
+   */
+  private Collection<String> getSafePathStrings(Collection<PathFragment> paths) {
+    ImmutableSet.Builder<String> result = ImmutableSet.builder();
+    for (PathFragment path : paths) {
+      result.add(path.getSafePathString());
+    }
+    return result.build();
+  }
+
+  /**
+   * Select .pcm inputs to pass on the command line depending on whether we are in pic or non-pic
+   * mode.
+   */
+  private Collection<String> getHeaderModulePaths(CppCompileActionBuilder builder,
+      boolean usePic) {
+    Collection<String> result = new LinkedHashSet<>();
+    NestedSet<Artifact> artifacts = featureConfiguration.isEnabled(
+        CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES)
+        ? builder.getContext().getTopLevelHeaderModules()
+        : builder.getContext().getAdditionalInputs();
+    for (Artifact artifact : artifacts) {
+      String filename = artifact.getFilename();
+      if (!filename.endsWith(".pcm")) {
+        continue;
+      }
+      // Depending on whether this specific compile action is pic or non-pic, select the
+      // corresponding header modules. Note that the compilation context might give us both
+      // from targets that are built in both modes.
+      if (usePic == filename.endsWith(".pic.pcm")) {
+        result.add(artifact.getExecPathString());
+      }
+    }
+    return result;
+  }
+
+  private void setupBuildVariables(CppCompileActionBuilder builder,
+      boolean usePic, PathFragment ccRelativeName) {
+    CcToolchainFeatures.Variables.Builder buildVariables =
+        new CcToolchainFeatures.Variables.Builder();
+
+    CppModuleMap cppModuleMap = context.getCppModuleMap();
+    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
+      // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
+      // in any case, but don't crash.
+      buildVariables.addVariable("module_name", cppModuleMap.getName());
+      buildVariables.addVariable("module_map_file",
+          cppModuleMap.getArtifact().getExecPathString());
+    }
+    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
+      buildVariables.addSequenceVariable("module_files", getHeaderModulePaths(builder, usePic));
+    }
+    if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
+      buildVariables.addSequenceVariable("include_paths",
+          getSafePathStrings(context.getIncludeDirs()));
+      buildVariables.addSequenceVariable("quote_include_paths",
+          getSafePathStrings(context.getQuoteIncludeDirs()));
+      buildVariables.addSequenceVariable("system_include_paths",
+          getSafePathStrings(context.getSystemIncludeDirs()));
+    }
+
+    if (ccRelativeName != null) {
+      cppConfiguration.getFdoSupport().configureCompilation(builder, buildVariables, ruleContext,
+          ccRelativeName, usePic, featureConfiguration, cppConfiguration);
+    }
+
+    CcToolchainFeatures.Variables variables = buildVariables.build();
+    builder.setVariables(variables);
+  }
+
+  /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account LIPO, fake-ness, coverage, and PIC, in addition to using the
    * settings specified on the current object. This method should only be called once.
@@ -338,6 +412,7 @@ public final class CppModel {
         .setDotdFile(outputName, ".h.d")
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(this.getGeneratePicActions());
+    setupBuildVariables(builder, this.getGeneratePicActions(), null);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.build();
     env.registerAction(compileAction);
@@ -354,12 +429,11 @@ public final class CppModel {
       String dependencyFileExtension,
       boolean addObject) {
     PathFragment ccRelativeName = semantics.getEffectiveSourcePath(sourceArtifact);
-    LipoContextProvider lipoProvider = null;
     if (cppConfiguration.isLipoOptimization()) {
       // TODO(bazel-team): we shouldn't be needing this, merging context with the binary
       // is a superset of necessary information.
-      lipoProvider = Preconditions.checkNotNull(CppHelper.getLipoContextProvider(ruleContext),
-          outputName);
+      LipoContextProvider lipoProvider =
+          Preconditions.checkNotNull(CppHelper.getLipoContextProvider(ruleContext), outputName);
       builder.setContext(CppCompilationContext.mergeForLipo(lipoProvider.getLipoContext(),
           context));
     }
@@ -375,6 +449,7 @@ public final class CppModel {
           .setOutputFile(outputFile)
           .setDotdFile(outputName, dependencyFileExtension)
           .setTempOutputFile(tempOutputName);
+      setupBuildVariables(builder, getGeneratePicActions(), ccRelativeName);
       semantics.finalizeCompileActionBuilder(ruleContext, builder);
       CppCompileAction action = builder.build();
       env.registerAction(action);
@@ -392,13 +467,12 @@ public final class CppModel {
       if (generatePicAction) {
         CppCompileActionBuilder picBuilder =
             copyAsPicBuilder(builder, outputName, outputExtension, dependencyFileExtension);
-        cppConfiguration.getFdoSupport().configureCompilation(picBuilder, ruleContext, env,
-            ruleContext.getLabel(), ccRelativeName, nocopts, /*usePic=*/true,
-            lipoProvider);
+        setupBuildVariables(picBuilder, /*usePic=*/true, ccRelativeName);
 
         if (maySaveTemps) {
           result.addTemps(
-              createTempsActions(sourceArtifact, outputName, picBuilder, /*usePic=*/true));
+              createTempsActions(sourceArtifact, outputName, picBuilder, /*usePic=*/true,
+                ccRelativeName));
         }
 
         if (isCodeCoverageEnabled()) {
@@ -425,13 +499,12 @@ public final class CppModel {
             .setOutputFile(ruleContext.getRelatedArtifact(outputName, outputExtension))
             .setDotdFile(outputName, dependencyFileExtension);
         // Create non-PIC compile actions
-        cppConfiguration.getFdoSupport().configureCompilation(builder, ruleContext, env,
-            ruleContext.getLabel(), ccRelativeName, nocopts, /*usePic=*/false,
-            lipoProvider);
+        setupBuildVariables(builder, /*usePic=*/false, ccRelativeName);
 
         if (maySaveTemps) {
           result.addTemps(
-              createTempsActions(sourceArtifact, outputName, builder, /*usePic=*/false));
+              createTempsActions(sourceArtifact, outputName, builder, /*usePic=*/false,
+                ccRelativeName));
         }
 
         if (!cppConfiguration.isLipoOptimization() && isCodeCoverageEnabled()) {
@@ -630,7 +703,7 @@ public final class CppModel {
    * Create the actions for "--save_temps".
    */
   private ImmutableList<Artifact> createTempsActions(Artifact source, PathFragment outputName,
-      CppCompileActionBuilder builder, boolean usePic) {
+      CppCompileActionBuilder builder, boolean usePic, PathFragment ccRelativeName) {
     if (!cppConfiguration.getSaveTemps()) {
       return ImmutableList.of();
     }
@@ -646,7 +719,9 @@ public final class CppModel {
     String iExt = isCFile ? ".i" : ".ii";
     String picExt = usePic ? ".pic" : "";
     CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
+    setupBuildVariables(dBuilder, usePic, ccRelativeName);
     CppCompileActionBuilder sdBuilder = new CppCompileActionBuilder(builder);
+    setupBuildVariables(sdBuilder, usePic, ccRelativeName);
 
     dBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + iExt))
