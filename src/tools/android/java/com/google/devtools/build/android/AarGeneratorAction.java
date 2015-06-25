@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
@@ -43,6 +42,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -162,7 +162,8 @@ public class AarGeneratorAction {
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
     } catch (IOException | MergingException e) {
-      throw Throwables.propagate(e);
+      logger.log(Level.SEVERE, "Error during merging resources", e);
+      System.exit(1);
     }
     System.exit(0);
   }
