@@ -29,23 +29,51 @@ and _C_ to your project's _WORKSPACE_ file. This can balloon the _WORKSPACE_
 file size, but hopefully limits the chances of having one library include _C_
 at version 1.0 and another include _C_ at 2.0.
 
-# Converting existing projects
+Bazel provides a tool to help generate these expansive _WORKSPACE_ files, called
+`generate_workspace`. Run the following to build the tool and see usage:
 
-To convert a Maven project, first run the `generate_workspace` tool:
-
-```bash
-$ bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace /path/to/your/maven/project >> WORKSPACE
+```
+bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace
 ```
 
-This will parse the _pom.xml_ file and discover project dependencies. All of
-these dependencies will be written in
-[`maven_jar`](http://bazel.io/docs/build-encyclopedia.html#maven_jar) format to
-stdout, which can be redirected or copied to the _WORKSPACE_ file.
+You can either specify directories containing Bazel projects (i.e., _WORKSPACE_
+files) or Maven projects (i.e., _pom.xml_ files).  For example:
 
-At the moment, `generate_workspace` will only include direct dependencies.
+```bash
+$ bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace \
+>    --maven_project=/path/to/my/project \
+>    --bazel_project=/path/to/skunkworks \
+>    --bazel_project=/path/to/teleporter/project
+# --------------------
+# The following dependencies were calculated from:
+# /path/to/my/project/pom.xml
+# /path/to/skunkworks/WORKSPACE
+# /path/to/teleporter/project/WORKSPACE
 
-You will still need to manually add these libraries as dependencies of your
-`java_` targets.
+
+# com.example.some-project:a:1.2.3
+# com.example.another-project:b:3.2.1 wanted version 2.4
+maven_jar(
+    name = "javax/servlet/servlet-api",
+    artifact = "javax.servlet:servlet-api:2.5",
+)
+
+[Other dependencies]
+# --------------------
+
+WARNING /path/to/my/project/pom.xml:1: javax.servlet:servlet-api already processed for version 2.5 but com.example.another-project:b:3.2.1 wants version 2.4, ignoring.
+```
+Everything after the second `--------------------` is printed to stderr, not
+stdout. This is where any errors or warnings are printed. You may need to edit
+the versions that `generate_workspace` automatically chooses for the artifacts.
+
+If you specify multiple Bazel or Maven projects, they will all be combined into
+one _WORKSPACE_ file (e.g., if the Bazel project depends on junit and the Maven
+project also depends on junit, junit will only appear once as a dependency in
+the output).
+
+Once these `maven_jar`s have been added to your _WORKSPACE_ file, you will still
+need to add the jars as dependencies of your `java_` targets in _BUILD_ files.
 
 # Types of external dependencies
 
