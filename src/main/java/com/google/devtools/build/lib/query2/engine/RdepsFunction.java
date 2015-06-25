@@ -15,14 +15,9 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -34,9 +29,8 @@ import java.util.Set;
  * <pre>expr ::= RDEPS '(' expr ',' expr ')'</pre>
  * <pre>       | RDEPS '(' expr ',' expr ',' WORD ')'</pre>
  */
-final class RdepsFunction implements QueryFunction {
-  RdepsFunction() {
-  }
+final class RdepsFunction extends AllRdepsFunction {
+  RdepsFunction() {}
 
   @Override
   public String getName() {
@@ -45,13 +39,13 @@ final class RdepsFunction implements QueryFunction {
 
   @Override
   public int getMandatoryArguments() {
-    return 2;  // last argument is optional
+    return super.getMandatoryArguments() + 1;  // +1 for the universe.
   }
 
   @Override
   public List<ArgumentType> getArgumentTypes() {
-    return ImmutableList.of(
-        ArgumentType.EXPRESSION, ArgumentType.EXPRESSION, ArgumentType.INTEGER);
+    return ImmutableList.<ArgumentType>builder()
+        .add(ArgumentType.EXPRESSION).addAll(super.getArgumentTypes()).build();
   }
 
   /**
@@ -62,34 +56,9 @@ final class RdepsFunction implements QueryFunction {
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
     Set<T> universeValue = args.get(0).getExpression().eval(env);
-    Set<T> argumentValue = args.get(1).getExpression().eval(env);
-    int depthBound = args.size() > 2 ? args.get(2).getInteger() : Integer.MAX_VALUE;
-
     env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
 
-    Set<T> visited = new LinkedHashSet<>();
-    Set<T> reachableFromUniverse = env.getTransitiveClosure(universeValue);
-    Collection<T> current = argumentValue;
-
-    // We need to iterate depthBound + 1 times.
-    for (int i = 0; i <= depthBound; i++) {
-      List<T> next = new ArrayList<>();
-      // Restrict to nodes in our universe.
-      Iterable<T> currentInUniverse = Iterables.filter(current,
-          Predicates.in(reachableFromUniverse));
-      // Filter already visited nodes: if we see a node in a later round, then we don't need to
-      // visit it again, because the depth at which we see it at must be greater than or equal to
-      // the last visit.
-      next.addAll(env.getReverseDeps(Iterables.filter(currentInUniverse,
-          Predicates.not(Predicates.in(visited)))));
-      Iterables.addAll(visited, currentInUniverse);
-      if (next.isEmpty()) {
-        // Exit when there are no more nodes to visit.
-        break;
-      }
-      current = next;
-    }
-
-    return visited;
+    return eval(env, args.subList(1, args.size()),
+        Predicates.in(env.getTransitiveClosure(universeValue)));
   }
 }

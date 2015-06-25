@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -459,5 +460,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Override
   public Target getOrCreate(Target target) {
     return target;
+  }
+
+  @Override
+  public Iterable<QueryFunction> getFunctions() {
+    return ImmutableList.<QueryFunction>builder()
+        .addAll(super.getFunctions()).add(new AllRdepsFunction()).build();
   }
 }
