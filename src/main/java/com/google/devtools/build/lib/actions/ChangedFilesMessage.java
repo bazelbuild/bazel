@@ -19,7 +19,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Set;
 
 /**
- * A message sent conveying a set of changed files.
+ * A message sent conveying a set of changed files. This is sent over the event bus if a build is
+ * discovered to have few changed files. If many files have changed, it will not be sent at all.
  */
 public class ChangedFilesMessage {
 

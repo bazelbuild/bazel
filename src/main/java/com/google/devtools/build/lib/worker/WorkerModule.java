@@ -32,6 +32,7 @@ public class WorkerModule extends BlazeModule {
   private final WorkerPool workers;
 
   private BuildRequest buildRequest;
+  private BlazeRuntime blazeRuntime;
 
   public WorkerModule() {
     GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
@@ -41,8 +42,8 @@ public class WorkerModule extends BlazeModule {
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.<ActionContextProvider>of(new WorkerActionContextProvider(buildRequest,
-        workers));
+    return ImmutableList.<ActionContextProvider>of(
+        new WorkerActionContextProvider(buildRequest, workers, blazeRuntime.getEventBus()));
   }
 
   @Override
@@ -54,6 +55,7 @@ public class WorkerModule extends BlazeModule {
 
   @Override
   public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
+    this.blazeRuntime = blazeRuntime;
     blazeRuntime.getEventBus().register(this);
   }
 
