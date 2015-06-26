@@ -294,3 +294,26 @@ binary should know about it.
 
 Also note that if an action uses an executable, the executable's runfiles can
 be used when the action executes.
+
+Executable rules
+----------------
+
+To make a rule executable, set `executable=True` in the
+[rule function](library.html#modules._top_level.rule). During the analysis
+phase, the rule must generate the output file `ctx.outputs.executable`.
+[See example](cookbook.md#outputs-executable)
+
+When the rule is executable, users can run it using `bazel run`.
+
+Test rules
+----------
+
+To create a test rule, set `test=True` in the
+[rule function](library.html#modules._top_level.rule). The name of the rule must
+also end with `_test`. Test rules are implicitly executable, which means they
+must generate the output file `ctx.outputs.executable`.
+
+Test rules inherit the following attributes: `args`, `flaky`, `local`,
+`shard_count`, `size`, `timeout`.
+
+Test rules are run using `bazel test`.
