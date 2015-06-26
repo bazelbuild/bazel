@@ -62,9 +62,13 @@ public class GenerateWorkspace {
 
   private GenerateWorkspace() {
     this.handler = new StoredEventHandler();
-    this.fileSystem = OS.getCurrent() == OS.WINDOWS
-        ? new JavaIoFileSystem() : new UnixFileSystem();
+    this.fileSystem = getFileSystem();
     this.resolver = new com.google.devtools.build.workspace.maven.Resolver(handler, fileSystem);
+  }
+
+  static FileSystem getFileSystem() {
+    return OS.getCurrent() == OS.WINDOWS
+        ? new JavaIoFileSystem() : new UnixFileSystem();
   }
 
   private void generateFromWorkspace(List<String> projects) {
