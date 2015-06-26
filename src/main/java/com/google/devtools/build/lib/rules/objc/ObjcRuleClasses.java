@@ -183,6 +183,17 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Creates a new spawn action builder that requires a darwin architecture to run and calls bash
+   * to execute cmd.
+   * Once we have a fix for b/21874752  we should be able to call setShellCommand(cmd)
+   * directly, but right now we don't have a buildhelpers package on Macs so we must specify
+   * the path to /bin/bash explicitly.
+   */
+  static SpawnAction.Builder spawnBashOnDarwinActionBuilder(String cmd) {
+    return spawnOnDarwinActionBuilder().setShellCommand(ImmutableList.of("/bin/bash", "-c", cmd));
+  }
+
+  /**
    * Creates a new configured target builder with the given {@code filesToBuild}, which are also
    * used as runfiles.
    *

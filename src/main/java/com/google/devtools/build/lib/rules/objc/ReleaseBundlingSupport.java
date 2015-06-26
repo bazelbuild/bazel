@@ -231,39 +231,36 @@ public final class ReleaseBundlingSupport {
   private void registerEmbedLabelPlistAction() {
     Artifact buildInfo = Iterables.getOnlyElement(
         ruleContext.getBuildInfo(ObjcBuildInfoFactory.KEY));
+    String generatedVersionPlistPath = getGeneratedVersionPlist().getShellEscapedExecPathString();
+    String shellCommand = "VERSION=\"$("
+        + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" "
+        + buildInfo.getShellEscapedExecPathString()
+        + " | cut -d' ' -f2- | sed -e '" + EXTRACT_VERSION_NUMBER_SED_COMMAND + "' | "
+        + "sed -e 's#\"#\\\"#g')\" && "
+        + "cat >" + generatedVersionPlistPath + " <<EOF\n"
+        + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+        + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+        + "<plist version=\"1.0\">\n"
+        + "<dict>\n"
+        + "EOF\n"
+
+            + "if [[ -n \"${VERSION}\" ]]; then\n"
+            + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
+            + "    echo \"  <key>${KEY}</key>\n\" >> "
+            + generatedVersionPlistPath + "\n"
+            + "    echo \"  <string>${VERSION}</string>\n\" >> "
+            + generatedVersionPlistPath + "\n"
+            + "  done\n"
+            + "fi\n"
+
+            + "cat >>" + generatedVersionPlistPath + " <<EOF\n"
+            + "</dict>\n"
+            + "</plist>\n"
+            + "EOF\n";
     ruleContext.registerAction(new SpawnAction.Builder()
         .setMnemonic("ObjcVersionPlist")
-        .setExecutable(new PathFragment("/bin/bash"))
-        .setCommandLine(new CustomCommandLine.Builder()
-            .add("-c")
-            .add(
-                "VERSION=\"$("
-                + "grep \"^" + BuildInfo.BUILD_EMBED_LABEL + "\" " + buildInfo.getExecPathString()
-                + " | cut -d' ' -f2- | sed -e '" + EXTRACT_VERSION_NUMBER_SED_COMMAND + "' | "
-                + "sed -e 's#\"#\\\"#g')\" && "
-                + "cat >" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
-                + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
-                + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
-                + "<plist version=\"1.0\">\n"
-                + "<dict>\n"
-                + "EOF\n"
-
-                    + "if [[ -n \"${VERSION}\" ]]; then\n"
-                    + "  for KEY in CFBundleVersion CFBundleShortVersionString; do\n"
-                    + "    echo \"  <key>${KEY}</key>\n\" >> "
-                    + getGeneratedVersionPlist().getExecPathString() + "\n"
-                    + "    echo \"  <string>${VERSION}</string>\n\" >> "
-                    + getGeneratedVersionPlist().getExecPathString() + "\n"
-                    + "  done\n"
-                    + "fi\n"
-
-                    + "cat >>" + getGeneratedVersionPlist().getExecPathString() + " <<EOF\n"
-                    + "</dict>\n"
-                    + "</plist>\n"
-                    + "EOF\n"
-            )
-            .build())
+        .setShellCommand(shellCommand)
         .addInput(buildInfo)
         .addOutput(getGeneratedVersionPlist())
         .build(ruleContext));
@@ -513,10 +510,11 @@ public final class ReleaseBundlingSupport {
     // Explicitly sign Swift frameworks. Unfortunately --deep option on codesign doesn't do this
     // automatically.
     // The order here is important. The innermost code must singed first.
+    String bundleDir = ShellUtils.shellEscape(bundling.getBundleDir());
     if (objcProvider.is(USES_SWIFT)) {
-      dirsToSign.add(bundling.getBundleDir() + "/Frameworks/*");
+      dirsToSign.add(bundleDir + "/Frameworks/*");
     }
-    dirsToSign.add(bundling.getBundleDir());
+    dirsToSign.add(bundleDir);
 
     StringBuilder codesignCommandLineBuilder = new StringBuilder();
     for (String dir : dirsToSign.build()) {
@@ -525,20 +523,19 @@ public final class ReleaseBundlingSupport {
           .append(" && ");
     }
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+    // TODO(bazel-team): Support nested code signing.
+    String shellCommand = "set -e && "
+        + "t=$(mktemp -d -t signing_intermediate) && "
+        + "trap \"rm -rf ${t}\" EXIT && "
+        // Get an absolute path since we need to cd into the temp directory for zip.
+        + "signed_ipa=${PWD}/" + ipaOutput.getShellEscapedExecPathString() + " && "
+        + "/usr/bin/unzip -qq " + ipaUnsigned.getShellEscapedExecPathString() + " -d ${t} && "
+        + codesignCommandLineBuilder.toString()
+        // Using zip since we need to preserve permissions
+        + "cd ${t} && /usr/bin/zip -q -r \"${signed_ipa}\" .";
+    ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
         .setMnemonic("IosSignBundle")
         .setProgressMessage("Signing iOS bundle: " + ruleContext.getLabel())
-        .setExecutable(new PathFragment("/bin/bash"))
-        .addArgument("-c")
-        // TODO(bazel-team): Support nested code signing.
-        .addArgument("set -e && "
-            + "t=$(mktemp -d -t signing_intermediate) && "
-            // Get an absolute path since we need to cd into the temp directory for zip.
-            + "signed_ipa=${PWD}/" + ipaOutput.getExecPathString() + " && "
-            + "unzip -qq " + ipaUnsigned.getExecPathString() + " -d ${t} && "
-            + codesignCommandLineBuilder.toString()
-            // Using zip since we need to preserve permissions
-            + "cd \"${t}\" && /usr/bin/zip -q -r \"${signed_ipa}\" .")
         .addInput(ipaUnsigned)
         .addInput(attributes.provisioningProfile())
         .addInput(entitlements)
@@ -622,15 +619,13 @@ public final class ReleaseBundlingSupport {
   }
 
   private void registerExtractTeamPrefixAction(Artifact teamPrefixFile) {
-    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+    String shellCommand = "set -e && "
+        + "PLIST=$(mktemp -t teamprefix.plist) && trap \"rm ${PLIST}\" EXIT && "
+        + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
+        + "/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0' ${PLIST} > "
+        + teamPrefixFile.getShellEscapedExecPathString();
+    ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
         .setMnemonic("ExtractIosTeamPrefix")
-        .setExecutable(new PathFragment("/bin/bash"))
-        .addArgument("-c")
-        .addArgument("set -e &&"
-            + "PLIST=$(mktemp -t teamprefix.plist) && trap \"rm ${PLIST}\" EXIT && "
-            + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
-            + "/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0' ${PLIST} > "
-            + teamPrefixFile.getExecPathString())
         .addInput(attributes.provisioningProfile())
         .addOutput(teamPrefixFile)
         .build(ruleContext));
@@ -642,17 +637,14 @@ public final class ReleaseBundlingSupport {
     // TeamID is extracted from the provisioning profile.
     // BundleID consists of a reverse-DNS string to identify the app, where the last component
     // is the application name, and is specified as an attribute.
-
-    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+    String shellCommand = "set -e && "
+        + "PLIST=$(mktemp -t entitlements.plist) && trap \"rm ${PLIST}\" EXIT && "
+        + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
+        + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' ${PLIST} > "
+        + entitlements.getShellEscapedExecPathString();
+    ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
         .setMnemonic("ExtractIosEntitlements")
         .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
-        .setExecutable(new PathFragment("/bin/bash"))
-        .addArgument("-c")
-        .addArgument("set -e && "
-            + "PLIST=$(mktemp -t entitlements.plist) && trap \"rm ${PLIST}\" EXIT && "
-            + extractPlistCommand(attributes.provisioningProfile()) + " > ${PLIST} && "
-            + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' ${PLIST} > "
-            + entitlements.getExecPathString())
         .addInput(attributes.provisioningProfile())
         .addOutput(entitlements)
         .build(ruleContext));
@@ -663,22 +655,21 @@ public final class ReleaseBundlingSupport {
   private void registerEntitlementsVariableSubstitutionAction(Artifact in, Artifact out,
       Artifact prefix) {
     String escapedBundleId = ShellUtils.shellEscape(attributes.bundleId());
+    String shellCommand = "set -e && "
+        + "PREFIX=\"$(cat " + prefix.getShellEscapedExecPathString() + ")\" && "
+        + "sed "
+        // Replace .* from default entitlements file with bundle ID where suitable.
+        + "-e \"s#${PREFIX}\\.\\*#${PREFIX}." + escapedBundleId + "#g\" "
+
+        // Replace some variables that people put in their own entitlements files
+        + "-e \"s#\\$(AppIdentifierPrefix)#${PREFIX}.#g\" "
+        + "-e \"s#\\$(CFBundleIdentifier)#" + escapedBundleId + "#g\" "
+
+        + in.getShellEscapedExecPathString() + " "
+        + "> " + out.getShellEscapedExecPathString();
     ruleContext.registerAction(new SpawnAction.Builder()
         .setMnemonic("SubstituteIosEntitlements")
-        .setExecutable(new PathFragment("/bin/bash"))
-        .addArgument("-c")
-        .addArgument("set -e && "
-            + "PREFIX=\"$(cat " + prefix.getExecPathString() + ")\" && "
-            + "sed "
-            // Replace .* from default entitlements file with bundle ID where suitable.
-            + "-e \"s#${PREFIX}\\.\\*#${PREFIX}." + escapedBundleId + "#g\" "
-
-            // Replace some variables that people put in their own entitlements files
-            + "-e \"s#\\$(AppIdentifierPrefix)#${PREFIX}.#g\" "
-            + "-e \"s#\\$(CFBundleIdentifier)#" + escapedBundleId + "#g\" "
-
-            + in.getExecPathString() + " "
-            + "> " + out.getExecPathString())
+        .setShellCommand(shellCommand)
         .addInput(in)
         .addInput(prefix)
         .addOutput(out)
@@ -726,7 +717,7 @@ public final class ReleaseBundlingSupport {
     return String.format(
         "/usr/bin/codesign --force --sign $(%s) --entitlements %s %s",
         fingerprintCommand,
-        entitlements.getExecPathString(),
+        entitlements.getShellEscapedExecPathString(),
         appDir);
   }
 

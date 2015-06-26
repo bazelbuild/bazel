@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -374,6 +375,13 @@ public class Artifact implements FileType.HasFilename, ActionInput {
       + " encodes things like the target CPU architecture that was used while building said file.")
   public final String getExecPathString() {
     return getExecPath().getPathString();
+  }
+
+  /*
+   * Returns getExecPathString escaped for potential use in a shell command.
+   */
+  public final String getShellEscapedExecPathString() {
+    return ShellUtils.shellEscape(getExecPathString());
   }
 
   @SkylarkCallable(name = "short_path", structField = true,

@@ -20,6 +20,7 @@ java_library(
         ":events",
         ":options",
         ":packages",
+        ":shell",
         ":skyframe-base",
         ":vfs",
         "//src/main/protobuf:proto_extra_actions_base",
