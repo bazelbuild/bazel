@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -592,30 +591,14 @@ public class LoadingPhaseRunner {
       List<String> targetPatterns, Options options, boolean keepGoing)
           throws TargetParsingException, InterruptedException {
     // Parse the targets to get the tests.
-    ResolvedTargets.Builder<Target> testTargetsBuilder = ResolvedTargets.builder();
-    for (String targetPattern : targetPatterns) {
-      if (targetPattern.startsWith("-")) {
-        ResolvedTargets<Target> someNegativeTargets = targetPatternEvaluator.parseTargetPatternList(
-            eventHandler, ImmutableList.of(targetPattern.substring(1)),
-            FilteringPolicies.FILTER_TESTS, keepGoing);
-        ResolvedTargets<Target> moreNegativeTargets = TestTargetUtils.expandTestSuites(
-            packageManager, eventHandler, someNegativeTargets.getTargets(), /*strict=*/false,
-            keepGoing);
-        testTargetsBuilder.filter(Predicates.not(Predicates.in(moreNegativeTargets.getTargets())));
-        testTargetsBuilder.mergeError(moreNegativeTargets.hasError());
-      } else {
-        ResolvedTargets<Target> somePositiveTargets = targetPatternEvaluator.parseTargetPatternList(
-            eventHandler, ImmutableList.of(targetPattern),
-            FilteringPolicies.FILTER_TESTS, keepGoing);
-        ResolvedTargets<Target> morePositiveTargets = TestTargetUtils.expandTestSuites(
-            packageManager, eventHandler, somePositiveTargets.getTargets(), /*strict=*/false,
-            keepGoing);
-        testTargetsBuilder.addAll(morePositiveTargets.getTargets());
-        testTargetsBuilder.mergeError(morePositiveTargets.hasError());
-      }
-    }
-    testTargetsBuilder.filter(getTestFilter(eventHandler, options));
-    return testTargetsBuilder.build();
+    ResolvedTargets<Target> testTargetsBuilder = targetPatternEvaluator.parseTargetPatternList(
+        eventHandler, targetPatterns, FilteringPolicies.FILTER_TESTS, keepGoing);
+
+    ResolvedTargets.Builder<Target> finalBuilder = ResolvedTargets.builder();
+    finalBuilder.merge(testTargetsBuilder);
+    finalBuilder.filter(getTestFilter(eventHandler, options));
+    return finalBuilder.build();
+
   }
 
   /**
