@@ -201,6 +201,23 @@ executed. It is an error if there is a cycle in the dependency graph. Creating
 an action does not guarantee that it will be executed: It depends on whether
 its outputs are needed for the build.
 
+Configurations
+--------------
+
+By default, a target is built in the target configuration. For each label
+attribute, you can decide whether the dependency should be built in the same
+configuration, or in the host configuration.
+
+In general, sources, dependent libraries and executables that will be needed at
+runtime can use the same configuration.
+
+Tools that are executed as part of the build (e.g. compilers, code generators)
+should be built for the host configuration. In this case, specify `cfg=HOST_CFG`
+in the attribute.
+
+`DATA_CFG` is present for legacy reasons and should be used for the `data`
+attributes.
+
 Providers
 ---------
 
