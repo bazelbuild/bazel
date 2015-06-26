@@ -46,9 +46,11 @@ public class SkylarkNativeModule {
           + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>), "
           + "files of type directory will be omitted from the results (default <code>1</code>).",
       mandatoryPositionals = {
-      @Param(name = "includes", type = SkylarkList.class, generic1 = String.class,
+      @Param(name = "include", type = SkylarkList.class, generic1 = String.class,
           defaultValue = "[]", doc = "The list of glob patterns to include.")},
       optionalPositionals = {
+      @Param(name = "exclude", type = SkylarkList.class, generic1 = String.class,
+          defaultValue = "[]", doc = "The list of glob patterns to exclude."),
       @Param(name = "excludes", type = SkylarkList.class, generic1 = String.class,
           defaultValue = "[]", doc = "The list of glob patterns to exclude."),
       // TODO(bazel-team): accept booleans as well as integers? (and eventually migrate?)
@@ -57,11 +59,15 @@ public class SkylarkNativeModule {
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction glob = new BuiltinFunction("glob") {
       public GlobList<String> invoke(
-          SkylarkList includes, SkylarkList excludes, Integer excludeDirectories,
-          FuncallExpression ast, Environment env)
+          SkylarkList include, SkylarkList exclude, SkylarkList excludes,
+          Integer excludeDirectories, FuncallExpression ast, Environment env)
           throws EvalException, ConversionException, InterruptedException {
+        // TODO(bazel-team): Remove 'excludes' argument in July 2015.
+        if (exclude.size() == 0) {
+          exclude = excludes;
+        }
         return PackageFactory.callGlob(
-            null, false, includes, excludes, excludeDirectories != 0, ast, env);
+            null, false, include, exclude, excludeDirectories != 0, ast, env);
     }
   };
 
