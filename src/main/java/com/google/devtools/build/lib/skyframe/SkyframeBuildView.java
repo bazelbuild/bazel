@@ -369,14 +369,13 @@ public final class SkyframeBuildView {
    */
   @Nullable
   ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
-      CachingAnalysisEnvironment analysisEnvironment,
+      BuildConfiguration hostConfiguration, CachingAnalysisEnvironment analysisEnvironment,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions)
-      throws InterruptedException {
+      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
-        configuration, prerequisiteMap, configConditions);
+        configuration, hostConfiguration, prerequisiteMap, configConditions);
   }
 
   @Nullable

@@ -156,12 +156,12 @@ public final class ConfiguredTargetFactory {
   @Nullable
   public final ConfiguredTarget createConfiguredTarget(AnalysisEnvironment analysisEnvironment,
       ArtifactFactory artifactFactory, Target target, BuildConfiguration config,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      BuildConfiguration hostConfig, ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions)
       throws InterruptedException {
     if (target instanceof Rule) {
-      return createRule(
-          analysisEnvironment, (Rule) target, config, prerequisiteMap, configConditions);
+      return createRule(analysisEnvironment, (Rule) target, config, hostConfig,
+          prerequisiteMap, configConditions);
     }
 
     // Visibility, like all package groups, doesn't have a configuration
@@ -203,10 +203,11 @@ public final class ConfiguredTargetFactory {
   @Nullable
   private ConfiguredTarget createRule(
       AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+      BuildConfiguration hostConfiguration,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     // Visibility computation and checking is done for every rule.
-    RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration,
+    RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration, hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator())
         .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
         .setPrerequisites(prerequisiteMap)
@@ -272,6 +273,7 @@ public final class ConfiguredTargetFactory {
     RuleContext.Builder builder = new RuleContext.Builder(env,
         associatedTarget.getTarget(),
         associatedTarget.getConfiguration(),
+        getHostConfiguration(associatedTarget.getConfiguration()),
         ruleClassProvider.getPrerequisiteValidator());
     RuleContext ruleContext = builder
         .setVisibility(convertVisibility(
@@ -284,6 +286,11 @@ public final class ConfiguredTargetFactory {
     }
 
     return aspectFactory.create(associatedTarget, ruleContext);
+  }
+
+  private static BuildConfiguration getHostConfiguration(BuildConfiguration config) {
+    // TODO(bazel-team): support dynamic transitions.
+    return config == null ? null : config.getConfiguration(Attribute.ConfigurationTransition.HOST);
   }
 
   /**

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -105,7 +107,18 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       }
       targetConfigurations.add(targetConfiguration);
     }
-    return new BuildConfigurationCollection(targetConfigurations);
+
+    // Sanity check that all host configs are the same. This may not be true once we have
+    // better support for multi-host builds.
+    BuildConfiguration hostConfiguration =
+        targetConfigurations.get(0).getConfiguration(ConfigurationTransition.HOST);
+    for (BuildConfiguration targetConfig :
+        targetConfigurations.subList(1, targetConfigurations.size())) {
+      Verify.verify(
+          targetConfig.getConfiguration(ConfigurationTransition.HOST).equals(hostConfiguration));
+    }
+
+    return new BuildConfigurationCollection(targetConfigurations, hostConfiguration);
   }
 
   @Nullable

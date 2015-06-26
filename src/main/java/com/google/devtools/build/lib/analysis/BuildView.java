@@ -897,7 +897,8 @@ public class BuildView {
             /*isSystemEnv=*/false, config.extendedSanityChecks(), eventHandler,
             /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);
     return new RuleContext.Builder(analysisEnvironment,
-        (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
+        (Rule) target.getTarget(), config, getHostConfigurationForTesting(config),
+        ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target))
@@ -911,14 +912,20 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env) {
+    BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
-        env, (Rule) target.getTarget(), target.getConfiguration(),
+        env, (Rule) target.getTarget(), targetConfig, getHostConfigurationForTesting(targetConfig),
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
+  }
+
+  private BuildConfiguration getHostConfigurationForTesting(BuildConfiguration config) {
+    // TODO(bazel-team): support dynamic transitions in tests.
+    return config == null ? null : config.getConfiguration(Attribute.ConfigurationTransition.HOST);
   }
 
   /**

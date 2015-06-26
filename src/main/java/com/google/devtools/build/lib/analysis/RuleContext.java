@@ -133,6 +133,7 @@ public final class RuleContext extends TargetContext
   private final AttributeMap attributes;
   private final ImmutableSet<String> features;
   private final Map<String, Attribute> attributeMap;
+  private final BuildConfiguration hostConfiguration;
 
   private ActionOwner actionOwner;
 
@@ -152,6 +153,7 @@ public final class RuleContext extends TargetContext
         ConfiguredAttributeMapper.of(builder.rule, configConditions);
     this.features = getEnabledFeatures();
     this.attributeMap = attributeMap;
+    this.hostConfiguration = builder.hostConfiguration;
   }
 
   private ImmutableSet<String> getEnabledFeatures() {
@@ -211,9 +213,7 @@ public final class RuleContext extends TargetContext
    * host configurations, even during a single build.
    */
   public BuildConfiguration getHostConfiguration() {
-    BuildConfiguration configuration = getConfiguration();
-    // Note: the Builder checks that the configuration is non-null.
-    return configuration.getConfiguration(ConfigurationTransition.HOST);
+    return hostConfiguration;
   }
 
   /**
@@ -1131,16 +1131,19 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Rule rule;
     private final BuildConfiguration configuration;
+    private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
     private ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private Set<ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
 
     Builder(AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+        BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator) {
       this.env = Preconditions.checkNotNull(env);
       this.rule = Preconditions.checkNotNull(rule);
       this.configuration = Preconditions.checkNotNull(configuration);
+      this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
       this.prerequisiteValidator = prerequisiteValidator;
     }
 
