@@ -213,6 +213,9 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nowatchfs")) {
+    watchfs = false;
+    option_sources["watchfs"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--use_webstatusserver")) != NULL) {
     if (!blaze_util::safe_strto32(value, &webstatus_port) ||
