@@ -35,6 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -322,7 +323,7 @@ public class GlobCache {
     for (Future<List<Path>> task : tasks) {
       try {
         fromFuture(task);
-      } catch (IOException | InterruptedException e) {
+      } catch (CancellationException | IOException | InterruptedException e) {
         // Ignore: If this was still going on in the background, some other
         // failure already occurred.
       }
@@ -332,10 +333,12 @@ public class GlobCache {
   private static void cancelBackgroundTasks(Collection<Future<List<Path>>> tasks) {
     for (Future<List<Path>> task : tasks) {
       task.cancel(true);
+    }
 
+    for (Future<List<Path>> task : tasks) {
       try {
         task.get();
-      } catch (ExecutionException | InterruptedException e) {
+      } catch (CancellationException | ExecutionException | InterruptedException e) {
         // We don't care. Point is, the task does not bother us anymore.
       }
     }
