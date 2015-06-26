@@ -205,6 +205,23 @@ executed. It is an error if there is a cycle in the dependency graph. Creating
 an action does not guarantee that it will be executed: It depends on whether
 its outputs are needed for the build.
 
+Configurations
+--------------
+
+By default, a target is built in the target configuration. For each label
+attribute, you can decide whether the dependency should be built in the same
+configuration, or in the host configuration.
+
+In general, sources, dependent libraries and executables that will be needed at
+runtime can use the same configuration.
+
+Tools that are executed as part of the build (e.g. compilers, code generators)
+should be built for the host configuration. In this case, specify `cfg=HOST_CFG`
+in the attribute.
+
+`DATA_CFG` is present for legacy reasons and should be used for the `data`
+attributes.
+
 Providers
 ---------
 
@@ -298,3 +315,26 @@ binary should know about it.
 
 Also note that if an action uses an executable, the executable's runfiles can
 be used when the action executes.
+
+Executable rules
+----------------
+
+To make a rule executable, set `executable=True` in the
+[rule function](library.html#modules._top_level.rule). During the analysis
+phase, the rule must generate the output file `ctx.outputs.executable`.
+[See example](cookbook.html#outputs-executable)
+
+When the rule is executable, users can run it using `bazel run`.
+
+Test rules
+----------
+
+To create a test rule, set `test=True` in the
+[rule function](library.html#modules._top_level.rule). The name of the rule must
+also end with `_test`. Test rules are implicitly executable, which means they
+must generate the output file `ctx.outputs.executable`.
+
+Test rules inherit the following attributes: `args`, `flaky`, `local`,
+`shard_count`, `size`, `timeout`.
+
+Test rules are run using `bazel test`.
