@@ -4,6 +4,10 @@ java_binary(
         "GenerateWorkspace.java",
         "GenerateWorkspaceOptions.java",
     ],
+    data = [
+        "//src:libunix",
+    ],
+    jvm_flags = ["-Djava.library.path=$(GENDIR)/src/main/native"],
     main_class = "com.google.devtools.build.workspace.GenerateWorkspace",
     visibility = ["//visibility:public"],
     deps = [

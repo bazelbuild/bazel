@@ -9,7 +9,10 @@ filegroup(
         ":darwin": ["//src/main/native:libunix.dylib"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
-    visibility = ["//src/test/java:__pkg__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/test/java:__pkg__",
+    ],
 )
 
 genrule(
