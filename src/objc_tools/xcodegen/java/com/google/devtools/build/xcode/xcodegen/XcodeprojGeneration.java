@@ -400,6 +400,9 @@ public class XcodeprojGeneration {
 
     PBXProject project = new PBXProject(outputPath.getProjectName());
     project.getMainGroup().setPath(workspaceRoot.toString());
+    if (workspaceRoot.isAbsolute()) {
+      project.getMainGroup().setSourceTree(SourceTree.ABSOLUTE);
+    }
     try {
       project
           .getBuildConfigurationList()
