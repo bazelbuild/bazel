@@ -560,27 +560,19 @@ public class MethodLibrary {
           + "<pre class=\"language-python\">"
           + "\"x{key}x\".format(key = 2) == \"x2x\"</pre>\n",
       mandatoryPositionals = {
-        @Param(name = "self", type = String.class, doc = "This string."),
+          @Param(name = "self", type = String.class, doc = "This string."),
       },
-      extraKeywords = {
-        @Param(name = "kwargs", doc = "the struct fields")},
+      extraPositionals = {
+          @Param(name = "args", type = HackHackEitherList.class, defaultValue = "[]",
+              doc = "List of arguments"),
+      },
+      extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of arguments")},
       useLocation = true)
   private static BuiltinFunction format = new BuiltinFunction("format") {
-      public String invoke(String self, Map<String, Object> kwargs, Location loc)
-          throws ConversionException, EvalException {
-      StringBuffer result = new StringBuffer();
-      Pattern pattern = Pattern.compile("\\{[^}]*\\}");
-      Matcher matcher = pattern.matcher(self);
-      while (matcher.find()) {
-        String word = matcher.group();
-        word = word.substring(1, word.length() - 1);  // remove the curly braces
-        if (!kwargs.containsKey(word)) {
-          throw new EvalException(loc, "No replacement found for '" + word + "'");
-        }
-        matcher.appendReplacement(result, Printer.str(kwargs.get(word)));
-      }
-      matcher.appendTail(result);
-      return result.toString();
+    @SuppressWarnings("unused")
+    public String invoke(String self, Object args, Map<String, Object> kwargs, Location loc)
+        throws ConversionException, EvalException {
+      return new FormatParser(loc).format(self, Type.OBJECT_LIST.convert(args, "format"), kwargs);
     }
   };
 
