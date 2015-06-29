@@ -115,6 +115,11 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   mode_t mode = zipattr_to_mode(attr);
   mode_t perm = mode & 0777;
   bool isdir = (mode & S_IFDIR) != 0;
+  if (attr == 0) {
+    // Fallback when the external attribute is not set.
+    isdir = filename[strlen(filename)-1] == '/';
+    perm = 0777;
+  }
   if (verbose_) {
     printf("%c %o %s\n", isdir ? 'd' : 'f', perm, filename);
   }
