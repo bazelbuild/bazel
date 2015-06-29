@@ -15,7 +15,8 @@
 # limitations under the License.
 
 
-# This script looks at the files changed in git against origin/master and
+# This script looks at the files changed in git against origin/master
+# (actually a common ancestor of origin/master and the current commit) and
 # queries for all build and test targets associated with those files.
 #
 # Running this script on a CI server should allow you to only test the targets
@@ -30,21 +31,25 @@
 # tested, and only those targets affected by a particular change are
 # built and tested"
 #
-# When your code is running on Gerrit (for example) and you have a fast-forward
-# only policy on your repo you can be sure, by diffing from the origin/master..
-# refspec, that you're listing all the files that are included in a review.
-# This would let a team working on Gerrit have the verified bit be
-# autopopulated without having the pain of having to wait for the whole world
-# to compile.
+# When this script is triggered by Gerrit's patchset-updated hook (for example)
+# you can replace origina/master in the COMMIT_RANGE variable initialization
+# with the branch passed as argument to the hook. When using Jenkins with the
+# Gerrit Trigger Plugin, use $GERRIT_BRANCH instead. This would make it
+# possible to have the Verified label on Gerrit patchsets populated as fast
+# as possible.
+# For a ref-updated event, use "${GERRIT_OLDREV}..${GERRIT_NEWREV}" as the
+# value for COMMIT_RANGE.
+# When running in Travis-CI, you can directly use the $TRAVIS_COMMIT_RANGE
+# environment variable.
 
-REFSPEC="origin/master.."
+COMMIT_RANGE=$(git merge-base origin/master HEAD)".."
 
 # Go to the root of the repo
 cd "$(git rev-parse --show-toplevel)"
 
 # Get a list of the current files in package form by querying Bazel.
 files=()
-for file in $(git diff --name-only ${REFSPEC} ); do
+for file in $(git diff --name-only ${COMMIT_RANGE} ); do
   files+=($(bazel query $file))
   echo $(bazel query $file)
 done
