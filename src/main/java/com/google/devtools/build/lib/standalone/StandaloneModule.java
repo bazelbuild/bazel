@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -34,11 +33,6 @@ public class StandaloneModule extends BlazeModule {
   public Iterable<ActionContextProvider> getActionContextProviders() {
     return ImmutableList.<ActionContextProvider>of(
         new StandaloneActionContextProvider(runtime, buildRequest));
-  }
-
-  @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(new StandaloneActionContextConsumer());
   }
 
   @Override
