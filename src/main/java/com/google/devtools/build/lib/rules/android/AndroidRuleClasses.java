@@ -144,45 +144,6 @@ public final class AndroidRuleClasses {
   public static final Label DEFAULT_AAR_GENERATOR =
       Label.parseAbsoluteUnchecked(Constants.ANDROID_DEP_PREFIX + "aar_generator");
 
-  public static final LateBoundLabel<BuildConfiguration> INCREMENTAL_STUB_APPLICATION =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_INCREMENTAL_STUB_APPLICATION) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return
-              configuration.getFragment(AndroidConfiguration.class).getIncrementalStubApplication();
-        }
-      };
-
-  static final LateBoundLabel<BuildConfiguration> INCREMENTAL_SPLIT_STUB_APPLICATION =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration
-              .getFragment(AndroidConfiguration.class)
-              .getIncrementalSplitStubApplication();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> RESOURCES_PROCESSOR =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_RESOURCES_PROCESSOR) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration
-              .getFragment(AndroidConfiguration.class)
-              .getResourcesProcessor();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> AAR_GENERATOR =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_AAR_GENERATOR) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration
-              .getFragment(AndroidConfiguration.class)
-              .getAarGenerator();
-        }
-      };
-
   /**
    * Implementation for the :proguard attribute.
    */
@@ -380,10 +341,10 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":android_resources_processor", LABEL).cfg(HOST).exec().value(
-              AndroidRuleClasses.RESOURCES_PROCESSOR))
-          .add(attr(":android_aar_generator", LABEL).cfg(HOST).exec().value(
-              AndroidRuleClasses.AAR_GENERATOR))
+          .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
+              AndroidRuleClasses.DEFAULT_RESOURCES_PROCESSOR))
+          .add(attr("$android_aar_generator", LABEL).cfg(HOST).exec().value(
+              AndroidRuleClasses.DEFAULT_AAR_GENERATOR))
           .build();
     }
 
@@ -624,10 +585,10 @@ public final class AndroidRuleClasses {
               .value(env.getLabel(BUILD_SPLIT_MANIFEST_LABEL)))
           .add(attr("$strip_resources", LABEL).cfg(HOST).exec()
               .value(env.getLabel(AndroidRuleClasses.STRIP_RESOURCES_LABEL)))
-          .add(attr(":incremental_stub_application", LABEL)
-              .value(AndroidRuleClasses.INCREMENTAL_STUB_APPLICATION))
-          .add(attr(":incremental_split_stub_application", LABEL)
-              .value(AndroidRuleClasses.INCREMENTAL_SPLIT_STUB_APPLICATION))
+          .add(attr("$incremental_stub_application", LABEL)
+              .value(DEFAULT_INCREMENTAL_STUB_APPLICATION))
+          .add(attr("$incremental_split_stub_application", LABEL)
+              .value(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           ${SYNOPSIS}

@@ -126,7 +126,7 @@ public class AarGeneratorBuilder {
         .addOutputs(ImmutableList.<Artifact>copyOf(outs))
         .setCommandLine(CommandLine.of(args, false))
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(":android_aar_generator", Mode.HOST))
+            ruleContext.getExecutablePrerequisite("$android_aar_generator", Mode.HOST))
         .setProgressMessage("Building AAR package")
         .setMnemonic("AARGenerator")
         .build(context));

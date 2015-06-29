@@ -572,7 +572,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, JavaSemantics javaSemantics, boolean split) {
     JavaCompilationArgs dep = ruleContext
         .getPrerequisite(
-            split ? ":incremental_split_stub_application" : ":incremental_stub_application",
+            split ? "$incremental_split_stub_application" : "$incremental_stub_application",
             Mode.TARGET)
         .getProvider(JavaCompilationArgsProvider.class)
         .getJavaCompilationArgs();

@@ -153,26 +153,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         throws InvalidConfigurationException {
       Options options = buildOptions.get(Options.class);
       Label sdk = RedirectChaser.followRedirects(env, options.realSdk(), "android_sdk");
-      Label incrementalStubApplication = RedirectChaser.followRedirects(env,
-          AndroidRuleClasses.DEFAULT_INCREMENTAL_STUB_APPLICATION,
-          "android_incremental_stub_application");
-      Label incrementalSplitStubApplication = RedirectChaser.followRedirects(env,
-          AndroidRuleClasses.DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION,
-          "android_incremental_split_stub_application");
-      Label resourcesProcessor = RedirectChaser.followRedirects(env,
-          AndroidRuleClasses.DEFAULT_RESOURCES_PROCESSOR,
-          "android_resources_processor");
-      Label aarGenerator = RedirectChaser.followRedirects(env,
-          AndroidRuleClasses.DEFAULT_AAR_GENERATOR,
-          "android_aar_generator");
-
-      if (incrementalStubApplication == null) {
-        return null;
-      }
-
-      return new AndroidConfiguration(
-          options, sdk, incrementalStubApplication, incrementalSplitStubApplication,
-          resourcesProcessor, aarGenerator);
+      return new AndroidConfiguration(options, sdk);
     }
 
     @Override
@@ -187,10 +168,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   private final Label sdk;
-  private final Label incrementalStubApplication;
-  private final Label incrementalSplitStubApplication;
-  private final Label resourcesProcessor;
-  private final Label aarGenerator;
   private final StrictDepsMode strictDeps;
   private final boolean legacyNativeSupport;
   private final String cpu;
@@ -199,13 +176,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
 
-  AndroidConfiguration(Options options, Label sdk, Label incrementalStubApplication,
-      Label incrementalSplitStubApplication, Label resourcesProcessor, Label aarGenerator) {
+  AndroidConfiguration(Options options, Label sdk) {
     this.sdk = sdk;
-    this.incrementalStubApplication = incrementalStubApplication;
-    this.incrementalSplitStubApplication = incrementalSplitStubApplication;
-    this.resourcesProcessor = resourcesProcessor;
-    this.aarGenerator = aarGenerator;
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;
@@ -229,22 +201,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public StrictDepsMode getStrictDeps() {
     return strictDeps;
-  }
-
-  public Label getIncrementalStubApplication() {
-    return incrementalStubApplication;
-  }
-
-  public Label getIncrementalSplitStubApplication() {
-    return incrementalSplitStubApplication;
-  }
-
-  public Label getResourcesProcessor() {
-    return resourcesProcessor;
-  }
-
-  public Label getAarGenerator() {
-    return aarGenerator;
   }
 
   public boolean isFatApk() {

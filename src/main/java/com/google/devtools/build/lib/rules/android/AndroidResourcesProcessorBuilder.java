@@ -182,7 +182,7 @@ public class AndroidResourcesProcessorBuilder {
     args.add(sdk.getAapt().getExecutable().getExecPathString());
 
     Iterables.addAll(ins,
-        ruleContext.getExecutablePrerequisite(":android_resources_processor", Mode.HOST)
+        ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST)
             .getRunfilesSupport()
             .getRunfilesArtifactsWithoutMiddlemen());
 
@@ -289,7 +289,7 @@ public class AndroidResourcesProcessorBuilder {
         .addOutputs(ImmutableList.<Artifact>copyOf(outs))
         .addArguments(ImmutableList.<String>copyOf(args))
         .setExecutable(
-            ruleContext.getExecutablePrerequisite(":android_resources_processor", Mode.HOST))
+            ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST))
         .setProgressMessage("Processing resources")
         .setMnemonic("AndroidAapt")
         .build(context));
