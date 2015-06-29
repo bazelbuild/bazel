@@ -58,22 +58,59 @@ public class HelloLibrary {
 EOF
 }
 
-function test_compiles_hello_library_using_persistent_javac() {
-  write_hello_library_files
-  bazel --batch clean
-  bazel build --experimental_persistent_javac //java/main:main || fail "build failed"
-  bazel-bin/java/main/main | grep -q "Hello, Library!;Hello, World!" \
-    || fail "comparison failed"
+function print_bazel_children() {
   bazel_pid=$(bazel info | fgrep server_pid | cut -d' ' -f2)
   # DANGER. This contains arcane shell wizardry that was carefully crafted to be compatible with
   # both BSD and GNU tools so that this works under Linux and OS X.
-  bazel_children=$(ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${bazel_pid} " | cut -d' ' -f2)
+  ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${bazel_pid} " | cut -d' ' -f2
+}
+
+function test_compiles_hello_library_using_persistent_javac() {
+  write_hello_library_files
+  bazel --batch clean
+  bazel build --strategy=Javac=worker //java/main:main || fail "build failed"
+  bazel-bin/java/main/main | grep -q "Hello, Library!;Hello, World!" \
+    || fail "comparison failed"
   bazel shutdown || fail "shutdown failed"
   sleep 10
-  unkilled_children=$(for pid in $bazel_children; do ps -p $pid | sed 1d; done)
+  unkilled_children=$(for pid in $(print_bazel_children); do ps -p $pid | sed 1d; done)
   if [ ! -z "$unkilled_children" ]; then
     fail "Worker processes were still running: ${unkilled_children}"
   fi
+}
+
+function test_incremental_heuristic() {
+  write_hello_library_files
+
+  bazel shutdown
+  bazel --batch clean
+  bazel build -s //java/main:main || fail "build failed"
+
+  children=$(print_bazel_children)
+  if [[ -n "${children}" ]]; then
+    fail "Started up persistent Java builder by default: ${children}"
+  fi
+
+  echo '// hello '>> java/hello_library/HelloLibrary.java
+  echo '// hello' >> java/main/Main.java
+
+  bazel build --worker_max_changed_files=1 --strategy=Javac=worker //java/main:main || fail "build failed"
+
+  children=$(print_bazel_children)
+  if [[ -n "${children}" ]]; then
+    fail "Found children: ${children}"
+  fi
+
+  echo '// again '>> java/hello_library/HelloLibrary.java
+  echo '// again' >> java/main/Main.java
+
+  bazel build --worker_max_changed_files=2 --strategy=Javac=worker //java/main:main || fail "build failed"
+
+  children=$(print_bazel_children)
+  if [[ -z "${children}" ]]; then
+    fail "Experimental persistent builder did not kick in."
+  fi
+
 }
 
 run_suite "Worker integration tests"
