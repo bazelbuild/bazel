@@ -174,14 +174,34 @@ java_import(
         "error_prone/error_prone_core-2.0.4.jar",
         "error_prone/error_prone_annotations-2.0.4.jar",
     ],
+    exports = [
+        ":checker_framework_dataflow",
+        ":jformatstring",
+    ],
+)
+
+java_import(
+    name = "jformatstring",
+    jars = [
+        "jformatstring/jFormatString-3.0.0.jar",
+    ],
+)
+
+java_import(
+    name = "checker_framework_dataflow",
+    jars = [
+        "checker_framework_dataflow/dataflow-1.8.10.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "error_prone-jars",
     srcs = [
+        "checker_framework_dataflow/dataflow-1.8.10.jar",
         "error_prone/error_prone_annotations-2.0.4.jar",
         "error_prone/error_prone_core-2.0.4.jar",
+        "jformatstring/jFormatString-3.0.0.jar",
     ],
 )
 

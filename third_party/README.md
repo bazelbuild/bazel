@@ -86,6 +86,18 @@ a minimal set of extra dependencies.
 * Version: 2.0.4
 * License: Apache License 2.0
 
+[jFormatString](https://code.google.com/p/j-format-string/)
+---------------
+
+* Version: 3.0.0
+* License: GNU GPL v2
+
+[Checker Framework Dataflow](http://code.google.com/p/checker-framework/)
+----------------------------
+
+* Version: 1.8.10
+* License: GPLv2, portions MIT
+
 [Buck (iOS support)](http://facebook.github.io/buck/)
 --------------------
 
