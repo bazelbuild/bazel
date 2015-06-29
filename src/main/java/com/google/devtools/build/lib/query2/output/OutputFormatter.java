@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSerializer;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -290,46 +289,6 @@ public abstract class OutputFormatter implements Serializable {
       return "build";
     }
 
-    // We only need to be able to output the types allowed in an attribute:
-    // int, string, label, string_list, label_list, bool, output, output_list, string_dict, license,
-    // where most of those things are actually printed as strings and list of strings.
-    private static void outputValue(PrintStream out, Object value) {
-      if (value instanceof Integer || value instanceof Boolean || value == Environment.NONE) {
-        Printer.write(out, value);
-      } else if (value instanceof String) {
-        Printer.writeString(out, (String) value, '"');
-      } else if (value instanceof Label) {
-        outputValue(out, value.toString());
-      } else if (value instanceof List<?>) {
-        out.print("[");
-        outputList(out, (List<?>) value);
-        out.print("]");
-      } else if (value instanceof Map<?, ?>) {
-        Map<?, ?> dict = (Map<?, ?>) value;
-        out.print("{");
-        outputList(out, dict.entrySet());
-        out.print("}");
-      } else if (value instanceof Map.Entry<?, ?>) {
-        Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
-        outputValue(out, entry.getKey());
-        out.print(": ");
-        outputValue(out, entry.getValue());
-      } else {
-        throw new RuntimeException("invalid value " + Printer.repr(value));
-      }
-    }
-
-    private static void outputList(PrintStream out, Iterable<?> list) {
-      boolean first = true;
-      for (Object v : list) {
-        if (!first) {
-          out.print(", ");
-          first = false;
-        }
-        outputValue(out, v);
-      }
-    }
-
     private void outputRule(Rule rule, PrintStream out) {
       out.printf("# %s%n", rule.getLocation());
       out.printf("%s(%n", rule.getRuleClass());
@@ -351,7 +310,7 @@ public abstract class OutputFormatter implements Serializable {
           // Display it as a list (and not as a tuple). Attributes can never be tuples.
           value = new ArrayList<>((List<?>) value);
         }
-        outputValue(out, value);
+        Printer.write(out, value);
         out.println(",");
       }
       out.printf(")\n%n");
