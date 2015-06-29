@@ -616,9 +616,6 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-<li><h3 id="modules.ctx.new_file">new_file</h3>
-<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -710,17 +707,19 @@ Specifies a list of files belonging to this package that are exported to other p
 	</li>
 </ul>
 <li><h3 id="modules.native.glob">glob</h3>
-<code><a class="anchor" href="#modules.list">list</a> native.glob(includes, excludes?, exclude_directories?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> native.glob(include, exclude?, excludes?, exclude_directories?)</code><br>
 Glob returns a list of every file in the current package that:<ul>
 <li>Matches at least one pattern in <code>include</code>.</li>
 <li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
 If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>), files of type directory will be omitted from the results (default <code>1</code>).
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.native.glob.includes"><code>includes (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: The list of glob patterns to include.
+	<li id="modules.native.glob.include"><code>include (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: The list of glob patterns to include.
 	</li>
 </ul>
 <ul>
+	<li id="modules.native.glob.exclude"><code>exclude (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: The list of glob patterns to exclude.
+	</li>
 	<li id="modules.native.glob.excludes"><code>excludes (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: The list of glob patterns to exclude.
 	</li>
 	<li id="modules.native.glob.exclude_directories"><code>exclude_directories (int)</code>: A flag whether to exclude directories or not.
@@ -813,12 +812,16 @@ Returns the first index where <code>sub</code> is found, or -1 if no such index 
 	</li>
 </ul>
 <li><h3 id="modules.string.format">format</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.format(**kwargs)</code><br>
+<code><a class="anchor" href="#modules.string">string</a> string.format(*args, **kwargs)</code><br>
 Replace the values surrounded by curly brackets in the string.<pre class="language-python">"x{key}x".format(key = 2) == "x2x"</pre>
 
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.string.format.kwargs"><code>kwargs</code>: the struct fields
+	<li id="modules.string.format.args"><code>args (<a class="anchor" href="#modules.list">list</a>)</code>: List of arguments
+	</li>
+</ul>
+<ul>
+	<li id="modules.string.format.kwargs"><code>kwargs</code>: Dictionary of arguments
 	</li>
 </ul>
 <li><h3 id="modules.string.index">index</h3>
