@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -39,7 +40,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -392,25 +395,38 @@ public class GlobTest {
     final Thread mainThread = Thread.currentThread();
     final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
 
-    Predicate<Path> interrupterPredicate = new Predicate<Path>() {
-      @Override
-      public boolean apply(Path input) {
-        mainThread.interrupt();
-        return true;
-      }
-    };
+    Predicate<Path> interrupterPredicate =
+        new Predicate<Path>() {
+          @Override
+          public boolean apply(Path input) {
+            mainThread.interrupt();
+            return true;
+          }
+        };
 
+    Future<?> globResult = null;
     try {
-      new UnixGlob.Builder(tmpPath)
-          .addPattern("**")
-          .setDirectoryFilter(interrupterPredicate)
-          .setThreadPool(executor)
-          .globInterruptible();
-      fail();  // Should have received InterruptedException
+      globResult =
+          new UnixGlob.Builder(tmpPath)
+              .addPattern("**")
+              .setDirectoryFilter(interrupterPredicate)
+              .setThreadPool(executor)
+              .globAsync(true);
+      globResult.get();
+      fail(); // Should have received InterruptedException
     } catch (InterruptedException e) {
       // good
     }
 
+    globResult.cancel(true);
+    try {
+      Uninterruptibles.getUninterruptibly(globResult);
+      fail();
+    } catch (CancellationException e) {
+      // Expected.
+    }
+
+    Thread.interrupted();
     assertFalse(executor.isShutdown());
     executor.shutdown();
     assertTrue(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
