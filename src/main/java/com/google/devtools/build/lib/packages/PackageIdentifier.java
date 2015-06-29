@@ -82,14 +82,20 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         return "empty workspace name";
       }
 
-      // Check for any character outside of [/0-9A-Z_a-z-]. Try to evaluate the
+      // Check for any character outside of [/0-9A-Z_a-z-._]. Try to evaluate the
       // conditional quickly (by looking in decreasing order of character class
       // likelihood).
+      if (name.startsWith("@/") || name.endsWith("/")) {
+        return "workspace names cannot start nor end with '/'";
+      } else if (name.contains("//")) {
+        return "workspace names cannot contain multiple '/'s in a row";
+      }
+
       for (int i = name.length() - 1; i >= 1; --i) {
         char c = name.charAt(i);
-        if ((c < 'a' || c > 'z') && c != '_' && c != '-'
+        if ((c < 'a' || c > 'z') && c != '_' && c != '-' && c != '/' && c != '.'
             && (c < '0' || c > '9') && (c < 'A' || c > 'Z')) {
-          return "workspace names may contain only A-Z, a-z, 0-9, '-' and '_'";
+          return "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'";
         }
       }
       return null;
