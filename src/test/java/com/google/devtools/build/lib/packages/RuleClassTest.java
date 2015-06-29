@@ -71,15 +71,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   };
 
   private static final class DummyFragment extends BuildConfiguration.Fragment {
-    @Override
-    public String getName() {
-      return "dummy-for-testing";
-    }
 
-    @Override
-    public String cacheKey() {
-      return "some cache key";
-    }
   }
 
   private static final Predicate<String> PREFERRED_DEPENDENCY_PREDICATE = Predicates.alwaysFalse();

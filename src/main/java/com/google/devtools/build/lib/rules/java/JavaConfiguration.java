@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -68,7 +67,6 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<Label> translationTargets;
   private final String javaCpu;
 
-  private final String cacheKey;
   private Label javaToolchain;
 
   JavaConfiguration(boolean generateJavaDeps,
@@ -105,8 +103,6 @@ public final class JavaConfiguration extends Fragment {
       }
     }
     this.translationTargets = translationsBuilder.build();
-
-    this.cacheKey = Joiner.on(" ").join(commandLineJavacFlags);
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
@@ -115,11 +111,6 @@ public final class JavaConfiguration extends Fragment {
   // probably.
   public List<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
-  }
-
-  @Override
-  public String cacheKey() {
-    return cacheKey;
   }
 
   @Override
@@ -229,11 +220,6 @@ public final class JavaConfiguration extends Fragment {
 
   public List<String> getJavacOpts() {
     return javacOpts;
-  }
-
-  @Override
-  public String getName() {
-    return "Java";
   }
 
   /**

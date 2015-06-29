@@ -90,7 +90,7 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
 
   @Override
   public String toString() {
-    return label + " " + (configuration == null ? "null" : configuration.shortCacheKey());
+    return label + " " + (configuration == null ? "null" : configuration.checksum());
   }
 
 }

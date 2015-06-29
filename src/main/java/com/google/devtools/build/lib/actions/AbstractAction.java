@@ -383,7 +383,7 @@ public abstract class AbstractAction implements Action {
     private final Label label;
     private final String configurationName;
     private final String configurationMnemonic;
-    private final String configurationKey;
+    private final String configurationChecksum;
     private final String targetKind;
     private final String additionalProgressInfo;
 
@@ -392,7 +392,7 @@ public abstract class AbstractAction implements Action {
       this.label = originalOwner.getLabel();
       this.configurationName = originalOwner.getConfigurationName();
       this.configurationMnemonic = originalOwner.getConfigurationMnemonic();
-      this.configurationKey = originalOwner.getConfigurationShortCacheKey();
+      this.configurationChecksum = originalOwner.getConfigurationChecksum();
       this.targetKind = originalOwner.getTargetKind();
       this.additionalProgressInfo = originalOwner.getAdditionalProgressInfo();
     }
@@ -418,8 +418,8 @@ public abstract class AbstractAction implements Action {
     }
 
     @Override
-    public String getConfigurationShortCacheKey() {
-      return configurationKey;
+    public String getConfigurationChecksum() {
+      return configurationChecksum;
     }
 
     @Override

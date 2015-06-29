@@ -56,7 +56,7 @@ public interface ActionOwner {
    * <p>These requirements exist so that {@link ActionOwner} instances are consistent with
    * {@code BuildView.ActionOwnerIdentity(ConfiguredTargetValue)}.
    */
-  String getConfigurationShortCacheKey();
+  String getConfigurationChecksum();
 
   /**
    * Returns the target kind (rule class name) for this ActionOwner, if any; null otherwise.

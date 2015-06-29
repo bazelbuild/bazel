@@ -29,11 +29,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     this.defaultPythonVersion = pythonVersion;
   }
 
-  @Override
-  public String getName() {
-    return "Python";
-  }
-
   /**
    * Returns the Python version (PY2 or PY3) this configuration uses.
    */
@@ -49,11 +44,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     return ignorePythonVersionAttribute || attributeVersion == null
         ? defaultPythonVersion
         : attributeVersion;
-  }
-
-  @Override
-  public String cacheKey() {
-    return defaultPythonVersion.toString();
   }
 
   @Override

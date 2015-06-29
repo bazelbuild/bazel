@@ -283,7 +283,7 @@ public final class RuleContext extends TargetContext
     private final String configurationName;
     private final String mnemonic;
     private final String targetKind;
-    private final String shortCacheKey;
+    private final String configurationChecksum;
     private final boolean hostConfiguration;
 
     private RuleActionOwner(Rule rule, BuildConfiguration configuration) {
@@ -292,7 +292,7 @@ public final class RuleContext extends TargetContext
       this.targetKind = rule.getTargetKind();
       this.configurationName = configuration.getShortName();
       this.mnemonic = configuration.getMnemonic();
-      this.shortCacheKey = configuration.shortCacheKey();
+      this.configurationChecksum = configuration.checksum();
       this.hostConfiguration = configuration.isHostConfiguration();
     }
 
@@ -317,8 +317,8 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    public String getConfigurationShortCacheKey() {
-      return shortCacheKey;
+    public String getConfigurationChecksum() {
+      return configurationChecksum;
     }
 
     @Override

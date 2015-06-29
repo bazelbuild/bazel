@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -107,17 +106,12 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration implements Serializable {
+public final class BuildConfiguration {
 
   /**
    * An interface for language-specific configurations.
    */
-  public abstract static class Fragment implements Serializable {
-    /**
-     * Returns a human-readable name of the configuration fragment.
-     */
-    public abstract String getName();
-
+  public abstract static class Fragment {
     /**
      * Validates the options for this Fragment. Issues warnings for the
      * use of deprecated options, and warnings or errors for any option settings
@@ -144,11 +138,6 @@ public final class BuildConfiguration implements Serializable {
     @SuppressWarnings("unused")
     public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
     }
-
-    /**
-     * Returns a string that identifies the configuration fragment.
-     */
-    public abstract String cacheKey();
 
     /**
      * The fragment may use this hook to perform I/O and read data into memory that is used during
@@ -882,8 +871,7 @@ public final class BuildConfiguration implements Serializable {
   private static final List<BuildConfiguration> NULL_LIST =
       Collections.unmodifiableList(Arrays.asList(new BuildConfiguration[] { null }));
 
-  private final String cacheKey;
-  private final String shortCacheKey;
+  private final String checksum;
 
   private Transitions transitions;
   private Set<BuildConfiguration> allReachableConfigurations;
@@ -1067,9 +1055,7 @@ public final class BuildConfiguration implements Serializable {
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    cacheKey = computeCacheKey(
-        directories, fragmentsMap, this.buildOptions);
-    shortCacheKey = shortName + "-" + Fingerprint.md5Digest(cacheKey);
+    checksum = shortName + "-" + Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
 
@@ -1782,60 +1768,19 @@ public final class BuildConfiguration implements Serializable {
   }
 
   /**
-   * Helper method to create a key from the BuildConfiguration initialization
-   * parameters and any additional component suppliers.
+   * Returns a (relatively) short key that identifies the configuration within a particular build.
+   *
+   * <p>This should be the same for two configurations iff the two configurations contain the same
+   * data and they both are within the same build. There are no guarantees for comparing two
+   * configurations from different builds.
    */
-  static String computeCacheKey(BlazeDirectories directories,
-      Map<Class<? extends Fragment>, Fragment> fragments, BuildOptions buildOptions) {
-
-    // Creates a full fingerprint of all constructor parameters, used for
-    // canonicalization.
-    //
-    // Note the use of each Path's FileSystem field; the test suite creates
-    // many paths of equal name but belonging to distinct filesystems, so we
-    // have to detect this. (Note however that we're relying on the
-    // injectiveness of identityHashCode for FileSystem, which is inelegant,
-    // but only affects the tests, since the production code uses only one
-    // instance.)
-
-    ImmutableList.Builder<String> keys = ImmutableList.builder();
-
-    // NOTE: identityHashCode isn't sound; may cause tests to fail.
-    keys.add(String.valueOf(System.identityHashCode(directories.getOutputBase().getFileSystem())));
-    keys.add(directories.getOutputBase().toString());
-    keys.add(buildOptions.computeCacheKey());
-    keys.add(directories.getWorkspace().toString());
-
-    for (Fragment fragment : fragments.values()) {
-      keys.add(fragment.cacheKey());
-    }
-
-    // TODO(bazel-team): add hash of the FDO/LIPO profile file to config cache key
-
-    return StringUtilities.combineKeys(keys.build());
+  public final String checksum() {
+    return checksum;
   }
 
-  /**
-   * Returns a string that identifies the configuration.
-   *
-   *  <p>The string uniquely identifies the configuration. As a result, it can be rather long and
-   * include spaces and other non-alphanumeric characters. If you need a shorter key, use
-   * {@link #shortCacheKey()}.
-   *
-   * @see #computeCacheKey
-   */
-  public final String cacheKey() {
-    return cacheKey;
-  }
-
-  /**
-   * Returns a (relatively) short key that identifies the configuration.
-   *
-   * <p>The short key is the short name of the configuration concatenated with a hash of the
-   * {@link #cacheKey()}.
-   */
-  public final String shortCacheKey() {
-    return shortCacheKey;
+  /** Returns the cache key of the build options used to create this configuration. */
+  public final String optionsCacheKey() {
+    return buildOptions.computeCacheKey();
   }
 
   /** Returns a copy of the build configuration options for this configuration. */

@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 
 import java.util.Map;
@@ -213,15 +210,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         }
         return new Fragment() {
 
-          @Override
-          public String getName() {
-            return creates.toString();
-          }
-
-          @Override
-          public String cacheKey() {
-            return creates.toString();
-          }
         };
       }
     };
@@ -284,15 +272,5 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     // Legitimately null option:
     assertNull(create().getOptionValue("test_filter"));
-  }
-
-  public void testSerialization() throws Exception {
-    FileSystem oldFileSystem = Path.getFileSystemForSerialization();
-    try {
-      Path.setFileSystemForSerialization(scratch.getFileSystem());
-      TestUtils.serializeObject(createCollection());
-    } finally {
-      Path.setFileSystemForSerialization(oldFileSystem);
-    }
   }
 }

@@ -109,16 +109,6 @@ public class J2ObjcConfiguration extends Fragment {
   }
 
   @Override
-  public String getName() {
-    return "J2ObjC";
-  }
-
-  @Override
-  public String cacheKey() {
-    return Joiner.on(" ").join(translationFlags) + "-" + String.valueOf(removeDeadCode);
-  }
-
-  @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     if (!Collections.disjoint(translationFlags, J2OBJC_BLACKLISTED_TRANSLATION_FLAGS)) {
       String errorMsg = String.format(INVALID_TRANSLATION_FLAGS_MSG_TEMPLATE,

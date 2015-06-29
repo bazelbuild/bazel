@@ -46,7 +46,7 @@ public class TargetAndConfiguration {
   // It is not suitable for user display.
   public String getName() {
     return target.getLabel() + " "
-        + (configuration == null ? "null" : configuration.shortCacheKey());
+        + (configuration == null ? "null" : configuration.checksum());
   }
 
   public static final Function<TargetAndConfiguration, String> NAME_FUNCTION =

@@ -274,7 +274,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final String abiGlibcVersion;
 
   private final String toolchainIdentifier;
-  private final String cacheKey;
 
   private final CcToolchainFeatures toolchainFeatures;
   private final boolean supportsGoldLinker;
@@ -418,8 +417,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.solibDirectory = "_solib_" + targetCpu;
 
     this.toolchainIdentifier = toolchain.getToolchainIdentifier();
-    this.cacheKey = this + ":" + crosstoolTop + ":" + params.cacheKeySuffix + ":"
-        + lipoContextCollector;
 
     toolchain = addLegacyFeatures(toolchain);
     this.toolchainFeatures = new CcToolchainFeatures(toolchain);
@@ -1184,14 +1181,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns a string that uniquely identifies the toolchain.
-   */
-  @Override
-  public String cacheKey() {
-    return cacheKey;
-  }
-
-  /**
    * Returns the built-in list of system include paths for the toolchain
    * compiler. All paths in this list should be relative to the exec directory.
    * They may be absolute if they are also installed on the remote build nodes or
@@ -1775,11 +1764,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean isLipoContextCollector() {
     return lipoContextCollector;
-  }
-
-  @Override
-  public String getName() {
-    return "cpp";
   }
 
   @Override

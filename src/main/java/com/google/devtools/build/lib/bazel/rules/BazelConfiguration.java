@@ -54,16 +54,6 @@ public class BazelConfiguration extends Fragment {
   }
 
   @Override
-  public String getName() {
-    return "Bazel";
-  }
-
-  @Override
-  public String cacheKey() {
-    return "";
-  }
-
-  @Override
   public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
     if (OS.getCurrent() == OS.WINDOWS) {
       String path = System.getenv("BAZEL_SH");

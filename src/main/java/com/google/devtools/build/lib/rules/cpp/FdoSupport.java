@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
 import com.google.devtools.build.skyframe.SkyFunction;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.zip.ZipException;
@@ -113,7 +112,7 @@ import java.util.zip.ZipException;
  * {@code CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
  * discarded after configured targets are created.
  */
-public class FdoSupport implements Serializable {
+public class FdoSupport {
 
   /**
    * Path within profile data .zip files that is considered the root of the

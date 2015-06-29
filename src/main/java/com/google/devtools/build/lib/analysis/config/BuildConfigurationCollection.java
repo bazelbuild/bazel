@@ -52,7 +52,7 @@ import java.util.Set;
  * <p>The "related" configurations are also contained in this class.
  */
 @ThreadSafe
-public final class BuildConfigurationCollection implements Serializable {
+public final class BuildConfigurationCollection {
   private final ImmutableList<BuildConfiguration> targetConfigurations;
   private final BuildConfiguration hostConfiguration;
 
@@ -66,11 +66,12 @@ public final class BuildConfigurationCollection implements Serializable {
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
     for (BuildConfiguration config : getAllConfigurations()) {
-      if (cacheKeyConflictDetector.containsKey(config.cacheKey())) {
+      String cacheKey = config.optionsCacheKey();
+      if (cacheKeyConflictDetector.containsKey(cacheKey)) {
         throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
-            + cacheKeyConflictDetector.get(config.cacheKey()));
+            + cacheKeyConflictDetector.get(cacheKey));
       }
-      cacheKeyConflictDetector.put(config.cacheKey(), config);
+      cacheKeyConflictDetector.put(cacheKey, config);
     }
   }
 
@@ -135,14 +136,14 @@ public final class BuildConfigurationCollection implements Serializable {
     out.println("digraph g {");
     out.println("  ratio = 0.3;");
     for (BuildConfiguration config : getAllConfigurations()) {
-      String from = config.shortCacheKey();
+      String from = config.checksum();
       for (Map.Entry<? extends Transition, ConfigurationHolder> entry :
           config.getTransitions().getTransitionTable().entrySet()) {
         BuildConfiguration toConfig = entry.getValue().getConfiguration();
         if (toConfig == config) {
           continue;
         }
-        String to = toConfig == null ? "ERROR" : toConfig.shortCacheKey();
+        String to = toConfig == null ? "ERROR" : toConfig.checksum();
         out.println("  \"" + from + "\" -> \"" + to + "\" [label=\"" + entry.getKey() + "\"]");
       }
     }

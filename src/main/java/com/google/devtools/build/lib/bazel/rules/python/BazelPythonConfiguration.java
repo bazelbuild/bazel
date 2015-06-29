@@ -76,16 +76,6 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
     this.options = options;
   }
 
-  @Override
-  public String getName() {
-    return "BazelPython";
-  }
-
-  @Override
-  public String cacheKey() {
-    return "";
-  }
-
   public String getPython2Path() {
     return options.python2Path;
   }

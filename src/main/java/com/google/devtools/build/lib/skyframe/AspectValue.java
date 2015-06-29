@@ -87,7 +87,7 @@ public final class AspectValue extends ActionLookupValue {
     @Override
     public String toString() {
       return label + "#" + aspectFactory.getSimpleName() + " "
-          + (configuration == null ? "null" : configuration.shortCacheKey());
+          + (configuration == null ? "null" : configuration.checksum());
     }
   }
 

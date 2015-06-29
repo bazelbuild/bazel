@@ -30,7 +30,7 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
   private final ConfiguredTarget target;
   private final List<Action> actions;
   private final Predicate<Action> actionMnemonicMatcher;
-  private final String targetConfigurationKey;
+  private final String targetConfigurationChecksum;
 
   /**
    * Creates a new visitor for the actions associated with the given target that have a matching
@@ -42,14 +42,14 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
     this.target = target;
     this.actionMnemonicMatcher = actionMnemonicMatcher;
     actions = Lists.newArrayList();
-    targetConfigurationKey = target.getConfiguration().shortCacheKey();
+    targetConfigurationChecksum = target.getConfiguration().checksum();
   }
 
   @Override
   protected boolean shouldVisit(Action action) {
     ActionOwner owner = action.getOwner();
     return owner != null && target.getLabel().equals(owner.getLabel())
-        && targetConfigurationKey.equals(owner.getConfigurationShortCacheKey());
+        && targetConfigurationChecksum.equals(owner.getConfigurationChecksum());
   }
 
   @Override

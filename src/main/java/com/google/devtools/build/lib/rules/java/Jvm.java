@@ -48,14 +48,9 @@ public final class Jvm extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public String getName() {
-    return "Jvm";
-  }
-
-  @Override
   public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
     if (jvmLabel != null) {
-      implicitLabels.put(getName(), jvmLabel);
+      implicitLabels.put("Jvm", jvmLabel);
     }
   }
 
@@ -99,16 +94,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
    */
   public Label getJvmLabel() {
     return jvmLabel;
-  }
-
-  /**
-   * Returns a string that uniquely identifies the JVM for the life time of this
-   * Blaze instance. This value is intended for analysis caching, so it need not
-   * reflect changes in the individual files making up the JVM.
-   */
-  @Override
-  public String cacheKey() {
-    return javaHome.getSafePathString();
   }
 
   @Override
