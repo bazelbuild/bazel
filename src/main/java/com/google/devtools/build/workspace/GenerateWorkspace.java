@@ -74,8 +74,7 @@ public class GenerateWorkspace {
   private void generateFromWorkspace(List<String> projects) {
     for (String project : projects) {
       Resolver workspaceResolver = new Resolver(resolver, handler);
-      java.nio.file.Path cwd = Paths.get(System.getProperty("user.dir"));
-      Path projectPath = fileSystem.getPath(cwd.resolve(project).toString());
+      Path projectPath = fileSystem.getPath(getAbsolute(project));
       ExternalPackage externalPackage =
           workspaceResolver.parse(projectPath.getRelative("WORKSPACE"));
       workspaceResolver.resolveTransitiveDependencies(externalPackage);
@@ -84,8 +83,12 @@ public class GenerateWorkspace {
 
   private void generateFromPom(List<String> projects) {
     for (String project : projects) {
-      resolver.resolvePomDependencies(project);
+      resolver.resolvePomDependencies(getAbsolute(project));
     }
+  }
+
+  private String getAbsolute(String path) {
+    return Paths.get(System.getProperty("user.dir")).resolve(path).toString();
   }
 
   private void print() {
