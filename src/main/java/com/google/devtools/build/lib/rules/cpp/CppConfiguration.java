@@ -1938,11 +1938,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public String getConfigurationNameSuffix() {
-    return isLipoContextCollector() ? "collector" : null;
-  }
-
-  @Override
   public String getPlatformName() {
     return getToolchainIdentifier();
   }

@@ -196,14 +196,6 @@ public final class BuildConfiguration {
     }
 
     /**
-     * This will be added to the name of the configuration, but not to the output directory name.
-     */
-    @Nullable
-    public String getConfigurationNameSuffix() {
-      return null;
-    }
-
-    /**
      * The platform name is a concatenation of fragment platform names.
      */
     public String getPlatformName() {
@@ -536,16 +528,14 @@ public final class BuildConfiguration {
     public CompilationMode compilationMode;
 
     /**
-     * This option is used internally to set the short name (see {@link
-     * #getShortName()}) of the <i>host</i> configuration to a constant, so
-     * that the output files for the host are completely independent of those
-     * for the target, no matter what options are in force (k8/piii, opt/dbg,
-     * etc).
+     * This option is used internally to set output directory name of the <i>host</i> configuration
+     * to a constant, so that the output files for the host are completely independent of those for
+     * the target, no matter what options are in force (k8/piii, opt/dbg, etc).
      */
-    @Option(name = "configuration short name", // (Spaces => can't be specified on command line.)
+    @Option(name = "output directory name", // (Spaces => can't be specified on command line.)
         defaultValue = "null",
         category = "undocumented")
-    public String shortName;
+    public String outputDirectoryName;
 
     @Option(name = "platform_suffix",
         defaultValue = "null",
@@ -785,7 +775,7 @@ public final class BuildConfiguration {
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) getDefault();
 
-      host.shortName = "host";
+      host.outputDirectoryName = "host";
       host.compilationMode = CompilationMode.OPT;
       host.isHost = true;
 
@@ -878,7 +868,46 @@ public final class BuildConfiguration {
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
 
-  /** Directories in the output tree. */
+  /**
+   * Directories in the output tree.
+   * 
+   * <p>The computation of the output directory should be a non-injective mapping from
+   * BuildConfiguration instances to strings. The result should identify the aspects of the
+   * configuration that should be reflected in the output file names.  Furthermore the
+   * returned string must not contain shell metacharacters.
+   *
+   * <p>For configuration settings which are NOT part of the output directory name,
+   * rebuilding with a different value of such a setting will build in
+   * the same output directory.  This means that any actions whose
+   * keys (see Action.getKey()) have changed will be rerun.  That
+   * may result in a lot of recompilation.
+   *
+   * <p>For configuration settings which ARE part of the output directory name,
+   * rebuilding with a different value of such a setting will rebuild
+   * in a different output directory; this will result in higher disk
+   * usage and more work the <i>first</i> time you rebuild with a different
+   * setting, but will result in less work if you regularly switch
+   * back and forth between different settings.
+   *
+   * <p>With one important exception, it's sound to choose any subset of the
+   * config's components for this string, it just alters the dimensionality
+   * of the cache.  In other words, it's a trade-off on the "injectiveness"
+   * scale: at one extreme (output directory name contains all data in the config, and is
+   * thus injective) you get extremely precise caching (no competition for the
+   * same output-file locations) but you have to rebuild for even the
+   * slightest change in configuration.  At the other extreme (the output
+   * (directory name is a constant) you have very high competition for
+   * output-file locations, but if a slight change in configuration doesn't
+   * affect a particular build step, you're guaranteed not to have to
+   * rebuild it. The important exception has to do with multiple configurations: every
+   * configuration in the build must have a different output directory name so that
+   * their artifacts do not conflict.
+   *
+   * <p>The host configuration is special-cased: in order to guarantee that its output directory
+   * is always separate from that of the target configuration, we simply pin it to "host". We do
+   * this so that the build works even if the two configurations are too close (which is common)
+   * and so that the path of artifacts in the host configuration is a bit more readable.
+   */
   private final OutputRoots outputRoots;
 
   /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
@@ -900,7 +929,6 @@ public final class BuildConfiguration {
   private final BuildOptions buildOptions;
   private final Options options;
 
-  private final String shortName;
   private final String mnemonic;
   private final String platformName;
 
@@ -968,9 +996,9 @@ public final class BuildConfiguration {
       }
     }
 
-    if (options.shortName != null) {
+    if (options.outputDirectoryName != null) {
       reporter.handle(Event.error(
-          "The internal '--configuration short name' option cannot be used on the command line"));
+          "The internal '--output directory name' option cannot be used on the command line"));
     }
 
     if (options.testShardingStrategy
@@ -1010,8 +1038,8 @@ public final class BuildConfiguration {
     this.testEnvironment = ImmutableMap.copyOf(testEnv);
 
     this.mnemonic = buildMnemonic();
-    String outputDirName = (options.shortName != null) ? options.shortName : mnemonic;
-    this.shortName = buildShortName(outputDirName);
+    String outputDirName = (options.outputDirectoryName != null)
+        ? options.outputDirectoryName : mnemonic;
     this.platformName = buildPlatformName();
 
     this.shExecutable = collectExecutables().get("sh");
@@ -1055,7 +1083,7 @@ public final class BuildConfiguration {
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    checksum = shortName + "-" + Fingerprint.md5Digest(buildOptions.computeCacheKey());
+    checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
 
@@ -1097,14 +1125,6 @@ public final class BuildConfiguration {
           "Unexpected illegal access trying to create this configuration's options map: ", e);
     }
     return map.build();
-  }
-
-  private String buildShortName(String outputDirName) {
-    ArrayList<String> nameParts = new ArrayList<>(ImmutableList.of(outputDirName));
-    for (Fragment fragment : fragments.values()) {
-      nameParts.add(fragment.getConfigurationNameSuffix());
-    }
-    return Joiner.on('-').skipNulls().join(nameParts);
   }
 
   private String buildMnemonic() {
@@ -1454,58 +1474,6 @@ public final class BuildConfiguration {
   }
 
   /**
-   *  Implements a non-injective mapping from BuildConfiguration instances to
-   *  strings.  The result should identify the aspects of the configuration
-   *  that should be reflected in the output file names.  Furthermore the
-   *  returned string must not contain shell metacharacters.
-   *
-   *  <p>The intention here is that we use this string as the directory name
-   *  for artifacts of this build.
-   *
-   *  <p>For configuration settings which are NOT part of the short name,
-   *  rebuilding with a different value of such a setting will build in
-   *  the same output directory.  This means that any actions whose
-   *  keys (see Action.getKey()) have changed will be rerun.  That
-   *  may result in a lot of recompilation.
-   *
-   *  <p>For configuration settings which ARE part of the short name,
-   *  rebuilding with a different value of such a setting will rebuild
-   *  in a different output directory; this will result in higher disk
-   *  usage and more work the _first_ time you rebuild with a different
-   *  setting, but will result in less work if you regularly switch
-   *  back and forth between different settings.
-   *
-   *  <p>With one important exception, it's sound to choose any subset of the
-   *  config's components for this string, it just alters the dimensionality
-   *  of the cache.  In other words, it's a trade-off on the "injectiveness"
-   *  scale: at one extreme (shortName is in fact a complete fingerprint, and
-   *  thus injective) you get extremely precise caching (no competition for the
-   *  same output-file locations) but you have to rebuild for even the
-   *  slightest change in configuration.  At the other extreme
-   *  (PartialFingerprint is a constant) you have very high competition for
-   *  output-file locations, but if a slight change in configuration doesn't
-   *  affect a particular build step, you're guaranteed not to have to
-   *  rebuild it.   The important exception has to do with cross-compilation:
-   *  the host and target configurations must not map to the same output
-   *  directory, because then files would need to get built for the host
-   *  and then rebuilt for the target even within a single build, and that
-   *  wouldn't work.
-   *
-   *  <p>Just to re-iterate: cross-compilation builds (i.e. hostConfig !=
-   *  targetConfig) will not work if the two configurations' short names are
-   *  equal.  This is an important practical case: the mere addition of
-   *  a compile flag to the target configuration would cause the build to
-   *  fail.  In other words, it would break if the host and target
-   *  configurations are not identical but are "too close".  The current
-   *  solution is to set the host configuration equal to the target
-   *  configuration if they are "too close"; this may cause the tools to get
-   *  rebuild for the new host configuration though.
-   */
-  public String getShortName() {
-    return shortName;
-  }
-
-  /**
    * Like getShortName(), but always returns a configuration-dependent string even for
    * the host configuration.
    */
@@ -1515,7 +1483,7 @@ public final class BuildConfiguration {
 
   @Override
   public String toString() {
-    return getShortName();
+    return checksum();
   }
 
   /**
@@ -1767,20 +1735,9 @@ public final class BuildConfiguration {
     return options.compilationMode;
   }
 
-  /**
-   * Returns a (relatively) short key that identifies the configuration within a particular build.
-   *
-   * <p>This should be the same for two configurations iff the two configurations contain the same
-   * data and they both are within the same build. There are no guarantees for comparing two
-   * configurations from different builds.
-   */
+  /** Returns the cache key of the build options used to create this configuration. */
   public final String checksum() {
     return checksum;
-  }
-
-  /** Returns the cache key of the build options used to create this configuration. */
-  public final String optionsCacheKey() {
-    return buildOptions.computeCacheKey();
   }
 
   /** Returns a copy of the build configuration options for this configuration. */

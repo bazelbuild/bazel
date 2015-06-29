@@ -139,8 +139,8 @@ public interface MutableActionGraph extends ActionGraph {
           bNull ? null : Label.print(bOwner.getLabel()));
       addStringDetail(sb, "RuleClass", aNull ? null : aOwner.getTargetKind(),
           bNull ? null : bOwner.getTargetKind());
-      addStringDetail(sb, "Configuration", aNull ? null : aOwner.getConfigurationName(),
-          bNull ? null : bOwner.getConfigurationName());
+      addStringDetail(sb, "Configuration", aNull ? null : aOwner.getConfigurationChecksum(),
+          bNull ? null : bOwner.getConfigurationChecksum());
       addStringDetail(sb, "Mnemonic", a.getMnemonic(), b.getMnemonic());
       addStringDetail(sb, "Progress message", a.getProgressMessage(), b.getProgressMessage());
 

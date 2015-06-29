@@ -60,8 +60,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--platform_suffix=-test");
-    assertEquals("gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
-                 config.getShortName());
     assertEquals(outputBase + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
         config.getOutputDirectory().getPath().toString());
   }

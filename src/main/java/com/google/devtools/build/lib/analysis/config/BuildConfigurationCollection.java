@@ -66,7 +66,7 @@ public final class BuildConfigurationCollection {
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
     for (BuildConfiguration config : getAllConfigurations()) {
-      String cacheKey = config.optionsCacheKey();
+      String cacheKey = config.checksum();
       if (cacheKeyConflictDetector.containsKey(cacheKey)) {
         throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
             + cacheKeyConflictDetector.get(cacheKey));

@@ -38,11 +38,6 @@ public interface ActionOwner {
   Label getLabel();
 
   /**
-   * Returns the name of the configuration of the action owner.
-   */
-  String getConfigurationName();
-
-  /**
    * Returns the configuration's mnemonic.
    */
   String getConfigurationMnemonic();

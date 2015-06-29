@@ -171,11 +171,6 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public final String getConfigurationName() {
-      return "dummy-configuration";
-    }
-
-    @Override
     public String getConfigurationMnemonic() {
       return "dummy-configuration-mnemonic";
     }

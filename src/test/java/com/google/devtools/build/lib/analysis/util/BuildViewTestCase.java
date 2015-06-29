@@ -348,8 +348,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final void createBuildView() throws Exception {
     Preconditions.checkNotNull(masterConfig);
     Preconditions.checkState(getHostConfiguration() == getTargetConfiguration()
-        || getHostConfiguration().getShortName().equals("host"),
-        "Host configuration %s does not have name 'host' "
+        || getHostConfiguration().isHostConfiguration(),
+        "Host configuration %s is not a host configuration' "
         + "and does not match target configuration %s",
         getHostConfiguration(), getTargetConfiguration());
 

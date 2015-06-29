@@ -381,7 +381,6 @@ public abstract class AbstractAction implements Action {
 
     private final Location location;
     private final Label label;
-    private final String configurationName;
     private final String configurationMnemonic;
     private final String configurationChecksum;
     private final String targetKind;
@@ -390,7 +389,6 @@ public abstract class AbstractAction implements Action {
     private ActionOwnerDescription(ActionOwner originalOwner) {
       this.location = originalOwner.getLocation();
       this.label = originalOwner.getLabel();
-      this.configurationName = originalOwner.getConfigurationName();
       this.configurationMnemonic = originalOwner.getConfigurationMnemonic();
       this.configurationChecksum = originalOwner.getConfigurationChecksum();
       this.targetKind = originalOwner.getTargetKind();
@@ -405,11 +403,6 @@ public abstract class AbstractAction implements Action {
     @Override
     public Label getLabel() {
       return label;
-    }
-
-    @Override
-    public String getConfigurationName() {
-      return configurationName;
     }
 
     @Override

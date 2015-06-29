@@ -43,20 +43,10 @@ public abstract class AbstractActionOwner implements ActionOwner {
     return "empty target kind";
   }
 
-  @Override
-  public String getConfigurationName() {
-    return "empty configuration";
-  }
-
   /**
    * An action owner for special cases. Usage is strongly discouraged. 
    */
   public static final ActionOwner SYSTEM_ACTION_OWNER = new AbstractActionOwner() {
-    @Override
-    public final String getConfigurationName() {
-      return "system";
-    }
-
     @Override
     public String getConfigurationMnemonic() {
       return "system";

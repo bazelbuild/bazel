@@ -232,11 +232,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return fatApk ? "fat-apk" : null;
   }
 
-  @Override
-  public String getConfigurationNameSuffix() {
-    return fatApk ? "fat-apk" : null;
-  }
-
   public Label getProguardLabel() {
     return proguard;
   }

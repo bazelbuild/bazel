@@ -280,7 +280,6 @@ public final class RuleContext extends TargetContext
   private static final class RuleActionOwner implements ActionOwner {
     private final Label label;
     private final Location location;
-    private final String configurationName;
     private final String mnemonic;
     private final String targetKind;
     private final String configurationChecksum;
@@ -290,7 +289,6 @@ public final class RuleContext extends TargetContext
       this.label = rule.getLabel();
       this.location = rule.getLocation();
       this.targetKind = rule.getTargetKind();
-      this.configurationName = configuration.getShortName();
       this.mnemonic = configuration.getMnemonic();
       this.configurationChecksum = configuration.checksum();
       this.hostConfiguration = configuration.isHostConfiguration();
@@ -304,11 +302,6 @@ public final class RuleContext extends TargetContext
     @Override
     public Label getLabel() {
       return label;
-    }
-
-    @Override
-    public String getConfigurationName() {
-      return configurationName;
     }
 
     @Override
