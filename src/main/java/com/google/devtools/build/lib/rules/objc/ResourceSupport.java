@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -65,6 +67,23 @@ final class ResourceSupport {
       ruleContext.attributeError("datamodels", error);
     }
 
+    Multiset<Artifact> resources = HashMultiset.create();
+    resources.addAll(attributes.resources());
+    resources.addAll(attributes.structuredResources());
+    resources.addAll(attributes.strings());
+    resources.addAll(attributes.assetCatalogs());
+    resources.addAll(attributes.datamodels());
+    resources.addAll(attributes.xibs());
+    resources.addAll(attributes.storyboards());
+
+    for (Multiset.Entry<Artifact> entry : resources.entrySet()) {
+      if (entry.getCount() > 1) {
+        ruleContext.ruleError(
+            "The same file was included multiple times in this rule: "
+                + entry.getElement().getRootRelativePathString());
+      }
+    }
+
     return this;
   }
 
@@ -81,6 +100,29 @@ final class ResourceSupport {
 
     ImmutableList<Artifact> assetCatalogs() {
       return ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET).list();
+    }
+
+    ImmutableList<Artifact> strings() {
+      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET).list();
+    }
+
+    ImmutableList<Artifact> xibs() {
+      return ruleContext
+          .getPrerequisiteArtifacts("xibs", Mode.TARGET)
+          .errorsForNonMatching(ObjcRuleClasses.XIB_TYPE)
+          .list();
+    }
+
+    ImmutableList<Artifact> storyboards() {
+      return ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET).list();
+    }
+
+    ImmutableList<Artifact> resources() {
+      return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
+    }
+
+    ImmutableList<Artifact> structuredResources() {
+      return ruleContext.getPrerequisiteArtifacts("structured_resources", Mode.TARGET).list();
     }
   }
 }

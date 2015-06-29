@@ -39,14 +39,22 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
+    new ResourceSupport(ruleContext)
+        .validateAttributes()
+        .addXcodeSettings(xcodeProviderBuilder);
+
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     new BundleSupport(ruleContext, bundling)
         .registerActions(common.getObjcProvider())
         .validateResources(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder);
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
 
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
