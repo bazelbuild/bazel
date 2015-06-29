@@ -131,7 +131,7 @@ a minimal set of extra dependencies.
 [javac](https://github.com/google/error-prone-javac)
 -------
 
-* Version: 1.9.0-dev-r2644-1
+* Version: 1.9.0-dev-r2644-2
 * License: GNU GPL v2 with Classpath exception
 
 
