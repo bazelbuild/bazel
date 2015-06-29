@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.standalone;
+package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

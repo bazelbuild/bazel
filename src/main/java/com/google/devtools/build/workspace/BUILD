@@ -13,6 +13,7 @@ java_library(
     deps = [
         "//src/main/java:analysis-exec-rules-skyframe",
         "//src/main/java:bazel-core",
+        "//src/main/java:buildtool-runtime",
         "//src/main/java:events",
         "//src/main/java:options",
         "//src/main/java:packages",

@@ -241,6 +241,7 @@ java_library(
         "//src/main/java:actions",
         "//src/main/java:analysis-exec-rules-skyframe",
         "//src/main/java:bazel-core",
+        "//src/main/java:buildtool-runtime",
         "//src/main/java:collect",
         "//src/main/java:concurrent",
         "//src/main/java:events",

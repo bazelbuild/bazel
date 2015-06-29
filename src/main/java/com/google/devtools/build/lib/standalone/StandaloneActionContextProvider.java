@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
@@ -40,7 +39,7 @@ import java.io.IOException;
 /**
  * Provide a standalone, local execution context.
  */
-public class StandaloneContextProvider extends ActionContextProvider {
+public class StandaloneActionContextProvider extends ActionContextProvider {
 
   /**
    * a IncludeScanningContext that does nothing. Since local execution does not need to
@@ -61,15 +60,12 @@ public class StandaloneContextProvider extends ActionContextProvider {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private final ActionContext standaloneSpawnStrategy;
   private final ImmutableList<ActionContext> strategies;
   private final BlazeRuntime runtime;
 
-  public StandaloneContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
+  public StandaloneActionContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
-    standaloneSpawnStrategy = new StandaloneSpawnStrategy(runtime.getExecRoot(), verboseFailures);
     this.runtime = runtime;
 
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
@@ -77,19 +73,12 @@ public class StandaloneContextProvider extends ActionContextProvider {
         runtime.getWorkspace());
 
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
-    // order of strategies passed to builder is significant - when there are many strategies that
+
+    // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
-
-    // put sandboxed strategy first, as we don't want it by default
-    if (OS.getCurrent() == OS.LINUX) {
-      LinuxSandboxedStrategy sandboxedLinuxStrategy =
-          new LinuxSandboxedStrategy(runtime.getDirectories(), verboseFailures);
-      strategiesBuilder.add(sandboxedLinuxStrategy);
-    }
-
     strategiesBuilder.add(
-        standaloneSpawnStrategy,
+        new StandaloneSpawnStrategy(runtime.getExecRoot(), verboseFailures),
         new DummyIncludeScanningContext(),
         new LocalLinkStrategy(),
         testStrategy,
@@ -104,4 +93,5 @@ public class StandaloneContextProvider extends ActionContextProvider {
   public Iterable<ActionContext> getActionContexts() {
     return strategies;
   }
+
 }

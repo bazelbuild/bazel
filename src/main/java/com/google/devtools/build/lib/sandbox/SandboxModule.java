@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.standalone;
+package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
@@ -24,21 +24,21 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 
 /**
- * StandaloneModule provides pluggable functionality for blaze.
+ * This module provides the Sandbox spawn strategy.
  */
-public class StandaloneModule extends BlazeModule {
+public class SandboxModule extends BlazeModule {
   private BuildRequest buildRequest;
   private BlazeRuntime runtime;
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
     return ImmutableList.<ActionContextProvider>of(
-        new StandaloneActionContextProvider(runtime, buildRequest));
+        new SandboxActionContextProvider(runtime, buildRequest));
   }
 
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(new StandaloneActionContextConsumer());
+    return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
   }
 
   @Override

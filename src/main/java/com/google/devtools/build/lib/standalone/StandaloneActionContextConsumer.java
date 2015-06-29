@@ -24,7 +24,7 @@ import java.util.Map;
  * {@link ActionContextConsumer} that requests the action contexts necessary for standalone
  * execution.
  */
-public class StandaloneContextConsumer implements ActionContextConsumer {
+public class StandaloneActionContextConsumer implements ActionContextConsumer {
 
   @Override
   public Map<String, String> getSpawnActionContexts() {
