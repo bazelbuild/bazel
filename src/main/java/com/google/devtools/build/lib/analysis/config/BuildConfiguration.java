@@ -1152,7 +1152,6 @@ public final class BuildConfiguration implements Serializable {
   }
 
   public Transitions getTransitions() {
-    Preconditions.checkState(this.transitions != null || isHostConfiguration());
     return transitions;
   }
 
