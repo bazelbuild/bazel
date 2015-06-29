@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -102,7 +103,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> additionalSources = NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<XcodeProvider> extensions = new ImmutableList.Builder<>();
     private String architecture;
-    private ImmutableList.Builder<PathFragment> datamodelDirs = new ImmutableList.Builder<>();
     private boolean generateCompanionLibTarget = false;
     private ConfigurationDistinguisher configurationDistinguisher;
 
@@ -298,11 +298,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    public Builder addDatamodelDirs(Iterable<PathFragment> datamodelDirs) {
-      this.datamodelDirs.addAll(datamodelDirs);
-      return this;
-    }
-
     /**
      * Generates an extra LIBRARY_STATIC Xcode target with the same compilation artifacts. Dependent
      * Xcode targets will pick this companion library target as its dependency, rather than the
@@ -420,7 +415,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> additionalSources;
   private final ImmutableList<XcodeProvider> extensions;
   private final String architecture;
-  private final ImmutableList<PathFragment> datamodelDirs;
   private final boolean generateCompanionLibTarget;
   private final ConfigurationDistinguisher configurationDistinguisher;
 
@@ -447,7 +441,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.additionalSources = builder.additionalSources.build();
     this.extensions = builder.extensions.build();
     this.architecture = Preconditions.checkNotNull(builder.architecture);
-    this.datamodelDirs = builder.datamodelDirs.build();
     this.generateCompanionLibTarget = builder.generateCompanionLibTarget;
     this.configurationDistinguisher =
         Preconditions.checkNotNull(builder.configurationDistinguisher);
@@ -552,7 +545,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
             .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
             .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
-            .addAllXcdatamodel(PathFragment.safePathStrings(datamodelDirs))
+            .addAllXcdatamodel(PathFragment.safePathStrings(
+                Xcdatamodels.datamodelDirs(objcProvider.get(XCDATAMODEL))))
             .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
             .addAllSdkDylib(objcProvider.get(SDK_DYLIB))
             .addAllGeneralResourceFile(
