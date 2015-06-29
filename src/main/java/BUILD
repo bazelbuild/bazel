@@ -302,6 +302,8 @@ java_library(
         "//src/main/protobuf:proto_build",
         "//src/main/protobuf:proto_test_status",
         "//third_party:guava",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
     ],
 )
 
@@ -329,6 +331,7 @@ java_library(
         ":unix",
         ":vfs",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
