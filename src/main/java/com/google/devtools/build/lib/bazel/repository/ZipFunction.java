@@ -77,16 +77,15 @@ public class ZipFunction implements SkyFunction {
 
   private void extractZipEntry(ZipReader reader, ZipFileEntry entry, Path destinationDirectory)
       throws IOException {
-    PathFragment relativePath = new PathFragment(entry.getName());
+    String relativeString = entry.getName();
+    PathFragment relativePath = new PathFragment(relativeString);
     if (relativePath.isAbsolute()) {
       throw new IOException(
           String.format("Failed to extract %s, zipped paths cannot be absolute", relativePath));
     }
     Path outputPath = destinationDirectory.getRelative(relativePath);
+    int permissions = getPermissions(entry.getExternalAttributes(), relativeString);
     FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
-    // Posix permissions are in the high-order 2 bytes of the external attributes. After this
-    // operation, permissions holds 0100755 (or 040755 for directories).
-    int permissions = entry.getExternalAttributes() >>> 16;
     boolean isDirectory = (permissions & 040000) == 040000;
     if (isDirectory) {
       FileSystemUtils.createDirectoryAndParents(outputPath);
@@ -108,6 +107,31 @@ public class ZipFunction implements SkyFunction {
   @Nullable
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  private int getPermissions(int permissions, String path) throws IOException {
+    // Posix permissions are in the high-order 2 bytes of the external attributes. After this
+    // operation, permissions holds 0100755 (or 040755 for directories).
+    int shiftedPermissions = permissions >>> 16;
+    if (shiftedPermissions != 0) {
+      return shiftedPermissions;
+    }
+
+    // If this was zipped up on FAT, it won't have posix permissions set. Instead, this
+    // checks if the filename ends with / (for directories) and extra attributes set to 0 for
+    // files. From  https://github.com/miloyip/rapidjson/archive/v1.0.2.zip, it looks like
+    // executables end up with "normal" (posix) permissions (oddly), so they'll be handled above.
+    if (path.endsWith("/")) {
+      // Directory.
+      return 040755;
+    } else if (permissions == 0) {
+      // File.
+      return 010644;
+    }
+
+    // No idea.
+    throw new IOException("Unrecognized file mode for " + path + ": 0x"
+        + Integer.toHexString(permissions));
   }
 
 }
