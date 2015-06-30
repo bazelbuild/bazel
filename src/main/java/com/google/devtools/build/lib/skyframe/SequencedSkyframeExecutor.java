@@ -230,6 +230,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyFunctions.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
+          SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.WORKSPACE_FILE);
 
   @Override
