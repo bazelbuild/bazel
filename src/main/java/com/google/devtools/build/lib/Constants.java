@@ -76,13 +76,6 @@ public class Constants {
       ImmutableList.<String>of();
 
   /**
-   * Error message from the parser. This happens when a BUILD file contains
-   * a block (e.g. a function).
-   */
-  public static final String PARSER_ERROR_EXTENSION_NEEDED =
-      "Move this construct to a macro in a .bzl file and load it";
-
-  /**
    * Rule classes which specify iOS devices for running tests.
    */
   public static final ImmutableSet<String> IOS_DEVICE_RULE_CLASSES = ImmutableSet.of("ios_device");

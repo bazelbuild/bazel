@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -1438,9 +1437,12 @@ class Parser {
     Token blockToken = token;
     syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
     if (parsingMode == BUILD) {
-      reportError(lexer.createLocation(start, token.right), "syntax error at '"
-                  + blockToken + "': This Python-style construct is not supported. "
-                  + Constants.PARSER_ERROR_EXTENSION_NEEDED);
+      reportError(
+          lexer.createLocation(start, token.right),
+          "syntax error at '"
+              + blockToken
+              + "': This is not supported in BUILD files. "
+              + "Move the block to a .bzl file and load it");
     }
     expect(TokenKind.COLON);
     skipSuite();
