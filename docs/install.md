@@ -38,18 +38,26 @@ To build Bazel on Ubuntu:
 $ sudo apt-get install openjdk-7-jdk openjdk-7-source
 ```
 
-#### 2. Set the `JAVA_HOME` environment variable.
-
-First, check to see if it's already set:
+#### 2. Install required packages:
 
 ```
-$ echo $JAVA_HOME
+$ sudo apt-get install pkg-config zip g++ zlib1g-dev
 ```
 
-If this prints the path to the JDK 7 root directory, proceed to the next
-step. Otherwise, find the Java `bin` directory using `which javac` and use
-`javac -version` to verify that you have the right JDK version. Then set
-the `JAVA_HOME` environment variable to the `bin` directory parent.
+#### 3. Build Bazel:
+
+```
+$ cd bazel
+$ ./compile.sh
+```
+
+If this fails to find a correct Java version, then try to
+set the `JAVA_HOME` environment variable.
+
+Find the Java `bin` directory using `readlink -f $(which javac)`
+and use `javac -version` to verify that you have the right JDK version (1.7+).
+Then set the `JAVA_HOME` environment variable to the `bin` directory
+parent.
 
 For example, if the path is `/usr/lib/jvm/jdk1.7.0/bin/javac`, set the
 `JAVA_HOME` variable to `/usr/lib/jvm/jdk1.7.0`:
@@ -60,18 +68,6 @@ $ export JAVA_HOME=/usr/lib/jvm/jdk1.7.0
 
 You can also add this line to your `~/.bashrc` file.
 
-#### 3. Install required packages:
-
-```
-$ sudo apt-get install pkg-config zip g++ zlib1g-dev
-```
-
-#### 4. Build Bazel:
-
-```
-$ cd bazel
-$ ./compile.sh
-```
 
 ### Building Bazel on OS X
 
