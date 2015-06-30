@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -54,16 +56,25 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addEntryClasses(ruleContext.attributes().get("entry_classes", Type.STRING_LIST))
         .build();
 
-    ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
-        .addTransitiveAndPropagate(ruleContext.getPrerequisite(
-            "$jre_emul_lib", Mode.TARGET, ObjcProvider.class))
-        .addTransitiveAndPropagate(ruleContext.getPrerequisites(
-            "deps", Mode.TARGET, ObjcProvider.class));
+    ObjcProvider.Builder objcProviderBuilder =
+        new ObjcProvider.Builder()
+            .addTransitiveAndPropagate(
+                ruleContext.getPrerequisite("$jre_emul_lib", Mode.TARGET, ObjcProvider.class))
+            .addTransitiveAndPropagate(
+                ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
+
+    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
+    XcodeSupport xcodeSupport =
+        new XcodeSupport(ruleContext)
+            .addDependencies(xcodeProviderBuilder, new Attribute("$jre_emul_lib", Mode.TARGET))
+            .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
 
     if (j2ObjcSrcsProvider.hasProtos()) {
       if (ruleContext.attributes().has("$protobuf_lib", Type.LABEL)) {
-        objcProvider.addTransitiveAndPropagate(ruleContext.getPrerequisite(
-            "$protobuf_lib", Mode.TARGET, ObjcProvider.class));
+        objcProviderBuilder.addTransitiveAndPropagate(
+            ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
+        xcodeSupport.addDependencies(
+            xcodeProviderBuilder, new Attribute("$protobuf_lib", Mode.TARGET));
       } else {
         // In theory no Bazel rule should ever provide protos, because they're not supported yet.
         // If we reach here, it's a programming error, not a rule error.
@@ -74,12 +85,20 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     }
 
     for (J2ObjcSource j2objcSource : j2ObjcSrcsProvider.getSrcs()) {
-      objcProvider.addAll(ObjcProvider.HEADER, j2objcSource.getObjcHdrs());
-      objcProvider.add(ObjcProvider.INCLUDE, j2objcSource.getObjcFilePath());
-      objcProvider.add(ObjcProvider.INCLUDE, new PathFragment(
-          j2objcSource.getObjcFilePath(),
-          ruleContext.getConfiguration().getGenfilesFragment()));
+      PathFragment genDirHeaderSearchPath =
+          new PathFragment(
+              j2objcSource.getObjcFilePath(), ruleContext.getConfiguration().getGenfilesFragment());
+
+      objcProviderBuilder.addAll(ObjcProvider.HEADER, j2objcSource.getObjcHdrs());
+      objcProviderBuilder.add(ObjcProvider.INCLUDE, j2objcSource.getObjcFilePath());
+      objcProviderBuilder.add(ObjcProvider.INCLUDE, genDirHeaderSearchPath);
+      xcodeProviderBuilder.addHeaders(j2objcSource.getObjcHdrs());
+      xcodeProviderBuilder.addUserHeaderSearchPaths(
+          ImmutableList.of(j2objcSource.getObjcFilePath(), genDirHeaderSearchPath));
     }
+
+    ObjcProvider objcProvider = objcProviderBuilder.build();
+    xcodeSupport.addXcodeSettings(xcodeProviderBuilder, objcProvider, LIBRARY_STATIC);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
@@ -87,7 +106,8 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcSrcsProvider.class, j2ObjcSrcsProvider)
         .addProvider(
             J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
-        .addProvider(ObjcProvider.class, objcProvider.build())
+        .addProvider(ObjcProvider.class, objcProvider)
+        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
   }
 
