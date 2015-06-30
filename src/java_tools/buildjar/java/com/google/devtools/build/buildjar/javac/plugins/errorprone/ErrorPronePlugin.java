@@ -153,9 +153,11 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       } catch (InvalidCommandLineOptionException e) {
         throwError(Result.CMDERR, e.getMessage());
       }
+    } else {
+      epOptions = ErrorProneOptions.empty();
     }
 
-    errorProneAnalyzer = ErrorProneAnalyzer.create(scannerSupplier.get()).init(context);
+    errorProneAnalyzer = ErrorProneAnalyzer.create(scannerSupplier.get()).init(context, epOptions);
   }
 
   /**
