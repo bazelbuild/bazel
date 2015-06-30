@@ -138,8 +138,7 @@ public class BazelRuleClassProvider {
     @Override
     public String getJavaCpu(BuildOptions buildOptions, ConfigurationEnvironment env)
         throws InvalidConfigurationException {
-      JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-      return javaOptions.javaCpu == null ? "default" : javaOptions.javaCpu;
+      return "default";
     }
   };
 
@@ -352,8 +351,8 @@ public class BazelRuleClassProvider {
         Functions.<String>identity()));
     builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
     builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
-    builder.addConfigurationFragment(new JvmConfigurationLoader(JAVA_CPU_SUPPLIER));
-    builder.addConfigurationFragment(new JavaConfigurationLoader(JAVA_CPU_SUPPLIER));
+    builder.addConfigurationFragment(new JvmConfigurationLoader(false, JAVA_CPU_SUPPLIER));
+    builder.addConfigurationFragment(new JavaConfigurationLoader());
     builder.addConfigurationFragment(new ObjcConfigurationLoader());
     builder.addConfigurationFragment(new J2ObjcConfiguration.Loader());
     builder.addConfigurationFragment(new AndroidConfiguration.Loader());

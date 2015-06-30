@@ -106,8 +106,8 @@ public class BazelAnalysisMock extends AnalysisMock {
     return new ConfigurationFactory(new BazelConfigurationCollection(),
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),
-        new JvmConfigurationLoader(BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
-        new JavaConfigurationLoader(BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
+        new JvmConfigurationLoader(false, BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
+        new JavaConfigurationLoader(),
         new ObjcConfigurationLoader());
   }
 
