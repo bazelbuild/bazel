@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
+import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -179,6 +180,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
     extensionEnv.setImportedExtensions(importMap);
     ast.exec(extensionEnv, eventHandler);
+    SkylarkRuleClassFunctions.exportRuleFunctions(extensionEnv, file);
 
     Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
     if (eventHandler.hasErrors()) {

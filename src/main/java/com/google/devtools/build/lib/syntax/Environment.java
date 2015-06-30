@@ -221,6 +221,13 @@ public class Environment {
   }
 
   /**
+   * Returns the (immutable) set of names of all variables directly defined in this environment.
+   */
+  public Set<String> getDirectVariableNames() {
+    return env.keySet();
+  }
+
+  /**
    * Returns the (immutable) set of names of all variables defined in this
    * environment. Exposed for testing; not very efficient!
    */
