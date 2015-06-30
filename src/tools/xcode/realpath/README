@@ -1,0 +1,14 @@
+realpath is a simple implementation of the realpath utility:
+http://www.gnu.org/software/coreutils/manual/html_node/realpath-invocation.html
+since Mac OS X does not have anything equivalent.
+
+This version takes no options.
+
+This is based on the default GNU/Linux implementation that allows the last
+component to not exist. This is different than the Debian implementation that
+requires the last component to exist. Supporting the GNU/Linux implementation
+makes writing scripts that depend on realpath much easier, and is probably
+closer to what Apple may actually ship as a realpath implementation in the
+future.
+
+realpath only builds/runs on Darwin.

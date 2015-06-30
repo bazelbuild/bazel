@@ -123,6 +123,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
         tools/objc/precomp_xcodegen_deploy.jar
     bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
         tools/objc/StdRedirect.dylib
+    bazel_bootstrap //src/tools/xcode/realpath:realpath \
+        tools/objc/realpath
   fi
 fi
 
