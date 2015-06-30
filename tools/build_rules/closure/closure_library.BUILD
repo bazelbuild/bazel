@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("/tools/build_rules/closure/closure_js_library", "closure_js_library")
+load("/tools/build_rules/closure/closure_stylesheet_library", "closure_stylesheet_library")
 
 closure_js_library(
     name = "closure_library",
@@ -26,5 +27,11 @@ closure_js_library(
             "closure/goog/demos/**/*.js",
         ],
     ),
+    visibility = ["//visibility:public"],
+)
+
+closure_stylesheet_library(
+    name = "closure_library_css",
+    srcs = glob(["closure/goog/css/**/*.css"]),
     visibility = ["//visibility:public"],
 )

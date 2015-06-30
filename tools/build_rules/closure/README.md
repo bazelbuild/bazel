@@ -108,6 +108,7 @@ closure_js_library(
 closure_stylesheet_library(
     name = "hello_css",
     srcs = ["hello.gss"],
+    deps = ["@closure_library//:closure_library_css"],
 )
 
 closure_template_library(
