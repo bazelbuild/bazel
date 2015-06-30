@@ -2,24 +2,26 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(name = "sdk")
 
-filegroup(
+android_library(
     name = "incremental_stub_application",
-    srcs = [],
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:stub_application"],
 )
 
-filegroup(
+android_library(
     name = "incremental_split_stub_application",
-    srcs = [],
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:split_stub_application"],
 )
 
-filegroup(
+sh_binary(
     name = "aar_generator",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction"],
+    srcs = ["aar_generator.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction"],
 )
 
-filegroup(
+sh_binary(
     name = "resources_processor",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction"],
+    srcs = ["resources_processor.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction"],
 )
 
 sh_binary(
