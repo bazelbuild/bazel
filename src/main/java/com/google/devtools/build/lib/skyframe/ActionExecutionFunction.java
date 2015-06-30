@@ -319,7 +319,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     PerActionFileCache perActionFileCache = new PerActionFileCache(state.inputArtifactData);
     ActionExecutionContext actionExecutionContext = null;
     boolean inputsDiscoveredDuringActionExecution = false;
-    Map<Artifact, FileArtifactValue> metadataFoundDuringActionExecution = null;
     try {
       if (action.discoversInputs()) {
         if (!state.hasDiscoveredInputs()) {
@@ -366,25 +365,25 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           // Nothing we can do here.
         }
       }
-      if (inputsDiscoveredDuringActionExecution) {
-        metadataFoundDuringActionExecution =
-            declareAdditionalDependencies(env, action, state.inputArtifactData.keySet());
-        state.discoveredInputs = metadataFoundDuringActionExecution.keySet();
+    }
+    if (inputsDiscoveredDuringActionExecution) {
+      Map<Artifact, FileArtifactValue> metadataFoundDuringActionExecution =
+          declareAdditionalDependencies(env, action, state.inputArtifactData.keySet());
+      state.discoveredInputs = metadataFoundDuringActionExecution.keySet();
+      if (env.valuesMissing()) {
+        return null;
       }
-    }
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (inputsDiscoveredDuringActionExecution && !metadataFoundDuringActionExecution.isEmpty()) {
-      // We are in the interesting case of an action that discovered its inputs during execution,
-      // and found some new ones, but the new ones were already present in the graph. We must
-      // therefore cache the metadata for those new ones.
-      Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
-      inputArtifactData.putAll(state.inputArtifactData);
-      inputArtifactData.putAll(metadataFoundDuringActionExecution);
-      state.inputArtifactData = inputArtifactData;
-      metadataHandler =
-          new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
+      if (!metadataFoundDuringActionExecution.isEmpty()) {
+        // We are in the interesting case of an action that discovered its inputs during execution,
+        // and found some new ones, but the new ones were already present in the graph. We must
+        // therefore cache the metadata for those new ones.
+        Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
+        inputArtifactData.putAll(state.inputArtifactData);
+        inputArtifactData.putAll(metadataFoundDuringActionExecution);
+        state.inputArtifactData = inputArtifactData;
+        metadataHandler =
+            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
+      }
     }
     skyframeActionExecutor.afterExecution(action, metadataHandler, state.token);
     return state.value;
