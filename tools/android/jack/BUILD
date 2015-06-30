@@ -21,3 +21,8 @@ sh_binary(
     name = "resource_extractor",
     srcs = ["fail.sh"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

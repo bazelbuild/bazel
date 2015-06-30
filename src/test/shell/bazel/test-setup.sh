@@ -46,26 +46,95 @@ function bazel() {
 }
 
 function setup_android_support() {
-  mkdir -p src/tools/android/java/com/google/devtools/build/android
-  cat <<EOF > src/tools/android/java/com/google/devtools/build/android/BUILD
+  cat > tools/android/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
+filegroup(name = "sdk")
+
+android_library(
+    name = "incremental_stub_application",
+)
+
+android_library(
+    name = "incremental_split_stub_application",
+)
+
 sh_binary(
-    name = "AarGeneratorAction",
+    name = "aar_generator",
     srcs = ["fail.sh"],
 )
 
 sh_binary(
-    name = "AndroidResourceProcessingAction",
+    name = "resources_processor",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "merge_dexzips",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "shuffle_jars",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "merge_manifests",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "proguard_whitelister",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "build_incremental_dexmanifest",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "incremental_install",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "strip_resources",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "stubify_manifest",
     srcs = ["fail.sh"],
 )
 EOF
 
-  cat <<EOF > src/tools/android/java/com/google/devtools/build/android/fail.sh
+  cat > tools/android/fail.sh <<EOF
 #!/bin/bash
 
 exit 1
 EOF
 
-  chmod +x src/tools/android/java/com/google/devtools/build/android/fail.sh
+  chmod +x tools/android/fail.sh
+
+  mkdir -p third_party/java/jarjar
+  cat > third_party/java/jarjar/BUILD <<EOF
+licenses(["unencumbered"])
+sh_binary(
+  name = "jarjar_bin",
+  srcs = ["fail.sh"],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > third_party/java/jarjar/fail.sh <<EOF
+#!/bin/bash
+
+exit 1
+EOF
+
+  chmod +x third_party/java/jarjar/fail.sh
 }
 
 function setup_protoc_support() {
