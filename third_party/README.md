@@ -83,7 +83,7 @@ a minimal set of extra dependencies.
 [Error Prone](https://github.com/google/error-prone)
 -------------
 
-* Version: 2.0.4
+* Version: 2.0.5-20150630-51ec2fd
 * License: Apache License 2.0
 
 [jFormatString](https://code.google.com/p/j-format-string/)
