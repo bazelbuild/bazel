@@ -33,6 +33,8 @@ import java.util.MissingFormatWidthException;
  */
 public final class Printer {
 
+  private static final char SKYLARK_QUOTATION_MARK = '"';
+  
   private Printer() {
   }
 
@@ -40,21 +42,31 @@ public final class Printer {
    * Get an informal representation of object x.
    * Currently only differs from repr in the behavior for strings and labels at top-level,
    * that are returned as is rather than quoted.
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the representation.
    */
-  public static String str(Object x) {
-    return print(new StringBuilder(), x).toString();
+  public static String str(Object x, char quotationMark) {
+    return print(new StringBuilder(), x, quotationMark).toString();
   }
 
+  public static String str(Object x) {
+    return str(x, SKYLARK_QUOTATION_MARK);
+  }
+  
   /**
    * Get an official representation of object x.
    * For regular data structures, the value should be parsable back into an equal data structure.
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the representation.
    */
-  public static String repr(Object x) {
-    return write(new StringBuilder(), x).toString();
+  public static String repr(Object x, char quotationMark) {
+    return write(new StringBuilder(), x, quotationMark).toString();
   }
 
+  public static String repr(Object x) {
+    return repr(x, SKYLARK_QUOTATION_MARK);
+  }
+  
   // In absence of a Python naming tradition, the write() vs print() function names
   // follow the Lisp tradition: print() displays the informal representation (as in Python str)
   // whereas write() displays a readable representation (as in Python repr).
@@ -64,31 +76,37 @@ public final class Printer {
    * that are returned as is rather than quoted.
    * @param buffer the Appendable to which to print the representation
    * @param o the object
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the buffer, in fluent style
    */
-  public static Appendable print(Appendable buffer, Object o) {
+  public static Appendable print(Appendable buffer, Object o, char quotationMark) {
     if (o instanceof Label) {
       return append(buffer, o.toString());  // Pretty-print a label like a string
     }
     if (o instanceof String) {
       return append(buffer, (String) o);
     }
-    return write(buffer, o);
+    return write(buffer, o, quotationMark);
   }
-
+  
+  public static Appendable print(Appendable buffer, Object o) {
+    return print(buffer, o, SKYLARK_QUOTATION_MARK);
+  }
+  
   /**
    * Print an official representation of object x.
    * For regular data structures, the value should be parsable back into an equal data structure.
    * @param buffer the Appendable to write to.
    * @param o the string a representation of which to write.
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the Appendable, in fluent style.
    */
-  public static Appendable write(Appendable buffer, Object o) {
+  public static Appendable write(Appendable buffer, Object o, char quotationMark) {
     if (o == null) {
       throw new NullPointerException(); // Java null is not a build language value.
 
     } else if (o instanceof String) {
-      writeString(buffer, (String) o);
+      writeString(buffer, (String) o, quotationMark);
 
     } else if (o instanceof Integer || o instanceof Double) {
       append(buffer, o.toString());
@@ -104,26 +122,26 @@ public final class Printer {
 
     } else if (o instanceof List<?>) {
       List<?> seq = (List<?>) o;
-      printList(buffer, seq, EvalUtils.isImmutable(seq));
+      printList(buffer, seq, EvalUtils.isImmutable(seq), quotationMark);
 
     } else if (o instanceof SkylarkList) {
       SkylarkList list = (SkylarkList) o;
-      printList(buffer, list.toList(), list.isTuple());
+      printList(buffer, list.toList(), list.isTuple(), quotationMark);
 
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> dict = (Map<?, ?>) o;
-      printList(buffer, dict.entrySet(), "{", ", ", "}", null);
+      printList(buffer, dict.entrySet(), "{", ", ", "}", null, quotationMark);
 
     } else if (o instanceof Map.Entry<?, ?>) {
       Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
-      write(buffer, entry.getKey());
+      write(buffer, entry.getKey(), quotationMark);
       append(buffer, ": ");
-      write(buffer, entry.getValue());
+      write(buffer, entry.getValue(), quotationMark);
 
     } else if (o instanceof SkylarkNestedSet) {
       SkylarkNestedSet set = (SkylarkNestedSet) o;
       append(buffer, "set(");
-      printList(buffer, set, "[", ", ", "]", null);
+      printList(buffer, set, "[", ", ", "]", null, quotationMark);
       Order order = set.getOrder();
       if (order != Order.STABLE_ORDER) {
         append(buffer, ", order = \"" + order.getName() + "\"");
@@ -135,23 +153,25 @@ public final class Printer {
       append(buffer, "<function " + func.getName() + ">");
 
     } else if (o instanceof Label) {
-      write(buffer, o.toString());
+      write(buffer, o.toString(), quotationMark);
 
     } else if (o instanceof FilesetEntry) {
            FilesetEntry entry = (FilesetEntry) o;
       append(buffer, "FilesetEntry(srcdir = ");
-      write(buffer, entry.getSrcLabel().toString());
+      write(buffer, entry.getSrcLabel().toString(), quotationMark);
       append(buffer, ", files = ");
-      write(buffer, makeStringList(entry.getFiles()));
+      write(buffer, makeStringList(entry.getFiles()), quotationMark);
       append(buffer, ", excludes = ");
-      write(buffer, makeList(entry.getExcludes()));
+      write(buffer, makeList(entry.getExcludes()), quotationMark);
       append(buffer, ", destdir = ");
-      write(buffer, entry.getDestDir().getPathString());
+      write(buffer, entry.getDestDir().getPathString(), quotationMark);
       append(buffer, ", strip_prefix = ");
-      write(buffer, entry.getStripPrefix());
-      append(buffer, ", symlinks = \"");
+      write(buffer, entry.getStripPrefix(), quotationMark);
+      append(buffer, ", symlinks = ");
+      append(buffer, quotationMark);
       append(buffer, entry.getSymlinkBehavior().toString());
-      append(buffer, "\")");
+      append(buffer, quotationMark);
+      append(buffer, ")");
 
     } else if (o instanceof PathFragment) {
       append(buffer, ((PathFragment) o).getPathString());
@@ -163,6 +183,10 @@ public final class Printer {
     return buffer;
   }
 
+  public static Appendable write(Appendable buffer, Object o) {
+    return write(buffer, o, SKYLARK_QUOTATION_MARK);
+  }
+  
   // Throughout this file, we transform IOException into AssertionError.
   // During normal operations, we only use in-memory Appendable-s that
   // cannot cause an IOException.
@@ -235,7 +259,7 @@ public final class Printer {
 
   /**
    * Write a properly escaped Skylark representation of a string to a buffer.
-   * Use standard Skylark convention, i.e., double-quoted single-line string,
+   * By default, standard Skylark convention is used, i.e., double-quoted single-line string,
    * as opposed to standard Python convention, i.e. single-quoted single-line string.
    *
    * @param buffer the Appendable we're writing to.
@@ -243,7 +267,7 @@ public final class Printer {
    * @return the buffer, in fluent style.
    */
   public static Appendable writeString(Appendable buffer, String s) {
-    return writeString(buffer, s, '"');
+    return writeString(buffer, s, SKYLARK_QUOTATION_MARK);
   }
 
   /**
@@ -256,10 +280,11 @@ public final class Printer {
    * @param singletonTerminator null or a string to print after the list if it is a singleton
    * The singleton case is notably relied upon in python syntax to distinguish
    * a tuple of size one such as ("foo",) from a merely parenthesized object such as ("foo").
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the Appendable, in fluent style.
    */
-  public static Appendable printList(Appendable buffer, Iterable<?> list,
-      String before, String separator, String after, String singletonTerminator) {
+  public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
+      String separator, String after, String singletonTerminator, char quotationMark) {
     boolean printSeparator = false; // don't print the separator before the first element
     int len = 0;
     append(buffer, before);
@@ -267,7 +292,7 @@ public final class Printer {
       if (printSeparator) {
         append(buffer, separator);
       }
-      write(buffer, o);
+      write(buffer, o, quotationMark);
       printSeparator = true;
       len++;
     }
@@ -277,18 +302,26 @@ public final class Printer {
     return append(buffer, after);
   }
 
+  public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
+      String separator, String after, String singletonTerminator) {
+    return printList(
+        buffer, list, before, separator, after, singletonTerminator, SKYLARK_QUOTATION_MARK);
+  }
+  
   /**
    * Print a Skylark list or tuple of object representations
    * @param buffer an appendable buffer onto which to write the list.
    * @param list the contents of the list or tuple
    * @param isTuple is it a tuple or a list?
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return the Appendable, in fluent style.
    */
-  public static Appendable printList(Appendable buffer, Iterable<?> list, boolean isTuple) {
+  public static Appendable printList(
+      Appendable buffer, Iterable<?> list, boolean isTuple, char quotationMark) {
     if (isTuple) {
-      return printList(buffer, list, "(", ", ", ")", ",");
+      return printList(buffer, list, "(", ", ", ")", ",", quotationMark);
     } else {
-      return printList(buffer, list, "[", ", ", "]", null);
+      return printList(buffer, list, "[", ", ", "]", null, quotationMark);
     }
   }
 
@@ -301,12 +334,18 @@ public final class Printer {
    * @param singletonTerminator null or a string to print after the list if it is a singleton
    * The singleton case is notably relied upon in python syntax to distinguish
    * a tuple of size one such as ("foo",) from a merely parenthesized object such as ("foo").
+   * @param quotationMark The quotation mark to be used (' or ")
    * @return a String, the representation.
    */
-  public static String listString(Iterable<?> list,
-      String before, String separator, String after, String singletonTerminator) {
-    return printList(new StringBuilder(), list, before, separator, after, singletonTerminator)
-        .toString();
+  public static String listString(Iterable<?> list, String before, String separator, String after,
+      String singletonTerminator, char quotationMark) {
+    return printList(new StringBuilder(), list, before, separator, after, singletonTerminator,
+               quotationMark).toString();
+  }
+
+  public static String listString(
+      Iterable<?> list, String before, String separator, String after, String singletonTerminator) {
+    return listString(list, before, separator, after, singletonTerminator, SKYLARK_QUOTATION_MARK);
   }
 
   private static List<?> makeList(Collection<?> list) {
@@ -330,31 +369,35 @@ public final class Printer {
    * This function is intended for use in assertions such as Precondition.checkArgument
    * so that you only pay the cost of computing the string when the assertion passes.
    */
-  public static Object strFormattable(final Object o) {
+  public static Object strFormattable(final Object o, final char quotationMark) {
     if (o instanceof Integer || o instanceof Double || o instanceof String) {
       return o;
     } else {
       return new Formattable() {
         @Override
         public String toString() {
-          return str(o);
+          return str(o, quotationMark);
         }
 
         @Override
         public void formatTo(Formatter formatter, int flags, int width, int precision) {
-          print(formatter.out(), o);
+          print(formatter.out(), o, quotationMark);
         }
       };
     }
   }
 
+  public static Object strFormattable(final Object o) {
+    return strFormattable(o, SKYLARK_QUOTATION_MARK);
+  }
+  
   /**
    * Convert BUILD language objects to Formattable so JDK can render them correctly.
    * Don't do this for numeric or string types because we want %d, %x, %s to work.
    * This function is intended for use in assertions such as Precondition.checkArgument
    * so that you only pay the cost of computing the string when the assertion passes.
    */
-  public static Object reprFormattable(final Object o) {
+  public static Object reprFormattable(final Object o, final char quotationMark) {
     if (o instanceof Integer || o instanceof Double) {
       return o;
     } else {
@@ -366,12 +409,17 @@ public final class Printer {
 
         @Override
         public void formatTo(Formatter formatter, int flags, int width, int precision) {
-          write(formatter.out(), o);
+          write(formatter.out(), o, quotationMark);
         }
       };
     }
   }
 
+  public static Object reprFormattable(final Object o) {
+    return reprFormattable(o, SKYLARK_QUOTATION_MARK);
+  }
+  
+  
   /*
    * N.B. MissingFormatWidthException is the only kind of IllegalFormatException
    * whose constructor can take and display arbitrary error message, hence its use below.
@@ -396,8 +444,7 @@ public final class Printer {
    * @param arguments positional arguments.
    * @return the formatted string.
    */
-  public static String format(String pattern, Object... arguments)
-      throws IllegalFormatException {
+  public static String format(String pattern, Object... arguments) throws IllegalFormatException {
     return formatString(pattern, ImmutableList.copyOf(arguments));
   }
 
@@ -445,7 +492,8 @@ public final class Printer {
         case 's':
           if (a >= argLength) {
             throw new MissingFormatWidthException("not enough arguments for format pattern "
-                + repr(pattern) + ": " + repr(SkylarkList.tuple(arguments)));
+                + repr(pattern) + ": "
+                + repr(SkylarkList.tuple(arguments)));
           }
           Object argument = arguments.get(a++);
           switch (directive) {

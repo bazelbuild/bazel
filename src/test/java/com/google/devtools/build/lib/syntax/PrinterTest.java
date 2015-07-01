@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -141,34 +142,14 @@ public class PrinterTest {
         "%.s");
   }
 
-  private String createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior symlinkBehavior) {
-    return "FilesetEntry(srcdir = \"//x:x\","
-           + " files = [\"//x:x\"],"
-           + " excludes = [],"
-           + " destdir = \"\","
-           + " strip_prefix = \".\","
-           + " symlinks = \"" + symlinkBehavior.toString().toLowerCase() + "\")";
-  }
-
-  private FilesetEntry createTestFilesetEntry(FilesetEntry.SymlinkBehavior symlinkBehavior)
-    throws Exception {
-    Label label = Label.parseAbsolute("//x");
-    return new FilesetEntry(
-        label,
-        Arrays.asList(label),
-        Arrays.<String>asList(),
-        "",
-        symlinkBehavior,
-        ".");
-  }
-
   @Test
   public void testFilesetEntrySymlinkAttr() throws Exception {
     FilesetEntry entryDereference =
       createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
 
-    assertEquals(createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE),
-                 Printer.repr(entryDereference));
+    assertEquals(
+        createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.DEREFERENCE, '"'),
+        Printer.repr(entryDereference));
   }
 
   private FilesetEntry createStripPrefixFilesetEntry(String stripPrefix)  throws Exception {
@@ -203,20 +184,62 @@ public class PrinterTest {
     // with a List<Label> even though this isn't a valid datatype in the
     // interpreter.
     // Fileset isn't part of bazel, even though FilesetEntry is.
+    assertEquals(createExpectedFilesetEntryString('"'), Printer.repr(createTestFilesetEntry()));
+  }
+
+  @Test
+  public void testSingleQuotes() throws Exception {
+    assertThat(Printer.str("test", '\'')).isEqualTo("test");
+    assertThat(Printer.repr("test", '\'')).isEqualTo("'test'");
+
+    assertEquals("'\\''", Printer.repr("'", '\''));
+    assertEquals("\"", Printer.str("\"", '\''));
+    assertEquals("'\"'", Printer.repr("\"", '\''));
+
+    List<?> list = makeList("foo", "bar");
+    List<?> tuple = makeTuple("foo", "bar");
+
+    assertThat(Printer.str(makeTuple(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
+    assertThat(Printer.repr(makeTuple(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
+    assertThat(Printer.str(makeList(1, tuple, 3), '\'')).isEqualTo("[1, ('foo', 'bar'), 3]");
+    assertThat(Printer.repr(makeList(1, tuple, 3), '\'')).isEqualTo("[1, ('foo', 'bar'), 3]");
+
+    Map<Object, Object> dict =
+        ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", makeList());
+
+    assertThat(Printer.str(dict, '\''))
+        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
+    assertThat(Printer.repr(dict, '\''))
+        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
+
+    assertThat(Printer.repr(createTestFilesetEntry(), '\''))
+        .isEqualTo(createExpectedFilesetEntryString('\''));
+  }
+
+  private String createExpectedFilesetEntryString(
+      FilesetEntry.SymlinkBehavior symlinkBehavior, char quotationMark) {
+    return String.format(
+        "FilesetEntry(srcdir = %1$c//x:x%1$c,"
+        + " files = [%1$c//x:x%1$c],"
+        + " excludes = [],"
+        + " destdir = %1$c%1$c,"
+        + " strip_prefix = %1$c.%1$c,"
+        + " symlinks = %1$c%2$s%1$c)",
+        quotationMark, symlinkBehavior.toString().toLowerCase());
+  }
+
+  private String createExpectedFilesetEntryString(char quotationMark) {
+    return createExpectedFilesetEntryString(FilesetEntry.SymlinkBehavior.COPY, quotationMark);
+  }
+
+  private FilesetEntry createTestFilesetEntry(FilesetEntry.SymlinkBehavior symlinkBehavior)
+      throws SyntaxException {
     Label label = Label.parseAbsolute("//x");
-    assertEquals("FilesetEntry(srcdir = \"//x:x\","
-                 + " files = [\"//x:x\"],"
-                 + " excludes = [],"
-                 + " destdir = \"\","
-                 + " strip_prefix = \".\","
-                 + " symlinks = \"copy\")",
-                 Printer.repr(
-                     new FilesetEntry(
-                         label,
-                         Arrays.asList(label),
-                         Arrays.<String>asList(),
-                         "",
-                         FilesetEntry.SymlinkBehavior.COPY,
-                         ".")));
+    return new FilesetEntry(
+        label, Arrays.asList(label), Arrays.<String>asList(), "", symlinkBehavior, ".");
+  }
+
+  private FilesetEntry createTestFilesetEntry() throws SyntaxException {
+    return createTestFilesetEntry(FilesetEntry.SymlinkBehavior.COPY);
   }
 }
