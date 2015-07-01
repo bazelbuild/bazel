@@ -37,6 +37,12 @@ public final class BindRule implements RuleDefinition {
         ${SYNOPSIS}
 
         <p>This target must exist, but can be any type of rule (including bind).</p>
+
+        <p>If this attribute is omitted, rules referring to this target in <code>//external</code>
+        will simply not see this dependency edge. Note that this is different from omitting the
+        <code>bind</code> rule completely: it is an error if an <code>//external</code> dependency
+        does not have an associated <code>bind</code> rule.
+        </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("actual", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
         .setWorkspaceOnly()

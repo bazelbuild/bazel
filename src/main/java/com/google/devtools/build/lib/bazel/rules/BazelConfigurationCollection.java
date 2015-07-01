@@ -250,6 +250,13 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
           }
         }
       }
+
+      if (rule.getRuleClass().equals("bind")) {
+        Label actual = AggregatingAttributeMapper.of(rule).get("actual", Type.LABEL);
+        if (actual != null) {
+          collectTransitiveClosure(loadedPackageProvider, reachableLabels, actual);
+        }
+      }
     }
   }
 }

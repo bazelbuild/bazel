@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -56,7 +58,7 @@ public class Bind implements RuleConfiguredTargetFactory {
 
     @Override
     public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-      return configuredTarget.getProvider(provider);
+      return configuredTarget == null ? null : configuredTarget.getProvider(provider);
     }
 
     @Override
@@ -66,17 +68,19 @@ public class Bind implements RuleConfiguredTargetFactory {
 
     @Override
     public Object get(String providerKey) {
-      return configuredTarget.get(providerKey);
+      return configuredTarget == null ? null : configuredTarget.get(providerKey);
     }
 
     @Override
     public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-      return configuredTarget.iterator();
+      return configuredTarget == null
+          ? ImmutableList.<TransitiveInfoProvider>of().iterator()
+          : configuredTarget.iterator();
     }
 
     @Override
     public Target getTarget() {
-      return configuredTarget.getTarget();
+      return configuredTarget == null ? null : configuredTarget.getTarget();
     }
 
     @Override
@@ -94,20 +98,22 @@ public class Bind implements RuleConfiguredTargetFactory {
         // A shortcut for files to build in Skylark. FileConfiguredTarget and RunleConfiguredTarget
         // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
         // accessible in Skylark.
-        return SkylarkNestedSet.of(
-            Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+        return SkylarkNestedSet.of(Artifact.class, configuredTarget == null
+            ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+            : getProvider(FileProvider.class).getFilesToBuild());
       }
-      return configuredTarget.get(name);
+      return configuredTarget == null ? null : configuredTarget.get(name);
     }
 
     @SuppressWarnings("cast")
     @Override
     public ImmutableCollection<String> getKeys() {
-      return new ImmutableList.Builder<String>()
-          .add("label", "files")
-          .addAll(configuredTarget.getProvider(RuleConfiguredTarget.SkylarkProviders.class)
-              .getKeys())
-          .build();
+      ImmutableList.Builder<String> result = ImmutableList.<String>builder().add("label", "files");
+      if (configuredTarget != null) {
+          result.addAll(
+              configuredTarget.getProvider(RuleConfiguredTarget.SkylarkProviders.class).getKeys());
+      }
+      return result.build();
     }
 
     @Override
@@ -121,5 +127,4 @@ public class Bind implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     return new BindConfiguredTarget(ruleContext);
   }
-
 }

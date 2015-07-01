@@ -91,13 +91,14 @@ public class WorkspaceFactory {
 
   private static BuiltinFunction newBindFunction(final Builder builder) {
     return new BuiltinFunction("bind",
-        FunctionSignature.namedOnly("name", "actual"), BuiltinFunction.USE_LOC) {
+        FunctionSignature.namedOnly(1, "name", "actual"), BuiltinFunction.USE_LOC) {
       public Object invoke(String name, String actual, Location loc)
           throws EvalException, InterruptedException {
         Label nameLabel = null;
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
-          builder.addBinding(nameLabel, new Binding(Label.parseAbsolute(actual), loc));
+          Binding binding = new Binding(actual == null ? null : Label.parseAbsolute(actual), loc);
+          builder.addBinding(nameLabel, binding);
         } catch (Label.SyntaxException e) {
           throw new EvalException(loc, e.getMessage());
         }

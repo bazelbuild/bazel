@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.Constants;
-import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
@@ -151,9 +150,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      Options options = buildOptions.get(Options.class);
-      Label sdk = RedirectChaser.followRedirects(env, options.realSdk(), "android_sdk");
-      return new AndroidConfiguration(options, sdk);
+      return new AndroidConfiguration(buildOptions.get(Options.class));
     }
 
     @Override
@@ -176,8 +173,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
 
-  AndroidConfiguration(Options options, Label sdk) {
-    this.sdk = sdk;
+  AndroidConfiguration(Options options) {
+    this.sdk = options.realSdk();
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;

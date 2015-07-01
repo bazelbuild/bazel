@@ -112,6 +112,12 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
         List<Label> labels = javaHomeAttributes.get("srcs", Type.LABEL_LIST);
         for (Label jvmLabel : labels) {
           if (jvmLabel.getName().endsWith("-" + cpu)) {
+            jvmLabel = RedirectChaser.followRedirects(
+                lookup, jvmLabel, "Architecture-specific JDK");
+            if (jvmLabel == null) {
+              return null;
+            }
+
             Target jvmTarget = lookup.getTarget(jvmLabel);
             if (jvmTarget == null) {
               return null;

@@ -166,6 +166,10 @@ public class ExternalPackage extends Package {
     private void resolveLabel(final Label virtual, Binding binding)
         throws NoSuchBindingException {
       Label actual = binding.getActual();
+      if (actual == null) {
+        return;
+      }
+
       Label tortoise = virtual;
       Label hare = actual;
       boolean moveTortoise = true;
@@ -202,7 +206,9 @@ public class ExternalPackage extends Package {
       // Bound rules don't have a name field, but this works because we don't want more than one
       // with the same virtual name.
       attributes.put("name", virtual.getName());
-      attributes.put("actual", actual);
+      if (actual != null) {
+        attributes.put("actual", actual);
+      }
       StoredEventHandler handler = new StoredEventHandler();
       Rule rule = RuleFactory.createAndAddRule(this, klass, attributes, handler, null, location);
       rule.setVisibility(ConstantRuleVisibility.PUBLIC);

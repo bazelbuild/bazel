@@ -53,7 +53,8 @@ public class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
-        "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
+        // "dummy" is needed so that RedirectChaser stops here
+        "filegroup(name='java', srcs = ['jdk/jre/bin/java', 'dummy'])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar'])");
     config.create("tools/cpp/BUILD",
