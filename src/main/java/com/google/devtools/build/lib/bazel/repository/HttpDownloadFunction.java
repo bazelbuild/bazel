@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -27,8 +27,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
@@ -38,6 +36,11 @@ import javax.annotation.Nullable;
  */
 public class HttpDownloadFunction implements SkyFunction {
   public static final String NAME = "HTTP_DOWNLOAD";
+  private Reporter reporter;
+
+  public void setReporter(Reporter reporter) {
+    this.reporter = reporter;
+  }
 
   @Nullable
   @Override
@@ -49,7 +52,7 @@ public class HttpDownloadFunction implements SkyFunction {
       // contents, once decompressed, _can_ be dependencies of the build and _are_ added to
       // Skyframe (through the normal package mechanism).
       return new HttpDownloadValue(new HttpDownloader(
-          descriptor.url, descriptor.sha256, descriptor.outputDirectory).download());
+          reporter, descriptor.url, descriptor.sha256, descriptor.outputDirectory).download());
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException("Error downloading from "
           + descriptor.url + " to " + descriptor.outputDirectory + ": " + e.getMessage()),
@@ -66,14 +69,7 @@ public class HttpDownloadFunction implements SkyFunction {
   public static SkyKey key(Rule rule, Path outputDirectory)
       throws RepositoryFunction.RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    URL url = null;
-    try {
-      url = new URL(mapper.get("url", Type.STRING));
-    } catch (MalformedURLException e) {
-      throw new RepositoryFunction.RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "Error parsing URL: " + e.getMessage()),
-          SkyFunctionException.Transience.PERSISTENT);
-    }
+    String url = mapper.get("url", Type.STRING);
     String sha256 = mapper.get("sha256", Type.STRING);
     return new SkyKey(
         SkyFunctionName.create(NAME),
@@ -81,11 +77,11 @@ public class HttpDownloadFunction implements SkyFunction {
   }
 
   static final class HttpDescriptor {
-    private URL url;
+    private String url;
     private String sha256;
     private Path outputDirectory;
 
-    public HttpDescriptor(URL url, String sha256, Path outputDirectory) {
+    public HttpDescriptor(String url, String sha256, Path outputDirectory) {
       this.url = url;
       this.sha256 = sha256;
       this.outputDirectory = outputDirectory;
