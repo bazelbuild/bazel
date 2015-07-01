@@ -321,4 +321,18 @@ public class BuildFileASTTest {
     BuildFileAST buildFileAST = parseBuildFile("include('//foo:bar')");
     assertThat(buildFileAST.getStatements()).hasSize(1);
   }
+
+  @Test
+  public void testFetchSubincludes() throws Exception {
+    BuildFileAST buildFileAST =
+        parseBuildFile(
+            "foo('a')\n",
+            "subinclude()\n",
+            "subinclude('hello')\n",
+            "1 + subinclude('ignored')",
+            "var = 'also ignored'",
+            "subinclude(var)\n",
+            "subinclude('world')");
+    assertThat(buildFileAST.getSubincludes()).containsExactly("hello", "world");
+  }
 }
