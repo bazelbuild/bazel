@@ -46,7 +46,9 @@ def _impl(ctx):
       arguments=args,
       executable=ctx.executable._closure_templates)
 
-  return struct(files=set(), transitive_js_srcs=set([ctx.outputs.out]))
+  return struct(
+      files=set(), transitive_js_externs=set(),
+      transitive_js_srcs=set([ctx.outputs.out]))
 
 closure_template_library = rule(
     implementation=_impl,

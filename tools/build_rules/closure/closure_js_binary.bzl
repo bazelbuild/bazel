@@ -46,8 +46,10 @@ _COMPILATION_LEVELS = {
 }
 
 def _impl(ctx):
+  externs = set(order="compile")
   srcs = set(order="compile")
   for dep in ctx.attr.deps:
+    externs += dep.transitive_js_externs
     srcs += dep.transitive_js_srcs
 
   args = [
@@ -56,7 +58,8 @@ def _impl(ctx):
       "--language_in=ECMASCRIPT5_STRICT",
       "--manage_closure_dependencies",
       "--warning_level=VERBOSE",
-  ] + ["--js=%s" % src.path for src in srcs]
+  ] + (["--js=%s" % src.path for src in srcs] +
+       ["--externs=%s" % extern.path for extern in externs])
 
   # Set the compilation level.
   if ctx.attr.compilation_level in _COMPILATION_LEVELS:
@@ -77,7 +80,8 @@ closure_js_binary = rule(
     implementation=_impl,
     attrs={
         "deps": attr.label_list(
-            allow_files=False, providers=["transitive_js_srcs"]),
+            allow_files=False,
+            providers=["transitive_js_externs", "transitive_js_srcs"]),
         "main": attr.string(default="%{name}"),
         "compilation_level": attr.string(default="advanced"),
         "_closure_compiler": attr.label(

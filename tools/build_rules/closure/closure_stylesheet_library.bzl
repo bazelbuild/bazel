@@ -58,6 +58,7 @@ def _impl(ctx):
   return struct(
       files=set([ctx.outputs.out]),
       transitive_gss_srcs=srcs,
+      transitive_js_externs=set(),
       transitive_js_srcs=[ctx.outputs.out_renaming])
 
 # There are two outputs:
