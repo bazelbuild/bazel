@@ -52,6 +52,7 @@ function assert_zipper_same_after_unzip() {
 function test_zipper() {
   mkdir -p ${TEST_TMPDIR}/test/path/to/some
   mkdir -p ${TEST_TMPDIR}/test/some/other/path
+  touch ${TEST_TMPDIR}/test/path/to/some/empty_file
   echo "toto" > ${TEST_TMPDIR}/test/path/to/some/file
   echo "titi" > ${TEST_TMPDIR}/test/path/to/some/other_file
   chmod +x ${TEST_TMPDIR}/test/path/to/some/other_file

@@ -218,7 +218,7 @@ int create(char *zipfile, char **files, bool flatten, bool verbose) {
     }
 
     u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));
-    if (isdir) {
+    if (isdir || statst.st_size == 0) {
       builder->FinishFile(0);
     } else {
       // mmap the input file and memcpy
