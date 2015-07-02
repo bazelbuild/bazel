@@ -114,13 +114,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       }
 
       labelMap.put("android_sdk", realSdk());
-
-      labelMap.put("android_incremental_stub_application",
-          AndroidRuleClasses.DEFAULT_INCREMENTAL_STUB_APPLICATION);
-      labelMap.put("android_incremental_split_stub_application",
-          AndroidRuleClasses.DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION);
-      labelMap.put("android_resources_processor", AndroidRuleClasses.DEFAULT_RESOURCES_PROCESSOR);
-      labelMap.put("android_aar_generator", AndroidRuleClasses.DEFAULT_AAR_GENERATOR);
     }
 
     // This method is here because Constants.ANDROID_DEFAULT_SDK cannot be a constant, because we
