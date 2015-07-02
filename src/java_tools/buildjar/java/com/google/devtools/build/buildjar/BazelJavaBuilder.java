@@ -102,10 +102,10 @@ public abstract class BazelJavaBuilder {
           ? new ReducedClasspathJavaLibraryBuilder()
           : new SimpleJavaLibraryBuilder();
       builder.run(build, System.err);
-    } catch (InvalidCommandLineException e) {
+    } catch (JavacException | InvalidCommandLineException e) {
       System.err.println(CMDNAME + " threw exception: " + e.getMessage());
       return 1;
-    } catch (IOException e) {
+    } catch (Exception e) {
       e.printStackTrace();
       return 1;
     }
