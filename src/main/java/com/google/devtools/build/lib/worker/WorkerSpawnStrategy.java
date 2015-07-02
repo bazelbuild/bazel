@@ -73,7 +73,11 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
     // Thus, we can extract the last element from its args (which will be the flagfile) to start the
     // persistent mode and then pass it the flagfile via a WorkRequest to make it actually do the
     // work.
-    Preconditions.checkArgument(Iterables.getLast(spawn.getArguments()).startsWith("@"));
+    if (!Iterables.getLast(spawn.getArguments()).startsWith("@")) {
+      Preconditions.checkState(
+          false, "Must have parameter file as last arg, got args: " + spawn.getArguments());
+    }
+
     ImmutableList<String> args = ImmutableList.<String>builder()
         .addAll(spawn.getArguments().subList(0, spawn.getArguments().size() - 1))
         .add("--persistent_worker")
