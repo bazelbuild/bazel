@@ -28,8 +28,11 @@ function query() {
 ([ -f "output/bazel" ] && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] && [ -f "tools/jdk/ijar" ] \
     && [ -f "tools/jdk/SingleJar_deploy.jar" ] && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
 
-# Build everything
-./output/bazel build //src/... //third_party/... >&2 || exit $?
+# Build almost everything.
+# //third_party/ijar/test/... is disabled due to #273.
+# xcode and android tools do not work out of the box.
+./output/bazel build -- //src/... //third_party/... \
+  -//third_party/ijar/test/... -//src/tools/{xcode,android}/... >&2 || exit $?
 
 # Path IDE should put its output files in.
 IDE_OUTPUT_PATH="bazel-out/ide-classes"

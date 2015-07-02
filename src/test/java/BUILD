@@ -476,8 +476,10 @@ java_binary(
     srcs = ["com/google/devtools/build/lib/syntax/SkylarkShell.java"],
     main_class = "com.google.devtools.build.lib.syntax.SkylarkShell",
     deps = [
+        "//src/main/java:analysis-exec-rules-skyframe",
         "//src/main/java:bazel-core",
         "//src/main/java:events",
+        "//src/main/java:packages",
     ],
 )
 
