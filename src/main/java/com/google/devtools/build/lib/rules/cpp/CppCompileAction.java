@@ -1285,12 +1285,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       addFilteredOptions(options,
           featureConfiguration.getCommandLine(getActionName(), variables));
 
-      options.addAll(toolchain.getUnfilteredCompilerOptions(features));
-
       // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
       // Make sure these are added after the options from the feature configuration, so that
       // those options can be overriden.
       options.addAll(copts);
+
+      // Unfiltered compiler options contain system include paths. These must be added after
+      // the user provided options, otherwise users adding include paths will not pick up their
+      // own include paths first.
+      options.addAll(toolchain.getUnfilteredCompilerOptions(features));
 
       // GCC gives randomized names to symbols which are defined in
       // an anonymous namespace but have external linkage.  To make
