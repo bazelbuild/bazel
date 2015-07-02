@@ -59,7 +59,7 @@ function parse_options() {
   [[ "${COMMANDS}" =~ (test|all) ]] && DO_TESTS=1
 
   BAZEL_BIN=${2:-"bazel-bin/src/bazel"}
-  BAZEL_SUM=${3:-"bazel-out/bazel_checksum"}
+  BAZEL_SUM=${3:-"x"}
 }
 
 parse_options "${@}"
