@@ -123,10 +123,9 @@ But if you want to debug the Java code, you must attach to the server with the f
 
 Bazel is organized in several parts:
 
-* A client code in C++ that talk to the server code in java and provide the
-  command-line interface. Its code is in `src/main/cpp`.
+* Client code in `src/main/cpp` provides the command-line interface.
 * Protocol buffers in `src/main/protobuf`.
-* The server code in Java (in `src/main/java` and `src/test/java`)
+* Server code in `src/main/java` and `src/test/java`.
   * Core code which is mostly composed of [SkyFrame](docs/skyframe.html) and some
     utilities.
   * [Skylark](docs/skylark/index.html) rules are defined in `tools/build_rules`.
