@@ -30,6 +30,13 @@ public class WorkerOptions extends OptionsBase {
           + "launched if you use the 'worker' strategy.")
   public int workerMaxInstances;
 
+  @Option(name = "experimental_persistent_javac",
+      defaultValue = "null",
+      category = "undocumented",
+      help = "Enable the experimental persistent Java compiler.",
+      expansion = {"--strategy=Javac=worker", "--strategy=JavaIjar=local"})
+  public Void experimentalPersistentJavac;
+
   @Option(
     name = "worker_max_changed_files",
     defaultValue = "0",
