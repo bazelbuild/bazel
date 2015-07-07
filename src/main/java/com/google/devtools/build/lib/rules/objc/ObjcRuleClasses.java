@@ -66,7 +66,6 @@ public class ObjcRuleClasses {
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
-  static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
   static final PathFragment SWIFT_STDLIB_TOOL = new PathFragment(BIN_DIR + "/swift-stdlib-tool");
   static final PathFragment STRIP = new PathFragment(BIN_DIR + "/strip");
 
@@ -472,8 +471,12 @@ public class ObjcRuleClasses {
               .value(env.getLabel("//tools/objc:plmerge")))
           .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
-          .add(attr("$ibtoolzip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:ibtoolzip_deploy.jar")))
+          .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:ibtoolwrapper")))
+          // TODO(dmaclach): Adding realpath here should not be required once
+          // https://github.com/google/bazel/issues/285 is fixed.
+          .add(attr("$realpath", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:realpath")))
           .add(attr("$swiftstdlibtoolzip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:swiftstdlibtoolzip_deploy.jar")))
           .build();

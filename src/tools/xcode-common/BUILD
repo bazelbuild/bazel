@@ -5,7 +5,6 @@ filegroup(
     srcs = [
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:srcs",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common:srcs",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip:srcs",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:srcs",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util:srcs",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/zip:srcs",

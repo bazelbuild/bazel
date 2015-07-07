@@ -33,7 +33,6 @@ import java.util.List;
 public class IosSdkCommands {
   public static final String DEVELOPER_DIR = "/Applications/Xcode.app/Contents/Developer";
   public static final String ACTOOL_PATH = DEVELOPER_DIR + "/usr/bin/actool";
-  public static final String IBTOOL_PATH = DEVELOPER_DIR + "/usr/bin/ibtool";
   public static final String MOMC_PATH = DEVELOPER_DIR + "/usr/bin/momc";
 
   // There is a handy reference to many clang warning flags at

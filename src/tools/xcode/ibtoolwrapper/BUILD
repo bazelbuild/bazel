@@ -1,0 +1,12 @@
+package(default_visibility = ["//src/test:__subpackages__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
+sh_binary(
+    name = "ibtoolwrapper",
+    srcs = ["ibtoolwrapper.sh"],
+    data = ["//src/tools/xcode/realpath:realpath_genrule"],
+)

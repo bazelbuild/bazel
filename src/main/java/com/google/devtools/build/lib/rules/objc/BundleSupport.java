@@ -198,11 +198,15 @@ final class BundleSupport {
       Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
+          ObjcRuleClasses.spawnOnDarwinActionBuilder()
               .setMnemonic("StoryboardCompile")
+              .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
+              // TODO(dmaclach): Adding realpath here should not be required once
+              // https://github.com/google/bazel/issues/285 is fixed.
+              .addInput(attributes.realpath())
               .build(ruleContext));
     }
   }
@@ -213,7 +217,6 @@ final class BundleSupport {
         // The next three arguments are positional, i.e. they don't have flags before them.
         .addPath(zipOutput.getExecPath())
         .add(archiveRoot)
-        .addPath(ObjcRuleClasses.IBTOOL)
         .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
         .add("--module").add(ruleContext.getLabel().getName());
 
@@ -262,12 +265,17 @@ final class BundleSupport {
       Artifact zipOutput = intermediateArtifacts.compiledXibFileZip(original);
       String archiveRoot = BundleableFile.flatBundlePath(
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
+
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.ibtoolzipDeployJar())
+          ObjcRuleClasses.spawnOnDarwinActionBuilder()
               .setMnemonic("XibCompile")
+              .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
+              // TODO(dmaclach): Adding realpath here should not be required once
+              // https://github.com/google/bazel/issues/285 is fixed.
+              .addInput(attributes.realpath())
               .build(ruleContext));
     }
   }
@@ -429,10 +437,19 @@ final class BundleSupport {
     }
 
     /**
-     * Returns the location of the ibtoolzip deploy jar.
+     * Returns the location of the ibtoolwrapper tool.
      */
-    Artifact ibtoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$ibtoolzip_deploy", Mode.HOST);
+    FilesToRunProvider ibtoolwrapper() {
+      return ruleContext.getExecutablePrerequisite("$ibtoolwrapper", Mode.HOST);
+    }
+
+    /**
+     * Returns the location of the realpath tool.
+     * TODO(dmaclach): Should not be required once https://github.com/google/bazel/issues/285
+     * is fixed.
+     */
+    Artifact realpath() {
+      return ruleContext.getPrerequisiteArtifact("$realpath", Mode.HOST);
     }
 
     /**
