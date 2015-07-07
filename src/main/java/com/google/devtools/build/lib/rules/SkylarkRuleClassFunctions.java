@@ -222,7 +222,6 @@ public class SkylarkRuleClassFunctions {
             doc = "If true, the files will be generated in the genfiles directory instead of the "
             + "bin directory. This is used for compatibility with existing rules.")},
       useAst = true, useEnvironment = true)
-  @SuppressWarnings("unused")  // used via reflection.
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
       @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
       // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
