@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -848,14 +849,15 @@ public abstract class Type<T> {
         throw new ConversionException(String.format(
             "Expected a map for dictionary but got a %s", x.getClass().getName())); 
       }
-      ImmutableMap.Builder<KeyT, ValueT> result = ImmutableMap.builder();
+      // Order the keys so the return value will be independent of insertion order.
+      Map<KeyT, ValueT> result = new TreeMap<>();
       Map<?, ?> o = (Map<?, ?>) x;
       for (Entry<?, ?> elem : o.entrySet()) {
         result.put(
             keyType.convert(elem.getKey(), "dict key element", currentRule),
             valueType.convert(elem.getValue(), "dict value element", currentRule));
       }
-      return result.build();
+      return ImmutableMap.copyOf(result);
     }
 
     @Override
