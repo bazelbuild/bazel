@@ -481,4 +481,39 @@ EOF
   assert_contains "Michaelangelo" bazel-genfiles/tmnt
 }
 
+function test_local_deps() {
+  local r=$TEST_TMPDIR/r
+  mkdir -p $r
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+
+EOF
+
+  mkdir -p $r/a
+  cat > $r/a/BUILD <<'EOF'
+genrule(
+    name = "a",
+    srcs = ["//b:b"],
+    outs = ["a.out"],
+    cmd = "cp $< $@",
+)
+EOF
+
+  mkdir -p $r/b
+  cat > $r/b/BUILD <<'EOF'
+genrule(
+    name = "b",
+    srcs = [],
+    outs = ["b.out"],
+    cmd = "echo SHOUT > $@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  bazel build @r//a || fail "build failed"
+}
+
 run_suite "local repository tests"

@@ -355,6 +355,30 @@ public final class Label implements Comparable<Label>, Serializable {
     }
   }
 
+  /**
+   * Resolves the repository of a label in the context of another label.
+   *
+   * <p>This is necessary so that dependency edges in remote repositories do not need to explicitly
+   * mention their repository name. Otherwise, referring to e.g. <code>//a:b</code> in a remote
+   * repository would point back to the main repository, which is usually not what is intended.
+   */
+  public Label resolveRepositoryRelative(Label relative) {
+    if (packageIdentifier.getRepository().isDefault()
+        || !relative.packageIdentifier.getRepository().isDefault()) {
+      return relative;
+    } else {
+      try {
+        return new Label(
+            new PackageIdentifier(packageIdentifier.getRepository(), relative.getPackageFragment()),
+            relative.getName());
+      } catch (Label.SyntaxException e) {
+        // We are creating the new label from an existing one which is guaranteed to be valid, so
+        // this can't happen
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
   @Override
   public int hashCode() {
     return name.hashCode() ^ packageIdentifier.hashCode();
