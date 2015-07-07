@@ -202,7 +202,7 @@ class PackageLookupFunction implements SkyFunction {
    * {@link PackageLookupFunction#compute}.
    */
   private static final class PackageLookupFunctionException extends SkyFunctionException {
-    public PackageLookupFunctionException(NoSuchPackageException e, Transience transience) {
+    public PackageLookupFunctionException(BuildFileNotFoundException e, Transience transience) {
       super(e, transience);
     }
 

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -86,18 +87,27 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
     @Override
     protected PrepareDepsOfTargetsUnderDirectoryValue aggregateWithSubdirectorySkyValues(
         MyVisitor visitor, Map<SkyKey, SkyValue> subdirectorySkyValues) {
-      // Aggregate the child subdirectory package counts.
-      ImmutableMap.Builder<RootedPath, Integer> builder = ImmutableMap.builder();
+      // Aggregate the child subdirectory package state.
+      ImmutableMap.Builder<RootedPath, Boolean> builder = ImmutableMap.builder();
       for (SkyKey key : subdirectorySkyValues.keySet()) {
         PrepareDepsOfTargetsUnderDirectoryKey prepDepsKey =
             (PrepareDepsOfTargetsUnderDirectoryKey) key.argument();
         PrepareDepsOfTargetsUnderDirectoryValue prepDepsValue =
             (PrepareDepsOfTargetsUnderDirectoryValue) subdirectorySkyValues.get(key);
-        int numPackagesInSubdirectory = (prepDepsValue.isDirectoryPackage() ? 1 : 0);
-        for (Integer numPkgsInSubSub : prepDepsValue.getSubdirectoryPackageCount().values()) {
-          numPackagesInSubdirectory += numPkgsInSubSub;
+        boolean packagesInSubdirectory = prepDepsValue.isDirectoryPackage();
+        // If the subdirectory isn't a package, check to see if any of its subdirectories
+        // transitively contain packages.
+        if (!packagesInSubdirectory) {
+          ImmutableCollection<Boolean> subdirectoryValues =
+              prepDepsValue.getSubdirectoryTransitivelyContainsPackages().values();
+          for (Boolean pkgsInSubSub : subdirectoryValues) {
+            if (pkgsInSubSub) {
+              packagesInSubdirectory = true;
+              break;
+            }
+          }
         }
-        builder.put(prepDepsKey.getRecursivePkgKey().getRootedPath(), numPackagesInSubdirectory);
+        builder.put(prepDepsKey.getRecursivePkgKey().getRootedPath(), packagesInSubdirectory);
       }
       return new PrepareDepsOfTargetsUnderDirectoryValue(visitor.isDirectoryPackage(),
           builder.build());

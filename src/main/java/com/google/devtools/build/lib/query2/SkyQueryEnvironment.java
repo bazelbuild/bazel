@@ -45,11 +45,14 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -77,6 +80,8 @@ import javax.annotation.Nullable;
  */
 public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private WalkableGraph graph;
+
+  private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   private final int loadingPhaseThreads;
@@ -106,7 +111,29 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   private void init() throws InterruptedException {
-    graph = graphFactory.prepareAndGet(universeScope, loadingPhaseThreads, eventHandler);
+    EvaluationResult<SkyValue> result =
+        graphFactory.prepareAndGet(universeScope, loadingPhaseThreads, eventHandler);
+    graph = result.getWalkableGraph();
+    Collection<SkyValue> values = result.values();
+
+    // The universe query may fail if there are errors during its evaluation, e.g. because of
+    // cycles in the target graph.
+    boolean singleValueEvaluated = values.size() == 1;
+    boolean foundError = !result.errorMap().isEmpty();
+    boolean evaluationFoundCycle =
+        foundError && !Iterables.isEmpty(result.getError().getCycleInfo());
+    Preconditions.checkState(singleValueEvaluated || evaluationFoundCycle,
+        "Universe query \"%s\" unexpectedly did not result in a single value as expected (%s"
+            + " values in result) and it did not fail because of a cycle.%s",
+        universeScope, values.size(), foundError ? " Error: " + result.getError().toString() : "");
+    if (singleValueEvaluated) {
+      PrepareDepsOfPatternsValue prepareDepsOfPatternsValue =
+          (PrepareDepsOfPatternsValue) Iterables.getOnlyElement(values);
+      universeTargetPatternKeys = prepareDepsOfPatternsValue.getTargetPatternKeys();
+    } else {
+      // The error is because of a cycle, so keep going with the graph we managed to load.
+      universeTargetPatternKeys = ImmutableList.of();
+    }
   }
 
   @Override
@@ -338,7 +365,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   protected Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
       Collection<String> patterns) throws QueryException, TargetParsingException {
     GraphBackedRecursivePackageProvider provider =
-        new GraphBackedRecursivePackageProvider(graph);
+        new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys);
     Map<String, ResolvedTargets<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
     for (String pattern : patterns) {
       SkyKey patternKey = TargetPatternValue.key(pattern,

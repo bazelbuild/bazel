@@ -148,11 +148,18 @@ public abstract class TargetPattern implements Serializable {
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
-   * {@code containedPattern} is contained by or equals this pattern. For example,
-   * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code containedPattern
-   * = TargetPattern ("//foo/...")}.
+   * {@param directory} is contained by or equals this pattern's directory. For example,
+   * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code directory
+   * = "foo")}.
    */
-  public abstract boolean containsBelowDirectory(TargetPattern containedPattern);
+  public abstract boolean containsBelowDirectory(String directory);
+
+  /**
+   * Shorthand for {@code containsBelowDirectory(containedPattern.getDirectory())}.
+   */
+  public boolean containsBelowDirectory(TargetPattern containedPattern) {
+    return containsBelowDirectory(containedPattern.getDirectory());
+  }
 
   /**
    * Returns the most specific containing directory of the patterns that could be matched by this
@@ -164,6 +171,13 @@ public abstract class TargetPattern implements Serializable {
    * <p>The returned value always has no leading "//" and no trailing "/".
    */
   public abstract String getDirectory();
+
+  /**
+   * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
+   * {@code Type.TARGETS_IN_PACKAGE} and the target pattern suffix specified it should match
+   * rules only.
+   */
+  public abstract boolean getRulesOnly();
 
   private static final class SingleTarget extends TargetPattern {
 
@@ -187,13 +201,18 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+    public boolean containsBelowDirectory(String directory) {
       return false;
     }
 
     @Override
     public String getDirectory() {
       return directory;
+    }
+
+    @Override
+    public boolean getRulesOnly() {
+      return false;
     }
 
     @Override
@@ -251,7 +270,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+    public boolean containsBelowDirectory(String directory) {
       return false;
     }
 
@@ -259,6 +278,11 @@ public abstract class TargetPattern implements Serializable {
     public String getDirectory() {
       int lastSlashIndex = path.lastIndexOf('/');
       return lastSlashIndex < 0 ? "" : path.substring(0, lastSlashIndex);
+    }
+
+    @Override
+    public boolean getRulesOnly() {
+      return false;
     }
 
     @Override
@@ -315,13 +339,18 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(TargetPattern containedPattern) {
+    public boolean containsBelowDirectory(String directory) {
       return false;
     }
 
     @Override
     public String getDirectory() {
       return removeSuffix(pattern, suffix);
+    }
+
+    @Override
+    public boolean getRulesOnly() {
+      return rulesOnly;
     }
 
     @Override
@@ -399,17 +428,21 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(TargetPattern containedPattern) {
-      // Note that merely checking to see if the containedPattern's string expression beginsWith
-      // the TargetsBelowDirectory's directory is insufficient. "food" begins with "foo", but
-      // "//foo/..." does not contain "//food/...".
-      String containedDirectory = containedPattern.getDirectory() + "/";
-      return containedDirectory.startsWith(directory + "/");
+    public boolean containsBelowDirectory(String containedDirectory) {
+      // Note that merely checking to see if the directory startsWith the TargetsBelowDirectory's
+      // directory is insufficient. "food" begins with "foo", but "//foo/..." does not contain
+      // "//food/...".
+      return directory.isEmpty() || (containedDirectory + "/").startsWith(directory + "/");
     }
 
     @Override
     public String getDirectory() {
       return directory;
+    }
+
+    @Override
+    public boolean getRulesOnly() {
+      return rulesOnly;
     }
 
     @Override

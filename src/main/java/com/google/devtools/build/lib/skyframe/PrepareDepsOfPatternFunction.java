@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -62,10 +63,19 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
+
+    // DepsOfPatternPreparer below expects to be able to ignore the filtering policy from the
+    // TargetPatternKey, which should be valid because PrepareDepsOfPatternValue.keys
+    // unconditionally creates TargetPatternKeys with the NO_FILTER filtering policy. (Compare
+    // with SkyframeTargetPatternEvaluator, which can create TargetPatternKeys with other
+    // filtering policies like FILTER_TESTS or FILTER_MANUAL.) This check makes sure that the
+    // key's filtering policy is NO_FILTER as expected.
+    Preconditions.checkState(patternKey.getPolicy().equals(FilteringPolicies.NO_FILTER),
+        patternKey.getPolicy());
+
     try {
       TargetPattern parsedPattern = patternKey.getParsedPattern();
-      DepsOfPatternPreparer preparer =
-          new DepsOfPatternPreparer(env, patternKey.getPolicy(), pkgPath.get());
+      DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
       ImmutableSet<String> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       parsedPattern.eval(preparer, excludedSubdirectories);
     } catch (TargetParsingException e) {
@@ -105,14 +115,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     private final EnvironmentBackedRecursivePackageProvider packageProvider;
     private final Environment env;
-    private final FilteringPolicy policy;
     private final PathPackageLocator pkgPath;
 
-    public DepsOfPatternPreparer(Environment env, FilteringPolicy policy,
-        PathPackageLocator pkgPath) {
+    public DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
       this.env = env;
       this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
-      this.policy = policy;
       this.pkgPath = pkgPath;
     }
 
@@ -153,10 +160,9 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     @Override
     public ResolvedTargets<Void> getTargetsInPackage(String originalPattern, String packageName,
         boolean rulesOnly) throws TargetParsingException, InterruptedException {
-      FilteringPolicy actualPolicy = rulesOnly
-          ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
-          : policy;
-      return getTargetsInPackage(originalPattern, new PathFragment(packageName), actualPolicy);
+      FilteringPolicy policy =
+          rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
+      return getTargetsInPackage(originalPattern, new PathFragment(packageName), policy);
     }
 
     private ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
@@ -203,16 +209,15 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     public ResolvedTargets<Void> findTargetsBeneathDirectory(String originalPattern,
         String directory, boolean rulesOnly, ImmutableSet<String> excludedSubdirectories)
         throws TargetParsingException, InterruptedException {
-      FilteringPolicy actualPolicy = rulesOnly
-          ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
-          : policy;
+      FilteringPolicy policy =
+          rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       ImmutableSet<PathFragment> excludedPathFragments =
           TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
       PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       for (Path root : pkgPath.getPathEntries()) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
         SkyValue token = env.getValue(PrepareDepsOfTargetsUnderDirectoryValue.key(rootedPath,
-            excludedPathFragments, actualPolicy));
+            excludedPathFragments, policy));
         if (token == null) {
           // A null token value means there is a missing dependency, because RecursivePkgFunction
           // never throws.

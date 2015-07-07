@@ -75,6 +75,9 @@ public class TransitiveTargetFunction implements SkyFunction {
     NestedSetBuilder<Label> transitiveRootCauses = NestedSetBuilder.stableOrder();
     NoSuchTargetException errorLoadingTarget = null;
     try {
+      // TODO(bazel-team): Why not NoSuchTargetException and NoSuchPackageException explicitly?
+      // Please note that the exception values declared thrown by TargetMarkerFunction are exactly
+      // those two.
       TargetMarkerValue targetValue = (TargetMarkerValue) env.getValueOrThrow(targetKey,
           NoSuchThingException.class);
       if (targetValue == null) {

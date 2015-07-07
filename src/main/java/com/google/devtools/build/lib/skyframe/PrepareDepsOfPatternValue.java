@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -56,14 +56,13 @@ public class PrepareDepsOfPatternValue implements SkyValue {
    *
    * @param patterns The list of patterns, e.g. "-foo/biz...". If a pattern's first character is
    *     "-", it is treated as a negative pattern.
-   * @param policy The filtering policy, e.g. "only return test targets"
    * @param offset The offset to apply to relative target patterns.
    */
   @ThreadSafe
   public static Iterable<PrepareDepsOfPatternSkyKeyOrException> keys(List<String> patterns,
-      FilteringPolicy policy, String offset) {
+      String offset) {
     Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(patterns, policy, offset);
+        TargetPatternValue.keys(patterns, FilteringPolicies.NO_FILTER, offset);
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyOrException> builder = ImmutableList.builder();
     for (TargetPatternSkyKeyOrException keyMaybe : keysMaybe) {
       try {

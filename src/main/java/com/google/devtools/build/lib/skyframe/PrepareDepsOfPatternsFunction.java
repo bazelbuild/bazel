@@ -13,27 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeyOrException;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -55,12 +50,13 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     EventHandler eventHandler = env.getListener();
     boolean handlerIsParseFailureListener = eventHandler instanceof ParseFailureListener;
     TargetPatternSequence targetPatternSequence = (TargetPatternSequence) skyKey.argument();
-    Iterable<TargetPatternSkyKeyOrException> keysMaybe =
-        TargetPatternValue.keys(targetPatternSequence.getPatterns(),
-            targetPatternSequence.getPolicy(), targetPatternSequence.getOffset());
+
+    Iterable<PrepareDepsOfPatternSkyKeyOrException> keysMaybe =
+        PrepareDepsOfPatternValue.keys(targetPatternSequence.getPatterns(),
+            targetPatternSequence.getOffset());
 
     ImmutableList.Builder<SkyKey> skyKeyBuilder = ImmutableList.builder();
-    for (TargetPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
+    for (PrepareDepsOfPatternSkyKeyOrException skyKeyOrException : keysMaybe) {
       try {
         skyKeyBuilder.add(skyKeyOrException.getSkyKey());
       } catch (TargetParsingException e) {
@@ -70,48 +66,33 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     }
     ImmutableList<SkyKey> skyKeys = skyKeyBuilder.build();
 
-    Map<SkyKey, ValueOrException<TargetParsingException>> targetPatternValuesByKey =
+    Map<SkyKey, ValueOrException<TargetParsingException>> tokensByKey =
         env.getValuesOrThrow(skyKeys, TargetParsingException.class);
     if (env.valuesMissing()) {
       return null;
     }
 
-    ResolvedTargets.Builder<Label> builder = ResolvedTargets.builder();
     for (SkyKey key : skyKeys) {
       try {
-        // The only exception type throwable by TargetPatternFunction is TargetParsingException.
-        // Therefore all ValueOrException values in the map will either be non-null or throw
-        // TargetParsingException when get is called.
-        TargetPatternValue resultValue = Preconditions.checkNotNull(
-            (TargetPatternValue) targetPatternValuesByKey.get(key).get());
-        ResolvedTargets<Label> results = resultValue.getTargets();
-        if (((TargetPatternKey) key.argument()).isNegative()) {
-          builder.filter(Predicates.not(Predicates.in(results.getTargets())));
-        } else {
-          builder.merge(results);
-        }
+        // The only exception type throwable by PrepareDepsOfPatternFunction is
+        // TargetParsingException. Therefore all ValueOrException values in the map will either
+        // be non-null or throw TargetParsingException when get is called.
+        Preconditions.checkNotNull(tokensByKey.get(key).get());
       } catch (TargetParsingException e) {
         // If a target pattern can't be evaluated, notify the user of the problem and keep going.
         handleTargetParsingException(eventHandler, handlerIsParseFailureListener, key, e);
       }
     }
-    ResolvedTargets<Label> resolvedTargets = builder.build();
 
-    List<SkyKey> targetKeys = new ArrayList<>();
-    for (Label target : resolvedTargets.getTargets()) {
-      targetKeys.add(TransitiveTargetValue.key(target));
-    }
-
-    // TransitiveTargetFunction can produce exceptions of types NoSuchPackageException and
-    // NoSuchTargetException. However, PrepareDepsOfPatternsFunction doesn't care about any errors
-    // found during transitive target loading--it just wants the graph to have loaded whatever
-    // transitive target values are available.
-    env.getValuesOrThrow(targetKeys, NoSuchPackageException.class, NoSuchTargetException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    return PrepareDepsOfPatternsValue.INSTANCE;
+    ImmutableList<TargetPatternKey> targetPatternKeys =
+        ImmutableList.copyOf(Iterables.transform(skyKeys,
+            new Function<SkyKey, TargetPatternKey>() {
+              @Override
+              public TargetPatternKey apply(SkyKey skyKey) {
+                return (TargetPatternKey) skyKey.argument();
+              }
+            }));
+    return new PrepareDepsOfPatternsValue(targetPatternKeys);
   }
 
   private static void handleTargetParsingException(EventHandler eventHandler,

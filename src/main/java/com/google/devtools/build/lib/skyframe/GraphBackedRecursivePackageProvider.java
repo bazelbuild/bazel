@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -24,22 +27,30 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
-import java.util.Collections;
-
-/** A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}. */
+/**
+ * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by
+ * {@code SkyQueryEnvironment} to look up the packages and targets matching the universe that's
+ * been preloaded in {@code graph}.
+ * */
 public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final WalkableGraph graph;
+  private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
-  public GraphBackedRecursivePackageProvider(WalkableGraph graph) {
-    this.graph = graph;
+  public GraphBackedRecursivePackageProvider(WalkableGraph graph,
+      ImmutableList<TargetPatternKey> universeTargetPatternKeys) {
+    this.graph = Preconditions.checkNotNull(graph);
+    this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
   }
 
   @Override
@@ -94,20 +105,61 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
       ImmutableSet<PathFragment> excludedSubdirectories) {
-    SkyKey recursivePackageKey = RecursivePkgValue.key(directory, excludedSubdirectories);
-    if (!graph.exists(recursivePackageKey)) {
-      // If the recursive package key does not exist in the graph, then it must not correspond to
-      // any directory transitively containing packages, because the SkyQuery environment has
-      // already loaded the universe.
-      return Collections.emptyList();
+    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory.getRelativePath());
+
+    // Find the filtering policy of a TargetsBelowDirectory pattern, if any, in the universe that
+    // contains this directory.
+    FilteringPolicy filteringPolicy = null;
+    for (TargetPatternKey patternKey : universeTargetPatternKeys) {
+      TargetPattern pattern = patternKey.getParsedPattern();
+      boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
+      if (isTBD && pattern.containsBelowDirectory(directory.getRelativePath().getPathString())) {
+        filteringPolicy =
+            pattern.getRulesOnly() ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
+        break;
+      }
     }
-    // If the recursive package key exists in the graph, then it must have a value and must not
-    // have an exception, because RecursivePkgFunction#compute never throws.
-    RecursivePkgValue lookup =
-        (RecursivePkgValue) Preconditions.checkNotNull(graph.getValue(recursivePackageKey));
-    // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform is
-    // unnecessary.
-    return Iterables.transform(lookup.getPackages(), PathFragment.TO_PATH_FRAGMENT);
+
+    // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
+    // then we can look for packages in and under it in the graph. If we didn't find one, then the
+    // directory wasn't in the universe, so return an empty list.
+    ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
+    if (filteringPolicy != null) {
+      collectPackagesUnder(directory, excludedSubdirectories, builder, filteringPolicy);
+    }
+    return builder.build();
+  }
+
+  private void collectPackagesUnder(RootedPath directory,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ImmutableList.Builder<PathFragment> builder, FilteringPolicy policy) {
+    SkyKey key =
+        PrepareDepsOfTargetsUnderDirectoryValue.key(directory, excludedSubdirectories, policy);
+    // If the key does not exist in the graph, because the SkyQuery environment has
+    // already loaded the universe, and we found a TargetsBelowDirectory pattern in the universe
+    // that contained it, then we know the directory does not exist in the universe.
+    if (!graph.exists(key)) {
+      return;
+    }
+
+    // If the key exists in the graph, then it must have a value and must not have an exception,
+    // because PrepareDepsOfTargetsUnderDirectoryFunction#compute never throws.
+    PrepareDepsOfTargetsUnderDirectoryValue prepDepsValue =
+        (PrepareDepsOfTargetsUnderDirectoryValue) Preconditions.checkNotNull(graph.getValue(key));
+    if (prepDepsValue.isDirectoryPackage()) {
+      builder.add(directory.getRelativePath());
+    }
+    ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
+        prepDepsValue.getSubdirectoryTransitivelyContainsPackages();
+    for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
+      if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
+        PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
+            PathFragment.filterPathsStartingWith(excludedSubdirectories, subdirectoryRelativePath);
+        collectPackagesUnder(subdirectory, excludedSubdirectoriesBeneathThisSubdirectory, builder,
+            policy);
+      }
+    }
   }
 
   @Override
