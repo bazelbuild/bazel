@@ -211,12 +211,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void sync(PackageCacheOptions packageCacheOptions, Path outputBase, Path workingDirectory,
+  public void sync(PackageCacheOptions packageCacheOptions, Path workingDirectory,
                    String defaultsPackageContents, UUID commandId)
       throws InterruptedException, AbruptExitException {
     this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
-    super.sync(
-        packageCacheOptions, outputBase, workingDirectory, defaultsPackageContents, commandId);
+    super.sync(packageCacheOptions, workingDirectory, defaultsPackageContents, commandId);
     handleDiffs();
   }
 
@@ -244,10 +243,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
-  private void invalidateDeletedPackages(Iterable<PackageIdentifier> deletedPackages) {
+  private void invalidateDeletedPackages(Iterable<String> deletedPackages) {
     ArrayList<SkyKey> packagesToInvalidate = Lists.newArrayList();
-    for (PackageIdentifier deletedPackage : deletedPackages) {
-      packagesToInvalidate.add(PackageLookupValue.key(deletedPackage));
+    for (String deletedPackage : deletedPackages) {
+      PathFragment pathFragment = new PathFragment(deletedPackage);
+      packagesToInvalidate.add(PackageLookupValue.key(pathFragment));
     }
     recordingDiffer.invalidate(packagesToInvalidate);
   }
@@ -257,7 +257,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @Override
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
+  public void setDeletedPackages(Iterable<String> pkgs) {
     // Invalidate the old deletedPackages as they may exist now.
     invalidateDeletedPackages(deletedPackages.get());
     deletedPackages.set(ImmutableSet.copyOf(pkgs));

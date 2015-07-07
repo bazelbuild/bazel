@@ -18,7 +18,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,9 +60,8 @@ final class GlobFunction implements SkyFunction {
     PathFragment globSubdir = glob.getSubdir();
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
       PackageLookupValue globSubdirPkgLookupValue = (PackageLookupValue) env.getValue(
-          PackageLookupValue.key(new PackageIdentifier(
-              glob.getPackageId().getRepository(),
-              glob.getPackageId().getPackageFragment().getRelative(globSubdir))));
+          PackageLookupValue.key(glob.getPackageId().getPackageFragment()
+              .getRelative(globSubdir)));
       if (globSubdirPkgLookupValue == null) {
         return null;
       }
@@ -222,8 +220,7 @@ final class GlobFunction implements SkyFunction {
         PathFragment directory = glob.getPackageId().getPackageFragment()
             .getRelative(glob.getSubdir()).getRelative(fileName);
         PackageLookupValue pkgLookupValue = (PackageLookupValue)
-            env.getValue(PackageLookupValue.key(new PackageIdentifier(
-                glob.getPackageId().getRepository(), directory)));
+            env.getValue(PackageLookupValue.key(directory));
         if (pkgLookupValue == null) {
           return;
         }

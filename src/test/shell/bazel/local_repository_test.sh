@@ -481,29 +481,4 @@ EOF
   assert_contains "Michaelangelo" bazel-genfiles/tmnt
 }
 
-function test_globs() {
-  local r=$TEST_TMPDIR/r
-  mkdir -p $r
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-
-EOF
-
-  cat > $r/BUILD <<EOF
-filegroup(
-    name = "fg",
-    srcs = glob(["**"]),
-)
-EOF
-
-  touch $r/a
-  mkdir -p $r/b
-  touch $r/b/{BUILD,b}
-
-  bazel build @r//:fg || fail "build failed"
-}
-
 run_suite "local repository tests"

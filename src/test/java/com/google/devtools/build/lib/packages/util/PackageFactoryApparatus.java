@@ -160,7 +160,7 @@ public class PackageFactoryApparatus {
   public static CachingPackageLocator createEmptyLocator() {
     return new CachingPackageLocator() {
       @Override
-      public Path getBuildFileForPackage(PackageIdentifier packageName) {
+      public Path getBuildFileForPackage(String packageName) {
         return null;
       }
     };

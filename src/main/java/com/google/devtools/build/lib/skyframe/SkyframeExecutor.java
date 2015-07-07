@@ -183,8 +183,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
   protected final AtomicReference<PathPackageLocator> pkgLocator =
       new AtomicReference<>();
-  protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-      new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+  protected final AtomicReference<ImmutableSet<String>> deletedPackages =
+      new AtomicReference<>(ImmutableSet.<String>of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
@@ -756,7 +756,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Sets the packages that should be treated as deleted and ignored.
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
+  public abstract void setDeletedPackages(Iterable<String> pkgs);
 
   /**
    * Prepares the evaluator for loading.
@@ -1302,7 +1302,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /**
      * Returns whether the given package should be consider deleted and thus should be ignored.
      */
-    public boolean isPackageDeleted(PackageIdentifier packageName) {
+    public boolean isPackageDeleted(String packageName) {
       return deletedPackages.get().contains(packageName);
     }
 
@@ -1352,13 +1352,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @ThreadCompatible
   public abstract void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages);
 
-  public void sync(PackageCacheOptions packageCacheOptions, Path outputBase, Path workingDirectory,
+  public void sync(PackageCacheOptions packageCacheOptions, Path workingDirectory,
       String defaultsPackageContents, UUID commandId) throws InterruptedException,
       AbruptExitException{
 
     preparePackageLoading(
-        createPackageLocator(
-            packageCacheOptions, outputBase, directories.getWorkspace(), workingDirectory),
+        createPackageLocator(packageCacheOptions, directories.getWorkspace(), workingDirectory),
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
         packageCacheOptions.globbingThreads, defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
@@ -1368,9 +1367,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected PathPackageLocator createPackageLocator(PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workspace, Path workingDirectory) throws AbruptExitException {
+      Path workspace, Path workingDirectory) throws AbruptExitException{
     return PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, getReporter(), workspace, workingDirectory);
+        packageCacheOptions.packagePath, getReporter(), workspace, workingDirectory);
   }
 
   private CyclesReporter createCyclesReporter() {

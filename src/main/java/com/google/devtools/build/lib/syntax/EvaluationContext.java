@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -91,7 +90,7 @@ public final class EvaluationContext {
   /** Mock package locator */
   private static final class EmptyPackageLocator implements CachingPackageLocator {
     @Override
-    public Path getBuildFileForPackage(PackageIdentifier packageName) {
+    public Path getBuildFileForPackage(String packageName) {
       return null;
     }
   }

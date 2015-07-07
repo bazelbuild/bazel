@@ -612,13 +612,10 @@ class Parser {
 
     try {
       Label label = Label.parseAbsolute(labelName);
-      // Note that this doesn't really work if the label belongs to a different repository, because
-      // there is no guarantee that its RepositoryValue has been evaluated. In an ideal world, we
-      // could put a Skyframe dependency the appropriate PackageLookupValue, but we can't do that
-      // because package loading is not completely Skyframized.
-      Path packagePath = locator.getBuildFileForPackage(label.getPackageIdentifier());
+      String packageName = label.getPackageFragment().getPathString();
+      Path packagePath = locator.getBuildFileForPackage(packageName);
       if (packagePath == null) {
-        reportError(location, "Package '" + label.getPackageIdentifier() + "' not found");
+        reportError(location, "Package '" + packageName + "' not found");
         list.add(mocksubincludeExpression(labelName, "", location));
         return;
       }

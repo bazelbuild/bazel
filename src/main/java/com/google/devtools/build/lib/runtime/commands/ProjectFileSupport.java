@@ -63,11 +63,8 @@ public final class ProjectFileSupport {
       // relative to the cwd instead.
       PathFragment projectFilePath = new PathFragment(targets.get(0).substring(1));
       List<Path> packagePath = PathPackageLocator.create(
-          runtime.getOutputBase(),
-          optionsParser.getOptions(PackageCacheOptions.class).packagePath,
-          runtime.getReporter(),
-          runtime.getWorkspace(),
-          runtime.getWorkingDirectory()).getPathEntries();
+          optionsParser.getOptions(PackageCacheOptions.class).packagePath, runtime.getReporter(),
+          runtime.getWorkspace(), runtime.getWorkingDirectory()).getPathEntries();
       ProjectFile projectFile = projectFileProvider.getProjectFile(packagePath, projectFilePath);
       runtime.getReporter().handle(Event.info("Using " + projectFile.getName()));
 

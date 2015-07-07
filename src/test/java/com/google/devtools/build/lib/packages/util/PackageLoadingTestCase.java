@@ -94,7 +94,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
-        null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+        packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(),

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -135,7 +136,7 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
+  public boolean isPackage(EventHandler eventHandler, String packageName) {
     return getBuildFileForPackage(packageName) != null;
   }
 
@@ -146,10 +147,11 @@ class SkyframePackageManager implements PackageManager {
 
   @ThreadSafe
   @Override
-  public Path getBuildFileForPackage(PackageIdentifier packageName) {
+  public Path getBuildFileForPackage(String packageName) {
     // Note that this method needs to be thread-safe, as it is currently used concurrently by
     // legacy blaze code.
-    if (packageLoader.isPackageDeleted(packageName)) {
+    if (packageLoader.isPackageDeleted(packageName)
+        || LabelValidator.validatePackageName(packageName) != null) {
       return null;
     }
     // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]

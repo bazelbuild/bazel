@@ -59,5 +59,5 @@ public interface PackageProvider extends TargetProvider {
    * @param eventHandler the eventHandler on which to report warnings and errors
    * @param packageName the name of the package.
    */
-  boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName);
+  boolean isPackage(EventHandler eventHandler, String packageName);
 }

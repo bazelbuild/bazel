@@ -64,9 +64,9 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageId)
+  public boolean isPackage(EventHandler eventHandler, String packageName)
       throws MissingDepException {
-    SkyKey packageLookupKey = PackageLookupValue.key(packageId);
+    SkyKey packageLookupKey = PackageLookupValue.key(new PathFragment(packageName));
     try {
       PackageLookupValue packageLookupValue =
           (PackageLookupValue) env.getValueOrThrow(packageLookupKey, NoSuchPackageException.class,
