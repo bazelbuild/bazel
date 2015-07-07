@@ -958,7 +958,8 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "union", returnType = SkylarkNestedSet.class, 
+  @SkylarkSignature(name = "union", objectType = SkylarkNestedSet.class,
+      returnType = SkylarkNestedSet.class,
       doc = "Creates a new <a href=\"#modules.set\">set</a> that contains both "
           + "the input set as well as all additional elements.",
       mandatoryPositionals = {
