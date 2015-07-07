@@ -241,7 +241,7 @@ public class Package implements Serializable {
 
   private void readObject(ObjectInputStream in) throws IOException {
     try {
-      deserializedPkg = new PackageDeserializer(null, null).deserialize(in);
+      deserializedPkg = new PackageDeserializer().deserialize(in);
     } catch (PackageDeserializationException e) {
       throw new IllegalStateException(e);
     }
@@ -450,7 +450,7 @@ public class Package implements Serializable {
    * though not necessarily: data in a subdirectory of a test package may use a
    * different filename to avoid inadvertently creating a new package.
    */
-  Label getBuildFileLabel() {
+  public Label getBuildFileLabel() {
     return buildFile.getLabel();
   }
 

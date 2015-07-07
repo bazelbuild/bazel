@@ -118,13 +118,15 @@ public class SkylarkRuleClassFunctions {
   });
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
-  private static final RuleClass baseRule =
+  /** Parent rule class for non-test Skylark rules. */
+  public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndSkylarkAttributes(
           new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
           .add(attr("expect_failure", STRING))
           .build();
 
-  private static final RuleClass testBaseRule =
+  /** Parent rule class for test Skylark rules. */
+  public static final RuleClass testBaseRule =
       new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .add(attr("size", STRING).value("medium").taggable()
               .nonconfigurable("used in loading phase rule validation logic"))
