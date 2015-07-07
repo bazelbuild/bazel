@@ -511,6 +511,22 @@ java_test(
 )
 
 java_test(
+    name = "ziputils-tests",
+    srcs = glob(["com/google/devtools/build/android/ziputils/*.java"]),
+    args = ["com.google.devtools.build.android.ziputils.AllTests"],
+    tags = ["ziputils"],
+    deps = [
+        ":testutil",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:splitter_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "common-rules-tests",
     srcs = glob(["com/google/devtools/build/lib/rules/filegroup/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
@@ -531,6 +547,7 @@ java_test(
 )
 
 TEST_SUITES = [
+    "ziputils",
     "rules",
     "analysis",
     "foundations",
