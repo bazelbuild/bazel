@@ -62,6 +62,16 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
               + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
 
+    int timeout = -1;
+    String timeoutStr = spawn.getExecutionInfo().get("timeout");
+    if (timeoutStr != null) {
+      try {
+        timeout = Integer.parseInt(timeoutStr);
+      } catch (NumberFormatException e) {
+        throw new UserExecException("could not parse timeout: " + e);
+      }
+    }
+
     // We must wrap the subprocess with process-wrapper to kill the process tree.
     // All actions therefore depend on the process-wrapper file. Since it's embedded,
     // we don't bother with declaring it as an input.
@@ -72,13 +82,13 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       // Disable it for now to make the setup easier and to avoid further PATH hacks.
       // Ideally we should have a native implementation of process-wrapper for Windows.
       args.add(processWrapper.getPathString());
-      args.add("-1"); /* timeout */
-      args.add("0");  /* kill delay. */
+      args.add("" + timeout);
+      args.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
 
       // TODO(bazel-team): use process-wrapper redirection so we don't have to
       // pass test logs through the Java heap.
-      args.add("-");  /* stdout. */
-      args.add("-");  /* stderr. */
+      args.add("-"); /* stdout. */
+      args.add("-"); /* stderr. */
     }
     args.addAll(spawn.getArguments());
 

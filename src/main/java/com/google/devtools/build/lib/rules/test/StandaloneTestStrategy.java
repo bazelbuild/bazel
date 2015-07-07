@@ -39,6 +39,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -76,16 +77,24 @@ public class StandaloneTestStrategy extends TestStrategy {
         .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
+
     TestRunnerAction.ResolvedPaths resolvedPaths =
         action.resolve(actionExecutionContext.getExecutor().getExecRoot());
     Map<String, String> env = getEnv(action, runfilesDir, testTmpDir, resolvedPaths);
+
+    Map<String, String> info = new HashMap<>();
+
+    // This key is only understood by StandaloneSpawnStrategy.
+    info.put("timeout", "" + getTimeout(action));
+    info.putAll(action.getTestProperties().getExecutionInfo());
+
     Spawn spawn =
         new BaseSpawn(
             // Bazel lacks much of the tooling for coverage, so we don't attempt to pass a coverage
             // script here.
             getArgs(TEST_SETUP, "", action),
             env,
-            action.getTestProperties().getExecutionInfo(),
+            info,
             action,
             action
                 .getTestProperties()

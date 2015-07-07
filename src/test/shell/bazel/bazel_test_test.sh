@@ -175,4 +175,30 @@ EOF
   expect_log 'hello script!!! testing/t1'
 }
 
+function test_test_timeout() {
+  mkdir -p dir
+
+  cat <<EOF > dir/test.sh
+#!/bin/sh
+sleep 3
+exit 0
+
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<EOF > dir/BUILD
+  sh_test(
+    name = "test",
+    timeout = "short",
+    srcs = [ "test.sh" ],
+    size = "small",
+  )
+EOF
+
+  bazel test --test_timeout=2 //dir:test && fail "should have timed out"
+  bazel test --test_timeout=4 //dir:test || fail "expected success"
+
+}
+
 run_suite "test tests"
