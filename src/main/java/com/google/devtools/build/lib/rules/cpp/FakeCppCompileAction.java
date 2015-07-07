@@ -118,7 +118,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       reply = context.getReplyFromException(e, this);
       if (reply == null) {
         // This can only happen if the ExecException does not come from remote execution.
-        throw e.toActionExecutionException("", executor.getVerboseFailures(), this);
+        throw e.toActionExecutionException("Fake C++ Compilation of rule '"
+            + getOwner().getLabel() + "'", executor.getVerboseFailures(), this);
       }
     }
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
