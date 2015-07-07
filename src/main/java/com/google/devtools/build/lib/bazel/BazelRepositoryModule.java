@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.TarGzFunction;
 import com.google.devtools.build.lib.bazel.repository.ZipFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -147,6 +148,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.put(SkyFunctionName.create(HttpDownloadFunction.NAME), downloadFunction);
     builder.put(JarFunction.NAME, new JarFunction());
     builder.put(ZipFunction.NAME, new ZipFunction());
+    builder.put(TarGzFunction.NAME, new TarGzFunction());
     return builder.build();
   }
 }

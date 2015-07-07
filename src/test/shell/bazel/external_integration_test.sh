@@ -111,6 +111,16 @@ function kill_nc() {
   [ -z "${nc_log:-}" ] || cat $nc_log
 }
 
+function zip_up() {
+  repo2_zip=$TEST_TMPDIR/fox.zip
+  zip -0 -r $repo2_zip WORKSPACE fox
+}
+
+function tar_gz_up() {
+  repo2_zip=$TEST_TMPDIR/fox.tar.gz
+  tar czf $repo2_zip WORKSPACE fox
+}
+
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
 #
@@ -126,7 +136,9 @@ function kill_nc() {
 # fox/
 #   BUILD
 #   male
-function test_http_archive() {
+function http_archive_helper() {
+  zipper=$1
+
   # Create a zipped-up repository HTTP response.
   repo2=$TEST_TMPDIR/repo2
   rm -rf $repo2
@@ -149,15 +161,18 @@ EOF
   # Add some padding to the .zip to test that Bazel's download logic can
   # handle breaking a response into chunks.
   dd if=/dev/zero of=fox/padding bs=1024 count=10240
-  repo2_zip=$TEST_TMPDIR/fox.zip
-  zip -0 -r $repo2_zip WORKSPACE fox
+  $zipper
+  repo2_name=$(basename $repo2_zip)
   sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
   serve_file $repo2_zip
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$sha256')
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/$repo2_name',
+    sha256 = '$sha256'
+)
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -178,6 +193,14 @@ EOF
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
+}
+
+function test_http_archive_zip() {
+  http_archive_helper zip_up
+}
+
+function test_http_archive_tgz() {
+  http_archive_helper tar_gz_up
 }
 
 function test_http_archive_no_server() {
@@ -247,7 +270,7 @@ EOF
 # on the server should work if the correct .zip is already available.
 function test_sha256_caching() {
   # Download with correct sha256.
-  test_http_archive
+  http_archive_helper zip_up
 
   # Create another HTTP response.
   http_response=$TEST_TMPDIR/http_response

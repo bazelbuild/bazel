@@ -32,9 +32,6 @@ public class DecompressorValue implements SkyValue {
 
   private final Path directory;
 
-  /**
-   * @param repositoryPath
-   */
   public DecompressorValue(Path repositoryPath) {
     directory = repositoryPath;
   }
@@ -66,11 +63,13 @@ public class DecompressorValue implements SkyValue {
       throws IOException {
     String baseName = archivePath.getBaseName();
 
+    DecompressorDescriptor descriptor =
+        new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath);
+
     if (targetKind.startsWith(HttpJarRule.NAME + " ")
         || targetKind.equals(MavenJarRule.NAME)) {
       if (baseName.endsWith(".jar")) {
-        return new SkyKey(JarFunction.NAME,
-            new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath));
+        return new SkyKey(JarFunction.NAME, descriptor);
       } else {
         throw new IOException(
             String.format("Expected %s %s to create file with a .jar suffix (got %s)",
@@ -80,13 +79,14 @@ public class DecompressorValue implements SkyValue {
 
     if (targetKind.startsWith(HttpArchiveRule.NAME + " ")
         || targetKind.startsWith(NewHttpArchiveRule.NAME + " ")) {
-      if (baseName.endsWith(".zip") || baseName.endsWith(".jar")) {
-        return new SkyKey(ZipFunction.NAME,
-            new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath));
+      if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
+        return new SkyKey(ZipFunction.NAME, descriptor);
+      } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
+        return new SkyKey(TarGzFunction.NAME, descriptor);
       } else {
         throw new IOException(
-            String.format("Expected %s %s to create file with a .zip or .jar suffix (got %s)",
-            HttpArchiveRule.NAME, targetName, archivePath));
+            String.format("Expected %s %s to create file with a .zip, .jar, .war, .tar.gz, or .tgz"
+                + " suffix (got %s)", HttpArchiveRule.NAME, targetName, archivePath));
       }
     }
 
