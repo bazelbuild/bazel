@@ -4,6 +4,7 @@ load("/tools/build_rules/genproto", "proto_java_library")
 
 FILES = [
     "build",
+    "dash",
     "deps",
     "java_compilation",
     "crosstool_config",

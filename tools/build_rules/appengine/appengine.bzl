@@ -62,14 +62,6 @@ appengine_war(
 
 jar_filetype = FileType([".jar"])
 
-def _extract_jar(zipper, jar, output):
-  return [
-      "mkdir -p %s" % output,
-      "(root=$(pwd);" +
-      ("cd %s && " % output) +
-      ("${root}/%s x ${root}/%s)\n" % (zipper.path, jar.path))
-      ]
-
 def _add_file(in_file, output, path = None):
   output_path = output
   input_path = in_file.path
@@ -77,7 +69,8 @@ def _add_file(in_file, output, path = None):
     output_path += input_path[len(path):]
   return [
       "mkdir -p $(dirname %s)" % output_path,
-      "ln -s $(pwd)/%s %s\n" % (input_path, output_path)
+      "test -l %s || ln -s $(pwd)/%s %s\n" % (output_path, input_path,
+                                              output_path)
       ]
 
 def _make_war(zipper, input_dir, output):
@@ -120,14 +113,17 @@ def _war_impl(ctxt):
       ]
 
   inputs = ctxt.files.jars + [zipper]
+  cmd += ["mkdir -p %s" % build_output + "/WEB-INF/lib"]
   for jar in ctxt.files.jars:
-    # Add the jar content to WEB-INF/classes
-    cmd += _extract_jar(zipper, jar, build_output + "/WEB-INF/classes")
+    # Add the jar to WEB-INF/lib.
+    cmd += _add_file(jar, build_output + "/WEB-INF/lib")
     # Add its runtime classpath to WEB-INF/lib
     if hasattr(jar, "java"):
       inputs += jar.java.transitive_runtime_deps
       for run_jar in jar.java.transitive_runtime_deps:
         cmd += _add_file(run_jar, build_output + "/WEB-INF/lib")
+  for jar in ctxt.files._appengine_deps:
+    cmd += _add_file(jar, build_output + "/WEB-INF/lib")
 
   inputs += ctxt.files.data
   for res in ctxt.files.data:
@@ -148,7 +144,7 @@ def _war_impl(ctxt):
   for f in ctxt.files._appengine_sdk:
     if not appengine_sdk:
       appengine_sdk = f.path
-    elif not file.path.startswith(appengine_sdk):
+    elif not f.path.startswith(appengine_sdk):
       appengine_sdk = _common_substring(appengine_sdk, f.path)
 
   classpath = [
@@ -174,13 +170,12 @@ def _war_impl(ctxt):
           "  fi",
           "fi",
           "",
-          "tmp_dir=$(mktemp -d ${TMPDIR:-/tmp}/war.XXXXXXXX)",
-          "trap \"rm -rf ${tmp_dir}\" EXIT",
           "root_path=$(pwd)",
+          "tmp_dir=$(mktemp -d ${TMPDIR:-/tmp}/war.XXXXXXXX)",
+          "trap \"cd ${root_path}; rm -rf ${tmp_dir}\" EXIT",
           "cd ${tmp_dir}",
           "${JAVA_RUNFILES}/%s x ${JAVA_RUNFILES}/%s" % (
               ctxt.file._zipper.short_path, ctxt.outputs.war.short_path),
-          "cd ${root_path}",
           "jvm_bin=${JAVA_RUNFILES}/%s" % (ctxt.file._java.short_path),
           "if [[ ! -x ${jvm_bin} ]]; then",
           "  jvm_bin=$(which java)",
@@ -214,6 +209,13 @@ appengine_war = rule(
             default=Label("//external:appengine/java/sdk")),
         "_appengine_jars": attr.label(
             default=Label("//external:appengine/java/jars")),
+        "_appengine_deps": attr.label_list(
+            default=[
+                Label("@appengine-java//:api"),
+                Label("@commons-lang//jar"),
+                Label("//third_party:apache_commons_collections"),
+                ]
+            ),
         "jars": attr.label_list(allow_files=jar_filetype, mandatory=True),
         "data": attr.label_list(allow_files=True),
         "data_path": attr.string(),

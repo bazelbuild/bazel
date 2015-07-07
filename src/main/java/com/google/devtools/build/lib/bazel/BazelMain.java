@@ -35,6 +35,7 @@ public final class BazelMain {
       com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
       com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
       com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
+      com.google.devtools.build.lib.bazel.dash.DashModule.class,
       com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
       com.google.devtools.build.lib.sandbox.SandboxModule.class,
       com.google.devtools.build.lib.standalone.StandaloneModule.class,

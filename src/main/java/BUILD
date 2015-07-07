@@ -323,6 +323,36 @@ java_library(
 )
 
 java_library(
+    name = "runtime",
+    srcs = glob([
+        "com/google/devtools/build/lib/runtime/**/*.java",
+        "com/google/devtools/build/lib/buildtool/**/*.java",
+        "com/google/devtools/build/lib/server/**/*.java",
+    ]),
+    deps = [
+        ":actions",
+        ":analysis-exec-rules-skyframe",
+        ":cmdline",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":docgen",
+        ":events",
+        ":options",
+        ":packages",
+        ":query2",
+        ":shell",
+        ":skyframe-base",
+        ":unix",
+        ":vfs",
+        "//src/main/protobuf:proto_build",
+        "//src/main/protobuf:proto_test_status",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "server",
     srcs = glob([
         "com/google/devtools/build/lib/server/**/*.java",
@@ -358,6 +388,8 @@ java_library(
     srcs = glob(
         [
             "com/google/devtools/build/lib/bazel/**/*.java",
+            "com/google/devtools/build/lib/standalone/*.java",
+            "com/google/devtools/build/lib/worker/**",
         ],
         exclude = [
             "com/google/devtools/build/lib/bazel/repository/MavenConnector.java",
@@ -401,12 +433,14 @@ java_library(
         ":options",
         ":packages",
         ":query2",
+        ":runtime",
         ":shell",
         ":skyframe-base",
         ":unix",
         ":vfs",
         ":webstatusserver",
         "//src/java_tools/singlejar:zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel/dash",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
@@ -417,7 +451,6 @@ java_library(
         "//src/main/protobuf:proto_worker_protocol",
         "//third_party:aether",
         "//third_party:apache_commons_pool2",
-        "//third_party:apache_velocity",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:joda_time",
@@ -471,6 +504,7 @@ java_binary(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",

@@ -247,6 +247,7 @@ java_library(
         "//src/main/java:events",
         "//src/main/java:options",
         "//src/main/java:packages",
+        "//src/main/java:runtime",
         "//src/main/java:skyframe-base",
         "//src/main/java:vfs",
         "//src/main/protobuf:proto_extra_actions_base",
