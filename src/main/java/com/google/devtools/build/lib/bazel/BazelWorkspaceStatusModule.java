@@ -34,10 +34,14 @@ import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
+import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,13 +63,16 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
     private final AtomicReference<Options> options;
-    
+
     private final String username;
     private final String hostname;
     private final long timestamp;
+    private final com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand;
+    private final PathFragment EMPTY_FRAGMENT = new PathFragment("");
 
     private BazelWorkspaceStatusAction(
         AtomicReference<WorkspaceStatusAction.Options> options,
+        BlazeRuntime runtime,
         Artifact stableStatus,
         Artifact volatileStatus) {
       super(BuildInfoHelper.BUILD_INFO_ACTION_OWNER, Artifact.NO_ARTIFACTS,
@@ -76,10 +83,46 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.username = System.getProperty("user.name");
       this.hostname = NetUtil.findShortHostName();
       this.timestamp = System.currentTimeMillis();
+      this.getWorkspaceStatusCommand =
+          options.get().workspaceStatusCommand.equals(EMPTY_FRAGMENT)
+              ? null
+              : new CommandBuilder()
+                  .addArgs(options.get().workspaceStatusCommand.toString())
+                  // Pass client env, because certain SCM client(like
+                  // perforce, git) relies on environment variables to work
+                  // correctly.
+                  .setEnv(runtime.getClientEnv())
+                  .setWorkingDir(runtime.getWorkspace())
+                  .useShell(true)
+                  .build();
     }
 
     @Override
     public String describeStrategy(Executor executor) {
+      return "";
+    }
+
+    private String getAdditionalWorkspaceStatus(ActionExecutionContext actionExecutionContext)
+        throws ActionExecutionException {
+      try {
+        if (this.getWorkspaceStatusCommand != null) {
+          actionExecutionContext
+              .getExecutor()
+              .getEventHandler()
+              .handle(
+                  Event.progress(
+                      "Getting additional workspace status by running "
+                          + options.get().workspaceStatusCommand));
+          CommandResult result = this.getWorkspaceStatusCommand.execute();
+          if (result.getTerminationStatus().success()) {
+            return new String(result.getStdout());
+          }
+          throw new ActionExecutionException(
+              "workspace status command failed: " + result.getTerminationStatus(), this, true);
+        }
+      } catch (CommandException e) {
+        throw new ActionExecutionException(e, this, true);
+      }
       return "";
     }
 
@@ -94,12 +137,19 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                 BuildInfo.BUILD_HOST + " " + hostname,
                 BuildInfo.BUILD_USER + " " + username);
         FileSystemUtils.writeContent(stableStatus.getPath(), info.getBytes(StandardCharsets.UTF_8));
-        String volatileInfo = BuildInfo.BUILD_TIMESTAMP + " " + timestamp + "\n";
+        String volatileInfo =
+            joiner.join(
+                BuildInfo.BUILD_TIMESTAMP + " " + timestamp,
+                getAdditionalWorkspaceStatus(actionExecutionContext));
 
         FileSystemUtils.writeContent(
             volatileStatus.getPath(), volatileInfo.getBytes(StandardCharsets.UTF_8));
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, true);
+        throw new ActionExecutionException(
+            "Failed to run workspace status command " + options.get().workspaceStatusCommand,
+            e,
+            this,
+            true);
       }
     }
 
@@ -172,7 +222,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Artifact volatileArtifact = factory.getConstantMetadataArtifact(
           new PathFragment("volatile-status.txt"), root, artifactOwner);
 
-      return new BazelWorkspaceStatusAction(options, stableArtifact, volatileArtifact);
+      return new BazelWorkspaceStatusAction(options, runtime, stableArtifact, volatileArtifact);
     }
   }
 
@@ -186,7 +236,11 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           BuildInfo.BUILD_HOST,
           Key.of(KeyType.STRING, "hostname", "redacted"),
           BuildInfo.BUILD_USER,
-          Key.of(KeyType.STRING, "username", "redacted"));
+          Key.of(KeyType.STRING, "username", "redacted"),
+          BuildInfo.BUILD_SCM_REVISION,
+          Key.of(KeyType.STRING, "0", "0"),
+          BuildInfo.BUILD_SCM_STATUS,
+          Key.of(KeyType.STRING, "", "redacted"));
     }
 
     @Override

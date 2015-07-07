@@ -38,4 +38,14 @@ public class BuildInfo {
    * Build time as milliseconds since epoch
    */
   public static final String BUILD_TIMESTAMP = "BUILD_TIMESTAMP";
+
+  /**
+   * The revision of source tree reported by source control system
+   */
+  public static final String BUILD_SCM_REVISION = "BUILD_SCM_REVISION";
+
+  /**
+   * The status of source tree reported by source control system
+   */
+  public static final String BUILD_SCM_STATUS = "BUILD_SCM_STATUS";
 }
