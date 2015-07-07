@@ -242,7 +242,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
 
     PathPackageLocator pathPackageLocator = PathPackageLocator.create(
-        packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+        null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pathPackageLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());

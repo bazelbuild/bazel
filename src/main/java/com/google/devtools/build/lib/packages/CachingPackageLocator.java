@@ -40,6 +40,6 @@ public interface CachingPackageLocator {
    * <p> This method must be thread-safe.
    */
   @ThreadSafe
-  Path getBuildFileForPackage(String packageName);
+  Path getBuildFileForPackage(PackageIdentifier packageName);
 
 }

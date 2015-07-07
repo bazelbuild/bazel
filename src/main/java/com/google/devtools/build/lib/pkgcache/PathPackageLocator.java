@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
@@ -26,6 +28,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,33 +50,27 @@ public class PathPackageLocator implements Serializable {
 
   public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES = ImmutableSet.of("experimental");
 
-  /**
-   * An interface which accepts {@link PathFragment}s.
-   */
-  public interface AcceptsPathFragment {
-
-    /**
-     * Accept a {@link PathFragment}.
-     *
-     * @param fragment The path fragment.
-     */
-    void accept(PathFragment fragment);
-  }
-
   private final ImmutableList<Path> pathEntries;
+  private final Path outputBase;
+
+  private PathPackageLocator(Path outputBase, List<Path> pathEntries) {
+    this.outputBase = outputBase;
+    this.pathEntries = ImmutableList.copyOf(pathEntries);
+  }
 
   /**
    * Constructs a PathPackageLocator based on the specified list of package root directories.
    */
+  @VisibleForTesting
   public PathPackageLocator(List<Path> pathEntries) {
-    this.pathEntries = ImmutableList.copyOf(pathEntries);
+    this(null, pathEntries);
   }
 
   /**
    * Constructs a PathPackageLocator based on the specified array of package root directories.
    */
   public PathPackageLocator(Path... pathEntries) {
-    this(Arrays.asList(pathEntries));
+    this(null, Arrays.asList(pathEntries));
   }
 
   /**
@@ -87,11 +86,10 @@ public class PathPackageLocator implements Serializable {
    * <p>If the same package exists beneath multiple package path entries, the
    * first path that matches always wins.
    */
-  public Path getPackageBuildFile(String packageName) throws NoSuchPackageException {
+  public Path getPackageBuildFile(PackageIdentifier packageName) throws NoSuchPackageException {
     Path buildFile  = getPackageBuildFileNullable(packageName, UnixGlob.DEFAULT_SYSCALLS_REF);
     if (buildFile == null) {
-      throw new BuildFileNotFoundException(PackageIdentifier.createInDefaultRepo(packageName),
-          "BUILD file not found on package path");
+      throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
     return buildFile;
   }
@@ -102,9 +100,25 @@ public class PathPackageLocator implements Serializable {
    * @param packageName the name of the package.
    * @param cache a filesystem-level cache of stat() calls.
    */
-  public Path getPackageBuildFileNullable(String packageName,
+  public Path getPackageBuildFileNullable(PackageIdentifier packageName,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
-    return getFilePath(new PathFragment(packageName).getRelative("BUILD"), cache);
+    if (packageName.getRepository().isDefault()) {
+      return getFilePath(packageName.getPackageFragment().getRelative("BUILD"), cache);
+    } else if (outputBase != null) {
+      // This works only to some degree, because it relies on the presence of the repository under
+      // $OUTPUT_BASE/external, which is created by the appropriate RepositoryValue. This is true
+      // for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
+      // invocation in Parser#include().
+      Path buildFile = outputBase.getRelative(packageName.getPathFragment()).getRelative("BUILD");
+      FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
+      if (stat != null && stat.isFile()) {
+        return buildFile;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
   }
 
 
@@ -124,6 +138,7 @@ public class PathPackageLocator implements Serializable {
    * A factory of PathPackageLocators from a list of path elements.  Elements
    * may contain "%workspace%", indicating the workspace.
    *
+   * @param outputBase the output base. Can be null if remote repositories are not in use.
    * @param pathElements Each element must be an absolute path, relative path,
    *                     or some string "%workspace%" + relative, where relative is itself a
    *                     relative path.  The special symbol "%workspace%" means to interpret
@@ -135,7 +150,8 @@ public class PathPackageLocator implements Serializable {
    * @param clientWorkingDirectory The client's working directory.
    * @return a list of {@link Path}s.
    */
-  public static PathPackageLocator create(List<String> pathElements,
+  public static PathPackageLocator create(Path outputBase,
+                                          List<String> pathElements,
                                           EventHandler eventHandler,
                                           Path workspace,
                                           Path clientWorkingDirectory) {
@@ -164,7 +180,7 @@ public class PathPackageLocator implements Serializable {
         resolvedPaths.add(rootPath);
       }
     }
-    return new PathPackageLocator(resolvedPaths);
+    return new PathPackageLocator(outputBase, resolvedPaths);
   }
 
   /**
@@ -194,7 +210,7 @@ public class PathPackageLocator implements Serializable {
 
   @Override
   public int hashCode() {
-    return pathEntries.hashCode();
+    return Objects.hashCode(pathEntries, outputBase);
   }
 
   @Override
@@ -205,6 +221,15 @@ public class PathPackageLocator implements Serializable {
     if (!(other instanceof PathPackageLocator)) {
       return false;
     }
-    return this.getPathEntries().equals(((PathPackageLocator) other).getPathEntries());
+    return this.getPathEntries().equals(((PathPackageLocator) other).getPathEntries())
+        && Objects.equal(this.outputBase, ((PathPackageLocator) other).outputBase);
+  }
+
+  private void writeObject(ObjectOutputStream out) throws IOException {
+    out.writeObject(pathEntries);
+  }
+
+  private void readObject(ObjectInputStream in) throws IOException {
+    throw new IllegalStateException();
   }
 }

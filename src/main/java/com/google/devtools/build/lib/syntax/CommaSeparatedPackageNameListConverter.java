@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
@@ -26,22 +26,22 @@ import java.util.List;
  * A converter from strings containing comma-separated names of packages to lists of strings.
  */
 public class CommaSeparatedPackageNameListConverter
-    implements Converter<List<String>> {
+    implements Converter<List<PackageIdentifier>> {
 
   private static final Splitter SPACE_SPLITTER = Splitter.on(',');
 
   @Override
-  public List<String> convert(String input) throws OptionsParsingException {
+  public List<PackageIdentifier> convert(String input) throws OptionsParsingException {
     if (Strings.isNullOrEmpty(input)) {
       return ImmutableList.of();
     }
-    ImmutableList.Builder<String> list = ImmutableList.builder();
+    ImmutableList.Builder<PackageIdentifier> list = ImmutableList.builder();
     for (String s : SPACE_SPLITTER.split(input)) {
-      String errorMessage = LabelValidator.validatePackageName(s);
-      if (errorMessage != null) {
-        throw new OptionsParsingException(errorMessage);
+      try {
+        list.add(PackageIdentifier.parse(s));
+      } catch (Label.SyntaxException e) {
+        throw new OptionsParsingException(e.getMessage());
       }
-      list.add(s);
     }
     return list.build();
   }

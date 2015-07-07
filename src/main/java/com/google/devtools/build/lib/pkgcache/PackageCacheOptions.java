@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.syntax.CommaSeparatedPackageNameListConverter;
 import com.google.devtools.common.options.Converter;
@@ -110,7 +111,7 @@ public class PackageCacheOptions extends OptionsBase {
           + "encounters a label '//x:y/z' if that is still provided by another "
           + "package_path entry.  Specifying --deleted_packages x/y avoids this "
           + "problem.")
-  public List<String> deletedPackages;
+  public List<PackageIdentifier> deletedPackages;
 
   @Option(name = "default_visibility",
       defaultValue = "private",

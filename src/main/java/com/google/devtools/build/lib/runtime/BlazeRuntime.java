@@ -1014,7 +1014,7 @@ public final class BlazeRuntime {
     if (!skyframeExecutor.hasIncrementalState()) {
       clearSkyframeRelevantCaches();
     }
-    skyframeExecutor.sync(packageCacheOptions, getWorkingDirectory(),
+    skyframeExecutor.sync(packageCacheOptions, getOutputBase(), getWorkingDirectory(),
         defaultsPackageContents, getCommandId());
   }
 

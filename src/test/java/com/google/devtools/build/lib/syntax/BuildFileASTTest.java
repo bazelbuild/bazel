@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,8 +46,8 @@ public class BuildFileASTTest {
 
   private class ScratchPathPackageLocator implements CachingPackageLocator {
     @Override
-    public Path getBuildFileForPackage(String packageName) {
-      return scratch.resolve(packageName).getRelative("BUILD");
+    public Path getBuildFileForPackage(PackageIdentifier packageName) {
+      return scratch.resolve(packageName.getPackageFragment()).getRelative("BUILD");
     }
   }
 
@@ -264,7 +265,7 @@ public class BuildFileASTTest {
 
   private class EmptyPackageLocator implements CachingPackageLocator {
     @Override
-    public Path getBuildFileForPackage(String packageName) {
+    public Path getBuildFileForPackage(PackageIdentifier packageName) {
       return null;
     }
   }

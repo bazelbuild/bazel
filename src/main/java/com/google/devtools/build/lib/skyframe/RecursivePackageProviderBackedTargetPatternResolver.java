@@ -132,7 +132,10 @@ public class RecursivePackageProviderBackedTargetPatternResolver
 
   @Override
   public boolean isPackage(String packageName) {
-    return recursivePackageProvider.isPackage(eventHandler, packageName);
+    // TODO(bazel-team): this should get the whole PackageIdentifier. Using only the package name
+    // makes it impossible to use the //... wildcard to refer to targets in remote repositories.
+    return recursivePackageProvider.isPackage(
+        eventHandler, PackageIdentifier.createInDefaultRepo(packageName));
   }
 
   @Override
