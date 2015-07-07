@@ -811,7 +811,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   public void testBadRuleClassNames() {
     expectError(RuleClassType.NORMAL, "8abc");
-    expectError(RuleClassType.NORMAL, "_abc");
+    expectError(RuleClassType.NORMAL, "!abc");
     expectError(RuleClassType.NORMAL, "a b");
   }
 

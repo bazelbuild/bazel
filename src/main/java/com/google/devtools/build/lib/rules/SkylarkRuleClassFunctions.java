@@ -304,10 +304,6 @@ public class SkylarkRuleClassFunctions {
           throw new EvalException(ast.getLocation(),
               "Invalid rule class hasn't been exported by a Skylark file");
         }
-        if (ruleClassName.startsWith("_")) {
-          throw new EvalException(ast.getLocation(), "Invalid rule class name '" + ruleClassName
-              + "', cannot be private");
-        }
         if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
           throw new EvalException(ast.getLocation(), "Invalid rule class name '" + ruleClassName
               + "', test rule class names must end with '_test' and other rule classes must not");

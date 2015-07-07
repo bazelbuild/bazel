@@ -225,7 +225,7 @@ public final class RuleClass {
    * of that name already exists. Use {@link #overrideAttribute} in that case.
    */
   public static final class Builder {
-    private static final Pattern RULE_NAME_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_]*");
+    private static final Pattern RULE_NAME_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     /**
      * The type of the rule class, which determines valid names and required
