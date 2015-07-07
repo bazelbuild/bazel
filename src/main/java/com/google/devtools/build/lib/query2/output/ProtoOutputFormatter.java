@@ -61,6 +61,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
 
   private BinaryPredicate<Rule, Attribute> dependencyFilter;
   private boolean relativeLocations = false;
+  protected boolean includeDefaultValues = true;
   protected AspectResolver aspectResolver;
 
   protected void setDependencyFilter(QueryOptions options) {
@@ -77,6 +78,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
       AspectResolver aspectResolver) throws IOException, InterruptedException {
     relativeLocations = options.relativeLocations;
     this.aspectResolver = aspectResolver;
+    this.includeDefaultValues = options.protoIncludeDefaultValues;
     setDependencyFilter(options);
 
     Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
@@ -120,6 +122,9 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
           .setLocation(location);
 
       for (Attribute attr : rule.getAttributes()) {
+        if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)) {
+          continue;
+        }
         PackageSerializer.addAttributeToProto(rulePb, attr,
             PackageSerializer.getAttributeValues(rule, attr), null,
             rule.isAttributeValueExplicitlySpecified(attr), false);

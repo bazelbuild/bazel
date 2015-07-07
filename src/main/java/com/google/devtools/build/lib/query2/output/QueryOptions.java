@@ -104,6 +104,14 @@ public class QueryOptions extends OptionsBase {
           + "--output=graph.")
   public boolean graphFactored;
 
+  @Option(name = "proto:default_values",
+      defaultValue = "true",
+      category = "query",
+      help = "If true, attributes whose value is not explicitly specified "
+          + "in the BUILD file are included; otherwise they are omitted. "
+          + "This option is applicable to --output=proto")
+  public boolean protoIncludeDefaultValues;
+
   @Option(name = "xml:line_numbers",
       defaultValue = "true",
       category = "query",
