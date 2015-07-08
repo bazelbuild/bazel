@@ -12,7 +12,9 @@ from outside of the build root.
 
 External dependencies can be specified in a _WORKSPACE_ file in the build root.
 This _WORKSPACE_ file uses the same Python-like syntax of BUILD files, but
-allows a different set of rules.
+allows a different set of rules. See the full list of rules that are allowed in
+the [Workspace](/docs/build-encyclopedia.html) list of rules in the Build
+Encyclopedia.
 
 ## Fetching dependencies
 
