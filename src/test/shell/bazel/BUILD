@@ -141,6 +141,12 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "bazel_workspace_status_test",
+    srcs = ["bazel_workspace_status_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
