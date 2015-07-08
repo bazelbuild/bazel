@@ -30,8 +30,6 @@ _SOY_FILE_TYPE = FileType([".soy"])
 def _impl(ctx):
   srcs = ctx.files.srcs
   args = [
-      "--cssHandlingScheme",
-      "goog",
       "--outputPathFormat",
       ctx.outputs.out.path,
       "--shouldGenerateJsdoc",
