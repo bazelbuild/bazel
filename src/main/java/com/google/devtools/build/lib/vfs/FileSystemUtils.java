@@ -157,7 +157,10 @@ public class FileSystemUtils {
    * filename string. If the basename contains no '.', the filename is returned
    * unchanged.
    *
-   * e.g. "foo/bar.x" -> "foo/bar"
+   * <p>e.g. "foo/bar.x" -> "foo/bar"
+   *
+   * <p>Note that if the filename is composed entirely of ".", this method will return the string
+   * with one fewer ".", which may have surprising effects.
    */
   @ThreadSafe
   public static String removeExtension(String filename) {
@@ -176,6 +179,9 @@ public class FileSystemUtils {
    * unchanged.
    *
    * <p>e.g. "foo/bar.x" -> "foo/bar"
+   *
+   * <p>Note that if the base filename is composed entirely of ".", this method will return the
+   * filename with one fewer "." in the base filename, which may have surprising effects.
    */
   @ThreadSafe
   public static PathFragment removeExtension(PathFragment path) {
@@ -188,6 +194,9 @@ public class FileSystemUtils {
    * unchanged.
    *
    * <p>e.g. "foo/bar.x" -> "foo/bar"
+   *
+   * <p>Note that if the base filename is composed entirely of ".", this method will return the
+   * filename with one fewer "." in the base filename, which may have surprising effects.
    */
   @ThreadSafe
   public static Path removeExtension(Path path) {

@@ -222,12 +222,12 @@ public class FdoSupport {
         : Root.asDerivedRoot(execRoot, execRoot.getRelative("blaze-fdo"));
     this.fdoRootExecPath = fdoProfile == null
         ? null
-        : fdoRoot.getExecPath().getRelative(new PathFragment("_fdo").getChild(
-            FileSystemUtils.removeExtension(fdoProfile.getBaseName())));
+        : fdoRoot.getExecPath().getRelative(FileSystemUtils.removeExtension(
+            new PathFragment("_fdo").getChild(fdoProfile.getBaseName())));
     this.fdoPath = fdoProfile == null
         ? null
-        : new PathFragment("_fdo").getChild(
-            FileSystemUtils.removeExtension(fdoProfile.getBaseName()));
+        : FileSystemUtils.removeExtension(new PathFragment("_fdo").getChild(
+            fdoProfile.getBaseName()));
     this.lipoMode = lipoMode;
     this.useAutoFdo = fdoProfile != null && isAutoFdo(fdoProfile.getBaseName());
     this.useLLVMFdo = fdoProfile != null && isLLVMFdo(fdoProfile.getBaseName());

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 
@@ -150,6 +151,12 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       }
     } else {
       fdoZip = directories.getWorkspace().getRelative(cppOptions.fdoOptimize);
+      try {
+        // We don't check for file existence, but at least the filename should be well-formed.
+        FileSystemUtils.checkBaseName(fdoZip.getBaseName());
+      } catch (IllegalArgumentException e) {
+        throw new InvalidConfigurationException(e);
+      }
     }
 
     Label ccToolchainLabel;
