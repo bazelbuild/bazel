@@ -117,7 +117,7 @@ abstract class RecursiveDirectoryTraversalFunction
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileKey, InconsistentFilesystemException.class,
           FileSymlinkCycleException.class, IOException.class);
-    } catch (InconsistentFilesystemException | FileSymlinkCycleException  | IOException e) {
+    } catch (InconsistentFilesystemException | FileSymlinkCycleException | IOException e) {
       return reportErrorAndReturn(FileValue.class.getSimpleName(), e, rootRelativePath,
           env.getListener());
     }
@@ -192,8 +192,21 @@ abstract class RecursiveDirectoryTraversalFunction
       //  'foo/bar' under 'rootA/workspace'.
     }
 
-    DirectoryListingValue dirValue = (DirectoryListingValue)
-        env.getValue(DirectoryListingValue.key(rootedPath));
+    DirectoryListingValue dirValue;
+    try {
+      dirValue = (DirectoryListingValue) env.getValueOrThrow(DirectoryListingValue.key(rootedPath),
+          InconsistentFilesystemException.class, IOException.class,
+          FileSymlinkCycleException.class);
+    } catch (InconsistentFilesystemException | IOException e) {
+      return reportErrorAndReturn(DirectoryListingValue.class.getSimpleName(), e, rootRelativePath,
+          env.getListener());
+    } catch (FileSymlinkCycleException e) {
+      // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
+      // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't
+      // be able to avoid throwing there but throw here.
+      throw new IllegalStateException("Symlink cycle found after not being found for \""
+          + rootedPath + "\"");
+    }
     if (dirValue == null) {
       return null;
     }
