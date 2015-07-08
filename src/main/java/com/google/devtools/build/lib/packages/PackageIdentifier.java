@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -215,6 +216,34 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     Preconditions.checkNotNull(pkgName);
     this.repository = repository;
     this.pkgName = Canonicalizer.fragments().intern(pkgName.normalize());
+  }
+
+  public static PackageIdentifier parse(String input) throws SyntaxException {
+    String repo;
+    String packageName;
+    int packageStartPos = input.indexOf("//");
+    if (packageStartPos > 0) {
+      repo = input.substring(0, packageStartPos);
+      packageName = input.substring(packageStartPos + 2);
+    } else if (packageStartPos == 0) {
+      repo = PackageIdentifier.DEFAULT_REPOSITORY;
+      packageName = input.substring(2);
+    } else {
+      repo = PackageIdentifier.DEFAULT_REPOSITORY;
+      packageName = input;
+    }
+
+    String error = RepositoryName.validate(repo);
+    if (error != null) {
+      throw new SyntaxException(error);
+    }
+
+    error = LabelValidator.validatePackageName(packageName);
+    if (error != null) {
+      throw new SyntaxException(error);
+    }
+
+    return new PackageIdentifier(repo, new PathFragment(packageName));
   }
 
   private Object writeReplace() throws ObjectStreamException {

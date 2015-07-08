@@ -483,6 +483,7 @@ EOF
 
 function test_local_deps() {
   local r=$TEST_TMPDIR/r
+  rm -fr $r
   mkdir -p $r
   cat > WORKSPACE <<EOF
 local_repository(
@@ -514,6 +515,32 @@ genrule(
 EOF
 
   bazel build @r//a || fail "build failed"
+}
+
+function test_globs() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+
+EOF
+
+  cat > $r/BUILD <<EOF
+filegroup(
+    name = "fg",
+    srcs = glob(["**"]),
+)
+EOF
+
+  touch $r/a
+  mkdir -p $r/b
+  touch $r/b/{BUILD,b}
+
+  bazel build @r//:fg || fail "build failed"
 }
 
 run_suite "local repository tests"

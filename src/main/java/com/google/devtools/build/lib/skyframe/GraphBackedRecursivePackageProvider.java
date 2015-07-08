@@ -79,8 +79,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, String packageName) {
-    SkyKey packageLookupKey = PackageLookupValue.key(new PathFragment(packageName));
+  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
+    SkyKey packageLookupKey = PackageLookupValue.key(packageName);
     if (!graph.exists(packageLookupKey)) {
       // If the package lookup key does not exist in the graph, then it must not correspond to any
       // package, because the SkyQuery environment has already loaded the universe.

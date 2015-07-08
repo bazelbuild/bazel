@@ -94,7 +94,8 @@ public class GlobCacheTest {
     cache = new GlobCache(packageDirectory, PackageIdentifier.createInDefaultRepo("isolated"),
         new CachingPackageLocator() {
       @Override
-      public Path getBuildFileForPackage(String packageName) {
+      public Path getBuildFileForPackage(PackageIdentifier packageId) {
+        String packageName = packageId.getPackageFragment().getPathString();
         if (packageName.equals("isolated")) {
           return scratch.resolve("isolated/BUILD");
         } else if (packageName.equals("isolated/sub")) {

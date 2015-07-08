@@ -274,7 +274,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private void setUpSkyframe() {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
-        packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+        null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(optionsParser),

@@ -193,7 +193,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     @Override
     public boolean isPackage(String packageName) {
-      return packageProvider.isPackage(env.getListener(), packageName);
+      // TODO(bazel-team): this should get the whole PackageIdentifier. Using only the package name
+      // makes it impossible to use wildcards to refer to targets in remote repositories.
+      return packageProvider.isPackage(env.getListener(),
+          PackageIdentifier.createInDefaultRepo(packageName));
     }
 
     @Override

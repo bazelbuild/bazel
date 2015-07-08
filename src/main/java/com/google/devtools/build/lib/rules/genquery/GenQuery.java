@@ -461,7 +461,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public boolean isPackage(EventHandler eventHandler, String packageName) {
+    public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
       throw new UnsupportedOperationException();
     }
   }
