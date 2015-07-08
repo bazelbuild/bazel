@@ -44,4 +44,30 @@ EOF
     || fail "build failed"
 }
 
+function test_workspace_status_parameters() {
+  create_new_workspace
+
+  local cmd=$TEST_TMPDIR/status.sh
+  cat > $cmd <<EOF
+#!/bin/bash
+
+echo BUILD_SCM_STATUS funky
+EOF
+  chmod +x $cmd
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name="a",
+    srcs=[],
+    outs=["a.out"],
+    stamp=1,
+    cmd="touch $@")
+EOF
+
+  bazel build --stamp //a --workspace_status_command=$cmd || fail "build failed"
+  grep -sq "BUILD_SCM_STATUS funky" bazel-out/volatile-status.txt \
+    || fail "BUILD_SCM_STATUS not found"
+}
+
 run_suite "workspace status tests"
