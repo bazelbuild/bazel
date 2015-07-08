@@ -63,7 +63,7 @@ public class HttpArchiveRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = http_archive, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = http_archive, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
 ${ATTRIBUTE_SIGNATURE}
 
