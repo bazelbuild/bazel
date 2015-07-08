@@ -25,6 +25,7 @@ closure_js_library(
         exclude = [
             "closure/goog/**/*_test.js",
             "closure/goog/demos/**/*.js",
+            "third_party/closure/goog/**/*_test.js",
         ],
     ),
     visibility = ["//visibility:public"],
