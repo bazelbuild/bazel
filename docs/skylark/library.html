@@ -246,16 +246,6 @@ Returns the type name of its argument.
 	<li id="modules._top_level.type.object"><code>object</code>: The object to check type of.
 	</li>
 </ul>
-<li><h3 id="modules._top_level.union">union</h3>
-<code><a class="anchor" href="#modules.set">set</a> union(input, newElements)</code><br>
-Creates a new <a href="#modules.set">set</a> that contains both the input set as well as all additional elements.
-<h4>Parameters</h4>
-<ul>
-	<li id="modules._top_level.union.input"><code>input (<a class="anchor" href="#modules.set">set</a>)</code>: The input set
-	</li>
-	<li id="modules._top_level.union.newElements"><code>newElements (Iterable)</code>: The elements to be added
-	</li>
-</ul>
 <li><h3 id="modules._top_level.zip">zip</h3>
 <code><a class="anchor" href="#modules.list">list</a> zip(*args)</code><br>
 Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
@@ -756,7 +746,15 @@ Returns the set of symlinks
 A language built-in type that supports (nested) sets. Sets can be created using the <a href="#modules._top_level.set">set</a> function, and they support the <code>+</code> operator to extend the set with more elements or to nest other sets inside of it. Examples:<br><pre class=language-python>s = set([1, 2])
 s += [3]           # s == {1, 2, 3}
 s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>Note that in these examples <code>{..}</code> is not a valid literal to create sets. Sets have a fixed generic type, so <code>set([1]) + ["a"]</code> or <code>set([1]) + set(["a"])</code> results in an error.<br>When aggregating data from providers, nested sets can take significantly less memory than other types as the subsets can be shared.
-<ul></ul><hr><h2 id="modules.string">string</h2>
+<ul><li><h3 id="modules.set.union">union</h3>
+<code><a class="anchor" href="#modules.set">set</a> set.union(newElements)</code><br>
+Creates a new <a href="#modules.set">set</a> that contains both the input set as well as all additional elements.
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.set.union.newElements"><code>newElements (Iterable)</code>: The elements to be added
+	</li>
+</ul>
+</ul><hr><h2 id="modules.string">string</h2>
 A language built-in type to support strings. Examples of string literals:<br><pre class="language-python">a = 'abc\ndef'
 b = "ab'cd"
 c = """multiline string"""

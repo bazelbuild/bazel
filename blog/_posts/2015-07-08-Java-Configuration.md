@@ -3,12 +3,12 @@ layout: posts
 title: Configuring your Java builds
 ---
 
-Let say that you want to build for Java 8 and errorprone checks on but
+Let say that you want to build for Java 8 and errorprone checks off but
 keep the tools directory provided with Bazel in the package path, you could do
 that by having the following rc file:
 
 ```
-build --javacopts="-extra_checks:on"
+build --javacopts="-extra_checks:off"
 build --javacopts="-source 8"
 build --javacopts="-target 8"
 ```
