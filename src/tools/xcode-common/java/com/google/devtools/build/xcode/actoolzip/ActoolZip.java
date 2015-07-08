@@ -51,6 +51,7 @@ public class ActoolZip implements Wrapper {
         .add("--output-format").add("human-readable-text")
         .add("--notices")
         .add("--warnings")
+        .add("--errors")
         .add("--compress-pngs")
         .add("--compile")
         .add(outputDirectory)
