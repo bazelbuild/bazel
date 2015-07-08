@@ -138,16 +138,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   @Override
   public QueryEvalResult<Target> evaluateQuery(QueryExpression expr)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
     // result is set to have an error iff there were errors emitted during the query, so we reset
     // errors here.
     eventHandler.resetErrors();
-    try {
-      init();
-    } catch (InterruptedException e) {
-      throw new QueryException(e.getMessage());
-    }
+    init();
     return super.evaluateQuery(expr);
   }
 

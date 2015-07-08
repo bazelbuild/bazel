@@ -57,7 +57,7 @@ final class DepsFunction implements QueryFunction {
    */
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> argumentValue = args.get(0).getExpression().eval(env);
     int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     env.buildTransitiveClosure(expression, argumentValue, depthBound);

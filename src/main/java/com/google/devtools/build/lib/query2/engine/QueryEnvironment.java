@@ -123,7 +123,7 @@ public interface QueryEnvironment<T> {
      *     by {@link #getArgumentTypes} and {@link #getMandatoryArguments}
      */
     <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-        throws QueryException;
+        throws QueryException, InterruptedException;
   }
 
   /**
@@ -176,7 +176,7 @@ public interface QueryEnvironment<T> {
    */
   void buildTransitiveClosure(QueryExpression caller,
                               Set<T> targetNodes,
-                              int maxDepth) throws QueryException;
+                              int maxDepth) throws QueryException, InterruptedException;
 
   /**
    * Returns the set of nodes on some path from "from" to "to".

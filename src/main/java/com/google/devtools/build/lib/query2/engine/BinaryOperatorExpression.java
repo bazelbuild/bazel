@@ -46,7 +46,7 @@ class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException, InterruptedException {
     Set<T> lhsValue = new LinkedHashSet<>(operands.get(0).eval(env));
 
     for (int i = 1; i < operands.size(); i++) {

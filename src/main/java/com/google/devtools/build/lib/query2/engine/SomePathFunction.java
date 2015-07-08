@@ -52,7 +52,7 @@ class SomePathFunction implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> fromValue = args.get(0).getExpression().eval(env);
     Set<T> toValue = args.get(1).getExpression().eval(env);
 

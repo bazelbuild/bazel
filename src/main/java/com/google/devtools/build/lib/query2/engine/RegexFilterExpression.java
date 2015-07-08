@@ -32,7 +32,7 @@ abstract class RegexFilterExpression implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Pattern compiledPattern;
     try {
       compiledPattern = Pattern.compile(getPattern(args));

@@ -54,7 +54,7 @@ class LabelsFunction implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> inputs = args.get(1).getExpression().eval(env);
     Set<T> result = new LinkedHashSet<>();
     String attrName = args.get(0).getWord();

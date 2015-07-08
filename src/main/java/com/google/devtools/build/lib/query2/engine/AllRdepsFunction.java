@@ -59,7 +59,7 @@ public class AllRdepsFunction implements QueryFunction {
    * predicate.
    */
   protected <T> Set<T> eval(QueryEnvironment<T> env, List<Argument> args, Predicate<T> universe)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> argumentValue = args.get(0).getExpression().eval(env);
     int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     Set<T> visited = new LinkedHashSet<>();
@@ -90,7 +90,7 @@ public class AllRdepsFunction implements QueryFunction {
   /** Breadth-first search from the argument. */
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     return eval(env, args, Predicates.<T>alwaysTrue());
   }
 }

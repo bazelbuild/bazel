@@ -67,7 +67,8 @@ public abstract class QueryExpression {
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException;
+  public abstract <T> Set<T> eval(QueryEnvironment<T> env)
+      throws QueryException, InterruptedException;
 
   /**
    * Collects all target patterns that are referenced anywhere within this query expression and adds

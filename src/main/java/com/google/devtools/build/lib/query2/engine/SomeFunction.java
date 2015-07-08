@@ -49,7 +49,7 @@ class SomeFunction implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> argumentValue = args.get(0).getExpression().eval(env);
     if (argumentValue.isEmpty()) {
       throw new QueryException(expression, "argument set is empty");

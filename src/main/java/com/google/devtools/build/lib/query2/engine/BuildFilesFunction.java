@@ -40,7 +40,7 @@ class BuildFilesFunction implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     return env.getBuildFiles(expression, args.get(0).getExpression().eval(env));
   }
 

@@ -126,7 +126,7 @@ public final class QueryCommand implements BlazeCommand {
     QueryEvalResult<Target> result;
     try {
       result = env.evaluateQuery(expr);
-    } catch (QueryException e) {
+    } catch (QueryException | InterruptedException e) {
       // Keep consistent with reportBuildFileError()
       runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.ANALYSIS_FAILURE;

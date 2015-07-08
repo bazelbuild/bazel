@@ -95,7 +95,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public BlazeQueryEvalResult<Target> evaluateQuery(QueryExpression expr) throws QueryException {
+  public BlazeQueryEvalResult<Target> evaluateQuery(QueryExpression expr)
+      throws QueryException, InterruptedException {
     // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
     // result is set to have an error iff there were errors emitted during the query, so we reset
     // errors here.
@@ -241,16 +242,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public void buildTransitiveClosure(QueryExpression caller,
                                      Set<Target> targetNodes,
-                                     int maxDepth) throws QueryException {
+                                     int maxDepth) throws QueryException, InterruptedException {
     Set<Target> targets = targetNodes;
     preloadTransitiveClosure(targets, maxDepth);
-
-    try {
-      labelVisitor.syncWithVisitor(eventHandler, targets, keepGoing,
-          loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
-    } catch (InterruptedException e) {
-      throw new QueryException(caller, "transitive closure computation was interrupted");
-    }
+    labelVisitor.syncWithVisitor(eventHandler, targets, keepGoing,
+        loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
 
     if (errorObserver.hasErrors()) {
       reportBuildFileError(caller, "errors were encountered while computing transitive closure");

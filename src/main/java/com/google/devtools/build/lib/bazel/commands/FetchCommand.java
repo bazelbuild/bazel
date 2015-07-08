@@ -119,7 +119,7 @@ public final class FetchCommand implements BlazeCommand {
     // 2. Evaluate expression:
     try {
       env.evaluateQuery(expr);
-    } catch (QueryException e) {
+    } catch (QueryException | InterruptedException e) {
       // Keep consistent with reportBuildFileError()
       runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;

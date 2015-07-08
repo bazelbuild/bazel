@@ -54,7 +54,7 @@ public class VisibleFunction implements QueryFunction {
 
   @Override
   public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     Set<T> toSet = args.get(0).getExpression().eval(env);
     Set<T> targets = args.get(1).getExpression().eval(env);
 

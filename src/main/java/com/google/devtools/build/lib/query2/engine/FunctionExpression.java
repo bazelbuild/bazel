@@ -38,7 +38,7 @@ public class FunctionExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException, InterruptedException {
     return function.<T>eval(env, this, args);
   }
 
