@@ -85,6 +85,20 @@ run in it a development server with `bazel run //hello_app:myapp`. This will
 bind a test server on port 8080. If you wish to select another port,
 simply append the `--port=12345` to the command-line.
 
+Another target `//hello_app:myapp.deploy` allows you to deploy your
+application to AppEngine. It takes an optional argument: the
+`APP_ID`. If not specified, it uses the default `APP_ID` provided in
+the application. This target needs to be authorized to AppEngine. Since
+Bazel does not connect the standard input, it is easier to run it by:
+```
+bazel-bin/hello_app/myapp.deploy APP_ID
+```
+
+After the first launch, subsequent launch will be registered to
+AppEngine so you can just do a normal `bazel run
+//hello_app:myapp.deploy APP_ID` to deploy next versions of
+your application.
+
 <a name="reference"></a>
 ## Build Rule Reference [reference]
 

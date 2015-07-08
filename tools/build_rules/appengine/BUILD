@@ -5,3 +5,15 @@ java_library(
     visibility = ["//visibility:public"],
     exports = ["@javax-servlet-api//jar:jar"],
 )
+
+filegroup(
+    name = "runner_template",
+    srcs = ["appengine_runner.sh.template"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "deploy_template",
+    srcs = ["appengine_deploy.sh.template"],
+    visibility = ["//visibility:public"],
+)
