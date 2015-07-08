@@ -25,8 +25,12 @@ function query() {
 }
 
 # Compile bazel
-([ -f "output/bazel" ] && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] && [ -f "tools/jdk/ijar" ] \
-    && [ -f "tools/jdk/SingleJar_deploy.jar" ] && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
+([ -f "output/bazel" ] \
+  && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
+  && [ -f "tools/jdk/ijar" ] \
+  && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
+  && [ -f "tools/jdk/GenClass_deploy.jar" ] \
+  && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
 
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.

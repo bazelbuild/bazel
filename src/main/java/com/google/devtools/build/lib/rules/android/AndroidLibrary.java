@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -94,8 +95,15 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             false,
             null /* proguardCfgOut */);
 
-        if (androidCommon.init(javaSemantics, androidSemantics,
-            resourceApk, transitiveIdlImportData, false, true) == null) {
+        JavaTargetAttributes javaTargetAttributes = androidCommon.init(
+            javaSemantics,
+            androidSemantics,
+            resourceApk,
+            transitiveIdlImportData,
+            false /* addCoverageSupport */,
+            true /* collectJavaCompilationArgs */,
+            AndroidRuleClasses.ANDROID_LIBRARY_GEN_JAR); 
+        if (javaTargetAttributes == null) {
           return null;
         }
 
@@ -144,8 +152,16 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
       AndroidCommon androidCommon = new AndroidCommon(ruleContext, javaCommon);
       ResourceApk resourceApk = ResourceApk.fromTransitiveResources(transitiveResources);
-      if (androidCommon.init(javaSemantics, androidSemantics,
-          resourceApk, transitiveIdlImportData, false, true) == null) {
+
+      JavaTargetAttributes javaTargetAttributes = androidCommon.init(
+          javaSemantics,
+          androidSemantics,
+          resourceApk,
+          transitiveIdlImportData,
+          false /* addCoverageSupport */,
+          true /* collectJavaCompilationArgs */,
+          AndroidRuleClasses.ANDROID_LIBRARY_GEN_JAR); 
+      if (javaTargetAttributes == null) {
         return null;
       }
 

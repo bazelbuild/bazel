@@ -151,6 +151,21 @@ java_library(
     deps = [":BazelJavaCompiler"],
 )
 
+# JarHelper library for GenClass so it can create the gen jar.
+java_library(
+    name = "jarhelper",
+    srcs = [
+        "java/com/google/devtools/build/buildjar/JarCreator.java",
+        "java/com/google/devtools/build/buildjar/JarHelper.java",
+    ],
+    visibility = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:__pkg__",
+    ],
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
 # For the -Xbootclasspath option of the java_test of buildjar
 genrule(
     name = "langtools-test",
@@ -203,6 +218,14 @@ bootstrap_java_binary(
     name = "bootstrap",
     srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
+    visibility = ["//visibility:public"],
+    deps = [":skylark-deps"],
+)
+
+bootstrap_java_binary(
+    name = "bootstrap_genclass",
+    srcs = glob(["java/com/google/devtools/build/buildjar/genclass/*.java"]),
+    main_class = "com.google.devtools.build.buildjar.genclass.GenClass",
     visibility = ["//visibility:public"],
     deps = [":skylark-deps"],
 )

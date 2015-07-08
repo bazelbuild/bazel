@@ -106,6 +106,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
       tools/jdk/SingleJar_deploy.jar
   bazel_bootstrap //src/java_tools/buildjar:JavaBuilder_deploy.jar \
       tools/jdk/JavaBuilder_deploy.jar
+  bazel_bootstrap //src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar \
+      tools/jdk/GenClass_deploy.jar
   if [[ $PLATFORM == "darwin" ]]; then
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar \
         tools/objc/precomp_actoolzip_deploy.jar

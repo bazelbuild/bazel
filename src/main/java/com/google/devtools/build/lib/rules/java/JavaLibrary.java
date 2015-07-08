@@ -117,14 +117,19 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     filesBuilder.add(classJar);
 
-    // The gensrcJar is only created if the target uses annotation processing.  Otherwise,
-    // it is null, and the source jar action will not depend on the compile action.
+    // The gensrc jar is created only if the target uses annotation processing.
+    // Otherwise, it is null, and the source jar action will not depend on the compile action.
     Artifact gensrcJar = helper.createGensrcJar(classJar);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
+
+    Artifact genClassJar = ruleContext.getImplicitOutputArtifact(
+        JavaSemantics.JAVA_LIBRARY_GEN_JAR);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
 
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
 
-    helper.createCompileActionWithInstrumentation(classJar, gensrcJar, outputDepsProto,
-        javaArtifactsBuilder);
+    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, gensrcJar,
+        outputDepsProto, javaArtifactsBuilder);
     helper.createSourceJarAction(srcJar, gensrcJar);
 
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
@@ -209,7 +214,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext);
 
     semantics.addProviders(
-        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, gensrcJar,
+        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, genClassJar, gensrcJar,
         ImmutableMap.<Artifact, Artifact>of(), helper, filesBuilder, builder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();

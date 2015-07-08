@@ -41,6 +41,7 @@ EXTRA_BAZELRC="build --java_langtools=//tools/jdk:test-langtools"
 javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
 langtools_path="${TEST_SRCDIR}/third_party/java/jdk/langtools/javac.jar"
 singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
+genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
 # Third-party

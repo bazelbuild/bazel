@@ -111,8 +111,17 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     filesBuilder.addAll(jars);
 
     semantics.addProviders(
-        ruleContext, common, ImmutableList.<String>of(), null,
-        srcJar, null, compilationToRuntimeJarMap.build(), helper, filesBuilder, ruleBuilder);
+        ruleContext,
+        common,
+        ImmutableList.<String>of(),
+        null /* classJar */,
+        srcJar /* srcJar */,
+        null /* genJar */,
+        null /* gensrcJar */,
+        compilationToRuntimeJarMap.build(),
+        helper,
+        filesBuilder,
+        ruleBuilder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 

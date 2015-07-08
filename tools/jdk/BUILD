@@ -82,6 +82,7 @@ exports_files([
     "JavaBuilder_deploy.jar",
     "ijar",
     "SingleJar_deploy.jar",
+    "GenClass_deploy.jar",
 ])
 
 filegroup(

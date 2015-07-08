@@ -56,7 +56,7 @@ public class BazelAnalysisMock extends AnalysisMock {
         // "dummy" is needed so that RedirectChaser stops here
         "filegroup(name='java', srcs = ['jdk/jre/bin/java', 'dummy'])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar',",
-        "               'JavaBuilderCanary_deploy.jar', 'ijar'])");
+        "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar'])");
     config.create("tools/cpp/BUILD",
         "filegroup(name = 'toolchain', srcs = [':cc-compiler-local', ':empty'])",
         "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",

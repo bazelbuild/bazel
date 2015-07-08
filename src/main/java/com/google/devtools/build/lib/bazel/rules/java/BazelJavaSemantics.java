@@ -239,6 +239,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       List<String> jvmFlags,
       Artifact classJar,
       Artifact srcJar,
+      Artifact genJar,
       Artifact gensrcJar,
       ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
       JavaCompilationHelper helper,

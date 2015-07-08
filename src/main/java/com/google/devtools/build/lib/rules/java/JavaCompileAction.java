@@ -19,6 +19,8 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -64,6 +66,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -488,6 +491,7 @@ public class JavaCompileAction extends AbstractAction {
       PathFragment tempDirectory,
       Artifact outputJar,
       Artifact gensrcOutputJar,
+      Artifact manifestProto,
       boolean compressJar,
       Artifact outputDepsProto,
       final NestedSet<Artifact> classpath,
@@ -518,9 +522,16 @@ public class JavaCompileAction extends AbstractAction {
       result.addExecPath("--output", outputJar);
     }
 
-    if (gensrcOutputJar != null) {
+    if (sourceGenDirectory != null) {
       result.add("--sourcegendir").addPath(sourceGenDirectory);
+    }
+
+    if (gensrcOutputJar != null) {
       result.addExecPath("--generated_sources_output", gensrcOutputJar);
+    }
+
+    if (manifestProto != null) {
+      result.addExecPath("--output_manifest_proto", manifestProto);
     }
 
     if (compressJar) {
@@ -730,6 +741,7 @@ public class JavaCompileAction extends AbstractAction {
     private List<Artifact> javabaseInputs = ImmutableList.of();
     private Artifact outputJar;
     private Artifact gensrcOutputJar;
+    private Artifact manifestProtoOutput;
     private Artifact outputDepsProto;
     private Artifact paramFile;
     private Artifact metadata;
@@ -829,19 +841,12 @@ public class JavaCompileAction extends AbstractAction {
       Preconditions.checkState(javaExecutable.isAbsolute() ^ !javabaseInputs.isEmpty(),
           javaExecutable);
 
-      Collection<Artifact> outputs;
-      ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.builder();
-      outputsBuilder.add(outputJar);
-      if (metadata != null) {
-        outputsBuilder.add(metadata);
-      }
-      if (gensrcOutputJar != null) {
-        outputsBuilder.add(gensrcOutputJar);
-      }
-      if (outputDepsProto != null) {
-        outputsBuilder.add(outputDepsProto);
-      }
-      outputs = outputsBuilder.build();
+      Collection<Artifact> outputs = Collections2.filter(Arrays.asList(
+          outputJar,
+          metadata,
+          gensrcOutputJar,
+          manifestProtoOutput,
+          outputDepsProto), Predicates.notNull());
 
       CustomCommandLine.Builder paramFileContentsBuilder = javaCompileCommandLine(
           semantics,
@@ -851,6 +856,7 @@ public class JavaCompileAction extends AbstractAction {
           tempDirectory,
           outputJar,
           gensrcOutputJar,
+          manifestProtoOutput,
           compressJar,
           outputDepsProto,
           classpathEntries,
@@ -932,6 +938,11 @@ public class JavaCompileAction extends AbstractAction {
 
     public Builder setGensrcOutputJar(Artifact gensrcOutputJar) {
       this.gensrcOutputJar = gensrcOutputJar;
+      return this;
+    }
+
+    public Builder setManifestProtoOutput(Artifact manifestProtoOutput) {
+      this.manifestProtoOutput = manifestProtoOutput;
       return this;
     }
 

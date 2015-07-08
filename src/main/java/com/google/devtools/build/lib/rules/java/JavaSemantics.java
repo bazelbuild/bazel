@@ -55,12 +55,18 @@ public interface JavaSemantics {
 
   public static final SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR =
       fromTemplates("lib%{name}.jar");
+  public static final SafeImplicitOutputsFunction JAVA_LIBRARY_GEN_JAR =
+      fromTemplates("lib%{name}-gen.jar");
   public static final SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR =
       fromTemplates("lib%{name}-src.jar");
+
   public static final SafeImplicitOutputsFunction JAVA_BINARY_CLASS_JAR =
       fromTemplates("%{name}.jar");
+  public static final SafeImplicitOutputsFunction JAVA_BINARY_GEN_JAR =
+      fromTemplates("%{name}-gen.jar");
   public static final SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR =
       fromTemplates("%{name}-src.jar");
+
   public static final SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
@@ -117,6 +123,12 @@ public interface JavaSemantics {
    * Label of the SingleJar JAR used for creating deploy jars.
    */
   public static final String SINGLEJAR_LABEL = "//tools/defaults:singlejar";
+
+  /**
+   * Label of the GenClass JAR used for creating the jar for classes from sources generated from
+   * annotation processors.
+   */
+  public static final String GENCLASS_LABEL = "//tools/defaults:genclass";
 
   /**
    * Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be replaced by
@@ -279,6 +291,7 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       Artifact classJar,
       Artifact srcJar,
+      Artifact genJar,
       Artifact gensrcJar,
       ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
       JavaCompilationHelper helper,

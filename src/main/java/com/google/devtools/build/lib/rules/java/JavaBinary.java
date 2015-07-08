@@ -149,12 +149,17 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     common.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
 
-    // The gensrcJar is only created if the target uses annotation processing.  Otherwise,
+    // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
     Artifact gensrcJar = helper.createGensrcJar(classJar);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
-    helper.createCompileAction(classJar, gensrcJar, outputDepsProto, instrumentationMetadata);
+    helper.createCompileAction(
+        classJar, manifestProtoOutput, gensrcJar, outputDepsProto, instrumentationMetadata);
     helper.createSourceJarAction(srcJar, gensrcJar);
+
+    Artifact genClassJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_GEN_JAR);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
 
     common.setClassPathFragment(new ClasspathConfiguredFragment(
         common.getJavaCompilationArtifacts(), attributes, false));
@@ -187,7 +192,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
 
-    semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar, gensrcJar,
+    semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar, genClassJar, gensrcJar,
         ImmutableMap.<Artifact, Artifact>of(), helper, filesBuilder, builder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();

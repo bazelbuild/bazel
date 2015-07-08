@@ -51,11 +51,18 @@ public class BazelJavaRuleClasses {
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
-      fromFunctions(JavaSemantics.JAVA_BINARY_CLASS_JAR, JavaSemantics.JAVA_BINARY_SOURCE_JAR,
-          JavaSemantics.JAVA_BINARY_DEPLOY_JAR, JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR);
+      fromFunctions(
+          JavaSemantics.JAVA_BINARY_CLASS_JAR,
+          JavaSemantics.JAVA_BINARY_GEN_JAR,
+          JavaSemantics.JAVA_BINARY_SOURCE_JAR,
+          JavaSemantics.JAVA_BINARY_DEPLOY_JAR,
+          JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR);
 
   static final ImplicitOutputsFunction JAVA_LIBRARY_IMPLICIT_OUTPUTS =
-      fromFunctions(JavaSemantics.JAVA_LIBRARY_CLASS_JAR, JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
+      fromFunctions(
+          JavaSemantics.JAVA_LIBRARY_CLASS_JAR,
+          JavaSemantics.JAVA_LIBRARY_GEN_JAR,
+          JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
 
   /**
    * Common attributes for rules that depend on ijar.
@@ -99,6 +106,8 @@ public class BazelJavaRuleClasses {
               .value(env.getLabel(JavaSemantics.JAVABUILDER_LABEL)))
           .add(attr("$singlejar", LABEL).cfg(HOST)
               .value(env.getLabel(JavaSemantics.SINGLEJAR_LABEL)))
+          .add(attr("$genclass", LABEL).cfg(HOST)
+              .value(env.getLabel(JavaSemantics.GENCLASS_LABEL)))
           .build();
     }
 

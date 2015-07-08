@@ -21,6 +21,7 @@ filegroup(
         "//external:jdk-default",
         "//src:bazel",
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/test/shell:bashunit",
         "//third_party:srcs",

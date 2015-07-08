@@ -30,9 +30,12 @@ EXTRA_JARS="bazel-bazel/external/local-jdk/lib/tools.jar"
 cd $(dirname $(dirname "$0"))
 
 # Compile bazel
-([ -f "output/bazel" ] && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
-    && [ -f "tools/jdk/ijar" ] && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
-    && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
+([ -f "output/bazel" ] \
+  && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
+  && [ -f "tools/jdk/ijar" ] \
+  && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
+  && [ -f "tools/jdk/GenClass_deploy.jar" ] \
+  && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
 
 # Make the script use actual bazel
 function bazel() {
