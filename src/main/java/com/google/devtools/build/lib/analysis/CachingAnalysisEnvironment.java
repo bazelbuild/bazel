@@ -148,8 +148,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       }
       throw new IllegalStateException(
           String.format(
-              "%s %s : These artifacts miss a generating action:\n%s\n"
-              + "These actions we checked:\n%s\n",
+              "%s %s : These artifacts do not have a generating action:\n%s\n"
+              + "These actions were checked:\n%s\n",
               target.getTargetKind(), target.getLabel(),
               Joiner.on('\n').join(orphanArtifacts), Joiner.on('\n').join(checkedActions)));
     }
