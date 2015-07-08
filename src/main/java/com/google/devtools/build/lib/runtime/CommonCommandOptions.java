@@ -225,10 +225,9 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(name = "tool_tag",
       defaultValue = "",
-      allowMultiple = true,
       category = "misc",
       help = "A tool name to attribute this Blaze invocation to.")
-  public List<String> toolTag;
+  public String toolTag;
 
   @Option(name = "restart_reason",
       defaultValue = "no_restart",
