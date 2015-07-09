@@ -109,6 +109,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, NodeEntry>>() {
           @Override
           public boolean apply(Entry<SkyKey, NodeEntry> input) {
+            Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
             return input.getValue().isDirty() || deletePredicate.apply(input.getKey());
           }
         }).keySet());
