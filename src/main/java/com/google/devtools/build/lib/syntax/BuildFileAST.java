@@ -41,6 +41,8 @@ public class BuildFileAST extends ASTNode {
 
   private ImmutableSet<String> subincludes;
 
+  private ImmutableSet<Label> includes;
+
   /**
    * Whether any errors were encountered during scanning or parsing.
    */
@@ -92,6 +94,40 @@ public class BuildFileAST extends ASTNode {
       }
     }
     return subincludes.build();
+  }
+
+  private ImmutableSet<Label> fetchIncludes(List<Statement> stmts) {
+    ImmutableSet.Builder<Label> result = new ImmutableSet.Builder<>();
+    for (Statement stmt : stmts) {
+      if (!(stmt instanceof ExpressionStatement)) {
+        continue;
+      }
+
+      ExpressionStatement expr = (ExpressionStatement) stmt;
+      if (!(expr.getExpression() instanceof FuncallExpression)) {
+        continue;
+      }
+
+      FuncallExpression funcall = (FuncallExpression) expr.getExpression();
+      if (!funcall.getFunction().getName().equals("include")
+          || funcall.getArguments().size() != 1) {
+        continue;
+      }
+
+      Expression arg = funcall.getArguments().get(0).value;
+      if (!(arg instanceof StringLiteral)) {
+        continue;
+      }
+
+      try {
+        Label label = Label.parseAbsolute(((StringLiteral) arg).getValue());
+        result.add(label);
+      } catch (Label.SyntaxException e) {
+        // Ignore. This will be reported when the BUILD file is actually evaluated.
+      }
+    }
+
+    return result.build();
   }
 
   /** Collects paths from all load statements */
@@ -147,6 +183,14 @@ public class BuildFileAST extends ASTNode {
       subincludes = fetchSubincludes(stmts);
     }
     return subincludes;
+  }
+
+  public synchronized ImmutableSet<Label> getIncludes() {
+    if (includes == null) {
+      includes = fetchIncludes(stmts);
+    }
+
+    return includes;
   }
 
   /**

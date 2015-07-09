@@ -71,6 +71,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     }
     FileValue repositoryValue = getRepositoryDirectory(repositoryPath, env);
     if (repositoryValue == null) {
+      // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
+      // second execution.
       return null;
     }
 

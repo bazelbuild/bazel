@@ -232,7 +232,7 @@ public class PackageFunction implements SkyFunction {
     Set<SkyKey> subincludePackageLookupDepKeys = Sets.newHashSet();
     for (Label label : pkg.getSubincludeLabels()) {
       // Declare a dependency on the package lookup for the package giving access to the label.
-      subincludePackageLookupDepKeys.add(PackageLookupValue.key(label.getPackageFragment()));
+      subincludePackageLookupDepKeys.add(PackageLookupValue.key(label.getPackageIdentifier()));
     }
     Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean> subincludePackageLookupResult =
         getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
@@ -457,9 +457,27 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(new BuildFileContainsErrorsException(
           packageId, e.getMessage()), Transience.TRANSIENT);
     }
-    SkylarkImportResult importResult = fetchImportsFromBuildFile(buildFilePath, buildFileFragment,
-        packageId, preludeStatements, inputSource, env);
-    if (importResult == null) {
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
+          inputSource, preludeStatements, eventHandler, null, true);
+
+    SkylarkImportResult importResult;
+    boolean includeRepositoriesFetched;
+    if (eventHandler.hasErrors()) {
+      // In case of Python preprocessing, errors have already been reported (see checkSyntax).
+      // In other cases, errors will be reported later.
+      // TODO(bazel-team): maybe we could get rid of checkSyntax and always report errors here?
+      importResult = new SkylarkImportResult(
+          ImmutableMap.<PathFragment, SkylarkEnvironment>of(), ImmutableList.<Label>of());
+      includeRepositoriesFetched = true;
+    } else {
+      importResult = fetchImportsFromBuildFile(buildFilePath, buildFileFragment,
+          packageId, buildFileAST, env);
+      includeRepositoriesFetched = fetchIncludeRepositoryDeps(env, buildFileAST);
+    }
+
+    if (importResult == null || !includeRepositoriesFetched) {
       return null;
     }
 
@@ -509,23 +527,26 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  private SkylarkImportResult fetchImportsFromBuildFile(Path buildFilePath,
-      PathFragment buildFileFragment, PackageIdentifier packageIdentifier,
-      List<Statement> preludeStatements, ParserInputSource inputSource, Environment env)
-      throws PackageFunctionException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
-          inputSource, preludeStatements, eventHandler, null, true);
-
-    if (eventHandler.hasErrors()) {
-      // In case of Python preprocessing, errors have already been reported (see checkSyntax).
-      // In other cases, errors will be reported later.
-      // TODO(bazel-team): maybe we could get rid of checkSyntax and always report errors here?
-      return new SkylarkImportResult(
-          ImmutableMap.<PathFragment, SkylarkEnvironment>of(),
-          ImmutableList.<Label>of());
+  private boolean fetchIncludeRepositoryDeps(Environment env, BuildFileAST ast) {
+    boolean ok = true;
+    for (Label label : ast.getIncludes()) {
+      if (!label.getPackageIdentifier().getRepository().isDefault()) {
+        // If this is the default repository, the include refers to the same repository, whose
+        // RepositoryValue is already a dependency of this PackageValue.
+        if (env.getValue(RepositoryValue.key(
+            label.getPackageIdentifier().getRepository())) == null) {
+          ok = false;
+        }
+      }
     }
 
+    return ok;
+  }
+
+  private SkylarkImportResult fetchImportsFromBuildFile(Path buildFilePath,
+      PathFragment buildFileFragment, PackageIdentifier packageIdentifier,
+      BuildFileAST buildFileAST, Environment env)
+      throws PackageFunctionException {
     ImmutableCollection<PathFragment> imports = buildFileAST.getImports();
     Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
