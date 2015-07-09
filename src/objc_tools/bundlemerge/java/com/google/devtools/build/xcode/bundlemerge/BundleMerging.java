@@ -47,7 +47,7 @@ import javax.annotation.CheckReturnValue;
 /**
  * Implementation of the final steps to create an iOS application bundle.
  *
- * TODO(bazel-team): Add asset catalog compilation and bundling to this logic.
+ * <p>TODO(bazel-team): Add asset catalog compilation and bundling to this logic.
  */
 public final class BundleMerging {
   @VisibleForTesting final FileSystem fileSystem;
@@ -121,11 +121,11 @@ public final class BundleMerging {
     if (control.hasExecutableName()) {
       plistMerging.setExecutableName(control.getExecutableName());
     }
-    
+
     plistMerging.setBundleIdentifier(
         control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
         control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null);
-   
+
     plistMerging.write(tempMergedPlist, tempPkgInfo);
 
 
@@ -193,11 +193,24 @@ public final class BundleMerging {
         if (zipInEntry == null) {
           break;
         }
+        // TODO(bazel-dev): Add support for soft links because we will need them for MacOS support
+        // in frameworks at the very least. https://github.com/google/bazel/issues/289
+        String name = entryNamesPrefix + zipInEntry.getName();
+        if (zipInEntry.isDirectory()) {
+          // If we already have a directory entry with this name then don't attempt to
+          // add it again. It's not an error to attempt to merge in two zip files that contain
+          // the same directories. It's only an error to attempt to merge in two zip files with the
+          // same leaf files.
+          if (!combiner.containsFile(name)) {
+            combiner.addDirectory(name, DOS_EPOCH);
+          }
+          continue;
+        }
         Integer externalFileAttr = externalFileAttributes.get(zipInEntry.getName());
         if (externalFileAttr == null) {
           externalFileAttr = ZipInputEntry.DEFAULT_EXTERNAL_FILE_ATTRIBUTE;
         }
-        ZipFileEntry zipOutEntry = new ZipFileEntry(entryNamesPrefix + zipInEntry.getName());
+        ZipFileEntry zipOutEntry = new ZipFileEntry(name);
         zipOutEntry.setTime(DOS_EPOCH.getTime());
         zipOutEntry.setVersion(ZipInputEntry.MADE_BY_VERSION);
         zipOutEntry.setExternalAttributes(externalFileAttr);

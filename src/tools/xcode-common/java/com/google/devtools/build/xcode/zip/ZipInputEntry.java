@@ -92,11 +92,20 @@ public class ZipInputEntry extends Value<ZipInputEntry> {
   }
 
   /**
-   * Adds this entry to a zip using the given {@code ZipCombiner}.
+   * Adds this entry to a zip using the given {@code ZipCombiner}. Entry can be either a directory
+   * or a file.
    */
   public void add(ZipCombiner combiner) throws IOException {
+    ZipFileEntry entry = new ZipFileEntry(zipPath);
+    if (Files.isDirectory(source)) {
+      String name = entry.getName();
+      if (!name.endsWith("/")) {
+        name = name + "/";
+      }
+      combiner.addDirectory(name, DOS_EPOCH);
+      return;
+    }
     try (InputStream inputStream = Files.newInputStream(source)) {
-      ZipFileEntry entry = new ZipFileEntry(zipPath);
       entry.setTime(DOS_EPOCH.getTime());
       entry.setVersion(MADE_BY_VERSION);
       entry.setExternalAttributes(externalFileAttribute);
@@ -125,6 +134,7 @@ public class ZipInputEntry extends Value<ZipInputEntry> {
    *   <li>bar/c
    *   <li>baz/d
    * </ul>
+   * Note that currently this doesn't add directory entries.
    */
   public static Iterable<ZipInputEntry> fromDirectory(final Path rootDirectory) throws IOException {
     final ImmutableList.Builder<ZipInputEntry> zipInputs = new ImmutableList.Builder<>();
