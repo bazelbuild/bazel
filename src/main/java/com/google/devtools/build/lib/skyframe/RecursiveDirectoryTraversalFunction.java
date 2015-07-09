@@ -118,7 +118,7 @@ abstract class RecursiveDirectoryTraversalFunction
       fileValue = (FileValue) env.getValueOrThrow(fileKey, InconsistentFilesystemException.class,
           FileSymlinkCycleException.class, IOException.class);
     } catch (InconsistentFilesystemException | FileSymlinkCycleException | IOException e) {
-      return reportErrorAndReturn(FileValue.class.getSimpleName(), e, rootRelativePath,
+      return reportErrorAndReturn("Failed to get information about path", e, rootRelativePath,
           env.getListener());
     }
     if (fileValue == null) {
@@ -141,7 +141,7 @@ abstract class RecursiveDirectoryTraversalFunction
       pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(PackageLookupValue.key(packageId),
           NoSuchPackageException.class, InconsistentFilesystemException.class);
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
-      return reportErrorAndReturn(PackageLookupValue.class.getSimpleName(), e, rootRelativePath,
+      return reportErrorAndReturn("Failed to load package", e, rootRelativePath,
           env.getListener());
     }
     if (pkgLookupValue == null) {
@@ -198,7 +198,7 @@ abstract class RecursiveDirectoryTraversalFunction
           InconsistentFilesystemException.class, IOException.class,
           FileSymlinkCycleException.class);
     } catch (InconsistentFilesystemException | IOException e) {
-      return reportErrorAndReturn(DirectoryListingValue.class.getSimpleName(), e, rootRelativePath,
+      return reportErrorAndReturn("Failed to list directory contents", e, rootRelativePath,
           env.getListener());
     } catch (FileSymlinkCycleException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
@@ -263,9 +263,9 @@ abstract class RecursiveDirectoryTraversalFunction
   }
 
   // Ignore all errors in traversal and return an empty value.
-  private TReturn reportErrorAndReturn(String lookupValueName, Exception e,
+  private TReturn reportErrorAndReturn(String errorPrefix, Exception e,
       PathFragment rootRelativePath, EventHandler handler) {
-    handler.handle(Event.warn("Error finding " + lookupValueName + " value for " + rootRelativePath
+    handler.handle(Event.warn(errorPrefix + ", for " + rootRelativePath
         + ", skipping: " + e.getMessage()));
     return getEmptyReturn();
   }
