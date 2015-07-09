@@ -84,6 +84,10 @@ public final class ApplicationManifest {
   private String getOverridePackage(RuleContext ruleContext) {
     // It seems that we sometimes rename the app for God-knows-what reason. If that is the case,
     // pass this information to the stubifier script.
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("application_id")) {
+      return ruleContext.attributes().get("application_id", Type.STRING);
+    }
+
     TransitiveInfoCollection resourcesPrerequisite =
         ruleContext.getPrerequisite("resources", Mode.TARGET);
     if (resourcesPrerequisite != null) {
