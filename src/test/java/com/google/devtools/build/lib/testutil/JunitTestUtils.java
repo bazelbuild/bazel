@@ -304,7 +304,7 @@ public class JunitTestUtils {
       }
     }
     List<Event> foundEvents = builder.build();
-    assertWithMessage(foundEvents.toString()).that(foundEvents).hasSize(expectedFrequency);
+    assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
     return foundEvents;
   }
 }

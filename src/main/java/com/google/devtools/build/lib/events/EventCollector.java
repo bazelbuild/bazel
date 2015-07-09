@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.collect.Iterables;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -74,5 +76,10 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
    */
   public void clear() {
     collected.clear();
+  }
+
+  @Override
+  public String toString() {
+    return "EventCollector: " + Iterables.toString(collected);
   }
 }
