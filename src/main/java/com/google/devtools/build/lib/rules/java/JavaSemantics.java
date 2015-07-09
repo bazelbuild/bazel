@@ -99,6 +99,13 @@ public interface JavaSemantics {
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /**
+   * Name of the output group used for gen jars (the jars containing the class files for sources
+   * generated from annotation processors).
+   */
+  public static final String GENERATED_JARS_OUTPUT_GROUP = 
+      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
+
+  /**
    * Label of a pseudo-filegroup that contains all jdk files for all
    * configurations, as specified on the command-line.
    */

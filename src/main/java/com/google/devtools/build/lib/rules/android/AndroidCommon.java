@@ -96,8 +96,9 @@ public class AndroidCommon {
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JackCompilationHelper jackCompilationHelper;
-  private Artifact srcJar;
   private Artifact classJar;
+  private Artifact srcJar;
+  private Artifact genJar;
   private Artifact gensrcJar;
 
   private Collection<Artifact> idls;
@@ -467,8 +468,8 @@ public class AndroidCommon {
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     // AndroidBinary will pass its -gen.jar output, and AndroidLibrary will pass its own. 
-    Artifact genClassJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
-    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
+    genJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genJar);
 
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
     helper.createSourceJarAction(srcJar, gensrcJar);
@@ -545,7 +546,8 @@ public class AndroidCommon {
                 : jackCompilationHelper.compileAsLibrary())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
-        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
+        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJar);
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {

@@ -242,6 +242,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .add(JavaSourceJarsProvider.class,
             new JavaSourceJarsProvider(transitiveSourceJars, srcJars))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genClassJar)
         .build();
   }
 

@@ -241,7 +241,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(
             exportedProcessorClasses, exportedProcessorClasspath))
-        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
+        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genClassJar);
 
     if (ruleContext.hasErrors()) {
       return null;
