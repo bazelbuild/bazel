@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidLocalToolsRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
@@ -345,6 +346,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new NewLocalRepositoryRule());
     builder.addRuleDefinition(new AndroidSdkRepositoryRule());
     builder.addRuleDefinition(new AndroidNdkRepositoryRule());
+    builder.addRuleDefinition(new AndroidLocalToolsRepositoryRule());
 
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
     builder.addConfigurationFragment(new CppConfigurationLoader(

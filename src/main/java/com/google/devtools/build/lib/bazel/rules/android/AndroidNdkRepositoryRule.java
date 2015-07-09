@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
- * Definition of the {@code android_ndk} rule.
+ * Definition of the {@code android_ndk_repository} rule.
  */
 public class AndroidNdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_ndk_repository";

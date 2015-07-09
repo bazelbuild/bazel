@@ -15,29 +15,24 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.io.IOException;
-
 /**
- * Implementation of the {@code android_sdk_repository} rule.
+ * Implementation of the {@code android_local_tools_repository} rule.
  */
-public class AndroidSdkRepositoryFunction extends RepositoryFunction {
+public class AndroidLocalToolsRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = getRule(repositoryName, AndroidSdkRepositoryRule.NAME, env);
+    Rule rule = getRule(repositoryName, AndroidLocalToolsRepositoryRule.NAME, env);
     if (rule == null) {
       return null;
     }
@@ -54,35 +49,16 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-    String buildToolsVersion = attributes.get("build_tools_version", Type.STRING);
-    Integer apiLevel = attributes.get("api_level", Type.INTEGER);
-
-    String template;
-    try {
-      template = ResourceFileLoader.loadResource(
-        AndroidSdkRepositoryFunction.class, "android_sdk_repository_template.txt");
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-
-    String buildFile = template
-        .replaceAll("%build_tools_version%", buildToolsVersion)
-        .replaceAll("%api_level%", apiLevel.toString());
-
-    return writeBuildFile(directoryValue, buildFile);
+    return RepositoryValue.create(directoryValue);
   }
 
-  /**
-   * @see RepositoryFunction#getRule(RepositoryName, String, Environment)
-   */
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(AndroidSdkRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.create(AndroidLocalToolsRepositoryRule.NAME.toUpperCase());
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
-    return AndroidSdkRepositoryRule.class;
+    return AndroidLocalToolsRepositoryRule.class;
   }
 }

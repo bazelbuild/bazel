@@ -33,7 +33,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Implementation of the {@code android_ndk} repository rule.
+ * Implementation of the {@code android_ndk_repository} rule.
  */
 public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   @Override

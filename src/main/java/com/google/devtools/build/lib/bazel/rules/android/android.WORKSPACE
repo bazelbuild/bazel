@@ -11,5 +11,4 @@ bind(name = "android/resources_processor", actual = "//tools/android:resources_p
 bind(name = "android/aar_generator", actual = "//tools/android:aar_generator")
 bind(name = "android/shuffle_jars", actual = "//tools/android:shuffle_jars")
 bind(name = "android/merge_dexzips", actual = "//tools/android:merge_dexzips")
-bind(name = "android/debug_keystore", actual = "//tools/android:debug_keystore")
 bind(name = "android/sdk")

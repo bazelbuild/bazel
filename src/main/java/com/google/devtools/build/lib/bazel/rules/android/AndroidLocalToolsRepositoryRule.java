@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -34,18 +34,28 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Definition of the {@code android_sdk_repository} rule.
+ * Definition of the {@code android_local_tools_repository} rule.
  */
-public class AndroidSdkRepositoryRule implements RuleDefinition {
-  public static final String NAME = "android_sdk_repository";
+public class AndroidLocalToolsRepositoryRule implements RuleDefinition {
+  public static final String NAME = "android_local_tools_repository";
+  public static final ImmutableList<String> TOOLS = ImmutableList.of(
+      "proguard_whitelister", "merge_manifests", "build_incremental_dexmanifest",
+      "stubify_manifest", "incremental_install", "build_split_manifest", "strip_resources",
+      "incremental_stub_application", "incremental_split_stub_application", "resources_processor",
+      "aar_generator", "shuffle_jars", "merge_dexzips");
 
   public static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
       new Function< Rule, Map<String, Label>>() {
         @Nullable
         @Override
         public Map<String, Label> apply(Rule rule) {
-          return ImmutableMap.of(
-              "android/sdk", Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:sdk"));
+          ImmutableMap.Builder<String, Label> result = ImmutableMap.builder();
+          for (String tool : TOOLS) {
+            result.put("android/" + tool,
+                Label.parseAbsoluteUnchecked("@" + rule.getName() + "//tools/android:" + tool));
+          }
+
+          return result.build();
         }
       };
 
@@ -56,18 +66,18 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         .setWorkspaceOnly()
         .setExternalBindingsFunction(BINDINGS_FUNCTION)
         .add(attr("path", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
-        .add(attr("build_tools_version", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
-        .add(attr("api_level", INTEGER).mandatory().nonconfigurable("WORKSPACE rule"))
         .build();
+
   }
 
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name(AndroidSdkRepositoryRule.NAME)
+        .name(AndroidLocalToolsRepositoryRule.NAME)
         .type(RuleClassType.WORKSPACE)
         .ancestors(WorkspaceBaseRule.class)
         .factoryClass(WorkspaceConfiguredTargetFactory.class)
         .build();
+
   }
 }
