@@ -38,13 +38,22 @@ import javax.annotation.Nullable;
  */
 public class AndroidLocalToolsRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_local_tools_repository";
-  public static final ImmutableList<String> TOOLS = ImmutableList.of(
-      "proguard_whitelister", "merge_manifests", "build_incremental_dexmanifest",
-      "stubify_manifest", "incremental_install", "build_split_manifest", "strip_resources",
-      "incremental_stub_application", "incremental_split_stub_application", "resources_processor",
-      "aar_generator", "shuffle_jars", "merge_dexzips");
+  private static final ImmutableList<String> TOOLS = ImmutableList.of(
+      "proguard_whitelister",
+      "merge_manifests",
+      "build_incremental_dexmanifest",
+      "stubify_manifest",
+      "incremental_install",
+      "build_split_manifest",
+      "strip_resources",
+      "incremental_stub_application",
+      "incremental_split_stub_application",
+      "resources_processor",
+      "aar_generator",
+      "shuffle_jars",
+      "merge_dexzips");
 
-  public static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
+  private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
       new Function< Rule, Map<String, Label>>() {
         @Nullable
         @Override
