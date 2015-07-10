@@ -92,7 +92,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // legacy when they are not at the top of the action graph. In legacy, they are stored
     // separately, so notifying non-dirty actions is cheap. In Skyframe, they depend on the
     // BUILD_ID, forcing invalidation of upward transitive closure on each build.
-    if (action.isVolatile() || action instanceof NotifyOnActionCacheHit) {
+    if ((action.isVolatile() && !(action instanceof SkyframeAwareAction))
+        || action instanceof NotifyOnActionCacheHit) {
       // Volatile build actions may need to execute even if none of their known inputs have changed.
       // Depending on the buildID ensure that these actions have a chance to execute.
       PrecomputedValue.BUILD_ID.get(env);
@@ -140,8 +141,20 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       stateMap.remove(action);
       throw new ActionExecutionFunctionException(e);
     }
+
     if (env.valuesMissing()) {
       // There was missing artifact metadata in the graph. Wait for it to be present.
+      // We must check this and return here before attempting to establish any Skyframe dependencies
+      // of the action; see establishSkyframeDependencies why.
+      return null;
+    }
+
+    try {
+      establishSkyframeDependencies(env, action);
+    } catch (ActionExecutionException e) {
+      throw new ActionExecutionFunctionException(e);
+    }
+    if (env.valuesMissing()) {
       return null;
     }
 
@@ -432,6 +445,30 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
     result.putAll(transformArtifactMetadata(data));
     return result;
+  }
+
+  private void establishSkyframeDependencies(Environment env, Action action)
+      throws ActionExecutionException {
+    // Before we may safely establish Skyframe dependencies, we must build all action inputs by
+    // requesting their ArtifactValues.
+    // This is very important to do, because the establishSkyframeDependencies method may request
+    // FileValues for input files of this action (directly requesting them, or requesting some other
+    // SkyValue whose builder requests FileValues), which may not yet exist if their generating
+    // actions have not yet run.
+    // See SkyframeAwareActionTest.testRaceConditionBetweenInputAcquisitionAndSkyframeDeps
+    Preconditions.checkState(!env.valuesMissing(), action);
+
+    if (action instanceof SkyframeAwareAction) {
+      // Skyframe-aware actions should be executed unconditionally, i.e. bypass action cache
+      // checking. See documentation of SkyframeAwareAction.
+      Preconditions.checkState(action.executeUnconditionally(), action);
+
+      try {
+        ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
+      } catch (SkyframeAwareAction.ExceptionBase e) {
+        throw new ActionExecutionException(e, action, false);
+      }
+    }
   }
 
   private static Iterable<SkyKey> toKeys(Iterable<Artifact> inputs,
