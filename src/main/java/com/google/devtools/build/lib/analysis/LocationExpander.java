@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,9 +30,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Expands $(location) tags inside target attributes.
@@ -93,7 +93,7 @@ public class LocationExpander {
 
   /**
    * Creates location expander helper bound to specific target.
-   * 
+   *
    * @param ruleContext the BUILD rule's context
    * @param options the list of options, see {@link Options}.
    */
@@ -120,6 +120,10 @@ public class LocationExpander {
     return locationMap;
   }
 
+  public String expand(String input) {
+    return expand(input, new RuleErrorReporter());
+  }
+
   /**
    * Expands attribute's location and locations tags based on the target and
    * location map.
@@ -129,92 +133,127 @@ public class LocationExpander {
    * @return attribute value with expanded location tags or original value in
    *         case of errors
    */
-  public String expand(String attrName, String attrValue) {
+  public String expandAttribute(String attrName, String attrValue) {
+    return expand(attrValue, new AttributeErrorReporter(attrName));
+  }
+
+  private String expand(String value, ErrorReporter reporter) {
     int restart = 0;
 
-    int attrLength = attrValue.length();
-    StringBuilder result = new StringBuilder(attrValue.length());
+    int attrLength = value.length();
+    StringBuilder result = new StringBuilder(value.length());
 
     while (true) {
       // (1) find '$(location ' or '$(locations '
       String message = "$(location)";
       boolean multiple = false;
-      int start = attrValue.indexOf(LOCATION, restart);
+      int start = value.indexOf(LOCATION, restart);
       int scannedLength = LOCATION.length();
       if (start == -1 || start + scannedLength == attrLength) {
-        result.append(attrValue.substring(restart));
+        result.append(value.substring(restart));
         break;
       }
 
-      if (attrValue.charAt(start + scannedLength) == 's') {
+      if (value.charAt(start + scannedLength) == 's') {
         scannedLength++;
         if (start + scannedLength == attrLength) {
-          result.append(attrValue.substring(restart));
+          result.append(value.substring(restart));
           break;
         }
         message = "$(locations)";
         multiple = true;
       }
 
-      if (attrValue.charAt(start + scannedLength) != ' ') {
-        result.append(attrValue, restart, start + scannedLength);
+      if (value.charAt(start + scannedLength) != ' ') {
+        result.append(value, restart, start + scannedLength);
         restart = start + scannedLength;
         continue;
       }
       scannedLength++;
 
-      int end = attrValue.indexOf(')', start + scannedLength);
+      int end = value.indexOf(')', start + scannedLength);
       if (end == -1) {
-        ruleContext.attributeError(attrName, "unterminated " + message + " expression");
-        return attrValue;
+        reporter.report(ruleContext, "unterminated " + message + " expression");
+        return value;
       }
+
+      message = String.format(" in %s expression", message);
 
       // (2) parse label
-      String labelText = attrValue.substring(start + scannedLength, end);
-      Label label;
+      String labelText = value.substring(start + scannedLength, end);
+      Label label = parseLabel(labelText, message, reporter);
+
+      if (label == null) {
+        // Error was already reported in parseLabel()
+        return value;
+      }
+
+      // (3) expand label; stop this operation if there is an error
       try {
-        label = ruleContext.getLabel().getRelative(labelText);
-      } catch (Label.SyntaxException e) {
-        ruleContext.attributeError(attrName,
-                              "invalid label in " + message + " expression: " + e.getMessage());
-        return attrValue;
-      }
+        Collection<String> paths = resolveLabel(label, message, multiple);
+        result.append(value, restart, start);
 
-      // (3) replace with singleton artifact, iff unique.
-      Collection<Artifact> artifacts = getLocationMap().get(label);
-      if (artifacts == null) {
-        ruleContext.attributeError(attrName,
-                              "label '" + label + "' in " + message + " expression is not a "
-                              + "declared prerequisite of this rule");
-        return attrValue;
-      }
-      List<String> paths = getPaths(artifacts, options.contains(Options.EXEC_PATHS));
-      if (paths.isEmpty()) {
-        ruleContext.attributeError(attrName,
-                              "label '" + label + "' in " + message + " expression expands to no "
-                              + "files");
-        return attrValue;
-      }
-
-      result.append(attrValue, restart, start);
-      if (multiple) {
-        Collections.sort(paths);
-        Joiner.on(' ').appendTo(result, paths);
-      } else {
-        if (paths.size() > 1) {
-          ruleContext.attributeError(attrName,
-              String.format(
-                  "label '%s' in %s expression expands to more than one file, "
-                      + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
-                  label, message, label,
-                  MAX_PATHS_SHOWN, Iterables.limit(paths, MAX_PATHS_SHOWN)));
-          return attrValue;
+        if (multiple) {
+          Joiner.on(' ').appendTo(result, paths);
+        } else {
+          result.append(Iterables.getOnlyElement(paths));
         }
-        result.append(Iterables.getOnlyElement(paths));
+      } catch (IllegalStateException ise) {
+        reporter.report(ruleContext, ise.getMessage());
+        return value;
       }
+
       restart = end + 1;
     }
+    
     return result.toString();
+  }
+
+  private Label parseLabel(String labelText, String message, ErrorReporter reporter) {
+    try {
+      return ruleContext.getLabel().getRelative(labelText);
+    } catch (Label.SyntaxException e) {
+      reporter.report(ruleContext, String.format("invalid label%s: %s", message, e.getMessage()));
+      return null;
+    }
+  }
+
+  /**
+   * Returns all possible target location(s) of the given label
+   * @param message Original message, for error reporting purposes only
+   * @param hasMultipleTargets Describes whether the label has multiple target locations
+   * @return The collection of all path strings
+   */
+  private Collection<String> resolveLabel(
+      Label unresolved, String message, boolean hasMultipleTargets) throws IllegalStateException {
+    // replace with singleton artifact, iff unique.
+    Collection<Artifact> artifacts = getLocationMap().get(unresolved);
+
+    if (artifacts == null) {
+      throw new IllegalStateException(
+          "label '" + unresolved + "'" + message + " is not a declared prerequisite of this rule");
+    }
+
+    Set<String> paths = getPaths(artifacts, options.contains(Options.EXEC_PATHS));
+
+    if (paths.isEmpty()) {
+      throw new IllegalStateException(
+          "label '" + unresolved + "'" + message + " expression expands to no files");
+    }
+
+    if (!hasMultipleTargets && paths.size() > 1) {
+      throw new IllegalStateException(
+          String.format(
+              "label '%s'%s expands to more than one file, "
+                  + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
+              unresolved,
+              message,
+              unresolved,
+              MAX_PATHS_SHOWN,
+              Iterables.limit(paths, MAX_PATHS_SHOWN)));
+    }
+
+    return paths;
   }
 
   /**
@@ -225,7 +264,8 @@ public class LocationExpander {
    * @return map of all possible target locations
    */
   private static Map<Label, Collection<Artifact>> buildLocationMap(
-      RuleContext ruleContext, Map<Label, ? extends Collection<Artifact>> labelMap,
+      RuleContext ruleContext,
+      Map<Label, ? extends Collection<Artifact>> labelMap,
       boolean allowDataAttributeEntriesInLabel) {
     Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
     if (labelMap != null) {
@@ -284,8 +324,9 @@ public class LocationExpander {
    * @param takeExecPath if false, the root relative path will be taken
    * @return all associated executable paths
    */
-  private static List<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
-    List<String> paths = Lists.newArrayListWithCapacity(artifacts.size());
+  private static Set<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
+    TreeSet<String> paths = Sets.newTreeSet();
+
     for (Artifact artifact : artifacts) {
       PathFragment execPath =
           takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
@@ -312,5 +353,29 @@ public class LocationExpander {
       map.put(key, values);
     }
     return values;
+  }
+  
+  private static interface ErrorReporter {
+    void report(RuleContext ctx, String error);
+  }
+
+  private static final class AttributeErrorReporter implements ErrorReporter {
+    private final String attrName;
+
+    public AttributeErrorReporter(String attrName) {
+      this.attrName = attrName;
+    }
+
+    @Override
+    public void report(RuleContext ctx, String error) {
+      ctx.attributeError(attrName, error);
+    }
+  }
+
+  private static final class RuleErrorReporter implements ErrorReporter {
+    @Override
+    public void report(RuleContext ctx, String error) {
+      ctx.ruleError(error);
+    }
   }
 }

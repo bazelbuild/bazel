@@ -681,7 +681,7 @@ public final class RuleContext extends TargetContext
                                         String value, @Nullable LocationExpander locationExpander) {
     try {
       if (locationExpander != null) {
-        value = locationExpander.expand(attributeName, value);
+        value = locationExpander.expandAttribute(attributeName, value);
       }
       value = expandMakeVariables(attributeName, value);
       ShellUtils.tokenize(tokens, value);

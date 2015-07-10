@@ -16,12 +16,16 @@ package com.google.devtools.build.lib.rules;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.CommandHelper;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -224,6 +228,54 @@ public class SkylarkRuleImplementationFunctions {
           return action;
         }
       };
+
+  @SkylarkSignature(name = "expand_location",
+      doc =
+      "Expands the given string so that all labels are replaced with the location "
+      + "of their target file(s). Currently, the algorithm uses output, srcs, deps, "
+      + "tools and data attributes for looking up mappings from label to locations.",
+      objectType = SkylarkRuleContext.class, returnType = String.class,
+      mandatoryPositionals = {
+          @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
+          @Param(name = "input", type = String.class, doc = "string to be expanded"),
+      },
+      optionalPositionals = {
+          @Param(name = "targets", type = SkylarkList.class,
+              generic1 = AbstractConfiguredTarget.class, defaultValue = "[]",
+              doc = "list of targets for additional lookup information"),
+      },
+      useLocation = true, useEnvironment = true)
+  private static final BuiltinFunction expandLocation = new BuiltinFunction("expand_location") {
+    @SuppressWarnings("unused")
+    public String invoke(SkylarkRuleContext ctx, String input, SkylarkList targets,
+        Location loc, Environment env) throws EvalException {
+      try {
+        return new LocationExpander(ctx.getRuleContext(),
+                   makeLabelMap(castList(targets, AbstractConfiguredTarget.class)), false)
+            .expand(input);
+      } catch (IllegalStateException ise) {
+        throw new EvalException(loc, ise);
+      }
+    }
+  };
+
+  /**
+   * Builds a map: Label -> List of files from the given labels
+   * @param knownLabels List of known labels
+   * @return Immutable map with immutable collections as values
+   */
+  private static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
+      Iterable<AbstractConfiguredTarget> knownLabels) {
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
+
+    for (AbstractConfiguredTarget current : knownLabels) {
+      builder.put(
+          current.getLabel(),
+          ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+    }
+
+    return builder.build();
+  }
 
   @SkylarkSignature(name = "template_action",
       doc = "Creates a template expansion action.",

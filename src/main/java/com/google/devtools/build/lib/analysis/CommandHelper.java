@@ -167,10 +167,12 @@ public final class CommandHelper {
    * variables.
    */
   @SkylarkCallable(doc = "Experimental.")
-  public String resolveCommandAndExpandLabels(Boolean supportLegacyExpansion,
-      Boolean allowDataInLabel) {
+  public String resolveCommandAndExpandLabels(
+      Boolean supportLegacyExpansion, Boolean allowDataInLabel) {
     String command = ruleContext.attributes().get("cmd", Type.STRING);
-    command = new LocationExpander(ruleContext, labelMap, allowDataInLabel).expand("cmd", command);
+    command =
+        new LocationExpander(ruleContext, labelMap, allowDataInLabel)
+            .expandAttribute("cmd", command);
 
     if (supportLegacyExpansion) {
       command = expandLabels(command, labelMap);
