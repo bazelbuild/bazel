@@ -994,6 +994,25 @@ public class ParserTest extends EvaluationTestCase {
     assertContainsEvent("syntax error");
   }
 
+  private static final String DOUBLE_SLASH_LOAD = "load('//foo/bar/file', 'test')\n";
+  private static final String DOUBLE_SLASH_ERROR =
+      "First argument of load() is a path, not a label. It should start with a "
+      + "single slash if it is an absolute path.";
+
+  @Test
+  public void testLoadDoubleSlashBuild() throws Exception {
+    setFailFast(false);
+    parseFile(DOUBLE_SLASH_LOAD);
+    assertContainsEvent(DOUBLE_SLASH_ERROR);
+  }
+
+  @Test
+  public void testLoadDoubleSlashSkylark() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark(DOUBLE_SLASH_LOAD);
+    assertContainsEvent(DOUBLE_SLASH_ERROR);
+  }
+
   @Test
   public void testLoadNoSymbol() throws Exception {
     setFailFast(false);
