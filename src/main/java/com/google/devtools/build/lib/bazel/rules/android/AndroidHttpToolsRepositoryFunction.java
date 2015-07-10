@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
+import com.google.devtools.build.lib.bazel.repository.HttpDownloadValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules.AndroidHttpToolsRepositoryRule;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -31,42 +35,37 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 
 /**
- * Downloads a file over HTTP.
+ * Implementation of the {@code android_http_tools_repository} workspace rule.
  */
-public class HttpArchiveFunction extends RepositoryFunction {
+public class AndroidHttpToolsRepositoryFunction extends RepositoryFunction {
+
+  @Override
+  public SkyFunctionName getSkyFunctionName() {
+    return SkyFunctionName.create(
+        AndroidHttpToolsRepositoryRule.NAME.toUpperCase());
+  }
+
+  @Override
+  public Class<? extends RuleDefinition> getRuleDefinition() {
+    return AndroidHttpToolsRepositoryRule.class;
+  }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, HttpArchiveRule.NAME, env);
+    Rule rule = RepositoryFunction.getRule(
+        repositoryName, AndroidHttpToolsRepositoryRule.NAME, env);
     if (rule == null) {
       return null;
     }
 
-    return compute(env, rule);
-  }
-
-  protected FileValue createDirectory(Path path, Environment env)
-      throws RepositoryFunctionException {
-    try {
-      FileSystemUtils.createDirectoryAndParents(path);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-    return getRepositoryDirectory(path, env);
-  }
-
-  protected SkyValue compute(Environment env, Rule rule)
-      throws RepositoryFunctionException {
-    // The output directory is always under .external-repository (to stay out of the way of
-    // artifacts from this repository) and uses the rule's name to avoid conflicts with other
-    // remote repository rules. For example, suppose you had the following WORKSPACE file:
-    //
-    // http_archive(name = "png", url = "http://example.com/downloads/png.tar.gz", sha256 = "...")
-    //
-    // This would download png.tar.gz to .external-repository/png/png.tar.gz.
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    FileValue directoryValue = createDirectory(outputDirectory, env);
+    try {
+      FileSystemUtils.createDirectoryAndParents(outputDirectory);
+    } catch (IOException e1) {
+      throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
+    }
+    FileValue directoryValue = getRepositoryDirectory(outputDirectory, env);
     if (directoryValue == null) {
       return null;
     }
@@ -78,8 +77,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
         return null;
       }
 
-      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(
-          decompressorValueKey(rule, downloadValue.getPath(), outputDirectory),
+      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(DecompressorValue.key(
+          rule.getTargetKind(), rule.getName(), downloadValue.getPath(), outputDirectory),
           IOException.class);
       if (value == null) {
         return null;
@@ -89,21 +88,5 @@ public class HttpArchiveFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
     return RepositoryValue.create(directoryValue);
-  }
-
-  protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
-      throws IOException {
-    return DecompressorValue.key(
-        rule.getTargetKind(), rule.getName(), downloadPath, outputDirectory);
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(HttpArchiveRule.NAME.toUpperCase());
-  }
-
-  @Override
-  public Class<? extends RuleDefinition> getRuleDefinition() {
-    return HttpArchiveRule.class;
   }
 }

@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -58,6 +54,12 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
+  public static SkyKey jarKey(
+      String targetKind, String targetName, Path archivePath, Path repositoryPath) {
+    return new SkyKey(JarFunction.NAME,
+        new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath));
+  }
+
   public static SkyKey key(
       String targetKind, String targetName, Path archivePath, Path repositoryPath)
       throws IOException {
@@ -66,32 +68,15 @@ public class DecompressorValue implements SkyValue {
     DecompressorDescriptor descriptor =
         new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath);
 
-    if (targetKind.startsWith(HttpJarRule.NAME + " ")
-        || targetKind.equals(MavenJarRule.NAME)) {
-      if (baseName.endsWith(".jar")) {
-        return new SkyKey(JarFunction.NAME, descriptor);
-      } else {
-        throw new IOException(
-            String.format("Expected %s %s to create file with a .jar suffix (got %s)",
-            targetKind, targetName, archivePath));
-      }
+    if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
+      return new SkyKey(ZipFunction.NAME, descriptor);
+    } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
+      return new SkyKey(TarGzFunction.NAME, descriptor);
+    } else {
+      throw new IOException(
+          String.format("Expected %s %s to create file with a .zip, .jar, .war, .tar.gz, or .tgz"
+              + " suffix (got %s)", targetKind, targetName, archivePath));
     }
-
-    if (targetKind.startsWith(HttpArchiveRule.NAME + " ")
-        || targetKind.startsWith(NewHttpArchiveRule.NAME + " ")) {
-      if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
-        return new SkyKey(ZipFunction.NAME, descriptor);
-      } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
-        return new SkyKey(TarGzFunction.NAME, descriptor);
-      } else {
-        throw new IOException(
-            String.format("Expected %s %s to create file with a .zip, .jar, .war, .tar.gz, or .tgz"
-                + " suffix (got %s)", HttpArchiveRule.NAME, targetName, archivePath));
-      }
-    }
-
-    throw new IOException(String.format("No decompressor found for %s rule %s (got %s)",
-        targetKind, targetName, archivePath));
   }
 
   /**

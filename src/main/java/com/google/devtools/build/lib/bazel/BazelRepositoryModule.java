@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.TarGzFunction;
 import com.google.devtools.build.lib.bazel.repository.ZipFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidHttpToolsRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidLocalToolsRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidLocalToolsRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules.AndroidHttpToolsRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
@@ -84,7 +86,10 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
-        .put(AndroidLocalToolsRepositoryRule.NAME, new AndroidLocalToolsRepositoryFunction())
+        .put(AndroidRepositoryRules.AndroidLocalRepositoryRule.NAME,
+            new AndroidLocalToolsRepositoryFunction())
+        .put(AndroidHttpToolsRepositoryRule.NAME,
+            new AndroidHttpToolsRepositoryFunction())
         .build();
   }
 

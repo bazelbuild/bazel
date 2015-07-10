@@ -32,7 +32,8 @@ public class AndroidLocalToolsRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = getRule(repositoryName, AndroidLocalToolsRepositoryRule.NAME, env);
+    Rule rule = getRule(
+        repositoryName, AndroidRepositoryRules.AndroidLocalRepositoryRule.NAME, env);
     if (rule == null) {
       return null;
     }
@@ -54,11 +55,12 @@ public class AndroidLocalToolsRepositoryFunction extends RepositoryFunction {
 
   @Override
   public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(AndroidLocalToolsRepositoryRule.NAME.toUpperCase());
+    return SkyFunctionName.create(
+        AndroidRepositoryRules.AndroidLocalRepositoryRule.NAME.toUpperCase());
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
-    return AndroidLocalToolsRepositoryRule.class;
+    return AndroidRepositoryRules.AndroidLocalRepositoryRule.class;
   }
 }
