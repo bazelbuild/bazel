@@ -136,6 +136,11 @@ message Attribute {
   // Whether the attribute was explicitly specified
   optional bool explicitly_specified = 13;
 
+  // If this attribute has a string value or a string list value, then this
+  // may be set to indicate that the value may be treated as a label that
+  // isn't a dependency of this attribute's rule.
+  optional bool nodep = 20;
+
   // The type of attribute.  This message is used for all of the different
   // attribute types so the discriminator helps for figuring out what is
   // stored in the message.
@@ -231,6 +236,9 @@ message Rule {
 
   // The location of the target in the BUILD file in a machine-parseable form.
   optional Location parseable_location = 8;
+
+  // The rule's class's public by default value.
+  optional bool public_by_default = 9;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

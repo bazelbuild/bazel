@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -338,6 +339,29 @@ public final class RuleClass {
                 "Mandatory attribute '%s' in test rule class has incorrect type (expcected %s).",
                 attribute.getName(), attribute.getType());
           }
+        }
+      },
+
+      /**
+       * Placeholder rules are only instantiated when packages which refer to non-native rule
+       * classes are deserialized. At this time, non-native rule classes can't be serialized. To
+       * prevent crashes on deserialization, when a package containing a rule with a non-native rule
+       * class is deserialized, the rule is assigned a placeholder rule class. This is compatible
+       * with our limited set of package serialization use cases.
+       *
+       * Placeholder rule class names obey the rule for identifiers.
+       */
+      PLACEHOLDER {
+        @Override
+        public void checkName(String name) {
+          Preconditions.checkArgument(RULE_NAME_PATTERN.matcher(name).matches(), name);
+        }
+
+        @Override
+        public void checkAttributes(Map<String, Attribute> attributes) {
+          // No required attributes; this rule class cannot have the wrong set of attributes now
+          // because, if it did, the rule class would have failed to build before the package
+          // referring to it was serialized.
         }
       };
 
@@ -690,6 +714,11 @@ public final class RuleClass {
       }
     }
 
+    /** True if the rule class contains an attribute named {@code name}. */
+    public boolean contains(String name) {
+      return attributes.containsKey(name);
+    }
+
     /**
      * Sets the rule implementation function. Meant for Skylark usage.
      */
@@ -787,6 +816,20 @@ public final class RuleClass {
           "Attribute %s does not exist in parent rule class.", name);
       return attributes.get(name).cloneBuilder();
     }
+  }
+
+  public static Builder createPlaceholderBuilder(final String name, final Location ruleLocation,
+      ImmutableList<RuleClass> parents) {
+    return new Builder(name, RuleClassType.PLACEHOLDER, /*skylark=*/true,
+        parents.toArray(new RuleClass[parents.size()])).factory(
+        new ConfiguredTargetFactory<Object, Object>() {
+          @Override
+          public Object create(Object ruleContext) throws InterruptedException {
+            throw new IllegalStateException(
+                "Cannot create configured targets from rule with placeholder class named \"" + name
+                    + "\" at " + ruleLocation);
+          }
+        });
   }
 
   private final String name; // e.g. "cc_library"

@@ -158,6 +158,7 @@ public class PackageSerializer {
       if (singleAttributeValue != null) {
         attrPb.setStringValue(singleAttributeValue.toString());
       }
+      attrPb.setNodep(type == NODEP_LABEL);
     } else if (type == STRING_LIST || type == LABEL_LIST || type == NODEP_LABEL_LIST
         || type == OUTPUT_LIST || type == DISTRIBUTIONS) {
       for (Object value : values) {
@@ -165,6 +166,7 @@ public class PackageSerializer {
           attrPb.addStringListValue(entry.toString());
         }
       }
+      attrPb.setNodep(type == NODEP_LABEL_LIST);
     } else if (type == INTEGER_LIST) {
       for (Object value : values) {
         for (Integer entry : (Collection<Integer>) value) {
@@ -393,6 +395,7 @@ public class PackageSerializer {
     builder.setName(rule.getLabel().toString());
     builder.setRuleClass(rule.getRuleClass());
     builder.setParseableLocation(serializeLocation(rule.getLocation()));
+    builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
     for (Attribute attribute : rule.getAttributes()) {
       PackageSerializer.addAttributeToProto(builder, attribute,
           getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
