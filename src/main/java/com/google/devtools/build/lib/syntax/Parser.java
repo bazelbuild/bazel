@@ -1076,6 +1076,8 @@ class Parser {
       expect(TokenKind.STRING);
       return;
     }
+    
+    Token pathToken = token;
     String path = (String) token.value;
     
     nextToken();
@@ -1097,7 +1099,19 @@ class Parser {
       expect(TokenKind.STRING);
     }
     expect(TokenKind.RPAREN);
-    list.add(setLocation(new LoadStatement(path, symbols), start, token.left));
+    
+    LoadStatement stmt = new LoadStatement(path, symbols);
+
+    // Although validateLoadPath() is invoked as part of validate(ValidationEnvironment),
+    // this only happens in Skylark. Consequently, we invoke it here to discover
+    // invalid load paths in BUILD mode, too.
+    try {
+      stmt.validateLoadPath();
+    } catch (EvalException e) {
+      syntaxError(pathToken, e.getMessage());
+    }
+
+    list.add(setLocation(stmt, start, token.left));
   }
 
   private void parseTopLevelStatement(List<Statement> list) {
