@@ -758,6 +758,10 @@ public class AndroidCommon {
     return javaCommon.getJavacOpts();
   }
 
+  public Artifact getGenJar() {
+    return genJar;
+  }
+
   @Nullable public Artifact getGensrcJar() {
     return gensrcJar;
   }
