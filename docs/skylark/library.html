@@ -568,6 +568,18 @@ Returns the data configuration. See the <a href="#modules.configuration">configu
 <li><h3 id="modules.ctx.executable">executable</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.executable</code><br>
 A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
+<li><h3 id="modules.ctx.expand_location">expand_location</h3>
+<code><a class="anchor" href="#modules.string">string</a> ctx.expand_location(input, targets?)</code><br>
+Expands the given string so that all labels are replaced with the location of their target file(s). Currently, the algorithm uses output, srcs, deps, tools and data attributes for looking up mappings from label to locations.
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.ctx.expand_location.input"><code>input (<a class="anchor" href="#modules.string">string</a>)</code>: string to be expanded
+	</li>
+</ul>
+<ul>
+	<li id="modules.ctx.expand_location.targets"><code>targets (<a class="anchor" href="#modules.list">list</a> of AbstractConfiguredTargets)</code>: list of targets for additional lookup information
+	</li>
+</ul>
 <li><h3 id="modules.ctx.expand_make_variables">expand_make_variables</h3>
 <code><a class="anchor" href="#modules.string">string</a> ctx.expand_make_variables(<a class="anchor" href="#modules.string">string</a>, <a class="anchor" href="#modules.string">string</a>, <a class="anchor" href="#modules.dict">dict</a>)</code><br>
 Returns a string after expanding all references to "Make variables". The variables must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:<ul><li>The name of the attribute (<code>string</code>). It's only used for error reporting.</li>
