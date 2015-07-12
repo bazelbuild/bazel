@@ -26,18 +26,19 @@ Example:
 
   closure_js_binary(
       name = "hello",
-      deps = [
-          ":hello_lib",
-          "//third_party/javascript/closure_library",
-      ],
       compilation_level = "simple",
+      externs = ["//third_party/javascript/google_cast/cast.js"],
+      deps = [
+          "@closure_library//:closure_library",
+          ":hello_lib",
+      ],
   )
 
 This rule will produce hello_combined.js.
 """
 
 _COMPILATION_LEVELS = {
-  "unobfuscated": [
+  "whitespace_only": [
       "--compilation_level=WHITESPACE_ONLY",
       "--formatting=PRETTY_PRINT"
   ],

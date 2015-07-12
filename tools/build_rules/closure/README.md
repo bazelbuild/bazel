@@ -120,7 +120,7 @@ closure_template_library(
 ## Known Issues
 
 The version of the Closure Templates compiler that is used will emit warnings
-about an invalid JSDOc tag (@notypecheck) and about a missing enum value. These
+about an invalid JSDoc tag (@notypecheck) and about a missing enum value. These
 issues have been fixed in the source, but are not yet available as a
 downloadable archive. These warnings are safe to ignore.
 
