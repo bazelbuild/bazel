@@ -154,7 +154,7 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-[joda-time](http://www.joda.org/joda-time/)
+[joda_time](http://www.joda.org/joda-time/)
 -----------
 
 * Version: 2.3
