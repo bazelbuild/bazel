@@ -23,6 +23,38 @@ mkdir -p .idea/
 cp -R scripts/resources/idea/*.* .idea/
 source scripts/get_all_bazel_paths.sh
 
+readonly compiler_file=.idea/compiler.xml
+cat >$compiler_file <<'EOH'
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <excludeFromCompile>
+EOH
+for android_file in $ANDROID_IMPORTING_FILES; do
+  echo "      <file url=\"\$PROJECT_DIR\$/${android_file}\" />" >> $compiler_file
+done
+cat >>$compiler_file <<'EOF'
+    </excludeFromCompile>
+    <resourceExtensions />
+    <wildcardResourcePatterns>
+      <entry name="!?*.java" />
+      <entry name="!?*.form" />
+      <entry name="!?*.class" />
+      <entry name="!?*.groovy" />
+      <entry name="!?*.scala" />
+      <entry name="!?*.flex" />
+      <entry name="!?*.kt" />
+      <entry name="!?*.clj" />
+      <entry name="!?*.aj" />
+    </wildcardResourcePatterns>
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true">
+        <processorPath useClasspath="true" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>
+EOF
 
 readonly iml_file=bazel.iml
 # The content root output/classes is used for generated sources, specifically
@@ -31,13 +63,8 @@ cat > $iml_file <<EOH
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <output url="file://\$MODULE_DIR\$/${IDE_OUTPUT_PATH}" />
-    <exclude-output />
+    <output url="file://\$MODULE_DIR\$/out" />
     <orderEntry type="inheritedJdk" />
-    <content url="file://\$MODULE_DIR\$/output/classes">
-      <sourceFolder url="file://\$MODULE_DIR\$/output/classes" isTestSource="false" />
-      <excludeFolder url="file://\$MODULE_DIR\$/output/classes/org" />
-    </content>
     <content url="file://\$MODULE_DIR\$/src">
 EOH
 
@@ -66,19 +93,26 @@ cat >> $iml_file <<'EOF'
     <orderEntry type="sourceFolder" forTests="false" />
 EOF
 
+# Write a module-library entry, usually a jar file but occasionally a directory.
 function write_jar_entry() {
-  local jar_file=$1
+  local root_file=$1
   if [[ $# > 1 ]]; then
     local source_path=$2
   else
     local source_path=""
   fi
-  local readonly basename=${jar_file##*/}
+  local protocol="file"
+  local file_end=""
+  if [[ $root_file == *.jar ]]; then
+    protocol="jar"
+    file_end="!"
+  fi
+  local readonly basename=${root_file##*/}
     cat >> $iml_file <<EOF
       <orderEntry type="module-library">
         <library name="${basename}">
           <CLASSES>
-            <root url="jar://\$MODULE_DIR\$/${jar_file}!/" />
+            <root url="${protocol}://\$MODULE_DIR\$/${root_file}${file_end}/" />
           </CLASSES>
           <JAVADOC />
 EOF
@@ -91,6 +125,11 @@ EOF
           </SOURCES>
 EOF
   fi
+  if [[ $protocol == "file" ]]; then
+    cat >> $iml_file <<EOF
+          <jarDirectory url="file://\$MODULE_DIR\$/${root_file}" recursive="false" />
+EOF
+  fi
   cat >> $iml_file <<'EOF'
       </library>
     </orderEntry>
@@ -101,15 +140,12 @@ for jar in ${THIRD_PARTY_JAR_PATHS}; do
   write_jar_entry $jar
 done
 
-for source_path in ${PROTOBUF_PATHS}; do
-  write_jar_entry ${source_path%.proto_output} $source_path
-done
-
 for path_pair in ${GENERATED_PATHS}; do
   write_jar_entry ${path_pair//:/ }
 done
 
-write_jar_entry tools/jdk/jdk/lib/tools.jar
+write_jar_entry "bazel-bin/src/main/protobuf"
+
 cat >> $iml_file <<'EOF'
   </component>
 </module>

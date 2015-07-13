@@ -38,23 +38,16 @@ function query() {
 ./output/bazel build -- //src/... //third_party/... \
   -//third_party/ijar/test/... -//src/tools/{xcode,android}/... >&2 || exit $?
 
-# Path IDE should put its output files in.
-IDE_OUTPUT_PATH="bazel-out/ide-classes"
-
 # Source roots.
 JAVA_PATHS="$(find src -name "*.java" | sed "s|/com/google/.*$||" | sort -u)"
 if [ "$(uname -s | tr 'A-Z' 'a-z')" != "darwin" ]; then
   JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/objc_tools/")"
 fi
-# Android doesn't work out of the box, but should we tell users to install the
-# Android SDK?
-JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/android/")"
 
 THIRD_PARTY_JAR_PATHS="$(find third_party -name "*.jar" | sort -u)"
 
-# Generated protobuf files have special jar files and output into .proto_output
-# directories.
-PROTOBUF_PATHS="$(find bazel-bin/ -name "*.java" | grep proto | sed "s|/com/google/.*$||" | sort -u | sed 's|//|/|')"
+# Android-SDK-dependent files may need to be excluded from compilation.
+ANDROID_IMPORTING_FILES="$(grep "^import android\." -R -l --include "*.java" src | sort)"
 
 # All other generated libraries.
 readonly package_list=$(find src -name "BUILD" | sed "s|/BUILD||" | sed "s|^|//|")
@@ -94,6 +87,12 @@ function collect_generated_paths() {
   for path in $(find bazel-genfiles/ -name "*.java" | sed 's|/\{0,1\}bazel-genfiles/\{1,2\}|//|' | uniq); do
     source_path=$(echo ${path} | sed 's|//|bazel-genfiles/|' | sed 's|/com/.*$||')
     echo "$(get_containing_library ${path}):${source_path}"
+  done &&
+  # Add in "external" jars which don't have source paths.
+  for jardir in "jar/" ""; do
+    for path in $(find bazel-genfiles/${jardir}_ijar -name "*.jar" | sed 's|^/+||' | uniq); do
+      echo "${path}:"
+    done
   done | sort -u
 }
 
