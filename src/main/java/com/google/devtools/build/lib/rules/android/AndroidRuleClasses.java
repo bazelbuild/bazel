@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Label;
@@ -176,12 +177,29 @@ public final class AndroidRuleClasses {
       return true;
     }
 
+    private void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
+      AndroidConfiguration.Options androidOptions = input.get(AndroidConfiguration.Options.class);
+      CppOptions cppOptions = output.get(CppOptions.class);
+      if (androidOptions.androidCrosstoolTop != null) {
+        if (cppOptions.hostCrosstoolTop == null) {
+          cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
+        }
+        cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
+      }
+    }
+
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
-      if (androidOptions.fatApkCpus.isEmpty()) {
+      if (androidOptions.fatApkCpus.isEmpty() && androidOptions.androidCrosstoolTop == null) {
         return ImmutableList.of();
+      }
+
+      if (androidOptions.fatApkCpus.isEmpty()) {
+        BuildOptions splitOptions = buildOptions.clone();
+        setCrosstoolToAndroid(splitOptions, buildOptions);
+        return ImmutableList.of(splitOptions);
       }
 
       List<BuildOptions> result = new ArrayList<>();
@@ -194,6 +212,7 @@ public final class AndroidRuleClasses {
         // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
         splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
         splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
+        setCrosstoolToAndroid(splitOptions, buildOptions);
         result.add(splitOptions);
       }
       return result;

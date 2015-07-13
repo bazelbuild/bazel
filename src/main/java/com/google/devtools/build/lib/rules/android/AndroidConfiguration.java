@@ -43,6 +43,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * Android configuration options.
    */
   public static class Options extends FragmentOptions {
+    @Option(name = "android_crosstool_top",
+        defaultValue = "null",
+        category = "semantics",
+        converter = LabelConverter.class,
+        help = "The location of the C++ compiler used for Android builds.")
+    public Label androidCrosstoolTop;
+
     @Option(name = "android_cpu",
         defaultValue = "armeabi",
         category = "semantics",
@@ -111,6 +118,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (proguard != null) {
         labelMap.put("android_proguard", proguard);
+      }
+
+      if (androidCrosstoolTop != null) {
+        labelMap.put("android_crosstool_top", androidCrosstoolTop);
       }
 
       labelMap.put("android_sdk", realSdk());
