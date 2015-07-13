@@ -197,6 +197,7 @@ public class BaseRuleClasses {
         .add(attr("testonly", BOOLEAN).value(testonlyDefault)
             .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())
+        .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
         .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
@@ -236,7 +237,6 @@ public class BaseRuleClasses {
               .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(attr("distribs", DISTRIBUTIONS)
               .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
           .build();
     }
 
