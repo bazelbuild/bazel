@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -114,6 +116,24 @@ public final class Event implements Serializable {
   public String toString() {
     return kind + " " + (location != null ? location.print() : "<no location>") + ": "
         + getMessage();
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes));
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null || !other.getClass().equals(getClass())) {
+      return false;
+    }
+    Event that = (Event) other;
+    return Objects.equals(this.kind, that.kind)
+        && Objects.equals(this.location, that.location)
+        && Objects.equals(this.tag, that.tag)
+        && Objects.equals(this.message, that.message)
+        && Arrays.equals(this.messageBytes, that.messageBytes);
   }
 
   /**

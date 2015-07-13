@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Stack;
 
 /**
@@ -181,6 +182,21 @@ public final class Lexer {
     @Override
     public LineAndColumn getEndLineAndColumn() {
       return lineNumberTable.getLineAndColumn(getEndOffset());
+    }
+
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(lineNumberTable, internalHashCode());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null || !other.getClass().equals(getClass())) {
+        return false;
+      }
+      LexerLocation that = (LexerLocation) other;
+      return internalEquals(that) && Objects.equals(this.lineNumberTable, that.lineNumberTable);
     }
   }
 

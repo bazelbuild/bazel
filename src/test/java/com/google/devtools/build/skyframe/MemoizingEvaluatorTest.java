@@ -2401,7 +2401,6 @@ public class MemoizingEvaluatorTest {
     assertFalse(result.hasError());
   }
 
-
   @Test
   public void absentParent() throws Exception {
     initializeTester();
@@ -2418,6 +2417,31 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, newParent);
     ErrorInfo error = result.getError(newParent);
     assertThat(error.getRootCauses()).containsExactly(errorKey);
+  }
+
+  @Test
+  public void changePruningWithEvent() throws Exception {
+    initializeTester();
+    SkyKey parent = GraphTester.toSkyKey("parent");
+    SkyKey child = GraphTester.toSkyKey("child");
+    tester.getOrCreate(child).setConstantValue(new StringValue("child")).setWarning("bloop");
+    // Restart once because child isn't ready.
+    CountDownLatch parentEvaluated = new CountDownLatch(3);
+    StringValue parentVal = new StringValue("parent");
+    tester
+        .getOrCreate(parent)
+        .setBuilder(
+            new ChainedFunction(
+                parentEvaluated, null, null, false, parentVal, ImmutableList.of(child)));
+    assertThat(tester.evalAndGet( /*keepGoing=*/false, parent)).isEqualTo(parentVal);
+    assertThat(parentEvaluated.getCount()).isEqualTo(1);
+    JunitTestUtils.assertContainsEvent(eventCollector, "bloop");
+    tester.resetPlayedEvents();
+    tester.getOrCreate(child, /*markAsModified=*/ true);
+    tester.invalidate();
+    assertThat(tester.evalAndGet( /*keepGoing=*/false, parent)).isEqualTo(parentVal);
+    JunitTestUtils.assertContainsEvent(eventCollector, "bloop");
+    assertThat(parentEvaluated.getCount()).isEqualTo(1);
   }
 
   // Tests that we have a sane implementation of error transience.

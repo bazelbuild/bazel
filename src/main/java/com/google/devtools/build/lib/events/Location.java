@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * A Location is a range of characters within a file.
@@ -51,6 +52,22 @@ public abstract class Location implements Serializable {
     @Override
     public LineAndColumn getStartLineAndColumn() {
       return startLineAndColumn;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(path, startLineAndColumn, internalHashCode());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null || !other.getClass().equals(getClass())) {
+        return false;
+      }
+      LocationWithPathAndStartColumn that = (LocationWithPathAndStartColumn) other;
+      return internalEquals(that)
+          && Objects.equals(this.path, that.path)
+          && Objects.equals(this.startLineAndColumn, that.startLineAndColumn);
     }
   }
 
@@ -212,6 +229,14 @@ public abstract class Location implements Serializable {
     return print();
   }
 
+  protected int internalHashCode() {
+    return Objects.hash(startOffset, endOffset);
+  }
+
+  protected boolean internalEquals(Location that) {
+    return this.startOffset == that.startOffset && this.endOffset == that.endOffset;
+  }
+
   /**
    * A value class that describes the line and column of an offset in a file.
    */
@@ -247,7 +272,7 @@ public abstract class Location implements Serializable {
 
     @Override
     public int hashCode() {
-      return line * 81 + column;
+      return line * 41 + column;
     }
   }
 }

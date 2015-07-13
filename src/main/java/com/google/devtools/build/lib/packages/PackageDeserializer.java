@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -196,6 +197,26 @@ public class PackageDeserializer {
     @Override
     public LineAndColumn getEndLineAndColumn() {
       return new LineAndColumn(endLine, endColumn);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          path.hashCode(), startLine, startColumn, endLine, endColumn, internalHashCode());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null || !other.getClass().equals(getClass())) {
+        return false;
+      }
+      ExplicitLocation that = (ExplicitLocation) other;
+      return this.startLine == that.startLine
+          && this.startColumn == that.startColumn
+          && this.endLine == that.endLine
+          && this.endColumn == that.endColumn
+          && internalEquals(that)
+          && Objects.equals(this.path, that.path);
     }
   }
 

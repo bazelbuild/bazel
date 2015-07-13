@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 
 import java.io.Serializable;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -59,5 +60,19 @@ public final class TaggedEvents implements Serializable {
   @Override
   public String toString() {
     return tag == null ? "<unknown>" : tag + ": " + Iterables.toString(events);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(tag, events);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null || !other.getClass().equals(getClass())) {
+      return false;
+    }
+    TaggedEvents that = (TaggedEvents) other;
+    return Objects.equals(this.tag, that.tag) && Objects.equals(this.events, that.events);
   }
 }

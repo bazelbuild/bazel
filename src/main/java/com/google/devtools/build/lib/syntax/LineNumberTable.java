@@ -25,8 +25,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -146,6 +148,23 @@ public abstract class LineNumberTable implements Serializable {
           ? linestart[line + 1]
           : bufferLength);
     }
+
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(linestart), path, bufferLength);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null || !other.getClass().equals(getClass())) {
+        return false;
+      }
+      Regular that = (Regular) other;
+      return this.bufferLength == that.bufferLength
+          && Arrays.equals(this.linestart, that.linestart)
+          && Objects.equals(this.path, that.path);
+    }
   }
 
   /**
@@ -197,7 +216,7 @@ public abstract class LineNumberTable implements Serializable {
       }
       this.table = hashOrdering.immutableSortedCopy(unorderedTable);
       this.bufferLength = buffer.length;
-      this.defaultPath = defaultPath;
+      this.defaultPath = Preconditions.checkNotNull(defaultPath);
     }
 
     private SingleHashLine getHashLine(int offset) {
@@ -241,6 +260,22 @@ public abstract class LineNumberTable implements Serializable {
         }
       }
       return Pair.of(0, 0);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(table, defaultPath, bufferLength);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null || !other.getClass().equals(getClass())) {
+        return false;
+      }
+      HashLine that = (HashLine) other;
+      return this.bufferLength == that.bufferLength
+          && this.defaultPath.equals(that.defaultPath)
+          && this.table.equals(that.table);
     }
   }
 }
