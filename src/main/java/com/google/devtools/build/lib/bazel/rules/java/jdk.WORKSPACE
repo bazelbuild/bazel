@@ -15,14 +15,6 @@ bind(
     actual = "@local-jdk//:extdir",
 )
 bind(
-    name = "langtools",
-    actual = "@local-jdk//:langtools",
-)
-bind(
-    name = "langtools-neverlink",
-    actual = "@local-jdk//:langtools-neverlink",
-)
-bind(
     name = "jni_header",
     actual = "@local-jdk//:jni_header",
 )
