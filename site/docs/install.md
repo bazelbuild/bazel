@@ -13,7 +13,7 @@ Supported platforms:
 
 Java:
 
-*   Java JDK 7 or later
+*   Java JDK 8 or later
 
 ## Downloading Bazel
 
@@ -30,12 +30,12 @@ $ git clone https://github.com/google/bazel.git
 
 To build Bazel on Ubuntu:
 
-#### 1. Install JDK 7:
+#### 1. Install JDK 8:
 
-**Ubuntu Utopic (14.10) and Trusty (14.04 LTS).** To install OpenJDK 7:
+**Ubuntu Utopic (14.10) and Vivid Vervet (15.04).** To install OpenJDK 8:
 
 ```
-$ sudo apt-get install openjdk-7-jdk openjdk-7-source
+$ sudo apt-get install openjdk-8-jdk openjdk-8-source
 ```
 
 #### 2. Install required packages:
@@ -55,15 +55,15 @@ If this fails to find a correct Java version, then try to
 set the `JAVA_HOME` environment variable.
 
 Find the Java `bin` directory using `readlink -f $(which javac)`
-and use `javac -version` to verify that you have the right JDK version (1.7+).
+and use `javac -version` to verify that you have the right JDK version (1.8+).
 Then set the `JAVA_HOME` environment variable to the `bin` directory
 parent.
 
-For example, if the path is `/usr/lib/jvm/jdk1.7.0/bin/javac`, set the
-`JAVA_HOME` variable to `/usr/lib/jvm/jdk1.7.0`:
+For example, if the path is `/usr/lib/jvm/jdk1.8.0/bin/javac`, set the
+`JAVA_HOME` variable to `/usr/lib/jvm/jdk1.8.0`:
 
 ```
-$ export JAVA_HOME=/usr/lib/jvm/jdk1.7.0
+$ export JAVA_HOME=/usr/lib/jvm/jdk1.8.0
 ```
 
 You can also add this line to your `~/.bashrc` file.
@@ -78,7 +78,7 @@ Bazel on Mac OS X requires:
 
 * MacPorts or Homebrew for installing required packages.
 
-* An installation of JDK 7.
+* An installation of JDK 8.
 
 * For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with
   iOS SDK 8.1 installed on your system.
