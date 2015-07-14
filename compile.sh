@@ -101,7 +101,7 @@ fi
 #
 if [ $DO_TOOLS_COMPILATION ]; then
   new_step 'Building Bazel tools'
-  bazel_bootstrap //third_party/ijar:ijar tools/jdk/ijar 755
+  bazel_bootstrap //third_party/ijar:ijar tools/jdk/ijar 0755
   bazel_bootstrap //src/java_tools/singlejar:SingleJar_deploy.jar \
       tools/jdk/SingleJar_deploy.jar
   bazel_bootstrap //src/java_tools/buildjar:JavaBuilder_deploy.jar \
@@ -111,7 +111,7 @@ if [ $DO_TOOLS_COMPILATION ]; then
   if [[ $PLATFORM == "darwin" ]]; then
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar \
         tools/objc/precomp_actoolzip_deploy.jar
-    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper
+    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper 0755
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar \
         tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
     bazel_bootstrap //src/objc_tools/momczip:momczip_deploy.jar \
@@ -123,8 +123,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
     bazel_bootstrap //src/objc_tools/xcodegen:xcodegen_deploy.jar \
         tools/objc/precomp_xcodegen_deploy.jar
     bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
-        tools/objc/StdRedirect.dylib
-    bazel_bootstrap //src/tools/xcode/realpath:realpath tools/objc/realpath
+        tools/objc/StdRedirect.dylib 0755
+    bazel_bootstrap //src/tools/xcode/realpath:realpath tools/objc/realpath 0755
   fi
 fi
 
