@@ -32,12 +32,12 @@ import org.apache.maven.model.building.ModelBuildingException;
 import org.apache.maven.model.building.ModelBuildingResult;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.locator.DefaultModelLocator;
+import org.apache.maven.model.resolution.InvalidRepositoryException;
+import org.apache.maven.model.resolution.ModelResolver;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.graph.Dependency;
-import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactDescriptorException;
 import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
 import org.eclipse.aether.resolution.ArtifactDescriptorResult;
@@ -118,28 +118,39 @@ public class Resolver {
 
     DefaultModelBuilderFactory factory = new DefaultModelBuilderFactory();
     DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
+    ModelResolver modelResolver = new DefaultModelResolver();
+    request.setModelResolver(modelResolver);
     request.setPomFile(pom);
     Model model;
     try {
       ModelBuildingResult result = factory.newInstance().build(request);
       model = result.getEffectiveModel();
-    } catch (ModelBuildingException e) {
+    } catch (ModelBuildingException | IllegalArgumentException e) {
+      // IllegalArg can be thrown if the parent POM cannot be resolved.
       handler.handle(Event.error(pomLocation,
           "Unable to resolve Maven model from " + pom + ": " + e.getMessage()));
       return;
     }
 
-    CollectRequest collectRequest = new CollectRequest();
     for (Repository repo : model.getRepositories()) {
-      collectRequest.addRepository(
-          new RemoteRepository.Builder(repo.getId(), repo.getName(), repo.getUrl()).build());
+      try {
+        modelResolver.addRepository(repo);
+      } catch (InvalidRepositoryException e) {
+        handler.handle(Event.error("Unable to add repository " + repo.getName()
+            + " (" + repo.getId() + "," + repo.getUrl() + ")"));
+        return;
+      }
+    }
+
+    for (String module : model.getModules()) {
+      resolvePomDependencies(project + "/" + module);
     }
 
     for (org.apache.maven.model.Dependency dependency : model.getDependencies()) {
       try {
         Rule artifactRule = new Rule(
             dependency.getArtifactId(), dependency.getGroupId(), dependency.getVersion());
-        addArtifact(artifactRule, model.toString(), pomLocation);
+        addArtifact(artifactRule, model.toString());
         getArtifactDependencies(artifactRule, pomLocation);
       } catch (Rule.InvalidRuleException e) {
         handler.handle(Event.error(pomLocation, e.getMessage()));
@@ -176,7 +187,7 @@ public class Resolver {
       try {
         Rule rule = new Rule(
             depArtifact.getArtifactId(), depArtifact.getGroupId(), depArtifact.getVersion());
-        if (addArtifact(rule, artifactRule.toMavenArtifactString(), location)) {
+        if (addArtifact(rule, artifactRule.toMavenArtifactString())) {
           getArtifactDependencies(rule, location);
         }
       } catch (Rule.InvalidRuleException e) {
@@ -190,16 +201,12 @@ public class Resolver {
    * was already in the list. If the artifact was in the list at a different version, adds an
    * error event to the event handler.
    */
-  private boolean addArtifact(Rule dependency, String parent, Location pomLocation) {
+  private boolean addArtifact(Rule dependency, String parent) {
     String artifactName = dependency.name();
     if (deps.containsKey(artifactName)) {
       Rule existingDependency = deps.get(artifactName);
       // Check that the versions are the same.
       if (!existingDependency.version().equals(dependency.version())) {
-        handler.handle(Event.warn(pomLocation, dependency.groupId() + ":"
-            + dependency.artifactId() + " already processed for version "
-            + existingDependency.version() + " but " + parent + " wants version "
-            + dependency.version() + ", ignoring."));
         existingDependency.addParent(parent + " wanted version " + dependency.version());
       } else {
         existingDependency.addParent(parent);

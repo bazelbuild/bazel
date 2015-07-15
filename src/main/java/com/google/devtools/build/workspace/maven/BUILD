@@ -1,6 +1,7 @@
 java_library(
     name = "maven",
     srcs = [
+        "DefaultModelResolver.java",
         "Resolver.java",
     ],
     visibility = [
