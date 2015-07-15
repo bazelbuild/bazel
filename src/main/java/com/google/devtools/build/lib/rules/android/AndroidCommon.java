@@ -332,20 +332,29 @@ public class AndroidCommon {
     }
 
     JavaCompilationHelper helper = initAttributes(attributes, javaSemantics);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
 
     if (addCoverageSupport) {
       androidSemantics.addCoverageSupport(ruleContext, this, javaSemantics, true,
           attributes, artifactsBuilder);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     }
 
     jackCompilationHelper = initJack(helper.getAttributes(), javaSemantics);
-    if (jackCompilationHelper == null) {
+    if (ruleContext.hasErrors()) {
       return null;
     }
 
     initJava(
         helper, artifactsBuilder, collectJavaCompilationArgs, resourceApk.getResourceJavaSrcJar(),
         genClassJarImplicitOutput);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
     return helper.getAttributes();
   }
 
@@ -403,6 +412,7 @@ public class AndroidCommon {
     for (Artifact resource : attributes.getResources()) {
       resourcesMap.put(javaSemantics.getJavaResourcePath(resource.getRootRelativePath()), resource);
     }
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     return new JackCompilationHelper.Builder()
         // blaze infrastructure
         .setRuleContext(ruleContext)
@@ -410,7 +420,7 @@ public class AndroidCommon {
         .setOutputArtifact(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
         // tools
-        .setAndroidBaseLibraryForJack(ruleContext.getHostPrerequisiteArtifact("$android_jack"))
+        .setAndroidSdk(sdk)
         // sources
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
@@ -467,7 +477,7 @@ public class AndroidCommon {
     gensrcJar = helper.createGensrcJar(classJar);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
-    // AndroidBinary will pass its -gen.jar output, and AndroidLibrary will pass its own. 
+    // AndroidBinary will pass its -gen.jar output, and AndroidLibrary will pass its own.
     genJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
     helper.createGenJarAction(classJar, manifestProtoOutput, genJar);
 
@@ -493,7 +503,7 @@ public class AndroidCommon {
     javaCommon.setClassPathFragment(
         new ClasspathConfiguredFragment(
             javaCommon.getJavaCompilationArtifacts(), attributes, asNeverLink));
-    
+
     transitiveNeverlinkLibraries = collectTransitiveNeverlinkLibraries(
         ruleContext,
         javaCommon.getDependencies(),

@@ -296,7 +296,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new AndroidRuleClasses.AndroidAaptBaseRule());
     builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
     builder.addRuleDefinition(new AndroidRuleClasses.AndroidBinaryBaseRule());
-    builder.addRuleDefinition(new AndroidRuleClasses.JackRule());
     builder.addRuleDefinition(new AndroidBinaryOnlyRule());
     builder.addRuleDefinition(new AndroidLibraryBaseRule());
     builder.addRuleDefinition(new BazelAndroidLibraryRule());

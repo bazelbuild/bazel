@@ -319,10 +319,35 @@ public final class AndroidRuleClasses {
           .add(attr("aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("shrinked_android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
+          .add(
+              attr("android_jack", LABEL)
+                  .cfg(HOST)
+                  .allowedFileTypes(ANY_FILE)
+                  // TODO(bazel-team): Remove defaults and make mandatory when android_sdk targets
+                  // have been updated to include manually specified Jack attributes.
+                  .value(environment.getLabel("//tools/android/jack:android_jack")))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("zipalign", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
+          .add(
+              attr("jack", LABEL)
+                  .cfg(HOST)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec()
+                  .value(environment.getLabel("//tools/android/jack:jack")))
+          .add(
+              attr("jill", LABEL)
+                  .cfg(HOST)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec()
+                  .value(environment.getLabel("//tools/android/jack:jill")))
+          .add(
+              attr("resource_extractor", LABEL)
+                  .cfg(HOST)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec()
+                  .value(environment.getLabel("//tools/android/jack:resource_extractor")))
           .build();
     }
 
@@ -515,44 +540,6 @@ public final class AndroidRuleClasses {
   }
 
   /**
-   * Mixin for rules which compile with Jack and Jill.
-   *
-   * @see JackCompilationHelper
-   * @see GoogleJavaSemantics#collectJackLibraries
-   */
-  public static final class JackRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("$jack", LABEL)
-              .cfg(HOST)
-              .exec()
-              .value(env.getLabel("//tools/android/jack:jack")))
-          .add(attr("$jill", LABEL)
-              .cfg(HOST)
-              .exec()
-              .value(env.getLabel("//tools/android/jack:jill")))
-          .add(attr("$resource_extractor", LABEL)
-              .cfg(HOST)
-              .exec()
-              .value(env.getLabel("//tools/android/jack:resource_extractor")))
-          .add(attr("$android_jack", LABEL)
-              .cfg(HOST)
-              .singleArtifact()
-              .value(env.getLabel("//tools/android/jack:android_jack")))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$jack_mixin")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Base class for Android rule definitions that produce binaries.
    */
   public static final class AndroidBinaryBaseRule implements RuleDefinition {
@@ -705,8 +692,7 @@ com/google/common/base/Objects.class
           .ancestors(
               AndroidRuleClasses.AndroidBaseRule.class,
               AndroidAaptBaseRule.class,
-              AndroidResourceSupportRule.class,
-              JackRule.class)
+              AndroidResourceSupportRule.class)
           .build();
       }
   }

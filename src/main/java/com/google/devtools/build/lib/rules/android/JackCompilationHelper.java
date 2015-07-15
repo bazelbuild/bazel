@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -550,8 +549,8 @@ public final class JackCompilationHelper {
     /** Rule context used to build and register actions. */
     @Nullable private RuleContext ruleContext;
 
-    /** Jack library containing Android base classes. */
-    @Nullable private Artifact androidBaseLibraryForJack;
+    /** Set of Android tools used to pick up the Jack tools. */
+    @Nullable private AndroidSdkProvider androidSdk;
 
     /** The destination for the Jack artifact to be created. */
     @Nullable private Artifact outputArtifact;
@@ -625,11 +624,11 @@ public final class JackCompilationHelper {
     }
 
     /**
-     * Sets the artifact representing android.jack, to supply base libraries to Jack compilation.
+     * Sets the tools bundle containing Jack, Jill, the resource extractor, and the Android base
+     * library in Jack format.
      */
-    public JackCompilationHelper.Builder setAndroidBaseLibraryForJack(
-        Artifact androidBaseLibraryForJack) {
-      this.androidBaseLibraryForJack = Preconditions.checkNotNull(androidBaseLibraryForJack);
+    public JackCompilationHelper.Builder setAndroidSdk(AndroidSdkProvider androidSdk) {
+      this.androidSdk = Preconditions.checkNotNull(androidSdk);
       return this;
     }
 
@@ -803,25 +802,25 @@ public final class JackCompilationHelper {
      * JackCompilationHelpers will attempt to generate the same actions.
      */
     public JackCompilationHelper build() {
+      Preconditions.checkNotNull(ruleContext);
+      Preconditions.checkNotNull(androidSdk);
+
       boolean useSanityChecks =
           ruleContext
               .getConfiguration()
               .getFragment(AndroidConfiguration.class)
               .isJackSanityChecked();
-      FilesToRunProvider jackBinary = ruleContext.getExecutablePrerequisite("$jack", Mode.HOST);
-      FilesToRunProvider jillBinary = ruleContext.getExecutablePrerequisite("$jill", Mode.HOST);
-      FilesToRunProvider resourceExtractorBinary =
-          ruleContext.getExecutablePrerequisite("$resource_extractor", Mode.HOST);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
+      FilesToRunProvider jackBinary = androidSdk.getJack();
+      FilesToRunProvider jillBinary = androidSdk.getJill();
+      FilesToRunProvider resourceExtractorBinary = androidSdk.getResourceExtractor();
+      Artifact androidBaseLibraryForJack = androidSdk.getAndroidJack();
 
       return new JackCompilationHelper(
-          Preconditions.checkNotNull(ruleContext),
+          ruleContext,
           useSanityChecks,
-          resourceExtractorBinary,
-          jackBinary,
-          jillBinary,
+          Preconditions.checkNotNull(resourceExtractorBinary),
+          Preconditions.checkNotNull(jackBinary),
+          Preconditions.checkNotNull(jillBinary),
           Preconditions.checkNotNull(androidBaseLibraryForJack),
           Preconditions.checkNotNull(outputArtifact),
           ImmutableSet.copyOf(javaSources),

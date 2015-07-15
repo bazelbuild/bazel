@@ -46,10 +46,15 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     FilesToRunProvider mainDexListCreator = ruleContext.getExecutablePrerequisite(
         "main_dex_list_creator", Mode.HOST);
     FilesToRunProvider zipalign = ruleContext.getExecutablePrerequisite("zipalign", Mode.HOST);
+    FilesToRunProvider jack = ruleContext.getExecutablePrerequisite("jack", Mode.HOST);
+    FilesToRunProvider jill = ruleContext.getExecutablePrerequisite("jill", Mode.HOST);
+    FilesToRunProvider resourceExtractor =
+        ruleContext.getExecutablePrerequisite("resource_extractor", Mode.HOST);
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
+    Artifact androidJack = ruleContext.getPrerequisiteArtifact("android_jack", Mode.HOST);
     Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes", Mode.HOST);
 
@@ -58,9 +63,26 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .add(AndroidSdkProvider.class, new AndroidSdkProvider(
-            frameworkAidl, androidJar, shrinkedAndroidJar, annotationsJar, mainDexClasses,
-            adb, dx, mainDexListCreator, aidl, aapt, apkBuilder, proguard, zipalign))
+        .add(
+            AndroidSdkProvider.class,
+            new AndroidSdkProvider(
+                frameworkAidl,
+                androidJar,
+                shrinkedAndroidJar,
+                androidJack,
+                annotationsJar,
+                mainDexClasses,
+                adb,
+                dx,
+                mainDexListCreator,
+                aidl,
+                aapt,
+                apkBuilder,
+                proguard,
+                zipalign,
+                jack,
+                jill,
+                resourceExtractor))
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
         .build();
