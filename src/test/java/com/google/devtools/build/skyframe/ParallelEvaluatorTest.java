@@ -25,6 +25,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -89,12 +90,19 @@ public class ParallelEvaluatorTest {
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing) {
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing,
+      Predicate<Event> storedEventFilter) {
     Version oldGraphVersion = graphVersion;
     graphVersion = graphVersion.next();
     return new ParallelEvaluator(graph, oldGraphVersion,
-        builders, reporter,  new MemoizingEvaluator.EmittedEventState(), keepGoing,
-        150, revalidationReceiver, new DirtyKeyTrackerImpl());
+        builders, reporter,  new MemoizingEvaluator.EmittedEventState(), storedEventFilter,
+        keepGoing, 150, revalidationReceiver, new DirtyKeyTrackerImpl());
+  }
+
+  private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing) {
+    return makeEvaluator(graph, builders, keepGoing,
+        InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER);
   }
 
   /** Convenience method for eval-ing a single value. */
@@ -454,6 +462,51 @@ public class ParallelEvaluatorTest {
     // Build top again. The warning should have been stored in the value.
     eval(false, top);
     JunitTestUtils.assertEventCount(1, eventCollector);
+  }
+
+  @Test
+  public void storedEventFilter() throws Exception {
+    graph = new InMemoryGraph();
+    SkyKey a = GraphTester.toSkyKey("a");
+    final AtomicBoolean evaluated = new AtomicBoolean(false);
+    tester.getOrCreate(a).setBuilder(new SkyFunction() {
+      @Nullable
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) {
+        evaluated.set(true);
+        env.getListener().handle(Event.error(null, "boop"));
+        env.getListener().handle(Event.warn(null, "beep"));
+        return new StringValue("a");
+      }
+
+      @Nullable
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    ParallelEvaluator evaluator = makeEvaluator(graph,
+        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
+        /*keepGoing=*/false, new Predicate<Event>() {
+            @Override
+            public boolean apply(Event event) {
+              return event.getKind() == EventKind.ERROR;
+            }
+        });
+    evaluator.eval(ImmutableList.of(a));
+    assertTrue(evaluated.get());
+    JunitTestUtils.assertEventCount(2, eventCollector);
+    JunitTestUtils.assertContainsEvent(eventCollector, "boop");
+    JunitTestUtils.assertContainsEvent(eventCollector, "beep");
+    eventCollector.clear();
+    evaluator = makeEvaluator(graph,
+        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
+        /*keepGoing=*/false);
+    evaluated.set(false);
+    evaluator.eval(ImmutableList.of(a));
+    assertFalse(evaluated.get());
+    JunitTestUtils.assertEventCount(1, eventCollector);
+    JunitTestUtils.assertContainsEvent(eventCollector, "boop");
   }
 
   @Test

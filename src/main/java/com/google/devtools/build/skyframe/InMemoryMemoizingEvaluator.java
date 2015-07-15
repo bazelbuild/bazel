@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
@@ -157,8 +158,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       injectValues(intVersion);
 
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion,
-          skyFunctions, eventHandler, emittedEventState, keepGoing, numThreads, progressReceiver,
-          dirtyKeyTracker);
+          skyFunctions, eventHandler, emittedEventState, DEFAULT_STORED_EVENT_FILTER, keepGoing,
+          numThreads, progressReceiver, dirtyKeyTracker);
       EvaluationResult<T> result = evaluator.eval(roots);
       return EvaluationResult.<T>builder()
           .mergeFrom(result)
@@ -308,6 +309,21 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       }
     }
   }
+
+  public static final Predicate<Event> DEFAULT_STORED_EVENT_FILTER = new Predicate<Event>() {
+    @Override
+    public boolean apply(Event event) {
+      switch (event.getKind()) {
+        case INFO:
+          throw new UnsupportedOperationException("Values should not display INFO messages: "
+              + event.getLocation() + ": " + event.getMessage());
+        case PROGRESS:
+          return false;
+        default:
+          return true;
+      }
+    }
+  };
 
   public static final EvaluatorSupplier SUPPLIER = new EvaluatorSupplier() {
     @Override

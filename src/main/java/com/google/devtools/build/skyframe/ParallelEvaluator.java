@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -113,16 +114,17 @@ public final class ParallelEvaluator implements Evaluator {
   private final int threadCount;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
   private final DirtyKeyTracker dirtyKeyTracker;
+  private final Predicate<Event> storedEventFilter;
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
   public ParallelEvaluator(ProcessableGraph graph, Version graphVersion,
-                    ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
-                    final EventHandler reporter,
-                    MemoizingEvaluator.EmittedEventState emittedEventState,
-                    boolean keepGoing, int threadCount,
-                    @Nullable EvaluationProgressReceiver progressReceiver,
-                    DirtyKeyTracker dirtyKeyTracker) {
+      ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      final EventHandler reporter,
+      EmittedEventState emittedEventState,
+      Predicate<Event> storedEventFilter, boolean keepGoing, int threadCount,
+      @Nullable EvaluationProgressReceiver progressReceiver,
+      DirtyKeyTracker dirtyKeyTracker) {
     this.graph = graph;
     this.skyFunctions = skyFunctions;
     this.graphVersion = graphVersion;
@@ -133,6 +135,7 @@ public final class ParallelEvaluator implements Evaluator {
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+    this.storedEventFilter = storedEventFilter;
   }
 
   /**
@@ -188,15 +191,10 @@ public final class ParallelEvaluator implements Evaluator {
       @Override
       public void handle(Event e) {
         checkActive();
-        switch (e.getKind()) {
-          case INFO:
-            throw new UnsupportedOperationException("Values should not display INFO messages: " +
-                skyKey + " printed " + e.getLocation() + ": " + e.getMessage());
-          case PROGRESS:
-            reporter.handle(e);
-            break;
-          default:
-            super.handle(e);
+        if (storedEventFilter.apply(e)) {
+          super.handle(e);
+        } else {
+          reporter.handle(e);
         }
       }
     };

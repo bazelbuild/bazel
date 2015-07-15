@@ -126,7 +126,8 @@ public class EagerInvalidatorTest {
     Reporter reporter = new Reporter();
     ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion,
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
-        reporter, new MemoizingEvaluator.EmittedEventState(), keepGoing, 200, null,
+        reporter, new MemoizingEvaluator.EmittedEventState(),
+        InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER, keepGoing, 200, null,
         new DirtyKeyTrackerImpl());
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
