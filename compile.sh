@@ -109,13 +109,10 @@ if [ $DO_TOOLS_COMPILATION ]; then
   bazel_bootstrap //src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar \
       tools/jdk/GenClass_deploy.jar
   if [[ $PLATFORM == "darwin" ]]; then
-    bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar \
-        tools/objc/precomp_actoolzip_deploy.jar
-    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper 0755
-    bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar \
-        tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
-    bazel_bootstrap //src/objc_tools/momczip:momczip_deploy.jar \
-        tools/objc/precomp_momczip_deploy.jar
+    bazel_bootstrap //src/tools/xcode/actoolwrapper:actoolwrapper tools/objc/actoolwrapper.sh 0755
+    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper.sh 0755
+    bazel_bootstrap //src/tools/xcode/momcwrapper:momcwrapper tools/objc/momcwrapper.sh 0755
+    bazel_bootstrap //src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper tools/objc/swiftstdlibtoolzip.sh 0755
     bazel_bootstrap //src/objc_tools/bundlemerge:bundlemerge_deploy.jar \
         tools/objc/precomp_bundlemerge_deploy.jar
     bazel_bootstrap //src/objc_tools/plmerge:plmerge_deploy.jar \

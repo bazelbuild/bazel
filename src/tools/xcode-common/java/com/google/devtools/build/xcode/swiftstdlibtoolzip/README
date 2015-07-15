@@ -1,4 +1,0 @@
-swiftstdlibtoolzip runs swift-stdlib-tool, which scans executables and copies required Swift
-framework dylibs to the specified path, then zips up the output for further bundle merging.
-
-swift-stdlib-tool only runs on Darwin, so swiftstdlibtoolzip only runs on Darwin.
