@@ -262,7 +262,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CcLinkingOutputs linkingOutputs = info.getCcLinkingOutputs();
     warnAboutEmptyLibraries(
-        ruleContext, info.getCcCompilationOutputs(), linkType, linkStatic);
+        ruleContext, info.getCcCompilationOutputs(), linkStatic);
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     Runfiles staticRunfiles = collectRunfiles(ruleContext,
@@ -317,7 +317,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
-      CcCompilationOutputs ccCompilationOutputs, LinkTargetType linkType,
+      CcCompilationOutputs ccCompilationOutputs,
       boolean linkstaticAttribute) {
     if (ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()) {
       // Do not signal warnings in the lipo context collector configuration. These will be duly
@@ -327,11 +327,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     if (ccCompilationOutputs.getObjectFiles(false).isEmpty()
         && ccCompilationOutputs.getObjectFiles(true).isEmpty()) {
-      if (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY
-          || linkType == LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY) {
-        ruleContext.attributeWarning("alwayslink",
-            "'alwayslink' has no effect if there are no 'srcs'");
-      }
       if (!linkstaticAttribute && !appearsToHaveNoObjectFiles(ruleContext.attributes())) {
         ruleContext.attributeWarning("linkstatic",
             "setting 'linkstatic=1' is recommended if there are no object files");
