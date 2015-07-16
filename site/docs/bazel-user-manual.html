@@ -2942,6 +2942,11 @@ Examples:
 </pre>
 
 <p>
+  Bazel closes stdin, so you can't use <code>bazel run</code>
+  if you want to start an interactive program or pipe data to it.
+</p>
+
+<p>
   Note the use of the <code>--</code>.  This is needed so that Bazel
   does not interpret <code>--arg1</code> and <code>--arg2</code> as
   Bazel options, but rather as part of the command line for running the binary.
