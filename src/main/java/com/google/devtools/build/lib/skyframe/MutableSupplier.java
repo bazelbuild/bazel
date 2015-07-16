@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Supplier;
 
 /**
@@ -37,10 +37,9 @@ public class MutableSupplier<T> implements Supplier<T> {
     val = newVal;
   }
 
-  @SuppressWarnings("deprecation")  // MoreObjects.toStringHelper() is not in Guava
   @Override
   public String toString() {
-    return Objects.toStringHelper(getClass())
+    return MoreObjects.toStringHelper(getClass())
         .add("val", val).toString();
   }
 }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -171,7 +171,7 @@ public class FileArtifactValue extends ArtifactValue {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(FileArtifactValue.class)
+    return MoreObjects.toStringHelper(FileArtifactValue.class)
         .add("digest", digest)
         .add("mtime", mtime)
         .add("size", size).toString();

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -179,10 +179,8 @@ public final class BuildResult {
 
   /** For debugging. */
   @Override
-  @SuppressWarnings("deprecation")
   public String toString() {
-    // We need to be compatible with Guava, so we use this, even though it is deprecated.
-    return Objects.toStringHelper(this)
+    return MoreObjects.toStringHelper(this)
         .add("startTimeMillis", startTimeMillis)
         .add("stopTimeMillis", stopTimeMillis)
         .add("crash", crash)

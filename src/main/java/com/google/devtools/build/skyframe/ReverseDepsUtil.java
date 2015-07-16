@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -190,9 +190,8 @@ abstract class ReverseDepsUtil<T> {
     setReverseDepsToRemove(container, null);
   }
 
-  @SuppressWarnings("deprecation")
   String toString(T container) {
-    return Objects.toStringHelper("ReverseDeps") // MoreObjects is not in Guava
+    return MoreObjects.toStringHelper("ReverseDeps")
         .add("reverseDeps", getReverseDepsObject(container))
         .add("singleReverseDep", isSingleReverseDep(container))
         .add("reverseDepsToRemove", getReverseDepsToRemove(container))

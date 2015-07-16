@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -127,9 +127,8 @@ public class EvaluationResult<T extends SkyValue> {
   }
 
   @Override
-  @SuppressWarnings("deprecation")
   public String toString() {
-    return Objects.toStringHelper(this)  // MoreObjects is not in Guava
+    return MoreObjects.toStringHelper(this)
         .add("hasError", hasError)
         .add("errorMap", errorMap)
         .add("resultMap", resultMap)

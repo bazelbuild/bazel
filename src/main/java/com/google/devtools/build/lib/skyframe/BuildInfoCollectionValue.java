@@ -38,10 +38,9 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
     return collection;
   }
 
-  @SuppressWarnings("deprecation")
   @Override
   public String toString() {
-    return com.google.common.base.Objects.toStringHelper(getClass())
+    return com.google.common.base.MoreObjects.toStringHelper(getClass())
         .add("collection", collection)
         .add("generatingActionMap", generatingActionMap).toString();
   }
