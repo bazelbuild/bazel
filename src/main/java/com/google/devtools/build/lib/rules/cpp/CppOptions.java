@@ -192,8 +192,8 @@ public class CppOptions extends FragmentOptions {
   @Option(name = "thin_archives",
           defaultValue = "false",
           category = "strategy",  // but also adds edges to the action graph
-          help = "Pass the 'T' flag to ar if supported by the toolchain. "
-                 + "All supported toolchains support this setting.")
+          help = "Pass the 'T' flag to ar if supported by the toolchain. " +
+                 "All supported toolchains support this setting.")
   public boolean useThinArchives;
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
@@ -353,8 +353,7 @@ public class CppOptions extends FragmentOptions {
           category = "flags",
           implicitRequirements = {"--copt=-Wno-error"},
           help = "Generate binaries with FDO instrumentation. Specify the relative " +
-                 "directory name for the .gcda files at runtime. It also accepts " +
-                 "an LLVM profile output file path.")
+                 "directory name for the .gcda files at runtime.")
   public PathFragment fdoInstrument;
 
   @Option(name = "fdo_optimize",
@@ -365,7 +364,7 @@ public class CppOptions extends FragmentOptions {
                  "an auto profile. This flag also accepts files specified as labels, for " +
                  "example //foo/bar:file.afdo. Such labels must refer to input files; you may " +
                  "need to add an exports_files directive to the corresponding package to make " +
-                 "the file visible to Blaze. It also accepts an indexed LLVM profile file.")
+                 "the file visible to Blaze.")
   public String fdoOptimize;
 
   @Option(name = "autofdo_lipo_data",

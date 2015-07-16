@@ -1401,7 +1401,7 @@ $ bazel fetch //...
 <p>
   The <code class='flag'>--fdo_instrument</code> option enables the generation of
   FDO (feedback directed optimization) profile output when the
-  built C/C++ binary is executed. For GCC, the argument provided is used as a
+  built C/C++ binary is executed. The argument provided is used as a
   directory prefix for a per-object file directory tree of .gcda files
   containing profile information for each .o file.
 </p>
@@ -1413,11 +1413,6 @@ $ bazel fetch //...
 
 </p>
 <p>
-  For the LLVM compiler the argument instead is the path to the raw LLVM profile
-  output file to generate, e.g.
-  <code class='flag'>--fdo_instrument=<var>/path/to/profile.profraw</var></code>.
-</p>
-<p>
   The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>--fdo_optimize</code>
   cannot be used at the same time.
 </p>
@@ -1426,7 +1421,7 @@ $ bazel fetch //...
 <p>
   The <code class='flag'>--fdo_optimize</code> option enables the use of the
   per-object file profile information to perform FDO (feedback
-  directed optimization) optimizations when compiling. For GCC, the argument
+  directed optimization) optimizations when compiling. The argument
   provided is the zip file containing the previously-generated file tree
   of .gcda files containing profile information for each .o file.
 </p>
@@ -1439,11 +1434,6 @@ $ bazel fetch //...
   Note that this option also accepts labels that resolve to source files. You
   may need to add an <code>exports_files</code> directive to the corresponding package to
   make the file visible to Bazel.
-</p>
-<p>
-  For the LLVM compiler the argument provided should point to the indexed LLVM
-  profile output file prepared by the llvm-profdata tool, and should have a .profdata
-  extension.
 </p>
 <p>
   The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>

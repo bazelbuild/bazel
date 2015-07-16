@@ -132,7 +132,6 @@ public final class CppFileTypes {
   public static final FileType COVERAGE_DATA = FileType.of(".gcda");
   public static final FileType COVERAGE_DATA_IMPORTS = FileType.of(".gcda.imports");
   public static final FileType GCC_AUTO_PROFILE = FileType.of(".afdo");
-  public static final FileType LLVM_PROFILE = FileType.of(".profdata");
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");

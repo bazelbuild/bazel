@@ -121,17 +121,10 @@ public class FdoSupport {
   private static final PathFragment ZIP_ROOT = new PathFragment("/");
 
   /**
-   * Returns true if the given fdoFile represents an AutoFdo profile.
+   * Returns true if the give fdoFile represents an AutoFdo profile.
    */
   public static final boolean isAutoFdo(String fdoFile) {
     return CppFileTypes.GCC_AUTO_PROFILE.matches(fdoFile);
-  }
-
-  /**
-   * Returns true if the given fdoFile represents an LLVM profile.
-   */
-  public static final boolean isLLVMFdo(String fdoFile) {
-    return CppFileTypes.LLVM_PROFILE.matches(fdoFile);
   }
 
   /**
@@ -180,12 +173,6 @@ public class FdoSupport {
   private final boolean useAutoFdo;
 
   /**
-   * Flag indicating whether to use LLVM instrumentation-based FDO (as
-   * opposed to GCC instrumentation-based FDO).
-   */
-  private final boolean useLLVMFdo;
-
-  /**
    * The {@code .gcda} files that have been extracted from the ZIP file,
    * relative to the root of the ZIP file.
    *
@@ -230,7 +217,6 @@ public class FdoSupport {
             fdoProfile.getBaseName()));
     this.lipoMode = lipoMode;
     this.useAutoFdo = fdoProfile != null && isAutoFdo(fdoProfile.getBaseName());
-    this.useLLVMFdo = fdoProfile != null && isLLVMFdo(fdoProfile.getBaseName());
   }
 
   public Root getFdoRoot() {
@@ -290,9 +276,6 @@ public class FdoSupport {
         }
         FileSystemUtils.ensureSymbolicLink(
             execRoot.getRelative(getAutoProfilePath()), fdoProfile);
-      } else if (useLLVMFdo) {
-        FileSystemUtils.ensureSymbolicLink(
-            execRoot.getRelative(getLLVMProfilePath()), fdoProfile);
       } else {
         Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
         if (!zipFilePath.getRelative("blaze-out").isDirectory()) {
@@ -494,13 +477,8 @@ public class FdoSupport {
               getAutoProfilePath().getPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (useLLVMFdo) {
-            buildVariables.addVariable("fdo_profile_path",
-                getLLVMProfilePath().getPathString());
-          } else {
-            buildVariables.addVariable("fdo_profile_path",
-                fdoRootExecPath.getPathString());
-          }
+          buildVariables.addVariable("fdo_profile_path",
+              fdoRootExecPath.getPathString());
         }
       } else {
         // TODO(bazel-team): Remove this workaround once the feature configuration
@@ -538,14 +516,11 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();
-    } else if (useAutoFdo || useLLVMFdo) {
+    } else if (useAutoFdo) {
       ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
 
-      PathFragment profileRootRelativePath = (useLLVMFdo)
-          ? getLLVMProfileRootRelativePath()
-          : getAutoProfileRootRelativePath();
       Artifact artifact = env.getDerivedArtifact(
-          fdoPath.getRelative(profileRootRelativePath), fdoRoot);
+          fdoPath.getRelative(getAutoProfileRootRelativePath()), fdoRoot);
       env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
       auxiliaryInputs.add(artifact);
       if (lipoContextProvider != null) {
@@ -646,15 +621,6 @@ public class FdoSupport {
   }
 
   private PathFragment getAutoProfileRootRelativePath() {
-    return new PathFragment(fdoProfile.getBaseName());
-  }
-
-
-  private PathFragment getLLVMProfilePath() {
-    return fdoRootExecPath.getRelative(getLLVMProfileRootRelativePath());
-  }
-
-  private PathFragment getLLVMProfileRootRelativePath() {
     return new PathFragment(fdoProfile.getBaseName());
   }
 
