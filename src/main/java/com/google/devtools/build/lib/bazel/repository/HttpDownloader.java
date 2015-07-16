@@ -44,16 +44,19 @@ public class HttpDownloader {
 
   private final String urlString;
   private final String sha256;
+  private final String type;
   private final Path outputDirectory;
   private final Reporter reporter;
   private final ScheduledExecutorService scheduler;
 
-  HttpDownloader(Reporter reporter, String urlString, String sha256, Path outputDirectory) {
+  HttpDownloader(
+      Reporter reporter, String urlString, String sha256, Path outputDirectory, String type) {
     this.urlString = urlString;
     this.sha256 = sha256;
     this.outputDirectory = outputDirectory;
     this.reporter = reporter;
     this.scheduler = Executors.newScheduledThreadPool(1);
+    this.type = type;
   }
 
   /**
@@ -64,6 +67,9 @@ public class HttpDownloader {
     String filename = new PathFragment(url.getPath()).getBaseName();
     if (filename.isEmpty()) {
       filename = "temp";
+    }
+    if (!type.isEmpty()) {
+      filename += "." + type;
     }
     Path destination = outputDirectory.getRelative(filename);
 

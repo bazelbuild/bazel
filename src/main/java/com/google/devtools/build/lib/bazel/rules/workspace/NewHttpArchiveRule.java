@@ -31,29 +31,38 @@ public class NewHttpArchiveRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(url) -->
-        A URL to an archive file containing a Bazel repository.
-        ${SYNOPSIS}
+         A URL to an archive file containing a Bazel repository.
+         ${SYNOPSIS}
 
-        <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-          redirection.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
+         redirection.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
-        The expected SHA-256 hash of the file downloaded.
-        ${SYNOPSIS}
+         The expected SHA-256 hash of the file downloaded.
+         ${SYNOPSIS}
 
-        <p>This must match the SHA-256 hash of the file downloaded.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+         <p>This must match the SHA-256 hash of the file downloaded.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file) -->
-        A file to use as a BUILD file for this directory.
-        ${SYNOPSIS}
+         A file to use as a BUILD file for this directory.
+         ${SYNOPSIS}
 
-        <p>This path is relative to the build's workspace. The file does not need to be named
-        BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
-        from the repository's actual BUILD files.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+         <p>This path is relative to the build's workspace. The file does not need to be named
+         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
+         from the repository's actual BUILD files.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING).mandatory())
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(type) -->
+         The type of the downloaded file.
+         ${SYNOPSIS}
+
+         <p>By default, the file type is guessed by the extension of the downloaded file. Some
+         archive does not have the correct extension and this attribute can be used to set the
+         extension to happen to the file.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("type", STRING))
         .setWorkspaceOnly()
         .build();
   }

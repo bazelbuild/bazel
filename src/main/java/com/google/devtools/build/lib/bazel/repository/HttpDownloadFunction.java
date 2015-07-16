@@ -51,8 +51,14 @@ public class HttpDownloadFunction implements SkyFunction {
       // (it's essentially a temporary file). The downloaded file is always an archive and its
       // contents, once decompressed, _can_ be dependencies of the build and _are_ added to
       // Skyframe (through the normal package mechanism).
-      return new HttpDownloadValue(new HttpDownloader(
-          reporter, descriptor.url, descriptor.sha256, descriptor.outputDirectory).download());
+      return new HttpDownloadValue(
+          new HttpDownloader(
+                  reporter,
+                  descriptor.url,
+                  descriptor.sha256,
+                  descriptor.outputDirectory,
+                  descriptor.type)
+              .download());
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException("Error downloading from "
           + descriptor.url + " to " + descriptor.outputDirectory + ": " + e.getMessage()),
@@ -71,20 +77,23 @@ public class HttpDownloadFunction implements SkyFunction {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String url = mapper.get("url", Type.STRING);
     String sha256 = mapper.get("sha256", Type.STRING);
+    String type = mapper.has("type", Type.STRING) ? mapper.get("type", Type.STRING) : "";
     return new SkyKey(
         SkyFunctionName.create(NAME),
-        new HttpDownloadFunction.HttpDescriptor(url, sha256, outputDirectory));
+        new HttpDownloadFunction.HttpDescriptor(url, sha256, outputDirectory, type));
   }
 
   static final class HttpDescriptor {
     private String url;
     private String sha256;
     private Path outputDirectory;
+    private String type;
 
-    public HttpDescriptor(String url, String sha256, Path outputDirectory) {
+    public HttpDescriptor(String url, String sha256, Path outputDirectory, String type) {
       this.url = url;
       this.sha256 = sha256;
       this.outputDirectory = outputDirectory;
+      this.type = type;
     }
 
     @Override
@@ -103,12 +112,13 @@ public class HttpDownloadFunction implements SkyFunction {
       HttpDescriptor other = (HttpDescriptor) obj;
       return Objects.equals(url, other.url)
           && Objects.equals(sha256, other.sha256)
-          && Objects.equals(outputDirectory, other.outputDirectory);
+          && Objects.equals(outputDirectory, other.outputDirectory)
+          && Objects.equals(type, other.type);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(url, sha256, outputDirectory);
+      return Objects.hash(url, sha256, outputDirectory, type);
     }
   }
 }

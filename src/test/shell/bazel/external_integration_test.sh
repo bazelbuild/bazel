@@ -197,6 +197,21 @@ EOF
 
 function test_http_archive_zip() {
   http_archive_helper zip_up
+
+  # Test with the extension
+  serve_file $repo2_zip
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/bleh',
+    sha256 = '$sha256',
+    type = 'zip',
+)
+EOF
+  bazel run //zoo:breeding-program >& $TEST_log \
+    || echo "Expected build/run to succeed"
+  kill_nc
+  expect_log $what_does_the_fox_say
 }
 
 function test_http_archive_tgz() {
