@@ -454,11 +454,13 @@ java_library(
         "//third_party:apache_commons_pool2",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jgit",
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
         "//third_party:maven_model",
         "//third_party:protobuf",
+        "//third_party:slf4j",
     ],
 )
 

@@ -1,0 +1,36 @@
+commit c6ffd1361759036836186f06078af8ebc297bf39 (HEAD -> master, tag: 1-submodule)
+Author: John Doe <john@foo.com>
+Date:   Thu Jul 16 04:53:18 2015 -0700
+
+    Add pluto submodule.
+
+diff --git a/.gitmodules b/.gitmodules
+new file mode 100644
+index 0000000..1d2f9b1
+--- /dev/null
++++ b/.gitmodules
+@@ -0,0 +1,3 @@
++[submodule "pluto"]
++	path = pluto
++	url = ../pluto
+diff --git a/pluto b/pluto
+new file mode 160000
+index 0000000..36db6be
+--- /dev/null
++++ b/pluto
+@@ -0,0 +1 @@
++Subproject commit 36db6be50fd9f33cf89fc5b8206f2e3714b520e3
+
+commit eaf1b34982ead69228b6f3f894a0a34c59c07f17 (tag: 0-initial)
+Author: John Doe <john@foo.com>
+Date:   Thu Jul 16 04:52:23 2015 -0700
+
+    Initial commit.
+
+diff --git a/neptune/info b/neptune/info
+new file mode 100644
+index 0000000..41cf7b5
+--- /dev/null
++++ b/neptune/info
+@@ -0,0 +1 @@
++Neptune is a planet

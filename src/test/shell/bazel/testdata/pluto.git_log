@@ -1,0 +1,41 @@
+commit b87de9346bb1a4a3d4d2ab1a567b07c5d11a486a (HEAD -> master, tag: 1-build)
+Author: John Doe <john@foo.com>
+Date:   Thu Jul 16 04:50:53 2015 -0700
+
+    Add WORKSPACE and BUILD file. Update info because Pluto is no longer a planet.
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..874e03f
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1,5 @@
++filegroup(
++    name = "pluto",
++    srcs = ["info"],
++    visibility = ["//visibility:public"],
++)
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+index 0000000..e69de29
+diff --git a/info b/info
+index 8f442be..36cbae4 100644
+--- a/info
++++ b/info
+@@ -1 +1 @@
+-Pluto is a planet
++Pluto is a dwarf planet
+
+commit 36db6be50fd9f33cf89fc5b8206f2e3714b520e3 (tag: 0-initial)
+Author: John Doe <john@foo.com>
+Date:   Thu Jul 16 04:49:35 2015 -0700
+
+    Initial commit.
+
+diff --git a/info b/info
+new file mode 100644
+index 0000000..8f442be
+--- /dev/null
++++ b/info
+@@ -0,0 +1 @@
++Pluto is a planet

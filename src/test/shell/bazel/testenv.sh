@@ -44,6 +44,9 @@ singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
+# Test data
+testdata_path=${TEST_SRCDIR}/src/test/shell/bazel/testdata
+
 # Third-party
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 MACHINE_TYPE="$(uname -m)"

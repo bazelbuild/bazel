@@ -95,6 +95,16 @@ sh_test(
 )
 
 sh_test(
+    name = "git_repository_test",
+    size = "medium",
+    srcs = ["git_repository_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:git-repos",
+    ],
+)
+
+sh_test(
     name = "local_repository_test",
     size = "medium",
     srcs = ["local_repository_test.sh"],

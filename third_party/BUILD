@@ -217,6 +217,11 @@ filegroup(
 )
 
 java_import(
+    name = "jgit",
+    jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+)
+
+java_import(
     name = "joda_time",
     jars = ["joda_time/joda-time-2.3.jar"],
 )
@@ -271,6 +276,14 @@ java_import(
 filegroup(
     name = "protobuf-jars",
     srcs = ["protobuf/protobuf-java-3.0.0-alpha-3.jar"],
+)
+
+java_import(
+    name = "slf4j",
+    jars = [
+        "slf4j/slf4j-api-1.7.7.jar",
+        "slf4j/slf4j-jdk14-1.7.7.jar",
+    ],
 )
 
 java_import(

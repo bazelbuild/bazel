@@ -154,6 +154,13 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+[jgit](https://eclipse.org/jgit/)
+------
+
+* Version: 4.0.1.201506240215-r
+* License: Eclipse Distribution License 1.0
+
+
 [joda_time](http://www.joda.org/joda-time/)
 -----------
 
@@ -175,6 +182,7 @@ a minimal set of extra dependencies.
 
 
 [jsr330_inject](https://code.google.com/p/atinject/)
+---------------
 
 * Version: 1
 * License: Apache License 2.0
@@ -211,6 +219,13 @@ a minimal set of extra dependencies.
 
 * Version: 3.0.21
 * License: Apache License 2.0
+
+
+[slf4j](http://www.slf4j.org/)
+-------
+
+* Version: 1.7.7
+* License: MIT license
 
 
 Testing

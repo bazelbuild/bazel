@@ -22,12 +22,15 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
+import com.google.devtools.build.lib.bazel.repository.GitCloneFunction;
+import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
 import com.google.devtools.build.lib.bazel.repository.JarFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
+import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
@@ -42,10 +45,12 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules.AndroidHttpToolsRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
+import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
+import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -75,14 +80,17 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private HttpDownloadFunction downloadFunction;
+  private GitCloneFunction gitCloneFunction;
 
   public BazelRepositoryModule() {
     repositoryHandlers = ImmutableMap.<String, RepositoryFunction>builder()
         .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
         .put(HttpArchiveRule.NAME, new HttpArchiveFunction())
+        .put(GitRepositoryRule.NAME, new GitRepositoryFunction())
         .put(HttpJarRule.NAME, new HttpJarFunction())
         .put(MavenJarRule.NAME, new MavenJarFunction())
         .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction())
+        .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction())
         .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
@@ -96,6 +104,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void beforeCommand(BlazeRuntime runtime, Command command) {
     downloadFunction.setReporter(runtime.getReporter());
+    gitCloneFunction.setReporter(runtime.getReporter());
   }
 
   @Override
@@ -154,6 +163,8 @@ public class BazelRepositoryModule extends BlazeModule {
     // Helper SkyFunctions.
     downloadFunction = new HttpDownloadFunction();
     builder.put(SkyFunctionName.create(HttpDownloadFunction.NAME), downloadFunction);
+    gitCloneFunction = new GitCloneFunction();
+    builder.put(SkyFunctionName.create(GitCloneFunction.NAME), gitCloneFunction);
     builder.put(JarFunction.NAME, new JarFunction());
     builder.put(ZipFunction.NAME, new ZipFunction());
     builder.put(TarGzFunction.NAME, new TarGzFunction());
