@@ -114,6 +114,12 @@ public class LocalDiffAwareness implements DiffAwareness {
     public static boolean areInSequence(SequentialView oldView, SequentialView newView) {
       return oldView.owner == newView.owner && (oldView.position + 1) == newView.position;
     }
+
+    @Override
+    public String toString() {
+      return String.format("SequentialView[owner=%s, position=%d, modifiedAbsolutePaths=%s]", owner,
+          position, modifiedAbsolutePaths);
+    }
   }
 
   @Override

@@ -103,6 +103,7 @@ public final class DiffAwarenessManager {
     }
 
     ModifiedFileSet diff;
+    LOG.info("About to compute diff between " + baselineView + " and " + newView);
     try {
       diff = diffAwareness.getDiff(baselineView, newView);
     } catch (BrokenDiffAwarenessException e) {
@@ -119,6 +120,7 @@ public final class DiffAwarenessManager {
 
   private void handleBrokenDiffAwareness(Path pathEntry, BrokenDiffAwarenessException e) {
     currentDiffAwarenessStates.remove(pathEntry);
+    LOG.info("Broken diff awareness for " + pathEntry + ": " + e);
     reporter.handle(Event.warn(e.getMessage() + "... temporarily falling back to manually "
         + "checking files for changes"));
   }
