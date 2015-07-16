@@ -15,6 +15,7 @@
 package com.google.devtools.build.workspace.maven;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.ModelSource;
@@ -45,23 +46,39 @@ class DefaultModelResolver implements ModelResolver {
   public ModelSource resolveModel(String groupId, String artifactId, String version)
       throws UnresolvableModelException {
     for (Repository repository : repositories) {
-      try {
-        UrlModelSource urlModelSource = new UrlModelSource(new URL(repository.getUrl()
-            + groupId.replaceAll("\\.", "/") + "/" + artifactId + "/" + version + "/" + artifactId
-            + "-" + version + ".pom"));
-        if (urlModelSource.getInputStream().available() != 0) {
-          return urlModelSource;
-        }
-      } catch (MalformedURLException e) {
-        throw new UnresolvableModelException(e.getMessage(), groupId, artifactId, version, e);
-      } catch (IOException e) {
-        // The artifact could not be fetched from the current repo, just move on and check the next
-        // one.
+      UrlModelSource modelSource = getModelSource(
+          repository.getUrl(), groupId, artifactId, version);
+      if (modelSource != null) {
+        return modelSource;
       }
     }
-    throw new UnresolvableModelException("Could not find any repositories that knew how to "
-        + "resolve the artifact (checked " + Arrays.toString(repositories.toArray()) + ")",
-        groupId, artifactId, version);
+    UrlModelSource modelSource = getModelSource(
+      MavenConnector.getMavenCentral().getUrl(), groupId, artifactId, version);
+    if (modelSource == null) {
+      throw new UnresolvableModelException("Could not find any repositories that knew how to "
+          + "resolve the artifact (checked " + Arrays.toString(repositories.toArray()) + ")",
+          groupId, artifactId, version);
+    }
+    return modelSource;
+  }
+
+  private UrlModelSource getModelSource(
+      String url, String groupId, String artifactId, String version)
+      throws UnresolvableModelException {
+    try {
+      UrlModelSource urlModelSource = new UrlModelSource(new URL(url
+          + groupId.replaceAll("\\.", "/") + "/" + artifactId + "/" + version + "/" + artifactId
+          + "-" + version + ".pom"));
+      if (urlModelSource.getInputStream().available() != 0) {
+        return urlModelSource;
+      }
+    } catch (MalformedURLException e) {
+      throw new UnresolvableModelException(e.getMessage(), groupId, artifactId, version, e);
+    } catch (IOException e) {
+      // The artifact could not be fetched from the current repo, just move on and check the next
+      // one.
+    }
+    return null;
   }
 
   @Override
