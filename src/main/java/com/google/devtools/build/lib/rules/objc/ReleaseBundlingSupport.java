@@ -219,6 +219,7 @@ public final class ReleaseBundlingSupport {
     }
 
     registerEmbedLabelPlistAction();
+    registerEnvironmentPlistAction();
 
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
         bundling, maybeSignedIpa, objcConfiguration, bundleSupport.targetDeviceFamilies());
@@ -263,6 +264,36 @@ public final class ReleaseBundlingSupport {
         .setShellCommand(shellCommand)
         .addInput(buildInfo)
         .addOutput(getGeneratedVersionPlist())
+        .build(ruleContext));
+  }
+
+  private void registerEnvironmentPlistAction() {
+    ObjcConfiguration configuration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    // Generates a .plist that contains environment values (such as the SDK used to build, the Xcode
+    // version, etc), which are parsed from various .plist files of the OS, namely XCodes' and
+    // Platforms' plists.
+    // The resulting file is meant to be merged with the final bundle.
+    String command = Joiner.on(" && ").join(
+        "PLATFORM_PLIST=" + IosSdkCommands.platformDir(configuration) + "/Info.plist",
+        "PLIST=${TMPDIR}/env.plist",
+        "os_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} BuildMachineOSBuild)",
+        "compiler=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTCompiler)",
+        "platform_version=$(/usr/bin/defaults read ${PLATFORM_PLIST} Version)",
+        "sdk_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTSDKBuild)",
+        "platform_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTPlatformBuild)",
+        "xcode_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTXcodeBuild)",
+        "xcode_version=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTXcode)",
+        "/usr/bin/defaults write ${PLIST} DTPlatformBuild -string ${platform_build}",
+        "/usr/bin/defaults write ${PLIST} DTSDKBuild -string ${sdk_build}",
+        "/usr/bin/defaults write ${PLIST} DTPlatformVersion -string ${platform_version}",
+        "/usr/bin/defaults write ${PLIST} DTXcode -string ${xcode_version}",
+        "/usr/bin/defaults write ${PLIST} DTXCodeBuild -string ${xcode_build}",
+        "/usr/bin/defaults write ${PLIST} DTCompiler -string ${compiler}",
+        "/usr/bin/defaults write ${PLIST} BuildMachineOSBuild -string ${os_build}",
+        "cat ${PLIST} > " + getGeneratedEnvironmentPlist().getShellEscapedExecPathString());
+    ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(command)
+        .setMnemonic("EnvironmentPlist")
+        .addOutput(getGeneratedEnvironmentPlist())
         .build(ruleContext));
   }
 
@@ -433,6 +464,7 @@ public final class ReleaseBundlingSupport {
         .setObjcProvider(objcProvider)
         .addInfoplistInputFromRule(ruleContext)
         .addInfoplistInput(getGeneratedVersionPlist())
+        .addInfoplistInput(getGeneratedEnvironmentPlist())
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)
@@ -724,6 +756,11 @@ public final class ReleaseBundlingSupport {
   private Artifact getGeneratedVersionPlist() {
     return ruleContext.getRelatedArtifact(
         ruleContext.getUniqueDirectory("plists"), "-version.plist");
+  }
+
+  private Artifact getGeneratedEnvironmentPlist() {
+    return ruleContext.getRelatedArtifact(
+        ruleContext.getUniqueDirectory("plists"), "-environment.plist");
   }
 
   /**

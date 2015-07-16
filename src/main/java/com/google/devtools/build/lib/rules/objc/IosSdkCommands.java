@@ -68,7 +68,7 @@ public class IosSdkCommands {
     return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
   }
 
-  private static String platformDir(ObjcConfiguration configuration) {
+  public static String platformDir(ObjcConfiguration configuration) {
     return DEVELOPER_DIR + "/Platforms/" + getPlatformPlistName(configuration) + ".platform";
   }
 
