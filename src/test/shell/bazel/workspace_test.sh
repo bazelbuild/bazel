@@ -20,6 +20,49 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 
 export JAVA_RUNFILES=$TEST_SRCDIR
 
+function setup_repo() {
+  mkdir -p $1
+  touch $1/WORKSPACE
+  echo $2 > $1/thing
+  cat > $1/BUILD <<EOF
+genrule(
+    name = "x",
+    srcs = ["thing"],
+    cmd = "cat \$(location thing) > \$@",
+    outs = ["out"],
+)
+EOF
+}
+
+function test_workspace_changes() {
+  repo_a=$TEST_TMPDIR/a
+  repo_b=$TEST_TMPDIR/b
+  setup_repo $repo_a hi
+  setup_repo $repo_b bye
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "x",
+    path = "$repo_a",
+)
+EOF
+
+  bazel build @x//:x || fail "build failed"
+  assert_contains "hi" bazel-genfiles/out
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "x",
+    path = "$repo_b",
+)
+EOF
+
+  bazel build @x//:x || fail "build failed"
+  ls -l $(bazel info execution_root)/external/x/
+  assert_contains "bye" bazel-genfiles/out
+}
+
+
 function test_path_with_spaces() {
   ws="a b"
   mkdir "$ws"
