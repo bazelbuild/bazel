@@ -39,7 +39,7 @@ public class StoreServlet extends HttpServlet {
     DashRequest request;
     try {
       request = new DashRequest(req);
-    } catch (IllegalArgumentException e) {
+    } catch (DashRequest.DashRequestException e) {
       response.setContentType("text/json");
       response.getWriter().println(
           "{ \"error\": \"" + e.getMessage().replaceAll("\"", "") + "\" }");

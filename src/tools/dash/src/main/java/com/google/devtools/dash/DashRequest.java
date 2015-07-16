@@ -42,20 +42,20 @@ class DashRequest {
   private final String buildId;
   private final Blob blob;
 
-  DashRequest(HttpServletRequest request) {
+  DashRequest(HttpServletRequest request) throws DashRequestException {
     Matcher matcher = URI_REGEX.matcher(request.getRequestURI());
     if (matcher.find()) {
-      pageName = matcher.group(0);
-      buildId = matcher.group(1);
+      pageName = matcher.group(1);
+      buildId = matcher.group(2);
     } else {
-      throw new IllegalArgumentException("Invalid URI pattern: " + request.getRequestURI());
+      throw new DashRequestException("Invalid URI pattern: " + request.getRequestURI());
     }
     try {
       // Requests are capped at 32MB (see
       // https://cloud.google.com/appengine/docs/quotas?csw=1#Requests).
       blob = new Blob(ByteStreams.toByteArray(request.getInputStream()));
     } catch (IOException e) {
-      throw new IllegalArgumentException("Could not read request body: " + e.getMessage());
+      throw new DashRequestException("Could not read request body: " + e.getMessage());
     }
   }
 
@@ -69,5 +69,11 @@ class DashRequest {
     entity.setProperty(PAGE_NAME, pageName);
     entity.setProperty(BUILD_DATA, blob);
     return entity;
+  }
+
+  static class DashRequestException extends Exception {
+    public DashRequestException(String message) {
+      super(message);
+    }
   }
 }

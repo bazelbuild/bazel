@@ -1,8 +1,14 @@
 java_binary(
     name = "java-bin",
-    srcs = glob(["**/*.java"]),
     main_class = "does.not.exist",
     visibility = ["//src/tools/dash:__pkg__"],
+    deps = [":servlets"],
+)
+
+java_library(
+    name = "servlets",
+    srcs = glob(["**/*.java"]),
+    visibility = ["//src/tools/dash/src/test/java/com/google/devtools/dash:__pkg__"],
     deps = [
         "@appengine-java//:api",
         "//external:javax/servlet/api",

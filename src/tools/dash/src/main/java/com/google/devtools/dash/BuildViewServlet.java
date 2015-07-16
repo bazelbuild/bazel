@@ -18,8 +18,6 @@ import com.google.appengine.api.datastore.Blob;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
-import com.google.appengine.api.datastore.Key;
-import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Query.FilterOperator;
@@ -42,8 +40,6 @@ import javax.servlet.http.HttpServletResponse;
  * Handles HTTP gets of builds/tests.
  */
 public class BuildViewServlet extends HttpServlet {
-  private static final String BUILD_ID =
-      "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
   private DatastoreService datastore;
 
   public BuildViewServlet() {
@@ -56,13 +52,12 @@ public class BuildViewServlet extends HttpServlet {
     DashRequest request;
     try {
       request = new DashRequest(req);
-    } catch (IllegalArgumentException e) {
+    } catch (DashRequest.DashRequestException e) {
       // TODO(kchodorow): make an error page.
       response.setContentType("text/html");
       response.getWriter().println("Error: " + HtmlEscapers.htmlEscaper().escape(e.getMessage()));
       return;
     }
-    Key buildKey = KeyFactory.createKey(DashRequest.KEY_KIND, request.getBuildId());
 
     BuildData.Builder data = BuildData.newBuilder();
     Query query = new Query(DashRequest.KEY_KIND).setFilter(new FilterPredicate(
