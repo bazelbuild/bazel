@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 import junit.framework.TestCase;
 
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -136,18 +135,6 @@ public abstract class FoundationTestCase extends TestCase {
 
   protected void assertContainsEventsInOrder(String... expectedMessages) {
     JunitTestUtils.assertContainsEventsInOrder(eventCollector, expectedMessages);
-  }
-
-  @SuppressWarnings({"unchecked", "varargs"})
-  protected static <T> void assertContainsSublist(List<T> arguments,
-                                                  T... expectedSublist) {
-    JunitTestUtils.assertContainsSublist(arguments, expectedSublist);
-  }
-
-  @SuppressWarnings({"unchecked", "varargs"})
-  protected static <T> void assertDoesNotContainSublist(List<T> arguments,
-                                                        T... expectedSublist) {
-    JunitTestUtils.assertDoesNotContainSublist(arguments, expectedSublist);
   }
 
   protected static <T> void assertContainsSubset(Iterable<T> arguments,
