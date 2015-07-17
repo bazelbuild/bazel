@@ -565,6 +565,18 @@ Returns the default configuration. See the <a href="#modules.configuration">conf
 <li><h3 id="modules.ctx.data_configuration">data_configuration</h3>
 <code><a class="anchor" href="#modules.configuration">configuration</a> ctx.data_configuration</code><br>
 Returns the data configuration. See the <a href="#modules.configuration">configuration</a> type for more details.
+<li><h3 id="modules.ctx.empty_action">empty_action</h3>
+<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.empty_action(*, mnemonic, inputs?)</code><br>
+Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.ctx.empty_action.mnemonic"><code>mnemonic (<a class="anchor" href="#modules.string">string</a>)</code>: a one-word description of the action, e.g. CppCompile or GoLink
+	</li>
+</ul>
+<ul>
+	<li id="modules.ctx.empty_action.inputs"><code>inputs (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.File">File</a>s)</code>: list of the input files of the action
+	</li>
+</ul>
 <li><h3 id="modules.ctx.executable">executable</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.executable</code><br>
 A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.

@@ -138,8 +138,8 @@ layout: documentation
 <td></td>
 <td></td>
 <td></td>
-<td><a href="#bind">bind</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_jar">http_jar</a><br/><a href="#local_repository">local_repository</a></td>
-<td><a href="#maven_jar">maven_jar</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
+<td><a href="#bind">bind</a><br/><a href="#git_repository">git_repository</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_jar">http_jar</a><br/><a href="#local_repository">local_repository</a></td>
+<td><a href="#maven_jar">maven_jar</a><br/><a href="#new_git_repository">new_git_repository</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
 </tr>
 
 
@@ -6891,12 +6891,103 @@ genrule(
 )
 </pre>
 
+<h3 id="git_repository">git_repository</h3>
+
+
+<p class="rule-signature">
+git_repository(<a href="#git_repository.name">name</a>,
+<a href="#git_repository.commit">commit</a>,
+<a href="#git_repository.init_submodules">init_submodules</a>,
+<a href="#git_repository.remote">remote</a>,
+<a href="#git_repository.tag">tag</a>)
+</p>
+
+
+<p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
+available for binding.</p>
+
+<h4 id="git_repository_args">Arguments</h4>
+<ul>
+<li id="git_repository.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="git_repository.commit"><code>commit</code>:
+        The commit hash to check out in the repository.
+        <i>(String; optional)</i><br/>
+
+
+        <p>Note that one of either <code>commit</code> or <code>tag</code> must be defined.</p>
+</li>
+<li id="git_repository.init_submodules"><code>init_submodules</code>:
+        Whether to clone submodules in the repository.
+        <i>(Boolean; optional; default is 0)</i><br/>
+
+
+        <p>Currently, only cloning the top-level submodules is supported</p>
+</li>
+<li id="git_repository.remote"><code>remote</code>:
+        The URI of the remote Git repository.
+        <i>(String; required)</i><br/>
+
+
+        <p>This must be a HTTP URL. There is currently no support for authentication.</p>
+</li>
+<li id="git_repository.tag"><code>tag</code>:
+        The Git tag to check out in the repository.
+        <i>(String; optional)</i><br/>
+
+
+        <p>Note that one of either <code>commit</code> or <code>tag</code> must be defined.</p>
+</li>
+</ul>
+
+
+<h4 id="git_repository_examples">Examples</h4>
+
+<p>Suppose the current repository contains the source code for a chat program, rooted at the
+  directory <i>~/chat-app</i>. It needs to depend on an SSL library which is available in the
+  remote Git repository <i>http://example.com/openssl/openssl.git</i>. The chat app depends
+  on version 1.0.2 of the SSL library, which is tagged by the v1.0.2 Git tag.<p>
+
+<p>This Git repository contains the following directory structure:</p>
+
+<pre class="code">
+WORKSPACE
+src/
+  BUILD
+  openssl.cc
+  openssl.h
+</pre>
+
+<p><i>src/BUILD</i> contains the following target definition:</p>
+
+<pre class="code">
+cc_library(
+    name = "openssl-lib",
+    srcs = ["openssl.cc"],
+    hdrs = ["openssl.h"],
+)
+</pre>
+
+<p>Targets in the <i>~/chat-app</i> repository can depend on this target if the following lines are
+  added to <i>~/chat-app/WORKSPACE</i>:</p>
+
+<pre class="code">
+git_repository(
+    name = "my-ssl",
+    remote = "http://example.com/openssl/openssl.git",
+    tag = "v1.0.2",
+)
+</pre>
+
+<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+
 <h3 id="http_archive">http_archive</h3>
 
 
 <p class="rule-signature">
 http_archive(<a href="#http_archive.name">name</a>,
 <a href="#http_archive.sha256">sha256</a>,
+<a href="#http_archive.type">type</a>,
 <a href="#http_archive.url">url</a>)
 </p>
 
@@ -6911,19 +7002,28 @@ http_archive(<a href="#http_archive.name">name</a>,
 <li id="http_archive.name"><code>name</code>: A unique name for this rule.
 <i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
 <li id="http_archive.sha256"><code>sha256</code>:
-        The expected SHA-256 hash of the file downloaded.
-        <i>(String; required)</i><br/>
+         The expected SHA-256 hash of the file downloaded.
+         <i>(String; required)</i><br/>
 
 
-        <p>This must match the SHA-256 hash of the file downloaded.</p>
+         <p>This must match the SHA-256 hash of the file downloaded.</p>
+</li>
+<li id="http_archive.type"><code>type</code>:
+         The type of the downloaded file.
+         <i>(String; optional)</i><br/>
+
+
+         <p>By default, the file type is guessed by the extension of the downloaded file. Some
+         archive does not have the correct extension and this attribute can be used to set the
+         extension to happen to the file.</p>
 </li>
 <li id="http_archive.url"><code>url</code>:
-        A URL to an archive file containing a Bazel repository.
-        <i>(String; required)</i><br/>
+         A URL to an archive file containing a Bazel repository.
+         <i>(String; required)</i><br/>
 
 
-        <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-          redirection.</p>
+         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
+         redirection.</p>
 </li>
 </ul>
 
@@ -7320,6 +7420,90 @@ maven_jar(
 
 <p>Targets can specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
 
+<h3 id="new_git_repository">new_git_repository</h3>
+
+
+<p class="rule-signature">
+new_git_repository(<a href="#new_git_repository.name">name</a>,
+<a href="#new_git_repository.build_file">build_file</a>,
+<a href="#new_git_repository.init_submodules">init_submodules</a>,
+<a href="#new_git_repository.remote">remote</a>)
+</p>
+
+
+<p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
+available for binding.</p>
+
+<h4 id="new_git_repository_args">Arguments</h4>
+<ul>
+<li id="new_git_repository.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="new_git_repository.build_file"><code>build_file</code>:
+        A file to use as a BUILD file for this directory.
+        <i>(String; required)</i><br/>
+
+
+        <p>This path is relative to the build's workspace. The file does not need to be named
+        BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
+        from the repository's actual BUILD files.</p>
+</li>
+<li id="new_git_repository.init_submodules"><code>init_submodules</code>:
+        Whether to clone submodules in the repository.
+        <i>(Boolean; optional; default is 0)</i><br/>
+
+
+        <p>Currently, only cloning the top-level submodules is supported</p>
+</li>
+<li id="new_git_repository.remote"><code>remote</code>:
+        The URI of the remote Git repository.
+        <i>(String; required)</i><br/>
+
+
+        <p>This must be a HTTP URL. There is currently no support for authentication.</p>
+</li>
+</ul>
+
+
+<h4 id="git_repository_examples">Examples</h4>
+
+<p>Suppose the current repository contains the source code for a chat program, rooted at the
+  directory <i>~/chat-app</i>. It needs to depend on an SSL library which is available in the
+  remote Git repository <i>http://example.com/openssl/openssl.git</i>. The chat app depends
+  on version 1.0.2 of the SSL library, which is tagged by the v1.0.2 Git tag.<p>
+
+<p>This Git repository contains the following directory structure:</p>
+
+<pre class="code">
+src/
+  openssl.cc
+  openssl.h
+</pre>
+
+<p>In the local repository, the user creates a <i>ssl.BUILD</i> file which contains the following
+target definition:</p>
+
+<pre class="code">
+cc_library(
+    name = "openssl-lib",
+    srcs = ["openssl.cc"],
+    hdrs = ["openssl.h"],
+)
+</pre>
+
+<p>Targets in the <i>~/chat-app</i> repository can depend on this target if the following lines are
+  added to <i>~/chat-app/WORKSPACE</i>:</p>
+
+<pre class="code">
+new_git_repository(
+    name = "my-ssl",
+    remote = "http://example.com/openssl/openssl.git",
+    tag = "v1.0.2",
+    build_file = "ssl.BUILD",
+)
+</pre>
+
+<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+
 <h3 id="new_http_archive">new_http_archive</h3>
 
 
@@ -7327,6 +7511,7 @@ maven_jar(
 new_http_archive(<a href="#new_http_archive.name">name</a>,
 <a href="#new_http_archive.build_file">build_file</a>,
 <a href="#new_http_archive.sha256">sha256</a>,
+<a href="#new_http_archive.type">type</a>,
 <a href="#new_http_archive.url">url</a>)
 </p>
 
@@ -7341,28 +7526,37 @@ combining the archive with the provided BUILD file.</p>
 <li id="new_http_archive.name"><code>name</code>: A unique name for this rule.
 <i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
 <li id="new_http_archive.build_file"><code>build_file</code>:
-        A file to use as a BUILD file for this directory.
-        <i>(String; required)</i><br/>
+         A file to use as a BUILD file for this directory.
+         <i>(String; required)</i><br/>
 
 
-        <p>This path is relative to the build's workspace. The file does not need to be named
-        BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
-        from the repository's actual BUILD files.</p>
+         <p>This path is relative to the build's workspace. The file does not need to be named
+         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
+         from the repository's actual BUILD files.</p>
 </li>
 <li id="new_http_archive.sha256"><code>sha256</code>:
-        The expected SHA-256 hash of the file downloaded.
-        <i>(String; required)</i><br/>
+         The expected SHA-256 hash of the file downloaded.
+         <i>(String; required)</i><br/>
 
 
-        <p>This must match the SHA-256 hash of the file downloaded.</p>
+         <p>This must match the SHA-256 hash of the file downloaded.</p>
+</li>
+<li id="new_http_archive.type"><code>type</code>:
+         The type of the downloaded file.
+         <i>(String; optional)</i><br/>
+
+
+         <p>By default, the file type is guessed by the extension of the downloaded file. Some
+         archive does not have the correct extension and this attribute can be used to set the
+         extension to happen to the file.</p>
 </li>
 <li id="new_http_archive.url"><code>url</code>:
-        A URL to an archive file containing a Bazel repository.
-        <i>(String; required)</i><br/>
+         A URL to an archive file containing a Bazel repository.
+         <i>(String; required)</i><br/>
 
 
-        <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-          redirection.</p>
+         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
+         redirection.</p>
 </li>
 </ul>
 

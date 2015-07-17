@@ -2,7 +2,7 @@
 layout: community
 ---
 
-# Projects Using Bazel
+# Open-source projects using Bazel
 
 If you'd like your project listed here, please
 [let us know](mailto:kchodorow@google.com?subject=My project uses Bazel)!
@@ -35,3 +35,11 @@ grpc (maybe thrift).
 ## [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common)
 
 A platform-independent GameBoy emulator.
+
+# Corporate users of Bazel
+
+## [Makani](https://www.google.com/makani)
+
+Makani, now a Google subsidiary, develops energy kites and uses
+Bazel to build their software (including their embedded C++ software).
+
