@@ -47,7 +47,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(
-        directoryValue, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
+        directoryValue.realRootedPath().asPath(),
+        getOutputBase().getFileSystem().getPath(pathFragment),
+        env)) {
       return null;
     }
 

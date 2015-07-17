@@ -26,37 +26,37 @@ toolchain {
   toolchain_identifier: "%cpu%-linux-androideabi-%compiler%"
 
   tool_path { name: "ar"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ar"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ar"
   }
   tool_path { name: "compat-ld"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
   }
   tool_path { name: "cpp"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-cpp"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-cpp"
   }
   tool_path { name: "dwp"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-dwp"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-dwp"
   }
   tool_path { name: "gcc"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcc"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcc"
   }
   tool_path { name: "gcov"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcov"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcov"
   }
   tool_path { name: "ld"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
   }
   tool_path { name: "nm"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-nm"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-nm"
   }
   tool_path { name: "objcopy"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objcopy"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objcopy"
   }
   tool_path { name: "strip"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-strip"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-strip"
   }
   tool_path { name: "objdump"
-    path: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objdump"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objdump"
   }
   objcopy_embed_flag: "-I"
 
@@ -76,19 +76,19 @@ toolchain {
 
   cxx_flag: "-std=gnu++11"
 
-  cxx_builtin_include_directory: "external/%repository%/platforms/android-%api_level%/arch-%cpu%/usr/include"
-  cxx_builtin_include_directory: "external/%repository%/sources"
-  cxx_builtin_include_directory: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include"
-  cxx_builtin_include_directory: "external/%repository%/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include-fixed"
+  cxx_builtin_include_directory: "external/%repository%/ndk/platforms/android-%api_level%/arch-%cpu%/usr/include"
+  cxx_builtin_include_directory: "external/%repository%/ndk/sources"
+  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include"
+  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include-fixed"
 
-  unfiltered_cxx_flag: "-isystemexternal/%repository%/platforms/android-%api_level%/arch-%cpu%/usr/include"
-  unfiltered_cxx_flag: "-isystemexternal/%repository%/sources/cxx-stl/gnu-libstdc++/%compiler%/include"
-  unfiltered_cxx_flag: "-isystemexternal/%repository%/sources/cxx-stl/gnu-libstdc++/%compiler%/libs/%abi%/include"
+  unfiltered_cxx_flag: "-isystemexternal/%repository%/ndk/platforms/android-%api_level%/arch-%cpu%/usr/include"
+  unfiltered_cxx_flag: "-isystemexternal/%repository%/ndk/sources/cxx-stl/gnu-libstdc++/%compiler%/include"
+  unfiltered_cxx_flag: "-isystemexternal/%repository%/ndk/sources/cxx-stl/gnu-libstdc++/%compiler%/libs/%abi%/include"
 
   unfiltered_cxx_flag: "-isystem"
-  unfiltered_cxx_flag: "external/%repository%/sources/cxx-stl/stlport/stlport"
+  unfiltered_cxx_flag: "external/%repository%/ndk/sources/cxx-stl/stlport/stlport"
   unfiltered_cxx_flag: "-isystem"
-  unfiltered_cxx_flag: "external/%repository%/sources/cxx-stl/gabi++/include"
+  unfiltered_cxx_flag: "external/%repository%/ndk/sources/cxx-stl/gabi++/include"
 
   linking_mode_flags {
     mode: FULLY_STATIC
@@ -111,11 +111,11 @@ toolchain {
   compiler_flag: "-DANDROID"
   compiler_flag: "-g"
 
-  linker_flag: "--sysroot=external/%repository%/platforms/android-%api_level%/arch-%cpu%"
+  linker_flag: "--sysroot=external/%repository%/ndk/platforms/android-%api_level%/arch-%cpu%"
   linker_flag: "-fPIE"
   linker_flag: "-pie"
 
-  linker_flag: "-Lexternal/%repository%/sources/cxx-stl/gnu-libstdc++/%compiler%/libs/%abi%/"
+  linker_flag: "-Lexternal/%repository%/ndk/sources/cxx-stl/gnu-libstdc++/%compiler%/libs/%abi%/"
   linker_flag: "-lgnustl_static"
   linker_flag: "-lsupc++"
   linker_flag: "-lc"

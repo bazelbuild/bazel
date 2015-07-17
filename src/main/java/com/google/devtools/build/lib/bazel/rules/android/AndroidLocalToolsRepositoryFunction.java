@@ -46,7 +46,9 @@ public class AndroidLocalToolsRepositoryFunction extends RepositoryFunction {
     PathFragment pathFragment = getTargetPath(rule);
 
     if (!symlinkLocalRepositoryContents(
-        directoryValue, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
+        directoryValue.realRootedPath().asPath(),
+        getOutputBase().getFileSystem().getPath(pathFragment),
+        env)) {
       return null;
     }
 

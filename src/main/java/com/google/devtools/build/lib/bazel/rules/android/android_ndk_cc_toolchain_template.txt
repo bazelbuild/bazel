@@ -32,10 +32,10 @@ filegroup(
     name = "everything-%api_level%-%cpu%",
     srcs = glob(
         [
-            "platforms/android-%api_level%/arch-%cpu%/usr/include/**/*.h",
-            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.a",
-            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.o",
-            "platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.so",
+            "ndk/platforms/android-%api_level%/arch-%cpu%/usr/include/**/*.h",
+            "ndk/platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.a",
+            "ndk/platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.o",
+            "ndk/platforms/android-%api_level%/arch-%cpu%/usr/lib/**/*.so",
         ],
     ),
 )

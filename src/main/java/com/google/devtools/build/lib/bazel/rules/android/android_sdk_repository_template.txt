@@ -14,7 +14,16 @@ android_sdk(
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
     apkbuilder = ":apkbuilder",
-    zipalign = "build-tools/%build_tools_version%/zipalign")
+    zipalign = "build-tools/%build_tools_version%/zipalign",
+    android_jack = ":empty",
+    jack = ":fail",
+    jill = ":fail",
+    resource_extractor = ":fail"
+)
+
+sh_binary(
+    name = "fail",
+    srcs = ["fail.sh"])
 
 genrule(
     name = "main_dex_list_creator_source",

@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -50,9 +52,15 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     }
 
     PathFragment pathFragment = getTargetPath(rule);
+    Path ndkSymlinkTreeDirectory = directoryValue.realRootedPath().asPath().getRelative("ndk");
+    try {
+      ndkSymlinkTreeDirectory.createDirectory();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
 
     if (!symlinkLocalRepositoryContents(
-        directoryValue, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
+        ndkSymlinkTreeDirectory, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
       return null;
     }
 

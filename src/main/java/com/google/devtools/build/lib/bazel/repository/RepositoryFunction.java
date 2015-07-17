@@ -203,12 +203,12 @@ public abstract class RepositoryFunction implements SkyFunction {
    * </pre>
    */
   public static boolean symlinkLocalRepositoryContents(
-      FileValue repositoryDirectory, Path targetDirectory, Environment env)
+      Path repositoryDirectory, Path targetDirectory, Environment env)
       throws RepositoryFunctionException {
     try {
       for (Path target : targetDirectory.getDirectoryEntries()) {
         Path symlinkPath =
-            repositoryDirectory.realRootedPath().asPath().getRelative(target.getBaseName());
+            repositoryDirectory.getRelative(target.getBaseName());
         if (createSymbolicLink(symlinkPath, target, env) == null) {
           return false;
         }
