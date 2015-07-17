@@ -368,11 +368,11 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
   /**
    * Returns the path formed by appending the relative or absolute path fragment
-   * {@code suffix} to this path.
+   * {@code otherFragment} to this path.
    *
-   * <p>If suffix is absolute, the current path will be ignored; otherwise, they
-   * will be concatenated. This is a purely syntactic operation, with no path
-   * normalization or I/O performed.
+   * <p>If {@code otherFragment} is absolute, the current path will be ignored;
+   * otherwise, they will be concatenated. This is a purely syntactic operation,
+   * with no path normalization or I/O performed.
    */
   public PathFragment getRelative(PathFragment otherFragment) {
     return otherFragment.isAbsolute()
@@ -484,7 +484,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * a prefix of {@code this}, and that they are both relative or both
    * absolute.
    *
-   * This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
+   * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
    * order)
    */
   public boolean startsWith(PathFragment prefix) {
@@ -505,7 +505,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * Returns true iff {@code suffix}, considered as a list of path segments, is
    * relative and a suffix of {@code this}, or both are absolute and equal.
    *
-   * This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
+   * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial
    * order)
    */
   public boolean endsWith(PathFragment suffix) {
