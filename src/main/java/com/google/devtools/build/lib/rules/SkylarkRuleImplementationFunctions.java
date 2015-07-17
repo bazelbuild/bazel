@@ -19,13 +19,17 @@ import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
+import com.google.devtools.build.lib.analysis.PseudoAction;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -34,10 +38,13 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.NoneType;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
@@ -48,8 +55,10 @@ import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 // TODO(bazel-team): function argument names are often duplicated,
@@ -205,30 +214,6 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  // TODO(bazel-team): improve this method to be more memory friendly
-  @SkylarkSignature(name = "file_action",
-      doc = "Creates a file write action.",
-      objectType = SkylarkRuleContext.class,
-      returnType = FileWriteAction.class,
-      mandatoryPositionals = {
-        @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-        @Param(name = "output", type = Artifact.class, doc = "the output file"),
-        @Param(name = "content", type = String.class, doc = "the contents of the file")},
-      optionalPositionals = {
-        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
-            doc = "whether the output file should be executable (default is False)")})
-  private static final BuiltinFunction createFileWriteAction =
-      new BuiltinFunction("file_action") {
-        public FileWriteAction invoke(SkylarkRuleContext ctx,
-            Artifact output, String content, Boolean executable)
-            throws EvalException, ConversionException {
-          FileWriteAction action = new FileWriteAction(
-              ctx.getRuleContext().getActionOwner(), output, content, executable);
-          ctx.getRuleContext().registerAction(action);
-          return action;
-        }
-      };
-
   @SkylarkSignature(name = "expand_location",
       doc =
       "Expands the given string so that all labels are replaced with the location "
@@ -276,6 +261,78 @@ public class SkylarkRuleImplementationFunctions {
 
     return builder.build();
   }
+
+  // TODO(bazel-team): improve this method to be more memory friendly
+  @SkylarkSignature(name = "file_action",
+      doc = "Creates a file write action.",
+      objectType = SkylarkRuleContext.class,
+      returnType = FileWriteAction.class,
+      mandatoryPositionals = {
+        @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
+        @Param(name = "output", type = Artifact.class, doc = "the output file"),
+        @Param(name = "content", type = String.class, doc = "the contents of the file")},
+      optionalPositionals = {
+        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
+            doc = "whether the output file should be executable (default is False)")})
+  private static final BuiltinFunction createFileWriteAction =
+      new BuiltinFunction("file_action") {
+        public FileWriteAction invoke(SkylarkRuleContext ctx,
+            Artifact output, String content, Boolean executable)
+            throws EvalException, ConversionException {
+          FileWriteAction action = new FileWriteAction(
+              ctx.getRuleContext().getActionOwner(), output, content, executable);
+          ctx.getRuleContext().registerAction(action);
+          return action;
+        }
+      };
+
+  @SkylarkSignature(name = "empty_action",
+      doc =
+      "Creates an empty action that neither executes a command nor produces any "
+      + "output, but that is useful for inserting 'extra actions'.",
+      objectType = SkylarkRuleContext.class, returnType = NoneType.class,
+      mandatoryPositionals = {
+          @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
+      },
+      mandatoryNamedOnly = {
+          @Param(name = "mnemonic", type = String.class, defaultValue = "None",
+          doc = "a one-word description of the action, e.g. CppCompile or GoLink"),
+      },
+      optionalNamedOnly = {
+          @Param(name = "inputs", type = SkylarkList.class, generic1 = Artifact.class,
+              defaultValue = "[]", doc = "list of the input files of the action"),
+      })
+  private static final BuiltinFunction createEmptyAction = new BuiltinFunction("empty_action") {
+    @SuppressWarnings("unused")
+    public NoneType invoke(SkylarkRuleContext ctx, String mnemonic, SkylarkList inputs)
+        throws EvalException, ConversionException {
+      RuleContext ruleContext = ctx.getRuleContext();
+      Action action = new PseudoAction<SpawnInfo>(generateUuid(ruleContext),
+          ruleContext.getActionOwner(), convertInputs(inputs), generateDummyOutputs(ruleContext),
+          mnemonic, SpawnInfo.spawnInfo, createEmptySpawnInfo());
+      ruleContext.registerAction(action);
+
+      return Environment.NONE;
+    }
+
+    private NestedSet<Artifact> convertInputs(SkylarkList inputs) {
+      return NestedSetBuilder.<Artifact>compileOrder().addAll(inputs.to(Artifact.class)).build();
+    }
+
+    protected UUID generateUuid(RuleContext ruleContext) {
+      return UUID.nameUUIDFromBytes(
+          String.format("empty action %s", ruleContext.getLabel())
+              .getBytes(StandardCharsets.UTF_8));
+    }
+
+    protected ImmutableList<Artifact> generateDummyOutputs(RuleContext ruleContext) {
+      return ImmutableList.of(PseudoAction.getDummyOutput(ruleContext));
+    }
+
+    protected SpawnInfo createEmptySpawnInfo() {
+      return SpawnInfo.newBuilder().build();
+    }
+  };
 
   @SkylarkSignature(name = "template_action",
       doc = "Creates a template expansion action.",
