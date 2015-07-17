@@ -527,8 +527,28 @@ java_test(
 )
 
 java_test(
-    name = "common-rules-tests",
+    name = "filegroup-rules-tests",
     srcs = glob(["com/google/devtools/build/lib/rules/filegroup/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["rules"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":testutil",
+        "//src/main/java:analysis-exec-rules-skyframe",
+        "//src/main/java:bazel-core",
+        "//src/main/java:vfs",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "java-rules-tests",
+    srcs = glob(["com/google/devtools/build/lib/rules/java/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
     deps = [
