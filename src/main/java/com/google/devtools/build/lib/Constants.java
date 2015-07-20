@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 
 /**
  * Various constants required by Bazel.
+ * <p>The extra {@code .toString()} calls are there so that javac doesn't inline these constants
+ * so that we can replace this class file within the Bazel binary.
  */
 public class Constants {
   private Constants() {
@@ -81,5 +83,6 @@ public class Constants {
   public static final ImmutableSet<String> IOS_DEVICE_RULE_CLASSES = ImmutableSet.of("ios_device");
 
   public static final String ANDROID_DEFAULT_SDK = "//external:android/sdk".toString();
+  public static final String ANDROID_DEFAULT_CROSSTOOL = "//external:android/crosstool".toString();
   public static final String ANDROID_DEP_PREFIX = "//external:android/".toString();
 }

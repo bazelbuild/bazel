@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -178,21 +179,31 @@ public final class AndroidRuleClasses {
     }
 
     private void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
-      AndroidConfiguration.Options androidOptions = input.get(AndroidConfiguration.Options.class);
+      AndroidConfiguration.Options inputAndroidOptions =
+          input.get(AndroidConfiguration.Options.class);
+      AndroidConfiguration.Options outputAndroidOptions =
+          output.get(AndroidConfiguration.Options.class);
+
       CppOptions cppOptions = output.get(CppOptions.class);
-      if (androidOptions.androidCrosstoolTop != null) {
+      if (inputAndroidOptions.realAndroidCrosstoolTop() != null
+          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.realAndroidCrosstoolTop())) {
         if (cppOptions.hostCrosstoolTop == null) {
           cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
         }
-        cppOptions.crosstoolTop = androidOptions.androidCrosstoolTop;
+        cppOptions.crosstoolTop = inputAndroidOptions.realAndroidCrosstoolTop();
       }
+
+      outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
     }
 
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
-      if (androidOptions.fatApkCpus.isEmpty() && androidOptions.androidCrosstoolTop == null) {
+      CppOptions cppOptions = buildOptions.get(CppOptions.class);
+      Label androidCrosstoolTop = androidOptions.realAndroidCrosstoolTop();
+      if (androidOptions.fatApkCpus.isEmpty()
+          && (androidCrosstoolTop == null || androidCrosstoolTop.equals(cppOptions.crosstoolTop))) {
         return ImmutableList.of();
       }
 

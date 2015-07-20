@@ -151,7 +151,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   // transitions for this purpose.
   // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
   // configurations (e.g. by min os version) always use different output paths.
-  @Option(name = "DO_NOT_USE_configuration_distinguisher",
+  @Option(name = "iOS configuration distinguisher",
       defaultValue = "UNKNOWN",
       converter = ConfigurationDistinguisherConverter.class,
       category = "undocumented")
@@ -189,7 +189,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public static final class ConfigurationDistinguisherConverter
       extends EnumConverter<ConfigurationDistinguisher> {
     public ConfigurationDistinguisherConverter() {
-      super(ConfigurationDistinguisher.class, "configuration distinguisher");
+      super(ConfigurationDistinguisher.class, "Objective C configuration distinguisher");
     }
   }
 }

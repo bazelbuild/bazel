@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 public class AndroidSdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_sdk_repository";
 
-  public static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
+  private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
       new Function< Rule, Map<String, Label>>() {
         @Nullable
         @Override

@@ -15,11 +15,10 @@ android_ndk_repository(
 Then the following command can be used to build the example app:
 
 ```
-bazel build --android_crosstool_top=@androidndk//:toolchain //examples/android/java/bazel:hello_world
+bazel build //examples/android/java/bazel:hello_world
 ```
 
 Yes, we know that this is a little clunky. We are working on the following things (and more):
- * Eliminating the need for the `--android_crosstool_top` command line option
  * Supporting other architectures than `armeabi-v7a` and compilers other than GCC 4.9
  * Eliminating the big ugly deprecation message from the console output of Bazel
 
@@ -28,8 +27,8 @@ We also have a nice way to speed up the edit-compile-install development cycle f
  * Set the `multidex` attribute to `native`
  * Set the `dex_shards` attribute to a number between 2 and 200. This controls the size of chunks the code is split into. As this number is increased, compilation and installation becomes faster but app startup becomes slower. A good initial guess is 10.
  * Connect your device over USB to your workstation and enable USB debugging on it
- * Run `bazel mobile-install --android_crosstool_top=@androidndk//:toolchain <android_binary rule>`
+ * Run `bazel mobile-install <android_binary rule>`
  * Edit Java code or Android resources
- * Run `blaze mobile-install --android_crosstool_top=@androidndk//:toolchain --incremental <android_binary rule>`
+ * Run `blaze mobile-install --incremental <android_binary rule>`
 
 Note that if you change anything other than Java code or Android resources (C++ code or something on the device), you must omit the `--incremental` command line option. Yes, we know that this is also clunky and we are working on improving it.

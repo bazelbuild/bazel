@@ -23,11 +23,15 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
+import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
+import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -107,9 +111,13 @@ public class BazelAnalysisMock extends AnalysisMock {
     return new ConfigurationFactory(new BazelConfigurationCollection(),
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),
+        new PythonConfigurationLoader(Functions.<String>identity()),
+        new BazelPythonConfiguration.Loader(),
         new JvmConfigurationLoader(false, BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
         new JavaConfigurationLoader(),
-        new ObjcConfigurationLoader());
+        new ObjcConfigurationLoader(),
+        new J2ObjcConfiguration.Loader(),
+        new AndroidConfiguration.Loader());
   }
 
   @Override
