@@ -275,22 +275,23 @@ public final class ReleaseBundlingSupport {
     // The resulting file is meant to be merged with the final bundle.
     String command = Joiner.on(" && ").join(
         "PLATFORM_PLIST=" + IosSdkCommands.platformDir(configuration) + "/Info.plist",
-        "PLIST=${TMPDIR}/env.plist",
-        "os_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} BuildMachineOSBuild)",
-        "compiler=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTCompiler)",
-        "platform_version=$(/usr/bin/defaults read ${PLATFORM_PLIST} Version)",
-        "sdk_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTSDKBuild)",
-        "platform_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTPlatformBuild)",
-        "xcode_build=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTXcodeBuild)",
-        "xcode_version=$(/usr/bin/defaults read ${PLATFORM_PLIST} DTXcode)",
-        "/usr/bin/defaults write ${PLIST} DTPlatformBuild -string ${platform_build}",
-        "/usr/bin/defaults write ${PLIST} DTSDKBuild -string ${sdk_build}",
-        "/usr/bin/defaults write ${PLIST} DTPlatformVersion -string ${platform_version}",
-        "/usr/bin/defaults write ${PLIST} DTXcode -string ${xcode_version}",
-        "/usr/bin/defaults write ${PLIST} DTXCodeBuild -string ${xcode_build}",
-        "/usr/bin/defaults write ${PLIST} DTCompiler -string ${compiler}",
-        "/usr/bin/defaults write ${PLIST} BuildMachineOSBuild -string ${os_build}",
-        "cat ${PLIST} > " + getGeneratedEnvironmentPlist().getShellEscapedExecPathString());
+        "PLIST=$(mktemp -d -t bazel_environment)/env.plist",
+        "os_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" BuildMachineOSBuild)",
+        "compiler=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTCompiler)",
+        "platform_version=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" Version)",
+        "sdk_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTSDKBuild)",
+        "platform_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTPlatformBuild)",
+        "xcode_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTXcodeBuild)",
+        "xcode_version=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTXcode)",
+        "/usr/bin/defaults write \"${PLIST}\" DTPlatformBuild -string ${platform_build}",
+        "/usr/bin/defaults write \"${PLIST}\" DTSDKBuild -string ${sdk_build}",
+        "/usr/bin/defaults write \"${PLIST}\" DTPlatformVersion -string ${platform_version}",
+        "/usr/bin/defaults write \"${PLIST}\" DTXcode -string ${xcode_version}",
+        "/usr/bin/defaults write \"${PLIST}\" DTXCodeBuild -string ${xcode_build}",
+        "/usr/bin/defaults write \"${PLIST}\" DTCompiler -string ${compiler}",
+        "/usr/bin/defaults write \"${PLIST}\" BuildMachineOSBuild -string ${os_build}",
+        "cat \"${PLIST}\" > " + getGeneratedEnvironmentPlist().getShellEscapedExecPathString(),
+        "rm -rf \"${PLIST}\"");
     ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(command)
         .setMnemonic("EnvironmentPlist")
         .addOutput(getGeneratedEnvironmentPlist())
