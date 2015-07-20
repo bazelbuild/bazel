@@ -82,8 +82,7 @@ message TargetControl {
   // -Info.plist file for the application.
   optional string infoplist = 5;
 
-  // Label corresponding to the target. This is needed to determine a
-  // unique name for the target in the project. This is similar to the name
+  // A unique name for the target in the project. This is similar to the name
   // field, but is globally unique and may be long.
   optional string label = 7;
 

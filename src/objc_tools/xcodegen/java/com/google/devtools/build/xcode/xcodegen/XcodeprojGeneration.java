@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -67,6 +66,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -166,7 +166,7 @@ public class XcodeprojGeneration {
       // Unlike other product types, a full application may have dozens of static libraries,
       // so rather than just use the target name, we use the full label to generate the product
       // name.
-      return labelToXcodeTargetName(targetControl.getLabel());
+      return targetControl.getLabel();
     } else {
       return targetControl.getName();
     }
@@ -273,14 +273,6 @@ public class XcodeprojGeneration {
       }
       nativeTarget.getDependencies().add(dependencyInfo.targetDependency);
     }
-  }
-
-  // TODO(bazel-team): Make this a no-op once the released version of Bazel sends the label to
-  // xcodegen pre-processed.
-  private static String labelToXcodeTargetName(String label) {
-    String pathFromWorkspaceRoot =  label.replace("//", "").replace(':', '/');
-    List<String> components = Splitter.on('/').splitToList(pathFromWorkspaceRoot);
-    return Joiner.on('_').join(Lists.reverse(components));
   }
 
   private static NSDictionary nonArcCompileSettings() {
@@ -414,7 +406,7 @@ public class XcodeprojGeneration {
     }
 
     Map<String, TargetInfo> targetInfoByLabel = new HashMap<>();
-
+    List<String> usedTargetNames = new ArrayList<>();
     PBXFileReferences fileReferences = new PBXFileReferences();
     LibraryObjects libraryObjects = new LibraryObjects(fileReferences);
     PBXBuildFiles pbxBuildFiles = new PBXBuildFiles(fileReferences);
@@ -497,8 +489,16 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(name, value);
       }
 
-      PBXNativeTarget target = new PBXNativeTarget(
-          labelToXcodeTargetName(targetControl.getLabel()), productType);
+      String targetName = targetControl.getName();
+      if (usedTargetNames.contains(targetName)) {
+        // Use the label in the odd case where we have two targets with the same name.
+        targetName = targetControl.getLabel();
+      }
+      checkState(!usedTargetNames.contains(targetName),
+          "Name already exists for target with label/name %s/%s in list: %s",
+          targetControl.getLabel(), targetControl.getName(), usedTargetNames);
+      usedTargetNames.add(targetName);
+      PBXNativeTarget target = new PBXNativeTarget(targetName, productType);
       try {
         target
             .getBuildConfigurationList()
