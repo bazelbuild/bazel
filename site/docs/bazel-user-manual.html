@@ -1205,35 +1205,6 @@ $ bazel fetch //...
     <td>Don't show output.</td>
   </tr>
 </table>
-<p>
-  If this option is not given, a default filter will be created according to the
-  <a href="#flag--auto_output_filter"><code class='flag'>--auto_output_filter</code> option</a>.
-</p>
-
-<h4 id='flag--auto_output_filter'><code class='flag'>--auto_output_filter (none|packages|subpackages)</code></h4>
-
-<p>
-  If no <a href="#flag--output_filter"><code class='flag'>--output_filter</code> option</a> is
-  given, Bazel creates an output filter from the targets listed on the command
-  line:
-</p>
-<ul>
-  <li>
-    <code>none</code> does no filtering and shows all output.
-  </li>
-  <li>
-    <code>packages</code> shows only the output for the packages of targets
-    requested on the command line. For example, the Bazel invocation
-    <pre>  % bazel build //foo:bar //baz/...</pre>
-    will show the output for all targets in the package <code>foo</code> or any
-    package under <code>baz</code>.
-
-  </li>
-  <li>
-    <code>subpackages</code> (the default) works similar
-    to <code>packages</code> but also includes output from subpackages.
-  </li>
-</ul>
 
 <h4 id='flag--analysis_warnings_as_errors'><code>--[no]analysis_warnings_as_errors</code></h4>
 <p>

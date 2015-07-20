@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 /**
  * A BuildRequest represents a single invocation of the build tool by a user.
@@ -119,6 +120,14 @@ public class BuildRequest implements OptionsClassProvider {
             help = "Increases the verbosity of the explanations issued if --explain is enabled. "
             + "Has no effect if --explain is not enabled.")
     public boolean verboseExplanations;
+
+    @Option(name = "output_filter",
+        converter = Converters.RegexPatternConverter.class,
+        defaultValue = "null",
+        category = "flags",
+        help = "Only shows warnings for rules with a name matching the provided regular "
+            + "expression.")
+    public Pattern outputFilter;
 
     @Deprecated
     @Option(name = "dump_makefile",
