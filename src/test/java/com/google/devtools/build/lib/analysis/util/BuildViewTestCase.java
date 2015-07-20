@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.base.Function;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -98,6 +100,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -1452,5 +1455,51 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     return artifact;
+  }
+  
+  /**
+   * Retrieves an instance of {@code PseudoAction} that is shadowed by an extra action
+   * @param targetLabel Label of the target with an extra action
+   * @param actionListenerLabel Label of the action listener
+   */
+  protected PseudoAction<?> getPseudoActionViaExtraAction(
+      String targetLabel, String actionListenerLabel) throws Exception {
+    useConfiguration(String.format("--experimental_action_listener=%s", actionListenerLabel));
+
+    ConfiguredTarget target = getConfiguredTarget(targetLabel);
+    List<Action> actions = getExtraActionActions(target);
+
+    assertNotNull(actions);
+    assertThat(actions).hasSize(2);
+
+    ExtraAction extraAction = null;
+
+    for (Action action : actions) {
+      if (action instanceof ExtraAction) {
+        extraAction = (ExtraAction) action;
+        break;
+      }
+    }
+
+    assertNotNull(actions.toString(), extraAction);
+
+    Action pseudoAction = extraAction.getShadowedAction();
+
+    assertThat(pseudoAction).isInstanceOf(PseudoAction.class);
+    assertEquals(
+        String.format("%s%s.extra_action_dummy", targetConfig.getGenfilesFragment(),
+            convertLabelToPath(targetLabel)),
+        pseudoAction.getPrimaryOutput().getExecPathString());
+
+    return (PseudoAction<?>) pseudoAction;
+  }
+
+  /**
+   * Converts the given label to an output path where double slashes and colons are
+   * replaced with single slashes
+   * @param label
+   */
+  private String convertLabelToPath(String label) {
+    return label.replace(':', '/').substring(1);
   }
 }
