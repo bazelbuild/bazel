@@ -73,7 +73,7 @@ def _add_file(in_file, output, path = None):
     output_path += input_path[len(path):]
   return [
       "mkdir -p $(dirname %s)" % output_path,
-      "test -l %s || ln -s $(pwd)/%s %s\n" % (output_path, input_path,
+      "test -L %s || ln -s $(pwd)/%s %s\n" % (output_path, input_path,
                                               output_path)
       ]
 
