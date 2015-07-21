@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -39,23 +40,40 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
         /*<!-- #BLAZE_RULE(experimental_ios_test).IMPLICIT_OUTPUTS -->
-        <ul>
-          <li><code><var>name</var>.ipa</code>: the test bundle as an
-              <code>.ipa</code> file
-          <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
-              used to develop or build on a Mac.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
+         <ul>
+         <li><code><var>name</var>.ipa</code>: the test bundle as an
+         <code>.ipa</code> file
+         <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
+         used to develop or build on a Mac.</li>
+         </ul>
+         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
-        .override(attr(IosTest.TARGET_DEVICE, LABEL)
-            .allowedFileTypes()
-            .allowedRuleClasses(Constants.IOS_DEVICE_RULE_CLASSES)
-            .value(env.getLabel("//tools/objc/sim_devices:default")))
+        .override(
+            attr(IosTest.TARGET_DEVICE, LABEL)
+                .allowedFileTypes()
+                .allowedRuleClasses(Constants.IOS_DEVICE_RULE_CLASSES)
+                .value(env.getLabel("//tools/objc/sim_devices:default")))
+        /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(ios_test_target_device) -->
+         The device against how to run the test. If this attribute is defined, the test will run on
+         the lab device. Otherwise, the test will run on simulator.
+         ${SYNOPSIS}
+         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr("ios_test_target_device", LABEL)
+                .allowedFileTypes()
+                .allowedRuleClasses("ios_lab_device"))
+        /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(ios_device_arg) -->
+         Extra arguments to pass to the <code>ios_test_target_device</code>'s binary. They should be
+         in the form KEY=VALUE or simply KEY (check your device's documentation for allowed
+         parameters).
+         ${SYNOPSIS}
+         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("ios_device_arg", STRING_LIST))
         /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(plugins) -->
-        Plugins to pass to the test runner.
-        ${SYNOPSIS}
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+         Plugins to pass to the test runner.
+         ${SYNOPSIS}
+         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("plugins", LABEL_LIST).allowedFileTypes(FileType.of("_deploy.jar")))
         .add(attr("$test_template", LABEL)
             .value(env.getLabel("//tools/objc:ios_test.sh.bazel_template")))

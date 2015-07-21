@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -29,9 +30,12 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * Support for running XcTests.
@@ -46,7 +50,7 @@ class TestSupport {
   /**
    * Registers actions to create all files needed in order to actually run the test.
    */
-  TestSupport registerTestRunnerActionsForSimulator() {
+  TestSupport registerTestRunnerActions() {
     registerTestScriptSubstitutionAction();
     return this;
   }
@@ -62,14 +66,11 @@ class TestSupport {
     // testIpa is the app actually containing the tests
     Artifact testIpa = testIpa();
 
+    // The substitutions below are common for simulator and lab device.
     ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
         .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
         .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
-
-        .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
-        .add(Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())))
-
-        .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
+        .add(Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
 
     // xctestIpa is the app bundle being tested
     Optional<Artifact> xctestIpa = xctestIpa();
@@ -82,17 +83,38 @@ class TestSupport {
           .add(Substitution.of("%(xctest_app_ipa)s", ""))
           .add(Substitution.of("%(xctest_app_name)s", ""));
     }
-    
+
+    Artifact template;
+    if (!runWithLabDevice()) {
+      substitutions.addAll(substitutionsForSimulator());
+      template = ruleContext.getPrerequisiteArtifact("$test_template", Mode.TARGET);
+    } else {
+      substitutions.addAll(substitutionsForLabDevice());
+      template = testTemplateForLabDevice();
+    }
+
+    ruleContext.registerAction(new TemplateExpansionAction(ruleContext.getActionOwner(),
+        template, generatedTestScript(), substitutions.build(), /*executable=*/true));
+  }
+
+  private boolean runWithLabDevice() {
+    return iosLabDeviceSubstitutions() != null;
+  }
+
+  /**
+   * Gets the substitutions for simulator.
+   */
+  private ImmutableList<Substitution> substitutionsForSimulator() {
+    ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
+        .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
+        .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
+
     Optional<Artifact> testRunner = testRunner();
     if (testRunner.isPresent()) {
       substitutions.add(
           Substitution.of("%(testrunner_binary)s", testRunner.get().getRootRelativePathString()));
     }
-
-    Artifact template = ruleContext.getPrerequisiteArtifact("$test_template", Mode.TARGET);
-
-    ruleContext.registerAction(new TemplateExpansionAction(ruleContext.getActionOwner(),
-        template, generatedTestScript(), substitutions.build(), /*executable=*/true));
+    return substitutions.build();
   }
 
   private IosTestSubstitutionProvider deviceSubstitutions() {
@@ -133,6 +155,34 @@ class TestSupport {
   }
 
   /**
+   * Gets the substitutions for lab device.
+   */
+  private ImmutableList<Substitution> substitutionsForLabDevice() {
+    return new ImmutableList.Builder<Substitution>()
+        .addAll(iosLabDeviceSubstitutions().getSubstitutionsForTestRunnerScript())
+        .add(Substitution.of("%(ios_device_arg)s", Joiner.on(" ").join(iosDeviceArgs()))).build();
+  }
+
+  /**
+   * Gets the test template for lab devices.
+   */
+  private Artifact testTemplateForLabDevice() {
+    return ruleContext
+        .getPrerequisite("ios_test_target_device", Mode.TARGET, LabDeviceTemplateProvider.class)
+        .getLabDeviceTemplate();
+  }
+
+  @Nullable
+  private IosTestSubstitutionProvider iosLabDeviceSubstitutions() {
+    return ruleContext.getPrerequisite(
+        "ios_test_target_device", Mode.TARGET, IosTestSubstitutionProvider.class);
+  }
+
+  private List<String> iosDeviceArgs() {
+    return ruleContext.attributes().get("ios_device_arg", Type.STRING_LIST);
+  }
+
+  /**
    * Adds all files needed to run this test to the passed Runfiles builder.
    */
   TestSupport addRunfiles(Runfiles.Builder runfilesBuilder) {
@@ -140,10 +190,15 @@ class TestSupport {
         .addArtifact(testIpa())
         .addArtifacts(xctestIpa().asSet())
         .addArtifact(generatedTestScript())
-        .addArtifact(iossim())
-        .addTransitiveArtifacts(deviceRunfiles())
-        .addTransitiveArtifacts(plugins())
-        .addArtifacts(testRunner().asSet());
+        .addTransitiveArtifacts(plugins());
+    if (!runWithLabDevice()) {
+      runfilesBuilder
+          .addArtifact(iossim())
+          .addTransitiveArtifacts(deviceRunfiles())
+          .addArtifacts(testRunner().asSet());
+    } else {
+      runfilesBuilder.addTransitiveArtifacts(labDeviceRunfiles());
+    }
     return this;
   }
 
@@ -159,6 +214,15 @@ class TestSupport {
    */
   private NestedSet<Artifact> deviceRunfiles() {
     return ruleContext.getPrerequisite("target_device", Mode.TARGET, RunfilesProvider.class)
+        .getDefaultRunfiles().getAllArtifacts();
+  }
+
+  /**
+   * Runfiles required in order to use the specified target device.
+   */
+  private NestedSet<Artifact> labDeviceRunfiles() {
+    return ruleContext
+        .getPrerequisite("ios_test_target_device", Mode.TARGET, RunfilesProvider.class)
         .getDefaultRunfiles().getAllArtifacts();
   }
 

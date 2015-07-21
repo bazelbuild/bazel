@@ -43,10 +43,11 @@ public final class ExperimentalIosTest extends IosTest {
     NestedSetBuilder<Artifact> filesToBuildBuilder = NestedSetBuilder.<Artifact>stableOrder();
     filesToBuildBuilder.addTransitive(filesToBuild);
 
-    TestSupport testSupport = new TestSupport(ruleContext)
-        .registerTestRunnerActionsForSimulator()
-        .addRunfiles(runfilesBuilder)
-        .addFilesToBuild(filesToBuildBuilder);
+    TestSupport testSupport =
+        new TestSupport(ruleContext)
+            .registerTestRunnerActions()
+            .addRunfiles(runfilesBuilder)
+            .addFilesToBuild(filesToBuildBuilder);
 
     Artifact executable = testSupport.generatedTestScript();
 
