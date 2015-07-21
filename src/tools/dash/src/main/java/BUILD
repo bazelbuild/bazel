@@ -2,7 +2,7 @@ java_binary(
     name = "java-bin",
     main_class = "does.not.exist",
     visibility = ["//src/tools/dash:__pkg__"],
-    deps = [":servlets"],
+    runtime_deps = [":servlets"],
 )
 
 java_library(
