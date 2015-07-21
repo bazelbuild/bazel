@@ -222,8 +222,8 @@ genrule(
   cmd = "(echo \"PATH=$$PATH\"; echo \"TMPDIR=$$TMPDIR\") > $@",
 )
 EOF
-  local old_path="$PATH"
-  local old_tmpdir="$TMPDIR"
+  local old_path="${PATH-}"
+  local old_tmpdir="${TMPDIR-}"
   export PATH=":/bin:/usr/bin:/random/path"
   export TMPDIR="/some/path"
   # batch mode to force reload of the environment
