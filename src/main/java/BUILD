@@ -451,6 +451,7 @@ java_library(
         "//src/main/protobuf:proto_test_status",
         "//src/main/protobuf:proto_worker_protocol",
         "//third_party:aether",
+        "//third_party:apache_commons_compress",
         "//third_party:apache_commons_pool2",
         "//third_party:auto_value",
         "//third_party:guava",
