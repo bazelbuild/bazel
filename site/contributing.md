@@ -18,7 +18,7 @@ a lot of time in a patch.
 
 <!-- Our markdown parser doesn't support nested lists. -->
 <ol>
-<li>Read the [Bazel governance plan](governance.html).</li>
+<li>Read the <a href="governance.html">Bazel governance plan</a>.</li>
 <li>Discuss your plan and design, and get agreement on our <a href="https://groups.google.com/forum/#!forum/bazel-dev">mailing list</a>.
 <li>Prepare a git commit that implements the feature. Don't forget to add tests.
 <li>Create a new code review on <a href="https://bazel-review.googlesource.com">Gerrit</a>
