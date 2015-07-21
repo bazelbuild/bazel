@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
+import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
@@ -343,6 +344,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new GitRepositoryRule());
     builder.addRuleDefinition(new HttpArchiveRule());
     builder.addRuleDefinition(new HttpJarRule());
+    builder.addRuleDefinition(new HttpFileRule());
     builder.addRuleDefinition(new LocalRepositoryRule());
     builder.addRuleDefinition(new MavenJarRule());
     builder.addRuleDefinition(new NewHttpArchiveRule());

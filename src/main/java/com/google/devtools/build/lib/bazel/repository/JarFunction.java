@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,7 +58,7 @@ public class JarFunction implements SkyFunction {
           "# DO NOT EDIT: automatically generated WORKSPACE file for %s rule %s\n",
           descriptor.targetKind(), descriptor.targetName()));
       // external/some-name/jar.
-      Path jarDirectory = descriptor.repositoryPath().getRelative("jar");
+      Path jarDirectory = descriptor.repositoryPath().getRelative(getPackageName());
       FileSystemUtils.createDirectoryAndParents(jarDirectory);
       // external/some-name/repository/jar/foo.jar is a symbolic link to the jar in
       // external/some-name.
@@ -67,19 +68,33 @@ public class JarFunction implements SkyFunction {
       }
       // external/some-name/repository/jar/BUILD defines the //jar target.
       Path buildFile = jarDirectory.getRelative("BUILD");
-      FileSystemUtils.writeLinesAs(buildFile, Charset.forName("UTF-8"),
-          "# DO NOT EDIT: automatically generated BUILD file for " + descriptor.targetKind()
-              + " rule " + descriptor.targetName(),
-          "java_import(",
-          "    name = 'jar',",
-          "    jars = ['" + baseName + "'],",
-          "    visibility = ['//visibility:public']",
-          ")");
+      FileSystemUtils.writeLinesAs(
+          buildFile,
+          Charset.forName("UTF-8"),
+          "# DO NOT EDIT: automatically generated BUILD file for "
+              + descriptor.targetKind()
+              + " rule "
+              + descriptor.targetName(),
+          createBuildFile(baseName));
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException(
           "Error auto-creating jar repo structure: " + e.getMessage()), Transience.TRANSIENT);
     }
     return new DecompressorValue(descriptor.repositoryPath());
+  }
+
+  protected String getPackageName() {
+    return "jar";
+  }
+
+  protected String createBuildFile(String baseName) {
+    return Joiner.on("\n")
+        .join(
+            "java_import(",
+            "    name = 'jar',",
+            "    jars = ['" + baseName + "'],",
+            "    visibility = ['//visibility:public']",
+            ")");
   }
 
   @Override

@@ -54,6 +54,13 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
+  public static SkyKey fileKey(
+      String targetKind, String targetName, Path archivePath, Path repositoryPath) {
+    return new SkyKey(
+        FileFunction.NAME,
+        new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath));
+  }
+
   public static SkyKey jarKey(
       String targetKind, String targetName, Path archivePath, Path repositoryPath) {
     return new SkyKey(JarFunction.NAME,
