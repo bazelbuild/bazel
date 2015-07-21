@@ -70,7 +70,8 @@ public interface MutableActionGraph extends ActionGraph {
 
     public ActionConflictException(Artifact artifact, Action previousAction,
         Action attemptedAction) {
-      super("for " + artifact);
+      super(String.format("for %s, previous action: %s, attempted action: %s",
+          artifact, previousAction, attemptedAction));
       this.artifact = artifact;
       this.previousAction = previousAction;
       this.attemptedAction = attemptedAction;

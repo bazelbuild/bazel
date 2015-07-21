@@ -327,11 +327,14 @@ public class ObjcRuleClasses {
    */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
+  private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c", ".s", ".asm");
+
+  static final FileType PREPROCESSED_ASSEMBLY_SOURCES = FileType.of(".S");
+  
   static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
-  private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
-
-  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, SWIFT_SOURCES);
+  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
+      PREPROCESSED_ASSEMBLY_SOURCES, SWIFT_SOURCES);
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 

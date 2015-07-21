@@ -195,6 +195,9 @@ final class CompilationSupport {
     if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
       commandLine.add("-stdlib=libc++");
     }
+    if (ObjcRuleClasses.PREPROCESSED_ASSEMBLY_SOURCES.matches(sourceFile.getExecPath())) {
+      commandLine.add("-x").add("assembler-with-cpp");
+    }
 
     if (compilationArtifacts.hasSwiftSources()) {
       // Add the directory that contains merged TargetName-Swift.h header to search path, in case
