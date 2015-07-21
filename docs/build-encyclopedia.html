@@ -138,8 +138,8 @@ layout: documentation
 <td></td>
 <td></td>
 <td></td>
-<td><a href="#bind">bind</a><br/><a href="#git_repository">git_repository</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_jar">http_jar</a><br/><a href="#local_repository">local_repository</a></td>
-<td><a href="#maven_jar">maven_jar</a><br/><a href="#new_git_repository">new_git_repository</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
+<td><a href="#bind">bind</a><br/><a href="#git_repository">git_repository</a><br/><a href="#http_archive">http_archive</a><br/><a href="#http_file">http_file</a><br/><a href="#http_jar">http_jar</a></td>
+<td><a href="#local_repository">local_repository</a><br/><a href="#maven_jar">maven_jar</a><br/><a href="#new_git_repository">new_git_repository</a><br/><a href="#new_http_archive">new_http_archive</a><br/><a href="#new_local_repository">new_local_repository</a></td>
 </tr>
 
 
@@ -4493,6 +4493,8 @@ experimental_ios_test(<a href="#experimental_ios_test.name">name</a>,
 <a href="#test.flaky">flaky</a>,
 <a href="#experimental_ios_test.includes">includes</a>,
 <a href="#experimental_ios_test.infoplist">infoplist</a>,
+<a href="#experimental_ios_test.ios_device_arg">ios_device_arg</a>,
+<a href="#experimental_ios_test.ios_test_target_device">ios_test_target_device</a>,
 <a href="#experimental_ios_test.launch_image">launch_image</a>,
 <a href="#common.licenses">licenses</a>,
 <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>,
@@ -4679,6 +4681,19 @@ on both iOS simulator and real devices.
             <li><code>${PRODUCT_NAME}</code>: This target's name.
          </ul>
 </li>
+<li id="experimental_ios_test.ios_device_arg"><code>ios_device_arg</code>:
+         Extra arguments to pass to the <code>ios_test_target_device</code>'s binary. They should be
+         in the form KEY=VALUE or simply KEY (check your device's documentation for allowed
+         parameters).
+         <i>(List of strings; optional)</i><br/>
+
+</li>
+<li id="experimental_ios_test.ios_test_target_device"><code>ios_test_target_device</code>:
+         The device against how to run the test. If this attribute is defined, the test will run on
+         the lab device. Otherwise, the test will run on simulator.
+         <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
+</li>
 <li id="experimental_ios_test.launch_image"><code>launch_image</code>:
           The name of the launch image.
           <i>(String; optional)</i><br/>
@@ -4719,8 +4734,8 @@ on both iOS simulator and real devices.
           convenience, not a build-speed enhancement.
 </li>
 <li id="experimental_ios_test.plugins"><code>plugins</code>:
-        Plugins to pass to the test runner.
-        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+         Plugins to pass to the test runner.
+         <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
 
 </li>
 <li id="experimental_ios_test.provisioning_profile"><code>provisioning_profile</code>:
@@ -7065,6 +7080,55 @@ http_archive(
 </pre>
 
 <p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+
+<h3 id="http_file">http_file</h3>
+
+
+ <p class="rule-signature">
+http_file(<a href="#http_file.name">name</a>,
+<a href="#http_file.sha256">sha256</a>,
+<a href="#http_file.url">url</a>)
+</p>
+
+
+ <p>Downloads a file from a URL and makes it available to be used as a file group.</p>
+
+ <h4 id="http_file_args">Arguments</h4>
+<ul>
+<li id="http_file.name"><code>name</code>: A unique name for this rule.
+<i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
+<li id="http_file.sha256"><code>sha256</code>:
+         The expected SHA-256 of the file downloaded.
+         <i>(String; required)</i><br/>
+
+
+         <p>This must match the SHA-256 of the file downloaded.</p>
+</li>
+<li id="http_file.url"><code>url</code>:
+         A URL to a file that will be made available to Bazel.
+         <i>(String; required)</i><br/>
+
+
+         <p>This must be an http or https URL. Authentication is not support and
+         redirects are not followed.</p>
+</li>
+</ul>
+
+
+ <h4 id="http_file_examples">Examples</h4>
+
+ <p>Suppose you need to have a debian package for your custom rules. This package is available from
+ <i>http://example.com/package.deb</i>. Then you can add to your WORKSPACE file:</p>
+
+ <pre class="code">
+ http_file(
+ name = "my-deb",
+ url = "http://example.com/package.deb",
+ sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+ )
+ </pre>
+
+ <p>Targets would specify <code>@my-deb//file</code> as a dependency to depend on this file.</p>
 
 <h3 id="http_jar">http_jar</h3>
 

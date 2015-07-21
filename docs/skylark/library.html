@@ -66,7 +66,7 @@ Return a list of pairs (two-element tuples), with the index (int) and the item f
 	</li>
 </ul>
 <li><h3 id="modules._top_level.fail">fail</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> fail(msg, attr?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> fail(msg, attr=None)</code><br>
 Raises an error that cannot be intercepted.
 <h4>Parameters</h4>
 <ul>
@@ -78,7 +78,7 @@ Raises an error that cannot be intercepted.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
-<code>unknown getattr(object, name, default?)</code><br>
+<code>unknown getattr(object, name, default=None)</code><br>
 Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existant attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
@@ -129,7 +129,7 @@ list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
 	</li>
 </ul>
 <li><h3 id="modules._top_level.print">print</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> print(*args, sep?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> print(*args, sep=' ')</code><br>
 Prints <code>msg</code> to the console.
 <h4>Parameters</h4>
 <ul>
@@ -151,7 +151,7 @@ Returns the transitive info provider provided by the target.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.range">range</h3>
-<code><a class="anchor" href="#modules.list">list</a> range(start_or_stop, stop_or_none?, step?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> range(start_or_stop, stop_or_none=None, step=1)</code><br>
 Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
 range(3, 9, 2) == [3, 5, 7]
 range(3, 0, -1) == [3, 2, 1]</pre>
@@ -175,7 +175,7 @@ Converts any object to a string representation. This is useful for debugging.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.rule">rule</h3>
-<code>function rule(implementation, test?, attrs?, outputs?, executable?, output_to_genfiles?)</code><br>
+<code>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False)</code><br>
 Creates a new rule. Store it in a global value, so that it can be loaded and called from BUILD files.
 <h4>Parameters</h4>
 <ul>
@@ -203,7 +203,7 @@ Creates a SelectorValue from the dict parameter.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.set">set</h3>
-<code><a class="anchor" href="#modules.set">set</a> set(items?, order?)</code><br>
+<code><a class="anchor" href="#modules.set">set</a> set(items=[], order="stable")</code><br>
 Creates a <a href="#modules.set">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
 set([1, 2, 3], order="compile")</pre>
 <h4>Parameters</h4>
@@ -294,7 +294,7 @@ A BUILD target. It is essentially a <code>struct</code> with the following field
 <ul></ul><hr><h2 id="modules.attr">attr</h2>
 Module for creating new attributes. They are only for use with the <code>rule</code> function.
 <ul><li><h3 id="modules.attr.bool">bool</h3>
-<code>Builder attr.bool(*, default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.bool(default=False, flags=[], mandatory=False, cfg=None)</code><br>
 Creates an attribute of type bool. Its default value is False.
 <h4>Parameters</h4>
 <ul>
@@ -308,7 +308,7 @@ Creates an attribute of type bool. Its default value is False.
 	</li>
 </ul>
 <li><h3 id="modules.attr.int">int</h3>
-<code>Builder attr.int(*, default?, flags?, mandatory?, values?, cfg?)</code><br>
+<code>Builder attr.int(default=0, flags=[], mandatory=False, values=[], cfg=None)</code><br>
 Creates an attribute of type int.
 <h4>Parameters</h4>
 <ul>
@@ -324,7 +324,7 @@ Creates an attribute of type int.
 	</li>
 </ul>
 <li><h3 id="modules.attr.label">label</h3>
-<code>Builder attr.label(*, default?, executable?, flags?, allow_files?, mandatory?, providers?, allow_rules?, single_file?, cfg?)</code><br>
+<code>Builder attr.label(default=None, executable=False, flags=[], allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)</code><br>
 Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
 <h4>Parameters</h4>
 <ul>
@@ -348,7 +348,7 @@ Creates an attribute of type Label. It is the only way to specify a dependency t
 	</li>
 </ul>
 <li><h3 id="modules.attr.label_list">label_list</h3>
-<code>Builder attr.label_list(*, default?, allow_files?, allow_rules?, providers?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+<code>Builder attr.label_list(default=[], allow_files=False, allow_rules=None, providers=[], flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
 Creates an attribute of type list of labels. See <a href="#modules.attr.label">label</a> for more information.
 <h4>Parameters</h4>
 <ul>
@@ -370,7 +370,7 @@ Creates an attribute of type list of labels. See <a href="#modules.attr.label">l
 	</li>
 </ul>
 <li><h3 id="modules.attr.license">license</h3>
-<code>Builder attr.license(*, default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.license(default=None, flags=[], mandatory=False, cfg=None)</code><br>
 Creates an attribute of type license. Its default value is NO_LICENSE.
 <h4>Parameters</h4>
 <ul>
@@ -384,7 +384,7 @@ Creates an attribute of type license. Its default value is NO_LICENSE.
 	</li>
 </ul>
 <li><h3 id="modules.attr.output">output</h3>
-<code>Builder attr.output(*, default?, flags?, mandatory?, cfg?)</code><br>
+<code>Builder attr.output(default=None, flags=[], mandatory=False, cfg=None)</code><br>
 Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
 <h4>Parameters</h4>
 <ul>
@@ -398,7 +398,7 @@ Creates an attribute of type output. Its default value is None. The user provide
 	</li>
 </ul>
 <li><h3 id="modules.attr.output_list">output_list</h3>
-<code>Builder attr.output_list(*, default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+<code>Builder attr.output_list(default=[], flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
 Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="#modules.attr.output">output</a> above for more information.
 <h4>Parameters</h4>
 <ul>
@@ -414,7 +414,7 @@ Creates an attribute of type list of outputs. Its default value is <code>[]</cod
 	</li>
 </ul>
 <li><h3 id="modules.attr.string">string</h3>
-<code>Builder attr.string(*, default?, flags?, mandatory?, values?, cfg?)</code><br>
+<code>Builder attr.string(default='', flags=[], mandatory=False, values=[], cfg=None)</code><br>
 Creates an attribute of type string.
 <h4>Parameters</h4>
 <ul>
@@ -430,7 +430,7 @@ Creates an attribute of type string.
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_dict">string_dict</h3>
-<code>Builder attr.string_dict(*, default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+<code>Builder attr.string_dict(default={}, flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
 Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
 <h4>Parameters</h4>
 <ul>
@@ -446,7 +446,7 @@ Creates an attribute of type dictionary, mapping from string to string. Its defa
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_list">string_list</h3>
-<code>Builder attr.string_list(default?, flags?, mandatory?, non_empty?, cfg?)</code><br>
+<code>Builder attr.string_list(default=[], flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
 Creates an attribute of type list of strings
 <h4>Parameters</h4>
 <ul>
@@ -517,7 +517,7 @@ Returns the separator for PATH environment variable, which is ':' on Unix.
 </ul><hr><h2 id="modules.ctx">ctx</h2>
 The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
 <ul><li><h3 id="modules.ctx.action">action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(*, outputs, inputs?, executable?, arguments?, mnemonic?, command?, progress_message?, use_default_shell_env?, env?, execution_requirements?, input_manifests?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.action(outputs, inputs=[], executable=None, arguments=[], mnemonic=None, command=None, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None)</code><br>
 Creates an action that runs an executable or a shell command. You must specify either <code>command</code> or <code>executable</code>.
 <h4>Parameters</h4>
 <ul>
@@ -566,7 +566,7 @@ Returns the default configuration. See the <a href="#modules.configuration">conf
 <code><a class="anchor" href="#modules.configuration">configuration</a> ctx.data_configuration</code><br>
 Returns the data configuration. See the <a href="#modules.configuration">configuration</a> type for more details.
 <li><h3 id="modules.ctx.empty_action">empty_action</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.empty_action(*, mnemonic, inputs?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> ctx.empty_action(mnemonic, inputs=[])</code><br>
 Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
 <h4>Parameters</h4>
 <ul>
@@ -581,7 +581,7 @@ Creates an empty action that neither executes a command nor produces any output,
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.executable</code><br>
 A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
 <li><h3 id="modules.ctx.expand_location">expand_location</h3>
-<code><a class="anchor" href="#modules.string">string</a> ctx.expand_location(input, targets?)</code><br>
+<code><a class="anchor" href="#modules.string">string</a> ctx.expand_location(input, targets=[])</code><br>
 Expands the given string so that all labels are replaced with the location of their target file(s). Currently, the algorithm uses output, srcs, deps, tools and data attributes for looking up mappings from label to locations.
 <h4>Parameters</h4>
 <ul>
@@ -605,7 +605,7 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.file</code><br>
 A <code>struct</code> containing files defined in label type attributes marked as <code>single_file=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code> or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>single_file=True</code>, no corresponding struct field is generated.
 <li><h3 id="modules.ctx.file_action">file_action</h3>
-<code>FileWriteAction ctx.file_action(output, content, executable?)</code><br>
+<code>FileWriteAction ctx.file_action(output, content, executable=False)</code><br>
 Creates a file write action.
 <h4>Parameters</h4>
 <ul>
@@ -630,14 +630,11 @@ The label of this rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-<li><h3 id="modules.ctx.new_file">new_file</h3>
-<code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
-Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
 A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
 <li><h3 id="modules.ctx.runfiles">runfiles</h3>
-<code><a class="anchor" href="#modules.runfiles">runfiles</a> ctx.runfiles(files?, transitive_files?, collect_data?, collect_default?)</code><br>
+<code><a class="anchor" href="#modules.runfiles">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)</code><br>
 Creates a runfiles object.
 <h4>Parameters</h4>
 <ul>
@@ -651,7 +648,7 @@ Creates a runfiles object.
 	</li>
 </ul>
 <li><h3 id="modules.ctx.template_action">template_action</h3>
-<code>TemplateExpansionAction ctx.template_action(*, template, output, substitutions, executable?)</code><br>
+<code>TemplateExpansionAction ctx.template_action(template, output, substitutions, executable=&hellip;)</code><br>
 Creates a template expansion action.
 <h4>Parameters</h4>
 <ul>
@@ -677,7 +674,7 @@ A language built-in type to support dicts. Example of dict literal:<br><pre clas
 d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
 d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
 <ul><li><h3 id="modules.dict.get">get</h3>
-<code>unknown dict.get(key, default?)</code><br>
+<code>unknown dict.get(key, default=None)</code><br>
 Return the value for <code>key</code> if <code>key</code> is in the dictionary, else <code>default</code>. If <code>default</code> is not given, it defaults to <code>None</code>, so that this method never throws an error.
 <h4>Parameters</h4>
 <ul>
@@ -710,7 +707,7 @@ x += ["c"]            # x == ["a", "b", "c"]</pre>List elements have to be of th
 <ul></ul><hr><h2 id="modules.native">native</h2>
 A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations).<br/>Extra helper functions:
 <ul><li><h3 id="modules.native.exports_files">exports_files</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> native.exports_files(srcs, visibility?, licenses?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> native.exports_files(srcs, visibility=&hellip;, licenses=&hellip;)</code><br>
 Specifies a list of files belonging to this package that are exported to other packages but not otherwise mentioned.
 <h4>Parameters</h4>
 <ul>
@@ -724,7 +721,7 @@ Specifies a list of files belonging to this package that are exported to other p
 	</li>
 </ul>
 <li><h3 id="modules.native.glob">glob</h3>
-<code><a class="anchor" href="#modules.list">list</a> native.glob(include, exclude?, excludes?, exclude_directories?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> native.glob(include, exclude=[], excludes=[], exclude_directories=1)</code><br>
 Glob returns a list of every file in the current package that:<ul>
 <li>Matches at least one pattern in <code>include</code>.</li>
 <li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
@@ -743,7 +740,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
 	</li>
 </ul>
 <li><h3 id="modules.native.package_group">package_group</h3>
-<code><a class="anchor" href="#modules._top_level.None">None</a> native.package_group(*, name, packages?, includes?)</code><br>
+<code><a class="anchor" href="#modules._top_level.None">None</a> native.package_group(name, packages=[], includes=[])</code><br>
 This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
 <h4>Parameters</h4>
 <ul>
@@ -795,7 +792,7 @@ for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>
 Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead.
 <ul><li><h3 id="modules.string.count">count</h3>
-<code>int string.count(sub, start?, end?)</code><br>
+<code>int string.count(sub, start=0, end=None)</code><br>
 Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -809,7 +806,7 @@ Returns the number of (non-overlapping) occurrences of substring <code>sub</code
 	</li>
 </ul>
 <li><h3 id="modules.string.endswith">endswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.endswith(sub, start?, end?)</code><br>
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.endswith(sub, start=0, end=None)</code><br>
 Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -823,7 +820,7 @@ Returns True if the string ends with <code>sub</code>, otherwise False, optional
 	</li>
 </ul>
 <li><h3 id="modules.string.find">find</h3>
-<code>int string.find(sub, start?, end?)</code><br>
+<code>int string.find(sub, start=0, end=None)</code><br>
 Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -850,7 +847,7 @@ Replace the values surrounded by curly brackets in the string.<pre class="langua
 	</li>
 </ul>
 <li><h3 id="modules.string.index">index</h3>
-<code>int string.index(sub, start?, end?)</code><br>
+<code>int string.index(sub, start=0, end=&hellip;)</code><br>
 Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -876,7 +873,7 @@ Returns a string in which the string elements of the argument have been joined b
 Returns the lower case version of this string.
 <br/>
 <li><h3 id="modules.string.partition">partition</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.partition(sep?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> string.partition(sep=' ')</code><br>
 Splits the input string at the first occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
 <h4>Parameters</h4>
 <ul>
@@ -884,7 +881,7 @@ Splits the input string at the first occurrence of the separator <code>sep</code
 	</li>
 </ul>
 <li><h3 id="modules.string.replace">replace</h3>
-<code><a class="anchor" href="#modules.string">string</a> string.replace(old, new, maxsplit?)</code><br>
+<code><a class="anchor" href="#modules.string">string</a> string.replace(old, new, maxsplit=None)</code><br>
 Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
@@ -898,7 +895,7 @@ Returns a copy of the string in which the occurrences of <code>old</code> have b
 	</li>
 </ul>
 <li><h3 id="modules.string.rfind">rfind</h3>
-<code>int string.rfind(sub, start?, end?)</code><br>
+<code>int string.rfind(sub, start=0, end=None)</code><br>
 Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -912,7 +909,7 @@ Returns the last index where <code>sub</code> is found, or -1 if no such index e
 	</li>
 </ul>
 <li><h3 id="modules.string.rindex">rindex</h3>
-<code>int string.rindex(sub, start?, end?)</code><br>
+<code>int string.rindex(sub, start=0, end=None)</code><br>
 Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
@@ -926,7 +923,7 @@ Returns the last index where <code>sub</code> is found, or throw an error if no 
 	</li>
 </ul>
 <li><h3 id="modules.string.rpartition">rpartition</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.rpartition(sep?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> string.rpartition(sep=' ')</code><br>
 Splits the input string at the last occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
 <h4>Parameters</h4>
 <ul>
@@ -934,7 +931,7 @@ Splits the input string at the last occurrence of the separator <code>sep</code>
 	</li>
 </ul>
 <li><h3 id="modules.string.rsplit">rsplit</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.rsplit(sep, maxsplit?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> string.rsplit(sep, maxsplit=None)</code><br>
 Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>. Except for splitting from the right, this method behaves like split().
 <h4>Parameters</h4>
 <ul>
@@ -946,7 +943,7 @@ Returns a list of all the words in the string, using <code>sep</code>  as the se
 	</li>
 </ul>
 <li><h3 id="modules.string.split">split</h3>
-<code><a class="anchor" href="#modules.list">list</a> string.split(sep, maxsplit?)</code><br>
+<code><a class="anchor" href="#modules.list">list</a> string.split(sep, maxsplit=None)</code><br>
 Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
 <h4>Parameters</h4>
 <ul>
@@ -958,7 +955,7 @@ Returns a list of all the words in the string, using <code>sep</code>  as the se
 	</li>
 </ul>
 <li><h3 id="modules.string.startswith">startswith</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.startswith(sub, start?, end?)</code><br>
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> string.startswith(sub, start=0, end=None)</code><br>
 Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 <h4>Parameters</h4>
 <ul>
