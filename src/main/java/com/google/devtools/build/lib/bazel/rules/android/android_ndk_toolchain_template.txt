@@ -26,37 +26,37 @@ toolchain {
   toolchain_identifier: "%cpu%-linux-androideabi-%compiler%"
 
   tool_path { name: "ar"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ar"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-ar"
   }
   tool_path { name: "compat-ld"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-ld"
   }
   tool_path { name: "cpp"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-cpp"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-cpp"
   }
   tool_path { name: "dwp"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-dwp"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-dwp"
   }
   tool_path { name: "gcc"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcc"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-gcc"
   }
   tool_path { name: "gcov"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-gcov"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-gcov"
   }
   tool_path { name: "ld"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-ld"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-ld"
   }
   tool_path { name: "nm"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-nm"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-nm"
   }
   tool_path { name: "objcopy"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objcopy"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-objcopy"
   }
   tool_path { name: "strip"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-strip"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-strip"
   }
   tool_path { name: "objdump"
-    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/bin/%cpu%-linux-androideabi-objdump"
+    path: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/bin/%cpu%-linux-androideabi-objdump"
   }
   objcopy_embed_flag: "-I"
 
@@ -78,8 +78,8 @@ toolchain {
 
   cxx_builtin_include_directory: "external/%repository%/ndk/platforms/android-%api_level%/arch-%cpu%/usr/include"
   cxx_builtin_include_directory: "external/%repository%/ndk/sources"
-  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include"
-  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/linux-x86_64/lib/gcc/%cpu%-linux-androideabi/%compiler%/include-fixed"
+  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/lib/gcc/%cpu%-linux-androideabi/%compiler%/include"
+  cxx_builtin_include_directory: "external/%repository%/ndk/toolchains/%cpu%-linux-androideabi-%compiler%/prebuilt/%host_cpu%/lib/gcc/%cpu%-linux-androideabi/%compiler%/include-fixed"
 
   unfiltered_cxx_flag: "-isystemexternal/%repository%/ndk/platforms/android-%api_level%/arch-%cpu%/usr/include"
   unfiltered_cxx_flag: "-isystemexternal/%repository%/ndk/sources/cxx-stl/gnu-libstdc++/%compiler%/include"
