@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.util.CPU;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,6 +73,31 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     String abi = "armeabi-v7a";  // TODO(bazel-team): Should this be an attribute on the rule?
     String compiler = "4.9";  // TODO(bazel-team): Should this be an attribute on the rule?
 
+    // TODO(bazel-team): move this, add other cases
+    String hostPlatform, hostArch;
+    switch (OS.getCurrent()) {
+      case DARWIN:
+        hostPlatform = "darwin";
+        break;
+      case LINUX:
+        hostPlatform = "linux";
+        break;
+      default:
+        hostPlatform = "unknown";
+    }
+    switch (CPU.getCurrent()) {
+      case X86_32:
+        hostArch = "x86";
+        break;
+      case X86_64:
+        hostArch = "x86_64";
+        break;
+      default:
+        hostArch = "unknown";
+    }
+
+    String hostCpu = hostPlatform + "-" + hostArch;
+
     String ccToolchainSuiteTemplate;
     String ccToolchainTemplate;
     String toolchainTemplate;
@@ -92,18 +119,22 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     for (String cpu : cpus) {
       toolchainMap.append(String.format("\"%s\": \":cc-compiler-%s\", ", cpu, cpu));
-      toolchainProtos.append(toolchainTemplate
-          .replace("%repository%", ruleName)
-          .replace("%cpu%", cpu)
-          .replace("%abi%", abi)
-          .replace("%api_level%", apiLevel)
-          .replace("%compiler%", compiler));
-      toolchains.append(ccToolchainTemplate
-          .replace("%repository%", ruleName)
-          .replace("%cpu%", cpu)
-          .replace("%abi%", abi)
-          .replace("%api_level%", apiLevel)
-          .replace("%compiler%", compiler));
+      toolchainProtos.append(
+          toolchainTemplate
+              .replace("%repository%", ruleName)
+              .replace("%host_cpu%", hostCpu)
+              .replace("%cpu%", cpu)
+              .replace("%abi%", abi)
+              .replace("%api_level%", apiLevel)
+              .replace("%compiler%", compiler));
+      toolchains.append(
+          ccToolchainTemplate
+              .replace("%repository%", ruleName)
+              .replace("%host_cpu%", hostCpu)
+              .replace("%cpu%", cpu)
+              .replace("%abi%", abi)
+              .replace("%api_level%", apiLevel)
+              .replace("%compiler%", compiler));
     }
 
     String buildFile = ccToolchainSuiteTemplate
