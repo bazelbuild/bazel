@@ -51,6 +51,7 @@ java_import(
         "android_common/com.android.tools_common_23.1.3.jar",
         "android_common/com.android.tools_sdk-common_23.1.3.jar",
         "android_common/com.android.tools_sdklib_23.1.3.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_23.1.3.jar",
     ],
 )
 
