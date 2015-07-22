@@ -41,6 +41,7 @@ import com.android.utils.StdLogger;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -284,11 +285,19 @@ public class AndroidResourceProcessingAction {
         options.zipAlign,
         options.androidJar,
         STD_LOGGER);
+
     try {
+
+      Path expandedOut = Files.createTempDirectory("tmp-expanded");
+      expandedOut.toFile().deleteOnExit();
+      Path deduplicatedOut = Files.createTempDirectory("tmp-deduplicated");
+      deduplicatedOut.toFile().deleteOnExit();
+      
       LOGGER.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
       final ImmutableList<DirectoryModifier> modifiers = ImmutableList.of(
-          new PackedResourceTarExpander(working.resolve("expanded"), working),
-          new FileDeDuplicator(Hashing.murmur3_128(), working.resolve("deduplicated"), working));
+          new PackedResourceTarExpander(expandedOut, working),
+          new FileDeDuplicator(Hashing.murmur3_128(), deduplicatedOut, working));
 
       final AndroidBuilder builder = sdkTools.createAndroidBuilder();
 
