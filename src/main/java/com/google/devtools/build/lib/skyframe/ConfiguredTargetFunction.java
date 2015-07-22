@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -249,14 +248,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       Dependency dep = entry.getValue();
       SkyKey depKey = TO_KEYS.apply(dep);
       ConfiguredTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
-      Verify.verify(depConfiguredTarget != null);
-      if (depConfiguredTarget.getTarget() != null) {
-        // This condition will be false if this is a //external label defined by a bind() rule
-        // without an actual= attribute. In this case, we pretend that the dependency does not
-        // exist.
-        result.put(entry.getKey(),
-            RuleConfiguredTarget.mergeAspects(depConfiguredTarget, depAspectMap.get(depKey)));
-      }
+      result.put(entry.getKey(),
+          RuleConfiguredTarget.mergeAspects(depConfiguredTarget, depAspectMap.get(depKey)));
     }
 
     return result;

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.ExternalPackage.Binding;
 import com.google.devtools.build.lib.packages.ExternalPackage.Builder;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -89,7 +88,8 @@ public class WorkspaceFactory {
     };
   }
 
-  private static BuiltinFunction newBindFunction(final Builder builder) {
+  private static BuiltinFunction newBindFunction(
+      final RuleFactory ruleFactory, final Builder builder) {
     return new BuiltinFunction("bind",
         FunctionSignature.namedOnly(1, "name", "actual"), BuiltinFunction.USE_LOC) {
       public Object invoke(String name, String actual, Location loc)
@@ -97,8 +97,15 @@ public class WorkspaceFactory {
         Label nameLabel = null;
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
-          Binding binding = new Binding(actual == null ? null : Label.parseAbsolute(actual), loc);
-          builder.addBinding(nameLabel, binding);
+          try {
+            RuleClass ruleClass = ruleFactory.getRuleClass("bind");
+            builder.addBindRule(ruleClass, nameLabel,
+                actual == null ? null : Label.parseAbsolute(actual), loc);
+          } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
+            Label.SyntaxException e) {
+            throw new EvalException(loc, e.getMessage());
+          }
+
         } catch (Label.SyntaxException e) {
           throw new EvalException(loc, e.getMessage());
         }
@@ -119,7 +126,8 @@ public class WorkspaceFactory {
           throws EvalException {
         try {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
-          builder.createAndAddRepositoryRule(ruleClass, kwargs, ast);
+          RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+          builder.createAndAddRepositoryRule(ruleClass, bindRuleClass, kwargs, ast);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
             Label.SyntaxException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
@@ -145,7 +153,7 @@ public class WorkspaceFactory {
     File jreDirectory = new File(System.getProperty("java.home"));
     workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
 
-    workspaceEnv.update("bind", newBindFunction(builder));
+    workspaceEnv.update("bind", newBindFunction(ruleFactory, builder));
     workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));
     return workspaceEnv;
   }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.packages.ExternalPackage.Builder;
-import com.google.devtools.build.lib.packages.ExternalPackage.Builder.NoSuchBindingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
@@ -74,15 +73,6 @@ public class WorkspaceFileFunction implements SkyFunction {
       parser.parse(ParserInputSource.create(repoWorkspace));
     } catch (IOException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
-    }
-
-    try {
-      builder.resolveBindTargets(packageFactory.getRuleClass("bind"));
-    } catch (NoSuchBindingException e) {
-      throw new WorkspaceFileFunctionException(
-          new EvalException(e.getLocation(), e.getMessage()));
-    } catch (EvalException e) {
-      throw new WorkspaceFileFunctionException(e);
     }
 
     return new PackageValue(builder.build());

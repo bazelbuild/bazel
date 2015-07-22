@@ -125,6 +125,11 @@ public class Bind implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    if (ruleContext.getPrerequisite("actual", Mode.TARGET) == null) {
+      ruleContext.ruleError(String.format("The external label '%s' is not bound to anything",
+          ruleContext.getLabel()));
+      return null;
+    }
     return new BindConfiguredTarget(ruleContext);
   }
 }
