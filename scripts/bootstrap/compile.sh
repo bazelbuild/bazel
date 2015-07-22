@@ -113,7 +113,11 @@ msys*|mingw*)
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   # We do not use the JNI library on Windows.
   JNILIB=""
-  PROTOC=${PROTOC:-protoc}
+  if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
+    PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_64.exe}
+  else
+    PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_32.exe}
+  fi
 
   # The newer version of GCC on msys is stricter and removes some important function
   # declarations from the environment if using c++0x / c++11.
