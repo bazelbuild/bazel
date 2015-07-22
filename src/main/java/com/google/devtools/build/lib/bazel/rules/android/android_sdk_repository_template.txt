@@ -1,5 +1,23 @@
 package(default_visibility = ["//visibility:public"])
 
+java_import(
+    name = "appcompat_v7_import",
+    jars = ["extras/android/support/v7/appcompat/libs/android-support-v7-appcompat.jar"]
+)
+
+android_library(
+    name = "appcompat_v7",
+    custom_package = "android.support.v7.appcompat",
+    manifest = "extras/android/support/v7/appcompat/AndroidManifest.xml",
+    resource_files = glob(["extras/android/support/v7/appcompat/res/**"]),
+    deps = [":appcompat_v7_import"]
+)
+
+java_import(
+    name = "appcompat_v4",
+    jars = ["extras/android/support/v4/android-support-v4.jar"]
+)
+
 android_sdk(
     name = "sdk",
     proguard = "tools/proguard/bin/proguard.sh",

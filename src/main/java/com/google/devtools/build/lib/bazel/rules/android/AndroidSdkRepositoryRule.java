@@ -44,8 +44,11 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         @Nullable
         @Override
         public Map<String, Label> apply(Rule rule) {
+          String prefix = "@" + rule.getName() + "//:";
           return ImmutableMap.of(
-              "android/sdk", Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:sdk"));
+              "android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"),
+              "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"),
+              "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
         }
       };
 
