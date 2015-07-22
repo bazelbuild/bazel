@@ -73,17 +73,35 @@ public class Resolver {
   /**
    * Writes all resolved dependencies in WORKSPACE file format to the outputStream.
    */
-  public void writeDependencies(PrintStream outputStream) {
-    outputStream.println("# --------------------\n"
-        + "# The following dependencies were calculated from:");
+  public void writeWorkspace(PrintStream outputStream) {
+    writeHeader(outputStream);
+    for (Rule rule : deps.values()) {
+      outputStream.println(rule + "\n");
+    }
+  }
+
+  /**
+   * Write library rules to depend on the transitive closure of all of these rules.
+   */
+  public void writeBuild(PrintStream outputStream) {
+    writeHeader(outputStream);
+    outputStream.println("java_library(");
+    outputStream.println("    name = \"transitive-deps\",");
+    outputStream.println("    visibility = [\"//visibility:public\"],");
+    outputStream.println("    exports = [");
+    for (Rule rule : deps.values()) {
+      outputStream.println("        \"@" + rule.name() + "//jar\",");
+    }
+    outputStream.println("    ],");
+    outputStream.println(")");
+  }
+
+  private void writeHeader(PrintStream outputStream) {
+    outputStream.println("# The following dependencies were calculated from:");
     for (String header : headers) {
       outputStream.println("# " + header);
     }
     outputStream.print("\n\n");
-    for (Rule rule : deps.values()) {
-      outputStream.println(rule + "\n");
-    }
-    outputStream.println("# --------------------\n");
   }
 
   public void addHeader(String header) {

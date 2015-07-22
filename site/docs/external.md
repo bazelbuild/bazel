@@ -42,40 +42,52 @@ You can either specify directories containing Bazel projects (i.e., _WORKSPACE_
 files) or Maven projects (i.e., _pom.xml_ files).  For example:
 
 ```bash
-$ bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace \
+$ bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace -- \
 >    --maven_project=/path/to/my/project \
 >    --bazel_project=/path/to/skunkworks \
 >    --bazel_project=/path/to/teleporter/project
-# --------------------
-# The following dependencies were calculated from:
-# /path/to/my/project/pom.xml
-# /path/to/skunkworks/WORKSPACE
-# /path/to/teleporter/project/WORKSPACE
-
-
-# com.example.some-project:a:1.2.3
-# com.example.another-project:b:3.2.1 wanted version 2.4
-maven_jar(
-    name = "javax/servlet/servlet-api",
-    artifact = "javax.servlet:servlet-api:2.5",
-)
-
-[Other dependencies]
-# --------------------
-
-WARNING /path/to/my/project/pom.xml:1: javax.servlet:servlet-api already processed for version 2.5 but com.example.another-project:b:3.2.1 wants version 2.4, ignoring.
+Wrote:
+/tmp/1437415510621-0/2015-07-20-14-05-10.WORKSPACE
+/tmp/1437415510621-0/2015-07-20-14-05-10.BUILD
 ```
-Everything after the second `--------------------` is printed to stderr, not
-stdout. This is where any errors or warnings are printed. You may need to edit
-the versions that `generate_workspace` automatically chooses for the artifacts.
+
+The _WORKSPACE_ file contains the transitive dependencies of given projects. The
+_BUILD_ file contains a single target, `transitive-deps`, that contains all of
+the dependencies. You can copy these files to your project and add
+`transitive-deps` as a dependency of your `java_` targets in _BUILD_ files.
 
 If you specify multiple Bazel or Maven projects, they will all be combined into
 one _WORKSPACE_ file (e.g., if the Bazel project depends on junit and the Maven
 project also depends on junit, junit will only appear once as a dependency in
 the output).
 
-Once these `maven_jar`s have been added to your _WORKSPACE_ file, you will still
-need to add the jars as dependencies of your `java_` targets in _BUILD_ files.
+You may wish to curate the generated _WORKSPACE_ file to ensure it is using the
+correct version of each dependency. If several different versions of an artifact
+are requested (by different libraries that depend on it), then
+`generate_workspace` chooses a version and annotates the `maven_jar` with the
+other versions requested, for example:
+
+```python
+# org.springframework:spring:2.5.6
+# javax.mail:mail:1.4
+# httpunit:httpunit:1.6 wanted version 1.0.2
+# org.springframework:spring-support:2.0.2 wanted version 1.0.2
+# org.slf4j:nlog4j:1.2.24 wanted version 1.0.2
+maven_jar(
+    name = "javax/activation/activation",
+    artifact = "javax.activation:activation:1.1",
+)
+```
+
+This indicates that `org.springframework:spring:2.5.6`, `javax.mail:mail:1.4`,
+`httpunit:httpunit:1.6`, `org.springframework:spring-support:2.0.2`, and
+`org.slf4j:nlog4j:1.2.24` all depend on javax.activation. However, two of these
+libraries wanted version 1.1 and three of them wanted 1.0.2. The _WORkSPACE_
+file is using version 1.1, but that might not be the right version to use.
+
+You may also want to break `transitive-deps` into smaller targets, as it is
+unlikely that all of your targets depend on the transitive closure of your
+maven jars.
 
 # Types of external dependencies
 

@@ -58,7 +58,6 @@ local_repository(
 EOF
 
   bazel build @x//:x || fail "build failed"
-  ls -l $(bazel info execution_root)/external/x/
   assert_contains "bye" bazel-genfiles/out
 }
 
@@ -71,69 +70,6 @@ function test_path_with_spaces() {
 
   bazel info &> $TEST_log && fail "Info succeeeded"
   bazel help &> $TEST_log || fail "Help failed"
-}
-
-function write_pom() {
-  cat > pom.xml <<EOF
-<project>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.mycompany.app</groupId>
-  <artifactId>my-app</artifactId>
-  <version>1</version>
-  <packaging>pom</packaging>
-  <modules>
-    <module>my-module</module>
-  </modules>
-  <dependencies>
-    <dependency>
-      <groupId>com.y.z</groupId>
-      <artifactId>x</artifactId>
-      <version>3.2.1</version>
-    </dependency>
-  </dependencies>
-</project>
-EOF
-}
-
-function test_minimal_pom() {
-  write_pom
-
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$(pwd) &> $TEST_log || fail "generating workspace failed"
-  expect_log "artifact = \"com.y.z:x:3.2.1\","
-}
-
-function test_parent_pom_inheritence() {
-  write_pom
-  mkdir my-module
-  cat > my-module/pom.xml <<EOF
-<project>
-  <parent>
-    <groupId>com.mycompany.app</groupId>
-    <artifactId>my-app</artifactId>
-    <version>1</version>
-  </parent>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.mycompany.app</groupId>
-  <artifactId>my-module</artifactId>
-  <version>1</version>
-  <dependencies>
-    <dependency>
-      <groupId>com.z.w</groupId>
-      <artifactId>x</artifactId>
-      <version>1.2.3</version>
-    </dependency>
-  </dependencies>
-</project>
-EOF
-
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$(pwd)/my-module &> $TEST_log || \
-    fail "generating workspace failed"
-  expect_log "name = \"com/y/z/x\","
-  expect_log "artifact = \"com.y.z:x:3.2.1\","
-  expect_log "name = \"com/z/w/x\","
-  expect_log "artifact = \"com.z.w:x:1.2.3\","
 }
 
 run_suite "workspace tests"

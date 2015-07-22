@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.workspace;
 
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ExternalPackage;
@@ -24,8 +25,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -49,7 +55,13 @@ public class GenerateWorkspace {
     GenerateWorkspace workspaceFileGenerator = new GenerateWorkspace();
     workspaceFileGenerator.generateFromWorkspace(options.bazelProjects);
     workspaceFileGenerator.generateFromPom(options.mavenProjects);
-    workspaceFileGenerator.print();
+    if (!workspaceFileGenerator.hasErrors()) {
+      workspaceFileGenerator.writeResults();
+    }
+    workspaceFileGenerator.cleanup();
+    if (workspaceFileGenerator.hasErrors()) {
+      System.exit(1);
+    }
   }
 
   private static void printUsage(OptionsParser parser) {
@@ -91,10 +103,33 @@ public class GenerateWorkspace {
     return Paths.get(System.getProperty("user.dir")).resolve(path).toString();
   }
 
-  private void print() {
-    resolver.writeDependencies(System.out);
-    resolver.cleanup();
+  /**
+   * Returns if there were any errors generating the WORKSPACE and BUILD files.
+   */
+  private boolean hasErrors() {
+    return handler.hasErrors();
+  }
 
+  private void writeResults() {
+    String date = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
+    File tempDir = Files.createTempDir();
+    File workspaceFile = new File(tempDir + "/" + date + ".WORKSPACE");
+    File buildFile = new File(tempDir + "/" + date + ".BUILD");
+    try (PrintStream workspaceStream = new PrintStream(workspaceFile);
+         PrintStream buildStream = new PrintStream(buildFile)) {
+      resolver.writeWorkspace(workspaceStream);
+      resolver.writeBuild(buildStream);
+    } catch (IOException e) {
+      handler.handle(Event.error(
+          "Could not write WORKSPACE and BUILD files to " + tempDir + ": " + e.getMessage()));
+      return;
+    }
+
+    System.err.println("Wrote:\n" + workspaceFile + "\n" + buildFile);
+  }
+
+  private void cleanup() {
+    resolver.cleanup();
     for (Event event : handler.getEvents()) {
       System.err.println(event);
     }
