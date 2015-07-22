@@ -777,7 +777,7 @@ public class BazelCppRuleClasses {
                   ? "%{dirname}lib%{basename}.lo"
                   : "%{dirname}lib%{basename}.a");
           SafeImplicitOutputsFunction allLibs =
-              linkstatic || CcLibrary.appearsToHaveNoObjectFiles(rule)
+              linkstatic || !CcLibrary.appearsToHaveObjectFiles(rule)
               ? staticLib
               : fromFunctions(staticLib, CC_LIBRARY_DYNAMIC_LIB);
           return allLibs.getImplicitOutputs(rule);
