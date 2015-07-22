@@ -35,6 +35,8 @@ $ git push https://bazel.googlesource.com/bazel HEAD:refs/for/master
        the git hook and then you will need to run `git commit --amend` to add the
        line.
    </ul>
+   The HTTP password required by Gerrit can be obtained from your
+   <a href="https://bazel-review.googlesource.com/#/settings/http-password">Gerrit settngs page</a>.
    See the
    <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html">Gerrit documentation</a>
    for more information about uploading changes.
