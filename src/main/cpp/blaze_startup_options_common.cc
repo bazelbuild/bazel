@@ -14,6 +14,7 @@
 #include "src/main/cpp/blaze_startup_options.h"
 
 #include <cassert>
+#include <cstdio>
 #include <cstdlib>
 
 #include "src/main/cpp/blaze_util.h"
