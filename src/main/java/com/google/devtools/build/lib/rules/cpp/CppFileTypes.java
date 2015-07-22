@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
  * C++-related file type definitions.
  */
 public final class CppFileTypes {
-  public static final FileType CPP_SOURCE = FileType.of(".cc", ".cpp", ".cxx", ".C");
+  public static final FileType CPP_SOURCE = FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C");
   public static final FileType C_SOURCE = FileType.of(".c");
   public static final FileType CPP_HEADER = FileType.of(".h", ".hh", ".hpp", ".hxx", ".inc");
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
