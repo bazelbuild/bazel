@@ -216,6 +216,8 @@ EOF
 
 function test_http_archive_tgz() {
   http_archive_helper tar_gz_up
+  bazel shutdown
+  http_archive_helper tar_gz_up
 }
 
 function test_http_archive_no_server() {

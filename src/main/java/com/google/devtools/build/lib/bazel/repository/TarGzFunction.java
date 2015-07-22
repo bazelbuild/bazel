@@ -31,6 +31,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.zip.GZIPInputStream;
 
 import javax.annotation.Nullable;
@@ -57,7 +58,8 @@ public class TarGzFunction implements SkyFunction {
         if (entry.isDirectory()) {
           FileSystemUtils.createDirectoryAndParents(filename);
         } else {
-          Files.copy(tarStream, filename.getPathFile().toPath());
+          Files.copy(tarStream, filename.getPathFile().toPath(),
+              StandardCopyOption.REPLACE_EXISTING);
           filename.chmod(entry.getMode());
         }
       }

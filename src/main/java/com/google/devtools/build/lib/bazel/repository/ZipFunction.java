@@ -30,6 +30,7 @@ import com.google.devtools.build.zip.ZipReader;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 
 import javax.annotation.Nullable;
@@ -94,11 +95,9 @@ public class ZipFunction implements SkyFunction {
       // this delete+rewrite is required or the build will error out if outputPath exists here.
       // The zip file is not re-unzipped when the WORKSPACE file is changed (because it is assumed
       // to be immutable) but is on server restart (which is a bug).
-      if (outputPath.exists()) {
-        outputPath.delete();
-      }
       File outputFile = outputPath.getPathFile();
-      Files.copy(reader.getInputStream(entry), outputFile.toPath());
+      Files.copy(reader.getInputStream(entry), outputFile.toPath(),
+          StandardCopyOption.REPLACE_EXISTING);
       outputPath.chmod(permissions);
     }
   }
