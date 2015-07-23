@@ -44,6 +44,18 @@ singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
+# iOS and Objective-C tooling
+iossim_path="${TEST_SRCDIR}/third_party/iossim/iossim"
+actoolzip_path="${TEST_SRCDIR}/src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip/actoolzip_deploy.jar"
+ibtoolwrapper_path="${TEST_SRCDIR}/src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh"
+swiftstdlibtoolzip_path="${TEST_SRCDIR}/src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip/swiftstdlibtoolzip_deploy.jar"
+momczip_path="${TEST_SRCDIR}/src/objc_tools/momczip/momczip_deploy.jar"
+bundlemerge_path="${TEST_SRCDIR}/src/objc_tools/bundlemerge/bundlemerge_deploy.jar"
+plmerge_path="${TEST_SRCDIR}/src/objc_tools/plmerge/plmerge_deploy.jar"
+xcodegen_path="${TEST_SRCDIR}/src/objc_tools/xcodegen/xcodegen_deploy.jar"
+stdredirect_path="${TEST_SRCDIR}/src/tools/xcode/stdredirect/StdRedirect.dylib"
+realpath_path="${TEST_SRCDIR}/src/tools/xcode/realpath/realpath"
+
 # Test data
 testdata_path=${TEST_SRCDIR}/src/test/shell/bazel/testdata
 

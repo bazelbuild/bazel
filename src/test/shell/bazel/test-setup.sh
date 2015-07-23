@@ -193,6 +193,30 @@ filegroup(
 EOF
 }
 
+# Sets up Objective-C tools. Mac only.
+function setup_objc_test_support() {
+  mkdir -p tools/objc
+  [ -e tools/objc/precomp_actoolzip_deploy.jar ] || ln -sv ${actoolzip_path} tools/objc/precomp_actoolzip_deploy.jar
+  [ -e tools/objc/ibtoolwrapper.sh ] || ln -sv ${ibtoolwrapper_path} tools/objc/ibtoolwrapper.sh
+  [ -e tools/objc/precomp_swiftstdlibtoolzip_deploy.jar ] || ln -sv ${swiftstdlibtoolzip_path} tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
+  [ -e tools/objc/precomp_momczip_deploy.jar ] || ln -sv ${momczip_path} tools/objc/precomp_momczip_deploy.jar
+  [ -e tools/objc/precomp_bundlemerge_deploy.jar ] || ln -sv ${bundlemerge_path} tools/objc/precomp_bundlemerge_deploy.jar
+  [ -e tools/objc/precomp_plmerge_deploy.jar ] || ln -sv ${plmerge_path} tools/objc/precomp_plmerge_deploy.jar
+  [ -e tools/objc/precomp_xcodegen_deploy.jar ] || ln -sv ${xcodegen_path} tools/objc/precomp_xcodegen_deploy.jar
+  [ -e tools/objc/StdRedirect.dylib ] || ln -sv ${stdredirect_path} tools/objc/StdRedirect.dylib
+  [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
+
+  mkdir -p third_party/iossim
+  [ -e third_party/iossim/iossim ] || ln -sv ${iossim_path} third_party/iossim/iossim
+
+  cat <<EOF >>third_party/iossim/BUILD
+licenses(["unencumbered"])
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["iossim"])
+EOF
+}
+
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
