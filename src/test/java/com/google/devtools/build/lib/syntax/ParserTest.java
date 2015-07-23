@@ -29,7 +29,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.LinkedList;
 import java.util.List;
+
 
 /**
  *  Tests of parser behaviour.
@@ -1068,6 +1070,47 @@ public class ParserTest extends EvaluationTestCase {
     assertContainsEvent("function 'load' does not exist");
   }
 
+  @Test
+  public void testLoadAlias() throws Exception {
+    runLoadAliasTestForSymbols("my_alias = 'lawl'", "my_alias");
+  }
+
+  @Test
+  public void testLoadAliasMultiple() throws Exception {
+    runLoadAliasTestForSymbols(
+        "my_alias = 'lawl', 'lol', next_alias = 'rofl'", "my_alias", "lol", "next_alias");
+  }
+
+  private void runLoadAliasTestForSymbols(String loadSymbolString, String... expectedSymbols) {
+    List<Statement> statements =
+        parseFileForSkylark(String.format("load('/foo/bar/file', %s)\n", loadSymbolString));
+    LoadStatement stmt = (LoadStatement) statements.get(0);
+    ImmutableList<Identifier> actualSymbols = stmt.getSymbols();
+
+    assertThat(actualSymbols).hasSize(expectedSymbols.length);
+
+    List<String> actualSymbolNames = new LinkedList<>();
+
+    for (Identifier identifier : actualSymbols) {
+      actualSymbolNames.add(identifier.getName());
+    }
+
+    assertThat(actualSymbolNames).containsExactly((Object[]) expectedSymbols);
+  }
+
+  @Test
+  public void testLoadAliasSyntaxError() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark("load('/foo', test1 = )\n");
+    assertContainsEvent("syntax error at ')': expected string");
+
+    parseFileForSkylark("load('/foo', test2 = 1)\n");
+    assertContainsEvent("syntax error at '1': expected string");
+
+    parseFileForSkylark("load('/foo', test3 = old)\n");
+    assertContainsEvent("syntax error at 'old': expected string");
+  }
+  
   @Test
   public void testParseErrorNotComparison() throws Exception {
     setFailFast(false);

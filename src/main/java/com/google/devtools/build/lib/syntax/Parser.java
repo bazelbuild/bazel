@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1069,7 +1070,7 @@ class Parser {
     return list;
   }
 
-  // load '(' STRING (COMMA STRING)* COMMA? ')'
+  // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)* COMMA? ')'
   private void parseLoad(List<Statement> list) {
     int start = token.left;
     if (token.kind != TokenKind.STRING) {
@@ -1083,20 +1084,16 @@ class Parser {
     nextToken();
     expect(TokenKind.COMMA);
 
-    List<Identifier> symbols = new ArrayList<>();
-    if (token.kind == TokenKind.STRING) {
-      symbols.add(new Identifier((String) token.value));
-    }
-    expect(TokenKind.STRING);
+    Map<Identifier, String> symbols = new HashMap<>();
+    parseLoadSymbol(symbols); // At least one symbol is required
+
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
       if (token.kind == TokenKind.RPAREN) {
         break;
       }
-      if (token.kind == TokenKind.STRING) {
-        symbols.add(new Identifier((String) token.value));
-      }
-      expect(TokenKind.STRING);
+
+      parseLoadSymbol(symbols);
     }
     expect(TokenKind.RPAREN);
     
@@ -1106,12 +1103,57 @@ class Parser {
     // this only happens in Skylark. Consequently, we invoke it here to discover
     // invalid load paths in BUILD mode, too.
     try {
-      stmt.validateLoadPath();
+      stmt.validatePath();
     } catch (EvalException e) {
       syntaxError(pathToken, e.getMessage());
     }
 
     list.add(setLocation(stmt, start, token.left));
+  }
+
+  /**
+   * Parses the next symbol argument of a load statement and puts it into the output map.
+   *
+   * <p> The symbol is either "name" (STRING) or name = "declared" (IDENTIFIER EQUALS STRING).
+   * "Declared" refers to the original name in the bazel file that should be loaded.
+   * Moreover, it will be the key of the entry in the map.
+   * If no alias is used, "name" and "declared" will be identical.
+   */
+  private void parseLoadSymbol(Map<Identifier, String> symbols) {
+    Token nameToken, declaredToken;
+
+    if (token.kind == TokenKind.STRING) {
+      nameToken = token;
+      declaredToken = nameToken;
+    } else {
+      if (token.kind != TokenKind.IDENTIFIER) {
+        syntaxError(token, "Expected either a literal string or an identifier");
+      }
+
+      nameToken = token;
+
+      expect(TokenKind.IDENTIFIER);
+      expect(TokenKind.EQUALS);
+
+      declaredToken = token;
+    }
+
+    expect(TokenKind.STRING);
+
+    try {
+      Identifier identifier = new Identifier(nameToken.value.toString());
+
+      if (symbols.containsKey(identifier)) {
+        syntaxError(
+            nameToken, String.format("Symbol '%s' has already been loaded", identifier.getName()));
+      } else {
+        symbols.put(
+            setLocation(identifier, nameToken.left, token.left), declaredToken.value.toString());
+      }
+    } catch (NullPointerException npe) {
+      // This means that the value of at least one token is null. In this case, the previous
+      // expect() call has already logged an error.
+    }
   }
 
   private void parseTopLevelStatement(List<Statement> list) {

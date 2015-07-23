@@ -33,7 +33,7 @@ public final class Identifier extends Expression {
   public Identifier(String name) {
     this.name = name;
   }
-
+  
   /**
    *  Returns the name of the Identifier.
    */
@@ -51,15 +51,6 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException {
-    try {
-      return env.lookup(name);
-    } catch (Environment.NoSuchVariableException e) {
-      throw createInvalidIdentifierException();
-    }
-  }
-
-  @Override
   public boolean equals(@Nullable Object object) {
     if (object instanceof Identifier) {
       Identifier that = (Identifier) object;
@@ -71,6 +62,15 @@ public final class Identifier extends Expression {
   @Override
   public int hashCode() {
     return name.hashCode();
+  }
+  
+  @Override
+  Object eval(Environment env) throws EvalException {
+    try {
+      return env.lookup(name);
+    } catch (Environment.NoSuchVariableException e) {
+      throw createInvalidIdentifierException();
+    }
   }
 
   @Override
