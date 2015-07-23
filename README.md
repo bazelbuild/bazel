@@ -33,7 +33,7 @@ Find more background about Bazel in our [FAQ](http://bazel.io/faq.html).
   * How to [extend Bazel](http://bazel.io/docs/skylark/index.html)
   * The test environment is described in the [test encyclopedia](http://bazel.io/docs/test-encyclopedia.html)
 
-* About the Bazel project:
+## About the Bazel project:
 
   * How to [contribute to Bazel](http://bazel.io/contributing.html)
   * Our [governance plan](http://bazel.io/governance.html)
