@@ -36,13 +36,12 @@ cc_binary(
     copts = [
         "-fPIC",
         "-DBLAZE_JAVA_CPU=\"k8\"",
-        "-DBLAZE_OPENSOURCE=1",
     ],
     includes = ["."],  # For jni headers.
     linkshared = 1,
     visibility = ["//src:__subpackages__"],
     deps = [
-        "//src/main/cpp:md5",
+        "//src/main/cpp/util:md5",
     ],
 )
 

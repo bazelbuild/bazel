@@ -1,33 +1,5 @@
-cc_library(
-    name = "util",
-    srcs = [
-        "util/errors.cc",
-        "util/file.cc",
-        "util/numbers.cc",
-        "util/port.cc",
-        "util/strings.cc",
-    ],
-    hdrs = [
-        "util/errors.h",
-        "util/exit_code.h",
-        "util/file.h",
-        "util/numbers.h",
-        "util/port.h",
-        "util/strings.h",
-    ],
-    copts = [
-        "-DBLAZE_OPENSOURCE=1",
-    ],
-    includes = ["."],
-)
-
-cc_library(
-    name = "md5",
-    srcs = ["util/md5.cc"],
-    hdrs = ["util/md5.h"],
-    includes = ["."],
-    visibility = ["//visibility:public"],
-)
+# Description:
+#   The Bazel launcher.
 
 filegroup(
     name = "blaze_util_os",
@@ -50,9 +22,7 @@ cc_binary(
     copts = [
         "-Wno-sign-compare",
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
-        "-DBLAZE_OPENSOURCE=1",
     ],
-    includes = ["."],
     linkopts = select({
         "//src:darwin": [
         ],
@@ -62,8 +32,9 @@ cc_binary(
     }),
     visibility = ["//src:__pkg__"],
     deps = [
-        ":md5",
-        ":util",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:strings",
         "//third_party/ijar:zip",
     ],
 )
