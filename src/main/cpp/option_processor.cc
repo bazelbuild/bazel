@@ -446,16 +446,16 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
     for (int ii = 0; ii < it->second.size(); ii++) {
       const RcOption& rcoption = it->second[ii];
       command_arguments_.push_back(
-          "--default_override=" + std::to_string(rcoption.rcfile_index()) + ":"
+          "--default_override=" + ToString(rcoption.rcfile_index()) + ":"
           + it->first + "=" + rcoption.option());
     }
   }
 
   // Splice the terminal options.
   command_arguments_.push_back(
-      "--isatty=" + std::to_string(IsStandardTerminal()));
+      "--isatty=" + ToString(IsStandardTerminal()));
   command_arguments_.push_back(
-      "--terminal_columns=" + std::to_string(GetTerminalColumns()));
+      "--terminal_columns=" + ToString(GetTerminalColumns()));
 
   // Pass the client environment to the server in server mode.
   if (batch) {

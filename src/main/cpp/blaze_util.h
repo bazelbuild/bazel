@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -102,6 +103,16 @@ string GetJvmVersion(const string &java_exe);
 // version is the format [0-9]+(.[1-9]+)*.
 bool CheckJavaVersionIsAtLeast(const string &jvm_version,
                                const string &version_spec);
+
+// Converts a project identifier to string.
+// Workaround for mingw where std::to_string is not implemented.
+// See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
+template <typename T>
+string ToString(const T& value) {
+  std::ostringstream oss;
+  oss << value;
+  return oss.str();
+}
 
 }  // namespace blaze
 

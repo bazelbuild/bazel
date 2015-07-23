@@ -304,7 +304,7 @@ static vector<string> GetArgumentArray() {
 
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");
-    result.push_back(std::to_string(globals->options.max_idle_secs));
+    result.push_back(ToString(globals->options.max_idle_secs));
   } else {
     // --batch must come first in the arguments to Java main() because
     // the code expects it to be at args[0] if it's been set.
@@ -333,7 +333,7 @@ static vector<string> GetArgumentArray() {
   }
   if (globals->options.webstatus_port) {
     result.push_back("--use_webstatusserver=" + \
-                     std::to_string(globals->options.webstatus_port));
+                     ToString(globals->options.webstatus_port));
   }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
@@ -369,14 +369,14 @@ static vector<string> GetArgumentArray() {
 
 // Add commom command options for logging to the given argument array.
 static void AddLoggingArgs(vector<string>* args) {
-  args->push_back("--startup_time=" + std::to_string(globals->startup_time));
+  args->push_back("--startup_time=" + ToString(globals->startup_time));
   if (globals->command_wait_time != 0) {
     args->push_back("--command_wait_time=" +
-                    std::to_string(globals->command_wait_time));
+                    ToString(globals->command_wait_time));
   }
   if (globals->extract_data_time != 0) {
     args->push_back("--extract_data_time=" +
-                    std::to_string(globals->extract_data_time));
+                    ToString(globals->extract_data_time));
   }
   if (globals->restart_reason != NO_RESTART) {
     const char *reasons[] = {
@@ -896,7 +896,7 @@ static void ExtractData(const string &self_path) {
     uint64_t st = MonotonicClock();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options.install_base + ".tmp." +
-        std::to_string(getpid());
+        ToString(getpid());
     string tmp_binaries = tmp_install + "/_embedded_binaries";
     ActuallyExtractData(self_path, tmp_binaries);
 
@@ -1483,7 +1483,7 @@ static void AcquireLock() {
   ftruncate(globals->lockfd, 0);
   const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
   string msg = "owner=" + globals->options.GetProductName() + " launcher\npid="
-      + std::to_string(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
+      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
   // Don't bother checking for error, since it's unlikely and unimportant.
   // The contents are currently meant only for debugging.
   write(globals->lockfd, msg.data(), msg.size());

@@ -85,7 +85,7 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
 string GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
-          ("/proc/" + std::to_string(pid) + "/cwd").c_str(),
+          ("/proc/" + ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
     return "";
   }
