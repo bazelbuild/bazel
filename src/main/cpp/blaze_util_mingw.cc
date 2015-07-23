@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <string.h>  // strerror
+#include <sys/socket.h>
 #include <sys/statfs.h>
 #include <unistd.h>
 
