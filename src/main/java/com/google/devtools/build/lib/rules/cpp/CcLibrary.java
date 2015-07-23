@@ -131,6 +131,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .enableCcNativeLibrariesProvider()
         .enableInterfaceSharedObjects()
         .enableCompileProviders()
+        // Generate .a and .so outputs even without object files to fulfill the rule class contract
+        // wrt. implicit output files.
+        .setGenerateLinkActionsIfEmpty(true)
         .setNeverLink(neverLink)
         .setHeadersCheckingMode(common.determineHeadersCheckingMode())
         .addCopts(common.getCopts())
