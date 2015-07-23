@@ -306,7 +306,7 @@ TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT
 (cd ${OUTPUT_DIR}/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd ${OUTPUT_DIR}/ ; echo "${JAVA_VERSION}" > java.version)
 (cd ${OUTPUT_DIR}/ ; find . -type f | xargs -P 10 touch -t 198001010000)
-(cd ${OUTPUT_DIR}/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key java.version)
+(cd ${OUTPUT_DIR}/ ; run_silent zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key java.version)
 cat ${OUTPUT_DIR}/client ${OUTPUT_DIR}/package.zip > ${OUTPUT_DIR}/bazel
 zip -qA ${OUTPUT_DIR}/bazel \
   || echo "(Non-critical error, ignore.)"
