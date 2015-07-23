@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -239,8 +238,8 @@ public final class AndroidRuleClasses {
       "java_library",
       "proto_library"};
 
-  public static final ImplicitOutputsFunction ANDROID_BINARY_IMPLICIT_OUTPUTS =
-      new ImplicitOutputsFunction() {
+  public static final SafeImplicitOutputsFunction ANDROID_BINARY_IMPLICIT_OUTPUTS =
+      new SafeImplicitOutputsFunction() {
 
         @Override
         public Iterable<String> getImplicitOutputs(AttributeMap rule) {
@@ -282,8 +281,8 @@ public final class AndroidRuleClasses {
         }
       };
 
-  public static final ImplicitOutputsFunction ANDROID_LIBRARY_IMPLICIT_OUTPUTS =
-      new ImplicitOutputsFunction() {
+  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_IMPLICIT_OUTPUTS =
+      new SafeImplicitOutputsFunction() {
         @Override
         public Iterable<String> getImplicitOutputs(AttributeMap attributes) {
           
