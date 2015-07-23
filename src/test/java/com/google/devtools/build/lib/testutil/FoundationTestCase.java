@@ -136,9 +136,4 @@ public abstract class FoundationTestCase extends TestCase {
   protected void assertContainsEventsInOrder(String... expectedMessages) {
     MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
   }
-
-  protected static <T> void assertContainsSubset(Iterable<T> arguments,
-                                                 Iterable<T> expectedSubset) {
-    MoreAsserts.assertContainsSubset(arguments, expectedSubset);
-  }
 }
