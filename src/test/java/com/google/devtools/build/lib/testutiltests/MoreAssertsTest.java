@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.testutiltests;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.JunitTestUtils.assertContainsSublist;
-import static com.google.devtools.build.lib.testutil.JunitTestUtils.assertDoesNotContainSublist;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsSublist;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainSublist;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
@@ -26,10 +26,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Tests {@link com.google.devtools.build.lib.testutil.JunitTestUtils}.
+ * Tests {@link com.google.devtools.build.lib.testutil.MoreAsserts}.
  */
 @RunWith(JUnit4.class)
-public class JunitTestUtilsTest {
+public class MoreAssertsTest {
 
   @Test
   public void testAssertContainsSublistSuccess() {

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
-import com.google.devtools.build.lib.testutil.JunitTestUtils;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -98,7 +98,7 @@ public class BuildFileASTTest {
     BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, reporter, null, false);
 
     assertFalse(buildfile.exec(env, reporter));
-    Event e = JunitTestUtils.assertContainsEvent(collector,
+    Event e = MoreAsserts.assertContainsEvent(collector,
         "unsupported operand type(s) for +: 'int' and 'List'");
     assertEquals(4, e.getLocation().getStartLineAndColumn().getLine());
   }

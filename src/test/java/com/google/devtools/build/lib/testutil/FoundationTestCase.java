@@ -103,42 +103,42 @@ public abstract class FoundationTestCase extends TestCase {
   // Mix-in assertions:
 
   protected void assertNoEvents() {
-    JunitTestUtils.assertNoEvents(eventCollector);
+    MoreAsserts.assertNoEvents(eventCollector);
   }
 
   protected Event assertContainsEvent(String expectedMessage) {
-    return JunitTestUtils.assertContainsEvent(eventCollector,
+    return MoreAsserts.assertContainsEvent(eventCollector,
                                               expectedMessage);
   }
 
   protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {
-    return JunitTestUtils.assertContainsEvent(eventCollector,
+    return MoreAsserts.assertContainsEvent(eventCollector,
                                               expectedMessage,
                                               kinds);
   }
 
   protected void assertContainsEventWithFrequency(String expectedMessage,
       int expectedFrequency) {
-    JunitTestUtils.assertContainsEventWithFrequency(eventCollector, expectedMessage,
+    MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,
         expectedFrequency);
   }
 
   protected void assertDoesNotContainEvent(String expectedMessage) {
-    JunitTestUtils.assertDoesNotContainEvent(eventCollector,
+    MoreAsserts.assertDoesNotContainEvent(eventCollector,
                                              expectedMessage);
   }
 
   protected Event assertContainsEventWithWordsInQuotes(String... words) {
-    return JunitTestUtils.assertContainsEventWithWordsInQuotes(
+    return MoreAsserts.assertContainsEventWithWordsInQuotes(
         eventCollector, words);
   }
 
   protected void assertContainsEventsInOrder(String... expectedMessages) {
-    JunitTestUtils.assertContainsEventsInOrder(eventCollector, expectedMessages);
+    MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
   }
 
   protected static <T> void assertContainsSubset(Iterable<T> arguments,
                                                  Iterable<T> expectedSubset) {
-    JunitTestUtils.assertContainsSubset(arguments, expectedSubset);
+    MoreAsserts.assertContainsSubset(arguments, expectedSubset);
   }
 }

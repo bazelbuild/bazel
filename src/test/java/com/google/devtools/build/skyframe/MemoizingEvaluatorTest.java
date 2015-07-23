@@ -15,6 +15,9 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
@@ -41,7 +44,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -126,15 +128,15 @@ public class MemoizingEvaluatorTest {
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "fizzlepop");
+    assertEventCount(1, eventCollector);
 
     initializeReporter();
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "fizzlepop");
+    assertEventCount(1, eventCollector);
   }
 
   private abstract static class NoExtractorFunction implements SkyFunction {
@@ -275,9 +277,9 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       tester.evalAndGet("top");
-      JunitTestUtils.assertContainsEvent(eventCollector, "warn-d1");
-      JunitTestUtils.assertContainsEvent(eventCollector, "warn-d2");
-      JunitTestUtils.assertEventCount(2, eventCollector);
+      assertContainsEvent(eventCollector, "warn-d1");
+      assertContainsEvent(eventCollector, "warn-d2");
+      assertEventCount(2, eventCollector);
     }
   }
 
@@ -293,8 +295,8 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      JunitTestUtils.assertContainsEvent(eventCollector, "warn-dep");
-      JunitTestUtils.assertEventCount(1, eventCollector);
+      assertContainsEvent(eventCollector, "warn-dep");
+      assertEventCount(1, eventCollector);
     }
   }
 
@@ -309,8 +311,8 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      JunitTestUtils.assertContainsEvent(eventCollector, "warning msg");
-      JunitTestUtils.assertEventCount(1, eventCollector);
+      assertContainsEvent(eventCollector, "warning msg");
+      assertEventCount(1, eventCollector);
     }
   }
 
@@ -325,8 +327,8 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      JunitTestUtils.assertContainsEvent(eventCollector, "warning msg");
-      JunitTestUtils.assertEventCount(1, eventCollector);
+      assertContainsEvent(eventCollector, "warning msg");
+      assertEventCount(1, eventCollector);
     }
   }
 
@@ -339,8 +341,8 @@ public class MemoizingEvaluatorTest {
       // Make sure we see the warning exactly once.
       initializeReporter();
       tester.eval(/*keepGoing=*/false, "t1", "t2");
-      JunitTestUtils.assertContainsEvent(eventCollector, "look both ways before crossing");
-      JunitTestUtils.assertEventCount(1, eventCollector);
+      assertContainsEvent(eventCollector, "look both ways before crossing");
+      assertEventCount(1, eventCollector);
     }
   }
 
@@ -353,14 +355,14 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       tester.evalAndGetError("error-value");
-      JunitTestUtils.assertContainsEvent(eventCollector, "don't chew with your mouth open");
-      JunitTestUtils.assertEventCount(1, eventCollector);
+      assertContainsEvent(eventCollector, "don't chew with your mouth open");
+      assertEventCount(1, eventCollector);
     }
 
     initializeReporter();
     tester.evalAndGet("warning-value");
-    JunitTestUtils.assertContainsEvent(eventCollector, "don't chew with your mouth open");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "don't chew with your mouth open");
+    assertEventCount(1, eventCollector);
   }
 
   @Test
@@ -373,16 +375,16 @@ public class MemoizingEvaluatorTest {
 
     StringValue value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
-    JunitTestUtils.assertContainsEvent(eventCollector, "just letting you know");
-    JunitTestUtils.assertEventCount(2, eventCollector);
+    assertContainsEvent(eventCollector, "fizzlepop");
+    assertContainsEvent(eventCollector, "just letting you know");
+    assertEventCount(2, eventCollector);
 
     // On the rebuild, we only replay warning messages.
     initializeReporter();
     value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "fizzlepop");
+    assertEventCount(1, eventCollector);
   }
 
   @Test
@@ -409,8 +411,8 @@ public class MemoizingEvaluatorTest {
         "just letting you know");
 
     tester.evalAndGetError("error-value");
-    JunitTestUtils.assertContainsEvent(eventCollector, "just letting you know");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "just letting you know");
+    assertEventCount(1, eventCollector);
 
     // Change the progress message.
     tester.getOrCreate("error-value").setHasTransientError(true).setProgress(
@@ -420,15 +422,15 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       tester.evalAndGetError("error-value");
-      JunitTestUtils.assertNoEvents(eventCollector);
+      assertNoEvents(eventCollector);
     }
 
     // When invalidating errors, we should show the new progress message.
     initializeReporter();
     tester.invalidateTransientErrors();
     tester.evalAndGetError("error-value");
-    JunitTestUtils.assertContainsEvent(eventCollector, "letting you know more");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "letting you know more");
+    assertEventCount(1, eventCollector);
   }
 
   @Test
@@ -1337,14 +1339,14 @@ public class MemoizingEvaluatorTest {
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertContainsEvent(eventCollector, "fizzlepop");
+    assertEventCount(1, eventCollector);
 
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
     // No new events emitted.
-    JunitTestUtils.assertEventCount(1, eventCollector);
+    assertEventCount(1, eventCollector);
   }
 
   /**
@@ -1452,7 +1454,7 @@ public class MemoizingEvaluatorTest {
       assertEquals("on the incremental build, top's builder should have only been executed once in "
           + "normal evaluation", 3, numTopInvocations.get());
     }
-    JunitTestUtils.assertContainsEvent(eventCollector, warningText);
+    assertContainsEvent(eventCollector, warningText);
     assertEquals(0, topSignaled.getCount());
     assertEquals(0, topRestartedBuild.getCount());
   }
@@ -2435,12 +2437,12 @@ public class MemoizingEvaluatorTest {
                 parentEvaluated, null, null, false, parentVal, ImmutableList.of(child)));
     assertThat(tester.evalAndGet( /*keepGoing=*/false, parent)).isEqualTo(parentVal);
     assertThat(parentEvaluated.getCount()).isEqualTo(1);
-    JunitTestUtils.assertContainsEvent(eventCollector, "bloop");
+    assertContainsEvent(eventCollector, "bloop");
     tester.resetPlayedEvents();
     tester.getOrCreate(child, /*markAsModified=*/ true);
     tester.invalidate();
     assertThat(tester.evalAndGet( /*keepGoing=*/false, parent)).isEqualTo(parentVal);
-    JunitTestUtils.assertContainsEvent(eventCollector, "bloop");
+    assertContainsEvent(eventCollector, "bloop");
     assertThat(parentEvaluated.getCount()).isEqualTo(1);
   }
 
