@@ -18,6 +18,21 @@ imported by using additional arguments to the call to `load`. Arguments must
 be string literals (no variable) and `load` statements must appear at
 top-level, i.e. they cannot be in a function body.
 
+`load` also supports aliases, i.e. you can assign different names to the
+imported symbols.
+
+```python
+load("/build_tools/rules/maprule", maprule_alias = "maprule")
+```
+
+You define multiple aliases within one `load` statement. Moreover, the argument
+list can contain both aliases and regular symbol names. The following example is
+perfectly legal (please note when to use quotation marks).
+
+```python
+load("/path/to/my_rules", "some_rule", nice_alias = "some_other_rule", additional_alias = "one_more_rule")
+```
+
 Visibility doesn't affect loading. You don't need to use `exports_files`
 to make a Skylark file visible.
 
