@@ -49,8 +49,13 @@ public enum OS {
       osName = System.getProperty("os.name");
     }
 
+    if (osName == null) { 
+      return OS.UNKNOWN;
+    }
+
     for (OS os : OS.values()) {
-      if (os.detectionName.equals(osName)) {
+      // Windows have many names, all starting with "Windows".
+      if (osName.startsWith(os.detectionName)) {
         return os;
       }
     }
