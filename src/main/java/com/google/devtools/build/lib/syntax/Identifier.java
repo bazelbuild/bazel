@@ -14,29 +14,35 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import javax.annotation.Nullable;
+
 // TODO(bazel-team): for extra performance:
 // (1) intern the strings, so we can use == to compare, and have .equals use the assumption.
-// Then have Argument and Parameter use Ident again instead of String as keys.
-// (2) Use Ident, not String, as keys in the Environment, which will be cleaner.
+// Then have Argument and Parameter use Identifier again instead of String as keys.
+// (2) Use Identifier, not String, as keys in the Environment, which will be cleaner.
 // (3) For performance, avoid doing HashMap lookups at runtime, and compile local variable access
 // into array reference with a constant index. Variable lookups are currently a speed bottleneck,
 // as previously measured in an experiment.
 /**
  *  Syntax node for an identifier.
  */
-public final class Ident extends Expression {
+public final class Identifier extends Expression {
 
   private final String name;
 
-  public Ident(String name) {
+  public Identifier(String name) {
     this.name = name;
   }
 
   /**
-   *  Returns the name of the Ident.
+   *  Returns the name of the Identifier.
    */
   public String getName() {
     return name;
+  }
+  
+  public boolean isPrivate() {
+    return name.startsWith("_");
   }
 
   @Override
@@ -49,12 +55,22 @@ public final class Ident extends Expression {
     try {
       return env.lookup(name);
     } catch (Environment.NoSuchVariableException e) {
-      if (name.equals("$error$")) {
-        throw new EvalException(getLocation(), "contains syntax error(s)", true);
-      } else {
-        throw new EvalException(getLocation(), "name '" + name + "' is not defined");
-      }
+      throw createInvalidIdentifierException();
     }
+  }
+
+  @Override
+  public boolean equals(@Nullable Object object) {
+    if (object instanceof Identifier) {
+      Identifier that = (Identifier) object;
+      return this.name.equals(that.name);
+    }
+    return false;
+  }
+  
+  @Override
+  public int hashCode() {
+    return name.hashCode();
   }
 
   @Override
@@ -65,11 +81,13 @@ public final class Ident extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     if (!env.hasSymbolInEnvironment(name)) {
-      if (name.equals("$error$")) {
-        throw new EvalException(getLocation(), "contains syntax error(s)", true);
-      } else {
-        throw new EvalException(getLocation(), "name '" + name + "' is not defined");
-      }
+      throw createInvalidIdentifierException();
     }
+  }
+
+  private EvalException createInvalidIdentifierException() {
+    return name.equals("$error$")
+        ? new EvalException(getLocation(), "contains syntax error(s)", true)
+        : new EvalException(getLocation(), "name '" + name + "' is not defined");
   }
 }

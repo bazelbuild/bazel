@@ -169,7 +169,7 @@ public final class FuncallExpression extends Expression {
 
   private final Expression obj;
 
-  private final Ident func;
+  private final Identifier func;
 
   private final List<Argument.Passed> args;
 
@@ -182,7 +182,7 @@ public final class FuncallExpression extends Expression {
    * arbitrary expressions. In any case, the "func" expression is always
    * evaluated, so functions and variables share a common namespace.
    */
-  public FuncallExpression(Expression obj, Ident func,
+  public FuncallExpression(Expression obj, Identifier func,
                            List<Argument.Passed> args) {
     this.obj = obj;
     this.func = func;
@@ -197,7 +197,7 @@ public final class FuncallExpression extends Expression {
    * arbitrary expressions. In any case, the "func" expression is always
    * evaluated, so functions and variables share a common namespace.
    */
-  public FuncallExpression(Ident func, List<Argument.Passed> args) {
+  public FuncallExpression(Identifier func, List<Argument.Passed> args) {
     this(null, func, args);
   }
 
@@ -217,7 +217,7 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns the function expression.
    */
-  public Ident getFunction() {
+  public Identifier getFunction() {
     return func;
   }
 

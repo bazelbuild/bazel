@@ -388,8 +388,8 @@ class Parser {
   }
 
   // create an error expression
-  private Ident makeErrorExpression(int start, int end) {
-    return setLocation(new Ident("$error$"), start, end);
+  private Identifier makeErrorExpression(int start, int end) {
+    return setLocation(new Identifier("$error$"), start, end);
   }
 
   // Convenience wrapper around ASTNode.setLocation that returns the node.
@@ -410,7 +410,7 @@ class Parser {
   }
 
   // create a funcall expression
-  private Expression makeFuncallExpression(Expression receiver, Ident function,
+  private Expression makeFuncallExpression(Expression receiver, Identifier function,
                                            List<Argument.Passed> args,
                                            int start, int end) {
     if (function.getLocation() == null) {
@@ -474,21 +474,21 @@ class Parser {
     int start = token.left;
     if (token.kind == TokenKind.STAR_STAR) { // kwarg
       nextToken();
-      Ident ident = parseIdent();
+      Identifier ident = parseIdent();
       return setLocation(new Parameter.StarStar<Expression, Expression>(
           ident.getName()), start, ident);
     } else if (token.kind == TokenKind.STAR) { // stararg
       int end = token.right;
       nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
-        Ident ident = parseIdent();
+        Identifier ident = parseIdent();
         return setLocation(new Parameter.Star<Expression, Expression>(ident.getName()),
             start, ident);
       } else {
         return setLocation(new Parameter.Star<Expression, Expression>(null), start, end);
       }
     } else {
-      Ident ident = parseIdent();
+      Identifier ident = parseIdent();
       if (token.kind == TokenKind.EQUALS) { // there's a default value
         nextToken();
         Expression expr = parseNonTupleExpression();
@@ -502,7 +502,7 @@ class Parser {
   }
 
   // funcall_suffix ::= '(' arg_list? ')'
-  private Expression parseFuncallSuffix(int start, Expression receiver, Ident function) {
+  private Expression parseFuncallSuffix(int start, Expression receiver, Identifier function) {
     List<Argument.Passed> args = Collections.emptyList();
     expect(TokenKind.LPAREN);
     int end;
@@ -522,7 +522,7 @@ class Parser {
   private Expression parseSelectorSuffix(int start, Expression receiver) {
     expect(TokenKind.DOT);
     if (token.kind == TokenKind.IDENTIFIER) {
-      Ident ident = parseIdent();
+      Identifier ident = parseIdent();
       if (token.kind == TokenKind.LPAREN) {
         return parseFuncallSuffix(start, receiver, ident);
       } else {
@@ -599,7 +599,7 @@ class Parser {
         new StringLiteral(labelName, '"')), location));
     args.add(setLocation(new Argument.Positional(
         new StringLiteral(file, '"')), location));
-    Ident mockIdent = setLocation(new Ident("mocksubinclude"), location);
+    Identifier mockIdent = setLocation(new Identifier("mocksubinclude"), location);
     Expression funCall = new FuncallExpression(null, mockIdent, args);
     return setLocation(new ExpressionStatement(funCall), location);
   }
@@ -680,7 +680,7 @@ class Parser {
         return literal;
       }
       case IDENTIFIER: {
-        Ident ident = parseIdent();
+        Identifier ident = parseIdent();
         if (token.kind == TokenKind.LPAREN) { // it's a function application
           return parseFuncallSuffix(start, null, ident);
         } else {
@@ -720,7 +720,7 @@ class Parser {
         List<Argument.Passed> args = new ArrayList<>();
         Expression expr = parsePrimaryWithSuffix();
         args.add(setLocation(new Argument.Positional(expr), start, expr));
-        return makeFuncallExpression(null, new Ident("-"), args,
+        return makeFuncallExpression(null, new Identifier("-"), args,
                                      start, token.right);
       }
       default: {
@@ -765,7 +765,7 @@ class Parser {
     // This is a dictionary access
     if (token.kind == TokenKind.RBRACKET) {
       expect(TokenKind.RBRACKET);
-      return makeFuncallExpression(receiver, new Ident("$index"), args,
+      return makeFuncallExpression(receiver, new Identifier("$index"), args,
                                    start, token.right);
     }
     // This is a slice (or substring)
@@ -779,7 +779,7 @@ class Parser {
     expect(TokenKind.RBRACKET);
 
     args.add(setLocation(new Argument.Positional(endExpr), loc2, endExpr));
-    return makeFuncallExpression(receiver, new Ident("$slice"), args,
+    return makeFuncallExpression(receiver, new Identifier("$slice"), args,
                                  start, token.right);
   }
 
@@ -933,12 +933,12 @@ class Parser {
     return makeErrorExpression(start, end);
   }
 
-  private Ident parseIdent() {
+  private Identifier parseIdent() {
     if (token.kind != TokenKind.IDENTIFIER) {
       expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(token.left, token.right);
     }
-    Ident ident = new Ident(((String) token.value));
+    Identifier ident = new Identifier(((String) token.value));
     setLocation(ident, token.left, token.right);
     nextToken();
     return ident;
@@ -1083,9 +1083,9 @@ class Parser {
     nextToken();
     expect(TokenKind.COMMA);
 
-    List<Ident> symbols = new ArrayList<>();
+    List<Identifier> symbols = new ArrayList<>();
     if (token.kind == TokenKind.STRING) {
-      symbols.add(new Ident((String) token.value));
+      symbols.add(new Identifier((String) token.value));
     }
     expect(TokenKind.STRING);
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
@@ -1094,7 +1094,7 @@ class Parser {
         break;
       }
       if (token.kind == TokenKind.STRING) {
-        symbols.add(new Ident((String) token.value));
+        symbols.add(new Identifier((String) token.value));
       }
       expect(TokenKind.STRING);
     }
@@ -1122,7 +1122,7 @@ class Parser {
     // Check if there is an include
     if (token.kind == TokenKind.IDENTIFIER) {
       Token identToken = token;
-      Ident ident = parseIdent();
+      Identifier ident = parseIdent();
 
       if (ident.getName().equals("include")
           && token.kind == TokenKind.LPAREN
@@ -1200,7 +1200,8 @@ class Parser {
       Expression rvalue = parseExpression();
       if (expression instanceof FuncallExpression) {
         FuncallExpression func = (FuncallExpression) expression;
-        if (func.getFunction().getName().equals("$index") && func.getObject() instanceof Ident) {
+        if (func.getFunction().getName().equals("$index")
+            && func.getObject() instanceof Identifier) {
           // Special casing to translate 'ident[key] = value' to 'ident = ident + {key: value}'
           // Note that the locations of these extra expressions are fake.
           Preconditions.checkArgument(func.getArguments().size() == 1);
@@ -1274,7 +1275,7 @@ class Parser {
   private void parseFunctionDefStatement(List<Statement> list) {
     int start = token.left;
     expect(TokenKind.DEF);
-    Ident ident = parseIdent();
+    Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     FunctionSignature.WithValues<Expression, Expression> args = parseFunctionSignature();
     expect(TokenKind.RPAREN);

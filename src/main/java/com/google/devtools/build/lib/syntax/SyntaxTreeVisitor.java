@@ -55,7 +55,7 @@ public class SyntaxTreeVisitor {
     visitAll(node.getArguments());
   }
 
-  public void visit(Ident node) {
+  public void visit(Identifier node) {
   }
 
   public void visit(ListComprehension node) {

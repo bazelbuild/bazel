@@ -26,20 +26,20 @@ public final class LoadStatement extends Statement {
 
   public static final String PATH_ERROR_MSG = "Path '%s' is not valid. "
       + "It should either start with a slash or refer to a file in the current directory.";
-  private final ImmutableList<Ident> symbols;
+  private final ImmutableList<Identifier> symbols;
   private final PathFragment importPath;
   private final String pathString;
 
   /**
    * Constructs an import statement.
    */
-  LoadStatement(String path, List<Ident> symbols) {
+  LoadStatement(String path, List<Identifier> symbols) {
     this.symbols = ImmutableList.copyOf(symbols);
     this.importPath = new PathFragment(path + ".bzl");
     this.pathString = path;
   }
 
-  public ImmutableList<Ident> getSymbols() {
+  public ImmutableList<Identifier> getSymbols() {
     return symbols;
   }
 
@@ -54,9 +54,9 @@ public final class LoadStatement extends Statement {
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    for (Ident i : symbols) {
+    for (Identifier i : symbols) {
       try {
-        if (i.getName().startsWith("_")) {
+        if (i.isPrivate()) {
           throw new EvalException(getLocation(), "symbol '" + i + "' is private and cannot "
               + "be imported");
         }
@@ -79,7 +79,7 @@ public final class LoadStatement extends Statement {
     if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
       throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
     }
-    for (Ident symbol : symbols) {
+    for (Identifier symbol : symbols) {
       env.declare(symbol.getName(), getLocation());
     }
   }

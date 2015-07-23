@@ -24,11 +24,11 @@ import java.util.List;
  */
 public class FunctionDefStatement extends Statement {
 
-  private final Ident ident;
+  private final Identifier ident;
   private final FunctionSignature.WithValues<Expression, Expression> args;
   private final ImmutableList<Statement> statements;
 
-  public FunctionDefStatement(Ident ident,
+  public FunctionDefStatement(Identifier ident,
       FunctionSignature.WithValues<Expression, Expression> args,
       Collection<Statement> statements) {
     this.ident = ident;
@@ -59,7 +59,7 @@ public class FunctionDefStatement extends Statement {
     return "def " + ident + "(" + args + "):\n";
   }
 
-  public Ident getIdent() {
+  public Identifier getIdent() {
     return ident;
   }
 

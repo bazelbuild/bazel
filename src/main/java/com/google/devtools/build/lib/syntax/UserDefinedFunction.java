@@ -25,7 +25,7 @@ public class UserDefinedFunction extends BaseFunction {
   private final ImmutableList<Statement> statements;
   private final SkylarkEnvironment definitionEnv;
 
-  protected UserDefinedFunction(Ident function,
+  protected UserDefinedFunction(Identifier function,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements, SkylarkEnvironment definitionEnv) {
     super(function.getName(), signature, function.getLocation());

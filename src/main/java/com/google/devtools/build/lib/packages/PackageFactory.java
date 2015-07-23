@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
-import com.google.devtools.build.lib.syntax.Ident;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -1340,10 +1340,10 @@ public final class PackageFactory {
     for (Statement stmt : ast.getStatements()) {
       if (stmt instanceof AssignmentStatement) {
         Expression lvalue = ((AssignmentStatement) stmt).getLValue().getExpression();
-        if (!(lvalue instanceof Ident)) {
+        if (!(lvalue instanceof Identifier)) {
           continue;
         }
-        String target = ((Ident) lvalue).getName();
+        String target = ((Identifier) lvalue).getName();
         if (pkgEnv.lookup(target, null) != null) {
           eventHandler.handle(Event.error(stmt.getLocation(), "Reassignment of builtin build "
               + "function '" + target + "' not permitted"));

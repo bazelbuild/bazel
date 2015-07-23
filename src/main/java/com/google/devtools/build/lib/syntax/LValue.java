@@ -49,8 +49,8 @@ public class LValue implements Serializable {
 
   private static void assign(Environment env, Location loc, Expression lvalue, Object result)
       throws EvalException, InterruptedException {
-    if (lvalue instanceof Ident) {
-      assign(env, loc, (Ident) lvalue, result);
+    if (lvalue instanceof Identifier) {
+      assign(env, loc, (Identifier) lvalue, result);
       return;
     }
 
@@ -77,7 +77,7 @@ public class LValue implements Serializable {
   /**
    * Assign value to a single variable.
    */
-  private static void assign(Environment env, Location loc, Ident ident, Object result)
+  private static void assign(Environment env, Location loc, Identifier ident, Object result)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(result, "trying to assign null to %s", ident);
 
@@ -103,8 +103,8 @@ public class LValue implements Serializable {
 
   private static void validate(ValidationEnvironment env, Location loc, Expression expr)
       throws EvalException {
-    if (expr instanceof Ident) {
-      Ident ident = (Ident) expr;
+    if (expr instanceof Identifier) {
+      Identifier ident = (Identifier) expr;
       env.declare(ident.getName(), loc);
       return;
     }
