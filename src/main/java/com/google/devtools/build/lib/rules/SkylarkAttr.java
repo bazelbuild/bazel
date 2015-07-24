@@ -175,8 +175,6 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = Integer.class, defaultValue = "0",
             doc = DEFAULT_DOC + " If not specified, default is 0."),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "values", type = SkylarkList.class, generic1 = Integer.class,
@@ -186,12 +184,11 @@ public final class SkylarkAttr {
       useAst = true, useEnvironment = true)
   private static BuiltinFunction integer = new BuiltinFunction("int") {
       public Attribute.Builder<?> invoke(Integer defaultInt,
-          SkylarkList flags, Boolean mandatory, SkylarkList values, Object cfg,
+          Boolean mandatory, SkylarkList values, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultInt, "flags", flags, "mandatory", mandatory, "values", values,
-                "cfg", cfg),
+                "default", defaultInt, "mandatory", mandatory, "values", values, "cfg", cfg),
             Type.INTEGER, ast, env);
       }
     };
@@ -203,8 +200,6 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = String.class,
             defaultValue = "''", doc = DEFAULT_DOC + " If not specified, default is \"\"."),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class,
             defaultValue = "False", doc = MANDATORY_DOC),
         @Param(name = "values", type = SkylarkList.class, generic1 = String.class,
@@ -214,11 +209,11 @@ public final class SkylarkAttr {
       useAst = true, useEnvironment = true)
   private static BuiltinFunction string = new BuiltinFunction("string") {
       public Attribute.Builder<?> invoke(String defaultString,
-          SkylarkList flags, Boolean mandatory, SkylarkList values, Object cfg,
+          Boolean mandatory, SkylarkList values, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultString, "flags", flags, "mandatory", mandatory, "values", values,
+                "default", defaultString, "mandatory", mandatory, "values", values,
                 "cfg", cfg),
             Type.STRING, ast, env);
       }
@@ -238,8 +233,6 @@ public final class SkylarkAttr {
             + "Use the <code>Label</code> function to specify a default value."),
         @Param(name = "executable", type = Boolean.class, defaultValue = "False",
             doc = EXECUTABLE_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "allow_files", defaultValue = "False", doc = ALLOW_FILES_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
@@ -257,7 +250,6 @@ public final class SkylarkAttr {
       public Attribute.Builder<?> invoke(
           Object defaultO,
           Boolean executable,
-          SkylarkList flags,
           Object allowFiles,
           Boolean mandatory,
           SkylarkList providers,
@@ -267,7 +259,7 @@ public final class SkylarkAttr {
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultO, "executable", executable, "flags", flags,
+                "default", defaultO, "executable", executable,
                 "allow_files", allowFiles, "mandatory", mandatory, "providers", providers,
                 "allow_rules", allowRules, "single_file", singleFile, "cfg", cfg),
             Type.LABEL, ast, env);
@@ -282,8 +274,6 @@ public final class SkylarkAttr {
         @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]",
             doc = DEFAULT_DOC + " If not specified, default is []."),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
@@ -294,15 +284,13 @@ public final class SkylarkAttr {
   private static BuiltinFunction stringList = new BuiltinFunction("string_list") {
       public Attribute.Builder<?> invoke(
           SkylarkList defaultList,
-          SkylarkList flags,
           Boolean mandatory,
           Boolean nonEmpty,
           Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultList,
-                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+                "default", defaultList, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
             Type.STRING_LIST, ast, env);
       }
     };
@@ -358,20 +346,18 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = Boolean.class,
             defaultValue = "False", doc = DEFAULT_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
   private static BuiltinFunction bool = new BuiltinFunction("bool") {
-      public Attribute.Builder<?> invoke(Boolean defaultBool,
-          SkylarkList flags, Boolean mandatory, Object cfg,
+      public Attribute.Builder<?> invoke(
+          Boolean defaultBool, Boolean mandatory, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultBool, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+                "default", defaultBool, "mandatory", mandatory, "cfg", cfg),
             Type.BOOLEAN, ast, env);
       }
     };
@@ -385,20 +371,18 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = Label.class, noneable = true,
             defaultValue = "None", doc = DEFAULT_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
   private static BuiltinFunction output = new BuiltinFunction("output") {
-      public Attribute.Builder<?> invoke(Object defaultO,
-          SkylarkList flags, Boolean mandatory, Object cfg,
+      public Attribute.Builder<?> invoke(
+          Object defaultO, Boolean mandatory, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultO, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+                "default", defaultO, "mandatory", mandatory, "cfg", cfg),
             Type.OUTPUT, ast, env);
       }
     };
@@ -411,8 +395,6 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = SkylarkList.class, generic1 = Label.class,
             defaultValue = "[]", doc = DEFAULT_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class,
             defaultValue = "False", doc = MANDATORY_DOC),
         @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
@@ -422,11 +404,11 @@ public final class SkylarkAttr {
       useAst = true, useEnvironment = true)
   private static BuiltinFunction outputList = new BuiltinFunction("output_list") {
       public Attribute.Builder<?> invoke(SkylarkList defaultList,
-          SkylarkList flags, Boolean mandatory, Boolean nonEmpty, Object cfg,
+          Boolean mandatory, Boolean nonEmpty, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap("default", defaultList,
-                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+                "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
             Type.OUTPUT_LIST, ast, env);
       }
     };
@@ -439,8 +421,6 @@ public final class SkylarkAttr {
       optionalNamedOnly = {
         @Param(name = "default", type = Map.class,
             defaultValue = "{}", doc = DEFAULT_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "non_empty", type = Boolean.class, defaultValue = "False",
@@ -450,11 +430,11 @@ public final class SkylarkAttr {
       useAst = true, useEnvironment = true)
   private static BuiltinFunction stringDict = new BuiltinFunction("string_dict") {
       public Attribute.Builder<?> invoke(Map<?, ?> defaultO,
-          SkylarkList flags, Boolean mandatory, Boolean nonEmpty, Object cfg,
+          Boolean mandatory, Boolean nonEmpty, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
-            EvalUtils.optionMap("default", defaultO,
-                "flags", flags, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
+            EvalUtils.optionMap(
+                "default", defaultO, "mandatory", mandatory, "non_empty", nonEmpty, "cfg", cfg),
             Type.STRING_DICT, ast, env);
       }
     };
@@ -468,20 +448,18 @@ public final class SkylarkAttr {
         // TODO(bazel-team): ensure this is the correct default value
         @Param(name = "default", defaultValue = "None", noneable = true,
             doc = DEFAULT_DOC),
-        @Param(name = "flags", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]", doc = FLAGS_DOC),
         @Param(name = "mandatory", type = Boolean.class, defaultValue = "False",
             doc = MANDATORY_DOC),
         @Param(name = "cfg", type = ConfigurationTransition.class, noneable = true,
             defaultValue = "None", doc = CONFIGURATION_DOC)},
       useAst = true, useEnvironment = true)
   private static BuiltinFunction license = new BuiltinFunction("license") {
-      public Attribute.Builder<?> invoke(Object defaultO,
-          SkylarkList flags, Boolean mandatory, Object cfg,
+      public Attribute.Builder<?> invoke(
+          Object defaultO, Boolean mandatory, Object cfg,
           FuncallExpression ast, Environment env) throws EvalException {
         return createAttribute(
             EvalUtils.optionMap(
-                "default", defaultO, "flags", flags, "mandatory", mandatory, "cfg", cfg),
+                "default", defaultO, "mandatory", mandatory, "cfg", cfg),
             Type.LICENSE, ast, env);
       }
     };

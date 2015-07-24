@@ -89,9 +89,7 @@ def py_binary_impl(ctx):
   return struct(files = files_to_build, runfiles = runfiles)
 
 
-py_srcs_attr = attr.label_list(
-    flags=["DIRECT_COMPILE_TIME_INPUT"],
-    allow_files = py_file_types)
+py_srcs_attr = attr.label_list(allow_files = py_file_types)
 
 py_deps_attr = attr.label_list(
     providers = ["transitive_py_files"],
