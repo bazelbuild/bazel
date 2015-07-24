@@ -20,11 +20,20 @@ PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 
+case "${PLATFORM}" in
+msys*|mingw*)
+  BLAZE_UTIL_SUFFIX=mingw
+  ;;
+*)
+  BLAZE_UTIL_SUFFIX="${PLATFORM}"
+  ;;
+esac
+
 BLAZE_CC_FILES=(
 src/main/cpp/blaze_startup_options.cc
 src/main/cpp/blaze_startup_options_common.cc
 src/main/cpp/blaze_util.cc
-src/main/cpp/blaze_util_${PLATFORM}.cc
+src/main/cpp/blaze_util_${BLAZE_UTIL_SUFFIX}.cc
 src/main/cpp/blaze.cc
 src/main/cpp/option_processor.cc
 src/main/cpp/util/errors.cc
