@@ -103,7 +103,7 @@ With Bazel, add the following lines to the WORKSPACE file:
 maven_jar(
     name = "guava",
     artifact = "com.google.guava:guava:18.0",
-    sha1 = "d664fbfc03d2e5ce9cab2a44fb01f1d0bf9dfebeccc1a473b1f9ea31f79f6f99",
+    sha1 = "cce0823396aa693798f8882e64213b1772032b09",
 )
 </pre>
 
