@@ -111,7 +111,7 @@ public abstract class AbstractConfiguredTarget
         return get(name);
     }
   }
-
+  
   @Override
   public String errorMessage(String name) {
     return null;
@@ -119,6 +119,6 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ImmutableList.of("data_runfiles", "default_runfiles", "label", "files");
+    return ImmutableList.of(DATA_RUNFILES_FIELD, DEFAULT_RUNFILES_FIELD, LABEL_FIELD, FILES_FIELD);
   }
 }
