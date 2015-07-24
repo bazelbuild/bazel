@@ -4,8 +4,8 @@ layout: community
 
 # Contributing to Bazel
 
-We welcome contributions! This page covers setting up your machine to develop
-Bazel and, when you've made a patch, how to submit it.
+<p class="lead">We welcome contributions! This page covers setting up your
+machine to develop Bazel and, when you've made a patch, how to submit it.</p>
 
 ## How can I contribute to Bazel?
 
@@ -23,9 +23,7 @@ a lot of time in a patch.
 <li>Prepare a git commit that implements the feature. Don't forget to add tests.
 <li>Create a new code review on <a href="https://bazel-review.googlesource.com">Gerrit</a>
    by running:
-   <pre>
-$ git push https://bazel.googlesource.com/bazel HEAD:refs/for/master
-   </pre>
+   <pre>$ git push https://bazel.googlesource.com/bazel HEAD:refs/for/master</pre>
    Gerrit upload requires that you:
    <ul>
      <li>Have signed a
@@ -76,7 +74,8 @@ To work with IntelliJ, run `sh scripts/setup-intellij.sh` from the root of the
 source tree and it will create the necessary project files. You can then open
 the folder as a project in IntelliJ.
 
-### Compiling Bazel {#compile-bazel}
+<a name="compile-bazel"></a>
+### Compiling Bazel
 
 To test out bazel, you need to compile it. There is currently two ways of
 compiling it:
@@ -103,10 +102,12 @@ When modifying Bazel, you want to make sure that the following still works:
 
 Start creating a debug configuration for both C++ and Java in your bazelrc with the following:
 
+```
 build:debug -c dbg
 build:debug --javacopt="-g"
 build:debug --copt="-g"
 build:debug --strip="never"
+```
 
 Then you can rebuild Bazel with `bazel build --config debug //src:bazel` and use your favorite
 debugger to start debugging.

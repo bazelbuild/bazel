@@ -53,7 +53,7 @@ list), but this will hopefully change over time.
     extension points if they do not run counter to the internal requirements of any of the core
     contributors.
 
-## Are you done open sourcing Bazel? {#isbazelopen}
+## Are you done open sourcing Bazel?
 
 Open sourcing Bazel is a work-in-progress. In particular, we're still working on open sourcing:
 
@@ -75,7 +75,10 @@ not available on GitHub and probably never will be.
 
 ### Core Contributors
 
-__Contact the core team at bazel-discuss@googlegroups.com.__
+<p class="lead">
+Contact the core team at <a href="mailto:bazel-dev@googlegroups.com">
+bazel-dev@googlegroups.com</a>.
+</p>
 
 The current group is:
 

@@ -112,8 +112,8 @@ cc_library(
 )
 ```
 
-This expresses that the "sandwich" library depends on the "bread" library,
-which depends on the "flour" library.
+This expresses that the `sandwich` library depends on the `bread` library,
+which depends on the `flour` library.
 
 Adding include paths
 --------------------
@@ -177,7 +177,7 @@ more complicated:
   link errors for duplicate symbols.
 * It uses header files that relative to the `gtest-1.7.0/include/` directory
   (`"gtest/gtest.h"`), so we must add that directory the includes.
-* It uses "private" header files in src/, so we add "." to the includes so it
+* It uses "private" header files in `src/`, so we add `.` to the includes so it
   can `#include "src/gtest-internal-inl.h"`.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
