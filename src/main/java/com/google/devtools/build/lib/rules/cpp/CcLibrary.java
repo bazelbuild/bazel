@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -132,8 +133,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .enableInterfaceSharedObjects()
         .enableCompileProviders()
         // Generate .a and .so outputs even without object files to fulfill the rule class contract
-        // wrt. implicit output files.
-        .setGenerateLinkActionsIfEmpty(true)
+        // wrt. implicit output files, if the contract says so. Behavior here differs between Bazel
+        // and Blaze.
+        .setGenerateLinkActionsIfEmpty(
+            ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction()
+                != ImplicitOutputsFunction.NONE)
         .setNeverLink(neverLink)
         .setHeadersCheckingMode(common.determineHeadersCheckingMode())
         .addCopts(common.getCopts())

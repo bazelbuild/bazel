@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcLibrary;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -767,25 +766,7 @@ public class BazelCppRuleClasses {
   public static final class CcLibraryRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      SafeImplicitOutputsFunction implicitOutputsFunction = new SafeImplicitOutputsFunction() {
-        @Override
-        public Iterable<String> getImplicitOutputs(AttributeMap rule) {
-          boolean alwaysLink = rule.get("alwayslink", Type.BOOLEAN);
-          boolean linkstatic = rule.get("linkstatic", Type.BOOLEAN);
-          SafeImplicitOutputsFunction staticLib = fromTemplates(
-              alwaysLink
-                  ? "%{dirname}lib%{basename}.lo"
-                  : "%{dirname}lib%{basename}.a");
-          SafeImplicitOutputsFunction allLibs =
-              linkstatic || !CcLibrary.appearsToHaveObjectFiles(rule)
-              ? staticLib
-              : fromFunctions(staticLib, CC_LIBRARY_DYNAMIC_LIB);
-          return allLibs.getImplicitOutputs(rule);
-        }
-      };
-
       return builder
-          .setImplicitOutputsFunction(implicitOutputsFunction)
           // TODO: Google cc_library overrides documentation for:
           // deps, data, linkopts, defines, srcs; override here too?
 

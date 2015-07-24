@@ -1,16 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
-# TODO(bazel-team): The MacOS tools give an error if there is no object file on
-# the command line to libtool, so we use an empty .cc file here. We should find
-# a better way to handle this case.
 cc_library(
     name = "malloc",
-    srcs = ["empty.cc"],
 )
 
 cc_library(
     name = "stl",
-    srcs = ["empty.cc"],
 )
 
 filegroup(
