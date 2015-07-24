@@ -255,7 +255,9 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
     }
 
     char cwd[PATH_MAX] = {};
-    getcwd(cwd, sizeof(cwd));
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
+    }
 
     fprintf(stderr, "Invoking binary %s in %s:\n  %s\n",
             exe.c_str(), cwd, dbg.c_str());
@@ -351,6 +353,8 @@ string GetJvmVersion(const string &java_exe) {
     ExecuteProgram(java_exe, args);
     pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run java -version");
   }
+  // The if never falls through here.
+  return NULL;
 }
 
 bool CheckJavaVersionIsAtLeast(const string &jvm_version,

@@ -104,7 +104,7 @@ static std::vector<Constant*>        const_pool_out; // output constant_pool
 // Note: constant(0) == NULL; this invariant is exploited by the
 // InnerClassesAttribute, inter alia.
 inline Constant *constant(int idx) {
-  if (idx < 0 || idx >= const_pool_in.size()) {
+  if (idx < 0 || (unsigned)idx >= const_pool_in.size()) {
     fprintf(stderr, "Illegal constant pool index: %d\n", idx);
     abort();
   }
@@ -422,7 +422,7 @@ struct ExceptionsAttribute : Attribute {
   void Write(u1 *&p) {
     WriteProlog(p, exceptions_.size() * 2 + 2);
     put_u2be(p, exceptions_.size());
-    for (int ii = 0; ii < exceptions_.size(); ++ii) {
+    for (size_t ii = 0; ii < exceptions_.size(); ++ii) {
       put_u2be(p, exceptions_[ii]->slot());
     }
   }
@@ -441,7 +441,7 @@ struct InnerClassesAttribute : Attribute {
   };
 
   virtual ~InnerClassesAttribute() {
-    for (int i = 0; i < entries_.size(); i++) {
+    for (size_t i = 0; i < entries_.size(); i++) {
       delete entries_[i];
     }
   }
@@ -466,7 +466,7 @@ struct InnerClassesAttribute : Attribute {
   void Write(u1 *&p) {
     WriteProlog(p, 2 + entries_.size() * 8);
     put_u2be(p, entries_.size());
-    for (int ii = 0; ii < entries_.size(); ++ii) {
+    for (size_t ii = 0; ii < entries_.size(); ++ii) {
       Entry *entry = entries_[ii];
       put_u2be(p, entry->inner_class_info == NULL
                ? 0
@@ -565,7 +565,7 @@ struct ClassTypeElementValue : ElementValue {
 
 struct ArrayTypeElementValue : ElementValue {
   virtual ~ArrayTypeElementValue() {
-    for (int i = 0; i < values_.size(); i++) {
+    for (size_t i = 0; i < values_.size(); i++) {
       delete values_[i];
     }
   }
@@ -573,7 +573,7 @@ struct ArrayTypeElementValue : ElementValue {
   void Write(u1 *&p) {
     put_u1(p, tag_);
     put_u2be(p, values_.size());
-    for (int ii = 0; ii < values_.size(); ++ii) {
+    for (size_t ii = 0; ii < values_.size(); ++ii) {
       values_[ii]->Write(p);
     }
   }
@@ -591,7 +591,7 @@ struct ArrayTypeElementValue : ElementValue {
 // See sec.4.7.16 of JVM spec.
 struct Annotation {
   virtual ~Annotation() {
-    for (int i = 0; i < element_value_pairs_.size(); i++) {
+    for (size_t i = 0; i < element_value_pairs_.size(); i++) {
       delete element_value_pairs_[i]->element_value_;
       delete element_value_pairs_[i];
     }
@@ -600,7 +600,7 @@ struct Annotation {
   void Write(u1 *&p) {
     put_u2be(p, type_->slot());
     put_u2be(p, element_value_pairs_.size());
-    for (int ii = 0; ii < element_value_pairs_.size(); ++ii) {
+    for (size_t ii = 0; ii < element_value_pairs_.size(); ++ii) {
       put_u2be(p, element_value_pairs_[ii]->element_name_->slot());
       element_value_pairs_[ii]->element_value_->Write(p);
     }
@@ -938,7 +938,7 @@ struct DeprecatedAttribute : Attribute {
 // We preserve all annotations.
 struct AnnotationsAttribute : Attribute {
   virtual ~AnnotationsAttribute() {
-    for (int i = 0; i < annotations_.size(); i++) {
+    for (size_t i = 0; i < annotations_.size(); i++) {
       delete annotations_[i];
     }
   }
@@ -958,7 +958,7 @@ struct AnnotationsAttribute : Attribute {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
     put_u2be(p, annotations_.size());
-    for (int ii = 0; ii < annotations_.size(); ++ii) {
+    for (size_t ii = 0; ii < annotations_.size(); ++ii) {
       annotations_[ii]->Write(p);
     }
     put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
@@ -994,10 +994,10 @@ struct ParameterAnnotationsAttribute : Attribute {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
     put_u1(p, parameter_annotations_.size());
-    for (int ii = 0; ii < parameter_annotations_.size(); ++ii) {
-      std::vector<Annotation*> &annotations = parameter_annotations_[ii];
+    for (size_t ii = 0; ii < parameter_annotations_.size(); ++ii) {
+      std::vector<Annotation *> &annotations = parameter_annotations_[ii];
       put_u2be(p, annotations.size());
-      for (int jj = 0; jj < annotations.size(); ++jj) {
+      for (size_t jj = 0; jj < annotations.size(); ++jj) {
         annotations[jj]->Write(p);
       }
     }
@@ -1068,7 +1068,7 @@ struct HasAttrs {
   void ReadAttrs(const u1 *&p);
 
   virtual ~HasAttrs() {
-    for (int i = 0; i < attributes.size(); i++) {
+    for (size_t i = 0; i < attributes.size(); i++) {
       delete attributes[i];
     }
   }
@@ -1117,11 +1117,11 @@ struct ClassFile : HasAttrs {
   std::vector<Member*> methods;
 
   virtual ~ClassFile() {
-    for (int i = 0; i < fields.size(); i++) {
+    for (size_t i = 0; i < fields.size(); i++) {
       delete fields[i];
     }
 
-    for (int i = 0; i < methods.size(); i++) {
+    for (size_t i = 0; i < methods.size(); i++) {
       delete methods[i];
     }
 
@@ -1152,15 +1152,15 @@ struct ClassFile : HasAttrs {
     put_u2be(p, this_class->slot());
     put_u2be(p, super_class == NULL ? 0 : super_class->slot());
     put_u2be(p, interfaces.size());
-    for (int ii = 0; ii < interfaces.size(); ++ii) {
+    for (size_t ii = 0; ii < interfaces.size(); ++ii) {
       put_u2be(p, interfaces[ii]->slot());
     }
     put_u2be(p, fields.size());
-    for (int ii = 0; ii < fields.size(); ++ii) {
+    for (size_t ii = 0; ii < fields.size(); ++ii) {
       fields[ii]->Write(p);
     }
     put_u2be(p, methods.size());
-    for (int ii = 0; ii < methods.size(); ++ii) {
+    for (size_t ii = 0; ii < methods.size(); ++ii) {
       methods[ii]->Write(p);
     }
     WriteAttrs(p);
@@ -1228,7 +1228,7 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
 
 void HasAttrs::WriteAttrs(u1 *&p) {
   put_u2be(p, attributes.size());
-  for (int ii = 0; ii < attributes.size(); ii++) {
+  for (size_t ii = 0; ii < attributes.size(); ii++) {
     attributes[ii]->Write(p);
   }
 }
@@ -1339,7 +1339,7 @@ void ClassFile::StripIfAnonymous() {
   int enclosing_index = -1;
   int inner_classes_index = -1;
 
-  for (int ii = 0; ii < attributes.size(); ++ii) {
+  for (size_t ii = 0; ii < attributes.size(); ++ii) {
     if (attributes[ii]->attribute_name_->Display() == "EnclosingMethod") {
       enclosing_index = ii;
     } else if (attributes[ii]->attribute_name_->Display() == "InnerClasses") {
@@ -1355,21 +1355,21 @@ void ClassFile::StripIfAnonymous() {
     interfaces.clear();
 
     // Clear away all fields (implementation details).
-    for (int ii = 0; ii < fields.size(); ++ii) {
+    for (size_t ii = 0; ii < fields.size(); ++ii) {
       delete fields[ii];
     }
     fields.clear();
 
     // Clear away all methods (implementation details).
-    for (int ii = 0; ii < methods.size(); ++ii) {
+    for (size_t ii = 0; ii < methods.size(); ++ii) {
       delete methods[ii];
     }
     methods.clear();
 
     // Only preserve the InnerClasses attribute to comply with the spec.
     Attribute *attr = NULL;
-    for (int ii = 0; ii < attributes.size(); ++ii) {
-      if (ii != inner_classes_index) {
+    for (size_t ii = 0; ii < attributes.size(); ++ii) {
+      if (static_cast<int>(ii) != inner_classes_index) {
         delete attributes[ii];
       } else {
         attr = attributes[ii];
@@ -1476,7 +1476,7 @@ void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
 
   // Now clean up all the mess we left behind.
 
-  for (int i = 0; i < const_pool_in.size(); i++) {
+  for (size_t i = 0; i < const_pool_in.size(); i++) {
     delete const_pool_in[i];
   }
 

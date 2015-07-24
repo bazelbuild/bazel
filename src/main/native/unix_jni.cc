@@ -632,7 +632,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_readdir(JNIEnv *env,
     return NULL;  // async exception!
   }
 
-  for (int ii = 0; ii < len; ++ii) {
+  for (size_t ii = 0; ii < len; ++ii) {
     jstring s = NewStringLatin1(env, entries[ii].c_str());
     if (s == NULL && env->ExceptionOccurred()) {
       return NULL;  // async exception!

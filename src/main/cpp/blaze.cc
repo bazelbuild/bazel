@@ -517,6 +517,7 @@ static int StartServer(int socket) {
   Daemonize(socket);
   ExecuteProgram(exe, jvm_args_vector);
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
+  return -1;
 }
 
 static bool KillRunningServerIfAny();
@@ -589,6 +590,7 @@ static int Connect(int socket, const string &socket_file) {
   } else {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "realpath('%s') failed", socket_file.c_str());
+    return -1;
   }
 }
 
@@ -635,12 +637,9 @@ static int ConnectToServer(bool start) {
   if (Connect(s, socket_file) == 0) {
     return s;
   }
-  if (!start) {
-    return -1;
-  } else {
-    SetScheduling(
-        globals->options.batch_cpu_scheduling,
-        globals->options.io_nice_level);
+  if (start) {
+    SetScheduling(globals->options.batch_cpu_scheduling,
+                  globals->options.io_nice_level);
 
     int fd = StartServer(s);
     if (fcntl(fd, F_SETFL, O_NONBLOCK | fcntl(fd, F_GETFL))) {
@@ -672,9 +671,10 @@ static int ConnectToServer(bool start) {
     die(blaze_exit_code::INTERNAL_ERROR,
         "\nError: couldn't connect to server at '%s' after 60 seconds.",
         socket_file.c_str());
+    // The if never falls through here.
   }
+  return -1;
 }
-
 
 // Kills the specified running Blaze server.
 static void KillRunningServer(pid_t server_pid) {

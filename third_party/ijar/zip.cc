@@ -411,8 +411,8 @@ int InputZipFile::ProcessLocalFileEntry(
     }
   }
 
-  if (p - zipdata_in_mapped_ > MAX_MAPPED_REGION) {
-    munmap(const_cast<u1*>(zipdata_in_mapped_), MAX_MAPPED_REGION);
+  if (p > zipdata_in_mapped_ + MAX_MAPPED_REGION) {
+    munmap(const_cast<u1 *>(zipdata_in_mapped_), MAX_MAPPED_REGION);
     zipdata_in_mapped_ += MAX_MAPPED_REGION;
   }
 
@@ -785,7 +785,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
 void OutputZipFile::WriteCentralDirectory() {
   // central directory:
   const u1 *central_directory_start = q;
-  for (int ii = 0; ii < entries_.size(); ++ii) {
+  for (size_t ii = 0; ii < entries_.size(); ++ii) {
     LocalFileEntry *entry = entries_[ii];
     put_u4le(q, CENTRAL_FILE_HEADER_SIGNATURE);
     put_u2le(q, 0);  // version made by
@@ -825,35 +825,35 @@ void OutputZipFile::WriteCentralDirectory() {
 }
 
 u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
-    off_t file_name_length_ = strlen(filename);
-    LocalFileEntry *entry = new LocalFileEntry;
-    entry->local_header_offset = Offset(q);
-    entry->file_name_length = file_name_length_;
-    entry->file_name = new u1[file_name_length_];
-    entry->external_attr = attr;
-    memcpy(entry->file_name, filename, file_name_length_);
-    entry->extra_field_length = 0;
-    entry->extra_field = (const u1*)"";
+  off_t file_name_length_ = strlen(filename);
+  LocalFileEntry *entry = new LocalFileEntry;
+  entry->local_header_offset = Offset(q);
+  entry->file_name_length = file_name_length_;
+  entry->file_name = new u1[file_name_length_];
+  entry->external_attr = attr;
+  memcpy(entry->file_name, filename, file_name_length_);
+  entry->extra_field_length = 0;
+  entry->extra_field = (const u1 *)"";
 
-    // Output the ZIP local_file_header:
-    put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
-    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
-    put_u2le(q, 0);  // general purpose bit flag
-    put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
-    put_u2le(q, 0);  // last_mod_file_time
-    put_u2le(q, 0);  // last_mod_file_date
-    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
-    u1 *compressed_size_ptr = q;
-    put_u4le(q, 0);  // compressed_size = placeholder
-    put_u4le(q, 0);  // uncompressed_size = placeholder
-    put_u2le(q, entry->file_name_length);
-    put_u2le(q, entry->extra_field_length);
+  // Output the ZIP local_file_header:
+  put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
+  put_u2le(q, ZIP_VERSION_TO_EXTRACT);     // version to extract
+  put_u2le(q, 0);                          // general purpose bit flag
+  put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method:
+  put_u2le(q, 0);                          // last_mod_file_time
+  put_u2le(q, 0);                          // last_mod_file_date
+  put_u4le(q, 0);                          // crc32 (jar/javac tools don't care)
+  u1 *compressed_size_ptr = q;
+  put_u4le(q, 0);  // compressed_size = placeholder
+  put_u4le(q, 0);  // uncompressed_size = placeholder
+  put_u2le(q, entry->file_name_length);
+  put_u2le(q, entry->extra_field_length);
 
-    put_n(q, entry->file_name, entry->file_name_length);
-    put_n(q, entry->extra_field, entry->extra_field_length);
-    entries_.push_back(entry);
+  put_n(q, entry->file_name, entry->file_name_length);
+  put_n(q, entry->extra_field, entry->extra_field_length);
+  entries_.push_back(entry);
 
-    return compressed_size_ptr;
+  return compressed_size_ptr;
 }
 
 void OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *compressed_size_ptr,
