@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -117,6 +119,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private <T> T resolveSelector(String attributeName, Type.Selector<T> selector)
       throws EvalException {
     ConfigMatchingProvider matchingCondition = null;
+    Set<Label> conditionLabels = new LinkedHashSet<>();
     T matchingValue = null;
 
     // Find the matching condition and record its value (checking for duplicates).
@@ -127,6 +130,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       }
 
       ConfigMatchingProvider curCondition = Verify.verifyNotNull(configConditions.get(selectorKey));
+      conditionLabels.add(curCondition.label());
 
       if (curCondition.matches()) {
         if (matchingCondition == null || curCondition.refines(matchingCondition)) {
@@ -151,7 +155,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       if (!selector.hasDefault()) {
         throw new EvalException(rule.getAttributeLocation(attributeName),
             "Configurable attribute \"" + attributeName + "\" doesn't match this "
-            + "configuration (would a default condition help?)");
+            + "configuration (would a default condition help?).\nConditions checked:\n "
+            + Joiner.on("\n ").join(conditionLabels));
       }
       matchingValue = selector.getDefault();
     }
