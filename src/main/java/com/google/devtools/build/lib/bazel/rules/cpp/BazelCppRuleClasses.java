@@ -420,7 +420,7 @@ public class BazelCppRuleClasses {
           </p>
           <ul>
             <li>C and C++ source files: <code>.c</code>, <code>.cc</code>, <code>.cpp</code>,
-              <code>.cxx</code>, <code>.C</code></li>
+              <code>.cxx</code>, <code>.c++</code, <code>.C</code></li>
             <li>C and C++ header files: <code>.h</code>, <code>.hh</code>, <code>.hpp</code>,
               <code>.hxx</code>, <code>.inc</code></li>
             <li>Assembler with C preprocessor: <code>.S</code></li>
