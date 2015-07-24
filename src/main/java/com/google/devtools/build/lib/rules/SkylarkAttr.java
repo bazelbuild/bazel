@@ -59,30 +59,45 @@ import java.util.Map;
 )
 public final class SkylarkAttr {
 
-  private static final String MANDATORY_DOC =
-      "set to True if users have to explicitely specify the value";
+  // Arguments
 
-  private static final String NON_EMPTY_DOC = "set to True if the attribute must not be empty";
-
+  private static final String ALLOW_FILES_ARG = "allow_files";
   private static final String ALLOW_FILES_DOC =
       "whether File targets are allowed. Can be True, False (default), or " + "a FileType filter.";
 
+  private static final String ALLOW_RULES_ARG = "allow_rules";
   private static final String ALLOW_RULES_DOC =
       "which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
           + "compatiblity), use providers instead.";
 
-  private static final String FLAGS_DOC = "deprecated, will be removed";
-
-  private static final String DEFAULT_DOC = "sets the default value of the attribute.";
-
+  private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
       "configuration of the attribute. " + "For example, use DATA_CFG or HOST_CFG.";
 
+  private static final String DEFAULT_ARG = "default";
+  private static final String DEFAULT_DOC = "sets the default value of the attribute.";
+
+  private static final String EXECUTABLE_ARG = "executable";
   private static final String EXECUTABLE_DOC =
       "set to True if the labels have to be executable. This means the label must refer to an "
           + "executable file, or to a rule that outputs an executable file. Access the labels "
           + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
+  private static final String FLAGS_ARG = "flags";
+  private static final String FLAGS_DOC = "deprecated, will be removed";
+
+  private static final String MANDATORY_ARG = "mandatory";
+  private static final String MANDATORY_DOC =
+      "set to True if users have to explicitely specify the value";
+
+  private static final String NON_EMPTY_ARG = "non_empty";
+  private static final String NON_EMPTY_DOC = "set to True if the attribute must not be empty";
+
+  private static final String PROVIDERS_ARG = "providers";
+
+  private static final String SINGLE_FILE_ARG = "single_file";
+
+  private static final String VALUES_ARG = "values";
   private static final String VALUES_DOC =
       "specify the list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
@@ -98,7 +113,7 @@ public final class SkylarkAttr {
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
     Attribute.Builder<?> builder = Attribute.attr("", type);
 
-    Object defaultValue = arguments.get("default");
+    Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!EvalUtils.isNullOrNone(defaultValue)) {
       if (defaultValue instanceof UserDefinedFunction) {
         // Late bound attribute. Non label type attributes already caused a type check error.
@@ -110,28 +125,29 @@ public final class SkylarkAttr {
       }
     }
 
-    for (String flag : castList(arguments.get("flags"), String.class)) {
+    for (String flag : castList(arguments.get(FLAGS_ARG), String.class)) {
       builder.setPropertyFlag(flag);
     }
 
-    if (containsNonNoneKey(arguments, "mandatory") && (Boolean) arguments.get("mandatory")) {
+    if (containsNonNoneKey(arguments, MANDATORY_ARG) && (Boolean) arguments.get(MANDATORY_ARG)) {
       builder.setPropertyFlag("MANDATORY");
     }
 
-    if (containsNonNoneKey(arguments, "non_empty") && (Boolean) arguments.get("non_empty")) {
+    if (containsNonNoneKey(arguments, NON_EMPTY_ARG) && (Boolean) arguments.get(NON_EMPTY_ARG)) {
       builder.setPropertyFlag("NON_EMPTY");
     }
 
-    if (containsNonNoneKey(arguments, "executable") && (Boolean) arguments.get("executable")) {
+    if (containsNonNoneKey(arguments, EXECUTABLE_ARG) && (Boolean) arguments.get(EXECUTABLE_ARG)) {
       builder.setPropertyFlag("EXECUTABLE");
     }
 
-    if (containsNonNoneKey(arguments, "single_file") && (Boolean) arguments.get("single_file")) {
+    if (containsNonNoneKey(arguments, SINGLE_FILE_ARG)
+        && (Boolean) arguments.get(SINGLE_FILE_ARG)) {
       builder.setPropertyFlag("SINGLE_ARTIFACT");
     }
 
-    if (containsNonNoneKey(arguments, "allow_files")) {
-      Object fileTypesObj = arguments.get("allow_files");
+    if (containsNonNoneKey(arguments, ALLOW_FILES_ARG)) {
+      Object fileTypesObj = arguments.get(ALLOW_FILES_ARG);
       if (fileTypesObj == Boolean.TRUE) {
         builder.allowedFileTypes(FileTypeSet.ANY_FILE);
       } else if (fileTypesObj == Boolean.FALSE) {
@@ -146,23 +162,23 @@ public final class SkylarkAttr {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 
-    Object ruleClassesObj = arguments.get("allow_rules");
+    Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
     if (ruleClassesObj != null && ruleClassesObj != Environment.NONE) {
       builder.allowedRuleClasses(
           castList(ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }
 
-    Iterable<Object> values = castList(arguments.get("values"), Object.class);
+    Iterable<Object> values = castList(arguments.get(VALUES_ARG), Object.class);
     if (!Iterables.isEmpty(values)) {
       builder.allowedValues(new AllowedValueSet(values));
     }
 
-    if (containsNonNoneKey(arguments, "providers")) {
-      builder.mandatoryProviders(castList(arguments.get("providers"), String.class));
+    if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
+      builder.mandatoryProviders(castList(arguments.get(PROVIDERS_ARG), String.class));
     }
 
-    if (containsNonNoneKey(arguments, "cfg")) {
-      builder.cfg((ConfigurationTransition) arguments.get("cfg"));
+    if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
+      builder.cfg((ConfigurationTransition) arguments.get(CONFIGURATION_ARG));
     }
     return builder;
   }
@@ -184,14 +200,15 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = Integer.class,
         defaultValue = "0",
         doc = DEFAULT_DOC + " If not specified, default is 0."
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
       @Param(
-        name = "values",
+        name = VALUES_ARG,
         type = SkylarkList.class,
         generic1 = Integer.class,
         defaultValue = "[]",
@@ -212,7 +229,8 @@ public final class SkylarkAttr {
             throws EvalException {
           // TODO(bazel-team): Replace literal strings with constants.
           return createAttribute(
-              EvalUtils.optionMap("default", defaultInt, "mandatory", mandatory, "values", values),
+              EvalUtils.optionMap(
+                  DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.INTEGER,
               ast,
               env);
@@ -226,14 +244,15 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = String.class,
         defaultValue = "''",
         doc = DEFAULT_DOC + " If not specified, default is \"\"."
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
       @Param(
-        name = "values",
+        name = VALUES_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
@@ -254,7 +273,7 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default", defaultString, "mandatory", mandatory, "values", values),
+                  DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.STRING,
               ast,
               env);
@@ -272,7 +291,7 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = Label.class,
         callbackEnabled = true,
         noneable = true,
@@ -282,19 +301,24 @@ public final class SkylarkAttr {
                 + " If not specified, default is None. "
                 + "Use the <code>Label</code> function to specify a default value."
       ),
-      @Param(name = "executable", type = Boolean.class, defaultValue = "False", doc = EXECUTABLE_DOC
-      ),
-      @Param(name = "allow_files", defaultValue = "False", doc = ALLOW_FILES_DOC),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
       @Param(
-        name = "providers",
+        name = EXECUTABLE_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = EXECUTABLE_DOC
+      ),
+      @Param(name = ALLOW_FILES_ARG, defaultValue = "False", doc = ALLOW_FILES_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(
+        name = PROVIDERS_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
         doc = "mandatory providers every dependency has to have"
       ),
       @Param(
-        name = "allow_rules",
+        name = ALLOW_RULES_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         noneable = true,
@@ -302,7 +326,7 @@ public final class SkylarkAttr {
         doc = ALLOW_RULES_DOC
       ),
       @Param(
-        name = "single_file",
+        name = SINGLE_FILE_ARG,
         type = Boolean.class,
         defaultValue = "False",
         doc =
@@ -310,7 +334,7 @@ public final class SkylarkAttr {
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
-        name = "cfg",
+        name = CONFIGURATION_ARG,
         type = ConfigurationTransition.class,
         noneable = true,
         defaultValue = "None",
@@ -336,21 +360,21 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default",
+                  DEFAULT_ARG,
                   defaultO,
-                  "executable",
+                  EXECUTABLE_ARG,
                   executable,
-                  "allow_files",
+                  ALLOW_FILES_ARG,
                   allowFiles,
-                  "mandatory",
+                  MANDATORY_ARG,
                   mandatory,
-                  "providers",
+                  PROVIDERS_ARG,
                   providers,
-                  "allow_rules",
+                  ALLOW_RULES_ARG,
                   allowRules,
-                  "single_file",
+                  SINGLE_FILE_ARG,
                   singleFile,
-                  "cfg",
+                  CONFIGURATION_ARG,
                   cfg),
               Type.LABEL,
               ast,
@@ -365,14 +389,16 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalPositionals = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
         doc = DEFAULT_DOC + " If not specified, default is []."
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC)
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -388,7 +414,7 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default", defaultList, "mandatory", mandatory, "non_empty", nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.STRING_LIST,
               ast,
               env);
@@ -402,14 +428,16 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalPositionals = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = Integer.class,
         defaultValue = "[]",
         doc = DEFAULT_DOC + " If not specified, default is []."
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC)
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -425,7 +453,7 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default", defaultList, "mandatory", mandatory, "non_empty", nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.INTEGER_LIST,
               ast,
               env);
@@ -441,7 +469,7 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = Label.class,
         callbackEnabled = true,
@@ -452,12 +480,12 @@ public final class SkylarkAttr {
                 + "Use the <code>Label</code> function to specify a default value."
       ),
       @Param(
-        name = "allow_files", // bool or FileType filter
+        name = ALLOW_FILES_ARG, // bool or FileType filter
         defaultValue = "False",
         doc = ALLOW_FILES_DOC
       ),
       @Param(
-        name = "allow_rules",
+        name = ALLOW_RULES_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         noneable = true,
@@ -465,23 +493,25 @@ public final class SkylarkAttr {
         doc = ALLOW_RULES_DOC
       ),
       @Param(
-        name = "providers",
+        name = PROVIDERS_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
         doc = "mandatory providers every dependency has to have"
       ),
       @Param(
-        name = "flags",
+        name = FLAGS_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
         doc = FLAGS_DOC
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      ),
       @Param(
-        name = "cfg",
+        name = CONFIGURATION_ARG,
         type = ConfigurationTransition.class,
         noneable = true,
         defaultValue = "None",
@@ -507,21 +537,21 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default",
+                  DEFAULT_ARG,
                   defaultList,
-                  "allow_files",
+                  ALLOW_FILES_ARG,
                   allowFiles,
-                  "allow_rules",
+                  ALLOW_RULES_ARG,
                   allowRules,
-                  "providers",
+                  PROVIDERS_ARG,
                   providers,
-                  "flags",
+                  FLAGS_ARG,
                   flags,
-                  "mandatory",
+                  MANDATORY_ARG,
                   mandatory,
-                  "non_empty",
+                  NON_EMPTY_ARG,
                   nonEmpty,
-                  "cfg",
+                  CONFIGURATION_ARG,
                   cfg),
               Type.LABEL_LIST,
               ast,
@@ -535,8 +565,9 @@ public final class SkylarkAttr {
     objectType = SkylarkAttr.class,
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
-      @Param(name = "default", type = Boolean.class, defaultValue = "False", doc = DEFAULT_DOC),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC)
+      @Param(name = DEFAULT_ARG, type = Boolean.class, defaultValue = "False", doc = DEFAULT_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -547,7 +578,7 @@ public final class SkylarkAttr {
             Boolean defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           return createAttribute(
-              EvalUtils.optionMap("default", defaultO, "mandatory", mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               Type.BOOLEAN,
               ast,
               env);
@@ -564,13 +595,14 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = Label.class,
         noneable = true,
         defaultValue = "None",
         doc = DEFAULT_DOC
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC)
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -581,7 +613,7 @@ public final class SkylarkAttr {
             Object defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           return createAttribute(
-              EvalUtils.optionMap("default", defaultO, "mandatory", mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               Type.OUTPUT,
               ast,
               env);
@@ -597,14 +629,16 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       @Param(
-        name = "default",
+        name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = Label.class,
         defaultValue = "[]",
         doc = DEFAULT_DOC
       ),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC)
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -620,7 +654,7 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default", defaultList, "mandatory", mandatory, "non_empty", nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.OUTPUT_LIST,
               ast,
               env);
@@ -635,9 +669,11 @@ public final class SkylarkAttr {
     objectType = SkylarkAttr.class,
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
-      @Param(name = "default", type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC),
-      @Param(name = "non_empty", type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC)
+      @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -653,7 +689,7 @@ public final class SkylarkAttr {
             throws EvalException {
           return createAttribute(
               EvalUtils.optionMap(
-                  "default", defaultO, "mandatory", mandatory, "non_empty", nonEmpty),
+                  DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.STRING_DICT,
               ast,
               env);
@@ -668,8 +704,9 @@ public final class SkylarkAttr {
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
       // TODO(bazel-team): ensure this is the correct default value
-      @Param(name = "default", defaultValue = "None", noneable = true, doc = DEFAULT_DOC),
-      @Param(name = "mandatory", type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC)
+      @Param(name = DEFAULT_ARG, defaultValue = "None", noneable = true, doc = DEFAULT_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      )
     },
     useAst = true,
     useEnvironment = true
@@ -680,7 +717,7 @@ public final class SkylarkAttr {
             Object defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           return createAttribute(
-              EvalUtils.optionMap("default", defaultO, "mandatory", mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               Type.LICENSE,
               ast,
               env);
