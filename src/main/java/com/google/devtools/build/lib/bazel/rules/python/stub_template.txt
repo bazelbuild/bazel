@@ -2,4 +2,4 @@
 
 STUBPATH=$(%python_binary% -c "import os.path; print(os.path.realpath('$0'));")
 export PYTHONPATH=$STUBPATH.runfiles
-exec %python_binary% ${PYTHONPATH}/%main% $@
+exec %python_binary% ${PYTHONPATH}/%main% "$@"
