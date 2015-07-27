@@ -15,8 +15,9 @@ The Windows build process uses MSYS2, a POSIX-like environment on Windows. Grab
 the [installer](http://sourceforge.net/projects/msys2/files/Base/x86_64/)
 or an archived version and install.
 
-Next, open an MSYS2 shell (not the mingw32 or the mingw64 shell) either through
-a shortcut or by running the `msys2_shell.bat`. Install the dependencies:
+Next, open an MSYS2 shell (using the mingw32 or the mingw64 shell has not been
+ tested) either through a shortcut or by running the `msys2_shell.bat`. Install
+ the dependencies:
 
 ```bash
 pacman -S gcc mingw-w64-x86_64-gcc zip unzip git
