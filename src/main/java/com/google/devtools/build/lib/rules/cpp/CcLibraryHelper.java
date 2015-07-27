@@ -185,7 +185,6 @@ public final class CcLibraryHelper {
   private boolean emitDynamicLibrary = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
-  private boolean emitHeaderTargetModuleMaps = false;
   
   private final FeatureConfiguration featureConfiguration;
 
@@ -569,14 +568,6 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Sets whether to emit the transitive module map references of a public library headers target.
-   */
-  public CcLibraryHelper setEmitHeaderTargetModuleMaps(boolean emitHeaderTargetModuleMaps) {
-    this.emitHeaderTargetModuleMaps = emitHeaderTargetModuleMaps;
-    return this;
-  }
-
-  /**
    * Create the C++ compile and link actions, and the corresponding C++-related providers.
    */
   public Info build() {
@@ -802,13 +793,6 @@ public final class CcLibraryHelper {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     if (toolchain != null) {
       result.add(toolchain.getCppCompilationContext().getCppModuleMap());
-    }
-
-    if (emitHeaderTargetModuleMaps) {
-      for (HeaderTargetModuleMapProvider provider : AnalysisUtils.getProviders(
-          deps, HeaderTargetModuleMapProvider.class)) {
-        result.addAll(provider.getCppModuleMaps());
-      }
     }
 
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());

@@ -781,10 +781,6 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("alwayslink", BOOLEAN).
               nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
-          // TODO(bazel-team): Remove this attribute?
-          .add(attr("implements", LABEL_LIST)
-              .allowedFileTypes()
-              .allowedRuleClasses("cc_public_library$headers"))
           .override(attr("linkstatic", BOOLEAN).value(false)
               .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
           .build();

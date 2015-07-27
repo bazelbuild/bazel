@@ -272,7 +272,7 @@
 
 <h3>Cycles in the dependency graph</h3>
 <p>
-  Build dependency graphs should be acyclic, but in fact cycles do occur.
+  Build dependency graphs should be acyclic.
 
   The algorithms used by the query language are intended for use in
   acyclic graphs, but are robust against cycles.  The details of how
@@ -1483,7 +1483,6 @@ genrule(
 <p>
   All nodes in a cycle are considered of equal rank.  (Most graphs are
   acyclic, but cycles do occur
-
   simply because BUILD files contain erroneous cycles.)
 </p>
 
