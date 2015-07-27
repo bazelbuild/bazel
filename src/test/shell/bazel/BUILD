@@ -8,6 +8,31 @@ genrule(
     cmd = "cp $< $@",
 )
 
+config_setting(
+    name = "darwin",
+    values = {"host_cpu": "darwin"},
+)
+
+filegroup(
+    name = "objc-deps",
+    testonly = 1,
+    srcs = select({
+        ":darwin": [
+            "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
+            "//src/objc_tools/momczip:momczip_deploy.jar",
+            "//src/objc_tools/plmerge:plmerge_deploy.jar",
+            "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
+            "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar",
+            "//src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar",
+            "//src/tools/xcode/ibtoolwrapper",
+            "//src/tools/xcode/realpath",
+            "//src/tools/xcode/stdredirect:StdRedirect.dylib",
+            "//third_party/iossim",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
 filegroup(
     name = "test-deps",
     testonly = 1,
@@ -15,6 +40,7 @@ filegroup(
         "test-setup.sh",
         "testenv.sh",
         ":langtools-copy",
+        ":objc-deps",
         "//examples:srcs",
         "//external:bootclasspath",
         "//external:extdir",
@@ -23,19 +49,9 @@ filegroup(
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
-        "//src/objc_tools/momczip:momczip_deploy.jar",
-        "//src/objc_tools/plmerge:plmerge_deploy.jar",
-        "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
         "//src/test/shell:bashunit",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar",
-        "//src/tools/xcode/ibtoolwrapper",
-        "//src/tools/xcode/realpath",
-        "//src/tools/xcode/stdredirect:StdRedirect.dylib",
         "//third_party:srcs",
         "//third_party/ijar",
-        "//third_party/iossim",
         "//third_party/java/jdk/langtools:srcs",
         "//tools:srcs",
     ],
