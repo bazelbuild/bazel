@@ -17,9 +17,8 @@ These build rules are used for building [Rust][rust] projects with Bazel.
 <a name="setup"></a>
 ## Setup
 
-Install Rust following the instructions on the [Rust website][rust]. The version
-of Rust currently supported by these build rules is Rust 1.0.0. These build
-rules also assume that Rust is installed either either `/usr` or `/usr/local`.
+To use the Rust rules, simply copy the contents of `rust.WORKSPACE` to your
+`WORKSPACE` file.
 
 <a name="basic-example"></a>
 ## Basic Example

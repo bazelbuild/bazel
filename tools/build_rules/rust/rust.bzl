@@ -112,6 +112,50 @@ def _get_features_flags(features):
     features_flags += [" --cfg feature=\\\"" + feature + "\\\""]
   return features_flags
 
+def _build_rustc_command(ctx, crate_type, src, output_dir, depinfo,
+                         extra_flags=[]):
+  """
+  Builds the rustc command
+  """
+
+  # Paths to the Rust compiler and standard libraries.
+  rustc_path = ctx.file._rustc.path
+  rustlib_path = ctx.files._rustlib[0].dirname
+
+  # Paths to cc (for linker) and ar
+  cpp_fragment = ctx.configuration.fragment(cpp)
+  cc = cpp_fragment.compiler_executable
+  ar = cpp_fragment.ar_executable
+  # Currently, the CROSSTOOL config for darwin sets ar to "libtool". Because
+  # rust uses ar-specific flags, use /usr/bin/ar in this case.
+  # TODO(dzc): This is not ideal. Remove this workaround once ar_executable
+  # always points to an ar binary.
+  ar_str = "%s" % ar
+  if ar_str.find("libtool", 0) != -1:
+    ar = "/usr/bin/ar"
+
+  # Construct features flags
+  features_flags = _get_features_flags(ctx.attr.features)
+
+  return " ".join([
+      "set -e;",
+      " ".join(depinfo.setup_cmd),
+      rustc_path + " " + src,
+      "--crate-name " + ctx.label.name,
+      "--crate-type " + crate_type,
+      "-g",
+      "--codegen ar=%s" % ar,
+      "--codegen linker=%s" % cc,
+      "-L all=" + rustlib_path,
+      " ".join(extra_flags),
+      " ".join(features_flags),
+      "--out-dir " + output_dir,
+      "--emit=dep-info,link",
+      " ".join(depinfo.search_flags),
+      " ".join(depinfo.link_flags),
+      " ".join(ctx.attr.rustc_flags),
+  ])
+
 def _rust_library_impl(ctx):
   """
   Implementation for rust_library Skylark rule.
@@ -134,24 +178,14 @@ def _rust_library_impl(ctx):
 
   # Dependencies
   depinfo = _setup_deps(ctx.attr.deps, ctx.label.name, output_dir)
-  features_flags = _get_features_flags(ctx.attr.features)
 
   # Build rustc command
-  # TODO(dzc): There is a tools dependency on rustc. Use a remote repository
-  # mechanism to fetch rustc.
-  cmd = (
-      "set -e;export PATH=/usr/bin:/usr/local/bin:$PATH;" +
-      " " + " ".join(depinfo.setup_cmd) +
-      "rustc " + lib_rs +
-      " --crate-name " + ctx.label.name +
-      " --crate-type lib -g" +
-      " " + " ".join(features_flags) +
-      " --out-dir " + output_dir +
-      " --emit=dep-info,link" +
-      " " + " ".join(depinfo.search_flags) +
-      " " + " ".join(depinfo.link_flags) +
-      " " + " ".join(ctx.attr.rustc_flags)
-  )
+  cmd = _build_rustc_command(
+      ctx = ctx,
+      crate_type = "lib",
+      src = lib_rs,
+      output_dir = output_dir,
+      depinfo = depinfo)
 
   # Compile action.
   ctx.action(
@@ -191,25 +225,15 @@ def _rust_binary_impl_common(ctx, extra_flags = []):
 
   # Dependencies
   depinfo = _setup_deps(ctx.attr.deps, ctx.label.name, output_dir)
-  features_flags = _get_features_flags(ctx.attr.features)
 
   # Build rustc command.
-  # TODO(dzc): There is a tools dependency on rustc. Use a remote repository
-  # mechanism to fetch rustc.
-  cmd = (
-      "set -e;export PATH=/usr/bin:/usr/local/bin:$PATH;" +
-      " " + " ".join(depinfo.setup_cmd) +
-      "rustc " + main_rs +
-      " --crate-name " + ctx.label.name +
-      " --crate-type bin -g" +
-      " " + " ".join(extra_flags) +
-      " " + " ".join(features_flags) +
-      " --out-dir " + output_dir +
-      " --emit=dep-info,link" +
-      " " + " ".join(depinfo.search_flags) +
-      " " + " ".join(depinfo.link_flags) +
-      " " + " ".join(ctx.attr.rustc_flags)
-  )
+  cmd = _build_rustc_command(
+      ctx = ctx,
+      crate_type = "bin",
+      src = main_rs,
+      output_dir = output_dir,
+      depinfo = depinfo,
+      extra_flags = extra_flags)
 
   # Compile action.
   ctx.action(
@@ -239,6 +263,11 @@ _rust_common_attrs = {
     "deps": attr.label_list(),
     "features": attr.string_list(),
     "rustc_flags": attr.string_list(),
+    "_rustc": attr.label(
+        default = Label("//tools/rust:rustc"),
+        executable = True,
+        single_file = True),
+    "_rustlib": attr.label(default = Label("//tools/rust:rustlib")),
 }
 
 rust_library = rule(
