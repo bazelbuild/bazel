@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.syntax.Label;
@@ -913,9 +914,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
       // some way -- either we analyzed a new target or we invalidated an old one.
+      long startTime = Profiler.nanoTimeMaybe();
       skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupValues());
       skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
       // The invalidated configured targets flag will be reset later in the evaluate() call.
+
+      long duration = Profiler.nanoTimeMaybe() - startTime;
+      if (duration > 0) {
+        LOG.info("Spent " + (duration / 1000 / 1000) + " ms discovering artifact conflicts");
+      }
     }
     return skyframeActionExecutor.badActions();
   }
