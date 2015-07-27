@@ -25,18 +25,20 @@ function query() {
 }
 
 # Compile bazel
-([ -f "output/bazel" ] \
-  && [ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
+[ -f "output/bazel" ] || ./compile.sh compile >&2 || exit $?
+([ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
   && [ -f "tools/jdk/ijar" ] \
   && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
-  && [ -f "tools/jdk/GenClass_deploy.jar" ] \
-  && [ -e "tools/jdk/jdk" ]) || ./compile.sh >&2 || exit $?
+  && [ -f "tools/jdk/GenClass_deploy.jar" ]) \
+  || ./compile.sh tools,init output/bazel >&2 \
+  || exit $?
 
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.
 # xcode and android tools do not work out of the box.
 ./output/bazel build -- //src/... //third_party/... \
-  -//third_party/ijar/test/... -//src/tools/{xcode,android}/... >&2 || exit $?
+  -//third_party/ijar/test/... -//src/tools/{xcode,android,dash}/... >&2 \
+  || exit $?
 
 # Source roots.
 JAVA_PATHS="$(find src -name "*.java" | sed "s|/com/google/.*$||" | sort -u)"
