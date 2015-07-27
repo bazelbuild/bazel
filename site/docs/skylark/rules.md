@@ -17,11 +17,11 @@ the attributes and their type when you define a rule.
 
 ```python
 sum = rule(
-  implementation=impl,
-  attrs = {
-      "number": attr.int(default = 1),
-      "deps": attr.label_list(),
-  },
+    implementation=impl,
+    attrs = {
+        "number": attr.int(default = 1),
+        "deps": attr.label_list(),
+    },
 )
 ```
 
@@ -59,8 +59,8 @@ def impl(ctx):
   )
 
 my_rule = rule(
-  implementation=impl,
-  ...
+    implementation=impl,
+    ...
 )
 ```
 
@@ -85,12 +85,12 @@ attribute where `x` is declared:
 
 ```python
 my_rule(
-    name = "x"
+    name = "x",
 )
 
 my_rule(
     name = "y",
-    deps = [":x"]
+    deps = [":x"],
 )
 ```
 
@@ -103,11 +103,11 @@ def impl(ctx):
   ...
 
 my_rule = rule(
-  implementation=impl,
-  attrs = {
-      "deps": attr.label_list()
-  }
-  ...
+    implementation=impl,
+    attrs = {
+        "deps": attr.label_list(),
+    },
+    ...
 )
 ```
 
@@ -294,12 +294,12 @@ def rule_implementation(ctx):
 
   runfiles = ctx.runfiles(
       # Add some files manually.
-      files = [ctx.file.some_data_file]
+      files = [ctx.file.some_data_file],
       # Add transitive files from dependencies manually.
-      transitive_files = transitive_runfiles
+      transitive_files = transitive_runfiles,
       # Collect runfiles from the common locations: transitively from srcs,
       # deps and data attributes.
-      collect_default = True
+      collect_default = True,
   )
   # Add a field named "runfiles" to the return struct in order to actually
   # create the symlink tree.
