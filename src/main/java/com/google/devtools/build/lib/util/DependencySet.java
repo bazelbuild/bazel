@@ -112,7 +112,12 @@ public final class DependencySet {
    * Reads a dotd file into this DependencySet instance.
    */
   public DependencySet read(Path dotdFile) throws IOException {
-    return process(FileSystemUtils.readContent(dotdFile));
+    byte[] content = FileSystemUtils.readContent(dotdFile);
+    try {
+      return process(content);
+    } catch (IOException e) {
+      throw new IOException("Error processing " + dotdFile + ": " + e.getMessage());
+    }
   }
 
   /**
@@ -121,7 +126,10 @@ public final class DependencySet {
    * <p>Performance-critical! In large C++ builds there are lots of .d files to read, and some of
    * them reach into hundreds of kilobytes.
    */
-  public DependencySet process(byte[] content) {
+  public DependencySet process(byte[] content) throws IOException {
+    if (content.length > 0 && content[content.length - 1] != '\n') {
+      throw new IOException("File does not end in a newline");
+    }
     // true if there is a CR in the input.
     boolean cr = content.length > 0 && content[0] == '\r';
     // true if there is more than one line in the input, not counting \-wrapped lines.

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -27,6 +28,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.Collection;
 
 @RunWith(JUnit4.class)
@@ -175,6 +178,20 @@ public class DependencySetTest {
         " " + file3 + " ");
     MoreAsserts.assertSameContents(Sets.newHashSet(file1, file2, file3),
                        newDependencySet().read(dotd).getDependencies());
+  }
+
+  @Test
+  public void dotDParser_errorOnNoTrailingNewline() throws Exception {
+    PathFragment file1 = new PathFragment("/usr/local/blah/blah/genhello/hello.cc");
+    Path dotd = scratch.file("/tmp/foo.d");
+    FileSystemUtils.writeContent(
+        dotd, ("hello.o: \\\n " + file1).getBytes(Charset.forName("UTF-8")));
+    try {
+      newDependencySet().read(dotd);
+      fail();
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("File does not end in a newline");
+    }
   }
 
   @Test
