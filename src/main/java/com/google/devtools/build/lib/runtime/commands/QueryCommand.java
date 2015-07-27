@@ -128,7 +128,11 @@ public final class QueryCommand implements BlazeCommand {
       result = env.evaluateQuery(expr);
     } catch (QueryException | InterruptedException e) {
       // Keep consistent with reportBuildFileError()
-      runtime.getReporter().handle(Event.error(e.getMessage()));
+      runtime
+          .getReporter()
+          // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
+          // sure no null error messages ever get in.
+          .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
       return ExitCode.ANALYSIS_FAILURE;
     }
 
