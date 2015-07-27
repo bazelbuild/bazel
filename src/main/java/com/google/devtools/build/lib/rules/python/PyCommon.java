@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.PythonInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -340,6 +342,56 @@ public final class PyCommon {
         ruleContext.getPrerequisites("deps", Mode.TARGET),
         ruleContext.getPrerequisites("data", Mode.DATA)));
   }
+
+  protected static final ResourceSet PY_COMPILE_RESOURCE_SET =
+      ResourceSet.createWithRamCpuIo(10 /* MB */, 1 /* CPU */, 0.0 /* IO */);
+
+  /**
+   * Utility function to compile multiple .py files to .pyc files.
+   */
+  public Collection<Artifact> createPycFiles(
+      Iterable<Artifact> sources, PathFragment pythonBinary) {
+    List<Artifact> pycFiles = new ArrayList<>();
+    for (Artifact source : sources) {
+      Artifact pycFile = createPycFile(source, pythonBinary);
+      pycFiles.add(pycFile);
+    }
+    return ImmutableList.copyOf(pycFiles);
+  }
+
+  /**
+   * Given a single .py source artifact generate a .pyc file.
+   */
+  public Artifact createPycFile(
+      Artifact source, PathFragment pythonBinary) {
+    Artifact output =
+        ruleContext.getRelatedArtifact(source.getRootRelativePath(), ".pyc");
+
+    // TODO(nnorwitz): Consider adding PYTHONHASHSEED=0 to the environment.
+    // This will make the .pyc more stable, though it will still be non-deterministic.
+    // The timestamp is zeroed out above.
+    SpawnAction.Builder builder = new SpawnAction.Builder()
+        .setResources(PY_COMPILE_RESOURCE_SET)
+        .setExecutable(pythonBinary)
+        .setProgressMessage("Compiling Python")
+        .addInputArgument(
+            ruleContext.getPrerequisiteArtifact("$python_precompile", Mode.HOST))
+        .setMnemonic("PyCompile");
+
+    TransitiveInfoCollection pythonTarget =
+        ruleContext.getPrerequisite(":host_python2_runtime", Mode.HOST);
+    if (pythonTarget != null) {
+      builder.addInputs(pythonTarget
+          .getProvider(FileProvider.class)
+          .getFilesToBuild());
+    }
+
+    builder.addInputArgument(source);
+    builder.addOutputArgument(output);
+    ruleContext.registerAction(builder.build(ruleContext));
+    return output;
+  }
+
 
   /**
    * Returns true if this target has an .so file in its transitive dependency closure.

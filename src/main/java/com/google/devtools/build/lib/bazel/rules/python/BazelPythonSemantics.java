@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import java.util.Collection;
 
 /**
  * Functionality specific to the Python rules in Bazel.
@@ -52,6 +55,12 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public InstrumentationSpec getCoverageInstrumentationSpec() {
     return PYTHON_COLLECTION_SPEC;
+  }
+
+  @Override
+  public Collection<Artifact> precompiledPythonFiles(
+      RuleContext ruleContext, Collection<Artifact> sources, PyCommon common) {
+    return ImmutableList.of();
   }
 
   @Override

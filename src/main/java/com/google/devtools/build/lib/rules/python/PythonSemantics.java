@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+
+import java.util.Collection;
 
 /**
  * Pluggable semantics for Python rules.
@@ -45,6 +48,12 @@ public interface PythonSemantics {
    * Returns the coverage instrumentation specification to be used in Python rules.
    */
   InstrumentationSpec getCoverageInstrumentationSpec();
+
+  /**
+   * Utility function to compile multiple .py files to .pyc files, if required.
+   */
+  Collection<Artifact> precompiledPythonFiles(
+      RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
 
   /**
    * Create the actual executable artifact.

@@ -28,6 +28,9 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * An implementation for the {@code py_library} rule.
  */
@@ -45,8 +48,13 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     PyCommon common = new PyCommon(ruleContext);
     common.initCommon(common.getDefaultPythonVersion());
     common.validatePackageName();
+
+    List<Artifact> srcs = common.validateSrcs();
+    List<Artifact> allOutputs = new ArrayList<>(srcs);
+    allOutputs.addAll(semantics.precompiledPythonFiles(ruleContext, srcs, common));
+
     NestedSet<Artifact> filesToBuild =
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, common.validateSrcs());
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);
     common.addPyExtraActionPseudoAction();
 
     CcLinkParamsStore ccLinkParamsStore = new CcLinkParamsStore() {
@@ -79,4 +87,3 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 }
-
