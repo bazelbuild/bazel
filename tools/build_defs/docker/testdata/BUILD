@@ -130,3 +130,100 @@ docker_build(
         "/usr/bin/java": "/bar",
     },
 )
+
+# Trying with the 'top' file
+py_binary(
+    name = "strip_top",
+    srcs = ["strip_top.py"],
+    deps = ["//third_party/bazel/tools/build_defs/docker:archive"],
+)
+
+[genrule(
+    name = "notop_" + n,
+    srcs = [":" + n + ".tar"],
+    outs = ["notop_%s.tar" % n],
+    cmd = "$(location :strip_top) $< $@",
+    tools = [":strip_top"],
+) for n in [
+    "files_base",
+    "tar_base",
+    "base_with_entrypoint",
+    "base_with_volume",
+    "generated_tarball",
+]]
+
+docker_build(
+    name = "notop_files_with_files_base",
+    base = ":notop_files_base",
+    files = ["bar"],
+)
+
+docker_build(
+    name = "notop_tar_with_tar_base",
+    base = ":notop_tar_base",
+    tars = ["two.tar"],
+)
+
+docker_build(
+    name = "notop_files_with_tar_base",
+    base = ":notop_tar_base",
+    files = ["bar"],
+)
+
+docker_build(
+    name = "notop_tar_with_files_base",
+    base = ":notop_files_base",
+    tars = ["two.tar"],
+)
+
+docker_build(
+    name = "notop_derivative_with_shadowed_cmd",
+    base = ":notop_base_with_entrypoint",
+    cmd = ["shadowed-arg"],
+    files = ["foo"],
+)
+
+docker_build(
+    name = "notop_derivative_with_cmd",
+    base = ":notop_derivative_with_shadowed_cmd",
+    cmd = [
+        "arg1",
+        "arg2",
+    ],
+    ports = ["80/tcp"],
+    tars = ["one.tar"],
+)
+
+docker_build(
+    name = "notop_derivative_with_volume",
+    base = ":notop_base_with_volume",
+    volumes = [
+        "/asdf",
+        "/blah",
+    ],
+)
+
+docker_build(
+    name = "notop_with_env",
+    base = ":notop_base_with_volume",
+    env = {
+        "foo": "/asdf",
+        "bar": "blah blah blah",
+    },
+)
+
+docker_build(
+    name = "notop_with_double_env",
+    base = ":notop_with_env",
+    env = {
+        "baz": "${foo} $bar",
+    },
+)
+
+docker_build(
+    name = "notop_link_with_files_base",
+    base = ":notop_files_base",
+    symlinks = {
+        "/usr/bin/java": "/bar",
+    },
+)

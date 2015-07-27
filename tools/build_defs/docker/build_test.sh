@@ -56,6 +56,11 @@ function check_no_property() {
 
   tar xOf "${test_data}" "./${layer}/json" >$TEST_log
   expect_not_log "\"${property}\":"
+
+  # notop variant
+  test_data="${TEST_DATA_DIR}/notop_${tarball}.tar"
+  tar xOf "${test_data}" "./${layer}/json" >$TEST_log
+  expect_not_log "\"${property}\":"
 }
 
 function check_size() {
@@ -71,26 +76,41 @@ function check_parent() {
 }
 
 function check_entrypoint() {
-  check_property Entrypoint "${@}"
+  input="$1"
+  shift
+  check_property Entrypoint "${input}" "${@}"
+  check_property Entrypoint "notop_${input}" "${@}"
 }
 
 function check_cmd() {
-  check_property Cmd "${@}"
+  input="$1"
+  shift
+  check_property Cmd "${input}" "${@}"
+  check_property Cmd "notop_${input}" "${@}"
 }
 
 function check_ports() {
-  check_property ExposedPorts "${@}"
+  input="$1"
+  shift
+  check_property ExposedPorts "${input}" "${@}"
+  check_property ExposedPorts "${input}" "${@}"
 }
 
 function check_volumes() {
-  check_property Volumes "${@}"
+  input="$1"
+  shift
+  check_property Volumes "${input}" "${@}"
+  check_property Volumes "notop_${input}" "${@}"
 }
 
 function check_env() {
-  check_property Env "${@}"
+  input="$1"
+  shift
+  check_property Env "${input}" "${@}"
+  check_property Env "notop_${input}" "${@}"
 }
 
-function check_layers() {
+function check_layers_aux() {
   local input=${1}
   shift 1
   local expected_layers=(${*})
@@ -145,6 +165,13 @@ function check_layers() {
     index=$((index + 1))
     parent=$layer
   done
+}
+
+function check_layers() {
+  local input=$1
+  shift
+  check_layers_aux "$input" "$@"
+  check_layers_aux "notop_$input" "$@"
 }
 
 function test_files_base() {
