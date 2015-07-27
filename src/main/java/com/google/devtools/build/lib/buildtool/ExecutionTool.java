@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.analysis.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -339,8 +338,7 @@ public class ExecutionTool {
       BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
       BuildConfigurationCollection configurations,
       ImmutableMap<PathFragment, Path> packageRoots)
-      throws BuildFailedException, InterruptedException, AbruptExitException, TestExecException,
-      ViewCreationFailedException {
+      throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(packageRoots, configurations);
 
@@ -478,8 +476,7 @@ public class ExecutionTool {
   }
 
   private void prepare(ImmutableMap<PathFragment, Path> packageRoots,
-      BuildConfigurationCollection configurations)
-      throws ViewCreationFailedException {
+      BuildConfigurationCollection configurations) throws ExecutorInitException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
@@ -494,13 +491,12 @@ public class ExecutionTool {
     try {
       runtime.getBinTools().setupBuildTools();
     } catch (ExecException e) {
-      throw new ExecutorInitException("Tools symlink creation failed: "
-          + e.getMessage() + "; build aborted", e);
+      throw new ExecutorInitException("Tools symlink creation failed", e);
     }
   }
 
   private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots,
-      BuildConfigurationCollection configurations) throws ViewCreationFailedException {
+      BuildConfigurationCollection configurations) throws ExecutorInitException {
     try {
       FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
           new String[] { ".", "_", Constants.PRODUCT_NAME + "-"});
@@ -510,28 +506,26 @@ public class ExecutionTool {
       }
       FileSystemUtils.plantLinkForest(packageRoots, getExecRoot());
     } catch (IOException e) {
-      throw new ViewCreationFailedException("Source forest creation failed: " + e.getMessage()
-          + "; build aborted", e);
+      throw new ExecutorInitException("Source forest creation failed", e);
     }
   }
 
-  private void createActionLogDirectory() throws ViewCreationFailedException {
+  private void createActionLogDirectory() throws ExecutorInitException {
     Path directory = runtime.getDirectories().getActionConsoleOutputDirectory();
     try {
       if (directory.exists()) {
         FileSystemUtils.deleteTree(directory);
       }
       directory.createDirectory();
-    } catch (IOException ex) {
-      throw new ViewCreationFailedException("couldn't delete action output directory: " +
-          ex.getMessage());
+    } catch (IOException e) {
+      throw new ExecutorInitException("Couldn't delete action output directory", e);
     }
   }
 
   /**
    * Prepare for a local output build.
    */
-  private void startLocalOutputBuild() throws BuildFailedException {
+  private void startLocalOutputBuild() throws ExecutorInitException {
     long startTime = Profiler.nanoTimeMaybe();
 
     try {
@@ -539,15 +533,17 @@ public class ExecutionTool {
       Path localOutputPath = runtime.getDirectories().getLocalOutputPath();
 
       if (outputPath.isSymbolicLink()) {
-        // Remove the existing symlink first.
-        outputPath.delete();
-        if (localOutputPath.exists()) {
-          // Pre-existing local output directory. Move to outputPath.
-          localOutputPath.renameTo(outputPath);
+        try {
+          // Remove the existing symlink first.
+          outputPath.delete();
+          if (localOutputPath.exists()) {
+            // Pre-existing local output directory. Move to outputPath.
+            localOutputPath.renameTo(outputPath);
+          }
+        } catch (IOException e) {
+          throw new ExecutorInitException("Couldn't handle local output directory symlinks", e);
         }
       }
-    } catch (IOException e) {
-      throw new BuildFailedException(e.getMessage());
     } finally {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO,
           "Starting local output build");
