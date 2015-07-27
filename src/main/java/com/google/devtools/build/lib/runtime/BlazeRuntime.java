@@ -654,6 +654,11 @@ public final class BlazeRuntime {
             + "Blaze will now reset action cache data, causing a full rebuild"));
         actionCache = new CompactPersistentActionCache(getCacheDirectory(), clock);
       } finally {
+        long stopTime = Profiler.nanoTimeMaybe();
+        long duration = stopTime - startTime;
+        if (duration > 0) {
+          LOG.info("Spent " + (duration / 1000) + " ms loading persistent action cache");
+        }
         Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO, "Loading action cache");
       }
     }
