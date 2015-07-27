@@ -216,7 +216,7 @@ symlinks, entrypoint, cmd, env, ports, volumes)`
         <p>
           The directory structure from the files is preserved inside the
           docker image but a prefix path determined by `data_path`
-          is removed from the the directory structure. This path can
+          is removed from the directory structure. This path can
           be absolute from the workspace root if starting with a `/` or
           relative to the rule's directory. It is set to `.` by default.
         </p>
@@ -259,7 +259,7 @@ symlinks, entrypoint, cmd, env, ports, volumes)`
         <code>List of files, optional</code>
         <p>Debian package to install.</p>
         <p>
-          A list of debian package that will be installed in the docker image.
+          A list of debian packages that will be installed in the docker image.
         </p>
       </td>
     </tr>
