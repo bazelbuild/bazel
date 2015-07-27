@@ -657,7 +657,7 @@ public final class BlazeRuntime {
         long stopTime = Profiler.nanoTimeMaybe();
         long duration = stopTime - startTime;
         if (duration > 0) {
-          LOG.info("Spent " + (duration / 1000) + " ms loading persistent action cache");
+          LOG.info("Spent " + (duration / (1000 * 1000)) + " ms loading persistent action cache");
         }
         Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO, "Loading action cache");
       }
