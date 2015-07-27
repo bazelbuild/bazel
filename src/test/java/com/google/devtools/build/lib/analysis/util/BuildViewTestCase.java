@@ -907,7 +907,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
     return getIncludeArtifact(packageRelativePath, makeLabelAndConfiguration(owner));
   }
-  
+
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getIncludeDirectory()} corresponding to the package of {@code owner}.
@@ -919,7 +919,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         targetConfig.getIncludeDirectory(),
         owner);
   }
-  
+
   /**
    * @return a shared artifact at the binary-root relative path {@code rootRelativePath} owned by
    *         {@code owner}.
@@ -931,7 +931,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getDerivedArtifact(new PathFragment(rootRelativePath), targetConfig.getBinDirectory(),
         new ConfiguredTargetKey(owner));
   }
-  
+
   protected Action getGeneratingActionForLabel(String label) throws Exception {
     return getGeneratingAction(getFileConfiguredTarget(label).getArtifact());
   }
@@ -1326,6 +1326,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           StringUtil.joinEnglishList(ImmutableSet.copyOf(expected), "or", "'"), value);
   }
 
+  protected String getErrorMsgMandatoryProviderMissing(String offendingRule, String providerName) {
+    return String.format("'%s' does not have mandatory provider '%s'", offendingRule, providerName);
+  }
+
   /**
    * A stub analysis environment.
    */
@@ -1456,7 +1460,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     return artifact;
   }
-  
+
   /**
    * Retrieves an instance of {@code PseudoAction} that is shadowed by an extra action
    * @param targetLabel Label of the target with an extra action
