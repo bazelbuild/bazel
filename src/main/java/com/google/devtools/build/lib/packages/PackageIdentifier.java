@@ -123,6 +123,14 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     /**
      * Returns the repository name, with leading "{@literal @}" (or "" for the default repository).
      */
+    // TODO(bazel-team): Use this over toString()- easier to track its usage.
+    public String getName() {
+      return name;
+    }
+
+    /**
+     * Returns the repository name, with leading "{@literal @}" (or "" for the default repository).
+     */
     @Override
     public String toString() {
       return name;
