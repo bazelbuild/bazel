@@ -77,6 +77,7 @@ public final class ProjectFileSupport {
       } catch (OptionsParsingException e) {
         throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR);
       }
+      runtime.getEventBus().post(new GotProjectFileEvent(projectFile.getName()));
     }
   }
 
