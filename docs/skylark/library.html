@@ -294,45 +294,47 @@ A BUILD target. It is essentially a <code>struct</code> with the following field
 <ul></ul><hr><h2 id="modules.attr">attr</h2>
 Module for creating new attributes. They are only for use with the <code>rule</code> function.
 <ul><li><h3 id="modules.attr.bool">bool</h3>
-<code>Builder attr.bool(default=False, flags=[], mandatory=False, cfg=None)</code><br>
+<code>Builder attr.bool(default=False, mandatory=False)</code><br>
 Creates an attribute of type bool. Its default value is False.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.bool.default"><code>default (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: sets the default value of the attribute.
 	</li>
-	<li id="modules.attr.bool.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.bool.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
-	</li>
-	<li id="modules.attr.bool.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 <li><h3 id="modules.attr.int">int</h3>
-<code>Builder attr.int(default=0, flags=[], mandatory=False, values=[], cfg=None)</code><br>
+<code>Builder attr.int(default=0, mandatory=False, values=[])</code><br>
 Creates an attribute of type int.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.int.default"><code>default (int)</code>: sets the default value of the attribute. If not specified, default is 0.
 	</li>
-	<li id="modules.attr.int.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.int.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.int.values"><code>values (<a class="anchor" href="#modules.list">list</a> of ints)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
-	<li id="modules.attr.int.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
+</ul>
+<li><h3 id="modules.attr.int_list">int_list</h3>
+<code>Builder attr.int_list(default=[], mandatory=False, non_empty=False)</code><br>
+Creates an attribute of type list of ints
+<h4>Parameters</h4>
+<ul>
+	<li id="modules.attr.int_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of ints)</code>: sets the default value of the attribute. If not specified, default is [].
+	</li>
+	<li id="modules.attr.int_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	</li>
+	<li id="modules.attr.int_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
 	</li>
 </ul>
 <li><h3 id="modules.attr.label">label</h3>
-<code>Builder attr.label(default=None, executable=False, flags=[], allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)</code><br>
+<code>Builder attr.label(default=None, executable=False, allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)</code><br>
 Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.label.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: sets the default value of the attribute. If not specified, default is None. Use the <code>Label</code> function to specify a default value.
 	</li>
 	<li id="modules.attr.label.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the labels have to be executable. This means the label must refer to an executable file, or to a rule that outputs an executable file. Access the labels with <code>ctx.executable.&lt;attribute_name&gt;</code>.
-	</li>
-	<li id="modules.attr.label.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
 	</li>
 	<li id="modules.attr.label.allow_files"><code>allow_files</code>: whether File targets are allowed. Can be True, False (default), or a FileType filter.
 	</li>
@@ -370,95 +372,71 @@ Creates an attribute of type list of labels. See <a href="#modules.attr.label">l
 	</li>
 </ul>
 <li><h3 id="modules.attr.license">license</h3>
-<code>Builder attr.license(default=None, flags=[], mandatory=False, cfg=None)</code><br>
+<code>Builder attr.license(default=None, mandatory=False)</code><br>
 Creates an attribute of type license. Its default value is NO_LICENSE.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.license.default"><code>default</code>: sets the default value of the attribute.
 	</li>
-	<li id="modules.attr.license.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.license.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
-	</li>
-	<li id="modules.attr.license.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 <li><h3 id="modules.attr.output">output</h3>
-<code>Builder attr.output(default=None, flags=[], mandatory=False, cfg=None)</code><br>
+<code>Builder attr.output(default=None, mandatory=False)</code><br>
 Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.output.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: sets the default value of the attribute.
 	</li>
-	<li id="modules.attr.output.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.output.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
-	</li>
-	<li id="modules.attr.output.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 <li><h3 id="modules.attr.output_list">output_list</h3>
-<code>Builder attr.output_list(default=[], flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
+<code>Builder attr.output_list(default=[], mandatory=False, non_empty=False)</code><br>
 Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="#modules.attr.output">output</a> above for more information.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.output_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: sets the default value of the attribute.
 	</li>
-	<li id="modules.attr.output_list.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.output_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.output_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
 	</li>
-	<li id="modules.attr.output_list.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
-	</li>
 </ul>
 <li><h3 id="modules.attr.string">string</h3>
-<code>Builder attr.string(default='', flags=[], mandatory=False, values=[], cfg=None)</code><br>
+<code>Builder attr.string(default='', mandatory=False, values=[])</code><br>
 Creates an attribute of type string.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.string.default"><code>default (<a class="anchor" href="#modules.string">string</a>)</code>: sets the default value of the attribute. If not specified, default is "".
 	</li>
-	<li id="modules.attr.string.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.string.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.string.values"><code>values (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
-	<li id="modules.attr.string.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
-	</li>
 </ul>
 <li><h3 id="modules.attr.string_dict">string_dict</h3>
-<code>Builder attr.string_dict(default={}, flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
+<code>Builder attr.string_dict(default={}, mandatory=False, non_empty=False)</code><br>
 Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.string_dict.default"><code>default (<a class="anchor" href="#modules.dict">dict</a>)</code>: sets the default value of the attribute.
 	</li>
-	<li id="modules.attr.string_dict.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.string_dict.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.string_dict.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
 	</li>
-	<li id="modules.attr.string_dict.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
-	</li>
 </ul>
 <li><h3 id="modules.attr.string_list">string_list</h3>
-<code>Builder attr.string_list(default=[], flags=[], mandatory=False, non_empty=False, cfg=None)</code><br>
+<code>Builder attr.string_list(default=[], mandatory=False, non_empty=False)</code><br>
 Creates an attribute of type list of strings
 <h4>Parameters</h4>
 <ul>
 	<li id="modules.attr.string_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: sets the default value of the attribute. If not specified, default is [].
 	</li>
-	<li id="modules.attr.string_list.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
-	</li>
 	<li id="modules.attr.string_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
 	</li>
 	<li id="modules.attr.string_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
-	</li>
-	<li id="modules.attr.string_list.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
 </ul>
 </ul><hr><h2 id="modules.cmd_helper">cmd_helper</h2>
