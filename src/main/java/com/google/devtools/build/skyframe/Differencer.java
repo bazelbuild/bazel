@@ -24,7 +24,7 @@ public interface Differencer {
   /**
    * Represents a set of changed values.
    */
-  interface Diff {
+  public interface Diff {
     /**
      * Returns the value keys whose values have changed, but for which we don't have the new values.
      */

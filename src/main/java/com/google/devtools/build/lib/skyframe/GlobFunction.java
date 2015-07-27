@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  *
  * <p>This code drives the glob matching process.
  */
-final class GlobFunction implements SkyFunction {
+public final class GlobFunction implements SkyFunction {
 
   private final Cache<String, Pattern> regexPatternCache =
       CacheBuilder.newBuilder().concurrencyLevel(4).build();

@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 /**
  * A {@link SkyFunction} for {@link DirectoryListingValue}s.
  */
-final class DirectoryListingFunction implements SkyFunction {
+public final class DirectoryListingFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)

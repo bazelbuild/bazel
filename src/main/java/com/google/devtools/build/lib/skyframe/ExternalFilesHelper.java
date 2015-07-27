@@ -26,14 +26,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Common utilities for dealing with files outside the package roots. */
-class ExternalFilesHelper {
+public class ExternalFilesHelper {
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final Set<Path> immutableDirs;
   private final boolean errorOnExternalFiles;
 
-  @VisibleForTesting
-  ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator) {
+  public ExternalFilesHelper(AtomicReference<PathPackageLocator> pkgLocator) {
     this(pkgLocator, ImmutableSet.<Path>of(), /*errorOnExternalFiles=*/false);
   }
 

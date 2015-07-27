@@ -39,11 +39,11 @@ import javax.annotation.Nullable;
 /**
  * SkyFunction for {@link PackageLookupValue}s.
  */
-class PackageLookupFunction implements SkyFunction {
+public class PackageLookupFunction implements SkyFunction {
 
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
 
-  PackageLookupFunction(AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages) {
+  public PackageLookupFunction(AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages) {
     this.deletedPackages = deletedPackages;
   }
 

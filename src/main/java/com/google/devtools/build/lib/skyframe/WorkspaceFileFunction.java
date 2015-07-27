@@ -41,7 +41,7 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final Path installDir;
   private final RuleClassProvider ruleClassProvider;
 
-  WorkspaceFileFunction(
+  public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories) {

@@ -72,10 +72,10 @@ public class PrecomputedValue implements SkyValue {
     return new Injected(precomputed, Suppliers.ofInstance(value));
   }
 
-  static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
+  public static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_pkg"));
 
-  static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
+  public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_visibility"));
 
   static final Precomputed<UUID> BUILD_ID =
@@ -173,7 +173,7 @@ public class PrecomputedValue implements SkyValue {
     /**
      * Injects a new variable value.
      */
-    void set(Injectable injectable, T value) {
+    public void set(Injectable injectable, T value) {
       injectable.inject(ImmutableMap.of(key, new PrecomputedValue(value)));
     }
   }
