@@ -3,17 +3,33 @@ In order to build these examples, add the following two rules to the top-level `
 ```python
 android_sdk_repository(
     name="androidsdk",
-    path="<path to your Android SDK>",
-    api_level=21,
-    build_tools_version="21.1.1")
+    path="<full path to your Android SDK>",
+    api_level=<api level>,
+    build_tools_version="<build tools version>")
 
 android_ndk_repository(
     name="androidndk",
     path="<path to your Android NDK>",
-    api_level=21)
+    api_level=<api_level>)
 ```
+For the `android_sdk_repository` rule, the values of the `api_level` and
+`build_tools_version` attributes correspond, respectively, to directories
+containing specific versions of the `android.jar` file and build tools. For
+example, if `path=/Users/xyzzy/Library/Android/sdk`,
+`api_level=21`, and `build_tools_version="21.1.1"` (note that
+quotes are required in the second case), then your SDK must contain the
+directories
+`/Users/xyzzy/Library/Android/sdk/platforms/android-21` and
+`/Users/xyzzy/Library/Android/sdk/build-tools/21.1.1`.
 
-Then the following command can be used to build the example app:
+Similarly, for the `android_ndk_repository` rule, the value of the `api_level`
+attribute corresponds to a directory containing the NDK libraries for that
+API level. For example, if
+`path=/Users/xyzzy/Library/Android/android-ndk-r10e` and
+`api_level=21`, then you your NDK must contain the directory
+`/Users/xyzzy/Library/Android/android-ndk-r10e/platforms/android-21`.
+
+The following command can be used to build the example app:
 
 ```
 bazel build //examples/android/java/bazel:hello_world
