@@ -264,10 +264,10 @@ _rust_common_attrs = {
     "features": attr.string_list(),
     "rustc_flags": attr.string_list(),
     "_rustc": attr.label(
-        default = Label("//tools/rust:rustc"),
+        default = Label("//tools/build_rules/rust:rustc"),
         executable = True,
         single_file = True),
-    "_rustlib": attr.label(default = Label("//tools/rust:rustlib")),
+    "_rustlib": attr.label(default = Label("//tools/build_rules/rust:rustlib")),
 }
 
 rust_library = rule(
