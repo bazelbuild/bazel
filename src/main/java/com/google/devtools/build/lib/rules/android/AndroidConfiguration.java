@@ -83,6 +83,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         category = "undocumented")
     public ConfigurationDistinguisher configurationDistinguisher;
 
+    // For deploying incremental installation of native libraries. Do not use on the command line.
+    // The idea is that once this option works, we'll flip the default value in a config file, then
+    // once it is proven that it works, remove it from Bazel and said config file.
+    @Option(name = "android_incremental_native_libs",
+        defaultValue = "false",
+        category = "undocumented")
+    public boolean incrementalNativeLibs;
+
     @Option(name = "android_crosstool_top",
         defaultValue = "null",
         category = "semantics",
@@ -227,6 +235,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final StrictDepsMode strictDeps;
   private final boolean legacyNativeSupport;
   private final String cpu;
+  private final boolean incrementalNativeLibs;
   private final boolean fatApk;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final Label proguard;
@@ -235,6 +244,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   AndroidConfiguration(Options options) {
     this.sdk = options.realSdk();
+    this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;
@@ -278,6 +288,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean isJackSanityChecked() {
     return jackSanityChecks;
+  }
+
+  public boolean useIncrementalNativeLibs() {
+    return incrementalNativeLibs;
   }
 
   @Override
