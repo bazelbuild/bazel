@@ -39,7 +39,6 @@ public class TestSuite implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
     checkTestsAndSuites(ruleContext, "tests");
-    checkTestsAndSuites(ruleContext, "suites");
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -62,7 +61,6 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     for (TransitiveInfoCollection dep :
           Iterables.concat(
               getPrerequisites(ruleContext, "tests"),
-              getPrerequisites(ruleContext, "suites"),
               getPrerequisites(ruleContext, "$implicit_tests"))) {
       if (dep.getProvider(TestProvider.class) != null) {
         List<String> tags = dep.getProvider(TestProvider.class).getTestTags();
