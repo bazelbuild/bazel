@@ -130,7 +130,6 @@ public abstract class NativeDepsHelper {
   private static NativeDepsRunfiles maybeCreateNativeDepsAction(final RuleContext ruleContext,
       CcLinkParams linkParams, Collection<String> extraLinkOpts, BuildConfiguration configuration,
       CcToolchainProvider toolchain, PathFragment nativeDepsPath, Root bindirIfShared) {
-
     if (linkParams.getLibraries().isEmpty()) {
       return NativeDepsRunfiles.EMPTY;
     }

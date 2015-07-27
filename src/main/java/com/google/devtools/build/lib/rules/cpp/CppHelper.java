@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
@@ -315,13 +316,13 @@ public class CppHelper {
    * <p>Emits a warning on the rule if there are identical linkstamp artifacts with different
    * compilation contexts.
    */
-  public static Map<Artifact, ImmutableList<Artifact>> resolveLinkstamps(RuleContext ruleContext,
+  public static Map<Artifact, ImmutableList<Artifact>> resolveLinkstamps(RuleErrorConsumer listener,
       CcLinkParams linkParams) {
     Map<Artifact, ImmutableList<Artifact>> result = new LinkedHashMap<>();
     for (Linkstamp pair : linkParams.getLinkstamps()) {
       Artifact artifact = pair.getArtifact();
       if (result.containsKey(artifact)) {
-        ruleContext.ruleWarning("rule inherits the '" + artifact.toDetailString()
+        listener.ruleWarning("rule inherits the '" + artifact.toDetailString()
             + "' linkstamp file from more than one cc_library rule");
       }
       result.put(artifact, pair.getDeclaredIncludeSrcs());

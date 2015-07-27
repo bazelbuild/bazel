@@ -166,7 +166,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setHeadersCheckingMode(common.determineHeadersCheckingMode())
         .addCopts(common.getCopts())
         .setNoCopts(common.getNoCopts())
-        .addLinkopts(common.getLinkopts())
         .addDefines(common.getDefines())
         .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
         .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
@@ -380,37 +379,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     // Then libraries from the closure of deps.
-    List<String> linkopts = new ArrayList<>();
-    Map<Artifact, ImmutableList<Artifact>> linkstamps = new LinkedHashMap<>();
-
-    NestedSet<LibraryToLink> librariesInDepsClosure =
-        findLibrariesToLinkInDepsClosure(context, common, cppConfiguration, linkopts, linkstamps);
-    builder.addLinkopts(linkopts);
-    builder.addLinkstamps(linkstamps);
-
-    builder.addLibraries(librariesInDepsClosure);
-    return builder;
-  }
-
-  /**
-   * Explore the transitive closure of our deps to collect linking information.
-   */
-  private static NestedSet<LibraryToLink> findLibrariesToLinkInDepsClosure(
-      RuleContext context,
-      CcCommon common,
-      CppConfiguration cppConfiguration,
-      List<String> linkopts,
-      Map<Artifact,
-      ImmutableList<Artifact>> linkstamps) {
     // This is true for both FULLY STATIC and MOSTLY STATIC linking.
     boolean linkingStatically =
         getLinkStaticness(context, common, cppConfiguration) != LinkStaticness.DYNAMIC;
-
     CcLinkParams linkParams = collectCcLinkParams(
         context, common, linkingStatically, isLinkShared(context));
-    linkopts.addAll(linkParams.flattenedLinkopts());
-    linkstamps.putAll(CppHelper.resolveLinkstamps(context, linkParams));
-    return linkParams.getLibraries();
+    builder.addLinkParams(linkParams, context);
+    return builder;
   }
 
   /**

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -948,6 +949,17 @@ public final class CppLinkAction extends AbstractAction {
      */
     public Builder addLinkopts(Collection<String> linkopts) {
       this.linkopts.addAll(linkopts);
+      return this;
+    }
+
+    /**
+     * Merges the given link params into this builder by calling {@link #addLinkopts}, {@link
+     * #addLibraries}, and {@link #addLinkstamps}.
+     */
+    public Builder addLinkParams(CcLinkParams linkParams, RuleErrorConsumer errorListener) {
+      addLinkopts(linkParams.flattenedLinkopts());
+      addLibraries(linkParams.getLibraries());
+      addLinkstamps(CppHelper.resolveLinkstamps(errorListener, linkParams));
       return this;
     }
 
