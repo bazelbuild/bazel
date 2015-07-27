@@ -19,6 +19,14 @@ package dash;
 option java_package = "com.google.devtools.build.lib.bazel.dash";
 option java_outer_classname = "DashProtos";
 
+message Log {
+  // Local path to the log.
+  optional string path = 1;
+  optional bytes contents = 2;
+  // Log is truncated after 1MB.
+  optional bool truncated = 3;
+}
+
 message BuildData {
   optional string build_id = 1;
   optional string command_name = 2;
@@ -43,17 +51,13 @@ message BuildData {
   repeated EnvironmentVar client_env = 5;
 
   message Target {
-      optional string label = 1;
-      optional string rule_kind = 2;
+    optional string label = 1;
+    optional string rule_kind = 2;
+    message TestData {
+      optional bool passed = 1;
+      optional Log log = 2;
+    }
+    optional TestData test_data = 3;
   }
   repeated Target targets = 6;
-
-  message TestData {
-    optional string label = 2;
-    optional bool passed = 3;
-    optional bytes log = 4;
-    // Log is truncated after 1MB.
-    optional bool truncated = 5;
-  }
-  repeated TestData test_data = 7;
 }

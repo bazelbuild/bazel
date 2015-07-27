@@ -19,7 +19,9 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.CommandLine.Option;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.EnvironmentVar;
-import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.TestData;
+import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.Target.TestData;
+import com.google.devtools.build.lib.bazel.dash.DashProtos.Log;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.rules.test.TestResult;
@@ -29,8 +31,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsProvider;
@@ -42,7 +42,10 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -145,28 +148,38 @@ public class DashModule extends BlazeModule {
   @Subscribe
   public void testFinished(TestResult result) {
     BuildData.Builder builder = BuildData.newBuilder();
+    BuildData.Target.Builder targetBuilder = BuildData.Target.newBuilder();
+    targetBuilder.setLabel(result.getLabel());
     TestData.Builder testDataBuilder = TestData.newBuilder();
-    testDataBuilder.setLabel(result.getLabel());
     testDataBuilder.setPassed(result.getData().getTestPassed());
     if (!result.getData().getTestPassed()) {
-      Path logPath = result.getTestLogPath();
-      try {
-        long fileSize = logPath.getFileSize();
-        if (fileSize > ONE_MB) {
-          fileSize = ONE_MB;
-          testDataBuilder.setTruncated(true);
-        }
-        ByteString str = ByteString.copyFrom(
-            FileSystemUtils.readContent(logPath), 0, (int) fileSize);
-        testDataBuilder.setLog(str);
-      } catch (IOException e) {
-        runtime.getReporter().getOutErr().printOutLn(
-            "Error reading log file " + logPath + ": " + e.getMessage());
-        // TODO(kchodorow): add this info to the proto and send.
-        return;
-      }
+      testDataBuilder.setLog(getLog(result.getTestLogPath().toString()));
     }
+    targetBuilder.setTestData(testDataBuilder);
+    builder.addTargets(targetBuilder);
     sender.send("test", builder.build());
+  }
+
+  private Log getLog(String logPath) {
+    Log.Builder builder = Log.newBuilder().setPath(logPath);
+    File log = new File(logPath);
+    try {
+      long fileSize = Files.size(log.toPath());
+      if (fileSize > ONE_MB) {
+        fileSize = ONE_MB;
+        builder.setTruncated(true);
+      }
+      byte buffer[] = new byte[(int) fileSize];
+      new FileInputStream(log).read(buffer, 0, (int) fileSize);
+      builder.setContents(ByteString.copyFrom(buffer));
+    } catch (IOException e) {
+      runtime
+          .getReporter()
+          .getOutErr()
+          .printOutLn("Error reading log file " + logPath + ": " + e.getMessage());
+      // TODO(kchodorow): add this info to the proto and send.
+    }
+    return builder.build();
   }
 
   @Override
@@ -210,7 +223,9 @@ public class DashModule extends BlazeModule {
       this.buildId = runtime.getCommandId().toString();
       this.outErr = runtime.getReporter().getOutErr();
       this.executorService = executorService;
-      outErr.printOutLn("Results are being streamed to " + url + "/result/" + buildId);
+      runtime
+          .getReporter()
+          .handle(Event.info("Results are being streamed to " + url + "/result/" + buildId));
     }
 
     @Override

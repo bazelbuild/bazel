@@ -79,39 +79,33 @@
                     </tr>
                     </thead>
                     <tbody>
-                    #if ($build_data.getCommandName() == "test")
-                    #foreach( $result in $build_data.getTestDataList() )
+                    #foreach ( $result in $build_data.getTargetsList() )
                     <tr>
-                        #if ( $result.getPassed() )
-                        <td>
-                            <div>
-                                <code style="color:#79BD8F; background-color: transparent;">$result.getLabel()</code>
-                            </div>
-                        </td>
-                        <td style="color:#79BD8F;">Passed</td>
-                        #else
-                        <td>
-                            <div onclick="$('#log-$velocityCount').toggle();">
-                                <code style="color:#FF6138;">$result.getLabel()</code>
-                            </div>
-                    <pre id="log-$velocityCount" style="display: none;">
-$result.getLog().toStringUtf8()
-                    </pre>
-                            #if ( $result.getTruncated() )
-                            <div>Truncated after 1MB, see local log for full output.</div>
+                        #if ( $result.hasTestData() )
+                            #if ( $result.getTestData().getPassed() )
+                                <td style="color:#79BD8F;">$result.getLabel()</td>
+                                <td style="color:#79BD8F;">Passed</td>
+                            #else
+                                <td>
+                                    <div onclick="$('#log-$velocityCount').toggle();">
+                                        <code style="color:#FF6138; cursor: pointer;">$result.getLabel()</code>
+                                    </div>
+                                    <pre id="log-$velocityCount" style="display: none;">$result.getTestData().getLog().getContents().toStringUtf8()</pre>
+                                    #if ( $result.getTestData().getTruncated() )
+                                        <div>Truncated after 1MB, see local log for full output.</div>
+                                    #end
+                                </td>
+                                <td style="color:#FF6138; cursor: pointer;">Failed</td>
                             #end
-                        </td>
-                        <td style="color:#FF6138;">Failed</td>
+                        #else
+                            <td>
+                                <div>
+                                    <code style="color: black; background-color: transparent;">$result.getLabel()</code>
+                                </div>
+                            </td>
+                            <td>Built</td>
                         #end
                     </tr>
-                    #end
-                    #else
-                    #foreach( $result in $build_data.getTargetsList() )
-                    <tr>
-                        <td><code>$result.getLabel()</code></td>
-                        <td>Built</td>
-                    </tr>
-                    #end
                     #end
                     </tbody>
                 </table>
