@@ -156,7 +156,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value != null) { // null values are particularly possible for computed defaults.
       for (Label label : type.getLabels(value)) {
         Label absoluteLabel;
-        if (attribute.isImplicit() || attribute.isLateBound()) {
+        if (attribute.isImplicit() || attribute.isLateBound()
+          || !attributes.isAttributeValueExplicitlySpecified(attribute)) {
           // Implicit dependencies are not usually present in remote repositories. They are
           // generally tools, which go to the main repository.
           absoluteLabel = label;

@@ -572,4 +572,26 @@ EOF
   bazel query '//a:foo' || fail "query failed"
 }
 
+function test_cc_binary_in_local_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir $r
+  touch $r/WORKSPACE
+  cat > $r/BUILD <<EOF
+cc_binary(
+    name = "bin",
+    srcs = ["bin.cc"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+EOF
+
+  bazel build --nobuild @r//:bin || fail "build failed"
+}
+
 run_suite "local repository tests"
