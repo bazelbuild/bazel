@@ -82,7 +82,7 @@ java_binary(
 
 filegroup(
     name = "dx_jar",
-    srcs = ["build-toold/%build_tools_version%/lib/dx.jar"],
+    srcs = ["build-tools/%build_tools_version%/lib/dx.jar"],
 )
 
 java_import(
