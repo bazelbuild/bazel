@@ -110,8 +110,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
   }
 
-  private SequencedSkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
+  public static SequencedSkyframeExecutor create(
+      Reporter reporter,
+      PackageFactory pkgFactory,
+      TimestampGranularityMonitor tsgm,
+      BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -120,45 +123,23 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, tsgm,
-        directories, workspaceStatusActionFactory, buildInfoFactories, immutableDirectories,
-        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-        extraSkyFunctions, extraPrecomputedValues);
-  }
-
-  private static SequencedSkyframeExecutor create(Reporter reporter,
-      EvaluatorSupplier evaluatorSupplier, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
-      Factory workspaceStatusActionFactory, ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Set<Path> immutableDirectories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    SequencedSkyframeExecutor skyframeExecutor = new SequencedSkyframeExecutor(reporter,
-        evaluatorSupplier, pkgFactory, tsgm, directories, workspaceStatusActionFactory,
-        buildInfoFactories, immutableDirectories, diffAwarenessFactories, allowedMissingInputs,
-        preprocessorFactorySupplier,
-        extraSkyFunctions, extraPrecomputedValues);
+    SequencedSkyframeExecutor skyframeExecutor =
+        new SequencedSkyframeExecutor(
+            reporter,
+            InMemoryMemoizingEvaluator.SUPPLIER,
+            pkgFactory,
+            tsgm,
+            directories,
+            workspaceStatusActionFactory,
+            buildInfoFactories,
+            immutableDirectories,
+            diffAwarenessFactories,
+            allowedMissingInputs,
+            preprocessorFactorySupplier,
+            extraSkyFunctions,
+            extraPrecomputedValues);
     skyframeExecutor.init();
     return skyframeExecutor;
-  }
-
-  public static SequencedSkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
-      Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Set<Path> immutableDirectories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    return create(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, tsgm,
-        directories, workspaceStatusActionFactory, buildInfoFactories, immutableDirectories,
-        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-        extraSkyFunctions, extraPrecomputedValues);
   }
 
   @VisibleForTesting
