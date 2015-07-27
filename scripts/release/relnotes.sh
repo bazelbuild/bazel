@@ -97,6 +97,17 @@ function get_release_notes() {
   done
 }
 
+# fmt behaves a bit different on GNU/Linux than on darwin.
+if [ "$(uname -s | tr 'A-Z' 'a-z')" = "darwin" ]; then
+  function wrap_text() {
+    fmt -w $1
+  }
+else
+  function wrap_text() {
+    fmt -w $1 -g $1
+  }
+fi
+
 # Returns the list of release notes in arguments into a list of points in
 # a markdown list. The release notes are wrapped to 70 characters so it
 # displays nicely in a git history.
@@ -104,7 +115,7 @@ function format_release_notes() {
   local i
   for (( i=1; $i <= $#; i=$i+1 )); do
     local relnote="${!i}"
-    local lines=$(echo "$relnote" | fmt -w 66)  # wrap to 70 counting the 4 leading spaces.
+    local lines=$(echo "$relnote" | wrap_text 66)  # wrap to 70 counting the 4 leading spaces.
     echo "  - $lines" | head -1
     echo "$lines" | tail -n +2 | sed 's/^/    /'
   done
@@ -153,7 +164,7 @@ function create_revision_information() {
   while [ -n "${1-}" ]; do
     local hash="$1"
     local subject=$(git show -s --pretty=format:%s $hash)
-    local lines=$(echo "$subject" | fmt -w 56)  # 14 leading spaces.
+    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
     echo "   + $hash: $lines" | head -1
     echo "$lines" | tail -n +2 | sed 's/^/              /'
     shift
