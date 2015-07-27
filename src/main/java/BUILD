@@ -389,8 +389,6 @@ java_library(
     srcs = glob(
         [
             "com/google/devtools/build/lib/bazel/**/*.java",
-            "com/google/devtools/build/lib/standalone/*.java",
-            "com/google/devtools/build/lib/worker/**",
         ],
         exclude = [
             "com/google/devtools/build/lib/bazel/repository/MavenConnector.java",
