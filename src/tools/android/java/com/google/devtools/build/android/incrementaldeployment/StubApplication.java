@@ -328,16 +328,20 @@ public class StubApplication extends Application {
     File newManifestFile = new File(nativeLibDir, "native_manifest");
     File incrementalDir = new File("/data/data/" + packageName + "/incrementallib");
     File installedManifestFile = new File(incrementalDir, "manifest");
+    String defaultNativeLibDir = "/data/data/" + packageName + "/lib";
 
     if (!newManifestFile.exists()) {
       // Native libraries are not installed incrementally. Just use the regular directory.
-      return "/data/data/" + packageName + "/lib";
+      return defaultNativeLibDir;
     }
 
     Map<String, String> newManifest = parseManifest(newManifestFile);
     Map<String, String> installedManifest = new HashMap<String, String>();
     Set<String> libsToDelete = new HashSet<String>();
     Set<String> libsToUpdate = new HashSet<String>();
+
+    String realNativeLibDir = newManifest.isEmpty()
+        ? defaultNativeLibDir : incrementalDir.toString();
 
     if (!incrementalDir.exists()) {
       if (!incrementalDir.mkdirs()) {
@@ -370,7 +374,7 @@ public class StubApplication extends Application {
 
     if (libsToDelete.isEmpty() && libsToUpdate.isEmpty()) {
       // Nothing to be done. Be lazy.
-      return incrementalDir.toString();
+      return realNativeLibDir;
     }
 
     // Delete the installed manifest file. If anything below goes wrong, everything will be
@@ -398,7 +402,8 @@ public class StubApplication extends Application {
       // time we get here we can start with a clean slate.
       installedManifestFile.delete();
     }
-    return incrementalDir.toString();
+
+    return realNativeLibDir;
   }
 
   private static Map<String, String> parseManifest(File file) throws IOException {
