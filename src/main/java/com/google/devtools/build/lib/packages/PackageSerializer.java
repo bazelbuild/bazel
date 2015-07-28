@@ -356,15 +356,17 @@ public class PackageSerializer {
     Build.Location.Builder result = Build.Location.newBuilder();
 
     result.setStartOffset(location.getStartOffset());
-    if (location.getStartLineAndColumn() != null) {
-      result.setStartLine(location.getStartLineAndColumn().getLine());
-      result.setStartColumn(location.getStartLineAndColumn().getColumn());
+    Location.LineAndColumn startLineAndColumn = location.getStartLineAndColumn();
+    if (startLineAndColumn != null) {
+      result.setStartLine(startLineAndColumn.getLine());
+      result.setStartColumn(startLineAndColumn.getColumn());
     }
 
     result.setEndOffset(location.getEndOffset());
-    if (location.getEndLineAndColumn() != null) {
-      result.setEndLine(location.getEndLineAndColumn().getLine());
-      result.setEndColumn(location.getEndLineAndColumn().getColumn());
+    Location.LineAndColumn endLineAndColumn = location.getEndLineAndColumn();
+    if (endLineAndColumn != null) {
+      result.setEndLine(endLineAndColumn.getLine());
+      result.setEndColumn(endLineAndColumn.getColumn());
     }
 
     return result.build();
