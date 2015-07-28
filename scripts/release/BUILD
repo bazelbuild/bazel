@@ -20,3 +20,24 @@ sh_test(
         ":relnotes",
     ],
 )
+
+sh_library(
+    name = "release",
+    srcs = [
+        "common.sh",
+        "release.sh",
+    ],
+    deps = [":relnotes"],
+)
+
+sh_test(
+    name = "release_test",
+    srcs = ["release_test.sh"],
+    data = [
+        "testenv.sh",
+        "//:git",
+        "//src/test/shell:bashunit",
+    ],
+    tags = ["need_git"],
+    deps = [":release"],
+)
