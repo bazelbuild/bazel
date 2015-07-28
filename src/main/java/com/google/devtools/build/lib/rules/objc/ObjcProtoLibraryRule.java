@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule definition for objc_proto_library.
@@ -35,6 +36,8 @@ import com.google.devtools.build.lib.packages.Type;
  * This is a temporary rule until it is better known how to support proto_library rules.
  */
 public class ObjcProtoLibraryRule implements RuleDefinition {
+  static final String COMPILE_PROTOS_ATTR = "$googlemac_proto_compiler";
+  static final String PROTO_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
   static final String OPTIONS_FILE_ATTR = "options_file";
   static final String OUTPUT_CPP_ATTR = "output_cpp";
   static final String USE_OBJC_HEADER_NAMES_ATTR = "use_objc_header_names";
@@ -65,6 +68,15 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         If true, output headers with .pbobjc.h, rather than .pb.h.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(COMPILE_PROTOS_ATTR, LABEL)
+            .allowedFileTypes(FileType.of(".py"))
+            .cfg(HOST)
+            .singleArtifact()
+            .value(env.getLabel("//tools/objc:compile_protos")))
+        .add(attr(PROTO_SUPPORT_ATTR, LABEL)
+            .legacyAllowAnyFileType()
+            .cfg(HOST)
+            .value(env.getLabel("//tools/objc:proto_support")))
         .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
@@ -85,9 +97,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_proto_library")
         .factoryClass(ObjcProtoLibrary.class)
-        .ancestors(
-            BaseRuleClasses.RuleBase.class,
-            ObjcRuleClasses.ObjcProtoRule.class)
+        .ancestors(BaseRuleClasses.RuleBase.class)
         .build();
   }
 }

@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -724,52 +723,6 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Common attributes for rules that uses ObjC proto compiler.
-   */
-  public static class ObjcProtoRule implements RuleDefinition {
-    /**
-     * A Predicate that returns true if the ObjC proto compiler and its support deps are needed by
-     * the current rule.
-     *
-     * <p>For proto_library rules, this will return true if they have a j2objc_api_version
-     * attribute, and it is greater than 0. For other rules, this will return true by default.
-     */
-    public static final Predicate<AttributeMap> USE_PROTO_COMPILER = new Predicate<AttributeMap>() {
-      @Override
-      public boolean apply(AttributeMap rule) {
-        return rule.getAttributeDefinition("j2objc_api_version") == null
-            || rule.get("j2objc_api_version", Type.INTEGER) != 0;
-      }
-    };
-
-    public static final String COMPILE_PROTOS_ATTR = "$googlemac_proto_compiler";
-    public static final String PROTO_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr(COMPILE_PROTOS_ATTR, LABEL)
-              .allowedFileTypes(FileType.of(".py"))
-              .cfg(HOST)
-              .singleArtifact()
-              .condition(USE_PROTO_COMPILER)
-              .value(env.getLabel("//tools/objc:compile_protos")))
-          .add(attr(PROTO_SUPPORT_ATTR, LABEL)
-              .legacyAllowAnyFileType()
-              .cfg(HOST)
-              .condition(USE_PROTO_COMPILER)
-              .value(env.getLabel("//tools/objc:proto_support")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_proto_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
 
   /**
    * Base rule definition for iOS test rules.

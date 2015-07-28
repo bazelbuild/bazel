@@ -317,7 +317,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcProtoLibraryRule());
     builder.addRuleDefinition(new ObjcXcodeprojRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.ObjcProtoRule());
     builder.addRuleDefinition(new ObjcRuleClasses.IosTestBaseRule());
     builder.addRuleDefinition(new ObjcRuleClasses.BundlingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingRule());

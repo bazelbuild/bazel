@@ -62,7 +62,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext) throws InterruptedException {
     Artifact compileProtos = ruleContext.getPrerequisiteArtifact(
-        ObjcRuleClasses.ObjcProtoRule.COMPILE_PROTOS_ATTR, Mode.HOST);
+        ObjcProtoLibraryRule.COMPILE_PROTOS_ATTR, Mode.HOST);
     Optional<Artifact> optionsFile = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST));
     NestedSet<Artifact> protos = NestedSetBuilder.<Artifact>stableOrder()
@@ -80,7 +80,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .getPrerequisiteArtifacts(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET)
         .list();
     ImmutableList<Artifact> protoSupport = ruleContext
-        .getPrerequisiteArtifacts(ObjcRuleClasses.ObjcProtoRule.PROTO_SUPPORT_ATTR, Mode.HOST)
+        .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTO_SUPPORT_ATTR, Mode.HOST)
         .list();
 
     // Generate sources in a package-and-rule-scoped directory; adds both the
