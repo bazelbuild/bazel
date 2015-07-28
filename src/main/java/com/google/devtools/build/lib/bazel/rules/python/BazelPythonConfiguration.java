@@ -36,7 +36,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
    */
   public static final class Options extends FragmentOptions {
     @Option(name = "python2_path",
-      defaultValue = "python2",
+      defaultValue = "python",
       category = "version",
       help = "Local path to the Python2 executable.")
     public String python2Path;
