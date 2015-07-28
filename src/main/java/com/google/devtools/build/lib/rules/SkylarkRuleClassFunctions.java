@@ -188,15 +188,15 @@ public class SkylarkRuleClassFunctions {
       returnType = BaseFunction.class,
       mandatoryPositionals = {
         @Param(name = "implementation", type = BaseFunction.class,
-            doc = "the function implementing this rule, has to have exactly one parameter: "
-            + "<code>ctx</code>. The function is called during analysis phase for each "
-            + "instance of the rule. It can access the attributes provided by the user. "
+            doc = "the function implementing this rule, must have exactly one parameter: "
+            + "<a href=\"#modules.ctx\">ctx</a>. The function is called during the analysis phase "
+            + "for each instance of the rule. It can access the attributes provided by the user. "
             + "It must create actions to generate all the declared outputs.")
       },
       optionalPositionals = {
         @Param(name = "test", type = Boolean.class, defaultValue = "False",
             doc = "Whether this rule is a test rule. "
-            + "If True, the rule must end with <code>_test</code> (otherwise it cannot), "
+            + "If True, the rule must end with <code>_test</code> (otherwise it must not), "
             + "and there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute name "
@@ -211,13 +211,13 @@ public class SkylarkRuleClassFunctions {
             defaultValue = "None", doc = "outputs of this rule. "
             + "It is a dictionary mapping from string to a template name. "
             + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"
-            + "The dictionary key becomes a field in <code>ctx.outputs</code>. "
+            + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
             // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
             + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
             + "returning such a dictionary."),
         @Param(name = "executable", type = Boolean.class, defaultValue = "False",
-            doc = "whether this rule always outputs an executable of the same name or not. If "
-            + "True, there must be an action that generates <code>ctx.outputs.executable</code>."),
+            doc = "whether this rule is marked as executable or not. If True, "
+            + "there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "output_to_genfiles", type = Boolean.class, defaultValue = "False",
             doc = "If true, the files will be generated in the genfiles directory instead of the "
             + "bin directory. This is used for compatibility with existing rules.")},
@@ -350,6 +350,7 @@ public class SkylarkRuleClassFunctions {
 
   @SkylarkSignature(name = "Label", doc = "Creates a Label referring to a BUILD target. Use "
       + "this function only when you want to give a default value for the label attributes. "
+      + "The argument must refer to an absolute label. "
       + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       returnType = Label.class,
       mandatoryPositionals = {@Param(name = "label_string", type = String.class,

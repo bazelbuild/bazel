@@ -47,6 +47,8 @@ public class Environment {
 
   @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
       doc = "The name of the package the rule or build extension is called from. "
+          + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
+          + "will be <code>some/package</code>. "
           + "This variable is special, because its value comes from outside of the extension "
           + "module (it comes from the BUILD file), so it can only be accessed in functions "
           + "(transitively) called from BUILD files. For example:<br>"

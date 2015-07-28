@@ -259,7 +259,7 @@ public final class Runfiles {
    */
   @SkylarkCallable(
     name = "files",
-    doc = "Returns the set of runfiles as artifacts",
+    doc = "Returns the set of runfiles as files",
     structField = true
   )
   public NestedSet<Artifact> getArtifacts() {

@@ -859,7 +859,8 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "str", returnType = String.class, doc =
-      "Converts any object to string. This is useful for debugging.",
+      "Converts any object to string. This is useful for debugging."
+      + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
   private static BuiltinFunction str = new BuiltinFunction("str") {
     public String invoke(Object x) {
@@ -868,7 +869,8 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "repr", returnType = String.class, doc =
-      "Converts any object to a string representation. This is useful for debugging.",
+      "Converts any object to a string representation. This is useful for debugging.<br>"
+      + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
   private static BuiltinFunction repr = new BuiltinFunction("repr") {
     public String invoke(Object x) {
@@ -877,10 +879,9 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "bool", returnType = Boolean.class,
-      doc = "Converts an object to boolean. "
+      doc = "Constructor for the bool type. "
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
-      + "empty collection. Otherwise, it returns True. As in Python, <code>bool</code> "
-      + "is also a type.",
+      + "empty collection. Otherwise, it returns True.",
       mandatoryPositionals = {@Param(name = "x", doc = "The variable to convert.")})
   private static BuiltinFunction bool = new BuiltinFunction("bool") {
     public Boolean invoke(Object x) throws EvalException {
@@ -917,12 +918,12 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
-      "Creates an immutable struct using the keyword arguments as fields. It is used to group "
+      "Creates an immutable struct using the keyword arguments as attributes. It is used to group "
       + "multiple values together.Example:<br>"
       + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
-      + "return s.x + s.y  # returns 5</pre>",
+      + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
       extraKeywords = {
-        @Param(name = "kwargs", doc = "the struct fields")},
+        @Param(name = "kwargs", doc = "the struct attributes")},
       useLocation = true)
   private static BuiltinFunction struct = new BuiltinFunction("struct") {
       @SuppressWarnings("unchecked")
@@ -1061,12 +1062,12 @@ public class MethodLibrary {
    * Returns true if the object has a field of the given name, otherwise false.
    */
   @SkylarkSignature(name = "hasattr", returnType = Boolean.class,
-      doc = "Returns True if the object <code>x</code> has a field of the given <code>name</code>, "
-          + "otherwise False. Example:<br>"
+      doc = "Returns True if the object <code>x</code> has an attribute of the given "
+          + "<code>name</code>, otherwise False. Example:<br>"
           + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       mandatoryPositionals = {
-        @Param(name = "object", doc = "The object to check."),
-        @Param(name = "name", type = String.class, doc = "The name of the field.")},
+        @Param(name = "x", doc = "The object to check."),
+        @Param(name = "name", type = String.class, doc = "The name of the attribute.")},
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction hasattr = new BuiltinFunction("hasattr") {
     public Boolean invoke(Object obj, String name,
@@ -1091,17 +1092,17 @@ public class MethodLibrary {
       doc = "Returns the struct's field of the given name if exists, otherwise <code>default</code>"
           + " if specified, otherwise raises an error. For example, <code>getattr(x, \"foobar\")"
           + "</code> is equivalent to <code>x.foobar</code>, except that it returns "
-          + "<code>default</code> for a non-existant attribute instead of raising an error."
+          + "<code>default</code> for a non-existent attribute instead of raising an error."
           + "<br>"
           + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       mandatoryPositionals = {
-        @Param(name = "object", doc = "The struct whose field is accessed."),
-        @Param(name = "name", doc = "The name of the struct field.")},
+        @Param(name = "x", doc = "The struct whose attribute is accessed."),
+        @Param(name = "name", doc = "The name of the struct attribute.")},
       optionalPositionals = {
         @Param(name = "default", defaultValue = "None",
             doc = "The default value to return in case the struct "
-            + "doesn't have a field of the given name.")},
+            + "doesn't have an attribute of the given name.")},
       useLocation = true)
   private static final BuiltinFunction getattr = new BuiltinFunction("getattr") {
     public Object invoke(Object obj, String name, Object defaultValue,
@@ -1111,7 +1112,7 @@ public class MethodLibrary {
         if (defaultValue != Environment.NONE) {
           return defaultValue;
         } else {
-          throw new EvalException(loc, Printer.format("Object of type '%s' has no field %r",
+          throw new EvalException(loc, Printer.format("Object of type '%s' has no attribute %r",
                   EvalUtils.getDataTypeName(obj), name));
         }
       }
@@ -1120,9 +1121,9 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "dir", returnType = SkylarkList.class,
-      doc = "Returns a list strings: the names of the fields and "
+      doc = "Returns a list strings: the names of the attributes and "
           + "methods of the parameter object.",
-      mandatoryPositionals = {@Param(name = "object", doc = "The object to check.")},
+      mandatoryPositionals = {@Param(name = "x", doc = "The object to check.")},
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction dir = new BuiltinFunction("dir") {
     public SkylarkList invoke(Object object,
@@ -1145,7 +1146,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "type", returnType = String.class,
       doc = "Returns the type name of its argument.",
-      mandatoryPositionals = {@Param(name = "object", doc = "The object to check type of.")})
+      mandatoryPositionals = {@Param(name = "x", doc = "The object to check type of.")})
   private static final BuiltinFunction type = new BuiltinFunction("type") {
     public String invoke(Object object) {
       // There is no 'type' type in Skylark, so we return a string with the type name.
@@ -1154,14 +1155,16 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "fail",
-      doc = "Raises an error that cannot be intercepted.",
+      doc = "Raises an error that cannot be intercepted. It can be used anywhere, "
+          + "both in the loading phase and in the analysis phase.",
       returnType = Environment.NoneType.class,
       mandatoryPositionals = {
         @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
       optionalPositionals = {
         @Param(name = "attr", type = String.class, noneable = true,
             defaultValue = "None",
-            doc = "The name of the attribute that caused the error")},
+            doc = "The name of the attribute that caused the error. This is used only for "
+               + "error reporting.")},
       useLocation = true)
   private static final BuiltinFunction fail = new BuiltinFunction("fail") {
     public Environment.NoneType invoke(String msg, Object attr,
@@ -1249,7 +1252,7 @@ public class MethodLibrary {
       + "y = \"hello\"[1:-1]  # \"ell\"\n"
       + "z = \"hello\"[:4]  # \"hell\"</pre>"
       + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
-      + "<pre class=\"language-python\">\"a\" in \"abc\"   # evaluates as True\n"
+      + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
       + "x = []\n"
       + "for s in \"abc\":\n"
       + "  x += [s]     # x == [\"a\", \"b\", \"c\"]</pre>\n"

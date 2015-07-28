@@ -274,7 +274,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "executable", structField = true,
       doc = "A <code>struct</code> containing executable files defined in label type "
           + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. The struct value is always a <code>file</code>s or "
+          + "to the attribute names. Each struct value is always a <code>file</code>s or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
           + "marked as <code>executable=True</code>, no corresponding struct field is generated.")
@@ -345,12 +345,12 @@ public final class SkylarkRuleContext {
           + " The struct is generated the following way:<br>"
           + "<ul><li>If the rule is marked as <code>executable=True</code> the struct has an "
           + "\"executable\" field with the rules default executable <code>file</code> value."
-          + "<li>For every entry in the rule's <code>outputs</code> dict a field is generated with "
+          + "<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with "
           + "the same name and the corresponding <code>file</code> value."
-          + "<li>For every output type attribute a struct field is generated with the "
+          + "<li>For every output type attribute a struct attribute is generated with the "
           + "same name and the corresponding <code>file</code> value or <code>None</code>, "
           + "if no value is specified in the rule."
-          + "<li>For every output list type attribute a struct field is generated with the "
+          + "<li>For every output list type attribute a struct attribute is generated with the "
           + "same name and corresponding <code>list</code> of <code>file</code>s value "
           + "(an empty list if no value is specified in the rule).</ul>")
   public SkylarkClassObject outputs() {
