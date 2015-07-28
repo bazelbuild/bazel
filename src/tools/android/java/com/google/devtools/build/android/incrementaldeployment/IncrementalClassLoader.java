@@ -30,14 +30,14 @@ import java.util.List;
 public class IncrementalClassLoader extends ClassLoader {
   private final DelegateClassLoader delegateClassLoader;
 
-  public IncrementalClassLoader(
-      ClassLoader original, String packageName, String codeCacheDir, List<String> dexes) {
+  public IncrementalClassLoader(ClassLoader original,
+      String packageName, String codeCacheDir, String nativeLibDir, List<String> dexes) {
     super(original.getParent());
 
     // TODO(bazel-team): For some mysterious reason, we need to use two class loaders so that
     // everything works correctly. Investigate why that is the case so that the code can be
     // simplified.
-    delegateClassLoader = createDelegateClassLoader(packageName, codeCacheDir, dexes, original);
+    delegateClassLoader = createDelegateClassLoader(codeCacheDir, nativeLibDir, dexes, original);
   }
 
   @Override
@@ -61,7 +61,7 @@ public class IncrementalClassLoader extends ClassLoader {
   }
 
   private static DelegateClassLoader createDelegateClassLoader(
-      String packageName, String codeCacheDir, List<String> dexes, ClassLoader original) {
+      String codeCacheDir, String nativeLibDir, List<String> dexes, ClassLoader original) {
     StringBuilder pathBuilder = new StringBuilder();
     boolean first = true;
     for (String dex : dexes) {
@@ -75,8 +75,9 @@ public class IncrementalClassLoader extends ClassLoader {
     }
 
     Log.v("IncrementalClassLoader", "Incremental dex path is " + pathBuilder);
+    Log.v("IncrementalClassLoader", "Native lib dir is " + nativeLibDir);
     return new DelegateClassLoader(pathBuilder.toString(), new File(codeCacheDir),
-        "/data/data/" + packageName + "/lib", original);
+        nativeLibDir, original);
   }
 
   private static void setParent(ClassLoader classLoader, ClassLoader newParent) {
@@ -90,9 +91,10 @@ public class IncrementalClassLoader extends ClassLoader {
   }
 
   public static void inject(
-      ClassLoader classLoader, String packageName, String codeCacheDir, List<String> dexes) {
+      ClassLoader classLoader, String packageName, String codeCacheDir,
+      String nativeLibDir, List<String> dexes) {
     IncrementalClassLoader incrementalClassLoader =
-        new IncrementalClassLoader(classLoader, packageName, codeCacheDir, dexes);
+        new IncrementalClassLoader(classLoader, packageName, codeCacheDir, nativeLibDir, dexes);
     setParent(classLoader, incrementalClassLoader);
   }
 }

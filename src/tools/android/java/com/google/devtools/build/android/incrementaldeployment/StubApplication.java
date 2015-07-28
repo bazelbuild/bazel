@@ -22,19 +22,27 @@ import android.content.res.Resources;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
-
+import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A stub application that patches the class loader, then replaces itself with the real application
@@ -55,6 +63,12 @@ import java.util.Map;
  */
 public class StubApplication extends Application {
   private static final String INCREMENTAL_DEPLOYMENT_DIR = "/data/local/tmp/incrementaldeployment";
+
+  private static final FilenameFilter SO = new FilenameFilter() {
+      public boolean accept(File dir, String name) {
+        return name.endsWith(".so");
+      }
+    };
 
   private final String realClassName;
   private final String packageName;
@@ -280,10 +294,22 @@ public class StubApplication extends Application {
   private void instantiateRealApplication(String codeCacheDir) {
     externalResourceFile = getExternalResourceFile();
 
+    String nativeLibDir;
+    try {
+      // We cannot use the .so files pushed by adb for some reason: even if permissions are 777
+      // and they are chowned to the user of the app from a root shell, dlopen() returns with
+      // "Permission denied". For some reason, copying them over makes them work (at the cost of
+      // some execution time and complexity here, of course)
+      nativeLibDir = copyNativeLibs();
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+
     IncrementalClassLoader.inject(
         StubApplication.class.getClassLoader(),
         packageName,
         codeCacheDir,
+        nativeLibDir,
         getDexList(packageName));
 
     try {
@@ -294,6 +320,130 @@ public class StubApplication extends Application {
       realApplication = ctor.newInstance();
     } catch (Exception e) {
       throw new IllegalStateException(e);
+    }
+  }
+
+  private String copyNativeLibs() throws IOException {
+    File nativeLibDir = new File(INCREMENTAL_DEPLOYMENT_DIR + "/" + packageName + "/native");
+    File newManifestFile = new File(nativeLibDir, "native_manifest");
+    File incrementalDir = new File("/data/data/" + packageName + "/incrementallib");
+    File installedManifestFile = new File(incrementalDir, "manifest");
+
+    if (!newManifestFile.exists()) {
+      // Native libraries are not installed incrementally. Just use the regular directory.
+      return "/data/data/" + packageName + "/lib";
+    }
+
+    Map<String, String> newManifest = parseManifest(newManifestFile);
+    Map<String, String> installedManifest = new HashMap<String, String>();
+    Set<String> libsToDelete = new HashSet<String>();
+    Set<String> libsToUpdate = new HashSet<String>();
+
+    if (!incrementalDir.exists()) {
+      if (!incrementalDir.mkdirs()) {
+        throw new IOException("Could not mkdir " + incrementalDir);
+      }
+    }
+
+    if (installedManifestFile.exists()) {
+      installedManifest = parseManifest(installedManifestFile);
+    } else {
+      // Delete old libraries, in case things got out of sync.
+      for (String installed : incrementalDir.list(SO)) {
+        libsToDelete.add(installed);
+      }
+    }
+
+    for (String installed : installedManifest.keySet()) {
+      if (!newManifest.containsKey(installed)
+          || !newManifest.get(installed).equals(installedManifest.get(installed))) {
+        libsToDelete.add(installed);
+      }
+    }
+
+    for (String newLib : newManifest.keySet()) {
+      if (!installedManifest.containsKey(newLib)
+          || !installedManifest.get(newLib).equals(newManifest.get(newLib))) {
+        libsToUpdate.add(newLib);
+      }
+    }
+
+    if (libsToDelete.isEmpty() && libsToUpdate.isEmpty()) {
+      // Nothing to be done. Be lazy.
+      return incrementalDir.toString();
+    }
+
+    // Delete the installed manifest file. If anything below goes wrong, everything will be
+    // reinstalled the next time the app starts up.
+    installedManifestFile.delete();
+
+    for (String toDelete : libsToDelete) {
+      File fileToDelete = new File(incrementalDir + "/" + toDelete);
+      Log.v("StubApplication", "Deleting " + fileToDelete);
+      if (fileToDelete.exists() && !fileToDelete.delete()) {
+        throw new IOException("Could not delete " + fileToDelete);
+      }
+    }
+
+    for (String toUpdate : libsToUpdate) {
+      Log.v("StubApplication", "Copying: " + toUpdate);
+      File src = new File(nativeLibDir + "/" + toUpdate);
+      copy(src, new File(incrementalDir + "/" + toUpdate));
+    }
+
+    try {
+      copy(newManifestFile, installedManifestFile);
+    } finally {
+      // If we can't write the installed manifest file, delete it completely so that the next
+      // time we get here we can start with a clean slate.
+      installedManifestFile.delete();
+    }
+    return incrementalDir.toString();
+  }
+
+  private static Map<String, String> parseManifest(File file) throws IOException {
+    Map<String, String> result = new HashMap<>();
+    BufferedReader reader = new BufferedReader(new FileReader(file));
+    try {
+      while (true) {
+        String line = reader.readLine();
+        if (line == null) {
+          break;
+        }
+
+        String[] items = line.split(" ");
+        result.put(items[0], items[1]);
+      }
+    } finally {
+      reader.close();
+    }
+
+    return result;
+  }
+
+
+  private static void copy(File src, File dst) throws IOException {
+    Log.v("StubApplication", "Copying " + src + " -> " + dst);
+    InputStream in = null;
+    OutputStream out = null;
+    try {
+      in = new FileInputStream(src);
+      out = new FileOutputStream(dst);
+
+      // Transfer bytes from in to out
+      byte[] buf = new byte[1048576];
+      int len;
+      while ((len = in.read(buf)) > 0) {
+        out.write(buf, 0, len);
+      }
+    } finally {
+      if (in != null) {
+        in.close();
+      }
+
+      if (out != null) {
+        out.close();
+      }
     }
   }
 
