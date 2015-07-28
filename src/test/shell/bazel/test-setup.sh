@@ -247,7 +247,7 @@ function create_new_workspace() {
 # Set-up a clean default workspace.
 function setup_clean_workspace() {
   export WORKSPACE_DIR=${TEST_TMPDIR}/workspace
-  echo "setting up client in ${WORKSPACE_DIR}"
+  echo "setting up client in ${WORKSPACE_DIR}" > $TEST_log
   rm -fr ${WORKSPACE_DIR}
   create_new_workspace ${WORKSPACE_DIR}
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] || \
@@ -260,9 +260,9 @@ function setup_clean_workspace() {
 # from a clean workspace
 function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
-    echo "Cleaning up workspace"
+    echo "Cleaning up workspace" > $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean  # Clean up the output base
+    bazel clean >& $TEST_log # Clean up the output base
 
     for i in $(ls); do
       if ! is_tools_directory "$i"; then
@@ -339,4 +339,4 @@ function assert_bazel_run() {
 
 setup_bazelrc
 setup_clean_workspace
-bazel fetch //tools/jdk/...
+bazel fetch //tools/jdk/... >& $TEST_log

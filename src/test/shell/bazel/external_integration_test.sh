@@ -22,7 +22,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  bazel clean --expunge
+  bazel clean --expunge >& $TEST_log
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
 java_binary(
