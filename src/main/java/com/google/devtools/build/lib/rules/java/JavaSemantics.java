@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
@@ -358,12 +357,6 @@ public interface JavaSemantics {
    */
   void commonDependencyProcessing(RuleContext ruleContext, JavaTargetAttributes.Builder attributes,
       Collection<? extends TransitiveInfoCollection> deps);
-
-  /**
-   * Returns an list of {@link ActionInput} that the {@link JavaCompileAction} generates and
-   * that should be cached.
-   */
-  Collection<ActionInput> getExtraJavaCompileOutputs(PathFragment classDirectory);
 
   /**
    * Takes the path of a Java resource and tries to determine the Java
