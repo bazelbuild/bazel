@@ -317,6 +317,20 @@ java_import(
     jars = ["truth/truth-0.27.jar"],
 )
 
+cc_library(
+    name = "gtest",
+    srcs = [
+        "gtest/gtest-all.cc",
+        "gtest/gtest_main.cc",
+    ],
+    hdrs = [
+        "gtest/gtest.h",
+    ],
+    includes = ["."],
+    # gtest detects pthread, and the linker fails without it.
+    linkopts = ["-lpthread"],
+)
+
 # To be used by the skylark example.
 filegroup(
     name = "junit4-jars",

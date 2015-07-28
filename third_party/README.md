@@ -126,6 +126,13 @@ a minimal set of extra dependencies.
 * License: New BSD License
 
 
+[gtest](https://code.google.com/p/googletest/)
+------
+
+* Version: 1.7.0
+* License: New BSD License
+
+
 [gson](https://code.google.com/p/google-gson/)
 ------
 
