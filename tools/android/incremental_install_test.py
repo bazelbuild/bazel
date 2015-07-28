@@ -78,6 +78,8 @@ class MockAdb(object):
       elif shell_cmdln.startswith("rm"):
         file_path = shell_cmdln.split()[2]
         self.files.pop(file_path, None)
+      elif shell_cmdln.startswith("getprop ro.product.cpu.abi"):
+        return self._CreatePopenMock(0, "armeabi-v7a", "")
       else:
         raise Exception("Unknown shell command line: %s" % shell_cmdln)
     # Return a mock subprocess.Popen object
@@ -151,11 +153,13 @@ class IncrementalInstallTest(unittest.TestCase):
   def _PutDeviceFile(self, f, content):
     self._mock_adb.files[self._GetDeviceAppPath(f)] = content
 
-  def _CallIncrementalInstall(self, incremental, start_app=False):
+  def _CallIncrementalInstall(self, incremental, native_libs=None,
+                              start_app=False):
     if incremental:
       apk = None
     else:
       apk = self._APK
+
     incremental_install.IncrementalInstall(
         adb_path=self._ADB_PATH,
         execroot=self._EXEC_ROOT,
@@ -163,13 +167,13 @@ class IncrementalInstallTest(unittest.TestCase):
         dexmanifest=self._DEXMANIFEST,
         apk=apk,
         resource_apk=self._RESOURCE_APK,
+        native_libs=native_libs,
         output_marker=self._OUTPUT_MARKER,
         adb_jobs=1,
         start_app=start_app,
         user_home_dir="/home/root")
 
   def testUploadToPristineDevice(self):
-
     self._CreateZip()
 
     with open("dex1", "w") as f:
@@ -190,8 +194,35 @@ class IncrementalInstallTest(unittest.TestCase):
     self.assertEquals("content3", self._GetDeviceFile("dex/ip3"))
     self.assertEquals("resource apk", self._GetDeviceFile("resources.ap_"))
 
-  def testUploadWithOneChangedFile(self):
+  def testUploadNativeLibs(self):
+    self._CreateZip()
+    with open("liba.so", "w") as f:
+      f.write("liba_1")
+    with open("libb.so", "w") as f:
+      f.write("libb_1")
 
+    native_libs = ["armeabi-v7a:liba.so", "armeabi-v7a:libb.so"]
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+    self.assertEquals("libb_1", self._GetDeviceFile("native/libb.so"))
+
+    # Change a library
+    with open("libb.so", "w") as f:
+      f.write("libb_2")
+    self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
+    self.assertEquals("libb_2", self._GetDeviceFile("native/libb.so"))
+
+    # Delete a library
+    self._CallIncrementalInstall(
+        incremental=True, native_libs=["armeabi-v7a:liba.so"])
+    self.assertFalse(
+        self._GetDeviceAppPath("native/libb.so") in self._mock_adb.files)
+
+    # Add the deleted library back
+    self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
+    self.assertEquals("libb_2", self._GetDeviceFile("native/libb.so"))
+
+  def testUploadWithOneChangedFile(self):
     # Existing manifest from a previous install.
     self._CreateRemoteManifest(
         "zip1 zp1 ip1 0",
