@@ -416,8 +416,15 @@ public final class SkylarkRuleContext {
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 
-  @SkylarkCallable(doc = "Creates a new file object, derived from the given file and suffix. "
-      + DOC_NEW_FILE_TAIL)
+  @SkylarkCallable(doc =
+      "Creates a new file object, derived from the given file and suffix. " + DOC_NEW_FILE_TAIL)
+  public Artifact newFileSuffix(Artifact baseArtifact, String suffix) {
+    return newFile(baseArtifact, suffix);
+  }
+
+  @SkylarkCallable(doc =
+      "Creates a new file object, derived from the given file and suffix. " + DOC_NEW_FILE_TAIL
+      + " Deprecated: Please use ctx.new_file_suffix() instead.")
   public Artifact newFile(Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
