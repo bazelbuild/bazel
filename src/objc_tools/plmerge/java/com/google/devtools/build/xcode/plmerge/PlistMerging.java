@@ -165,6 +165,15 @@ public class PlistMerging extends Value<PlistMerging> {
     result.put("CFBundleSupportedPlatforms", new NSArray(NSObject.wrap(platform.getNameInPlist())));
     result.put("MinimumOSVersion", NSObject.wrap(minimumOsVersion));
 
+    // Adding these here by brute force to override values inserted by
+    // release bundling support which are wrong.
+    // These shall be removed once the errors in release bundling support are fixed.
+    // These values are taken from an Xcode 6.2 device build.
+    // Adding them to a simulator build causes no problems when tested with Xcode 6.2.
+    result.put("DTPlatformBuild", NSObject.wrap("12D508"));
+    result.put("DTSDKBuild", NSObject.wrap("12D508"));
+    result.put("DTXcode", NSObject.wrap("0620"));
+    result.put("DTXcodeBuild", NSObject.wrap("6C131e"));
     return result.build();
   }
 
@@ -177,7 +186,13 @@ public class PlistMerging extends Value<PlistMerging> {
           throws IOException {
     NSDictionary merged = PlistMerging.merge(sourceFiles);
 
-    Set<String> conflictingEntries = Sets.intersection(automaticEntries.keySet(), merged.keySet());
+    // Remove the entries that we have added by brute force in automaticEntries so that our
+    // check for conflictingEntries still works.
+    // This shall be removed once the errors in release bundling support are fixed.
+    Set<String> conflictingEntries = Sets.difference(
+        Sets.intersection(automaticEntries.keySet(), merged.keySet()),
+        ImmutableSet.of("DTPlatformBuild", "DTSDKBuild", "DTXcode", "DTXcodeBuild"));
+
     Preconditions.checkArgument(conflictingEntries.isEmpty(),
         "The following plist entries are generated automatically, but are present in more than one "
             + "of the input lists: %s", conflictingEntries);
