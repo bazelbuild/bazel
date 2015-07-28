@@ -333,6 +333,15 @@ function test_changed_zip() {
   [[ -s $repo_zip ]] || fail "File size was 0"
 }
 
+function test_cached_across_server_restart() {
+  http_archive_helper zip_up
+  bazel shutdown >& $TEST_log || fail "Couldn't shut down"
+  bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
+    || echo "Expected build/run to succeed"
+  expect_log $what_does_the_fox_say
+  expect_not_log "Downloading from"
+}
+
 # Tests downloading a jar and using it as a Java dependency.
 function test_jar_download() {
   serve_jar

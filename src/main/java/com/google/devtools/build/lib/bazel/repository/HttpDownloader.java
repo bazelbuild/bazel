@@ -73,6 +73,15 @@ public class HttpDownloader {
     }
     Path destination = outputDirectory.getRelative(filename);
 
+    try {
+      String currentSha256 = getHash(Hashing.sha256().newHasher(), destination);
+      if (currentSha256.equals(sha256)) {
+        // No need to download.
+        return destination;
+      }
+    } catch (IOException e) {
+      // Ignore error trying to hash. We'll just download again.
+    }
     int currentBytes;
     final AtomicInteger totalBytes = new AtomicInteger(0);
     final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
