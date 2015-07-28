@@ -70,7 +70,8 @@ HTTP/1.0 200 OK
 
 EOF
   cat $1 >> $http_response
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
+  # Assign random_port to nc_port if not already set.
+  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
   nc_log=$TEST_TMPDIR/nc.log
   nc_l $nc_port < $http_response >& $nc_log &
   nc_pid=$!
@@ -138,36 +139,41 @@ function tar_gz_up() {
 #   male
 function http_archive_helper() {
   zipper=$1
+  local write_workspace
+  [[ $# -gt 1 ]] && [[ "$2" = "nowrite" ]] && write_workspace=1 || write_workspace=0
 
-  # Create a zipped-up repository HTTP response.
-  repo2=$TEST_TMPDIR/repo2
-  rm -rf $repo2
-  mkdir -p $repo2/fox
-  cd $repo2
-  touch WORKSPACE
-  cat > fox/BUILD <<EOF
+  if [[ $write_workspace = 0 ]]; then
+    # Create a zipped-up repository HTTP response.
+    repo2=$TEST_TMPDIR/repo2
+    rm -rf $repo2
+    mkdir -p $repo2/fox
+    cd $repo2
+    touch WORKSPACE
+    cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
     srcs = ["male"],
     visibility = ["//visibility:public"],
 )
 EOF
-  what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
-  cat > fox/male <<EOF
+    what_does_the_fox_say="Fraka-kaka-kaka-kaka-kow"
+    cat > fox/male <<EOF
 #!/bin/bash
 echo $what_does_the_fox_say
 EOF
-  chmod +x fox/male
-  # Add some padding to the .zip to test that Bazel's download logic can
-  # handle breaking a response into chunks.
-  dd if=/dev/zero of=fox/padding bs=1024 count=10240
-  $zipper
-  repo2_name=$(basename $repo2_zip)
-  sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
+    chmod +x fox/male
+    # Add some padding to the .zip to test that Bazel's download logic can
+    # handle breaking a response into chunks.
+    dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
+    $zipper >& $TEST_log
+    repo2_name=$(basename $repo2_zip)
+    sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
+  fi
   serve_file $repo2_zip
 
   cd ${WORKSPACE_DIR}
-  cat > WORKSPACE <<EOF
+  if [[ $write_workspace = 0 ]]; then
+    cat > WORKSPACE <<EOF
 http_archive(
     name = 'endangered',
     url = 'http://localhost:$nc_port/$repo2_name',
@@ -175,7 +181,7 @@ http_archive(
 )
 EOF
 
-  cat > zoo/BUILD <<EOF
+    cat > zoo/BUILD <<EOF
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -183,13 +189,14 @@ sh_binary(
 )
 EOF
 
-  cat > zoo/female.sh <<EOF
+    cat > zoo/female.sh <<EOF
 #!/bin/bash
 ./external/endangered/fox/male
 EOF
-  chmod +x zoo/female.sh
+    chmod +x zoo/female.sh
+fi
 
-  bazel run //zoo:breeding-program >& $TEST_log \
+  bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
@@ -309,6 +316,21 @@ EOF
     || echo "Expected run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
+}
+
+function test_changed_zip() {
+  nc_port=$(pick_random_unused_tcp_port) || fail "Couldn't get TCP port"
+  http_archive_helper zip_up
+  http_archive_helper zip_up "nowrite"
+  expect_not_log "Downloading from"
+  local readonly output_base=$(bazel info output_base)
+  local readonly repo_zip=$output_base/external/endangered/fox.zip
+  rm $repo_zip || fail "Couldn't delete $repo_zip"
+  touch $repo_zip || fail "Couldn't touch $repo_zip"
+  [[ -s $repo_zip ]] && fail "File size not 0"
+  http_archive_helper zip_up "nowrite"
+  expect_log "Downloading from"
+  [[ -s $repo_zip ]] || fail "File size was 0"
 }
 
 # Tests downloading a jar and using it as a Java dependency.

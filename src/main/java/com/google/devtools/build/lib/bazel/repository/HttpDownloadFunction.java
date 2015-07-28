@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * Downloads an archive file over HTTP.
  */
 public class HttpDownloadFunction implements SkyFunction {
-  public static final String NAME = "HTTP_DOWNLOAD";
+  public static final SkyFunctionName NAME = SkyFunctionName.create("HTTP_DOWNLOAD");
   private Reporter reporter;
 
   public void setReporter(Reporter reporter) {
@@ -47,10 +47,10 @@ public class HttpDownloadFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     HttpDescriptor descriptor = (HttpDescriptor) skyKey.argument();
     try {
-      // The downloaded file is not added to Skyframe, as changes to it cannot affect a build
-      // (it's essentially a temporary file). The downloaded file is always an archive and its
-      // contents, once decompressed, _can_ be dependencies of the build and _are_ added to
-      // Skyframe (through the normal package mechanism).
+      // The downloaded file is not added to Skyframe here, as changes to it do not necessarily
+      // affect a build (it's usually essentially a temporary file). However, if the downloaded
+      // file's sha256 is not the expected value on subsequent builds, this is taken as a signal
+      // that it must be re-downloaded. This might happen if the user deleted the downloaded file.
       return new HttpDownloadValue(
           new HttpDownloader(
                   reporter,
@@ -79,21 +79,25 @@ public class HttpDownloadFunction implements SkyFunction {
     String sha256 = mapper.get("sha256", Type.STRING);
     String type = mapper.has("type", Type.STRING) ? mapper.get("type", Type.STRING) : "";
     return new SkyKey(
-        SkyFunctionName.create(NAME),
-        new HttpDownloadFunction.HttpDescriptor(url, sha256, outputDirectory, type));
+        NAME, new HttpDownloadFunction.HttpDescriptor(url, sha256, outputDirectory, type));
   }
 
-  static final class HttpDescriptor {
+  /** Data about a remote repository to be accessed via http. */
+  public static final class HttpDescriptor {
     private String url;
     private String sha256;
     private Path outputDirectory;
     private String type;
 
-    public HttpDescriptor(String url, String sha256, Path outputDirectory, String type) {
+    HttpDescriptor(String url, String sha256, Path outputDirectory, String type) {
       this.url = url;
       this.sha256 = sha256;
       this.outputDirectory = outputDirectory;
       this.type = type;
+    }
+
+    public String getSha256() {
+      return sha256;
     }
 
     @Override

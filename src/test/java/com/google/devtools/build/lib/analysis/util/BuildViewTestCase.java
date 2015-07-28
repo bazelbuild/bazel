@@ -107,6 +107,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -186,18 +187,21 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
-    skyframeExecutor = SequencedSkyframeExecutor.create(reporter,
-        new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
-        new TimestampGranularityMonitor(BlazeClock.instance()), directories,
-        workspaceStatusActionFactory,
-        ruleClassProvider.getBuildInfoFactories(),
-        ImmutableSet.<Path>of(),
-        ImmutableList.<DiffAwareness.Factory>of(),
-        Predicates.<PathFragment>alwaysFalse(),
-        getPreprocessorFactorySupplier(),
-        ImmutableMap.<SkyFunctionName, SkyFunction>of(),
-        getPrecomputedValues()
-    );
+    skyframeExecutor =
+        SequencedSkyframeExecutor.create(
+            reporter,
+            new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
+            new TimestampGranularityMonitor(BlazeClock.instance()),
+            directories,
+            workspaceStatusActionFactory,
+            ruleClassProvider.getBuildInfoFactories(),
+            ImmutableSet.<Path>of(),
+            ImmutableList.<DiffAwareness.Factory>of(),
+            Predicates.<PathFragment>alwaysFalse(),
+            getPreprocessorFactorySupplier(),
+            ImmutableMap.<SkyFunctionName, SkyFunction>of(),
+            getPrecomputedValues(),
+            ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(rootDirectory), ConstantRuleVisibility.PUBLIC, true, 7, "",
         UUID.randomUUID());

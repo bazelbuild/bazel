@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -191,6 +192,10 @@ public abstract class BlazeModule {
    */
   public Map<String, String> getPlatformSetRegexps() {
     return ImmutableMap.<String, String>of();
+  }
+
+  public Iterable<SkyValueDirtinessChecker> getCustomDirtinessCheckers() {
+    return ImmutableList.of();
   }
 
   /**

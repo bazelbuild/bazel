@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.hash.Hashing.sha256;
+import static com.google.devtools.build.lib.bazel.repository.HttpDownloader.getHash;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +30,7 @@ import com.google.devtools.build.lib.bazel.repository.GitCloneFunction;
 import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
+import com.google.devtools.build.lib.bazel.repository.HttpDownloadValue;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
 import com.google.devtools.build.lib.bazel.repository.JarFunction;
@@ -62,16 +66,23 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
 
+import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.annotation.Nullable;
 
 /**
  * Adds support for fetching external code.
@@ -127,6 +138,33 @@ public class BazelRepositoryModule extends BlazeModule {
     return ImmutableSet.of(RepositoryFunction.getExternalRepositoryDirectory(directories));
   }
 
+  private static final SkyValueDirtinessChecker HTTP_DOWNLOAD_CHECKER =
+      new SkyValueDirtinessChecker() {
+        @Override
+        @Nullable
+        public DirtyResult maybeCheck(
+            SkyKey skyKey, SkyValue skyValue, TimestampGranularityMonitor tsgm) {
+          if (!skyKey.functionName().equals(HttpDownloadFunction.NAME)) {
+            return null;
+          }
+          HttpDownloadValue httpDownloadValue = (HttpDownloadValue) skyValue;
+          Path path = httpDownloadValue.getPath();
+          try {
+            return ((HttpDownloadFunction.HttpDescriptor) skyKey.argument())
+                    .getSha256().equals(getHash(sha256().newHasher(), path))
+                ? DirtyResult.NOT_DIRTY
+                : DirtyResult.DIRTY;
+          } catch (IOException e) {
+            return DirtyResult.DIRTY;
+          }
+        }
+      };
+
+  @Override
+  public Iterable<SkyValueDirtinessChecker> getCustomDirtinessCheckers() {
+    return ImmutableList.of(HTTP_DOWNLOAD_CHECKER);
+  }
+
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
@@ -167,7 +205,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     // Helper SkyFunctions.
     downloadFunction = new HttpDownloadFunction();
-    builder.put(SkyFunctionName.create(HttpDownloadFunction.NAME), downloadFunction);
+    builder.put(HttpDownloadFunction.NAME, downloadFunction);
     gitCloneFunction = new GitCloneFunction();
     builder.put(SkyFunctionName.create(GitCloneFunction.NAME), gitCloneFunction);
     builder.put(JarFunction.NAME, new JarFunction());

@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.Label;
@@ -1732,13 +1733,29 @@ public final class BlazeRuntime {
         precomputedValues.addAll(module.getPrecomputedSkyframeValues());
       }
 
+      ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
+          ImmutableList.builder();
+      for (BlazeModule module : blazeModules) {
+        customDirtinessCheckers.addAll(module.getCustomDirtinessCheckers());
+      }
+
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
-      SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(reporter, pkgFactory,
-          timestampMonitor, directories, workspaceStatusActionFactory,
-          ruleClassProvider.getBuildInfoFactories(), immutableDirectories, diffAwarenessFactories,
-          allowedMissingInputs, preprocessorFactorySupplier, skyFunctions.build(),
-          precomputedValues.build());
+      SkyframeExecutor skyframeExecutor =
+          skyframeExecutorFactory.create(
+              reporter,
+              pkgFactory,
+              timestampMonitor,
+              directories,
+              workspaceStatusActionFactory,
+              ruleClassProvider.getBuildInfoFactories(),
+              immutableDirectories,
+              diffAwarenessFactories,
+              allowedMissingInputs,
+              preprocessorFactorySupplier,
+              skyFunctions.build(),
+              precomputedValues.build(),
+              customDirtinessCheckers.build());
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(

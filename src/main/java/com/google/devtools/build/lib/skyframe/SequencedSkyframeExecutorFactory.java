@@ -36,18 +36,33 @@ import java.util.Set;
 public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory {
 
   @Override
-  public SkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
-      Factory workspaceStatusActionFactory, ImmutableList<BuildInfoFactory> buildInfoFactories,
+  public SkyframeExecutor create(
+      Reporter reporter,
+      PackageFactory pkgFactory,
+      TimestampGranularityMonitor tsgm,
+      BlazeDirectories directories,
+      Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    return SequencedSkyframeExecutor.create(reporter, pkgFactory, tsgm, directories,
-        workspaceStatusActionFactory, buildInfoFactories, immutableDirectories,
-        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-        extraSkyFunctions, extraPrecomputedValues);
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
+    return SequencedSkyframeExecutor.create(
+        reporter,
+        pkgFactory,
+        tsgm,
+        directories,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        immutableDirectories,
+        diffAwarenessFactories,
+        allowedMissingInputs,
+        preprocessorFactorySupplier,
+        extraSkyFunctions,
+        extraPrecomputedValues,
+        customDirtinessCheckers);
   }
 }

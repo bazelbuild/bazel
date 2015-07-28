@@ -41,8 +41,6 @@ public interface SkyframeExecutorFactory {
    *
    * @param reporter the reporter to be used by the executor
    * @param pkgFactory the package factory
-   * @param skyframeBuild use Skyframe for the build phase. Should be always true after we are in
-   * the skyframe full mode.
    * @param tsgm timestamp granularity monitor
    * @param directories Blaze directories
    * @param workspaceStatusActionFactory a factory for creating WorkspaceStatusAction objects
@@ -52,11 +50,15 @@ public interface SkyframeExecutorFactory {
    * @param preprocessorFactorySupplier
    * @param extraSkyFunctions
    * @param extraPrecomputedValues
+   * @param customDirtinessCheckers
    * @return an instance of the SkyframeExecutor
    * @throws AbruptExitException if the executor cannot be created
    */
-  SkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
+  SkyframeExecutor create(
+      Reporter reporter,
+      PackageFactory pkgFactory,
+      TimestampGranularityMonitor tsgm,
+      BlazeDirectories directories,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -64,5 +66,7 @@ public interface SkyframeExecutorFactory {
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) throws AbruptExitException;
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers)
+      throws AbruptExitException;
 }

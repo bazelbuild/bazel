@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -69,19 +70,21 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     super.setUp();
 
     ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    skyframeExecutor = SequencedSkyframeExecutor.create(reporter,
-        new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
-        new TimestampGranularityMonitor(BlazeClock.instance()),
-        new BlazeDirectories(outputBase, outputBase, rootDirectory),
-        null, /* workspaceStatusActionFactory */
-        ruleClassProvider.getBuildInfoFactories(),
-        ImmutableSet.<Path>of(),
-        ImmutableList.<DiffAwareness.Factory>of(),
-        Predicates.<PathFragment>alwaysFalse(),
-        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
-        ImmutableMap.<SkyFunctionName, SkyFunction>of(),
-        ImmutableList.<PrecomputedValue.Injected>of()
-    );
+    skyframeExecutor =
+        SequencedSkyframeExecutor.create(
+            reporter,
+            new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
+            new TimestampGranularityMonitor(BlazeClock.instance()),
+            new BlazeDirectories(outputBase, outputBase, rootDirectory),
+            null, /* workspaceStatusActionFactory */
+            ruleClassProvider.getBuildInfoFactories(),
+            ImmutableSet.<Path>of(),
+            ImmutableList.<DiffAwareness.Factory>of(),
+            Predicates.<PathFragment>alwaysFalse(),
+            Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
+            ImmutableMap.<SkyFunctionName, SkyFunction>of(),
+            ImmutableList.<PrecomputedValue.Injected>of(),
+            ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(rootDirectory), ConstantRuleVisibility.PUBLIC, true, 7, "",
         UUID.randomUUID());
