@@ -89,3 +89,8 @@ filegroup(
     name = "srcs",
     srcs = ["BUILD"],  # Tools are build from the workspace for tests.
 )
+
+filegroup(
+    name = "package-srcs",
+    srcs = glob(["**"]),
+)

@@ -17,3 +17,17 @@ filegroup(
         "//tools/python:srcs",
     ],
 )
+
+filegroup(
+    name = "package-srcs",
+    srcs = glob(["**"]) + [
+        "//tools/android:srcs",
+        "//tools/android/jack:srcs",
+        "//tools/jdk:package-srcs",
+        "//tools/genrule:srcs",
+        "//tools/cpp:srcs",
+        "//tools/objc:srcs",
+        "//tools/test:srcs",
+        "//tools/python:srcs",
+    ],
+)

@@ -97,6 +97,7 @@ genrule(
     output_to_bindir = 1,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
+        "//scripts/packages:__pkg__",  # For installer generation
         "//src/test:__subpackages__",  # For integration tests
     ],
 )
