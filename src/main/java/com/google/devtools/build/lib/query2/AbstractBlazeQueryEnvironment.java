@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -43,6 +44,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -62,6 +64,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
 
   private final Set<Setting> settings;
   private final List<QueryFunction> extraFunctions;
+
+ private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
 
   protected AbstractBlazeQueryEnvironment(boolean keepGoing,
       boolean strictScope,
@@ -133,6 +137,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
    */
   public QueryEvalResult<T> evaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
+    long startTime = Profiler.nanoTimeMaybe();
     resolvedTargetPatterns.clear();
 
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
@@ -151,6 +156,11 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       resultNodes = expr.eval(this);
     } catch (QueryException e) {
       throw new QueryException(e, expr);
+    } finally {
+      long duration = Profiler.nanoTimeMaybe() - startTime;
+      if (duration > 0) {
+        LOG.info("Spent " + (duration / 1000 / 1000) + " ms evaluating query");
+      }
     }
 
     if (eventHandler.hasErrors()) {

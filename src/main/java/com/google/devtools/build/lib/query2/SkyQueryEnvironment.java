@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -69,6 +70,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -89,6 +91,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private final List<String> universeScope;
   private final String parserPrefix;
   private final PathPackageLocator pkgPath;
+
+  private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
 
   public SkyQueryEnvironment(boolean keepGoing, boolean strictScope, int loadingPhaseThreads,
       Predicate<Label> labelFilter,
@@ -111,10 +115,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   private void init() throws InterruptedException {
+    long startTime = Profiler.nanoTimeMaybe();
     EvaluationResult<SkyValue> result =
         graphFactory.prepareAndGet(universeScope, loadingPhaseThreads, eventHandler);
     graph = result.getWalkableGraph();
     Collection<SkyValue> values = result.values();
+    long duration = Profiler.nanoTimeMaybe() - startTime;
+    if (duration > 0) {
+      LOG.info("Spent " + (duration / 1000 / 1000) + " ms on evaluation and walkable graph");
+    }
 
     // The universe query may fail if there are errors during its evaluation, e.g. because of
     // cycles in the target graph.
