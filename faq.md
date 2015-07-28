@@ -296,24 +296,14 @@ Bazel has conventions for structuring more complex programs, e.g., a
 Java program that consumes a set of data files, or runs another
 program as subprocess. It is possible to package up such environments
 as standalone archives, so they can be deployed on different systems,
-including Docker images. We currently don't have code to do this,
-though.
+including Docker images.
 
 
 Can I build Docker images with Bazel?
 -------------------------------------
 
-Bazel builds programs such that they are reproducible with respect to
-the source tree used to build them.  By design, Bazel does not know
-about the environment outside the source tree. Therefore, it does not
-know what Docker image would be consistent with its own
-environment. So, if you use Bazel with Docker, we recommend to run
-Bazel in an environment that resembles the deployment environment to
-ensure repeatability.
-
-It is possible to write rules that generate Docker images as files.
-However, since Docker images reflect live filesystems, they are full
-of timestamps, which makes reproducibility challenging.
+Yes, you can use our [Docker rules](https://www.google.com/url?q=https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md&usg=AFQjCNEHadeay7nnQm-WCcZ-UQoHCccXqA)
+to build docker images that are reproducible.
 
 
 Will Bazel make my builds reproducible automatically?
