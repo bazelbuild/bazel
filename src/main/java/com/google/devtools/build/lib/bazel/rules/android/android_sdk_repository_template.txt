@@ -44,6 +44,14 @@ sh_binary(
     srcs = ["fail.sh"])
 
 genrule(
+    name = "generate_fail_sh",
+    srcs = [],
+    outs = ["fail.sh"],
+    cmd = "echo -e '#!/bin/bash\\nexit 1' >> $@; chmod +x $@",
+)
+
+
+genrule(
     name = "main_dex_list_creator_source",
     srcs = [],
     outs = ["main_dex_list_creator.sh"],
