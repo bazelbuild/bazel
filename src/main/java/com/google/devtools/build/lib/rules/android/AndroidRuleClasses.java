@@ -201,19 +201,19 @@ public final class AndroidRuleClasses {
           buildOptions.get(AndroidConfiguration.Options.class);
       CppOptions cppOptions = buildOptions.get(CppOptions.class);
       Label androidCrosstoolTop = androidOptions.realAndroidCrosstoolTop();
-      if (androidOptions.fatApkCpus.isEmpty()
+      if (androidOptions.realFatApkCpus().isEmpty()
           && (androidCrosstoolTop == null || androidCrosstoolTop.equals(cppOptions.crosstoolTop))) {
         return ImmutableList.of();
       }
 
-      if (androidOptions.fatApkCpus.isEmpty()) {
+      if (androidOptions.realFatApkCpus().isEmpty()) {
         BuildOptions splitOptions = buildOptions.clone();
         setCrosstoolToAndroid(splitOptions, buildOptions);
         return ImmutableList.of(splitOptions);
       }
 
       List<BuildOptions> result = new ArrayList<>();
-      for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
+      for (String cpu : ImmutableSortedSet.copyOf(androidOptions.realFatApkCpus())) {
         BuildOptions splitOptions = buildOptions.clone();
         // Disable fat APKs for the child configurations.
         splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();

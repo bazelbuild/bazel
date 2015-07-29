@@ -118,7 +118,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     StringBuilder toolchains = new StringBuilder();
 
     for (String cpu : cpus) {
-      toolchainMap.append(String.format("\"%s\": \":cc-compiler-%s\", ", cpu, cpu));
+      toolchainMap.append(String.format("\"%s\": \":cc-compiler-%s\", ", abi, abi));
       toolchainProtos.append(
           toolchainTemplate
               .replace("%repository%", ruleName)
@@ -141,7 +141,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
         .replace("%toolchain_map%", toolchainMap)
         .replace("%toolchain_protos%", toolchainProtos)
         .replace("%toolchains%", toolchains)
-        .replace("%default_cpu%", cpus.get(0));
+        .replace("%default_cpu%", abi);
 
     return writeBuildFile(directoryValue, buildFile);
   }

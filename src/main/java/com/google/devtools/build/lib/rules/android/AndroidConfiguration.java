@@ -199,6 +199,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       return Label.parseAbsoluteUnchecked(Constants.ANDROID_DEFAULT_CROSSTOOL);
     }
 
+    public List<String> realFatApkCpus() {
+      if (fatApkCpus.isEmpty()) {
+        return Constants.ANDROID_DEFAULT_FAT_APK_CPUS;
+      } else {
+        return fatApkCpus;
+      }
+    }
+
     @Override
     public ImmutableList<String> getDefaultsRules() {
       return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
@@ -248,7 +256,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;
-    this.fatApk = !options.fatApkCpus.isEmpty();
+    this.fatApk = !options.realFatApkCpus().isEmpty();
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.proguard = options.proguard;
     this.useJackForDexing = options.useJackForDexing;
