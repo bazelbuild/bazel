@@ -118,7 +118,7 @@ public class RunfilesSupport {
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
 
     args = ImmutableList.<String>builder()
-        .addAll(ruleContext.getTokenizedStringListAttr("args", ruleContext))
+        .addAll(ruleContext.getTokenizedStringListAttr("args"))
         .addAll(appendingArgs)
         .build();
   }

@@ -692,27 +692,13 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Gets an attribute of type STRING_LIST expanding Make variables and tokenizes
-   * the result.
+   * Gets an attribute of type STRING_LIST expanding Make variables, $(location) tags into the
+   * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
    *
    * @param attributeName the name of the attribute to process
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
   public List<String> getTokenizedStringListAttr(String attributeName) {
-    return getTokenizedStringListAttr(attributeName, null);
-  }
-
-  /**
-   * Gets an attribute of type STRING_LIST expanding Make variables, $(location) tags into the
-   * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
-   *
-   * @param attributeName the name of the attribute to process
-   * @param ruleContext the rule context to look for $(location) tag replacement, or null if
-   *        location should not be expanded
-   * @return a list of strings containing the expanded and tokenized values for the attribute
-   */
-  public List<String> getTokenizedStringListAttr(String attributeName,
-      @Nullable RuleContext ruleContext) {
     if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
       // TODO(bazel-team): This should be an error.
       return ImmutableList.of();
@@ -723,8 +709,7 @@ public final class RuleContext extends TargetContext
     }
     List<String> tokens = new ArrayList<>();
     LocationExpander locationExpander =
-        ruleContext != null ? new LocationExpander(ruleContext, LocationExpander.Options.ALLOW_DATA)
-            : null;
+        new LocationExpander(this, LocationExpander.Options.ALLOW_DATA);
 
     for (String token : original) {
       tokenizeAndExpandMakeVars(tokens, attributeName, token, locationExpander);
