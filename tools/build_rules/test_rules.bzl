@@ -1,3 +1,5 @@
+"""Utilities for testing bazel."""
+#
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""test_rules.bzl: Utilities for testing bazel."""
 
 ### First, trivial tests that either always pass, always fail,
 ### or sometimes pass depending on a trivial computation.
@@ -191,15 +192,15 @@ def _rule_test_impl(ctx):
   rule_ = ctx.attr.rule
   rule_name = str(rule_.label)
   exe = ctx.outputs.executable
-  if ctx.attr.generates != []:
-    prefix = ctx.label.package + "/"
+  if ctx.attr.generates:
+    prefix = rule_.label.package + "/"
     generates = ctx.attr.generates
     generated = [strip_prefix(prefix, f.short_path) for f in rule_.files]
     if generates != generated:
       fail("rule %s generates %s not %s"
            % (rule_name, repr(generated), repr(generates)))
   provides = ctx.attr.provides
-  if provides != {}:
+  if provides:
     files = []
     commands = []
     for k in provides.keys():
@@ -239,11 +240,11 @@ def _file_test_impl(ctx):
   content = ctx.attr.content
   regexp = ctx.attr.regexp
   matches = ctx.attr.matches
-  if (content == "") == (regexp == ""):
+  if bool(content) == bool(regexp):
     fail("Must specify one and only one of content or regexp")
-  if content != "" and matches != -1:
+  if content and matches != -1:
     fail("matches only makes sense with regexp")
-  if content != "":
+  if content:
     dat = ctx.new_file(ctx.data_configuration.genfiles_dir, exe, ".dat")
     ctx.file_action(
         output=dat,
