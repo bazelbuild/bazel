@@ -21,7 +21,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -163,9 +162,6 @@ public final class CcCommon {
     if (ruleContext.attributes().has("malloc", Type.LABEL)) {
       deps.add(CppHelper.mallocForTarget(ruleContext));
     }
-    if (ruleContext.attributes().has("implementation", Type.LABEL_LIST)) {
-      deps.addAll(ruleContext.getPrerequisites("implementation", Mode.TARGET));
-    }
 
     return compilationOutputs == null  // Possible in LIPO collection mode (see initializationHook).
         ? DwoArtifactsCollector.emptyCollector()
@@ -180,14 +176,6 @@ public final class CcCommon {
 
     NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();
     CppHelper.addTransitiveLipoInfoForCommonAttributes(ruleContext, outputs, scannableBuilder);
-    if (hasAttribute("implementation", Type.LABEL_LIST)) {
-      for (TransitiveLipoInfoProvider impl : AnalysisUtils.getProviders(
-          ruleContext.getPrerequisites("implementation", Mode.TARGET),
-          TransitiveLipoInfoProvider.class)) {
-        scannableBuilder.addTransitive(impl.getTransitiveIncludeScannables());
-      }
-    }
-
     return new TransitiveLipoInfoProvider(scannableBuilder.build());
   }
 
