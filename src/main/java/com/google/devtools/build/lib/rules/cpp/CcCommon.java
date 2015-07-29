@@ -126,12 +126,6 @@ public final class CcCommon {
     linkopts = initLinkopts();
   }
 
-  NestedSet<Artifact> getTemps(CcCompilationOutputs compilationOutputs) {
-    return cppConfiguration.isLipoContextCollector()
-        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-        : compilationOutputs.getTemps();
-  }
-
   /**
    * Returns our own linkopts from the rule attribute. This determines linker
    * options to use when building this target and anything that depends on it.
@@ -303,17 +297,6 @@ public final class CcCommon {
       }
     }
     return hdrs;
-  }
-
-  /**
-   * Uses {@link #getHeaders(RuleContext)} to get the {@code hdrs} on this target. This method will
-   * return an empty list if there is no {@code hdrs} attribute on this rule type.
-   */
-  List<Artifact> getHeaders() {
-    if (!hasAttribute("hdrs", Type.LABEL_LIST)) {
-      return ImmutableList.of();
-    }
-    return getHeaders(ruleContext);
   }
 
   HeadersCheckingMode determineHeadersCheckingMode() {
@@ -591,10 +574,12 @@ public final class CcCommon {
         CppFileTypes.LINKER_SCRIPT);
   }
 
-  ImmutableList<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
-    return cppConfiguration.isLipoContextCollector()
-        ? ImmutableList.<Artifact>of()
-        : compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false));
+  NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
+    if (cppConfiguration.isLipoContextCollector()) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER,
+        compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false)));
   }
 
   InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files) {

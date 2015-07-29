@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -120,7 +119,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(common)
 
             .addLinkopts(common.getLinkopts())
-            .addPublicHeaders(common.getHeaders())
+            .addPublicHeaders(CcCommon.getHeaders(ruleContext))
             .enableCcNativeLibrariesProvider()
             .enableCompileProviders()
             .enableInterfaceSharedObjects()
@@ -269,8 +268,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CcCommon common, CcCompilationOutputs ccCompilationOutputs) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    artifactsToForceBuilder.addTransitive(
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, common.getFilesToCompile(ccCompilationOutputs)));
+    artifactsToForceBuilder.addTransitive(common.getFilesToCompile(ccCompilationOutputs));
     for (OutputGroupProvider dep :
         ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
       artifactsToForceBuilder.addTransitive(
