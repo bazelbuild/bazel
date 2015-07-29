@@ -31,11 +31,11 @@ public class NewHttpArchiveRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(url) -->
-         A URL to an archive file containing a Bazel repository.
+         A URL referencing an archive file containing a Bazel repository.
          ${SYNOPSIS}
 
-         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-         redirection.</p>
+         <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
+         for authentication or redirection.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
@@ -55,12 +55,12 @@ public class NewHttpArchiveRule implements RuleDefinition {
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(type) -->
-         The type of the downloaded file.
+         The archive type of the downloaded file.
          ${SYNOPSIS}
 
-         <p>By default, the file type is guessed by the extension of the downloaded file. Some
-         archive does not have the correct extension and this attribute can be used to set the
-         extension to happen to the file.</p>
+         <p>By default, the archive type is determined from the file extension of the URL. If the
+         file has no extension, you can explicitly specify either "zip", "jar", "tar.gz", or
+         "tgz" here.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("type", STRING))
         .setWorkspaceOnly()
