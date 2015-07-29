@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -113,5 +114,23 @@ public class ActionExecutionValue implements SkyValue {
         .add("artifactData", artifactData)
         .add("additionalOutputData", additionalOutputData)
         .toString();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof ActionExecutionValue)) {
+      return false;
+    }
+    ActionExecutionValue o = (ActionExecutionValue) obj;
+    return artifactData.equals(o.artifactData)
+        && additionalOutputData.equals(o.additionalOutputData);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(artifactData, additionalOutputData);
   }
 }
