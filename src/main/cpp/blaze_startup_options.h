@@ -39,8 +39,6 @@ struct StartupOptions;
 // names also don't conform to the style guide.
 class BlazeStartupOptions {
  public:
-  enum Architecture { k32Bit, k64Bit };
-
   BlazeStartupOptions();
   BlazeStartupOptions(const BlazeStartupOptions &rhs);
   ~BlazeStartupOptions();
@@ -90,8 +88,6 @@ class BlazeStartupOptions {
   // Return the default path to the JDK used to run Blaze itself
   // (must be an absolute directory).
   string GetDefaultHostJavabase() const;
-
-  Architecture GetBlazeArchitecture() const;
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.

@@ -139,11 +139,6 @@ string BlazeStartupOptions::GetJvm() {
   exit(1);
 }
 
-BlazeStartupOptions::Architecture BlazeStartupOptions::GetBlazeArchitecture()
-    const {
-  return strcmp(BLAZE_JAVA_CPU, "64") == 0 ? k64Bit : k32Bit;
-}
-
 blaze_exit_code::ExitCode BlazeStartupOptions::AddJVMArguments(
     const string &host_javabase, vector<string> *result,
     const vector<string> &user_options, string *error) const {
