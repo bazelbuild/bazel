@@ -46,4 +46,20 @@ public final class FilesetEntryValue implements SkyValue {
   public static SkyKey key(FilesetTraversalParams params) {
     return new SkyKey(SkyFunctions.FILESET_ENTRY, params);
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof FilesetEntryValue)) {
+      return false;
+    }
+    return symlinks.equals(((FilesetEntryValue) obj).symlinks);
+  }
+
+  @Override
+  public int hashCode() {
+    return symlinks.hashCode();
+  }
 }
