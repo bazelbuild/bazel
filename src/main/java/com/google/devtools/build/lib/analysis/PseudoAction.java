@@ -88,9 +88,8 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   public static Artifact getDummyOutput(RuleContext ruleContext) {
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        ruleContext.getLabel().toPathFragment().replaceName(
-            ruleContext.getLabel().getName() + ".extra_action_dummy"),
+    return ruleContext.getPackageRelativeArtifact(
+        ruleContext.getLabel().getName() + ".extra_action_dummy",
         ruleContext.getConfiguration().getGenfilesDirectory());
   }
 }

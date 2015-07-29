@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -71,7 +72,6 @@ import java.util.List;
  */
 @ThreadCompatible
 public class JavaCompileAction extends AbstractAction {
-
   private static final String GUID = "786e174d-ed97-4e79-9f61-ae74430714cf";
 
   private static final ResourceSet LOCAL_RESOURCES =
@@ -694,11 +694,34 @@ public class JavaCompileAction extends AbstractAction {
   }
 
   /**
+   * Tells {@link Builder} how to create new artifacts. Is there so that {@link Builder} can be
+   * exercised in tests without creating a full {@link RuleContext}.
+   */
+  public interface ArtifactFactory {
+
+    /**
+     * Create an artifact with the specified root-relative path under the specified root.
+     */
+    Artifact create(PathFragment rootRelativePath, Root root);
+  }
+
+  @VisibleForTesting
+  public static ArtifactFactory createArtifactFactory(final AnalysisEnvironment env) {
+    return new ArtifactFactory() {
+      @Override
+      public Artifact create(PathFragment rootRelativePath, Root root) {
+        return env.getDerivedArtifact(rootRelativePath, root);
+      }
+    };
+  }
+
+  /**
    * Builder class to construct Java compile actions.
    */
   public static class Builder {
     private final ActionOwner owner;
     private final AnalysisEnvironment analysisEnvironment;
+    private final ArtifactFactory artifactFactory;
     private final BuildConfiguration configuration;
     private final JavaSemantics semantics;
 
@@ -740,9 +763,11 @@ public class JavaCompileAction extends AbstractAction {
      * Creates a Builder from an owner and a build configuration.
      */
     public Builder(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
-        BuildConfiguration configuration, JavaSemantics semantics) {
+        ArtifactFactory artifactFactory, BuildConfiguration configuration,
+        JavaSemantics semantics) {
       this.owner = owner;
       this.analysisEnvironment = analysisEnvironment;
+      this.artifactFactory = artifactFactory;
       this.configuration = configuration;
       this.semantics = semantics;
     }
@@ -750,8 +775,15 @@ public class JavaCompileAction extends AbstractAction {
     /**
      * Creates a Builder from an owner and a build configuration.
      */
-    public Builder(RuleContext ruleContext, JavaSemantics semantics) {
-      this(ruleContext.getActionOwner(), ruleContext.getAnalysisEnvironment(),
+    public Builder(final RuleContext ruleContext, JavaSemantics semantics) {
+      this(ruleContext.getActionOwner(),
+          ruleContext.getAnalysisEnvironment(),
+          new ArtifactFactory() {
+            @Override
+            public Artifact create(PathFragment rootRelativePath, Root root) {
+              return ruleContext.getDerivedArtifact(rootRelativePath, root);
+            }
+          },
           ruleContext.getConfiguration(), semantics);
     }
 
@@ -787,7 +819,7 @@ public class JavaCompileAction extends AbstractAction {
       }
 
       if (paramFile == null) {
-        paramFile = analysisEnvironment.getDerivedArtifact(
+        paramFile = artifactFactory.create(
             ParameterFile.derivePath(outputJar.getRootRelativePath()),
             configuration.getBinDirectory());
       }

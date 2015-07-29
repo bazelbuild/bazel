@@ -378,9 +378,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       for (Artifact specToValidate : getProguardConfigs(ruleContext)) {
         //If we're validating j/a/b/testapp/proguard.cfg, the output will be:
         //j/a/b/testapp/proguard.cfg_valid
-        Artifact output = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-            specToValidate.getRootRelativePath()
-                .replaceName(specToValidate.getFilename() + "_valid"),
+        Artifact output = ruleContext.getUniqueDirectoryArtifact(
+            "validated_proguard",
+            specToValidate.getRootRelativePath().replaceName(
+                specToValidate.getFilename() + "_valid"),
             ruleContext.getBinOrGenfilesDirectory());
         ruleContext.registerAction(new SpawnAction.Builder()
             .addInput(specToValidate)

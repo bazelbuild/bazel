@@ -398,22 +398,13 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc = "Creates a file object with the given filename. " + DOC_NEW_FILE_TAIL)
   public Artifact newFile(String filename) {
-    PathFragment fragment = ruleContext.getLabel().getPackageFragment();
-    for (String pathFragmentString : filename.split("/")) {
-      fragment = fragment.getRelative(pathFragmentString);
-    }
-    Root root = ruleContext.getBinOrGenfilesDirectory();
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+    return newFile(ruleContext.getBinOrGenfilesDirectory(), filename);
   }
 
   // Kept for compatibility with old code.
   @SkylarkCallable(documented = false)
   public Artifact newFile(Root root, String filename) {
-    PathFragment fragment = ruleContext.getLabel().getPackageFragment();
-    for (String pathFragmentString : filename.split("/")) {
-      fragment = fragment.getRelative(pathFragmentString);
-    }
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+    return ruleContext.getPackageRelativeArtifact(filename, root);
   }
 
   @SkylarkCallable(doc =
@@ -429,7 +420,7 @@ public final class SkylarkRuleContext {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
     Root root = ruleContext.getBinOrGenfilesDirectory();
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+    return ruleContext.getDerivedArtifact(fragment, root);
   }
 
   // Kept for compatibility with old code.
@@ -437,7 +428,7 @@ public final class SkylarkRuleContext {
   public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+    return ruleContext.getDerivedArtifact(fragment, root);
   }
 
   @SkylarkCallable(documented = false)

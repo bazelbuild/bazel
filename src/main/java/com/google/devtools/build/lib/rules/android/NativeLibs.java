@@ -80,8 +80,8 @@ public final class NativeLibs {
       // The native deps name file must be the only file in its directory because ApkBuilder does
       // not have an option to add a particular file to the .apk, only one to add every file in a
       // particular directory.
-      Artifact nativeDepsName = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-          ruleContext.getUniqueDirectory("nativedeps_filename").getRelative(nativeDepsFileName),
+      Artifact nativeDepsName = ruleContext.getUniqueDirectoryArtifact(
+          "nativedeps_filename", nativeDepsFileName,
           ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(new FileWriteAction(ruleContext.getActionOwner(), nativeDepsName,
           anyNativeLibrary.getExecPath().getBaseName(), false));

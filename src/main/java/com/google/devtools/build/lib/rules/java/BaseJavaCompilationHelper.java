@@ -146,7 +146,7 @@ public class BaseJavaCompilationHelper {
       PathFragment ruleBase = ruleContext.getUniqueDirectory("_ijar");
       PathFragment artifactDirFragment = jar.getRootRelativePath().getParentDirectory();
       String ijarBasename = FileSystemUtils.removeExtension(jar.getFilename()) + "-ijar.jar";
-      return getAnalysisEnvironment().getDerivedArtifact(
+      return ruleContext.getDerivedArtifact(
           ruleBase.getRelative(artifactDirFragment).getRelative(ijarBasename),
           getConfiguration().getGenfilesDirectory());
     } else {
@@ -241,6 +241,6 @@ public class BaseJavaCompilationHelper {
     PathFragment path = artifact.getRootRelativePath();
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
-    return getAnalysisEnvironment().getDerivedArtifact(path, root);
+    return ruleContext.getDerivedArtifact(path, root);
   }
 }

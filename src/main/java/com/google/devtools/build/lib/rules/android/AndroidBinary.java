@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -791,8 +790,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   static DexingOutput dex(RuleContext ruleContext, MultidexMode multidexMode, List<String> dexopts,
       Artifact deployJar,  Artifact proguardedJar, AndroidCommon common,
       JavaTargetAttributes attributes) {
-    Artifact classesDex = AndroidBinary.getDxArtifact(ruleContext,
-        getMultidexMode(ruleContext).getOutputDexFilename());
+    String classesDexFileName = getMultidexMode(ruleContext).getOutputDexFilename();
+    Artifact classesDex = AndroidBinary.getDxArtifact(ruleContext, classesDexFileName);
     if (!AndroidBinary.supportsMultidexMode(ruleContext, multidexMode)) {
       ruleContext.ruleError("Multidex mode \"" + multidexMode.getAttributeValue()
           + "\" not supported by this version of the Android SDK");
@@ -904,10 +903,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
         // Create an artifact for the intermediate zip output that includes non-.dex files.
-        PathFragment dexPath = classesDex.getRootRelativePath();
-        Artifact classesDexIntermediate = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-            dexPath.getParentDirectory().getRelative("intermediate_" + dexPath.getBaseName()),
-            ruleContext.getBinOrGenfilesDirectory());
+        Artifact classesDexIntermediate = AndroidBinary.getDxArtifact(
+            ruleContext,
+            "intermediate_" + classesDexFileName);
 
         // Have the dexer generate the intermediate file and the "cleaner" action consume this to
         // generate the final archive with only .dex files.
@@ -1255,8 +1253,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * Returns an intermediate artifact used to support dex generation.
    */
   public static Artifact getDxArtifact(RuleContext ruleContext, String baseName) {
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        ruleContext.getUniqueDirectory("_dx").getRelative(baseName),
+    return ruleContext.getUniqueDirectoryArtifact("_dx", baseName,
         ruleContext.getBinOrGenfilesDirectory());
   }
 
@@ -1266,11 +1263,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public static Artifact getProguardConfigArtifact(RuleContext ruleContext, String prefix) {
     // TODO(bazel-team): Remove the redundant inclusion of the rule name, as getUniqueDirectory
     // includes the rulename as well.
-    return Preconditions.checkNotNull(
-        ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-            ruleContext.getUniqueDirectory("proguard").getRelative(
-                Joiner.on("_").join(prefix, ruleContext.getLabel().getName(), "proguard.cfg")),
-            ruleContext.getBinOrGenfilesDirectory()));
+    return Preconditions.checkNotNull(ruleContext.getUniqueDirectoryArtifact(
+        "proguard",
+        Joiner.on("_").join(prefix, ruleContext.getLabel().getName(), "proguard.cfg"),
+        ruleContext.getBinOrGenfilesDirectory()));
   }
 
   /**

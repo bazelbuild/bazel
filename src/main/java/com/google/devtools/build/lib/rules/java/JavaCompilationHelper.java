@@ -200,7 +200,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
    */
   public Artifact createGensrcJar(@Nullable Artifact outputJar) {
     if (usesAnnotationProcessing()) {
-      return getAnalysisEnvironment().getDerivedArtifact(
+      return getRuleContext().getDerivedArtifact(
           FileSystemUtils.appendWithoutExtension(outputJar.getRootRelativePath(), "-gensrc"),
           outputJar.getRoot());
     } else {
@@ -224,7 +224,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
    * @return The output artifact for the manifest proto emitted from JavaBuilder 
    */
   public Artifact createManifestProtoOutput(Artifact outputJar) {
-    return getAnalysisEnvironment().getDerivedArtifact(
+    return getRuleContext().getDerivedArtifact(
         FileSystemUtils.appendExtension(outputJar.getRootRelativePath(), "_manifest_proto"),
         outputJar.getRoot());
   }
@@ -276,7 +276,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
       return null;
     }
 
-    outputDepsProtoArtifact = getAnalysisEnvironment().getDerivedArtifact(
+    outputDepsProtoArtifact = getRuleContext().getDerivedArtifact(
           FileSystemUtils.replaceExtension(outputJar.getRootRelativePath(), ".jdeps"),
           outputJar.getRoot());
 

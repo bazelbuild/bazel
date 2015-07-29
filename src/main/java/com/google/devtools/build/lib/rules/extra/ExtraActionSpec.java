@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -77,14 +76,12 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   /**
    * Adds an extra_action to the action graph based on the action to shadow.
    */
-  public Collection<Artifact> addExtraAction(RuleContext owningRule,
-      Action actionToShadow) {
+  public Collection<Artifact> addExtraAction(RuleContext owningRule, Action actionToShadow) {
     Collection<Artifact> extraActionOutputs = new LinkedHashSet<>();
     Collection<Artifact> protoOutputs = new ArrayList<>();
     NestedSetBuilder<Artifact> extraActionInputs = NestedSetBuilder.stableOrder();
 
-    ActionOwner owner = actionToShadow.getOwner();
-    Label ownerLabel = owner.getLabel();
+    Label ownerLabel = owningRule.getLabel();
     if (requiresActionOutput) {
       extraActionInputs.addAll(actionToShadow.getOutputs());
     }
@@ -96,20 +93,20 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     for (String outputTemplate : outputTemplates) {
       // We create output for the extra_action based on the 'out_template' attribute.
       // See {link #getExtraActionOutputArtifact} for supported variables.
-      extraActionOutputs.add(getExtraActionOutputArtifact(owningRule, actionToShadow,
-          owner, outputTemplate));
+      extraActionOutputs.add(getExtraActionOutputArtifact(
+          owningRule, actionToShadow, outputTemplate));
     }
     // extra_action has no output, we need to create some dummy output to keep the build up-to-date.
     if (extraActionOutputs.isEmpty()) {
       createDummyOutput = true;
-      extraActionOutputs.add(getExtraActionOutputArtifact(owningRule, actionToShadow,
-          owner, "$(ACTION_ID).dummy"));
+      extraActionOutputs.add(getExtraActionOutputArtifact(
+          owningRule, actionToShadow, "$(ACTION_ID).dummy"));
     }
 
     // We generate a file containing a protocol buffer describing the action that is being shadowed.
     // It is up to each action being shadowed to decide what contents to store here.
-    Artifact extraActionInfoFile = getExtraActionOutputArtifact(owningRule, actionToShadow,
-        owner, "$(ACTION_ID).xa");
+    Artifact extraActionInfoFile = getExtraActionOutputArtifact(
+        owningRule, actionToShadow, "$(ACTION_ID).xa");
     owningRule.registerAction(new ExtraActionInfoFileWriteAction(
         actionToShadow.getOwner(), extraActionInfoFile, actionToShadow));
     extraActionInputs.add(extraActionInfoFile);
@@ -117,7 +114,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
     // Expand extra_action specific variables from the provided command-line.
     // See {@link #createExpandedCommand} for list of supported variables.
-    String command = createExpandedCommand(owningRule, actionToShadow, owner, extraActionInfoFile);
+    String command = createExpandedCommand(owningRule, actionToShadow, extraActionInfoFile);
 
     Map<String, String> env = owningRule.getConfiguration().getDefaultShellEnvironment();
 
@@ -158,12 +155,12 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    * <build_path>/extra_actions/bar/baz/devtools/build/test_A41234.out
    */
   private String createExpandedCommand(RuleContext owningRule,
-      Action action, ActionOwner owner, Artifact extraActionInfoFile) {
+      Action action, Artifact extraActionInfoFile) {
     String realCommand = command.replace(
         "$(EXTRA_ACTION_FILE)", extraActionInfoFile.getExecPathString());
 
     for (String outputTemplate : outputTemplates) {
-      String outFile = getExtraActionOutputArtifact(owningRule, action, owner, outputTemplate)
+      String outFile = getExtraActionOutputArtifact(owningRule, action, outputTemplate)
         .getExecPathString();
       realCommand = realCommand.replace("$(output " + outputTemplate + ")", outFile);
     }
@@ -186,36 +183,38 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    *    expands to: output/configuration/extra_actions/\
    *      foo/bar/extra/foo/bar/4683026f7ac1dd1a873ccc8c3d764132.analysis
    */
-  private Artifact getExtraActionOutputArtifact(RuleContext owningRule, Action action,
-      ActionOwner owner, String template) {
-    String actionId = getActionId(owner, action);
+  private Artifact getExtraActionOutputArtifact(
+      RuleContext ruleContext, Action action, String template) {
+    String actionId = getActionId(ruleContext.getLabel(), action);
 
     template = template.replace("$(ACTION_ID)", actionId);
-    template = template.replace("$(OWNER_LABEL_DIGEST)", getOwnerDigest(owner));
+    template = template.replace("$(OWNER_LABEL_DIGEST)", getOwnerDigest(ruleContext));
 
-    PathFragment rootRelativePath = getRootRelativePath(template, owner);
-    return owningRule.getAnalysisEnvironment().getDerivedArtifact(rootRelativePath,
-        owningRule.getConfiguration().getOutputDirectory());
+    return getRootRelativePath(template, ruleContext);
   }
 
-  private PathFragment getRootRelativePath(String template, ActionOwner owner) {
-    PathFragment extraActionPackageFragment = label.getPackageFragment();
+  private Artifact getRootRelativePath(String template, RuleContext ruleContext) {
+    PathFragment extraActionPackageFragment = label.getPackageIdentifier().getPathFragment();
     PathFragment extraActionPrefix = extraActionPackageFragment.getRelative(label.getName());
-
-    PathFragment ownerFragment = owner.getLabel().getPackageFragment();
-    return new PathFragment("extra_actions").getRelative(extraActionPrefix)
-        .getRelative(ownerFragment).getRelative(template);
+    PathFragment rootRelativePath = new PathFragment("extra_actions")
+        .getRelative(extraActionPrefix)
+        .getRelative(ruleContext.getPackageDirectory())
+        .getRelative(template);
+    // We need to use getDerivedArtifact here because extra actions are at
+    // <EXTRA ACTION LABEL> / <RULE LABEL> instead of <RULE LABEL> / <EXTRA ACTION LABEL>. Bummer.
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(rootRelativePath,
+        ruleContext.getConfiguration().getOutputDirectory());
   }
 
   /**
-   * Calculates a digest representing the owner label.  We use the digest instead of the
+   * Calculates a digest representing the rule context.  We use the digest instead of the
    * original value as the original value might lead to a filename that is too long.
    * By using a digest, tools can deterministically find all extra_action outputs for a given
    * target, without having to open every file in the package.
    */
-  private static String getOwnerDigest(ActionOwner owner) {
+  private static String getOwnerDigest(RuleContext ruleContext) {
     Fingerprint f = new Fingerprint();
-    f.addString(owner.getLabel().toString());
+    f.addString(ruleContext.getLabel().toString());
     return f.hexDigestAndReset();
   }
 
@@ -229,9 +228,9 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    * of a uniqueness guarantee.
    */
   @VisibleForTesting
-  public static String getActionId(ActionOwner owner, Action action) {
+  public static String getActionId(Label label, Action action) {
     Fingerprint f = new Fingerprint();
-    f.addString(owner.getLabel().toString());
+    f.addString(label.toString());
     f.addString(action.getKey());
     return f.hexDigestAndReset();
   }

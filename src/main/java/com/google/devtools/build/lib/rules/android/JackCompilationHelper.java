@@ -57,6 +57,10 @@ import javax.annotation.Nullable;
  */
 public final class JackCompilationHelper {
 
+  private static final String PARTIAL_JACK_DIRECTORY = "_jill";
+
+  private static final String JACK_DIRECTORY = "_jack";
+
   /** Filetype for the intermediate library created by Jack. */
   public static final FileType JACK_LIBRARY_TYPE = FileType.of(".jack");
 
@@ -366,13 +370,10 @@ public final class JackCompilationHelper {
    * @see #postprocessPartialJackAndAddResources(Artifact,Artifact)
    */
   private Artifact convertJarToPartialJack(Artifact jar) {
-    PathFragment outputPath =
-        FileSystemUtils.replaceExtension(
-            getPartialJackRoot().getRelative(jar.getRootRelativePath()), ".jack");
-    Artifact result =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getDerivedArtifact(outputPath, ruleContext.getBinOrGenfilesDirectory());
+    Artifact result = ruleContext.getUniqueDirectoryArtifact(
+        PARTIAL_JACK_DIRECTORY,
+        FileSystemUtils.replaceExtension(jar.getRootRelativePath(), ".jack"),
+        ruleContext.getBinOrGenfilesDirectory());
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .setExecutable(jillBinary)
@@ -391,13 +392,11 @@ public final class JackCompilationHelper {
    * non-resource files and returning a zip file containing only resources.
    */
   private Artifact extractResourcesFromJar(Artifact jar) {
-    PathFragment outputPath =
-        FileSystemUtils.replaceExtension(
-            getPartialJackRoot().getRelative(jar.getRootRelativePath()), "-resources.zip");
-    Artifact result =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getDerivedArtifact(outputPath, ruleContext.getBinOrGenfilesDirectory());
+    Artifact result =  ruleContext.getUniqueDirectoryArtifact(
+        PARTIAL_JACK_DIRECTORY,
+        FileSystemUtils.replaceExtension(jar.getRootRelativePath(), "-resources.zip"),
+        ruleContext.getBinOrGenfilesDirectory());
+
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .setExecutable(resourceExtractorBinary)
@@ -416,13 +415,11 @@ public final class JackCompilationHelper {
    */
   private Artifact postprocessPartialJackAndAddResources(
       Artifact partialJackLibrary, Artifact resources) {
-    PathFragment outputPath =
-        getFinalizedJackRoot()
-            .getRelative(partialJackLibrary.getRootRelativePath().relativeTo(getPartialJackRoot()));
-    Artifact result =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getDerivedArtifact(outputPath, ruleContext.getBinOrGenfilesDirectory());
+    Artifact result = ruleContext.getUniqueDirectoryArtifact(
+        JACK_DIRECTORY,
+        partialJackLibrary.getRootRelativePath().relativeTo(
+            ruleContext.getUniqueDirectory(PARTIAL_JACK_DIRECTORY)),
+        ruleContext.getBinOrGenfilesDirectory());
     CustomCommandLine.Builder builder =
         CustomCommandLine.builder()
             // Have jack double-check its behavior and crash rather than producing invalid output
@@ -443,26 +440,6 @@ public final class JackCompilationHelper {
             .setMnemonic("AndroidJillPostprocess")
             .build(ruleContext));
     return result;
-  }
-
-  /**
-   * Creates an intermediate directory to store partially-converted Jack libraries.
-   *
-   * @see #convertJarToPartialJack(Artifact)
-   */
-  private PathFragment getPartialJackRoot() {
-    PathFragment rulePath = ruleContext.getLabel().toPathFragment();
-    return rulePath.replaceName(rulePath.getBaseName() + "_jill");
-  }
-
-  /**
-   * Creates an intermediate directory to store fully-converted Jack libraries.
-   *
-   * @see #postprocessPartialJackAndAddResources(Artifact,Artifact)
-   */
-  private PathFragment getFinalizedJackRoot() {
-    PathFragment rulePath = ruleContext.getLabel().toPathFragment();
-    return rulePath.replaceName(rulePath.getBaseName() + "_jack");
   }
 
   /**

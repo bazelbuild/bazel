@@ -48,7 +48,7 @@ local_repository(
 EOF
 
   bazel build @x//:x || fail "build failed"
-  assert_contains "hi" bazel-genfiles/out
+  assert_contains "hi" bazel-genfiles/external/x/out
 
   cat > WORKSPACE <<EOF
 local_repository(
@@ -58,7 +58,7 @@ local_repository(
 EOF
 
   bazel build @x//:x || fail "build failed"
-  assert_contains "bye" bazel-genfiles/out
+  assert_contains "bye" bazel-genfiles/external/x/out
 }
 
 

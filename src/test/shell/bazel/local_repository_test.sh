@@ -467,7 +467,7 @@ genrule(
 EOF
   bazel fetch //external:best-turtle || fail "Fetch failed"
   bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Raphael" bazel-genfiles/tmnt
+  assert_contains "Raphael" bazel-genfiles/external/mutant/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
@@ -478,7 +478,7 @@ genrule(
 )
 EOF
   bazel build //external:best-turtle &> $TEST_log || fail "Second build failed"
-  assert_contains "Michaelangelo" bazel-genfiles/tmnt
+  assert_contains "Michaelangelo" bazel-genfiles/external/mutant/tmnt
 }
 
 function test_local_deps() {

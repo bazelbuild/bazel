@@ -88,7 +88,7 @@ public class RunfilesSupport {
    */
   private RunfilesSupport(RuleContext ruleContext, Artifact executable, Runfiles runfiles,
       List<String> appendingArgs, boolean createSymlinks) {
-    owningExecutable = executable;
+    owningExecutable = Preconditions.checkNotNull(executable);
     this.createSymlinks = createSymlinks;
 
     // Adding run_under target to the runfiles manifest so it would become part
@@ -123,19 +123,6 @@ public class RunfilesSupport {
         .build();
   }
 
-  private RunfilesSupport(Runfiles runfiles, Artifact runfilesInputManifest,
-      Artifact runfilesManifest, Artifact runfilesMiddleman, Artifact sourcesManifest,
-      Artifact owningExecutable, boolean createSymlinks, ImmutableList<String> args) {
-    this.runfiles = runfiles;
-    this.runfilesInputManifest = runfilesInputManifest;
-    this.runfilesManifest = runfilesManifest;
-    this.runfilesMiddleman = runfilesMiddleman;
-    this.sourcesManifest = sourcesManifest;
-    this.owningExecutable = owningExecutable;
-    this.createSymlinks = createSymlinks;
-    this.args = args;
-  }
-
   /**
    * Returns the executable owning this RunfilesSupport. Only use from Skylark.
    */
@@ -149,10 +136,6 @@ public class RunfilesSupport {
    * returns null.
    */
   public PathFragment getRunfilesDirectoryExecPath() {
-    if (owningExecutable == null) {
-      return null;
-    }
-
     PathFragment executablePath = owningExecutable.getExecPath();
     return executablePath.getParentDirectory().getChild(
         executablePath.getBaseName() + RUNFILES_DIR_EXT);
@@ -181,14 +164,14 @@ public class RunfilesSupport {
     return runfilesInputManifest;
   }
 
-  private Artifact createRunfilesInputManifestArtifact(ActionConstructionContext context) {
+  private Artifact createRunfilesInputManifestArtifact(RuleContext context) {
     // The executable may be null for emptyRunfiles
     PathFragment relativePath = (owningExecutable != null)
         ? owningExecutable.getRootRelativePath()
-        : Util.getWorkspaceRelativePath(context.getRule());
+        : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + ".runfiles_manifest");
-    return context.getAnalysisEnvironment().getDerivedArtifact(inputManifestPath,
+    return context.getDerivedArtifact(inputManifestPath,
         context.getConfiguration().getBinDirectory());
   }
 
@@ -259,7 +242,6 @@ public class RunfilesSupport {
 
   /**
    * Returns the Sources manifest.
-   * This may be null if the owningRule has no executable.
    */
   public Artifact getSourceManifest() {
     return sourcesManifest;
@@ -302,7 +284,7 @@ public class RunfilesSupport {
     PathFragment outputManifestPath = runfilesDir.getRelative("MANIFEST");
 
     BuildConfiguration config = context.getConfiguration();
-    Artifact outputManifest = context.getAnalysisEnvironment().getDerivedArtifact(
+    Artifact outputManifest = context.getDerivedArtifact(
         outputManifestPath, config.getBinDirectory());
     context.getAnalysisEnvironment().registerAction(new SymlinkTreeAction(
         context.getActionOwner(), inputManifest, outputManifest, /*filesetTree=*/false));
@@ -318,18 +300,14 @@ public class RunfilesSupport {
    */
   private Artifact createSourceManifest(ActionConstructionContext context, Runfiles runfiles) {
     // Put the sources only manifest next to the MANIFEST file but call it SOURCES.
-    PathFragment runfilesDir = getRunfilesDirectoryExecPath();
-    if (runfilesDir != null) {
-      PathFragment sourcesManifestPath = runfilesDir.getRelative("SOURCES");
-      Artifact sourceOnlyManifest = context.getAnalysisEnvironment().getDerivedArtifact(
-          sourcesManifestPath, context.getConfiguration().getBinDirectory());
-      context.getAnalysisEnvironment().registerAction(
-          SourceManifestAction.forRunfiles(
-              ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
-      return sourceOnlyManifest;
-    } else {
-      return null;
-    }
+    PathFragment executablePath = owningExecutable.getRootRelativePath();
+    PathFragment sourcesManifestPath = executablePath.getParentDirectory().getChild(
+        executablePath.getBaseName() + ".runfiles.SOURCES");
+    Artifact sourceOnlyManifest = context.getDerivedArtifact(
+        sourcesManifestPath, context.getConfiguration().getBinDirectory());
+    context.getAnalysisEnvironment().registerAction(SourceManifestAction.forRunfiles(
+        ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
+    return sourceOnlyManifest;
   }
 
   /**
