@@ -27,7 +27,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A SkyFunction for {@link TargetMarkerValue}s.
+ * A SkyFunction for {@link TargetMarkerValue}s. Returns a {@link
+ * TargetMarkerValue#TARGET_MARKER_INSTANCE} if the {@link Label} in the {@link SkyKey}
+ * specifies a {@link Package} that exists and a {@link Target} that exists in that package. The
+ * package may have errors.
  */
 public final class TargetMarkerFunction implements SkyFunction {
 

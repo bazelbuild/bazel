@@ -43,7 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -71,15 +71,11 @@ public class TransitiveTargetFunction implements SkyFunction {
     SkyKey targetKey = TargetMarkerValue.key(label);
     Target target;
     boolean packageLoadedSuccessfully;
-    boolean successfulTransitiveLoading = true;
     NestedSetBuilder<Label> transitiveRootCauses = NestedSetBuilder.stableOrder();
     NoSuchTargetException errorLoadingTarget = null;
     try {
-      // TODO(bazel-team): Why not NoSuchTargetException and NoSuchPackageException explicitly?
-      // Please note that the exception values declared thrown by TargetMarkerFunction are exactly
-      // those two.
       TargetMarkerValue targetValue = (TargetMarkerValue) env.getValueOrThrow(targetKey,
-          NoSuchThingException.class);
+          NoSuchTargetException.class, NoSuchPackageException.class);
       if (targetValue == null) {
         return null;
       }
@@ -121,14 +117,10 @@ public class TransitiveTargetFunction implements SkyFunction {
         throw new IllegalStateException("Expected target to exist", nste);
       }
 
-      successfulTransitiveLoading = false;
-      transitiveRootCauses.add(label);
       errorLoadingTarget = e;
       packageLoadedSuccessfully = false;
     } catch (NoSuchPackageException e) {
       throw new TransitiveTargetFunctionException(e);
-    } catch (NoSuchThingException e) {
-      throw new IllegalStateException(e + " not NoSuchTargetException or NoSuchPackageException");
     }
 
     NestedSetBuilder<PackageIdentifier> transitiveSuccessfulPkgs = NestedSetBuilder.stableOrder();
@@ -144,12 +136,14 @@ public class TransitiveTargetFunction implements SkyFunction {
     if (packageLoadedSuccessfully) {
       transitiveSuccessfulPkgs.add(packageId);
     } else {
+      transitiveRootCauses.add(label);
       transitiveUnsuccessfulPkgs.add(packageId);
     }
     transitiveTargets.add(target.getLabel());
 
     // Process deps from attributes of current target.
     Iterable<SkyKey> depKeys = getLabelDepKeys(target);
+    boolean successfulTransitiveLoading = packageLoadedSuccessfully;
     successfulTransitiveLoading &= processDeps(env, target, transitiveRootCauses,
         transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs, transitiveTargets, depKeys,
         transitiveConfigFragments, configFragmentsFromDeps);
@@ -213,8 +207,9 @@ public class TransitiveTargetFunction implements SkyFunction {
       NestedSetBuilder<Class<? extends BuildConfiguration.Fragment>> transitiveConfigFragments,
       Set<Class<? extends BuildConfiguration.Fragment>> addedConfigFragments) {
     boolean successfulTransitiveLoading = true;
-    for (Entry<SkyKey, ValueOrException<NoSuchThingException>> entry :
-        env.getValuesOrThrow(depKeys, NoSuchThingException.class).entrySet()) {
+    for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
+        env.getValuesOrThrow(depKeys, NoSuchPackageException.class, NoSuchTargetException.class)
+            .entrySet()) {
       Label depLabel = (Label) entry.getKey().argument();
       TransitiveTargetValue transitiveTargetValue;
       try {
@@ -227,8 +222,6 @@ public class TransitiveTargetFunction implements SkyFunction {
         transitiveRootCauses.add(depLabel);
         maybeReportErrorAboutMissingEdge(target, depLabel, e, env.getListener());
         continue;
-      } catch (NoSuchThingException e) {
-        throw new IllegalStateException("Unexpected Exception type from TransitiveTargetValue.", e);
       }
       transitiveSuccessfulPkgs.addTransitive(
           transitiveTargetValue.getTransitiveSuccessfulPackages());
