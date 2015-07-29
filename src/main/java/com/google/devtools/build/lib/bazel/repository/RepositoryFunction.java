@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.FileSymlinkCycleException;
+import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -157,11 +157,11 @@ public abstract class RepositoryFunction implements SkyFunction {
     FileValue buildFileValue;
     try {
       buildFileValue = (FileValue) env.getValueOrThrow(buildFileKey, IOException.class,
-          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
+          FileSymlinkException.class, InconsistentFilesystemException.class);
       if (buildFileValue == null) {
         return null;
       }
-    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
           new IOException("Cannot lookup " + buildFile + ": " + e.getMessage()),
           Transience.TRANSIENT);
@@ -236,8 +236,8 @@ public abstract class RepositoryFunction implements SkyFunction {
         from, PathFragment.EMPTY_FRAGMENT));
     try {
       return (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
-          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+          FileSymlinkException.class, InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
           new IOException(String.format("Could not access %s: %s", from, e.getMessage())),
           Transience.PERSISTENT);
@@ -296,8 +296,8 @@ public abstract class RepositoryFunction implements SkyFunction {
     FileValue value;
     try {
       value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
-          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+          FileSymlinkException.class, InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not access " + repositoryDirectory + ": " + e.getMessage()),
           Transience.PERSISTENT);

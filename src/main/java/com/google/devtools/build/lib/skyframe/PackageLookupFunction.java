@@ -96,7 +96,7 @@ public class PackageLookupFunction implements SkyFunction {
     FileValue fileValue = null;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
+          FileSymlinkException.class, InconsistentFilesystemException.class);
     } catch (IOException e) {
       // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
       // BuildFileNotFoundException.
@@ -104,7 +104,7 @@ public class PackageLookupFunction implements SkyFunction {
           "IO errors while looking for " + basename + " file reading "
               + buildFileRootedPath.asPath() + ": " + e.getMessage(), e),
           Transience.PERSISTENT);
-    } catch (FileSymlinkCycleException e) {
+    } catch (FileSymlinkException e) {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
           "Symlink cycle detected while trying to find " + basename + " file "
               + buildFileRootedPath.asPath()),

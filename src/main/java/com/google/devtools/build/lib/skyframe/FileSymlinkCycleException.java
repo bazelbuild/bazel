@@ -17,8 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a cycle was found in the filesystem. */
-public class FileSymlinkCycleException extends Exception {
-
+class FileSymlinkCycleException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;
 

@@ -26,7 +26,9 @@ public final class SkyFunctions {
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName FILE_SYMLINK_CYCLE_UNIQUENESS =
-      SkyFunctionName.create("FILE_SYMLINK_CYCLE_UNIQUENESS_NODE");
+      SkyFunctionName.create("FILE_SYMLINK_CYCLE_UNIQUENESS");
+  public static final SkyFunctionName FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS =
+      SkyFunctionName.create("FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS");
   public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.create("DIRECTORY_LISTING");

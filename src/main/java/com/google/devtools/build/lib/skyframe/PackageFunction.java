@@ -139,10 +139,10 @@ public class PackageFunction implements SkyFunction {
     boolean packageShouldBeInError = packageWasInError;
     ImmutableMap.Builder<PathFragment, PackageLookupValue> builder = ImmutableMap.builder();
     for (Map.Entry<SkyKey, ValueOrException3<BuildFileNotFoundException,
-        InconsistentFilesystemException, FileSymlinkCycleException>> entry :
+        InconsistentFilesystemException, FileSymlinkException>> entry :
             env.getValuesOrThrow(depKeys, BuildFileNotFoundException.class,
                 InconsistentFilesystemException.class,
-                FileSymlinkCycleException.class).entrySet()) {
+                FileSymlinkException.class).entrySet()) {
       PathFragment pkgName = ((PackageIdentifier) entry.getKey().argument()).getPackageFragment();
       try {
         PackageLookupValue value = (PackageLookupValue) entry.getValue().get();
@@ -153,7 +153,7 @@ public class PackageFunction implements SkyFunction {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (InconsistentFilesystemException e) {
         throw new InternalInconsistentFilesystemException(packageIdentifier, e);
-      } catch (FileSymlinkCycleException e) {
+      } catch (FileSymlinkException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
       }
@@ -167,14 +167,14 @@ public class PackageFunction implements SkyFunction {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.FILE)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
-    for (Map.Entry<SkyKey, ValueOrException3<IOException, FileSymlinkCycleException,
+    for (Map.Entry<SkyKey, ValueOrException3<IOException, FileSymlinkException,
         InconsistentFilesystemException>> entry : env.getValuesOrThrow(depKeys, IOException.class,
-            FileSymlinkCycleException.class, InconsistentFilesystemException.class).entrySet()) {
+            FileSymlinkException.class, InconsistentFilesystemException.class).entrySet()) {
       try {
         entry.getValue().get();
       } catch (IOException e) {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
-      } catch (FileSymlinkCycleException e) {
+      } catch (FileSymlinkException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
@@ -191,14 +191,14 @@ public class PackageFunction implements SkyFunction {
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
     for (Map.Entry<SkyKey, ValueOrException4<IOException, BuildFileNotFoundException,
-        FileSymlinkCycleException, InconsistentFilesystemException>> entry :
+        FileSymlinkException, InconsistentFilesystemException>> entry :
         env.getValuesOrThrow(depKeys, IOException.class, BuildFileNotFoundException.class,
-            FileSymlinkCycleException.class, InconsistentFilesystemException.class).entrySet()) {
+            FileSymlinkException.class, InconsistentFilesystemException.class).entrySet()) {
       try {
         entry.getValue().get();
       } catch (IOException | BuildFileNotFoundException e) {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
-      } catch (FileSymlinkCycleException e) {
+      } catch (FileSymlinkException e) {
         // Legacy doesn't detect symlink cycles.
         packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
@@ -315,9 +315,9 @@ public class PackageFunction implements SkyFunction {
     PackageValue workspace = null;
     try {
       workspace = (PackageValue) env.getValueOrThrow(workspaceKey, IOException.class,
-          FileSymlinkCycleException.class, InconsistentFilesystemException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class,
           EvalException.class);
-    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException
         | EvalException e) {
       throw new PackageFunctionException(new BadWorkspaceFileException(e.getMessage()),
           Transience.PERSISTENT);
@@ -393,9 +393,9 @@ public class PackageFunction implements SkyFunction {
     FileValue buildFileValue;
     try {
       buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
-          IOException.class, FileSymlinkCycleException.class,
+          IOException.class, FileSymlinkException.class,
           InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new IllegalStateException("Package lookup succeeded but encountered error when "
           + "getting FileValue for BUILD file directly.", e);
     }
@@ -633,9 +633,9 @@ public class PackageFunction implements SkyFunction {
       containingPkgLookupKeys.add(ContainingPackageLookupValue.key(dirId));
     }
     Map<SkyKey, ValueOrException3<BuildFileNotFoundException, InconsistentFilesystemException,
-        FileSymlinkCycleException>> containingPkgLookupValues = env.getValuesOrThrow(
+        FileSymlinkException>> containingPkgLookupValues = env.getValuesOrThrow(
             containingPkgLookupKeys, BuildFileNotFoundException.class,
-            InconsistentFilesystemException.class, FileSymlinkCycleException.class);
+            InconsistentFilesystemException.class, FileSymlinkException.class);
     if (env.valuesMissing()) {
       return;
     }
@@ -673,11 +673,11 @@ public class PackageFunction implements SkyFunction {
   getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
       PackageIdentifier packageIdentifier,
       ValueOrException3<BuildFileNotFoundException, InconsistentFilesystemException,
-      FileSymlinkCycleException> containingPkgLookupValueOrException, Environment env)
+      FileSymlinkException> containingPkgLookupValueOrException, Environment env)
           throws InternalInconsistentFilesystemException {
     try {
       return (ContainingPackageLookupValue) containingPkgLookupValueOrException.get();
-    } catch (BuildFileNotFoundException | FileSymlinkCycleException e) {
+    } catch (BuildFileNotFoundException | FileSymlinkException e) {
       env.getListener().handle(Event.error(null, e.getMessage()));
       return null;
     } catch (InconsistentFilesystemException e) {

@@ -116,8 +116,8 @@ abstract class RecursiveDirectoryTraversalFunction
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileKey, InconsistentFilesystemException.class,
-          FileSymlinkCycleException.class, IOException.class);
-    } catch (InconsistentFilesystemException | FileSymlinkCycleException | IOException e) {
+          FileSymlinkException.class, IOException.class);
+    } catch (InconsistentFilesystemException | FileSymlinkException | IOException e) {
       return reportErrorAndReturn("Failed to get information about path", e, rootRelativePath,
           env.getListener());
     }
@@ -196,11 +196,11 @@ abstract class RecursiveDirectoryTraversalFunction
     try {
       dirValue = (DirectoryListingValue) env.getValueOrThrow(DirectoryListingValue.key(rootedPath),
           InconsistentFilesystemException.class, IOException.class,
-          FileSymlinkCycleException.class);
+          FileSymlinkException.class);
     } catch (InconsistentFilesystemException | IOException e) {
       return reportErrorAndReturn("Failed to list directory contents", e, rootRelativePath,
           env.getListener());
-    } catch (FileSymlinkCycleException e) {
+    } catch (FileSymlinkException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't
       // be able to avoid throwing there but throw here.

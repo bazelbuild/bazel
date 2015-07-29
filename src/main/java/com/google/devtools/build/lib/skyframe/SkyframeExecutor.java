@@ -295,6 +295,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new DirectoryListingStateFunction(externalFilesHelper));
     map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
         new FileSymlinkCycleUniquenessFunction());
+    map.put(SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+        new FileSymlinkInfiniteExpansionUniquenessFunction());
     map.put(SkyFunctions.FILE, new FileFunction(pkgLocator, tsgm, externalFilesHelper));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));

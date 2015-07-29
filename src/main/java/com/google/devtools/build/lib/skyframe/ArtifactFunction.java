@@ -98,8 +98,8 @@ class ArtifactFunction implements SkyFunction {
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-          InconsistentFilesystemException.class, FileSymlinkCycleException.class);
-    } catch (IOException | InconsistentFilesystemException | FileSymlinkCycleException e) {
+          InconsistentFilesystemException.class, FileSymlinkException.class);
+    } catch (IOException | InconsistentFilesystemException | FileSymlinkException e) {
       throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
     }
     if (fileValue == null) {

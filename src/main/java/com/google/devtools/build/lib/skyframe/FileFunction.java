@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
@@ -28,7 +29,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
@@ -41,7 +43,6 @@ import javax.annotation.Nullable;
  * if the destination of the symlink is invalidated. Directory symlinks are also covered.
  */
 public class FileFunction implements SkyFunction {
-
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final TimestampGranularityMonitor tsgm;
   private final ExternalFilesHelper externalFilesHelper;
@@ -84,19 +85,11 @@ public class FileFunction implements SkyFunction {
       realFileStateValue = fileStateValue;
     }
 
-    LinkedHashSet<RootedPath> seenPaths = Sets.newLinkedHashSet();
+    ArrayList<RootedPath> symlinkChain = new ArrayList<>();
+    TreeSet<Path> orderedSeenPaths = Sets.newTreeSet();
     while (realFileStateValue.getType().equals(FileStateValue.Type.SYMLINK)) {
-      if (!seenPaths.add(realRootedPath)) {
-        FileSymlinkCycleException fileSymlinkCycleException =
-            makeFileSymlinkCycleException(realRootedPath, seenPaths);
-        if (env.getValue(FileSymlinkCycleUniquenessValue.key(fileSymlinkCycleException.getCycle()))
-            == null) {
-          // Note that this dependency is merely to ensure that each unique cycle gets reported
-          // exactly once.
-          return null;
-        }
-        throw new FileFunctionException(fileSymlinkCycleException);
-      }
+      symlinkChain.add(realRootedPath);
+      orderedSeenPaths.add(realRootedPath.asPath());
       if (externalFilesHelper.shouldAssumeImmutable(realRootedPath)) {
         // If the file is assumed to be immutable, we want to resolve the symlink chain without
         // adding dependencies since we don't care about incremental correctness.
@@ -112,7 +105,7 @@ public class FileFunction implements SkyFunction {
         }
       } else {
         Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
-            realFileStateValue.getSymlinkTarget(), env);
+            realFileStateValue.getSymlinkTarget(), orderedSeenPaths, symlinkChain, env);
         if (resolvedState == null) {
           return null;
         }
@@ -171,48 +164,94 @@ public class FileFunction implements SkyFunction {
    */
   @Nullable
   private Pair<RootedPath, FileStateValue> getSymlinkTargetRootedPath(RootedPath rootedPath,
-      PathFragment symlinkTarget, Environment env) throws FileFunctionException {
+      PathFragment symlinkTarget, TreeSet<Path> orderedSeenPaths,
+      Iterable<RootedPath> symlinkChain, Environment env) throws FileFunctionException {
+    RootedPath symlinkTargetRootedPath;
     if (symlinkTarget.isAbsolute()) {
       Path path = rootedPath.asPath().getFileSystem().getRootDirectory().getRelative(
           symlinkTarget);
-      return resolveFromAncestors(
-          RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries()), env);
+      symlinkTargetRootedPath =
+          RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries());
+    } else {
+      Path path = rootedPath.asPath();
+      Path symlinkTargetPath;
+      if (path.getParentDirectory() != null) {
+        RootedPath parentRootedPath = RootedPath.toRootedPathMaybeUnderRoot(
+            path.getParentDirectory(), pkgLocator.get().getPathEntries());
+        FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
+        if (parentFileValue == null) {
+          return null;
+        }
+        symlinkTargetPath = parentFileValue.realRootedPath().asPath().getRelative(symlinkTarget);
+      } else {
+        // This means '/' is a symlink to 'symlinkTarget'.
+        symlinkTargetPath = path.getRelative(symlinkTarget);
+      }
+      symlinkTargetRootedPath = RootedPath.toRootedPathMaybeUnderRoot(symlinkTargetPath,
+          pkgLocator.get().getPathEntries());
     }
-    Path path = rootedPath.asPath();
-    Path symlinkTargetPath;
-    if (path.getParentDirectory() != null) {
-      RootedPath parentRootedPath = RootedPath.toRootedPathMaybeUnderRoot(
-          path.getParentDirectory(), pkgLocator.get().getPathEntries());
-      FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
-      if (parentFileValue == null) {
+    Path symlinkTargetPath = symlinkTargetRootedPath.asPath();
+    Path existingFloorPath = orderedSeenPaths.floor(symlinkTargetPath);
+    // Here is a brief argument that the following logic is correct.
+    //
+    // Any path 'p' in the symlink chain that is no larger than 'symlinkTargetPath' is one of:
+    //   (i)   'symlinkTargetPath'
+    //   (ii)   a smaller sibling 's' of 'symlinkTargetPath' or a sibling of an ancestor of
+    //         'symlinkTargetPath'
+    //   (iii)  an ancestor 'a' of 'symlinkTargetPath'
+    //   (iv) something else (e.g. a smaller sibling of an ancestor of 'symlinkTargetPath')
+    // If the largest 'p' is 'symlinkTarget' itself then 'existingFloorPath' will be that and we
+    // have found cycle. Otherwise, if there is such a 's' then 'existingFloorPath' will be the
+    // largest one. But the presence of any such 's' in the symlink chain implies an infinite
+    // expansion, which we would have already noticed. On the other hand, if there is such an 'a'
+    // then 'existingFloorPath' will be the largest one that and we definitely have found an
+    // infinite symlink expansion. Otherwise, if there is no such 'a', then the presence of
+    // 'symlinkTargetPath' doesn't create an infinite symlink expansion.
+    if (existingFloorPath != null && symlinkTargetPath.startsWith(existingFloorPath)) {
+      SkyKey uniquenessKey;
+      FileSymlinkException fse;
+      if (symlinkTargetPath.equals(existingFloorPath)) {
+        Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
+            splitIntoPathAndChain(symlinkTargetRootedPath.asPath(), symlinkChain);
+        FileSymlinkCycleException fsce =
+            new FileSymlinkCycleException(pathAndChain.getFirst(), pathAndChain.getSecond());
+        uniquenessKey = FileSymlinkCycleUniquenessValue.key(fsce.getCycle());
+        fse = fsce;
+      } else {
+        Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
+            splitIntoPathAndChain(existingFloorPath,
+                ImmutableList.copyOf(Iterables.concat(symlinkChain,
+                    ImmutableList.of(symlinkTargetRootedPath))));
+        uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
+        fse = new FileSymlinkInfiniteExpansionException(
+            pathAndChain.getFirst(), pathAndChain.getSecond());
+      }
+      if (env.getValue(uniquenessKey) == null) {
+        // Note that this dependency is merely to ensure that each unique symlink error gets
+        // reported exactly once.
         return null;
       }
-      symlinkTargetPath = parentFileValue.realRootedPath().asPath().getRelative(symlinkTarget);
-    } else {
-      // This means '/' is a symlink to 'symlinkTarget'.
-      symlinkTargetPath = path.getRelative(symlinkTarget);
+      throw new FileFunctionException(fse);
     }
-    RootedPath symlinkTargetRootedPath = RootedPath.toRootedPathMaybeUnderRoot(symlinkTargetPath,
-        pkgLocator.get().getPathEntries());
     return resolveFromAncestors(symlinkTargetRootedPath, env);
   }
 
-  private FileSymlinkCycleException makeFileSymlinkCycleException(RootedPath startOfCycle,
-      Iterable<RootedPath> symlinkPaths) {
+  private Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> splitIntoPathAndChain(
+      Path startOfCycle, Iterable<RootedPath> symlinkRootedPaths) {
     boolean inPathToCycle = true;
     ImmutableList.Builder<RootedPath> pathToCycleBuilder = ImmutableList.builder();
     ImmutableList.Builder<RootedPath> cycleBuilder = ImmutableList.builder();
-    for (RootedPath path : symlinkPaths) {
-      if (path.equals(startOfCycle)) {
+    for (RootedPath rootedPath : symlinkRootedPaths) {
+      if (rootedPath.asPath().equals(startOfCycle)) {
         inPathToCycle = false;
       }
       if (inPathToCycle) {
-        pathToCycleBuilder.add(path);
+        pathToCycleBuilder.add(rootedPath);
       } else {
-        cycleBuilder.add(path);
+        cycleBuilder.add(rootedPath);
       }
     }
-    return new FileSymlinkCycleException(pathToCycleBuilder.build(), cycleBuilder.build());
+    return Pair.of(pathToCycleBuilder.build(), cycleBuilder.build());
   }
 
   @Nullable
@@ -231,7 +270,7 @@ public class FileFunction implements SkyFunction {
       super(e, transience);
     }
 
-    public FileFunctionException(FileSymlinkCycleException e) {
+    public FileFunctionException(FileSymlinkException e) {
       super(e, Transience.PERSISTENT);
     }
 

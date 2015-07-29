@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,20 +16,24 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A value for ensuring that a file symlink cycle is reported exactly once. This is achieved by
- * forcing the same value key for two logically equivalent cycles (e.g. ['a' -> 'b' -> 'c' -> 'a']
- * and ['b' -> 'c' -> 'a' -> 'b']), and letting Skyframe do its magic. 
+ * A value for ensuring that a file symlink expansion error is reported exactly once. This is
+ * achieved by forcing the same value key for two logically equivalent expansion errors (e.g.
+ * ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b' -> 'c' -> 'a' -> 'a/nope']), and letting Skyframe do
+ * its magic.
  */
-class FileSymlinkCycleUniquenessValue extends AbstractFileSymlinkExceptionUniquenessValue {
-  static final FileSymlinkCycleUniquenessValue INSTANCE = new FileSymlinkCycleUniquenessValue();
+class FileSymlinkInfiniteExpansionUniquenessValue implements SkyValue {
+  static final FileSymlinkInfiniteExpansionUniquenessValue INSTANCE =
+      new FileSymlinkInfiniteExpansionUniquenessValue();
 
-  private FileSymlinkCycleUniquenessValue() {
+  private FileSymlinkInfiniteExpansionUniquenessValue() {
   }
 
   static SkyKey key(ImmutableList<RootedPath> cycle) {
     return AbstractFileSymlinkExceptionUniquenessValue.key(
-        SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, cycle);
+        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS, cycle);
   }
 }
+

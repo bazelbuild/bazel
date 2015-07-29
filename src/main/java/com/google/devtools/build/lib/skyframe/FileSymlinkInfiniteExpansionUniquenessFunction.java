@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,26 +16,27 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/** A {@link SkyFunction} that has the side effect of reporting a file symlink cycle. */
-public class FileSymlinkCycleUniquenessFunction
+/** A {@link SkyFunction} that has the side effect of reporting a file symlink expansion error. */
+public class FileSymlinkInfiniteExpansionUniquenessFunction
     extends AbstractFileSymlinkExceptionUniquenessFunction {
   @Override
   protected SkyValue getDummyValue() {
-    return FileSymlinkCycleUniquenessValue.INSTANCE;
+    return FileSymlinkInfiniteExpansionUniquenessValue.INSTANCE;
   }
 
   @Override
   protected String getConciseDescription() {
-    return "circular symlinks";
+    return "infinite symlink expansion";
   }
 
   @Override
   protected String getHeaderMessage() {
-    return "[start of symlink cycle]";
+    return "[start of symlink chain]";
   }
 
   @Override
   protected String getFooterMessage() {
-    return "[end of symlink cycle]";
+    return "[end of symlink chain]";
   }
 }
+
