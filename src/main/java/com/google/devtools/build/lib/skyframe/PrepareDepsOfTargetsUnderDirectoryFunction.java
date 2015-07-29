@@ -140,7 +140,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
         TargetPatternResolverUtil.resolvePackageTargets(pkg, filteringPolicy);
     ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
     for (Target target : packageTargets.getTargets()) {
-      builder.add(TransitiveTargetValue.key(target.getLabel()));
+      builder.add(TransitiveTraversalValue.key(target.getLabel()));
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
     env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);

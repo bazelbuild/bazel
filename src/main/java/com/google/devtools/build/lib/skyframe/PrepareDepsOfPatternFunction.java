@@ -145,7 +145,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       Label label = TargetPatternResolverUtil.label(targetName);
       try {
         Target target = packageProvider.getTarget(env.getListener(), label);
-        SkyKey key = TransitiveTargetValue.key(target.getLabel());
+        SkyKey key = TransitiveTraversalValue.key(target.getLabel());
         SkyValue token =
             env.getValueOrThrow(key, NoSuchPackageException.class, NoSuchTargetException.class);
         if (token == null) {
@@ -176,7 +176,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
             TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
         ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
         for (Target target : packageTargets.getTargets()) {
-          builder.add(TransitiveTargetValue.key(target.getLabel()));
+          builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
         env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);

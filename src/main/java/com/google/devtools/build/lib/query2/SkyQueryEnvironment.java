@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTarg
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
+import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -435,7 +435,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     @Override
     public Label apply(SkyKey skyKey) {
       SkyFunctionName functionName = skyKey.functionName();
-      if (!functionName.equals(SkyFunctions.TRANSITIVE_TARGET)) {
+      if (!functionName.equals(SkyFunctions.TRANSITIVE_TRAVERSAL)) {
         // Skip non-targets.
         return null;
       }
@@ -484,7 +484,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return Iterables.transform(targets, new Function<Target, SkyKey>() {
       @Override
       public SkyKey apply(Target target) {
-        return TransitiveTargetValue.key(target.getLabel());
+        return TransitiveTraversalValue.key(target.getLabel());
       }
     });
   }

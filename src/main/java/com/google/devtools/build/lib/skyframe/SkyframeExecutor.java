@@ -317,6 +317,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         numPackagesLoaded));
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
+    map.put(SkyFunctions.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
     map.put(SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider()));
