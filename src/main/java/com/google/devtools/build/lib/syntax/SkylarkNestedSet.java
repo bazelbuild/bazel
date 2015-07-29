@@ -45,7 +45,32 @@ import javax.annotation.Nullable;
         + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
         + "<code>set([1]) + set([\"a\"])</code> results in an error.<br>"
         + "When aggregating data from providers, nested sets can take significantly less "
-        + "memory than other types as the subsets can be shared.")
+        + "memory than other types as the subsets can be shared.<br>"
+        + "Every set has an <code>order</code> parameter which determines the iteration order." 
+        + "There are four possible values:" 
+        + "<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child "
+        + "elements come after those of nested sets (parent-last). For example, "
+        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order "
+        + "is preserved for both the child elements and the references to nested sets.</li>" 
+        + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>" 
+        + "<li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. "
+        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. " 
+        + "This ordering enforces that elements of the set always come before elements of "
+        + "nested sets (parent-first), which may lead to situations where left-to-right "
+        + "order cannot be preserved (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)." 
+        + "</li>"
+        + "<li><code>naive_link</code>: Defines \"naive\" left-to-right pre-ordering "
+        + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. " 
+        + "Unlike <code>link</code> ordering, it will sacrifice the parent-first property in "
+        + "order to uphold left-to-right order in cases where both properties cannot be "
+        + "guaranteed (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)." 
+        + "</li></ul>"
+        + "Except for <code>stable</code>, the above values are incompatible with each other. " 
+        + "Consequently, two sets can only be merged via the <code>+</code> operator or via "
+        + "<code>union()</code> if either both sets have the same <code>order</code> or one of "
+        + "the sets has <code>stable</code> order. In the latter case the iteration order will be "
+        + "determined by the outer set, thus ignoring the <code>order</code> parameter of "
+        + "nested sets.")
 @Immutable
 public final class SkylarkNestedSet implements Iterable<Object> {
 
