@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;

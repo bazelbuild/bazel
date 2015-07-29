@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -22,26 +22,10 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.DotExpression;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SelectorList;
-import com.google.devtools.build.lib.syntax.SelectorValue;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
 import java.util.ArrayList;

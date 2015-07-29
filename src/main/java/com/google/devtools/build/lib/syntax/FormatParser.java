@@ -11,12 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Printer;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +22,11 @@ import java.util.Map;
 /**
  * A helper class that offers a subset of the functionality of Python's string#format.
  *
- * <p> Currently, both manual and automatic positional as well as named replacement 
+ * <p> Currently, both manual and automatic positional as well as named replacement
  * fields are supported. However, nested replacement fields are not allowed.
  */
 public final class FormatParser {
-  
+
   private static final ImmutableSet<Character> ILLEGAL_IN_FIELD =
       ImmutableSet.of('.', '[', ']', ',');
 
@@ -71,7 +69,7 @@ public final class FormatParser {
 
     return output.toString();
   }
-  
+
   /**
    * Processes the expression after an opening brace (possibly a replacement field) and emits
    * the result to the output StringBuilder
@@ -85,8 +83,14 @@ public final class FormatParser {
    * @param output StringBuilder that consumes the result
    * @return Number of characters that have been consumed by this method
    */
-  protected int processOpeningBrace(char[] chars, int pos, List<Object> args,
-      Map<String, Object> kwargs, History history, StringBuilder output) throws EvalException {
+  protected int processOpeningBrace(
+      char[] chars,
+      int pos,
+      List<Object> args,
+      Map<String, Object> kwargs,
+      History history,
+      StringBuilder output)
+      throws EvalException {
     if (has(chars, pos + 1, '{')) {
       // Escaped brace -> output and move to char after right brace
       output.append("{");
@@ -138,7 +142,7 @@ public final class FormatParser {
       // Invalid brace outside replacement field
       fail("Found '}' without matching '{'");
     }
-    
+
     // Escaped brace -> output and move to char after right brace
     output.append("}");
     return 1;
@@ -146,7 +150,7 @@ public final class FormatParser {
 
   /**
    * Checks whether the given input string has a specific character at the given location
-   * 
+   *
    * @param data Input string as character array
    * @param pos Position to be checked
    * @param needle Character to be searched for

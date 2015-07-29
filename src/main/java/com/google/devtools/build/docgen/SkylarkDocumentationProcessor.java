@@ -24,7 +24,6 @@ import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuil
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoneType;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
