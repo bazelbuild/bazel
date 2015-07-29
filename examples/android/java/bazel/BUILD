@@ -14,6 +14,7 @@ android_binary(
         ":jni",
         ":lib",
     ],
+    legacy_native_support = 0,
 )
 
 cc_library(
