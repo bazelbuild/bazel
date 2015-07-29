@@ -353,7 +353,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       builder.addNonLibraryInputs(compiledObjectFiles);
     }
 
-    builder.addNonLibraryInputs(common.getObjectFilesFromSrcs(usePic));
     builder.addNonLibraryInputs(common.getLinkerScripts());
 
     // Determine the libraries to link in.
