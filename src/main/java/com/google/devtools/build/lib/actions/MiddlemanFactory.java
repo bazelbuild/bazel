@@ -168,9 +168,12 @@ public final class MiddlemanFactory {
    * <p>Note: there's no need to synchronize this method; the only use of a field is via a call to
    * another synchronized method (getArtifact()).
    */
-  public Artifact createMiddlemanAllowMultiple(ActionRegistry registry,
-      ActionOwner owner, String purpose, Iterable<Artifact> inputs, Root middlemanDir) {
-    PathFragment stampName = new PathFragment("_middlemen/" + purpose);
+  public Artifact createMiddlemanAllowMultiple(ActionRegistry registry, ActionOwner owner,
+      PathFragment packageDirectory, String purpose, Iterable<Artifact> inputs, Root middlemanDir) {
+    String escapedPackageDirectory = Actions.escapedPath(packageDirectory.getPathString());
+    PathFragment stampName =
+        new PathFragment("_middlemen/" + (purpose.startsWith(escapedPackageDirectory)
+                                 ? purpose : (escapedPackageDirectory + purpose)));
     Artifact stampFile = artifactFactory.getDerivedArtifact(stampName, middlemanDir,
         actionRegistry.getOwner());
     MiddlemanAction.create(

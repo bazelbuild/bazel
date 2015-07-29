@@ -458,8 +458,9 @@ public class CppHelper {
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";
     }
-    return ImmutableList.of(factory.createMiddlemanAllowMultiple(
-        env, actionOwner, purpose, artifacts, configuration.getMiddlemanDirectory()));
+    return ImmutableList.of(
+        factory.createMiddlemanAllowMultiple(env, actionOwner, ruleContext.getPackageDirectory(),
+            purpose, artifacts, configuration.getMiddlemanDirectory()));
   }
 
   /**
