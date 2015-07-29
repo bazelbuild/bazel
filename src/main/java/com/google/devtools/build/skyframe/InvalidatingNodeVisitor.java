@@ -22,11 +22,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.util.Pair;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -64,6 +66,8 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
 
+  private static final Logger LOG = Logger.getLogger(InvalidatingNodeVisitor.class.getName());
+
   protected InvalidatingNodeVisitor(
       DirtiableGraph graph, @Nullable EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state, DirtyKeyTracker dirtyKeyTracker) {
@@ -84,6 +88,7 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
    * Initiates visitation and waits for completion.
    */
   void run() throws InterruptedException {
+    long startTime = Profiler.nanoTimeMaybe();
     // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
     // the caller, and which are added by other threads during the run. Since no tasks have been
     // started yet (the queueDirtying calls start them), this is thread-safe.
@@ -94,9 +99,17 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
       visit(visitData.first, visitData.second, !MUST_EXIST);
     }
     work(/*failFastOnInterrupt=*/true);
+
+    long duration = Profiler.nanoTimeMaybe() - startTime;
+    if (duration > 0) {
+      LOG.info("Spent " + TimeUnit.NANOSECONDS.toMillis(duration) + " ms invalidating "
+                   + count() + " nodes");
+    }
     Preconditions.checkState(pendingVisitations.isEmpty(),
         "All dirty nodes should have been processed: %s", pendingVisitations);
   }
+
+  protected abstract long count();
 
   protected void informInvalidationReceiver(SkyValue value,
       EvaluationProgressReceiver.InvalidationState state) {
@@ -190,6 +203,11 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
     }
 
     @Override
+    protected long count() {
+      return visitedValues.size();
+    }
+
+    @Override
     public void visit(final SkyKey key, InvalidationType invalidationType, boolean mustExist) {
       Preconditions.checkState(invalidationType == InvalidationType.DELETED, key);
       if (!visitedValues.add(key)) {
@@ -258,6 +276,11 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
         EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker) {
       super(graph, invalidationReceiver, state, dirtyKeyTracker);
+    }
+
+    @Override
+    protected long count() {
+      return visited.size();
     }
 
     /**
