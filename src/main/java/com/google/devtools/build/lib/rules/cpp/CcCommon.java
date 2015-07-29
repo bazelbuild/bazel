@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -103,9 +104,6 @@ public final class CcCommon {
 
   private final ImmutableList<Pair<Artifact, Label>> cAndCppSources;
 
-  /** Expanded and tokenized copts attribute.  Set by initCopts(). */
-  private final ImmutableList<String> copts;
-
   /**
    * The expanded linkopts for this rule.
    */
@@ -122,7 +120,6 @@ public final class CcCommon {
         : ImmutableList.<Artifact>of();
 
     this.cAndCppSources = collectCAndCppSources();
-    copts = initCopts();
     linkopts = initLinkopts();
   }
 
@@ -135,7 +132,34 @@ public final class CcCommon {
   }
 
   public ImmutableList<String> getCopts() {
-    return copts;
+    Preconditions.checkState(hasAttribute("copts", Type.STRING_LIST));
+    // TODO(bazel-team): getAttributeCopts should not tokenize the strings. Make a warning for now.
+    List<String> tokens = new ArrayList<>();
+    for (String str : ruleContext.attributes().get("copts", Type.STRING_LIST)) {
+      tokens.clear();
+      try {
+        ShellUtils.tokenize(tokens, str);
+        if (tokens.size() > 1) {
+          ruleContext.attributeWarning("copts",
+              "each item in the list should contain only one option");
+        }
+      } catch (ShellUtils.TokenizationException e) {
+        // ignore, the error is reported in the getAttributeCopts call
+      }
+    }
+
+    Pattern nocopts = getNoCopts(ruleContext);
+    if (nocopts != null && nocopts.matcher("-Wno-future-warnings").matches()) {
+      ruleContext.attributeWarning("nocopts",
+          "Regular expression '" + nocopts.pattern() + "' is too general; for example, it matches "
+          + "'-Wno-future-warnings'.  Thus it might *re-enable* compiler warnings we wish to "
+          + "disable globally.  To disable all compiler warnings, add '-w' to copts instead");
+    }
+
+    return ImmutableList.<String>builder()
+        .addAll(getPackageCopts(ruleContext))
+        .addAll(CppHelper.getAttributeCopts(ruleContext, "copts"))
+        .build();
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
@@ -322,43 +346,6 @@ public final class CcCommon {
     }
 
     return headersCheckingMode;
-  }
-
-  /**
-   * Expand and tokenize the copts and nocopts attributes.
-   */
-  private ImmutableList<String> initCopts() {
-    if (!hasAttribute("copts", Type.STRING_LIST)) {
-      return ImmutableList.<String>of();
-    }
-    // TODO(bazel-team): getAttributeCopts should not tokenize the strings.
-    // Make a warning for now.
-    List<String> tokens = new ArrayList<>();
-    for (String str : ruleContext.attributes().get("copts", Type.STRING_LIST)) {
-      tokens.clear();
-      try {
-        ShellUtils.tokenize(tokens, str);
-        if (tokens.size() > 1) {
-          ruleContext.attributeWarning("copts",
-              "each item in the list should contain only one option");
-        }
-      } catch (ShellUtils.TokenizationException e) {
-        // ignore, the error is reported in the getAttributeCopts call
-      }
-    }
-
-    Pattern nocopts = getNoCopts(ruleContext);
-    if (nocopts != null && nocopts.matcher("-Wno-future-warnings").matches()) {
-      ruleContext.attributeWarning("nocopts",
-          "Regular expression '" + nocopts.pattern() + "' is too general; for example, it matches "
-          + "'-Wno-future-warnings'.  Thus it might *re-enable* compiler warnings we wish to "
-          + "disable globally.  To disable all compiler warnings, add '-w' to copts instead");
-    }
-
-    return ImmutableList.<String>builder()
-        .addAll(getPackageCopts(ruleContext))
-        .addAll(CppHelper.getAttributeCopts(ruleContext, "copts"))
-        .build();
   }
 
   private static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
