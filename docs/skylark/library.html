@@ -23,7 +23,7 @@ Creates a file filter from a list of strings. For example, to match files ending
 <br/>
 <li><h3 id="modules._top_level.Label">Label</h3>
 <code><a class="anchor" href="#modules.Label">Label</a> Label(label_string)</code><br>
-Creates a Label referring to a BUILD target. Use this function only when you want to give a default value for the label attributes. Example: <br><pre class=language-python>Label("//tools:default")</pre>
+Creates a Label referring to a BUILD target. Use this function only when you want to give a default value for the label attributes. The argument must refer to an absolute label. Example: <br><pre class=language-python>Label("//tools:default")</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.Label.label_string"><code>label_string (<a class="anchor" href="#modules.string">string</a>)</code>: the label string
@@ -33,7 +33,7 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 <code><a class="anchor" href="#modules._top_level.None">None</a></code><br>Literal for the None value.
 <br/>
 <li><h3 id="modules._top_level.PACKAGE_NAME">PACKAGE_NAME</h3>
-<code><a class="anchor" href="#modules.string">string</a></code><br>The name of the package the rule or build extension is called from. This variable is special, because its value comes from outside of the extension module (it comes from the BUILD file), so it can only be accessed in functions (transitively) called from BUILD files. For example:<br><pre class=language-python>def extension():
+<code><a class="anchor" href="#modules.string">string</a></code><br>The name of the package the rule or build extension is called from. For example, in the BUILD file <code>some/package/BUILD</code>, its value will be <code>some/package</code>. This variable is special, because its value comes from outside of the extension module (it comes from the BUILD file), so it can only be accessed in functions (transitively) called from BUILD files. For example:<br><pre class=language-python>def extension():
   return PACKAGE_NAME</pre>In this case calling <code>extension()</code> works from the BUILD file (if the function is loaded), but not as a top level function call in the extension module.
 <br/>
 <li><h3 id="modules._top_level.True">True</h3>
@@ -41,18 +41,18 @@ Creates a Label referring to a BUILD target. Use this function only when you wan
 <br/>
 <li><h3 id="modules._top_level.bool">bool</h3>
 <code><a class="anchor" href="#modules._top_level.bool">bool</a> bool(x)</code><br>
-Converts an object to boolean. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True. As in Python, <code>bool</code> is also a type.
+Constructor for the bool type. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.bool.x"><code>x</code>: The variable to convert.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.dir">dir</h3>
-<code><a class="anchor" href="#modules.list">list</a> dir(object)</code><br>
-Returns a list strings: the names of the fields and methods of the parameter object.
+<code><a class="anchor" href="#modules.list">list</a> dir(x)</code><br>
+Returns a list strings: the names of the attributes and methods of the parameter object.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.dir.object"><code>object</code>: The object to check.
+	<li id="modules._top_level.dir.x"><code>x</code>: The object to check.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.enumerate">enumerate</h3>
@@ -67,39 +67,39 @@ Return a list of pairs (two-element tuples), with the index (int) and the item f
 </ul>
 <li><h3 id="modules._top_level.fail">fail</h3>
 <code><a class="anchor" href="#modules._top_level.None">None</a> fail(msg, attr=None)</code><br>
-Raises an error that cannot be intercepted.
+Raises an error that cannot be intercepted. It can be used anywhere, both in the loading phase and in the analysis phase.
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.fail.msg"><code>msg (<a class="anchor" href="#modules.string">string</a>)</code>: Error message to display for the user
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.fail.attr"><code>attr (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the attribute that caused the error
+	<li id="modules._top_level.fail.attr"><code>attr (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the attribute that caused the error. This is used only for error reporting.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.getattr">getattr</h3>
-<code>unknown getattr(object, name, default=None)</code><br>
-Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existant attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
+<code>unknown getattr(x, name, default=None)</code><br>
+Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existent attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.getattr.object"><code>object</code>: The struct whose field is accessed.
+	<li id="modules._top_level.getattr.x"><code>x</code>: The struct whose attribute is accessed.
 	</li>
-	<li id="modules._top_level.getattr.name"><code>name</code>: The name of the struct field.
+	<li id="modules._top_level.getattr.name"><code>name</code>: The name of the struct attribute.
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.getattr.default"><code>default</code>: The default value to return in case the struct doesn't have a field of the given name.
+	<li id="modules._top_level.getattr.default"><code>default</code>: The default value to return in case the struct doesn't have an attribute of the given name.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.hasattr">hasattr</h3>
-<code><a class="anchor" href="#modules._top_level.bool">bool</a> hasattr(object, name)</code><br>
-Returns True if the object <code>x</code> has a field of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
+<code><a class="anchor" href="#modules._top_level.bool">bool</a> hasattr(x, name)</code><br>
+Returns True if the object <code>x</code> has an attribute of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.hasattr.object"><code>object</code>: The object to check.
+	<li id="modules._top_level.hasattr.x"><code>x</code>: The object to check.
 	</li>
-	<li id="modules._top_level.hasattr.name"><code>name (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the field.
+	<li id="modules._top_level.hasattr.name"><code>name (<a class="anchor" href="#modules.string">string</a>)</code>: The name of the attribute.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.int">int</h3>
@@ -168,7 +168,7 @@ range(3, 0, -1) == [3, 2, 1]</pre>
 </ul>
 <li><h3 id="modules._top_level.repr">repr</h3>
 <code><a class="anchor" href="#modules.string">string</a> repr(x)</code><br>
-Converts any object to a string representation. This is useful for debugging.
+Converts any object to a string representation. This is useful for debugging.<br><pre class="language-python">str("ab") == \"ab\"</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.repr.x"><code>x</code>: The object to convert.
@@ -179,17 +179,17 @@ Converts any object to a string representation. This is useful for debugging.
 Creates a new rule. Store it in a global value, so that it can be loaded and called from BUILD files.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.rule.implementation"><code>implementation (function)</code>: the function implementing this rule, has to have exactly one parameter: <code>ctx</code>. The function is called during analysis phase for each instance of the rule. It can access the attributes provided by the user. It must create actions to generate all the declared outputs.
+	<li id="modules._top_level.rule.implementation"><code>implementation (function)</code>: the function implementing this rule, must have exactly one parameter: <a href="#modules.ctx">ctx</a>. The function is called during the analysis phase for each instance of the rule. It can access the attributes provided by the user. It must create actions to generate all the declared outputs.
 	</li>
 </ul>
 <ul>
-	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it cannot), and there must be an action that generates <code>ctx.outputs.executable</code>.
+	<li id="modules._top_level.rule.test"><code>test (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it must not), and there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
 	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label. The attribute <code>name</code> is implicitly added and must not be specified. Attributes <code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly added and might be overriden.
 	</li>
-	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes a field in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
+	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes an attribute in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
 	</li>
-	<li id="modules._top_level.rule.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: whether this rule always outputs an executable of the same name or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.
+	<li id="modules._top_level.rule.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: whether this rule is marked as executable or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
 	<li id="modules._top_level.rule.output_to_genfiles"><code>output_to_genfiles (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: If true, the files will be generated in the genfiles directory instead of the bin directory. This is used for compatibility with existing rules.
 	</li>
@@ -210,7 +210,7 @@ set([1, 2, 3], order="compile")</pre>
 <ul>
 	<li id="modules._top_level.set.items"><code>items</code>: The items to initialize the set with. May contain both standalone items and other sets.
 	</li>
-	<li id="modules._top_level.set.order"><code>order (<a class="anchor" href="#modules.string">string</a>)</code>: The ordering strategy for the set if it's nested, possible values are: <code>stable</code> (default), <code>compile</code>, <code>link</code> or <code>naive_link</code>.
+	<li id="modules._top_level.set.order"><code>order (<a class="anchor" href="#modules.string">string</a>)</code>: The ordering strategy for the set if it's nested, possible values are: <code>stable</code> (default), <code>compile</code>, <code>link</code> or <code>naive_link</code>. An explanation of the values can be found <a href="#modules.set">here</a>.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.sorted">sorted</h3>
@@ -223,7 +223,7 @@ Sort a collection.
 </ul>
 <li><h3 id="modules._top_level.str">str</h3>
 <code><a class="anchor" href="#modules.string">string</a> str(x)</code><br>
-Converts any object to string. This is useful for debugging.
+Converts any object to string. This is useful for debugging.<pre class="language-python">str("ab") == "ab"</pre>
 <h4>Parameters</h4>
 <ul>
 	<li id="modules._top_level.str.x"><code>x</code>: The object to convert.
@@ -231,19 +231,19 @@ Converts any object to string. This is useful for debugging.
 </ul>
 <li><h3 id="modules._top_level.struct">struct</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> struct(**kwargs)</code><br>
-Creates an immutable struct using the keyword arguments as fields. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
-return s.x + s.y  # returns 5</pre>
+Creates an immutable struct using the keyword arguments as attributes. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
+return s.x + getattr(s, "y")  # returns 5</pre>
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.struct.kwargs"><code>kwargs</code>: the struct fields
+	<li id="modules._top_level.struct.kwargs"><code>kwargs</code>: the struct attributes
 	</li>
 </ul>
 <li><h3 id="modules._top_level.type">type</h3>
-<code><a class="anchor" href="#modules.string">string</a> type(object)</code><br>
+<code><a class="anchor" href="#modules.string">string</a> type(x)</code><br>
 Returns the type name of its argument.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules._top_level.type.object"><code>object</code>: The object to check type of.
+	<li id="modules._top_level.type.x"><code>x</code>: The object to check type of.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.zip">zip</h3>
@@ -263,10 +263,10 @@ Declares how the configuration should change when following a dependency. It can
 This type represents a file used by the build system. It can be either a source file or a derived file produced by a rule.
 <ul><li><h3 id="modules.File.basename">basename</h3>
 <code><a class="anchor" href="#modules.string">string</a> File.basename</code><br>
-The base file name of this artifact.
+The base file name of this file.
 <li><h3 id="modules.File.dirname">dirname</h3>
 <code><a class="anchor" href="#modules.string">string</a> File.dirname</code><br>
-The directory name of this artifact.
+The name of the directory containing this file.
 <li><h3 id="modules.File.path">path</h3>
 <code><a class="anchor" href="#modules.string">string</a> File.path</code><br>
 The execution path of this file, relative to the execution directory. It consists of two parts, an optional first part called the <i>root</i> (see also the <a href="#modules.root">root</a> module), and the second part which is the <code>short_path</code>. The root may be empty, which it usually is for non-generated files. For generated files it usually contains a configuration-specific path fragment that encodes things like the target CPU architecture that was used while building said file.
@@ -292,15 +292,15 @@ Resolves a label that is either absolute (starts with <code>//</code>) or relati
 </ul><hr><h2 id="modules.Target">Target</h2>
 A BUILD target. It is essentially a <code>struct</code> with the following fields:<ul><li><h3 id="modules.Target.label">label</h3><code><a class="anchor" href="#modules.Label">Label</a> Target.label</code><br>The identifier of the target.</li><li><h3 id="modules.Target.files">files</h3><code><a class="anchor" href="#modules.set">set</a> Target.files </code><br>The (transitive) set of <a class="anchor" href="#modules.File">File</a>s produced by this target.</li><li><h3 id="modules.Target.extraproviders">Extra providers</h3>For rule targets all additional providers provided by this target are accessible as <code>struct</code> fields. These extra providers are defined in the <code>struct</code> returned by the rule implementation function.</li></ul>
 <ul></ul><hr><h2 id="modules.attr">attr</h2>
-Module for creating new attributes. They are only for use with the <code>rule</code> function.
+Module for creating new attributes. They are only for use with the <a href="#modules._top_level.rule">rule</a> function.
 <ul><li><h3 id="modules.attr.bool">bool</h3>
 <code>Builder attr.bool(default=False, mandatory=False)</code><br>
 Creates an attribute of type bool. Its default value is False.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.bool.default"><code>default (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: sets the default value of the attribute.
+	<li id="modules.attr.bool.default"><code>default (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: the default value of the attribute.
 	</li>
-	<li id="modules.attr.bool.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.bool.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
 </ul>
 <li><h3 id="modules.attr.int">int</h3>
@@ -308,11 +308,11 @@ Creates an attribute of type bool. Its default value is False.
 Creates an attribute of type int.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.int.default"><code>default (int)</code>: sets the default value of the attribute. If not specified, default is 0.
+	<li id="modules.attr.int.default"><code>default (int)</code>: the default value of the attribute. If not specified, default is 0.
 	</li>
-	<li id="modules.attr.int.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.int.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.int.values"><code>values (<a class="anchor" href="#modules.list">list</a> of ints)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
+	<li id="modules.attr.int.values"><code>values (<a class="anchor" href="#modules.list">list</a> of ints)</code>: the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
 </ul>
 <li><h3 id="modules.attr.int_list">int_list</h3>
@@ -320,11 +320,11 @@ Creates an attribute of type int.
 Creates an attribute of type list of ints
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.int_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of ints)</code>: sets the default value of the attribute. If not specified, default is [].
+	<li id="modules.attr.int_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of ints)</code>: the default value of the attribute. If not specified, default is [].
 	</li>
-	<li id="modules.attr.int_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.int_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.int_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
+	<li id="modules.attr.int_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the attribute must not be empty
 	</li>
 </ul>
 <li><h3 id="modules.attr.label">label</h3>
@@ -332,13 +332,13 @@ Creates an attribute of type list of ints
 Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.label.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: sets the default value of the attribute. If not specified, default is None. Use the <code>Label</code> function to specify a default value.
+	<li id="modules.attr.label.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: the default value of the attribute. If not specified, default is None. Use the <code>Label</code> function to specify a default value.
 	</li>
-	<li id="modules.attr.label.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the labels have to be executable. This means the label must refer to an executable file, or to a rule that outputs an executable file. Access the labels with <code>ctx.executable.&lt;attribute_name&gt;</code>.
+	<li id="modules.attr.label.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the labels have to be executable. This means the label must refer to an executable file, or to a rule that outputs an executable file. Access the labels with <code>ctx.executable.&lt;attribute_name&gt;</code>.
 	</li>
 	<li id="modules.attr.label.allow_files"><code>allow_files</code>: whether File targets are allowed. Can be True, False (default), or a FileType filter.
 	</li>
-	<li id="modules.attr.label.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.label.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
 	<li id="modules.attr.label.providers"><code>providers (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: mandatory providers every dependency has to have
 	</li>
@@ -354,7 +354,7 @@ Creates an attribute of type Label. It is the only way to specify a dependency t
 Creates an attribute of type list of labels. See <a href="#modules.attr.label">label</a> for more information.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.label_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: sets the default value of the attribute. If not specified, default is []. Use the <code>Label</code> function to specify a default value.
+	<li id="modules.attr.label_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: the default value of the attribute. If not specified, default is []. Use the <code>Label</code> function to specify a default value.
 	</li>
 	<li id="modules.attr.label_list.allow_files"><code>allow_files</code>: whether File targets are allowed. Can be True, False (default), or a FileType filter.
 	</li>
@@ -364,9 +364,9 @@ Creates an attribute of type list of labels. See <a href="#modules.attr.label">l
 	</li>
 	<li id="modules.attr.label_list.flags"><code>flags (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: deprecated, will be removed
 	</li>
-	<li id="modules.attr.label_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.label_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.label_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
+	<li id="modules.attr.label_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the attribute must not be empty
 	</li>
 	<li id="modules.attr.label_list.cfg"><code>cfg (<a class="anchor" href="#modules.ConfigurationTransition">ConfigurationTransition</a>)</code>: configuration of the attribute. For example, use DATA_CFG or HOST_CFG.
 	</li>
@@ -376,9 +376,9 @@ Creates an attribute of type list of labels. See <a href="#modules.attr.label">l
 Creates an attribute of type license. Its default value is NO_LICENSE.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.license.default"><code>default</code>: sets the default value of the attribute.
+	<li id="modules.attr.license.default"><code>default</code>: the default value of the attribute.
 	</li>
-	<li id="modules.attr.license.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.license.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
 </ul>
 <li><h3 id="modules.attr.output">output</h3>
@@ -386,9 +386,9 @@ Creates an attribute of type license. Its default value is NO_LICENSE.
 Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.output.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: sets the default value of the attribute.
+	<li id="modules.attr.output.default"><code>default (<a class="anchor" href="#modules.Label">Label</a>)</code>: the default value of the attribute.
 	</li>
-	<li id="modules.attr.output.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.output.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
 </ul>
 <li><h3 id="modules.attr.output_list">output_list</h3>
@@ -396,11 +396,11 @@ Creates an attribute of type output. Its default value is None. The user provide
 Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="#modules.attr.output">output</a> above for more information.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.output_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: sets the default value of the attribute.
+	<li id="modules.attr.output_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.Label">Label</a>s)</code>: the default value of the attribute.
 	</li>
-	<li id="modules.attr.output_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.output_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.output_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
+	<li id="modules.attr.output_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the attribute must not be empty
 	</li>
 </ul>
 <li><h3 id="modules.attr.string">string</h3>
@@ -408,11 +408,11 @@ Creates an attribute of type list of outputs. Its default value is <code>[]</cod
 Creates an attribute of type string.
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.string.default"><code>default (<a class="anchor" href="#modules.string">string</a>)</code>: sets the default value of the attribute. If not specified, default is "".
+	<li id="modules.attr.string.default"><code>default (<a class="anchor" href="#modules.string">string</a>)</code>: the default value of the attribute. If not specified, default is "".
 	</li>
-	<li id="modules.attr.string.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.string.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.string.values"><code>values (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: specify the list of allowed values for the attribute. An error is raised if any other value is given.
+	<li id="modules.attr.string.values"><code>values (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: the list of allowed values for the attribute. An error is raised if any other value is given.
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_dict">string_dict</h3>
@@ -420,11 +420,11 @@ Creates an attribute of type string.
 Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.string_dict.default"><code>default (<a class="anchor" href="#modules.dict">dict</a>)</code>: sets the default value of the attribute.
+	<li id="modules.attr.string_dict.default"><code>default (<a class="anchor" href="#modules.dict">dict</a>)</code>: the default value of the attribute.
 	</li>
-	<li id="modules.attr.string_dict.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.string_dict.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.string_dict.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
+	<li id="modules.attr.string_dict.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the attribute must not be empty
 	</li>
 </ul>
 <li><h3 id="modules.attr.string_list">string_list</h3>
@@ -432,11 +432,11 @@ Creates an attribute of type dictionary, mapping from string to string. Its defa
 Creates an attribute of type list of strings
 <h4>Parameters</h4>
 <ul>
-	<li id="modules.attr.string_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: sets the default value of the attribute. If not specified, default is [].
+	<li id="modules.attr.string_list.default"><code>default (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: the default value of the attribute. If not specified, default is [].
 	</li>
-	<li id="modules.attr.string_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if users have to explicitely specify the value
+	<li id="modules.attr.string_list.mandatory"><code>mandatory (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the value must be explicitly specified
 	</li>
-	<li id="modules.attr.string_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: set to True if the attribute must not be empty
+	<li id="modules.attr.string_list.non_empty"><code>non_empty (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: True if the attribute must not be empty
 	</li>
 </ul>
 </ul><hr><h2 id="modules.cmd_helper">cmd_helper</h2>
@@ -557,7 +557,7 @@ Creates an empty action that neither executes a command nor produces any output,
 </ul>
 <li><h3 id="modules.ctx.executable">executable</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.executable</code><br>
-A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
+A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. Each struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
 <li><h3 id="modules.ctx.expand_location">expand_location</h3>
 <code><a class="anchor" href="#modules.string">string</a> ctx.expand_location(input, targets=[])</code><br>
 Expands the given string so that all labels are replaced with the location of their target file(s). Currently, the algorithm uses output, srcs, deps, tools and data attributes for looking up mappings from label to locations.
@@ -610,10 +610,13 @@ The label of this rule.
 Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.new_file">new_file</h3>
 <code><a class="anchor" href="#modules.File">File</a> ctx.new_file(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
+Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule. Deprecated: Please use ctx.new_file_suffix() instead.
+<li><h3 id="modules.ctx.new_file_suffix">new_file_suffix</h3>
+<code><a class="anchor" href="#modules.File">File</a> ctx.new_file_suffix(<a class="anchor" href="#modules.File">File</a>, <a class="anchor" href="#modules.string">string</a>)</code><br>
 Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 <li><h3 id="modules.ctx.outputs">outputs</h3>
 <code><a class="anchor" href="#modules.struct">struct</a> ctx.outputs</code><br>
-A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict a field is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct field is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct field is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
+A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct attribute is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct attribute is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
 <li><h3 id="modules.ctx.runfiles">runfiles</h3>
 <code><a class="anchor" href="#modules.runfiles">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)</code><br>
 Creates a runfiles object.
@@ -743,14 +746,14 @@ Returns the relative path from the exec root to the actual root.
 An interface for a set of runfiles.
 <ul><li><h3 id="modules.runfiles.files">files</h3>
 <code>set runfiles.files</code><br>
-Returns the set of runfiles as artifacts
+Returns the set of runfiles as files
 <li><h3 id="modules.runfiles.symlinks">symlinks</h3>
 <code>set runfiles.symlinks</code><br>
 Returns the set of symlinks
 </ul><hr><h2 id="modules.set">set</h2>
 A language built-in type that supports (nested) sets. Sets can be created using the <a href="#modules._top_level.set">set</a> function, and they support the <code>+</code> operator to extend the set with more elements or to nest other sets inside of it. Examples:<br><pre class=language-python>s = set([1, 2])
 s += [3]           # s == {1, 2, 3}
-s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>Note that in these examples <code>{..}</code> is not a valid literal to create sets. Sets have a fixed generic type, so <code>set([1]) + ["a"]</code> or <code>set([1]) + set(["a"])</code> results in an error.<br>When aggregating data from providers, nested sets can take significantly less memory than other types as the subsets can be shared.
+s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>Note that in these examples <code>{..}</code> is not a valid literal to create sets. Sets have a fixed generic type, so <code>set([1]) + ["a"]</code> or <code>set([1]) + set(["a"])</code> results in an error.<br>When aggregating data from providers, nested sets can take significantly less memory than other types as the subsets can be shared.<br>Every set has an <code>order</code> parameter which determines the iteration order.There are four possible values:<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child elements come after those of nested sets (parent-last). For example, <code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order is preserved for both the child elements and the references to nested sets.</li><li><code>stable</code>: Same behavior as <code>compile</code>.</li><li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. This ordering enforces that elements of the set always come before elements of nested sets (parent-first), which may lead to situations where left-to-right order cannot be preserved (<a href="https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56">Example</a>).</li><li><code>naive_link</code>: Defines "naive" left-to-right pre-ordering (parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. Unlike <code>link</code> ordering, it will sacrifice the parent-first property in order to uphold left-to-right order in cases where both properties cannot be guaranteed (<a href="https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26">Example</a>).</li></ul>Except for <code>stable</code>, the above values are incompatible with each other. Consequently, two sets can only be merged via the <code>+</code> operator or via <code>union()</code> if either both sets have the same <code>order</code> or one of the sets has <code>stable</code> order. In the latter case the iteration order will be determined by the outer set, thus ignoring the <code>order</code> parameter of nested sets.
 <ul><li><h3 id="modules.set.union">union</h3>
 <code><a class="anchor" href="#modules.set">set</a> set.union(newElements)</code><br>
 Creates a new <a href="#modules.set">set</a> that contains both the input set as well as all additional elements.
@@ -767,7 +770,7 @@ c = """multiline string"""
 # Strings support slicing (negative index starts from the end):
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
-z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"a" in "abc"   # evaluates as True
+z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"bc" in "abcd"   # evaluates to True
 x = []
 for s in "abc":
   x += [s]     # x == ["a", "b", "c"]</pre>

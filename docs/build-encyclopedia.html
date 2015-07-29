@@ -7022,21 +7022,21 @@ http_archive(<a href="#http_archive.name">name</a>,
          <p>This must match the SHA-256 hash of the file downloaded.</p>
 </li>
 <li id="http_archive.type"><code>type</code>:
-         The type of the downloaded file.
+         The archive type of the downloaded file.
          <i>(String; optional)</i><br/>
 
 
-         <p>By default, the file type is guessed by the extension of the downloaded file. Some
-         archive does not have the correct extension and this attribute can be used to set the
-         extension to happen to the file.</p>
+         <p>By default, the archive type is determined from the file extension of the URL. If the
+         file has no extension, you can explicitly specify either "zip", "jar", "tar.gz", or
+         "tgz" here.</p>
 </li>
 <li id="http_archive.url"><code>url</code>:
-         A URL to an archive file containing a Bazel repository.
+         A URL referencing an archive file containing a Bazel repository.
          <i>(String; required)</i><br/>
 
 
-         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-         redirection.</p>
+         <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
+         for authentication or redirection.</p>
 </li>
 </ul>
 
@@ -7604,21 +7604,21 @@ combining the archive with the provided BUILD file.</p>
          <p>This must match the SHA-256 hash of the file downloaded.</p>
 </li>
 <li id="new_http_archive.type"><code>type</code>:
-         The type of the downloaded file.
+         The archive type of the downloaded file.
          <i>(String; optional)</i><br/>
 
 
-         <p>By default, the file type is guessed by the extension of the downloaded file. Some
-         archive does not have the correct extension and this attribute can be used to set the
-         extension to happen to the file.</p>
+         <p>By default, the archive type is determined from the file extension of the URL. If the
+         file has no extension, you can explicitly specify either "zip", "jar", "tar.gz", or
+         "tgz" here.</p>
 </li>
 <li id="new_http_archive.url"><code>url</code>:
-         A URL to an archive file containing a Bazel repository.
+         A URL referencing an archive file containing a Bazel repository.
          <i>(String; required)</i><br/>
 
 
-         <p>This must be an HTTP URL that ends with .zip. There is no support for authentication or
-         redirection.</p>
+         <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
+         for authentication or redirection.</p>
 </li>
 </ul>
 
