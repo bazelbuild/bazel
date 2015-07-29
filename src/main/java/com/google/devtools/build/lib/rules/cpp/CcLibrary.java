@@ -117,33 +117,21 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
-            .setLinkType(linkType)
+            .fromCommon(common)
+
+            .addLinkopts(common.getLinkopts())
+            .addPublicHeaders(common.getHeaders())
             .enableCcNativeLibrariesProvider()
-            .enableInterfaceSharedObjects()
             .enableCompileProviders()
+            .enableInterfaceSharedObjects()
             // Generate .a and .so outputs even without object files to fulfill the rule class contract
             // wrt. implicit output files, if the contract says so. Behavior here differs between Bazel
             // and Blaze.
             .setGenerateLinkActionsIfEmpty(
                 ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction()
                     != ImplicitOutputsFunction.NONE)
-            .setNeverLink(neverLink)
-            .setHeadersCheckingMode(common.determineHeadersCheckingMode())
-            .addCopts(common.getCopts())
-            .setNoCopts(common.getNoCopts())
-            .addLinkopts(common.getLinkopts())
-            .addDefines(common.getDefines())
-            .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
-            .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
-            .addSources(common.getCAndCppSources())
-            .addPublicHeaders(common.getHeaders())
-            .addObjectFiles(common.getObjectFilesFromSrcs(false))
-            .addPicObjectFiles(common.getObjectFilesFromSrcs(true))
-            .addPicIndependentObjectFiles(common.getLinkerScripts())
-            .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .addSystemIncludeDirs(common.getSystemIncludeDirs())
-            .addIncludeDirs(common.getIncludeDirs())
-            .addLooseIncludeDirs(common.getLooseIncludeDirs());
+            .setLinkType(linkType)
+            .setNeverLink(neverLink);
 
     if (collectLinkstamp) {
       helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));

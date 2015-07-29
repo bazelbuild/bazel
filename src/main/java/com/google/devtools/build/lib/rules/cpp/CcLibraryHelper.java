@@ -185,7 +185,7 @@ public final class CcLibraryHelper {
   private boolean emitDynamicLibrary = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
-  
+
   private final FeatureConfiguration featureConfiguration;
 
   public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics,
@@ -195,7 +195,29 @@ public final class CcLibraryHelper {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
   }
-  
+
+  /**
+   * Sets fields that overlap for cc_library and cc_binary rules.
+   */
+  public CcLibraryHelper fromCommon(CcCommon common) {
+    this
+        .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
+        .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
+        .addCopts(common.getCopts())
+        .addDefines(common.getDefines())
+        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addIncludeDirs(common.getIncludeDirs())
+        .addLooseIncludeDirs(common.getLooseIncludeDirs())
+        .addObjectFiles(common.getObjectFilesFromSrcs( /*usePic*/false))
+        .addPicIndependentObjectFiles(common.getLinkerScripts())
+        .addPicObjectFiles(common.getObjectFilesFromSrcs( /*usePic*/true))
+        .addSources(common.getCAndCppSources())
+        .addSystemIncludeDirs(common.getSystemIncludeDirs())
+        .setNoCopts(common.getNoCopts())
+        .setHeadersCheckingMode(common.determineHeadersCheckingMode());
+    return this;
+  }
+
   /**
    * Add the corresponding files as header files, i.e., these files will not be compiled, but are
    * made visible as includes to dependent rules.
@@ -243,7 +265,7 @@ public final class CcLibraryHelper {
     }
     return this;
   }
-  
+
   /**
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.

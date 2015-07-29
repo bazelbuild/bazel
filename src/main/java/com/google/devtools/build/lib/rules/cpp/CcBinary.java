@@ -159,27 +159,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     LinkTargetType linkType =
         isLinkShared(ruleContext) ? LinkTargetType.DYNAMIC_LIBRARY : LinkTargetType.EXECUTABLE;
 
-    CcLibraryHelper helper = new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
-        .setLinkType(linkType)
-        .setHeadersCheckingMode(common.determineHeadersCheckingMode())
-        .addCopts(common.getCopts())
-        .setNoCopts(common.getNoCopts())
-        .addDefines(common.getDefines())
-        .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
-        .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
-        .addSources(common.getCAndCppSources())
-        .addPrivateHeaders(FileType.filter(
-            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
-            CppFileTypes.CPP_HEADER))
-        .addObjectFiles(common.getObjectFilesFromSrcs(false))
-        .addPicObjectFiles(common.getObjectFilesFromSrcs(true))
-        .addPicIndependentObjectFiles(common.getLinkerScripts())
-        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-        .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
-        .addSystemIncludeDirs(common.getSystemIncludeDirs())
-        .addIncludeDirs(common.getIncludeDirs())
-        .addLooseIncludeDirs(common.getLooseIncludeDirs())
-        .setFake(fake);
+    CcLibraryHelper helper =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
+            .fromCommon(common)
+            .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
+            .addPrivateHeaders(
+                FileType.filter(
+                    ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
+                    CppFileTypes.CPP_HEADER))
+            .setFake(fake)
+            .setLinkType(linkType);
 
     CcLibraryHelper.Info info = helper.build();
     CppCompilationContext cppCompilationContext = info.getCppCompilationContext();
@@ -189,8 +178,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so".
-    PathFragment executableName = ruleContext.getPackageDirectory().getRelative(
-        ruleContext.getTarget().getName() +  OsUtils.executableExtension());
+    PathFragment executableName =
+        ruleContext
+            .getPackageDirectory()
+            .getRelative(ruleContext.getTarget().getName() + OsUtils.executableExtension());
     CppLinkAction.Builder linkActionBuilder = determineLinkerArguments(
         ruleContext, common, cppConfiguration, ccCompilationOutputs,
         cppCompilationContext.getCompilationPrerequisites(), fake, executableName);
