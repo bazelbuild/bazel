@@ -14,9 +14,16 @@ android_binary(
         ":jni",
         ":lib",
     ],
+    legacy_native_support = 0,
 )
 
 cc_library(
     name = "jni",
     srcs = ["jni.cc"],
+    deps = [":jni_dep"],
+)
+
+cc_library(
+    name = "jni_dep",
+    srcs = ["jni_dep.cc"],
 )
