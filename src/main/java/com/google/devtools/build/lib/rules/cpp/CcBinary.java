@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -272,9 +273,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
-    common.addTransitiveInfoProviders(
-        ruleBuilder, filesToBuild, ccCompilationOutputs, cppCompilationContext, linkingOutputs,
-        dwoArtifacts, transitiveLipoInfo);
+    addTransitiveInfoProviders(
+        ruleContext, common, ruleBuilder, filesToBuild, ccCompilationOutputs, cppCompilationContext,
+        linkingOutputs, dwoArtifacts, transitiveLipoInfo);
 
     Map<Artifact, IncludeScannable> scannableMap = new LinkedHashMap<>();
     if (cppConfiguration.isLipoContextCollector()) {
@@ -603,5 +604,69 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
+  }
+
+  private static void addTransitiveInfoProviders(
+      RuleContext ruleContext,
+      CcCommon common,
+      RuleConfiguredTargetBuilder builder,
+      NestedSet<Artifact> filesToBuild,
+      CcCompilationOutputs ccCompilationOutputs,
+      CppCompilationContext cppCompilationContext,
+      CcLinkingOutputs linkingOutputs,
+      DwoArtifactsCollector dwoArtifacts,
+      TransitiveLipoInfoProvider transitiveLipoInfo) {
+    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
+    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
+    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
+    builder
+        .setFilesToBuild(filesToBuild)
+        .add(CppCompilationContext.class, cppCompilationContext)
+        .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
+        .add(CcExecutionDynamicLibrariesProvider.class,
+            new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
+                ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
+        .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
+            collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
+        .add(InstrumentedFilesProvider.class, common.getInstrumentedFilesProvider(
+            instrumentedObjectFiles))
+        .add(CppDebugFileProvider.class, new CppDebugFileProvider(
+            dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
+        .addOutputGroup(OutputGroupProvider.TEMP_FILES, common.getTemps(ccCompilationOutputs))
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER,
+                common.getFilesToCompile(ccCompilationOutputs)))
+        .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
+            CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
+  }
+
+  private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
+      RuleContext ruleContext,
+      List<LibraryToLink> executionDynamicLibraries) {
+    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
+    if (!Iterables.isEmpty(artifacts)) {
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+    }
+
+    Iterable<CcExecutionDynamicLibrariesProvider> deps = ruleContext
+        .getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesProvider.class);
+
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (CcExecutionDynamicLibrariesProvider dep : deps) {
+      builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
+    }
+    return builder.build();
+  }
+
+  private static NestedSet<LinkerInput> collectTransitiveCcNativeLibraries(
+      RuleContext ruleContext,
+      List<? extends LinkerInput> dynamicLibraries) {
+    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.linkOrder();
+    builder.addAll(dynamicLibraries);
+    for (CcNativeLibraryProvider dep :
+      ruleContext.getPrerequisites("deps", Mode.TARGET, CcNativeLibraryProvider.class)) {
+      builder.addTransitive(dep.getTransitiveCcNativeLibraries());
+    }
+    return builder.build();
   }
 }

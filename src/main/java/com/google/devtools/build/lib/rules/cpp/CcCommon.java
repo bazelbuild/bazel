@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -151,24 +149,6 @@ public final class CcCommon {
     return ruleContext.attributes().has(name, type);
   }
 
-  private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
-      RuleContext ruleContext,
-      List<LibraryToLink> executionDynamicLibraries) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
-    if (!Iterables.isEmpty(artifacts)) {
-      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
-    }
-
-    Iterable<CcExecutionDynamicLibrariesProvider> deps = ruleContext
-        .getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesProvider.class);
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (CcExecutionDynamicLibrariesProvider dep : deps) {
-      builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
-    }
-    return builder.build();
-  }
-
   /**
    * Collects all .dwo artifacts in this target's transitive closure.
    */
@@ -209,18 +189,6 @@ public final class CcCommon {
     }
 
     return new TransitiveLipoInfoProvider(scannableBuilder.build());
-  }
-
-  private NestedSet<LinkerInput> collectTransitiveCcNativeLibraries(
-      RuleContext ruleContext,
-      List<? extends LinkerInput> dynamicLibraries) {
-    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.linkOrder();
-    builder.addAll(dynamicLibraries);
-    for (CcNativeLibraryProvider dep :
-      ruleContext.getPrerequisites("deps", Mode.TARGET, CcNativeLibraryProvider.class)) {
-      builder.addTransitive(dep.getTransitiveCcNativeLibraries());
-    }
-    return builder.build();
   }
 
   /**
@@ -723,36 +691,5 @@ public final class CcCommon {
    */
   public static FeatureConfiguration configureFeatures(RuleContext ruleContext) {
     return configureFeatures(ruleContext, ImmutableSet.<String>of(), ImmutableSet.<String>of());
-  }
-  
-  public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      NestedSet<Artifact> filesToBuild,
-      CcCompilationOutputs ccCompilationOutputs,
-      CppCompilationContext cppCompilationContext,
-      CcLinkingOutputs linkingOutputs,
-      DwoArtifactsCollector dwoArtifacts,
-      TransitiveLipoInfoProvider transitiveLipoInfo) {
-    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
-    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
-    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
-    builder
-        .setFilesToBuild(filesToBuild)
-        .add(CppCompilationContext.class, cppCompilationContext)
-        .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
-        .add(CcExecutionDynamicLibrariesProvider.class,
-            new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
-                ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
-        .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
-            collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
-        .add(InstrumentedFilesProvider.class, getInstrumentedFilesProvider(
-            instrumentedObjectFiles))
-        .add(CppDebugFileProvider.class, new CppDebugFileProvider(
-            dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
-        .addOutputGroup(OutputGroupProvider.TEMP_FILES, getTemps(ccCompilationOutputs))
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, getFilesToCompile(ccCompilationOutputs)))
-        .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
-            collectCompilationPrerequisites(ruleContext, cppCompilationContext));
-
   }
 }
