@@ -140,6 +140,7 @@ public class WorkspaceFactory {
   private Environment createWorkspaceEnv(
       Builder builder, RuleClassProvider ruleClassProvider, String installDir) {
     Environment workspaceEnv = new Environment();
+    MethodLibrary.setupMethodEnvironment(workspaceEnv);
 
     RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
