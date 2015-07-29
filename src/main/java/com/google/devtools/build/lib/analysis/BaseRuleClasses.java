@@ -93,7 +93,17 @@ public class BaseRuleClasses {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
-              ? ImmutableList.<Label>copyOf(configuration.getCoverageLabels())
+              ? ImmutableList.copyOf(configuration.getCoverageLabels())
+              : ImmutableList.<Label>of();
+        }
+      };
+
+  private static final LateBoundLabelList<BuildConfiguration> GCOV =
+      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.isCodeCoverageEnabled()
+              ? ImmutableList.copyOf(configuration.getGcovLabels())
               : ImmutableList.<Label>of();
         }
       };
@@ -103,7 +113,7 @@ public class BaseRuleClasses {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
-              ? ImmutableList.<Label>copyOf(configuration.getCoverageReportGeneratorLabels())
+              ? ImmutableList.copyOf(configuration.getCoverageReportGeneratorLabels())
               : ImmutableList.<Label>of();
         }
       };
@@ -158,6 +168,7 @@ public class BaseRuleClasses {
           // implicitly depend on crosstool, which provides gcov.  We could add gcov to
           // InstrumentedFilesProvider.getInstrumentationMetadataFiles() (or a new method) for
           // all the test rules that have C++ in their transitive closure. Then this could go.
+          .add(attr(":gcov", LABEL_LIST).cfg(HOST).value(GCOV))
           .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
           .add(attr(":coverage_report_generator", LABEL_LIST).cfg(HOST)
               .value(COVERAGE_REPORT_GENERATOR))

@@ -40,14 +40,13 @@ public final class ExperimentalIosTest extends IosTest {
 
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder()
         .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    NestedSetBuilder<Artifact> filesToBuildBuilder = NestedSetBuilder.<Artifact>stableOrder();
-    filesToBuildBuilder.addTransitive(filesToBuild);
+    NestedSetBuilder<Artifact> filesToBuildBuilder = NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(filesToBuild);
 
-    TestSupport testSupport =
-        new TestSupport(ruleContext)
-            .registerTestRunnerActions()
-            .addRunfiles(runfilesBuilder)
-            .addFilesToBuild(filesToBuildBuilder);
+    TestSupport testSupport = new TestSupport(ruleContext)
+        .registerTestRunnerActions()
+        .addRunfiles(runfilesBuilder, common.getObjcProvider())
+        .addFilesToBuild(filesToBuildBuilder);
 
     Artifact executable = testSupport.generatedTestScript();
 
@@ -61,6 +60,7 @@ public final class ExperimentalIosTest extends IosTest {
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(ExecutionInfoProvider.class,
             new ExecutionInfoProvider(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")))
+        .addProviders(testSupport.getExtraProviders(common.getObjcProvider()))
         .setRunfilesSupport(runfilesSupport, executable)
         .build();
   }

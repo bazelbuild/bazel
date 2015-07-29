@@ -18,22 +18,28 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.util.FileType;
 
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -184,8 +190,10 @@ class TestSupport {
 
   /**
    * Adds all files needed to run this test to the passed Runfiles builder.
+   *
+   * @param objcProvider common information about this rule's attributes and its dependencies
    */
-  TestSupport addRunfiles(Runfiles.Builder runfilesBuilder) {
+  TestSupport addRunfiles(Builder runfilesBuilder, ObjcProvider objcProvider) {
     runfilesBuilder
         .addArtifact(testIpa())
         .addArtifacts(xctestIpa().asSet())
@@ -199,7 +207,68 @@ class TestSupport {
     } else {
       runfilesBuilder.addTransitiveArtifacts(labDeviceRunfiles());
     }
+
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      runfilesBuilder
+          .addTransitiveArtifacts(objcProvider.get(ObjcProvider.SOURCE))
+          .addTransitiveArtifacts(gcnoFiles(objcProvider));
+    }
     return this;
+  }
+
+  /**
+   * Returns any additional providers that need to be exported to the rule context to the passed
+   * builder.
+   *
+   * @param objcProvider common information about this rule's attributes and its dependencies
+   */
+  public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
+      getExtraProviders(ObjcProvider objcProvider) {
+    return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
+        InstrumentedFilesProvider.class,
+        new InstrumentedFilesProviderImpl(
+            instrumentedFiles(objcProvider), gcnoFiles(objcProvider), gcovEnv()));
+  }
+
+  /**
+   * Returns a map of extra environment variable names to their values used to point to gcov binary,
+   * which should be added to the test action environment, if coverage is enabled.
+   */
+  private Map<String, String> gcovEnv() {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return ImmutableMap.of("COVERAGE_GCOV_PATH",
+          ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
+    }
+    return ImmutableMap.of();
+  }
+
+  /**
+   * Returns all GCC coverage notes files available for computing coverage.
+   */
+  private NestedSet<Artifact> gcnoFiles(ObjcProvider objcProvider) {
+    return filesWithXcTestApp(ObjcProvider.GCNO, objcProvider);
+  }
+
+  /**
+   * Returns all source files from the test (and if present xctest app) which have been
+   * instrumented for code coverage.
+   */
+  private NestedSet<Artifact> instrumentedFiles(ObjcProvider objcProvider) {
+    return filesWithXcTestApp(ObjcProvider.INSTRUMENTED_SOURCE, objcProvider);
+  }
+
+  private NestedSet<Artifact> filesWithXcTestApp(Key<Artifact> key, ObjcProvider objcProvider) {
+    NestedSet<Artifact> underlying = objcProvider.get(key);
+    XcTestAppProvider provider = ruleContext.getPrerequisite(
+        IosTest.XCTEST_APP, Mode.TARGET, XcTestAppProvider.class);
+    if (provider == null) {
+      return underlying;
+    }
+
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(underlying)
+        .addTransitive(provider.getObjcProvider().get(key))
+        .build();
   }
 
   /**

@@ -173,9 +173,16 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Returns all the coverage labels for the fragment.
+     * Returns the labels required to run coverage for the fragment.
      */
     public ImmutableList<Label> getCoverageLabels() {
+      return ImmutableList.of();
+    }
+
+    /**
+     * Returns all labels required to run gcov, if provided by this fragment.
+     */
+    public ImmutableList<Label> getGcovLabels() {
       return ImmutableList.of();
     }
 
@@ -915,6 +922,7 @@ public final class BuildConfiguration {
 
   private final ImmutableSet<Label> coverageLabels;
   private final ImmutableSet<Label> coverageReportGeneratorLabels;
+  private final ImmutableSet<Label> gcovLabels;
 
   // TODO(bazel-team): Move this to a configuration fragment.
   private final PathFragment shExecutable;
@@ -1048,12 +1056,15 @@ public final class BuildConfiguration {
 
     ImmutableSet.Builder<Label> coverageLabelsBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<Label> coverageReportGeneratorLabelsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> gcovLabelsBuilder = ImmutableSet.builder();
     for (Fragment fragment : fragments.values()) {
       coverageLabelsBuilder.addAll(fragment.getCoverageLabels());
       coverageReportGeneratorLabelsBuilder.addAll(fragment.getCoverageReportGeneratorLabels());
+      gcovLabelsBuilder.addAll(fragment.getGcovLabels());
     }
     this.coverageLabels = coverageLabelsBuilder.build();
     this.coverageReportGeneratorLabels = coverageReportGeneratorLabelsBuilder.build();
+    this.gcovLabels = gcovLabelsBuilder.build();
 
     this.defaultShellEnvironment = setupShellEnvironment();
 
@@ -1516,6 +1527,13 @@ public final class BuildConfiguration {
    */
   public Set<Label> getCoverageLabels() {
     return coverageLabels;
+  }
+
+  /**
+   * Returns the set of labels for gcov.
+   */
+  public Set<Label> getGcovLabels() {
+    return gcovLabels;
   }
 
   /**

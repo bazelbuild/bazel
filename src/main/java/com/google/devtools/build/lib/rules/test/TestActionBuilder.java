@@ -209,6 +209,10 @@ public final class TestActionBuilder {
           ruleContext.getPrerequisites(":coverage_support", Mode.HOST)) {
         inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
       }
+      for (TransitiveInfoCollection dep :
+          ruleContext.getPrerequisites(":gcov", Mode.HOST)) {
+        inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
+      }
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
               ImmutableList.copyOf(instrumentedFiles.getInstrumentedFiles()),
