@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -110,12 +108,9 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
     // Instrumented manifest makes sense only for rules with binary output.
     Preconditions.checkState(ruleContext.getRule().hasBinaryOutput());
     final Artifact instrumentedFileManifest =
-        ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        // Do not use replaceExtension(), as we may get name conflicts (two target-names have the
-        // same base name and only differ by extension).
-        FileSystemUtils.appendExtension(
-            Util.getWorkspaceRelativePath(ruleContext.getTarget()), ".instrumented_files"),
-            ruleContext.getConfiguration().getBinDirectory());
+        ruleContext.getPackageRelativeArtifact(
+        ruleContext.getTarget().getName()  + ".instrumented_files",
+        ruleContext.getConfiguration().getBinDirectory());
 
     // Instrumented manifest artifact might already exist in case when multiple test
     // actions that use slightly different subsets of runfiles set are generated for the same rule.
