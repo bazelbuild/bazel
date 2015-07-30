@@ -30,15 +30,14 @@ sh_library(
     deps = [":relnotes"],
 )
 
-# Disabled because currently fails.
-#sh_test(
-#    name = "release_test",
-#    srcs = ["release_test.sh"],
-#    data = [
-#        "testenv.sh",
-#        "//:git",
-#        "//src/test/shell:bashunit",
-#    ],
-#    tags = ["need_git"],
-#    deps = [":release"],
-#)
+sh_test(
+    name = "release_test",
+    srcs = ["release_test.sh"],
+    data = [
+        "testenv.sh",
+        "//:git",
+        "//src/test/shell:bashunit",
+    ],
+    tags = ["need_git"],
+    deps = [":release"],
+)
