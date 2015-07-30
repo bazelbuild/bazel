@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -37,32 +35,23 @@ final class IntermediateArtifacts {
    */
   static final String TMP_DSYM_BUNDLE_SUFFIX = ".temp.app.dSYM";
 
-  private final AnalysisEnvironment analysisEnvironment;
-  private final Root binDirectory;
-  private final Label ownerLabel;
+  private final RuleContext ruleContext;
   private final String archiveFileNameSuffix;
 
   /**
-   * Label to scope the output paths of generated artifacts, in addition to {@link #ownerLabel}.
+   * Label to scope the output paths of generated artifacts, in addition to label of the rule that
+   * is being analyzed.
    */
   private final Optional<Label> scopingLabel;
 
-  IntermediateArtifacts(
-      AnalysisEnvironment analysisEnvironment, Root binDirectory, Label ownerLabel,
-      String archiveFileNameSuffix) {
-    this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
-    this.binDirectory = Preconditions.checkNotNull(binDirectory);
-    this.ownerLabel = Preconditions.checkNotNull(ownerLabel);
+  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
+    this.ruleContext = ruleContext;
     this.scopingLabel = Optional.<Label>absent();
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
   }
 
-  IntermediateArtifacts(
-      AnalysisEnvironment analysisEnvironment, Root binDirectory, Label ownerLabel,
-      Label scopingLabel, String archiveFileNameSuffix) {
-    this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
-    this.binDirectory = Preconditions.checkNotNull(binDirectory);
-    this.ownerLabel = Preconditions.checkNotNull(ownerLabel);
+  IntermediateArtifacts(RuleContext ruleContext, Label scopingLabel, String archiveFileNameSuffix) {
+    this.ruleContext = ruleContext;
     this.scopingLabel = Optional.of(Preconditions.checkNotNull(scopingLabel));
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
   }
@@ -72,8 +61,7 @@ final class IntermediateArtifacts {
    * of the given {@link PathFragment}.
    */
   private Artifact appendExtension(PathFragment original, String extension) {
-    return analysisEnvironment.getDerivedArtifact(
-        FileSystemUtils.appendExtension(original, extension), binDirectory);
+    return scopedArtifact(FileSystemUtils.appendExtension(original, extension));
   }
 
   /**
@@ -81,7 +69,8 @@ final class IntermediateArtifacts {
    * of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtension(String extension) {
-    return appendExtension(labelScopedDir(), extension);
+    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    return scopedArtifact(name.replaceName(name.getBaseName() + extension));
   }
 
   /**
@@ -146,15 +135,35 @@ final class IntermediateArtifacts {
     return appendExtension("_lipobin");
   }
 
+  private Artifact scopedArtifact(PathFragment scopeRelative) {
+    if (scopingLabel.isPresent()) {
+      // The path of this artifact will be
+      // RULE_PACKAGE/_intermediate_scoped/RULE_LABEL/SCOPING_PACKAGE/SCOPING_LABEL/SCOPERELATIVE
+      return ruleContext.getUniqueDirectoryArtifact("_intermediate_scoped",
+          scopingLabel.get().getPackageIdentifier().getPathFragment()
+              .getRelative(scopingLabel.get().getName())
+              .getRelative(scopeRelative),
+          ruleContext.getConfiguration().getBinDirectory());
+    } else {
+      // The path of this artifact will be
+      // RULE_PACKAGE/SCOPERELATIVE
+      return ruleContext.getPackageRelativeArtifact(scopeRelative,
+          ruleContext.getConfiguration().getBinDirectory());
+    }
+  }
+
   /**
    * The {@code .a} file which contains all the compiled sources for a rule.
    */
   public Artifact archive() {
-    PathFragment labelPath = labelScopedDir();
-    PathFragment rootRelative = labelPath
-        .getParentDirectory()
-        .getRelative(String.format("lib%s%s.a", labelPath.getBaseName(), archiveFileNameSuffix));
-    return analysisEnvironment.getDerivedArtifact(rootRelative, binDirectory);
+    // If scopingLabel is present, the path will be
+    // RULE_PACKAGE/_intermediate_scoped/RULE_LABEL/SCOPE_PACKAGE/SCOPE_LABEL/libRULEBASENAME.a
+    //
+    // If it's not, the path will be RULE_PACKAGE/libRULEBASENAME.a  .
+    String basename = new PathFragment(scopingLabel.isPresent()
+        ? scopingLabel.get().getName() : ruleContext.getLabel().getName()).getBaseName();
+    return scopedArtifact(new PathFragment(String.format(
+        "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
   /**
@@ -164,27 +173,12 @@ final class IntermediateArtifacts {
     return appendExtension(TMP_DSYM_BUNDLE_SUFFIX);
   }
 
-  /**
-   * Returns a unique directory scoped by {@code ownerLabel} and {@code scopingLabel}. Normally
-   * when {@code scopingLabel} is absent, the returned directory is just a path fragment
-   * containing the package and the name of the ownerLabel. If scopingLabel is present, the
-   * returned directory is scoped by scopingLabel first. For example, if ownerLabel is
-   * //a/b:c and scopingLabel is //d/e:f, the returned directory will be: d/e/a/b/c/f/.
-   */
-  private PathFragment labelScopedDir() {
-    if (scopingLabel.isPresent()) {
-      return AnalysisUtils.getUniqueDirectory(scopingLabel.get(), ownerLabel.toPathFragment());
-    } else {
-      return ownerLabel.toPathFragment();
-    }
-  }
-
-  private PathFragment inUniqueObjsDir(Artifact source, String extension) {
-    PathFragment labelPath = labelScopedDir();
-    PathFragment uniqueDir = labelPath.getParentDirectory().getRelative(new PathFragment("_objs"))
-        .getRelative(labelPath.getBaseName());
+  private Artifact inUniqueObjsDir(Artifact source, String extension) {
+    PathFragment uniqueDir =
+        new PathFragment("_objs").getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
-    return FileSystemUtils.replaceExtension(sourceFile, extension);
+    PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
+    return scopedArtifact(scopeRelativePath);
   }
 
   /**
@@ -192,15 +186,14 @@ final class IntermediateArtifacts {
    * artifact.
    */
   public Artifact objFile(Artifact source) {
-     return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".o"), binDirectory);
+     return inUniqueObjsDir(source, ".o");
   }
 
   /**
    * The swift module produced by compiling the {@code source} artifact.
    */
   public Artifact swiftModuleFile(Artifact source) {
-    return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".partial_swiftmodule"),
-        binDirectory);
+    return inUniqueObjsDir(source, ".partial_swiftmodule");
   }
 
   /**
@@ -222,7 +215,7 @@ final class IntermediateArtifacts {
    * artifact.
    */
   public Artifact gcnoFile(Artifact source) {
-     return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".gcno"), binDirectory);
+     return inUniqueObjsDir(source, ".gcno");
   }
 
   /**
@@ -289,8 +282,8 @@ final class IntermediateArtifacts {
    * Debug symbol file generated for a linked binary.
    */
   public Artifact dsymSymbol() {
-    return appendExtension(
-        String.format(".app.dSYM/Contents/Resources/DWARF/%s_bin", ownerLabel.getName()));
+    return appendExtension(String.format(
+        ".app.dSYM/Contents/Resources/DWARF/%s_bin", ruleContext.getLabel().getName()));
   }
 
   /**

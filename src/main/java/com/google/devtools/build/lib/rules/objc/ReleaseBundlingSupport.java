@@ -72,6 +72,11 @@ public final class ReleaseBundlingSupport {
    */
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
 
+  // This is not an actual implicit output. This function is used to compute the name of an
+  // artifact.
+  public static final SafeImplicitOutputsFunction IPA_UNSIGNED =
+      fromTemplates("%{name}.ipa.unsigned");
+
   @VisibleForTesting
   static final String NO_ASSET_CATALOG_ERROR_FORMAT =
       "a value was specified (%s), but this app does not have any asset catalogs";
@@ -314,8 +319,7 @@ public final class ReleaseBundlingSupport {
         ruleContext.getRelatedArtifact(entitlementsDirectory, ".entitlements");
     registerEntitlementsVariableSubstitutionAction(
         entitlementsNeedingSubstitution, entitlements, teamPrefixFile);
-    Artifact ipaUnsigned = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
-        ruleContext, ipaOutput.getExecPath(), ".unsigned");
+    Artifact ipaUnsigned = ruleContext.getImplicitOutputArtifact(IPA_UNSIGNED);
     registerSignBundleAction(entitlements, ipaOutput, ipaUnsigned);
     return ipaUnsigned;
   }

@@ -74,22 +74,8 @@ public class ObjcRuleClasses {
     throw new UnsupportedOperationException("static-only");
   }
 
-  /**
-   * Returns a derived Artifact by appending a String to a root-relative path. This is similar to
-   * {@link RuleContext#getRelatedArtifact(PathFragment, String)}, except the existing extension is
-   * not removed.
-   */
-  static Artifact artifactByAppendingToRootRelativePath(
-      RuleContext ruleContext, PathFragment path, String suffix) {
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        path.replaceName(path.getBaseName() + suffix),
-        ruleContext.getBinOrGenfilesDirectory());
-  }
-
   static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
-    return new IntermediateArtifacts(
-        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
-        ruleContext.getLabel(), /*archiveFileNameSuffix=*/"");
+    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix=*/"");
   }
 
   /**
@@ -102,9 +88,7 @@ public class ObjcRuleClasses {
     // the C/C++ archive file created by proto_library targets with attribute cc_api_version
     // specified.
     return new IntermediateArtifacts(
-        ruleContext.getAnalysisEnvironment(),
-        ruleContext.getConfiguration().getBinDirectory(),
-        ruleContext.getLabel(),
+        ruleContext,
         j2ObjcSource.getTargetLabel(),
         /*archiveFileNameSuffix=*/"_j2objc");
   }
@@ -148,8 +132,8 @@ public class ObjcRuleClasses {
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
-    return artifactByAppendingToRootRelativePath(
-        context, context.getLabel().toPathFragment(), suffix);
+    return context.getPackageRelativeArtifact(
+        context.getLabel().getName() + suffix, context.getBinOrGenfilesDirectory());
   }
 
   public static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {

@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -86,9 +85,9 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     // Generate sources in a package-and-rule-scoped directory; adds both the
     // package-and-rule-scoped directory and the header-containing-directory to the include path of
     // dependers.
-    PathFragment rootRelativeOutputDir = new PathFragment(
-        ruleContext.getLabel().getPackageFragment(),
-        new PathFragment("_generated_protos_" + ruleContext.getLabel().getName()));
+    String uniqueDirectoryName = "_generated_protos";
+
+    PathFragment rootRelativeOutputDir = ruleContext.getUniqueDirectory(uniqueDirectoryName);
     PathFragment workspaceRelativeOutputDir = new PathFragment(
         ruleContext.getBinOrGenfilesDirectory().getExecPath(), rootRelativeOutputDir);
     PathFragment generatedProtoDir =
@@ -99,19 +98,17 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     boolean useObjcHeaderNames =
          ruleContext.attributes().get(
-            ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
+             ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
 
     ImmutableList<Artifact> protoGeneratedSources = outputArtifacts(
-        ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb." + (outputCpp ? "cc" : "m")),
+        ruleContext, uniqueDirectoryName, protos, FileType.of(".pb." + (outputCpp ? "cc" : "m")),
         outputCpp);
     ImmutableList<Artifact> protoGeneratedHeaders = outputArtifacts(
-        ruleContext, rootRelativeOutputDir, protos,
+        ruleContext, uniqueDirectoryName, protos,
         FileType.of(".pb" + (useObjcHeaderNames ? "objc.h" : ".h")), outputCpp);
 
-    Artifact inputFileList = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        AnalysisUtils.getUniqueDirectory(ruleContext.getLabel(), new PathFragment("_protos"))
-            .getRelative("_proto_input_files"),
-            ruleContext.getConfiguration().getGenfilesDirectory());
+    Artifact inputFileList = ruleContext.getUniqueDirectoryArtifact(
+        "_protos", "_proto_input_files", ruleContext.getConfiguration().getGenfilesDirectory());
 
     ruleContext.registerAction(new FileWriteAction(
         ruleContext.getActionOwner(),
@@ -217,7 +214,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<Artifact> outputArtifacts(RuleContext ruleContext,
-      PathFragment rootRelativeOutputDir, Iterable<Artifact> protos, FileType newFileType,
+      String uniqueDirectoryName, Iterable<Artifact> protos, FileType newFileType,
       boolean outputCpp) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
     for (Artifact proto : protos) {
@@ -229,7 +226,6 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         protoOutputName = LOWER_UNDERSCORE.to(UPPER_CAMEL, lowerUnderscoreBaseName);
       }
       PathFragment rawFragment = new PathFragment(
-          rootRelativeOutputDir,
           proto.getRootRelativePath().getParentDirectory(),
           new PathFragment(protoOutputName));
       @Nullable PathFragment outputFile = FileSystemUtils.replaceExtension(
@@ -237,7 +233,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
           newFileType.getExtensions().get(0),
           ".proto");
       if (outputFile != null) {
-        builder.add(ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        builder.add(ruleContext.getUniqueDirectoryArtifact(uniqueDirectoryName,
             outputFile, ruleContext.getBinOrGenfilesDirectory()));
       }
     }

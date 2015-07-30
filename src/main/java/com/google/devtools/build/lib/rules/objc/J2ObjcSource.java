@@ -18,7 +18,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -87,12 +86,9 @@ public class J2ObjcSource {
     ImmutableList.Builder<Artifact> prunedSourceArtifacts = ImmutableList.builder();
 
     for (Artifact sourceArtifact : getObjcSrcs()) {
-      PathFragment scopedPath = AnalysisUtils.getUniqueDirectory(
-          ruleContext.getRule().getLabel(), new PathFragment("_j2objc_pruned"));
       PathFragment prunedSourceArtifactPath = FileSystemUtils.appendWithoutExtension(
-          scopedPath.getRelative(sourceArtifact.getRootRelativePath()), "_pruned");
-
-      Artifact prunedArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+          sourceArtifact.getRootRelativePath(), "_pruned");
+      Artifact prunedArtifact = ruleContext.getUniqueDirectoryArtifact("_j2objc_pruned",
           prunedSourceArtifactPath, ruleContext.getBinOrGenfilesDirectory());
       prunedSourceArtifacts.add(prunedArtifact);
     }
