@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -74,7 +75,7 @@ public final class TestActionBuilder {
         local, explicitShardCount, isTestShardingCompliant(),
         TestSize.getTestSize(ruleContext.getRule()));
     Preconditions.checkState(shards >= 0);
-    return createTestAction(shards);
+    return createTestAction(Util.getWorkspaceRelativePath(ruleContext.getLabel()), shards);
   }
 
   private boolean isTestShardingCompliant() {
@@ -175,12 +176,12 @@ public final class TestActionBuilder {
    * Creates a test action and artifacts for the given rule. The test action will
    * use the specified executable and runfiles.
    *
+   * @param targetName the relative path of the target to run
    * @return ordered list of test artifacts, one per action. These are used to drive
    *    execution in Skyframe, and by AggregatingTestListener and
    *    TestResultAnalyzer to keep track of completed and pending test runs.
    */
-  private TestParams createTestAction(int shards) {
-    PathFragment targetName = new PathFragment(ruleContext.getLabel().getName());
+  private TestParams createTestAction(PathFragment targetName, int shards) {
     BuildConfiguration config = ruleContext.getConfiguration();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     Root root = config.getTestLogsDirectory();
@@ -246,22 +247,22 @@ public final class TestActionBuilder {
       for (int shard = 0; shard < shardRuns; shard++) {
         String suffix = (shardRuns > 1 ? String.format("_shard_%d_of_%d", shard + 1, shards) : "")
             + runSuffix;
-        Artifact testLog = ruleContext.getPackageRelativeArtifact(
-            targetName.getRelative("test" + suffix + ".log"), root);
-        Artifact cacheStatus = ruleContext.getPackageRelativeArtifact(
-            targetName.getRelative("test" + suffix + ".cache_status"), root);
+        Artifact testLog = env.getDerivedArtifact(
+            targetName.getChild("test" + suffix + ".log"), root);
+        Artifact cacheStatus = env.getDerivedArtifact(
+            targetName.getChild("test" + suffix + ".cache_status"), root);
 
         Artifact coverageArtifact = null;
         if (collectCodeCoverage) {
-          coverageArtifact = ruleContext.getPackageRelativeArtifact(
-              targetName.getRelative("coverage" + suffix + ".dat"), root);
+          coverageArtifact =
+              env.getDerivedArtifact(targetName.getChild("coverage" + suffix + ".dat"), root);
           coverageArtifacts.add(coverageArtifact);
         }
 
         Artifact microCoverageArtifact = null;
         if (collectCodeCoverage && config.isMicroCoverageEnabled()) {
-          microCoverageArtifact = ruleContext.getPackageRelativeArtifact(
-              targetName.getRelative("coverage" + suffix + ".micro.dat"), root);
+          microCoverageArtifact =
+              env.getDerivedArtifact(targetName.getChild("coverage" + suffix + ".micro.dat"), root);
         }
 
         env.registerAction(new TestRunnerAction(
