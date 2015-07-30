@@ -183,7 +183,7 @@ public class MethodLibrary {
       useEnvironment = true,
       useLocation = true)
   private static BuiltinFunction split = new BuiltinFunction("split") {
-    public Object invoke(String self, String sep, Object maxSplitO, Location loc, 
+    public Object invoke(String self, String sep, Object maxSplitO, Location loc,
         Environment env) throws ConversionException, EvalException {
       int maxSplit = Type.INTEGER.convertOptional(
           maxSplitO, "'split' argument of 'split'", /*label*/null, -2);
@@ -192,7 +192,7 @@ public class MethodLibrary {
       return convert(Arrays.<String>asList(ss), env, loc);
     }
   };
-  
+
   @SkylarkSignature(name = "rsplit", objectType = StringModule.class,
       returnType = HackHackEitherList.class,
       doc = "Returns a list of all the words in the string, using <code>sep</code>  "
@@ -203,7 +203,7 @@ public class MethodLibrary {
         @Param(name = "sep", type = String.class, doc = "The string to split on.")},
       optionalPositionals = {
         @Param(name = "maxsplit", type = Integer.class, noneable = true,
-          defaultValue = "None", doc = "The maximum number of splits.")}, 
+          defaultValue = "None", doc = "The maximum number of splits.")},
       useEnvironment = true,
       useLocation = true)
   private static BuiltinFunction rsplit = new BuiltinFunction("rsplit") {
@@ -223,11 +223,11 @@ public class MethodLibrary {
       return convert(result, env, loc);
     }
   };
-  
+
   /**
-   * Splits the given string into a list of words, using {@code separator} as a 
+   * Splits the given string into a list of words, using {@code separator} as a
    * delimiter.
-   * 
+   *
    * <p>At most {@code maxSplits} will be performed, going from right to left.
    *
    * @param input The input string.
@@ -249,12 +249,12 @@ public class MethodLibrary {
     LinkedList<String> result = new LinkedList<>();
     String[] parts = input.split(Pattern.quote(separator), -1);
     int sepLen = separator.length();
-    int remainingLength = input.length();    
+    int remainingLength = input.length();
     int splitsSoFar = 0;
 
-    // Copies parts from the array into the final list, starting at the end (because 
-    // it's rsplit), as long as fewer than maxSplits splits are performed. The 
-    // last spot in the list is reserved for the remaining string, whose length 
+    // Copies parts from the array into the final list, starting at the end (because
+    // it's rsplit), as long as fewer than maxSplits splits are performed. The
+    // last spot in the list is reserved for the remaining string, whose length
     // has to be tracked throughout the loop.
     for (int pos = parts.length - 1; (pos >= 0) && (splitsSoFar < maxSplits); --pos) {
       String current = parts[pos];
@@ -265,12 +265,12 @@ public class MethodLibrary {
     }
 
     if (splitsSoFar == maxSplits && remainingLength >= 0)   {
-      result.addFirst(input.substring(0, remainingLength));      
+      result.addFirst(input.substring(0, remainingLength));
     }
-    
-    return result;  
+
+    return result;
   }
-  
+
   @SkylarkSignature(name = "partition", objectType = StringModule.class,
       returnType = HackHackEitherList.class,
       doc = "Splits the input string at the first occurrence of the separator "
@@ -312,13 +312,13 @@ public class MethodLibrary {
   };
 
   /**
-   * Wraps the stringPartition() method and converts its results and exceptions 
+   * Wraps the stringPartition() method and converts its results and exceptions
    * to the expected types.
    *
    * @param self The input string
    * @param separator The string to split on
-   * @param forward A flag that controls whether the input string is split around 
-   *    the first ({@code true}) or last ({@code false}) occurrence of the separator. 
+   * @param forward A flag that controls whether the input string is split around
+   *    the first ({@code true}) or last ({@code false}) occurrence of the separator.
    * @param env The current environment
    * @param loc The location that is used for potential exceptions
    * @return A list with three elements
@@ -334,22 +334,22 @@ public class MethodLibrary {
 
   /**
    * Splits the input string at the {first|last} occurrence of the given separator
-   * and returns the resulting partition as a three-tuple of Strings, contained 
+   * and returns the resulting partition as a three-tuple of Strings, contained
    * in a {@code List}.
-   * 
+   *
    * <p>If the input string does not contain the separator, the tuple will
    * consist of the original input string and two empty strings.
-   * 
-   * <p>This method emulates the behavior of Python's str.partition() and 
+   *
+   * <p>This method emulates the behavior of Python's str.partition() and
    * str.rpartition(), depending on the value of the {@code forward} flag.
-   * 
+   *
    * @param input The input string
    * @param separator The string to split on
-   * @param forward A flag that controls whether the input string is split around 
-   *    the first ({@code true}) or last ({@code false}) occurrence of the separator. 
-   * @return A three-tuple (List) of the form [part_before_separator, separator, 
+   * @param forward A flag that controls whether the input string is split around
+   *    the first ({@code true}) or last ({@code false}) occurrence of the separator.
+   * @return A three-tuple (List) of the form [part_before_separator, separator,
    *    part_after_separator].
-   *    
+   *
    */
   private static List<String> stringPartition(String input, String separator, boolean forward)
       throws IllegalArgumentException {
@@ -383,7 +383,7 @@ public class MethodLibrary {
 
     return result;
   }
-  
+
   /**
    * Common implementation for find, rfind, index, rindex.
    * @param forward true if we want to return the last matching index.
@@ -930,7 +930,7 @@ public class MethodLibrary {
         @Param(name = "order", type = String.class, defaultValue = "\"stable\"",
             doc = "The ordering strategy for the set if it's nested, "
             + "possible values are: <code>stable</code> (default), <code>compile</code>, "
-            + "<code>link</code> or <code>naive_link</code>. An explanation of the " 
+            + "<code>link</code> or <code>naive_link</code>. An explanation of the "
             + "values can be found <a href=\"#modules.set\">here</a>.")},
       useLocation = true)
   private static final BuiltinFunction set = new BuiltinFunction("set") {
@@ -959,27 +959,30 @@ public class MethodLibrary {
       return new SkylarkNestedSet(input, newElements, loc);
     }
   };
-  
-  @SkylarkSignature(name = "enumerate",  returnType = SkylarkList.class,
+
+  @SkylarkSignature(name = "enumerate",  returnType = HackHackEitherList.class,
       doc = "Return a list of pairs (two-element tuples), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
           + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
-      mandatoryPositionals = {@Param(name = "list", type = SkylarkList.class, doc = "input list")},
-      useLocation = true)
+      mandatoryPositionals = {
+        @Param(name = "list", type = HackHackEitherList.class, doc = "input list")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
-    public SkylarkList invoke(SkylarkList input, Location loc)
+    public Object invoke(Object input, Location loc, Environment env)
         throws EvalException, ConversionException, InterruptedException {
       int count = 0;
       List<SkylarkList> result = Lists.newArrayList();
-      for (Object obj : input) {
+      for (Object obj : Type.OBJECT_LIST.convert(input, "input")) {
         result.add(SkylarkList.tuple(count, obj));
         count++;
       }
-      return SkylarkList.list(result, loc);
+      return convert(result, env, loc);
     }
   };
 
-  @SkylarkSignature(name = "range", returnType = SkylarkList.class,
+  @SkylarkSignature(name = "range", returnType = HackHackEitherList.class,
       doc = "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
           + "range from 0 to that element."
@@ -997,9 +1000,11 @@ public class MethodLibrary {
             + "resulting list; generation of the list stops before <code>stop</code> is reached."),
         @Param(name = "step", type = Integer.class, defaultValue = "1",
             doc = "The increment (default is 1). It may be negative.")},
-      useLocation = true)
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction range = new BuiltinFunction("range") {
-    public SkylarkList invoke(Integer startOrStop, Object stopOrNone, Integer step, Location loc)
+      public Object invoke(Integer startOrStop, Object stopOrNone, Integer step, Location loc,
+          Environment env)
         throws EvalException, ConversionException, InterruptedException {
       int start;
       int stop;
@@ -1025,7 +1030,7 @@ public class MethodLibrary {
           start += step;
         }
       }
-      return SkylarkList.list(result, Integer.class);
+      return convert(result, env, loc);
     }
   };
 
@@ -1285,12 +1290,12 @@ public class MethodLibrary {
       items, get, keys, values);
 
   private static final List<BaseFunction> pureGlobalFunctions = ImmutableList.<BaseFunction>of(
-      bool, int_, len, minus, repr, select, sorted, str);
+      bool, enumerate, int_, len, minus, range, repr, select, sorted, str);
 
   private static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
       .addAll(pureGlobalFunctions)
-      .add(list, struct, hasattr, getattr, set, dir, enumerate, range, type, fail, print, zip)
+      .add(list, struct, hasattr, getattr, set, dir, type, fail, print, zip)
       .build();
 
   /**
