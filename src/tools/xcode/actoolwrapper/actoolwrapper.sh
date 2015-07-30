@@ -13,50 +13,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# ibtoolwrapper runs ibtool and zips up the output.
+# actoolwrapper runs actool and zips up the output.
 # This script only runs on darwin and you must have Xcode installed.
 #
 # $1 OUTZIP - the path to place the output zip file.
-# $2 ARCHIVEROOT - the path in the zip to place the output, or an empty
-#                  string for the root of the zip. e.g. 'Payload/foo.app'. If
-#                  this tool outputs a single file, ARCHIVEROOT is the name of
-#                  the only file in the zip file.
 
 set -eu
 
 OUTZIP=$(tools/objc/realpath "$1")
-ARCHIVEROOT="$2"
-shift 2
+shift 1
 TEMPDIR=$(mktemp -d -t ZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
-FULLPATH="$TEMPDIR/$ARCHIVEROOT"
-PARENTDIR=$(dirname "$FULLPATH")
-mkdir -p "$PARENTDIR"
-FULLPATH=$(tools/objc/realpath "$FULLPATH")
-
-# IBTool needs to have absolute paths sent to it, so we call realpaths on
+# actool needs to have absolute paths sent to it, so we call realpaths on
 # on all arguments seeing if we can expand them.
+# actool and ibtool appear to depend on the same code base.
+# --output-partial-info-plist gives actool real troubles
+# so we create a file where we expect the plist to be so we can get a full
+# path to it.
 # Radar 21045660 ibtool has difficulty dealing with relative paths.
 TOOLARGS=()
+LASTARG=""
 for i in $@; do
+  if [ "$LASTARG" = "--output-partial-info-plist" ]; then
+    PARENTDIR=$(dirname "$i")
+    mkdir -p "$PARENTDIR"
+    touch "$i"
+  fi
   if [ -e "$i" ]; then
     TOOLARGS+=($(tools/objc/realpath "$i"))
   else
     TOOLARGS+=("$i")
   fi
+  LASTARG="$i"
 done
 
-# If we are running into problems figuring out ibtool issues, there are a couple
+# If we are running into problems figuring out actool issues, there are a couple
 # of env variables that may help. Both of the following must be set to work.
 #   IBToolDebugLogFile=<OUTPUT FILE PATH>
 #   IBToolDebugLogLevel=4
 # you may also see if
 #   IBToolNeverDeque=1
 # helps.
-/usr/bin/xcrun ibtool --errors --warnings --notices \
-    --auto-activate-custom-fonts --output-format human-readable-text \
-    --compile "$FULLPATH" "${TOOLARGS[@]}"
+# Yes IBTOOL appears to be correct here due to actool and ibtool being based
+# on the same codebase.
+/usr/bin/xcrun actool --errors --warnings --notices \
+    --compress-pngs --output-format human-readable-text \
+    --compile "$TEMPDIR" "${TOOLARGS[@]}"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.
