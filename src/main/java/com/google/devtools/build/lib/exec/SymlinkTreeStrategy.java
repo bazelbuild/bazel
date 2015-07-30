@@ -41,6 +41,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
+    LocalActionLogging logging = new LocalActionLogging(action);
     try {
       SymlinkTreeHelper helper = new SymlinkTreeHelper(
           action.getInputManifest().getExecPath(),
@@ -55,6 +56,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           action.getProgressMessage(), executor.getVerboseFailures(), action);
+    } finally {
+      logging.finish();
     }
   }
 }
