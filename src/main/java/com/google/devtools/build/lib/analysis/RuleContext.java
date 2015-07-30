@@ -500,13 +500,13 @@ public final class RuleContext extends TargetContext
     return getUniqueDirectoryArtifact(uniqueDirectory, new PathFragment(relative), root);
   }
 
+  /**
+   * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
+   * clashes with artifacts created by other rules.
+   */
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, PathFragment relative, Root root) {
     return getDerivedArtifact(getUniqueDirectory(uniqueDirectory).getRelative(relative), root);
-  }
-
-  public PathFragment getArtifactPackagePrefix() {
-    return getLabel().getPackageIdentifier().getPathFragment();
   }
 
   private Attribute getAttribute(String attributeName) {
