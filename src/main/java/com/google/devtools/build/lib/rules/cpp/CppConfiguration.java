@@ -662,6 +662,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.additionalMakeVariables = ImmutableMap.copyOf(makeVariablesBuilder);
   }
 
+  @Override
+  public boolean isSkylarkVisible() {
+    return true;
+  }
+
+  @Override
+  public String getName() {
+    return "cpp";
+  }
+
   private List<OptionalFlag> convertOptionalOptions(
           List<CrosstoolConfig.CToolchain.OptionalFlag> optionalFlagList)
       throws IllegalArgumentException {

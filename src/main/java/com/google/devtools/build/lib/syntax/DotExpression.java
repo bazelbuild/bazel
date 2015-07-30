@@ -71,14 +71,20 @@ public final class DotExpression extends Expression {
   public static Object eval(Object objValue, String name, Location loc) throws EvalException {
     if (objValue instanceof ClassObject) {
       Object result = ((ClassObject) objValue).getValue(name);
-      result = SkylarkType.convertToSkylark(result, loc);
-      // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
-      // so we have to disable it. This should not happen.
-      SkylarkType.checkTypeAllowedInSkylark(result, loc);
-      return result;
+
+      // ClassObjects may have fields that are annotated with @SkylarkCallable.
+      // Since getValue() does not know about those, we cannot expect that result is a valid object.
+      if (result != null) {
+        result = SkylarkType.convertToSkylark(result, loc);
+        // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
+        // so we have to disable it. This should not happen.
+        SkylarkType.checkTypeAllowedInSkylark(result, loc);
+        return result;
+      }
     }
-    List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(),
-          name, 0, loc);
+
+    List<MethodDescriptor> methods =
+        FuncallExpression.getMethods(objValue.getClass(), name, 0, loc);
     if (methods != null && !methods.isEmpty()) {
       MethodDescriptor method = Iterables.getOnlyElement(methods);
       if (method.getAnnotation().structField()) {

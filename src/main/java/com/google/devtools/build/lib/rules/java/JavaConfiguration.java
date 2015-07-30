@@ -104,6 +104,16 @@ public final class JavaConfiguration extends Fragment {
     }
     this.translationTargets = translationsBuilder.build();
   }
+  
+  @Override
+  public boolean isSkylarkVisible() {
+    return true;
+  }
+
+  @Override
+  public String getName() {
+    return "java";
+  }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
       doc = "The default flags for the Java compiler.")

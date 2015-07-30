@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
@@ -106,7 +108,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration {
+public final class BuildConfiguration implements ClassObject {
 
   /**
    * An interface for language-specific configurations.
@@ -191,6 +193,22 @@ public final class BuildConfiguration {
      */
     public ImmutableList<Label> getCoverageReportGeneratorLabels() {
       return ImmutableList.of();
+    }
+
+    /**
+     * Determines whether this fragment can be accessed in Skylark as a field of
+     * ctx.configuration
+     */
+    public boolean isSkylarkVisible() {
+      return false;
+    }
+
+    /**
+     * If this fragment is skylarkVisible, it will be accessible in Skylark via
+     * ctx.configuration.NAME where NAME = getName()
+     */
+    public String getName() {
+      return getClass().getName();
     }
 
     /**
@@ -874,6 +892,7 @@ public final class BuildConfiguration {
   private Set<BuildConfiguration> allReachableConfigurations;
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
+  private final ImmutableMap<String, Fragment> skylarkVisibleFragments;
 
   /**
    * Directories in the output tree.
@@ -1033,6 +1052,8 @@ public final class BuildConfiguration {
     this.actionsEnabled = !actionsDisabled;
     this.fragments = ImmutableMap.copyOf(fragmentsMap);
 
+    this.skylarkVisibleFragments = buildIndexOfVisibleFragments();
+    
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(Options.class);
 
@@ -1097,6 +1118,17 @@ public final class BuildConfiguration {
     checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
+  private ImmutableMap<String, Fragment> buildIndexOfVisibleFragments() {
+    ImmutableMap.Builder<String, Fragment> builder = ImmutableMap.builder();
+
+    for (Fragment fragment : fragments.values()) {
+      if (fragment.isSkylarkVisible()) {
+        builder.put(fragment.getName(), fragment);
+      }
+    }
+
+    return builder.build();
+  }
 
   /**
    * Computes and returns the transitive optionName -> "option info" map for
@@ -1610,7 +1642,7 @@ public final class BuildConfiguration {
   public String getMakeVariableDefault(String var) {
     return globalMakeEnv.get(var);
   }
-
+  
   /**
    * Returns a configuration fragment instances of the given class.
    */
@@ -1889,5 +1921,22 @@ public final class BuildConfiguration {
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
+  }
+
+  @Override
+  @Nullable
+  public Object getValue(String name) {
+    return skylarkVisibleFragments.get(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getKeys() {
+    return skylarkVisibleFragments.keySet();
+  }
+
+  @Override
+  @Nullable
+  public String errorMessage(String name) {
+    return String.format("There is no configuration fragment named '%s'", name);
   }
 }

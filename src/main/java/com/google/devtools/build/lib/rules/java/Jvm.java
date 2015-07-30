@@ -46,6 +46,16 @@ public final class Jvm extends BuildConfiguration.Fragment {
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
   }
+  
+  @Override
+  public boolean isSkylarkVisible() {
+    return true;
+  }
+
+  @Override
+  public String getName() {
+    return "jvm";
+  }
 
   @Override
   public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
