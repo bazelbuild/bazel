@@ -138,7 +138,9 @@ public final class ConfiguredTargetFactory {
         : configuration.getGenfilesDirectory();
     ArtifactOwner owner =
         new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
-    PathFragment rootRelativePath = Util.getWorkspaceRelativePath(outputFile);
+    PathFragment rootRelativePath =
+        outputFile.getLabel().getPackageIdentifier().getPathFragment().getRelative(
+            outputFile.getLabel().getName());
     Artifact result = isFileset
         ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
         : artifactFactory.getDerivedArtifact(rootRelativePath, root, owner);

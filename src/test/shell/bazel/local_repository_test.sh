@@ -594,4 +594,24 @@ EOF
   bazel build --nobuild @r//:bin || fail "build failed"
 }
 
+function test_output_file_in_local_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir $r
+  touch $r/WORKSPACE
+  cat > $r/BUILD <<'EOF'
+genrule(name="r", srcs=[], outs=["r.out"], cmd="touch $@")
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$r")
+EOF
+
+  cat > BUILD <<'EOF'
+genrule(name="m", srcs=["@r//:r.out"], outs=["m.out"], cmd="touch $@")
+EOF
+
+  bazel build //:m
+}
+
 run_suite "local repository tests"
