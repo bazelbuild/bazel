@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
@@ -67,6 +68,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     checkIdlRootImport(ruleContext);
     NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources =
         collectTransitiveResources(ruleContext);
+    NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
     NestedSet<LinkerInput> transitiveNativeLibraries =
         AndroidCommon.collectTransitiveNativeLibraries(deps);
     NestedSet<Artifact> transitiveProguardConfigs =
@@ -122,6 +124,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                 .setAAROut(aarOut)
                 .build(ruleContext);
 
+        Aar aar = new Aar(aarOut, applicationManifest.getManifest());
+
         RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
         androidCommon.addTransitiveInfoProviders(builder);
         androidSemantics.addTransitiveInfoProviders(
@@ -139,8 +143,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             .add(AndroidCcLinkParamsProvider.class,
                 new AndroidCcLinkParamsProvider(androidCommon.getCcLinkParamsStore()))
             .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
-            .add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(aarOut,
-                applicationManifest.getManifest()))
+            .add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(aar,
+                transitiveAars.add(aar).build()))
             .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
             .build();
       } catch (RuleConfigurationException e) {
@@ -193,8 +197,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       if (AndroidCommon.getAndroidResources(ruleContext) != null) {
         primaryResources = Iterables.getOnlyElement(
             AndroidCommon.getAndroidResources(ruleContext).getTransitiveAndroidResources());
+
+        Aar aar = new Aar(aarOut, primaryResources.getManifest());
         targetBuilder.add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(
-            aarOut, primaryResources.getManifest()));
+            aar, transitiveAars.add(aar).build()));
       } else {
         // there are no local resources and resources attribute was not specified either
         ApplicationManifest applicationManifest =
@@ -235,6 +241,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                     ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
                 .setWorkingDirectory(ruleContext.getUniqueDirectory("_resources"))
                 .build(ruleContext);
+
+        targetBuilder.add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(
+            null, transitiveAars.build()));
       }
 
       new AarGeneratorBuilder(ruleContext)
@@ -337,6 +346,15 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private NestedSetBuilder<Aar> collectTransitiveAars(RuleContext ruleContext) {
+    NestedSetBuilder<Aar> builder = NestedSetBuilder.naiveLinkOrder();
+    for (AndroidLibraryAarProvider library :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidLibraryAarProvider.class)) {
+      builder.addTransitive(library.getTransitiveAars());
+    }
+    return builder;
   }
 
   private boolean hasExplicitlySpecifiedIdlImportRoot(RuleContext ruleContext) {
