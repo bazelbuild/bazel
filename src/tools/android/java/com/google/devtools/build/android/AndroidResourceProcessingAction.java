@@ -310,13 +310,13 @@ public class AndroidResourceProcessingAction {
           useAaptCruncher() ? builder.getAaptCruncher() : null,
           true);
 
-      LOGGER.info(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      LOGGER.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       final Path filteredResources = fileSystem.getPath("resources-filtered");
       final Path densityManifest = fileSystem.getPath("manifest-filtered/AndroidManifest.xml");
       final DensityFilteredAndroidData filteredData = mergedData.filter(
           new DensitySpecificResourceFilter(options.densities, filteredResources, working),
           new DensitySpecificManifestProcessor(options.densities, densityManifest));
-      LOGGER.info(
+      LOGGER.fine(
           String.format("Density filtering finished at %sms",
               timer.elapsed(TimeUnit.MILLISECONDS)));
       resourceProcessor.processResources(
@@ -357,7 +357,7 @@ public class AndroidResourceProcessingAction {
       LOGGER.log(java.util.logging.Level.SEVERE, "Unexpected", e);
       System.exit(3);
     }
-    LOGGER.info(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+    LOGGER.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     // AOSP code can leave dangling threads.
     System.exit(0);
   }
