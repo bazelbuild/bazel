@@ -68,7 +68,7 @@ class MockAdb(object):
       # mkdir, rm, am (application manager), or monkey
       shell_cmdln = args[2]
       self.shell_cmdlns.append(shell_cmdln)
-      if shell_cmdln.startswith(("mkdir", "am", "monkey")):
+      if shell_cmdln.startswith(("mkdir", "am", "monkey", "input")):
         pass
       elif shell_cmdln.startswith("dumpsys package "):
         return self._CreatePopenMock(
@@ -157,7 +157,7 @@ class IncrementalInstallTest(unittest.TestCase):
     self._mock_adb.files.pop(self._GetDeviceAppPath(f), None)
 
   def _CallIncrementalInstall(self, incremental, native_libs=None,
-                              start_app=False):
+                              start_type="no"):
     if incremental:
       apk = None
     else:
@@ -173,7 +173,7 @@ class IncrementalInstallTest(unittest.TestCase):
         native_libs=native_libs,
         output_marker=self._OUTPUT_MARKER,
         adb_jobs=1,
-        start_app=start_app,
+        start_type=start_type,
         user_home_dir="/home/root")
 
   def testUploadToPristineDevice(self):
@@ -433,7 +433,7 @@ class IncrementalInstallTest(unittest.TestCase):
     except SystemExit:
       pass
 
-  def testStartApp(self):
+  def testStartCold(self):
     # Based on testUploadToPristineDevice
     self._CreateZip()
 
@@ -445,10 +445,54 @@ class IncrementalInstallTest(unittest.TestCase):
         "zip1 zp2 ip2 0",
         "dex1 - ip3 0")
 
-    self._CallIncrementalInstall(incremental=False, start_app=True)
+    self._CallIncrementalInstall(incremental=False, start_type="cold")
 
     self.assertTrue(("monkey -p %s -c android.intent.category.LAUNCHER 1" %
                      self._APP_PACKAGE) in self._mock_adb.shell_cmdlns)
+
+  def testColdStop(self):
+    self._CreateRemoteManifest(
+        "zip1 zp1 ip1 0",
+        "zip1 zip2 ip2 1",
+        "dex1 - ip3 0")
+    self._PutDeviceFile("dex/ip1", "content1")
+    self._PutDeviceFile("dex/ip2", "content2")
+    self._PutDeviceFile("dex/ip3", "content3")
+    self._PutDeviceFile("install_timestamp", "0")
+    self._mock_adb.package_timestamp = "0"
+
+    self._CreateZip()
+    self._CreateLocalManifest(
+        "zip1 zp1 ip1 0",
+        "zip1 zip2 ip2 1",
+        "dex1 - ip3 0")
+    self._CallIncrementalInstall(incremental=True, start_type="cold")
+
+    stop_cmd = "am force-stop %s" % self._APP_PACKAGE
+    self.assertTrue(stop_cmd in self._mock_adb.shell_cmdlns)
+
+  def testWarmStop(self):
+    self._CreateRemoteManifest(
+        "zip1 zp1 ip1 0",
+        "zip1 zip2 ip2 1",
+        "dex1 - ip3 0")
+    self._PutDeviceFile("dex/ip1", "content1")
+    self._PutDeviceFile("dex/ip2", "content2")
+    self._PutDeviceFile("dex/ip3", "content3")
+    self._PutDeviceFile("install_timestamp", "0")
+    self._mock_adb.package_timestamp = "0"
+
+    self._CreateZip()
+    self._CreateLocalManifest(
+        "zip1 zp1 ip1 0",
+        "zip1 zip2 ip2 1",
+        "dex1 - ip3 0")
+    self._CallIncrementalInstall(incremental=True, start_type="warm")
+
+    background_cmd = "input keyevent KEYCODE_APP_SWITCH"
+    stop_cmd = "am kill %s" % self._APP_PACKAGE
+    self.assertTrue(background_cmd in self._mock_adb.shell_cmdlns)
+    self.assertTrue(stop_cmd in self._mock_adb.shell_cmdlns)
 
   def testMultipleDevicesError(self):
     errors = [

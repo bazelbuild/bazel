@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
+import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -64,6 +66,13 @@ public class MobileInstallCommand implements BlazeCommand {
 
   @Override
   public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+    Options mobileInstallOptions = options.getOptions(Options.class);
+    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
+    if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
+      runtime.getReporter().handle(Event.warn(
+         "Warm start is enabled, but will have no effect on a non-incremental build"));
+    }
+
     List<String> targets = ProjectFileSupport.getTargets(runtime, options);
     BuildRequest request = BuildRequest.create(
         this.getClass().getAnnotation(Command.class).name(), options,

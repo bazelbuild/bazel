@@ -46,8 +46,11 @@ gflags.DEFINE_integer("adb_jobs", 2,
                       "The number of instances of adb to use in parallel to "
                       "update files on the device",
                       lower_bound=1)
-gflags.DEFINE_boolean("start_app", False, "Whether to start the app after "
-                      "installing it.")
+gflags.DEFINE_enum("start", "no", ["no", "cold", "warm"], "Whether/how to "
+                   "start the app after installing it. 'cold' and 'warm' will "
+                   "both cause the app to be started, 'warm' will start it "
+                   "with previously saved application state.")
+gflags.DEFINE_boolean("start_app", False, "Deprecated, use 'start'.")
 gflags.DEFINE_string("user_home_dir", None, "Path to the user's home directory")
 gflags.DEFINE_string("flagfile", None,
                      "Path to a file to read additional flags from")
@@ -246,6 +249,14 @@ class Adb(object):
   def StopApp(self, package):
     """Force stops the app with the given package."""
     self._Shell("am force-stop %s" % package)
+
+  def StopAppAndSaveState(self, package):
+    """Stops the app with the given package, saving state for the next run."""
+    # 'am kill' will only kill processes in the background, so we must make sure
+    # our process is in the background first. We accomplish this by bringing up
+    # the app switcher.
+    self._Shell("input keyevent KEYCODE_APP_SWITCH")
+    self._Shell("am kill %s" % package)
 
   def StartApp(self, package):
     """Starts the app with the given package."""
@@ -553,7 +564,7 @@ def VerifyInstallTimestamp(adb, app_package):
 
 
 def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
-                       adb_jobs, start_app, dexmanifest=None, apk=None,
+                       adb_jobs, start_type, dexmanifest=None, apk=None,
                        native_libs=None, resource_apk=None,
                        split_main_apk=None, split_apks=None,
                        user_home_dir=None):
@@ -565,7 +576,8 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
     stub_datafile: The stub datafile containing the app's package name.
     output_marker: Path to the output marker file.
     adb_jobs: The number of instances of adb to use in parallel.
-    start_app: If True, starts the app after updating.
+    start_type: A string describing whether/how to start the app after
+                installing it. Can be 'no', 'cold', or 'warm'.
     dexmanifest: Path to the .dex manifest file.
     apk: Path to the .apk file. May be None to perform an incremental install.
     native_libs: Native libraries to install.
@@ -606,9 +618,12 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
         future.result()
 
       else:
-        adb.StopApp(app_package)
+        if start_type == "warm":
+          adb.StopAppAndSaveState(app_package)
+        else:
+          adb.StopApp(app_package)
 
-    if start_app:
+    if start_type in ["cold", "warm"]:
       logging.info("Starting application %s", app_package)
       adb.StartApp(app_package)
 
@@ -640,13 +655,17 @@ def main():
     fmt = "%(message)s"
   logging.basicConfig(stream=sys.stdout, level=level, format=fmt)
 
+  start_type = FLAGS.start
+  if FLAGS.start_app and start_type == "no":
+    start_type = "cold"
+
   IncrementalInstall(
       adb_path=FLAGS.adb,
       adb_jobs=FLAGS.adb_jobs,
       execroot=FLAGS.execroot,
       stub_datafile=FLAGS.stub_datafile,
       output_marker=FLAGS.output_marker,
-      start_app=FLAGS.start_app,
+      start_type=start_type,
       native_libs=FLAGS.native_lib,
       split_main_apk=FLAGS.split_main_apk,
       split_apks=FLAGS.split_apk,
