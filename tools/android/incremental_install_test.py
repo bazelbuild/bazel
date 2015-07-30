@@ -153,6 +153,9 @@ class IncrementalInstallTest(unittest.TestCase):
   def _PutDeviceFile(self, f, content):
     self._mock_adb.files[self._GetDeviceAppPath(f)] = content
 
+  def _DeleteDeviceFile(self, f):
+    self._mock_adb.files.pop(self._GetDeviceAppPath(f), None)
+
   def _CallIncrementalInstall(self, incremental, native_libs=None,
                               start_app=False):
     if incremental:
@@ -193,6 +196,42 @@ class IncrementalInstallTest(unittest.TestCase):
     self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
     self.assertEquals("content3", self._GetDeviceFile("dex/ip3"))
     self.assertEquals("resource apk", self._GetDeviceFile("resources.ap_"))
+
+  def testMissingNativeManifestWithIncrementalInstall(self):
+    self._CreateZip()
+    with open("liba.so", "w") as f:
+      f.write("liba_1")
+
+    # Upload a library to the device.
+    native_libs = ["armeabi-v7a:liba.so"]
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+
+    # Delete the manifest, overwrite the library and check that even an
+    # incremental install straightens things out.
+    self._PutDeviceFile("native/liba.so", "GARBAGE")
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+
+  def testNonIncrementalInstallOverwritesNativeLibs(self):
+    self._CreateZip()
+    with open("liba.so", "w") as f:
+      f.write("liba_1")
+
+    # Upload a library to the device.
+    native_libs = ["armeabi-v7a:liba.so"]
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+
+    # Change a library on the device. Incremental install should not replace the
+    # changed file, because it only checks the manifest.
+    self._PutDeviceFile("native/liba.so", "GARBAGE")
+    self._CallIncrementalInstall(incremental=True, native_libs=native_libs)
+    self.assertEquals("GARBAGE", self._GetDeviceFile("native/liba.so"))
+
+    # However, a full install should overwrite it.
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
 
   def testUploadNativeLibs(self):
     self._CreateZip()

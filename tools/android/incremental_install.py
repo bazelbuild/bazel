@@ -456,7 +456,7 @@ def ConvertNativeLibs(args):
   return native_libs
 
 
-def UploadNativeLibs(adb, native_lib_args, app_dir):
+def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   """Uploads native libraries to the device."""
 
   native_libs = ConvertNativeLibs(native_lib_args)
@@ -475,10 +475,20 @@ def UploadNativeLibs(adb, native_lib_args, app_dir):
     install_checksums[os.path.basename(lib)] = Checksum(lib)
     basename_to_path[os.path.basename(lib)] = lib
 
-  device_manifest = adb.Pull("%s/native/native_manifest" % app_dir)
+  device_manifest = None
+  if not full_install:
+    device_manifest = adb.Pull("%s/native/native_manifest" % app_dir)
+
   device_checksums = {}
-  if device_manifest:
-    for name, checksum in [l.split(" ") for l in device_manifest.split("\n")]:
+  if device_manifest is None:
+    # If we couldn't fetch the device manifest or if this is a non-incremental
+    # install, wipe the slate clean
+    adb.Delete("%s/native" % app_dir)
+  else:
+    # Otherwise, parse the manifest. Note that this branch is also taken if the
+    # manifest is empty.
+    for name, checksum in [
+        l.split(" ") for l in device_manifest.split("\n") if l]:
       device_checksums[name] = checksum
 
   libs_to_delete = set(device_checksums) - set(install_checksums)
@@ -586,7 +596,7 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
       # then UploadResources is called. We could instead enqueue everything
       # onto the threadpool so that uploading resources happens sooner.
       UploadResources(adb, os.path.join(execroot, resource_apk), app_dir)
-      UploadNativeLibs(adb, native_libs, app_dir)
+      UploadNativeLibs(adb, native_libs, app_dir, bool(apk))
       if apk:
         apk_path = os.path.join(execroot, apk)
         adb.Install(apk_path)
