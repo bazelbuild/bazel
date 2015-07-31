@@ -394,6 +394,47 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Asserts that a target's prerequisites contain the given dependency.
+   */
+  // TODO(bazel-team): replace this method with assertThat(iterable).contains(target).
+  // That doesn't work now because dynamic configurations aren't yet applied to top-level targets.
+  // This means that getConfiguredTarget("//go:two") returns a different configuration than
+  // requesting "//go:two" as a dependency. So the configured targets aren't considered "equal".
+  // Once we apply dynamic configs to top-level targets this discrepancy will go away.
+  protected void assertDirectPrerequisitesContain(ConfiguredTarget target, ConfiguredTarget dep) {
+    Iterable<ConfiguredTarget> prereqs = getDirectPrerequisites(target);
+    BuildConfiguration depConfig = dep.getConfiguration();
+    for (ConfiguredTarget contained : prereqs) {
+      if (contained.getLabel().equals(dep.getLabel())) {
+        BuildConfiguration containedConfig = contained.getConfiguration();
+        if (containedConfig == null && depConfig == null) {
+          return;
+        } else if (containedConfig != null
+            && depConfig != null
+            && containedConfig.cloneOptions().equals(depConfig.cloneOptions())) {
+          return;
+        }
+      }
+    }
+    fail("Cannot find " + target.toString() + " in " + prereqs.toString());
+  }
+
+  /**
+   * Asserts that two configurations are the same.
+   *
+   * <p>Historically this meant they contained the same object reference. But with upcoming dynamic
+   * configurations that may no longer be true (for example, they may have the same values but not
+   * the same {@link BuildConfiguration.Fragment}s. So this method abstracts the
+   * "configuration equivalency" checking into one place, where the implementation logic can evolve
+   * as needed.
+   */
+  protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
+    // BuildOptions and crosstool files determine a configuration's content. Within the context
+    // of these tests only the former actually change.
+    assertEquals(config1.cloneOptions(), config2.cloneOptions());
+  }
+
+  /**
    * Creates and returns a rule context that is equivalent to the one that was used to create the
    * given configured target.
    */
