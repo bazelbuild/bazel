@@ -297,16 +297,16 @@ public class CppHelper {
   }
 
   /**
-   * Returns the workspace-relative filename for the linked artifact.
+   * Returns the linked artifact.
    */
-  public static PathFragment getLinkedFilename(RuleContext ruleContext,
-      LinkTargetType linkType) {
-    PathFragment result =
-        ruleContext.getPackageDirectory().getRelative(ruleContext.getLabel().getName());
+  public static Artifact getLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
+    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
-      result = result.replaceName("lib" + result.getBaseName() + linkType.getExtension());
+      name = name.replaceName("lib" + name.getBaseName() + linkType.getExtension());
     }
-    return result;
+
+    return ruleContext.getPackageRelativeArtifact(
+        name, ruleContext.getConfiguration().getBinDirectory());
   }
 
   /**

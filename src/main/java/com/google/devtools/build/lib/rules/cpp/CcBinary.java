@@ -179,13 +179,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so".
-    PathFragment executableName =
-        ruleContext
-            .getPackageDirectory()
-            .getRelative(ruleContext.getTarget().getName() + OsUtils.executableExtension());
+    PathFragment binaryPath =
+        new PathFragment(ruleContext.getTarget().getName() + OsUtils.executableExtension());
+    Artifact binary = ruleContext.getPackageRelativeArtifact(
+        binaryPath, ruleContext.getConfiguration().getBinDirectory());
     CppLinkAction.Builder linkActionBuilder = determineLinkerArguments(
         ruleContext, common, cppConfiguration, ccCompilationOutputs,
-        cppCompilationContext.getCompilationPrerequisites(), fake, executableName);
+        cppCompilationContext.getCompilationPrerequisites(), fake, binary);
     linkActionBuilder.setUseTestOnlyFlags(useTestOnlyFlags);
     linkActionBuilder.addNonLibraryInputs(ccCompilationOutputs.getHeaderTokenFiles());
 
@@ -211,6 +211,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     linkActionBuilder.setLinkStaticness(linkStaticness);
     linkActionBuilder.setFake(fake);
 
+    if (CppLinkAction.enableSymbolsCounts(cppConfiguration, fake, linkType)) {
+      linkActionBuilder.setSymbolCountsOutput(ruleContext.getPackageRelativeArtifact(
+          CppLinkAction.symbolCountsFileName(binaryPath),
+          ruleContext.getConfiguration().getBinDirectory()));
+    }
+
     // store immutable context now, recreate builder later
     CppLinkAction.Context linkContext = new CppLinkAction.Context(linkActionBuilder);
 
@@ -222,7 +228,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact executable = outputLibrary.getArtifact();
     CcLinkingOutputs.Builder linkingOutputsBuilder = new CcLinkingOutputs.Builder();
     if (isLinkShared(ruleContext)) {
-      if (CppFileTypes.SHARED_LIBRARY.matches(executableName)) {
+      if (CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())) {
         linkingOutputsBuilder.addDynamicLibrary(outputLibrary);
         linkingOutputsBuilder.addExecutionDynamicLibrary(outputLibrary);
       } else {
@@ -338,8 +344,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CppLinkAction.Builder determineLinkerArguments(RuleContext context,
       CcCommon common, CppConfiguration cppConfiguration, CcCompilationOutputs compilationOutputs,
       ImmutableSet<Artifact> compilationPrerequisites,
-      boolean fake, PathFragment executableName) {
-    CppLinkAction.Builder builder = new CppLinkAction.Builder(context, executableName)
+      boolean fake, Artifact binary) {
+    CppLinkAction.Builder builder = new CppLinkAction.Builder(context, binary)
         .setCrosstoolInputs(CppHelper.getToolchain(context).getLink())
         .addNonLibraryInputs(compilationPrerequisites);
 

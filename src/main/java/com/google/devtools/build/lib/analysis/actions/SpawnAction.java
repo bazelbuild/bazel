@@ -513,7 +513,7 @@ public class SpawnAction extends AbstractAction {
 
       Iterable<String> arguments = argumentsBuilder.build();
 
-      Artifact paramsFile = ParamFileHelper.getParamsFile(argv, arguments, commandLine,
+      Artifact paramsFile = ParamFileHelper.getParamsFileMaybe(argv, arguments, commandLine,
           paramFileInfo, configuration, analysisEnvironment, outputs);
 
       List<Action> actions = new ArrayList<>();
