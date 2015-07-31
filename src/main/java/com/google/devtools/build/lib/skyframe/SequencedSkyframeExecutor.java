@@ -311,8 +311,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   private void handleDiffsWithCompleteDiffInformation(
       Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry) {
-    // It's important that the below code be uninterruptible, since we already promised to
-    // invalidate these files.
     for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
           modifiedFilesByPathEntry.get(pathEntry);
