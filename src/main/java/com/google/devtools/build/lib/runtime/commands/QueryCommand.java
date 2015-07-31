@@ -136,7 +136,6 @@ public final class QueryCommand implements BlazeCommand {
       return ExitCode.ANALYSIS_FAILURE;
     }
 
-    runtime.getReporter().switchToAnsiAllowingHandler();
     // 3. Output results:
     PrintStream output = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {

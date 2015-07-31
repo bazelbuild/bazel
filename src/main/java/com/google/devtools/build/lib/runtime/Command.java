@@ -75,16 +75,12 @@ public @interface Command {
   /**
    * Returns true if this command wants to write binary data to stdout.
    * Enabling this flag will disable ANSI escape stripping for this command.
-   * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
-   * See {@link RunCommand} for example usage.
    */
   boolean binaryStdOut() default false;
 
   /**
    * Returns true if this command wants to write binary data to stderr.
    * Enabling this flag will disable ANSI escape stripping for this command.
-   * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
-   * See {@link RunCommand} for example usage.
    */
   boolean binaryStdErr() default false;
 

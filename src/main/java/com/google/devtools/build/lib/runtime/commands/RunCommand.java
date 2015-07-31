@@ -305,10 +305,6 @@ public class RunCommand implements BlazeCommand  {
         .addArgs(cmdLine).setEnv(runtime.getClientEnv()).setWorkingDir(workingDir).build();
 
     try {
-      // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the
-      // actual output of the command being run even if --color=no is specified.
-      runtime.getReporter().switchToAnsiAllowingHandler();
-
       // The command API is a little strange in that the following statement
       // will return normally only if the program exits with exit code 0.
       // If it ends with any other code, we have to catch BadExitStatusException.
