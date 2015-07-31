@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -163,7 +162,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   protected BuildConfiguration createHost(String... args) throws Exception {
-    return create(args).getConfiguration(ConfigurationTransition.HOST);
+    return createCollection(args).getHostConfiguration();
   }
 
   public void assertConfigurationsHaveUniqueOutputDirectories(

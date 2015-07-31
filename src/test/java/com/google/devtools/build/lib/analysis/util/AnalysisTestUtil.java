@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -391,11 +390,11 @@ public final class AnalysisTestUtil {
     Map<Root, String> rootMap = new HashMap<>();
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
-    BuildConfiguration hostConfiguration =
-        targetConfiguration.getConfiguration(ConfigurationTransition.HOST);
     rootMap.put(targetConfiguration.getBinDirectory(), "bin");
     rootMap.put(targetConfiguration.getGenfilesDirectory(), "genfiles");
     rootMap.put(targetConfiguration.getMiddlemanDirectory(), "internal");
+
+    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
     rootMap.put(hostConfiguration.getBinDirectory(), "bin(host)");
     rootMap.put(hostConfiguration.getGenfilesDirectory(), "genfiles(host)");
     rootMap.put(hostConfiguration.getMiddlemanDirectory(), "internal(host)");

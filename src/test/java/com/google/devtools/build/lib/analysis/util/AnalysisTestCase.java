@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
@@ -224,7 +223,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected BuildConfiguration getHostConfiguration() {
-    return getTargetConfiguration().getConfiguration(ConfigurationTransition.HOST);
+    return masterConfig.getHostConfiguration();
   }
 
   protected final void ensureUpdateWasCalled() {
