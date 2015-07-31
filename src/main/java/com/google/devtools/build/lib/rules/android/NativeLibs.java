@@ -15,18 +15,22 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
+import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
+import com.google.devtools.build.lib.analysis.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -107,21 +111,38 @@ public final class NativeLibs {
     return nativeLibs;
   }
 
-  public ImmutableList<Artifact> createApkBuilderSymlinks(RuleContext ruleContext) {
-      ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.entrySet()) {
-      String arch = entry.getKey();
-      for (Artifact lib : entry.getValue()) {
-        Artifact symlink = AndroidBinary.getDxArtifact(ruleContext,
-            "native_symlinks/" + arch + "/" + lib.getExecPath().getBaseName());
-        ruleContext.registerAction(new SymlinkAction(
-            ruleContext.getActionOwner(), lib, symlink,
-            "Symlinking Android native library for " + ruleContext.getLabel()));
-        result.add(symlink);
-      }
+  public ImmutableSet<Artifact> getAllNativeLibs() {
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+
+    for (Iterable<Artifact> libs : nativeLibs.values()) {
+      result.addAll(libs);
     }
 
     return result.build();
+  }
+
+  public Artifact createApkBuilderSymlinks(RuleContext ruleContext) {
+    Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
+    for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.entrySet()) {
+      String arch = entry.getKey();
+      for (Artifact lib : entry.getValue()) {
+        symlinks.put(new PathFragment(arch + "/" + lib.getExecPath().getBaseName()), lib);
+      }
+    }
+
+    if (symlinks.isEmpty()) {
+      return null;
+    }
+
+    Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
+    ruleContext.registerAction(new SourceManifestAction.Builder(
+        ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(), inputManifest)
+        .addRootSymlinks(symlinks)
+        .build());
+    Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
+    ruleContext.registerAction(new SymlinkTreeAction(
+        ruleContext.getActionOwner(), inputManifest, outputManifest, false));
+    return outputManifest;
   }
 
   /**

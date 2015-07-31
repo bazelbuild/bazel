@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1112,14 +1113,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addInputArgument(javaResourceZip);
       }
 
-      ImmutableList<Artifact> nativeSymlinks = nativeLibs.createApkBuilderSymlinks(ruleContext);
-      if (!nativeSymlinks.isEmpty()) {
+      Artifact nativeSymlinks = nativeLibs.createApkBuilderSymlinks(ruleContext);
+      if (nativeSymlinks != null) {
+        PathFragment nativeSymlinksDir = nativeSymlinks.getExecPath().getParentDirectory();
         actionBuilder
-            .addInputs(nativeSymlinks)
+            .addInputManifest(nativeSymlinks, nativeSymlinksDir)
+            .addInput(nativeSymlinks)
+            .addInputs(nativeLibs.getAllNativeLibs())
             .addArgument("-nf")
             // If the native libs are "foo/bar/x86/foo.so", we need to pass "foo/bar" here
-            .addArgument(nativeSymlinks.get(0).getExecPath()
-                .getParentDirectory().getParentDirectory().getPathString());
+            .addArgument(nativeSymlinksDir.getPathString());
       }
 
       if (nativeLibs.getName() != null) {
