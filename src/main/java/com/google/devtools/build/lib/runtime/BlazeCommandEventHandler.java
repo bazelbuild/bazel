@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -130,7 +131,7 @@ public class BlazeCommandEventHandler implements EventHandler {
         category = "verbosity",
         help = "Use external repositories for improved stability and speed when available.")
     public boolean externalRepositories;
-    
+
     @Option(name = "force_experimental_external_repositories",
         defaultValue = "false",
         category = "verbosity",
@@ -244,7 +245,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     } catch (IOException e) {
       // This can happen in server mode if the blaze client has exited,
       // or if output is redirected to a file and the disk is full, etc.
-      // Ignore.
+      // TODO(bazel-team): Maybe crash here after gathering some data on how common this is.
+      BugReport.sendBugReport(e, ImmutableList.of("Failed to write event"));
     }
   }
 
