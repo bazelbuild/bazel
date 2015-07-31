@@ -26,12 +26,14 @@ sh_binary(
 
 sh_binary(
     name = "merge_dexzips",
-    srcs = ["fail.sh"],
+    srcs = ["merge_dexzips.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/ziputils:reducer"],
 )
 
 sh_binary(
     name = "shuffle_jars",
-    srcs = ["fail.sh"],
+    srcs = ["shuffle_jars.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper"],
 )
 
 py_binary(
