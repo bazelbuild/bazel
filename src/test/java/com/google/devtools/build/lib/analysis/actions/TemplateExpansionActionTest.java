@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -42,6 +43,7 @@ import java.util.List;
 public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private static final String TEMPLATE = Joiner.on('\n').join("key=%key%", "value=%value%");
+  private static final String SPECIAL_CHARS = "Š©±½_strøget";
 
   private Root outputRoot;
   private Artifact inputArtifact;
@@ -54,12 +56,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
-    Root workspace = Root.asSourceRoot(scratch.dir("/workspace"));
-    outputRoot = Root.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
-    Path input = scratch.file("/workspace/input.txt", TEMPLATE);
-    inputArtifact = new Artifact(input, workspace);
-    output = scratch.resolve("/workspace/out/destination.txt");
-    outputArtifact = new Artifact(output, outputRoot);
+    createArtifacts(TEMPLATE);
+
     substitutions = Lists.newArrayList();
     substitutions.add(Substitution.of("%key%", "foo"));
     substitutions.add(Substitution.of("%value%", "bar"));
@@ -68,6 +66,15 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         scratch.resolve("/base"),
         scratch.resolve("/workspace"));
     binTools = BinTools.empty(directories);
+  }
+
+  private void createArtifacts(String template) throws Exception {
+    Root workspace = Root.asSourceRoot(scratch.dir("/workspace"));
+    outputRoot = Root.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
+    Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
+    inputArtifact = new Artifact(input, workspace);
+    output = scratch.resolve("/workspace/out/destination.txt");
+    outputArtifact = new Artifact(output, outputRoot);
   }
 
   private TemplateExpansionAction create() {
@@ -141,9 +148,29 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private TemplateExpansionAction createWithArtifact() {
-    TemplateExpansionAction result = new TemplateExpansionAction(NULL_ACTION_OWNER,
-         inputArtifact, outputArtifact, substitutions, false);
+    return createWithArtifact(substitutions);
+  }
+
+  private TemplateExpansionAction createWithArtifact(List<Substitution> substitutions) {
+    TemplateExpansionAction result = new TemplateExpansionAction(
+        NULL_ACTION_OWNER, inputArtifact, outputArtifact, substitutions, false);
     return result;
+  }
+
+  private ActionExecutionContext createContext(Executor executor) {
+    return new ActionExecutionContext(executor, null, null, new FileOutErr(), null);
+  }
+
+  private void executeTemplateExpansion(String expected) throws Exception {
+    executeTemplateExpansion(expected, substitutions);
+  }
+
+  private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
+      throws Exception {
+    Executor executor = new TestExecutorBuilder(directories, binTools).build();
+    createWithArtifact(substitutions).execute(createContext(executor));
+    String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
+    assertThat(actual).isEqualTo(expected);
   }
 
   public void testArtifactTemplateHasInput() {
@@ -155,15 +182,18 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   public void testArtifactTemplateExpansion() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, binTools).build();
-    createWithArtifact().execute(createContext(executor));
-    String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    // The trailing "" is needed because scratch.file implicitly appends "\n".
+    // The trailing "" is needed because scratch.overwriteFile implicitly appends "\n".
     String expected = Joiner.on('\n').join("key=foo", "value=bar", "");
-    assertEquals(expected, content);
+    executeTemplateExpansion(expected);
   }
 
-  private ActionExecutionContext createContext(Executor executor) {
-    return new ActionExecutionContext(executor, null, null, new FileOutErr(), null);
+  public void testWithSpecialCharacters() throws Exception {
+    // We have to overwrite the artifacts since we need our template in "inputs"
+    createArtifacts(SPECIAL_CHARS + "%key%");
+
+    // scratch.overwriteFile appends a newline, so we need an additional %n here
+    String expected = String.format("%s%s%n", SPECIAL_CHARS, SPECIAL_CHARS);
+
+    executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
   }
 }

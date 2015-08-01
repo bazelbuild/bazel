@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -33,6 +31,8 @@ import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 
@@ -145,6 +145,8 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
    */
   public abstract static class Template {
 
+    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
     /**
      * We only allow subclasses in this file.
      */
@@ -218,7 +220,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
         protected String getContent() throws IOException {
           Path templatePath = templateArtifact.getPath();
           try {
-            return new String(FileSystemUtils.readContentAsLatin1(templatePath));
+            return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
           } catch (IOException e) {
             throw new IOException("failed to load template file '" + templatePath.getPathString()
                 + "' due to I/O error: " + e.getMessage(), e);
@@ -320,7 +322,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
                                                     Executor executor) throws IOException {
-    final byte[] bytes = getFileContents().getBytes(UTF_8);
+    final byte[] bytes = getFileContents().getBytes(Template.DEFAULT_CHARSET);
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {

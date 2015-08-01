@@ -22,11 +22,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Allow tests to easily manage scratch files in a FileSystem.
  */
 public final class Scratch {
+  
+  private static final Charset DEFAULT_CHARSET = StandardCharsets.ISO_8859_1;
 
   private final FileSystem fileSystem;
   private Path workingDir = null;
@@ -111,14 +115,18 @@ public final class Scratch {
     return dir;
   }
 
+  public Path file(String pathName, String... lines) throws IOException {
+    return file(pathName, DEFAULT_CHARSET, lines);
+  }
+  
   /**
    * Create a scratch file in the scratch filesystem, with the given pathName,
    * consisting of a set of lines. The method returns a Path instance for the
    * scratch file.
    */
-  public Path file(String pathName, String... lines) throws IOException {
+  public Path file(String pathName, Charset charset, String... lines) throws IOException {
     Path file = newFile(pathName);
-    FileSystemUtils.writeContentAsLatin1(file, linesAsString(lines));
+    FileSystemUtils.writeContent(file, charset, linesAsString(lines));
     file.setLastModifiedTime(-1L);
     return file;
   }
@@ -128,10 +136,18 @@ public final class Scratch {
    * exists.
    */
   public Path overwriteFile(String pathName, String... lines) throws IOException {
+    return overwriteFile(pathName, DEFAULT_CHARSET, lines);
+  }
+
+  /**
+   * Like {@code scratch.file}, but the file is first deleted if it already
+   * exists.
+   */
+  public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
     Path oldFile = resolve(pathName);
     long newMTime = oldFile.exists() ? oldFile.getLastModifiedTime() + 1 : -1;
     oldFile.delete();
-    Path newFile = file(pathName, lines);
+    Path newFile = file(pathName, charset, lines);
     newFile.setLastModifiedTime(newMTime);
     return newFile;
   }

@@ -936,6 +936,13 @@ public class FileSystemUtils {
   }
 
   /**
+   * Reads the entire file using the given charset and returns the contents as a string
+   */
+  public static String readContent(Path inputFile, Charset charset) throws IOException {
+    return asByteSource(inputFile).asCharSource(charset).read();
+  }
+
+  /**
    * Reads at most {@code limit} bytes from {@code inputFile} and returns it as a byte array.
    *
    * @throws IOException if there was an error.
