@@ -59,7 +59,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * the already-stored data. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this entry was changed.
    */
-  private Version version = MinimalVersion.INSTANCE;
+  protected Version version = MinimalVersion.INSTANCE;
 
   /**
    * This object represents a {@link GroupedList}<SkyKey> in a memory-efficient way. It stores the
@@ -94,7 +94,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   private List<SkyKey> reverseDepsToRemove = null;
 
-  private static final ReverseDepsUtil<InMemoryNodeEntry> REVERSE_DEPS_UTIL =
+  protected static final ReverseDepsUtil<InMemoryNodeEntry> REVERSE_DEPS_UTIL =
       new ReverseDepsUtil<InMemoryNodeEntry>() {
     @Override
     void setReverseDepsObject(InMemoryNodeEntry container, Object object) {
