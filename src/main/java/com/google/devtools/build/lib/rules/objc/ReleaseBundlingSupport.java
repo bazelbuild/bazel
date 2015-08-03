@@ -713,7 +713,9 @@ public final class ReleaseBundlingSupport {
         .build(ruleContext));
   }
 
-  /** Registers an action to copy Swift standard library dylibs into app bundle. */
+  /**
+   * Registers an action to copy Swift standard library dylibs into app bundle.
+   */
   private void registerSwiftStdlibActionsIfNecessary() {
     if (!objcProvider.is(USES_SWIFT)) {
       return;
@@ -723,19 +725,17 @@ public final class ReleaseBundlingSupport {
 
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
+        .add("Frameworks")
+        .addPath(ObjcRuleClasses.SWIFT_STDLIB_TOOL)
         .add("--platform").add(IosSdkCommands.swiftPlatform(objcConfiguration))
         .addExecPath("--scan-executable", intermediateArtifacts.strippedSingleArchitectureBinary());
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.swiftStdlibToolDeployJar())
             .setMnemonic("SwiftStdlibCopy")
-            .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
             .addInput(intermediateArtifacts.strippedSingleArchitectureBinary())
-            // TODO(dmaclach): Adding realpath here should not be required once
-            // https://github.com/google/bazel/issues/285 is fixed.
-            .addInput(attributes.realpath())
             .build(ruleContext));
   }
 
@@ -832,18 +832,11 @@ public final class ReleaseBundlingSupport {
           ruleContext.getPrerequisiteArtifact("$runner_script_template", Mode.HOST));
     }
 
-    /** Returns the location of the swiftstdlibtoolwrapper. */
-    FilesToRunProvider swiftStdlibToolWrapper() {
-      return ruleContext.getExecutablePrerequisite("$swiftstdlibtoolwrapper", Mode.HOST);
-    }
-
     /**
-     * Returns the location of the realpath tool.
-     * TODO(dmaclach): Should not be required once https://github.com/google/bazel/issues/285
-     * is fixed.
+     * Returns the location of the swiftstdlibtoolzip deploy jar.
      */
-    Artifact realpath() {
-      return ruleContext.getPrerequisiteArtifact("$realpath", Mode.HOST);
+    Artifact swiftStdlibToolDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$swiftstdlibtoolzip_deploy", Mode.HOST);
     }
 
     String bundleId() {
@@ -938,7 +931,9 @@ public final class ReleaseBundlingSupport {
       return true;
     }
 
-    /** Returns the configuration distinguisher for this transition instance. */
+    /**
+     * Returns the configuration distinguisher for this transition instance.
+     */
     protected ConfigurationDistinguisher getConfigurationDistinguisher() {
       return ConfigurationDistinguisher.APPLICATION;
     }

@@ -200,7 +200,7 @@ final class BundleSupport {
       ruleContext.registerAction(
           ObjcRuleClasses.spawnOnDarwinActionBuilder()
               .setMnemonic("StoryboardCompile")
-              .setExecutable(attributes.ibtoolWrapper())
+              .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
@@ -238,17 +238,15 @@ final class BundleSupport {
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder()
+          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.momczipDeployJar())
               .setMnemonic("MomCompile")
-              .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              // TODO(dmaclach): Adding realpath here should not be required once
-              // https://github.com/google/bazel/issues/285 is fixed.
-              .addInput(attributes.realpath())
               .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
+                  .add(IosSdkCommands.MOMC_PATH)
+
                   .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(objcConfiguration))
                   .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
                   .add("-MOMC_PLATFORMS")
@@ -271,7 +269,7 @@ final class BundleSupport {
       ruleContext.registerAction(
           ObjcRuleClasses.spawnOnDarwinActionBuilder()
               .setMnemonic("XibCompile")
-              .setExecutable(attributes.ibtoolWrapper())
+              .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
@@ -350,15 +348,11 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.actoolzipDeployJar())
             .setMnemonic("AssetCatalogCompile")
-            .setExecutable(attributes.actoolWrapper())
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)
             .addOutput(actoolPartialInfoplist)
-            // TODO(dmaclach): Adding realpath here should not be required once
-            // https://github.com/google/bazel/issues/285 is fixed.
-            .addInput(attributes.realpath())
             .setCommandLine(actoolzipCommandLine(
                 objcProvider,
                 zipOutput,
@@ -372,6 +366,9 @@ final class BundleSupport {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         // The next three arguments are positional, i.e. they don't have flags before them.
         .addPath(zipOutput.getExecPath())
+        .add("") // archive root
+        .add(IosSdkCommands.ACTOOL_PATH)
+
         .add("--platform").add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
         .addExecPath("--output-partial-info-plist", partialInfoPlist)
         .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
@@ -442,7 +439,7 @@ final class BundleSupport {
     /**
      * Returns the location of the ibtoolwrapper tool.
      */
-    FilesToRunProvider ibtoolWrapper() {
+    FilesToRunProvider ibtoolwrapper() {
       return ruleContext.getExecutablePrerequisite("$ibtoolwrapper", Mode.HOST);
     }
 
@@ -456,17 +453,17 @@ final class BundleSupport {
     }
 
     /**
-     * Returns the location of the momcwrapper.
+     * Returns the location of the momczip deploy jar.
      */
-    FilesToRunProvider momcWrapper() {
-      return ruleContext.getExecutablePrerequisite("$momcwrapper", Mode.HOST);
+    Artifact momczipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$momczip_deploy", Mode.HOST);
     }
 
     /**
-     * Returns the location of the actoolwrapper.
+     * Returns the location of the actoolzip deploy jar.
      */
-    FilesToRunProvider actoolWrapper() {
-      return ruleContext.getExecutablePrerequisite("$actoolwrapper", Mode.HOST);
+    Artifact actoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
     }
   }
 }
