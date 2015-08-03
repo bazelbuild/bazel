@@ -48,10 +48,6 @@ gflags.RegisterValidator(
     message='--link value should contains a : separator')
 
 gflags.DEFINE_string(
-    'file_path', '',
-    'The path to strip from the files passed using the --file option')
-
-gflags.DEFINE_string(
     'directory', None,
     'Directory in which to store the file inside the layer')
 
@@ -64,8 +60,7 @@ class DockerLayer(object):
   class DebError(Exception):
     pass
 
-  def __init__(self, output, file_path, directory):
-    self.file_path = file_path
+  def __init__(self, output, directory):
     self.directory = directory
     self.output = output
 
@@ -76,22 +71,18 @@ class DockerLayer(object):
   def __exit__(self, t, v, traceback):
     self.tarfile.close()
 
-  def add_file(self, f):
+  def add_file(self, f, destfile):
     """Add a file to the layer.
 
     Args:
        f: the file to add to the layer
+       destfile: the name of the file in the layer
 
-    `f` will be copied into the `self.directory` sub-directory of the layer.
-    Directory structure beyond `self.file_path` will be preserved (so, if
-    `f`'s path is `a/b/c/file`, `directory` is `d/e` and `file_path` is `a/b`,
-    the path of the file in the layer will be `d/e/c/file`).
+    `f` will be copied to `self.directory/destfile` in the layer.
     """
-    dest = f
+    dest = destfile
     # TODO(mattmoor): Consider applying the working directory to all four
     # options, not just files...
-    if dest.startswith(self.file_path):
-      dest = dest[len(self.file_path):]
     if self.directory:
       dest = self.directory + '/' + dest
     dest = dest.lstrip('/')  # Remove leading slashes
@@ -152,9 +143,10 @@ class DockerLayer(object):
 
 
 def main(unused_argv):
-  with DockerLayer(FLAGS.output, FLAGS.file_path, FLAGS.directory) as layer:
+  with DockerLayer(FLAGS.output, FLAGS.directory) as layer:
     for f in FLAGS.file:
-      layer.add_file(f)
+      (inf, tof) = f.split('=', 1)
+      layer.add_file(inf, tof)
     for tar in FLAGS.tar:
       layer.add_tar(tar)
     for deb in FLAGS.deb:

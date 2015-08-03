@@ -55,6 +55,12 @@ def _short_path_dirname(path):
   sp = path.short_path
   return sp[:sp.rfind("/")]
 
+def _dest_path(f, strip_prefix):
+  """Returns the short path of f, stripped of strip_prefix."""
+  if f.short_path.startswith(strip_prefix):
+    return f.short_path[len(strip_prefix):]
+  return f.short_path
+
 def _build_layer(ctx):
   """Build the current layer for appending it the base layer."""
   # Compute the relative path
@@ -69,11 +75,11 @@ def _build_layer(ctx):
   layer = ctx.new_file(ctx.label.name + ".layer")
   build_layer = ctx.executable._build_layer
   args = [
-      "--file_path=" + data_path,
       "--output=" + layer.path,
       "--directory=" + ctx.attr.directory
       ]
-  args += ["--file=" + f.path for f in ctx.files.files]
+  args += ["--file=%s=%s" % (f.path, _dest_path(f, data_path))
+           for f in ctx.files.files]
   args += ["--tar=" + f.path for f in ctx.files.tars]
   args += ["--deb=" + f.path for f in ctx.files.debs]
   args += ["--link=%s:%s" % (k, ctx.attr.symlinks[k])

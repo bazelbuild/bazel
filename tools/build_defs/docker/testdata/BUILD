@@ -1,10 +1,21 @@
 package(
     default_visibility = [
-        "//tools/build_rules/docker:__subpackages__",
+        "//tools/build_defs/docker:__subpackages__",
     ],
 )
 
-load("/tools/build_rules/docker/docker", "docker_build")
+load("/tools/build_defs/docker/docker", "docker_build")
+
+genrule(
+    name = "gen",
+    outs = ["gen.out"],
+    cmd = "echo generated > $@",
+)
+
+docker_build(
+    name = "gen_image",
+    files = [":gen"],
+)
 
 docker_build(
     name = "files_base",
@@ -89,7 +100,7 @@ docker_build(
 py_binary(
     name = "extras_gen",
     srcs = ["extras_gen.py"],
-    deps = ["//tools/build_rules/docker:archive"],
+    deps = ["//tools/build_defs/docker:archive"],
 )
 
 genrule(
@@ -135,7 +146,7 @@ docker_build(
 py_binary(
     name = "strip_top",
     srcs = ["strip_top.py"],
-    deps = ["//third_party/bazel/tools/build_defs/docker:archive"],
+    deps = ["//tools/build_defs/docker:archive"],
 )
 
 [genrule(

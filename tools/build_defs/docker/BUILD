@@ -1,21 +1,31 @@
 licenses(["notice"])  # Apache 2.0
 
+TEST_TARGETS = [
+    "base_with_entrypoint",
+    "base_with_volume",
+    "derivative_with_cmd",
+    "derivative_with_shadowed_cmd",
+    "derivative_with_volume",
+    "files_base",
+    "files_with_files_base",
+    "files_with_tar_base",
+    "tar_base",
+    "tar_with_files_base",
+    "tar_with_tar_base",
+    "generated_tarball",
+    "with_env",
+    "with_double_env",
+    "link_with_files_base",
+]
+
 TEST_DATA = [
-    "//tools/build_defs/docker/testdata:base_with_entrypoint",
-    "//tools/build_defs/docker/testdata:base_with_volume",
-    "//tools/build_defs/docker/testdata:derivative_with_cmd",
-    "//tools/build_defs/docker/testdata:derivative_with_shadowed_cmd",
-    "//tools/build_defs/docker/testdata:derivative_with_volume",
-    "//tools/build_defs/docker/testdata:files_base",
-    "//tools/build_defs/docker/testdata:files_with_files_base",
-    "//tools/build_defs/docker/testdata:files_with_tar_base",
-    "//tools/build_defs/docker/testdata:tar_base",
-    "//tools/build_defs/docker/testdata:tar_with_files_base",
-    "//tools/build_defs/docker/testdata:tar_with_tar_base",
-    "//tools/build_defs/docker/testdata:generated_tarball",
-    "//tools/build_defs/docker/testdata:with_env",
-    "//tools/build_defs/docker/testdata:with_double_env",
-    "//tools/build_defs/docker/testdata:link_with_files_base",
+    "//tools/build_defs/docker/testdata:" + t
+    for t in TEST_TARGETS
+] + [
+    "//tools/build_defs/docker/testdata:notop_" + t
+    for t in TEST_TARGETS
+] + [
+    "//tools/build_defs/docker/testdata:gen_image",
 ]
 
 sh_test(

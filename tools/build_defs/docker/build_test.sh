@@ -174,6 +174,11 @@ function check_layers() {
   check_layers_aux "notop_$input" "$@"
 }
 
+function test_gen_image() {
+  grep -Fsq "./gen.out" "$TEST_DATA_DIR/gen_image.tar" \
+    || fail "'./gen.out' not found in '$TEST_DATA_DIR/gen_image.tar'"
+}
+
 function test_files_base() {
   check_layers "files_base" \
     "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b"
