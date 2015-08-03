@@ -14,7 +14,7 @@ public class MainActivity extends Activity {
 
     Log.v("Bazel", "Hello, Android");
     Log.v("Bazel", "Lib says: " + Lib.message());
-    System.loadLibrary("jni");
+    System.loadLibrary("hello_world");
     Log.v("Bazel", "JNI says: " + Jni.hello());
   }
 }
