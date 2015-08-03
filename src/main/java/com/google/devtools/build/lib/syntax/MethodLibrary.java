@@ -384,6 +384,39 @@ public class MethodLibrary {
     return result;
   }
 
+  @SkylarkSignature(name = "title", objectType = StringModule.class,
+      returnType = String.class,
+      doc =
+      "Converts the input string into title case, i.e. every word starts with an "
+      + "uppercase letter while the remaining letters are lowercase. In this "
+      + "context, a word means strictly a sequence of letters. This method does "
+      + "not support supplementary Unicode characters.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string.")})
+  private static BuiltinFunction title = new BuiltinFunction("title") {
+    @SuppressWarnings("unused")
+    public String invoke(String self) throws EvalException {
+      char[] data = self.toCharArray();
+      boolean previousWasLetter = false;
+
+      for (int pos = 0; pos < data.length; ++pos) {
+        char current = data[pos];
+        boolean currentIsLetter = Character.isLetter(current);
+
+        if (currentIsLetter) {
+          if (previousWasLetter && Character.isUpperCase(current)) {
+            data[pos] = Character.toLowerCase(current);
+          } else if (!previousWasLetter && Character.isLowerCase(current)) {
+            data[pos] = Character.toUpperCase(current);
+          }
+        }
+        previousWasLetter = currentIsLetter;
+      }
+
+      return new String(data);
+    }
+  };
+
   /**
    * Common implementation for find, rfind, index, rindex.
    * @param forward true if we want to return the last matching index.
@@ -1276,7 +1309,7 @@ public class MethodLibrary {
 
   public static final List<BaseFunction> stringFunctions = ImmutableList.<BaseFunction>of(
       count, endswith, find, index, format, join, lower, partition, replace, rfind,
-      rindex, rpartition, rsplit, slice, split, startswith, strip, upper);
+      rindex, rpartition, rsplit, slice, split, startswith, strip, title, upper);
 
   public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
       slice);
