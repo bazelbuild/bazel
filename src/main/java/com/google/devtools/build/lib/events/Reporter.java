@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.io.PrintStream;
@@ -25,9 +26,10 @@ import java.util.List;
  * is not intended as a logging mechanism for developer-only messages; use a
  * Logger for that.
  *
- * The reporter instance is consumed by the build system, and passes events to
+ * <p>The reporter instance is consumed by the build system, and passes events to
  * {@link EventHandler} instances. These handlers are registered via {@link
- * #addHandler(EventHandler)}.
+ * #addHandler(EventHandler)}. The reporter's main use is in the blaze runtime
+ * and its lifetime is the lifetime of the blaze server.
  *
  * <p>Thread-safe: calls to {@code #report} may be made on any thread.
  * Handlers may be run in an arbitary thread (but right now, they will not be
@@ -42,6 +44,9 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   private final OutErr outErrToReporter = outErrForReporter(this);
   private volatile OutputFilter outputFilter = OutputFilter.OUTPUT_EVERYTHING;
+  private EventHandler ansiAllowingHandler;
+  private EventHandler ansiStrippingHandler;
+  private boolean ansiAllowingHandlerRegistered;
 
   public Reporter() {}
 
@@ -82,6 +87,7 @@ public final class Reporter implements EventHandler, ExceptionListener {
    * Adds a handler to this reporter.
    */
   public synchronized void addHandler(EventHandler handler) {
+    Preconditions.checkNotNull(handler);
     handlers.add(handler);
   }
 
@@ -143,4 +149,34 @@ public final class Reporter implements EventHandler, ExceptionListener {
   public void setOutputFilter(OutputFilter outputFilter) {
     this.outputFilter = outputFilter;
   }
+
+  /**
+   * Registers an ANSI-control-code-allowing EventHandler with an ANSI-stripping EventHandler
+   * that is already registered with the reporter.  The ANSI-stripping handler can then be replaced
+   * with the ANSI-allowing handler by calling {@code #switchToAnsiAllowingHandler} which
+   * calls {@code removeHandler} for the ANSI-stripping handler and then {@code addHandler} for the
+   * ANSI-allowing handler.
+   */
+  public synchronized void registerAnsiAllowingHandler(
+      EventHandler ansiStrippingHandler,
+      EventHandler ansiAllowingHandler) {
+    this.ansiAllowingHandler = ansiAllowingHandler;
+    this.ansiStrippingHandler = ansiStrippingHandler;
+    ansiAllowingHandlerRegistered = true;
+  }
+
+  /**
+   * Restores the ANSI-allowing EventHandler registered using
+   * {@link #registerAnsiAllowingHandler}.
+   */
+  public synchronized void switchToAnsiAllowingHandler() {
+    if (ansiAllowingHandlerRegistered) {
+      removeHandler(ansiStrippingHandler);
+      addHandler(ansiAllowingHandler);
+      ansiStrippingHandler = null;
+      ansiAllowingHandler = null;
+      ansiAllowingHandlerRegistered = false;
+    }
+  }
+
 }
