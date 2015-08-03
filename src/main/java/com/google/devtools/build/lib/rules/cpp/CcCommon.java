@@ -98,15 +98,12 @@ public final class CcCommon {
   /** Active toolchain features. */
   private final FeatureConfiguration featureConfiguration;
 
-  private final ImmutableList<Pair<Artifact, Label>> cAndCppSources;
-
   private final RuleContext ruleContext;
 
   public CcCommon(RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.featureConfiguration = featureConfiguration;
-    this.cAndCppSources = collectCAndCppSources();
   }
 
   /**
@@ -196,25 +193,18 @@ public final class CcCommon {
     return new TransitiveLipoInfoProvider(scannableBuilder.build());
   }
 
+  private boolean shouldProcessHeaders() {
+    return featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
+        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
+  }
+
   /**
    * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input
    * source file and the label of the rule that generates it (or the label of the source file
    * itself if it is an input file)
    */
   ImmutableList<Pair<Artifact, Label>> getCAndCppSources() {
-    return cAndCppSources;
-  }
-
-  private boolean shouldProcessHeaders() {
-    return featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
-  }
-
-  private ImmutableList<Pair<Artifact, Label>> collectCAndCppSources() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
-    if (!hasAttribute("srcs", Type.LABEL_LIST)) {
-      return ImmutableList.<Pair<Artifact, Label>>of();
-    }
     Iterable<FileProvider> providers =
         ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class);
     // TODO(bazel-team): Move header processing logic down in the stack (to CcLibraryHelper or

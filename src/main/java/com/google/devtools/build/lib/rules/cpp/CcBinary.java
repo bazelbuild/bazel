@@ -90,13 +90,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static final String INTERMEDIATE_DWP_DIR = "_dwps";
 
   private static Runfiles collectRunfiles(RuleContext context,
-      CcCommon common,
       CcLinkingOutputs linkingOutputs,
       CppCompilationContext cppCompilationContext,
       LinkStaticness linkStaticness,
       NestedSet<Artifact> filesToBuild,
       Iterable<Artifact> fakeLinkerInputs,
-      boolean fake) {
+      boolean fake,
+      ImmutableList<Pair<Artifact, Label>> cAndCppSources) {
     Runfiles.Builder builder = new Runfiles.Builder();
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
         CppRunfilesProvider.runfilesFunction(linkStaticness != LinkStaticness.DYNAMIC);
@@ -136,7 +136,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // attribute. We do not provide the auxiliary inputs, because they are only used when we
       // do FDO compilation, and cc_fake_binary does not support FDO.
       builder.addSymlinksToArtifacts(
-          Iterables.transform(common.getCAndCppSources(), Pair.<Artifact, Label>firstFunction()));
+          Iterables.transform(cAndCppSources, Pair.<Artifact, Label>firstFunction()));
       builder.addSymlinksToArtifacts(cppCompilationContext.getDeclaredIncludeSrcs());
       // Add additional files that are referenced from the compile command, like module maps
       // or header modules.
@@ -163,9 +163,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     List<String> linkopts = common.getLinkopts();
     LinkStaticness linkStaticness = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
 
+    ImmutableList<Pair<Artifact, Label>> cAndCppSources = common.getCAndCppSources();
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)
+            .addSources(cAndCppSources)
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
             .addPrivateHeaders(
                 FileType.filter(
@@ -270,8 +272,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // logical since all symlinked libraries will be linked anyway and would
     // not require manual loading but if we do, then we would need to collect
     // their names and use a different constructor below.
-    Runfiles runfiles = collectRunfiles(ruleContext, common, linkingOutputs,
-        cppCompilationContext, linkStaticness, filesToBuild, fakeLinkerInputs, fake);
+    Runfiles runfiles = collectRunfiles(
+        ruleContext, linkingOutputs, cppCompilationContext, linkStaticness, filesToBuild,
+        fakeLinkerInputs, fake, cAndCppSources);
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, executable, ruleContext.getConfiguration().buildRunfiles());
 

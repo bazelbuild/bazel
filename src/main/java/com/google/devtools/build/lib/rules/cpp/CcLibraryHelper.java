@@ -207,7 +207,6 @@ public final class CcLibraryHelper {
         .addIncludeDirs(common.getIncludeDirs())
         .addLooseIncludeDirs(common.getLooseIncludeDirs())
         .addPicIndependentObjectFiles(common.getLinkerScripts())
-        .addSources(common.getCAndCppSources())
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .setNoCopts(common.getNoCopts())
         .setHeadersCheckingMode(common.determineHeadersCheckingMode());
