@@ -7,6 +7,7 @@ java_library(
         "//src/main/java:analysis-exec-rules-skyframe",
         "//src/main/java:bazel-core",
         "//src/main/java:collect",
+        "//src/main/java:concurrent",
         "//src/main/java:events",
         "//src/main/java:packages",
         "//src/main/java:vfs",

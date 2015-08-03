@@ -19,8 +19,15 @@ import org.junit.runners.JUnit4;
 /** Concurrency tests for {@link InMemoryGraph}. */
 @RunWith(JUnit4.class)
 public class InMemoryGraphConcurrencyTest extends GraphConcurrencyTest {
+  private ProcessableGraph graph;
+
   @Override
-  protected ProcessableGraph getGraph() {
-    return new InMemoryGraph();
+  protected void makeGraph() {
+    graph = new InMemoryGraph();
+  }
+
+  @Override
+  protected ProcessableGraph getGraph(Version version) {
+    return graph;
   }
 }
