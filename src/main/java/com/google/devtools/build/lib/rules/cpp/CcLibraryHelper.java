@@ -201,16 +201,12 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper fromCommon(CcCommon common) {
     this
-        .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
-        .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
         .addCopts(common.getCopts())
         .addDefines(common.getDefines())
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addIncludeDirs(common.getIncludeDirs())
         .addLooseIncludeDirs(common.getLooseIncludeDirs())
-        .addObjectFiles(common.getObjectFilesFromSrcs( /*usePic*/false))
         .addPicIndependentObjectFiles(common.getLinkerScripts())
-        .addPicObjectFiles(common.getObjectFilesFromSrcs( /*usePic*/true))
         .addSources(common.getCAndCppSources())
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .setNoCopts(common.getNoCopts())
@@ -426,6 +422,19 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
     Iterables.addAll(this.prerequisites, prerequisites);
+    return this;
+  }
+
+  /**
+   * Adds the given precompiled files to this helper. Shared and static libraries are added as
+   * compilation prerequisites, and object files are added as pic or non-pic object files
+   * respectively.
+   */
+  public CcLibraryHelper addPrecompiledFiles(PrecompiledFiles precompiledFiles) {
+    addCompilationPrerequisites(precompiledFiles.getSharedLibraries());
+    addCompilationPrerequisites(precompiledFiles.getStaticLibraries());
+    addObjectFiles(precompiledFiles.getObjectFiles(false));
+    addPicObjectFiles(precompiledFiles.getObjectFiles(true));
     return this;
   }
 

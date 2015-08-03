@@ -97,7 +97,7 @@ public class CcLinkingOutputs {
   public Iterable<Artifact> getLibrariesForRunfiles(boolean linkingStatically) {
     List<LibraryToLink> libraries =
         getPreferredLibraries(linkingStatically, /*preferPic*/false, true);
-    return CcCommon.getSharedLibrariesFrom(LinkerInputs.toLibraryArtifacts(libraries));
+    return PrecompiledFiles.getSharedLibrariesFrom(LinkerInputs.toLibraryArtifacts(libraries));
   }
 
   /**

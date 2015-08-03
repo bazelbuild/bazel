@@ -113,6 +113,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles) {
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
     final CcCommon common = new CcCommon(ruleContext, featureConfiguration);
+    PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
@@ -130,7 +131,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction()
                     != ImplicitOutputsFunction.NONE)
             .setLinkType(linkType)
-            .setNeverLink(neverLink);
+            .setNeverLink(neverLink)
+            .addPrecompiledFiles(precompiledFiles);
 
     if (collectLinkstamp) {
       helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
@@ -208,11 +210,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
      * Note that some target platforms do not require shared library code to be PIC.
      */
     Iterable<LibraryToLink> staticLibrariesFromSrcs =
-        LinkerInputs.opaqueLibrariesToLink(common.getStaticLibrariesFromSrcs());
+        LinkerInputs.opaqueLibrariesToLink(precompiledFiles.getStaticLibraries());
     helper.addStaticLibraries(staticLibrariesFromSrcs);
     helper.addPicStaticLibraries(Iterables.filter(staticLibrariesFromSrcs, PIC_STATIC_FILTER));
-    helper.addPicStaticLibraries(common.getPicStaticLibrariesFromSrcs());
-    helper.addDynamicLibraries(Iterables.transform(common.getSharedLibrariesFromSrcs(),
+    helper.addPicStaticLibraries(precompiledFiles.getPicStaticLibraries());
+    helper.addDynamicLibraries(Iterables.transform(precompiledFiles.getSharedLibraries(),
         new Function<Artifact, LibraryToLink>() {
       @Override
       public LibraryToLink apply(Artifact library) {

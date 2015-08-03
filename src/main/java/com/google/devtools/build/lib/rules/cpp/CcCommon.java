@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -99,9 +98,6 @@ public final class CcCommon {
   /** Active toolchain features. */
   private final FeatureConfiguration featureConfiguration;
 
-  /** The Artifacts from srcs. */
-  private final ImmutableList<Artifact> sources;
-
   private final ImmutableList<Pair<Artifact, Label>> cAndCppSources;
 
   /**
@@ -115,10 +111,6 @@ public final class CcCommon {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.featureConfiguration = featureConfiguration;
-    this.sources = hasAttribute("srcs", Type.LABEL_LIST)
-        ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
-        : ImmutableList.<Artifact>of();
-
     this.cAndCppSources = collectCAndCppSources();
     linkopts = initLinkopts();
   }
@@ -251,54 +243,6 @@ public final class CcCommon {
     }
 
     return result.build();
-  }
-
-  Iterable<Artifact> getLibrariesFromSrcs() {
-    return FileType.filter(sources, CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE,
-        CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
-        CppFileTypes.SHARED_LIBRARY,
-        CppFileTypes.VERSIONED_SHARED_LIBRARY);
-  }
-
-  Iterable<Artifact> getSharedLibrariesFromSrcs() {
-    return getSharedLibrariesFrom(sources);
-  }
-
-  static Iterable<Artifact> getSharedLibrariesFrom(Iterable<Artifact> collection) {
-    return FileType.filter(collection, CppFileTypes.SHARED_LIBRARY,
-        CppFileTypes.VERSIONED_SHARED_LIBRARY);
-  }
-
-  Iterable<Artifact> getStaticLibrariesFromSrcs() {
-    return FileType.filter(sources, CppFileTypes.ARCHIVE, CppFileTypes.ALWAYS_LINK_LIBRARY);
-  }
-
-  Iterable<LibraryToLink> getPicStaticLibrariesFromSrcs() {
-    return LinkerInputs.opaqueLibrariesToLink(
-        FileType.filter(sources, CppFileTypes.PIC_ARCHIVE,
-            CppFileTypes.ALWAYS_LINK_PIC_LIBRARY));
-  }
-
-  Iterable<Artifact> getObjectFilesFromSrcs(final boolean usePic) {
-    if (usePic) {
-      return Iterables.filter(sources, new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact artifact) {
-          String filename = artifact.getExecPathString();
-
-          // For compatibility with existing BUILD files, any ".o" files listed
-          // in srcs are assumed to be position-independent code, or
-          // at least suitable for inclusion in shared libraries, unless they
-          // end with ".nopic.o". (The ".nopic.o" extension is an undocumented
-          // feature to give users at least some control over this.) Note that
-          // some target platforms do not require shared library code to be PIC.
-          return CppFileTypes.PIC_OBJECT_FILE.matches(filename) ||
-              (CppFileTypes.OBJECT_FILE.matches(filename) && !filename.endsWith(".nopic.o"));
-        }
-      });
-    } else {
-      return FileType.filter(sources, CppFileTypes.OBJECT_FILE);
-    }
   }
 
   /**
