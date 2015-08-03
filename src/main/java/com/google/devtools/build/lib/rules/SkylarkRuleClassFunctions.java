@@ -210,7 +210,7 @@ public class SkylarkRuleClassFunctions {
         @Param(name = "outputs", type = Map.class, callbackEnabled = true, noneable = true,
             defaultValue = "None", doc = "outputs of this rule. "
             + "It is a dictionary mapping from string to a template name. "
-            + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"
+            + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
             + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
             // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
             + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
