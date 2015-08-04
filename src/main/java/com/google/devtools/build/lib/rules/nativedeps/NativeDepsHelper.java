@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -130,6 +131,8 @@ public abstract class NativeDepsHelper {
   private static NativeDepsRunfiles maybeCreateNativeDepsAction(final RuleContext ruleContext,
       CcLinkParams linkParams, Collection<String> extraLinkOpts, BuildConfiguration configuration,
       CcToolchainProvider toolchain, PathFragment nativeDepsPath, Root bindirIfShared) {
+    Preconditions.checkState(ruleContext.isLegalFragment(CppConfiguration.class),
+        "%s does not have access to CppConfiguration", ruleContext.getRule().getRuleClass());
     if (linkParams.getLibraries().isEmpty()) {
       return NativeDepsRunfiles.EMPTY;
     }

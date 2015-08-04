@@ -259,10 +259,13 @@ public final class RuleContext extends TargetContext
   public <T extends Fragment> T getFragment(Class<T> fragment) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
-    Preconditions.checkArgument(
-        rule.getRuleClassObject().isLegalConfigurationFragment(fragment),
+    Preconditions.checkArgument(isLegalFragment(fragment),
         "%s does not have access to %s", rule.getRuleClass(), fragment);
     return getConfiguration().getFragment(fragment);
+  }
+
+  public <T extends Fragment> boolean isLegalFragment(Class<T> fragment) {
+    return rule.getRuleClassObject().isLegalConfigurationFragment(fragment);
   }
 
   @Override

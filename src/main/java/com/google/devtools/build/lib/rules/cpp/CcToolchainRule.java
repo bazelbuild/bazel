@@ -47,6 +47,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .setUndocumented()
+        .requiresConfigurationFragments(CppConfiguration.class)
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
