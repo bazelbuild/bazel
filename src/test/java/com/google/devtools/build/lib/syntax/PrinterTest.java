@@ -27,6 +27,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +107,17 @@ public class PrinterTest {
     } catch (IllegalFormatException e) {
       assertThat(e).hasMessage(errorMessage);
     }
+  }
+
+  @Test
+  public void testSortedOutputOfUnsortedMap() throws Exception {
+    Map<Integer, Integer> map = new HashMap<>();
+    int[] data = {5, 7, 3};
+
+    for (int current : data) {
+      map.put(current, current);
+    }
+    assertThat(Printer.str(map)).isEqualTo("{3: 3, 5: 5, 7: 7}");
   }
 
   @Test

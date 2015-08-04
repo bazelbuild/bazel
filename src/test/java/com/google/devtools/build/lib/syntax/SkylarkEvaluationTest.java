@@ -981,12 +981,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Override
   @Test
-  public void testCompareStringInt() throws Exception {
-    new SkylarkTest().testIfExactError("Cannot compare string with int", "'a' >= 1");
-  }
-
-  @Override
-  @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
     new SkylarkTest().testIfExactError("lvalue has length 3, but rvalue has has length 2",
         "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",

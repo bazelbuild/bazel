@@ -218,15 +218,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("('a', 'b') <= ('a', 'b')", true)
 
         .testStatement("[[1, 1]] > [[1, 1], []]", false)
-        .testStatement("[[1, 1]] < [[1, 1], []]", true)
-
-        .testIfExactError("Cannot compare int with string", "[1] < ['a']")
-        .testIfExactError("Cannot compare list with int", "[1] < 1");
-  }
-
-  @Test
-  public void testCompareStringInt() throws Exception {
-    newTest().testIfExactError("Cannot compare string with int", "'a' >= 1");
+        .testStatement("[[1, 1]] < [[1, 1], []]", true);
   }
 
   @Test

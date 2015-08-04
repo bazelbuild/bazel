@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -28,6 +29,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  *  Test properties of the evaluator's datatypes and utility functions
@@ -77,5 +79,25 @@ public class EvalUtilsTest {
     assertFalse(EvalUtils.isImmutable(makeList(1, 2, 3)));
     assertFalse(EvalUtils.isImmutable(makeDict()));
     assertFalse(EvalUtils.isImmutable(makeFilesetEntry()));
+  }
+
+  @Test
+  public void testComparatorWithDifferentTypes() throws Exception {
+    TreeMap<Object, Object> map = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
+    map.put(2, 3);
+    map.put("1", 5);
+    map.put(42, 4);
+    map.put("test", 7);
+    map.put(-1, 2);
+    map.put("4", 6);
+    map.put(2.0, 1);
+    map.put(Environment.NONE, 0);
+
+    int expected = 0;
+    // Expected order of keys is NoneType -> Double -> Integers -> Strings
+    for (Object obj : map.values()) {
+      assertThat(obj).isEqualTo(expected);
+      ++expected;
+    }
   }
 }
