@@ -30,6 +30,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -138,9 +139,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -1489,6 +1493,11 @@ public final class BlazeRuntime {
                 ? new BlazeRuntime.BugReportingExceptionHandler()
                 : new BlazeRuntime.RemoteExceptionHandler());
 
+    if (System.getenv("TEST_TMPDIR") != null
+        && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
+      LoggingUtil.installRemoteLogger(getTestCrashLogger());
+    }
+
     for (BlazeModule blazeModule : blazeModules) {
       runtimeBuilder.addBlazeModule(blazeModule);
     }
@@ -1496,6 +1505,40 @@ public final class BlazeRuntime {
     BlazeRuntime runtime = runtimeBuilder.build();
     BugReport.setRuntime(runtime);
     return runtime;
+  }
+
+  /**
+   * Returns a logger that crashes as soon as it's written to, since tests should not cause events
+   * that would be logged.
+   */
+  @VisibleForTesting
+  public static Future<Logger> getTestCrashLogger() {
+    Logger crashLogger = Logger.getAnonymousLogger();
+    crashLogger.addHandler(
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            throw new IllegalStateException(
+                record.getSourceClassName()
+                    + "#"
+                    + record.getSourceMethodName()
+                    + ": "
+                    + record.getMessage()
+                    + "\n"
+                    + record.getThrown());
+          }
+
+          @Override
+          public void flush() {
+            throw new IllegalStateException();
+          }
+
+          @Override
+          public void close() {
+            throw new IllegalStateException();
+          }
+        });
+    return Futures.immediateFuture(crashLogger);
   }
 
   /**

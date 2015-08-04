@@ -46,6 +46,14 @@ public final class LoggingUtil {
     remoteLogger = logger;
   }
 
+  /**
+   * Installs the remote logger. Same as {@link #installRemoteLogger}, but since multiple tests will
+   * run in the same JVM, does not assert that this is the first time the logger is being installed.
+   */
+  public static synchronized void installRemoteLoggerForTesting(Future<Logger> logger) {
+    remoteLogger = logger;
+  }
+
   /** Returns the installed logger, or null if none is installed. */
   public static synchronized Logger getRemoteLogger() {
     try {
