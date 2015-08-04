@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEi
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -976,6 +977,48 @@ public class MethodLibrary {
       }
     }
   };
+  
+  @SkylarkSignature(name = "dict", returnType = Map.class,
+      doc =
+      "Creates a <a href=\"#modules.dict\">dictionary</a> from an optional positional "
+      + "argument and an optional set of keyword arguments. Values from the keyword argument "
+      + "will overwrite values from the positional argument if a key appears multiple times. "
+      + "Dictionaries are always sorted by their keys",
+      optionalPositionals = {
+          @Param(name = "args", type = Iterable.class, defaultValue = "[]",
+              doc =
+              "List of entries. Entries must be tuples or lists with exactly "
+              + "two elements: key, value"),
+      },
+      extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of additional entries.")},
+      useLocation = true)
+  private static final BuiltinFunction dict = new BuiltinFunction("dict") {
+    @SuppressWarnings("unused")
+    public Map<Object, Object> invoke(Iterable<Object> args, Map<Object, Object> kwargs,
+        Location loc) throws EvalException, ConversionException {
+      try {
+        Map<Object, Object> result = new HashMap<>();
+        List<Object> list = Type.OBJECT_LIST.convert(args, "dict(args)");
+
+        for (Object tuple : list) {
+          List<Object> mapping = Type.OBJECT_LIST.convert(tuple, "dict(args)");
+          int numElements = mapping.size();
+
+          if (numElements != 2) {
+            throw new EvalException(
+                location,
+                String.format(
+                    "Tuple has length %d, but exactly two elements are required", numElements));
+          }
+          result.put(mapping.get(0), mapping.get(1));
+        }
+        result.putAll(kwargs);
+        return result;
+      } catch (IllegalArgumentException | ClassCastException | NullPointerException ex) {
+        throw new EvalException(loc, ex);
+      }
+    }
+  };
 
   @SkylarkSignature(name = "union", objectType = SkylarkNestedSet.class,
       returnType = SkylarkNestedSet.class,
@@ -1328,7 +1371,7 @@ public class MethodLibrary {
   private static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
       .addAll(pureGlobalFunctions)
-      .add(list, struct, hasattr, getattr, set, dir, type, fail, print, zip)
+      .add(list, struct, hasattr, getattr, set, dict, dir, type, fail, print, zip)
       .build();
 
   /**
