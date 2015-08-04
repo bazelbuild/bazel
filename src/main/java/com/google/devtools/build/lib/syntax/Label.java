@@ -336,10 +336,10 @@ public final class Label implements Comparable<Label>, Serializable {
         "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
       + " current package.<br>"
       + "For example:<br><ul>"
-      + "<li><code>:quux</code> relative to <code>//foo/bar:baz</code> is "
-      + "<code>//foo/bar:quux</code></li>"
-      + "<li><code>//wiz:quux</code> relative to <code>//foo/bar:baz</code> is "
-      + "<code>//wiz:quux</code></li></ul>")
+      + "<pre class=language-python>\n"
+      + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
+      + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+      + "</pre>")
   public Label getRelative(String relName) throws SyntaxException {
     if (relName.length() == 0) {
       throw new SyntaxException("empty package-relative label");
