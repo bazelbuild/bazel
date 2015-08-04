@@ -44,6 +44,12 @@ public final class GlobFunction implements SkyFunction {
   private final Cache<String, Pattern> regexPatternCache =
       CacheBuilder.newBuilder().concurrencyLevel(4).build();
 
+  private final boolean alwaysUseDirListing;
+
+  public GlobFunction(boolean alwaysUseDirListing) {
+    this.alwaysUseDirListing = alwaysUseDirListing;
+  }
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws GlobFunctionException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
@@ -110,7 +116,7 @@ public final class GlobFunction implements SkyFunction {
     PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
     RootedPath dirRootedPath = RootedPath.toRootedPath(globPkgLookupValue.getRoot(),
         dirPathFragment);
-    if (containsGlobs(patternHead)) {
+    if (alwaysUseDirListing || containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.
       //
       // Note that we have good reason to believe the directory exists: if this is the

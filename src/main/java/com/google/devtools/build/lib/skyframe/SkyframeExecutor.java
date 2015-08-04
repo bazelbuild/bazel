@@ -305,7 +305,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         pkgLocator, packageManager, ruleClassProvider));
     map.put(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupFunction(
         ruleClassProvider, pkgFactory));
-    map.put(SkyFunctions.GLOB, new GlobFunction());
+    map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
@@ -349,7 +349,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return map.build();
   }
 
-  @ThreadCompatible
+  protected SkyFunction newGlobFunction() {
+    return new GlobFunction(/*alwaysUseDirListing=*/false);
+  }
+
+ @ThreadCompatible
   public void setActive(boolean active) {
     this.active = active;
   }
