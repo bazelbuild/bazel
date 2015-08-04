@@ -187,7 +187,7 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 	</li>
 	<li id="modules._top_level.rule.attrs"><code>attrs (<a class="anchor" href="#modules.dict">dict</a>)</code>: dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="#modules.attr">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label. The attribute <code>name</code> is implicitly added and must not be specified. Attributes <code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly added and might be overriden.
 	</li>
-	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "${name}.ext"}</code>. <br>The dictionary key becomes an attribute in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
+	<li id="modules._top_level.rule.outputs"><code>outputs (<a class="anchor" href="#modules.dict">dict</a>)</code>: outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "%{name}.ext"}</code>. <br>The dictionary key becomes an attribute in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.
 	</li>
 	<li id="modules._top_level.rule.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: whether this rule is marked as executable or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
@@ -955,6 +955,10 @@ Returns True if the string starts with <code>sub</code>, otherwise False, option
 <li><h3 id="modules.string.strip">strip</h3>
 <code><a class="anchor" href="#modules.string">string</a> string.strip()</code><br>
 Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
+<br/>
+<li><h3 id="modules.string.title">title</h3>
+<code><a class="anchor" href="#modules.string">string</a> string.title()</code><br>
+Converts the input string into title case, i.e. every word starts with an uppercase letter while the remaining letters are lowercase. In this context, a word means strictly a sequence of letters. This method does not support supplementary Unicode characters.
 <br/>
 <li><h3 id="modules.string.upper">upper</h3>
 <code><a class="anchor" href="#modules.string">string</a> string.upper()</code><br>
