@@ -83,14 +83,13 @@ features are not included.
 
 Some differences with Python should be noted:
 
-* All data structures are immutable.
+* All data structures are immutable. This is temporary, lists and dicts will be
+  made mutable in the future.
 
 * All global values are constant (they cannot be reassigned).
 
-* Heterogeneous lists and dictionaries are forbidden.
-
-* The type of a variable may not change, e.g. this is forbidden:
-  `a = 2; a = "str"`
+* Heterogeneous lists are forbidden. This is temporary and will be allowed
+  in the future.
 
 * `x += y` is syntactic sugar for `x = x + y`. Even if `x` and `y` are lists,
   dicts or sets, the original value is not mutated, so references to `x`
