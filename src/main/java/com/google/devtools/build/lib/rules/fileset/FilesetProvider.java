@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.fileset;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -24,4 +26,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public interface FilesetProvider extends TransitiveInfoProvider {
   Artifact getFilesetInputManifest();
   PathFragment getFilesetLinkDir();
+
+  /** Returns a list of the traversals that went into this Fileset.*/
+  ImmutableList<FilesetTraversalParams> getTraversals();
 }

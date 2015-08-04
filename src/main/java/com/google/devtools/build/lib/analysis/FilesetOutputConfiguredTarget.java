@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,14 +35,20 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
     implements FilesetProvider {
   private final Artifact filesetInputManifest;
   private final PathFragment filesetLinkDir;
+  private final ImmutableList<FilesetTraversalParams> filesetTraversals;
 
-  FilesetOutputConfiguredTarget(TargetContext targetContext, OutputFile outputFile,
-      TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
+  FilesetOutputConfiguredTarget(
+      TargetContext targetContext,
+      OutputFile outputFile,
+      TransitiveInfoCollection generatingRule,
+      Artifact outputArtifact,
+      ImmutableList<FilesetTraversalParams> traversals) {
     super(targetContext, outputFile, generatingRule, outputArtifact);
     FilesetProvider provider = generatingRule.getProvider(FilesetProvider.class);
     Preconditions.checkArgument(provider != null);
     filesetInputManifest = provider.getFilesetInputManifest();
     filesetLinkDir = provider.getFilesetLinkDir();
+    filesetTraversals = traversals;
   }
 
   @Override
@@ -51,5 +59,10 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
   @Override
   public PathFragment getFilesetLinkDir() {
     return filesetLinkDir;
+  }
+
+  @Override
+  public ImmutableList<FilesetTraversalParams> getTraversals() {
+    return filesetTraversals;
   }
 }

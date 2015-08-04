@@ -694,18 +694,33 @@ public final class BuildConfiguration implements ClassObject {
             + "subdirectory which has not been traversed.")
     public boolean checkFilesetDependenciesRecursively;
 
-    @Option(name = "run_under",
-        category = "run",
-        defaultValue = "null",
-        converter = RunUnderConverter.class,
-        help = "Prefix to insert in front of command before running. "
-            + "Examples:\n"
-            + "\t--run_under=valgrind\n"
-            + "\t--run_under=strace\n"
-            + "\t--run_under='strace -c'\n"
-            + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-            + "\t--run_under=//package:target\n"
-            + "\t--run_under='//package:target --options'\n")
+    @Option(
+      name = "experimental_skyframe_native_filesets",
+      defaultValue = "false",
+      category = "experimental",
+      help =
+          "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
+              + " This offers improved performance in incremental builds of Filesets as well as"
+              + " correct incremental behavior, but is not yet stable. The default is false,"
+              + " meaning Blaze uses the legacy impelementation of Fileset."
+    )
+    public boolean skyframeNativeFileset;
+
+    @Option(
+      name = "run_under",
+      category = "run",
+      defaultValue = "null",
+      converter = RunUnderConverter.class,
+      help =
+          "Prefix to insert in front of command before running. "
+              + "Examples:\n"
+              + "\t--run_under=valgrind\n"
+              + "\t--run_under=strace\n"
+              + "\t--run_under='strace -c'\n"
+              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
+              + "\t--run_under=//package:target\n"
+              + "\t--run_under='//package:target --options'\n"
+    )
     public RunUnder runUnder;
 
     @Option(name = "distinct_host_configuration",
@@ -829,6 +844,9 @@ public final class BuildConfiguration implements ClassObject {
 
       // === Licenses ===
       host.checkLicenses = checkLicenses;
+
+      // === Fileset ===
+      host.skyframeNativeFileset = skyframeNativeFileset;
 
       // === Allow runtime_deps to depend on neverlink Java libraries.
       host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
@@ -1694,6 +1712,10 @@ public final class BuildConfiguration implements ClassObject {
 
   public boolean getCheckFilesetDependenciesRecursively() {
     return options.checkFilesetDependenciesRecursively;
+  }
+
+  public boolean getSkyframeNativeFileset() {
+    return options.skyframeNativeFileset;
   }
 
   public List<String> getTestArguments() {
