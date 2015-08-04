@@ -80,12 +80,11 @@ class DockerLayer(object):
 
     `f` will be copied to `self.directory/destfile` in the layer.
     """
-    dest = destfile
+    dest = destfile.lstrip('/')  # Remove leading slashes
     # TODO(mattmoor): Consider applying the working directory to all four
     # options, not just files...
-    if self.directory:
-      dest = self.directory + '/' + dest
-    dest = dest.lstrip('/')  # Remove leading slashes
+    if self.directory and self.directory != '/':
+      dest = self.directory.lstrip('/') + '/' + dest
     self.tarfile.add_file(dest, file_content=f)
 
   def add_tar(self, tar):
