@@ -37,7 +37,7 @@ public class HttpJarRule implements RuleDefinition {
         A URL to an archive file containing a Bazel repository.
         ${SYNOPSIS}
 
-        <p>This must be an http or https URL that ends with .jar. Redirects are not followed.</p>
+        <p>This must be an http or https URL that ends with .jar. Redirections are followed.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_jar).ATTRIBUTE(sha256) -->

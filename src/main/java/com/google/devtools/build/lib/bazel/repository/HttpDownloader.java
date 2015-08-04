@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
@@ -156,7 +157,10 @@ public class HttpDownloader {
 
   @VisibleForTesting
   protected ReadableByteChannel getChannel(URL url) throws IOException {
-    return Channels.newChannel(url.openStream());
+    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+    connection.setInstanceFollowRedirects(true);
+    connection.connect();
+    return Channels.newChannel(connection.getInputStream());
   }
 
   public static String getHash(Hasher hasher, Path path) throws IOException {

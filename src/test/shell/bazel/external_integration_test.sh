@@ -105,11 +105,31 @@ EOF
   cd ${WORKSPACE_DIR}
 }
 
+# Serves a redirection from localhost:$redirect_port to $1. Sets the following variables:
+#   * redirect_port - the port nc is listening on.
+#   * redirect_log - the path to nc's log.
+#   * redirect_pid - the PID of nc.
+function serve_redirect() {
+  # Assign random_port to nc_port if not already set.
+  echo ${redirect_port:=$(pick_random_unused_tcp_port)} > /dev/null
+  redirect_log=$TEST_TMPDIR/redirect.log
+  local response=$(cat <<EOF
+HTTP/1.0 301 Moved Permanently
+Location: $1
+
+EOF
+)
+  nc_l $redirect_port >& $redirect_log <<<"$response" &
+  redirect_pid=$!
+}
+
 function kill_nc() {
   # Try to kill nc, otherwise the test will time out if Bazel has a bug and
   # didn't make a request to it.
   kill $nc_pid || true  # kill can fails if the process already finished
+  [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
   [ -z "${nc_log:-}" ] || cat $nc_log
+  [ -z "${redirect_log:-}" ] || cat $redirect_log
 }
 
 function zip_up() {
@@ -410,6 +430,42 @@ EOF
   kill_nc
   expect_log "Tra-la!"
 }
+
+# Tests downloading a file with a redirect.
+function test_http_redirect() {
+  local test_file=$TEST_TMPDIR/toto
+  echo "Tra-la!" >$test_file
+  local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
+  serve_file $test_file
+  cd ${WORKSPACE_DIR}
+  serve_redirect "http://localhost:$nc_port/toto"
+
+  cat > WORKSPACE <<EOF
+http_file(name = 'toto', url = 'http://localhost:$redirect_port/toto',
+    sha256 = '$sha256')
+EOF
+
+  mkdir -p test
+  cat > test/BUILD <<EOF
+sh_binary(
+    name = "test",
+    srcs = ["test.sh"],
+    data = ["@toto//file"],
+)
+EOF
+
+  cat > test/test.sh <<EOF
+#!/bin/bash
+cat external/toto/file/toto
+EOF
+
+  chmod +x test/test.sh
+  bazel fetch //test || fail "Fetch failed"
+  bazel run //test >& $TEST_log || echo "Expected run to succeed"
+  kill_nc
+  expect_log "Tra-la!"
+}
+
 
 function test_invalid_rule() {
   # http_jar with missing URL field.

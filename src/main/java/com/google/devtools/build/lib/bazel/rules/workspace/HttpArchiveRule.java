@@ -38,7 +38,7 @@ public class HttpArchiveRule implements RuleDefinition {
          ${SYNOPSIS}
 
          <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
-         for authentication or redirection.</p>
+         for authentication. Redirections are followed.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(sha256) -->
