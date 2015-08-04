@@ -107,7 +107,7 @@ public final class CppFileTypes {
     };
 
 
-  public static final FileType SHARED_LIBRARY = FileType.of(".so");
+  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib");
   public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso");
   public static final FileType LINKER_SCRIPT = FileType.of(".ld", ".lds");
   // Matches shared libraries with version names in the extension, i.e.
