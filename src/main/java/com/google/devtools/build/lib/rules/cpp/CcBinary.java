@@ -359,7 +359,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addNonLibraryInputs(compilationPrerequisites);
 
     // Determine the object files to link in.
-    boolean usePic = CppHelper.usePic(context, !isLinkShared(context)) && !fake;
+    boolean usePic = CppHelper.usePic(context, !isLinkShared(context));
     Iterable<Artifact> compiledObjectFiles = compilationOutputs.getObjectFiles(usePic);
 
     if (fake) {

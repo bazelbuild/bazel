@@ -263,7 +263,8 @@ public class CppCompileActionBuilder {
           variables, sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile,
           tempOutputFile, dotdFile, configuration, cppConfiguration, context, actionContext,
           ImmutableList.copyOf(copts), ImmutableList.copyOf(pluginOpts),
-          getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext);
+          getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext,
+          usePic);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 

@@ -266,7 +266,8 @@ public final class CppLinkAction extends AbstractAction {
       // Concatenate all the (fake) .o files into the result.
       for (LinkerInput linkerInput : getLinkCommandLine().getLinkerInputs()) {
         Artifact objectFile = linkerInput.getArtifact();
-        if (CppFileTypes.OBJECT_FILE.matches(objectFile.getFilename())
+        if ((CppFileTypes.OBJECT_FILE.matches(objectFile.getFilename())
+                || CppFileTypes.PIC_OBJECT_FILE.matches(objectFile.getFilename()))
             && linkerInput.isFake()) {
           s.append(FileSystemUtils.readContentAsLatin1(objectFile.getPath())); // (IOException)
         }

@@ -59,7 +59,8 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   private final PathFragment tempOutputFile;
 
-  FakeCppCompileAction(ActionOwner owner,
+  FakeCppCompileAction(
+      ActionOwner owner,
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
@@ -78,10 +79,22 @@ public class FakeCppCompileAction extends CppCompileAction {
       Predicate<String> nocopts,
       ImmutableList<PathFragment> extraSystemIncludePrefixes,
       @Nullable String fdoBuildStamp,
-      RuleContext ruleContext) {
-    super(owner, features, featureConfiguration, variables, sourceFile, sourceLabel,
-        mandatoryInputs, outputFile, dotdFile, null, null, null,
-        configuration, cppConfiguration,
+      RuleContext ruleContext,
+      boolean usePic) {
+    super(owner,
+        features,
+        featureConfiguration,
+        variables,
+        sourceFile,
+        sourceLabel,
+        mandatoryInputs,
+        outputFile,
+        dotdFile,
+        null,
+        null,
+        null,
+        configuration,
+        cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.
         // (Disallowing use of undeclared headers for cc_fake_binary is needed
@@ -91,8 +104,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         // time, so they can't depend on the contents of the ".d" file.)
         CppCompilationContext.disallowUndeclaredHeaders(context), actionContext, copts, pluginOpts,
         nocopts, extraSystemIncludePrefixes, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
-        ImmutableList.<IncludeScannable>of(),
-        GUID, /*usePic=*/false, ruleContext);
+        ImmutableList.<IncludeScannable>of(), GUID, usePic, ruleContext);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
