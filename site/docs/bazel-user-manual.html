@@ -3336,7 +3336,7 @@ in an environment closer to the current shell environment. Note that none of the
   subprocesses of Bazel: applications, tests, tools, etc.)
 </p>
 
-<h4 id='batch'><code class='flag'>--batch</code></h4>
+<h4 id='flag--batch'><code class='flag'>--batch</code></h4>
 <p>
   This switch will cause bazel to be run in batch mode, instead of the
   standard client/server mode described <a href='#client/server'>above</a>.
@@ -3502,7 +3502,7 @@ in an environment closer to the current shell environment. Note that none of the
   By default, Bazel uses a long-running <a
   href='#client/server'>server process</a> as an optimization; this
   behavior can be disabled using the <a
-  href='#batch'><code class='flag'>--batch</code></a> option.  There's no hard and
+  href='#flag--batch'><code class='flag'>--batch</code></a> option.  There's no hard and
   fast rule about whether or not your script should use a server, but
   in general, the trade-off is between performance and reliability.
   The server mode makes a sequence of builds, especially incremental
