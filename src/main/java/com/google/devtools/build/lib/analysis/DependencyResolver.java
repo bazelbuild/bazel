@@ -490,7 +490,7 @@ public abstract class DependencyResolver {
           continue;
         }
 
-        outgoingEdges.add(new Dependency(label, node.getConfiguration()));
+        outgoingEdges.add(new Dependency(label, null));
       } catch (NoSuchThingException e) {
         // Don't visit targets that don't exist (--keep_going)
       }
