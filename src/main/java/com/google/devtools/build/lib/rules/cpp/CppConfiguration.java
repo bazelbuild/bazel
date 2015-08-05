@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
@@ -1339,6 +1340,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean shouldScanIncludes() {
+    if (Constants.HARD_DISABLE_CC_INCLUDE_SCANNING) {
+      return false;
+    }
     return cppOptions.scanIncludes;
   }
 

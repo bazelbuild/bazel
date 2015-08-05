@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableSet;
 
 /**
  * Various constants required by Bazel.
+ *
  * <p>The extra {@code .toString()} calls are there so that javac doesn't inline these constants
  * so that we can replace this class file within the Bazel binary.
  */
 public class Constants {
-  private Constants() {
-  }
+  private Constants() {}
 
   public static final String PRODUCT_NAME = "bazel";
   public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
@@ -42,34 +42,37 @@ public class Constants {
   /**
    * List of common attributes documentation, relative to {@link com.google.devtools.build.docgen}.
    */
-  public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES = ImmutableList.of(
-      "templates/attributes/common/data.html",
-      "templates/attributes/common/deprecation.html",
-      "templates/attributes/common/deps.html",
-      "templates/attributes/common/distribs.html",
-      "templates/attributes/common/features.html",
-      "templates/attributes/common/licenses.html",
-      "templates/attributes/common/tags.html",
-      "templates/attributes/common/testonly.html",
-      "templates/attributes/common/visibility.html");
+  public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/common/data.html",
+          "templates/attributes/common/deprecation.html",
+          "templates/attributes/common/deps.html",
+          "templates/attributes/common/distribs.html",
+          "templates/attributes/common/features.html",
+          "templates/attributes/common/licenses.html",
+          "templates/attributes/common/tags.html",
+          "templates/attributes/common/testonly.html",
+          "templates/attributes/common/visibility.html");
 
   /**
    * List of documentation for common attributes of *_binary rules, relative to
    * {@link com.google.devtools.build.docgen}.
    */
-  public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES = ImmutableList.of(
-      "templates/attributes/binary/args.html",
-      "templates/attributes/binary/output_licenses.html");
+  public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/binary/args.html",
+          "templates/attributes/binary/output_licenses.html");
 
   /**
    * List of documentation for common attributes of *_test rules, relative to
    * {@link com.google.devtools.build.docgen}.
    */
-  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES = ImmutableList.of(
-      "templates/attributes/test/args.html",
-      "templates/attributes/test/size.html",
-      "templates/attributes/test/timeout.html",
-      "templates/attributes/test/flaky.html");
+  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/test/args.html",
+          "templates/attributes/test/size.html",
+          "templates/attributes/test/timeout.html",
+          "templates/attributes/test/flaky.html");
 
   /**
    * List of file extensions of which baseline coverage generation is supported.
@@ -87,4 +90,10 @@ public class Constants {
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =
       ImmutableList.<String>of("armeabi-v7a");
   public static final String ANDROID_DEP_PREFIX = "//external:android/".toString();
+
+  /**
+   * Whether C++ include scanning should be disabled no matter what the --cc_include_scanning flag
+   * says.
+   */
+  public static final boolean HARD_DISABLE_CC_INCLUDE_SCANNING = true;
 }
