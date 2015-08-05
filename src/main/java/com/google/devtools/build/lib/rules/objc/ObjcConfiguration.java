@@ -43,10 +43,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       "-fstack-protector", "-fstack-protector-all", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCXX_DEBUG",
       "-D_GLIBCPP_CONCEPT_CHECKS");
 
-  // TODO(bazel-team): Add "-DDEBUG=1" to FASTBUILD_COPTS.
-  @VisibleForTesting
-  static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0");
-
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
       ImmutableList.of(
@@ -65,6 +61,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> iosMultiCpus;
   private final String iosSplitCpu;
   private final boolean perProtoIncludes;
+  private final List<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
   private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final Path clientWorkspaceRoot;
@@ -99,6 +96,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.perProtoIncludes = objcOptions.perProtoIncludes;
+    this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
@@ -180,7 +178,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       case DBG:
         return DBG_COPTS;
       case FASTBUILD:
-        return FASTBUILD_COPTS;
+        return fastbuildOptions;
       case OPT:
         return OPT_COPTS;
       default:
