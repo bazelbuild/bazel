@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -207,6 +208,8 @@ public abstract class RepositoryFunction implements SkyFunction {
       throws RepositoryFunctionException {
     try {
       for (Path target : targetDirectory.getDirectoryEntries()) {
+        if ( ! target.exists(Symlinks.FOLLOW))
+          continue;
         Path symlinkPath =
             repositoryDirectory.getRelative(target.getBaseName());
         if (createSymbolicLink(symlinkPath, target, env) == null) {
