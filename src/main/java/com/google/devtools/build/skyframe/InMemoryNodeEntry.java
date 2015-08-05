@@ -280,7 +280,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getReverseDeps() {
+  public synchronized Collection<SkyKey> getReverseDeps() {
     assertKeepEdges();
     Preconditions.checkState(isDone() || buildingState.getReverseDepsToSignal().isEmpty(),
         "Reverse deps should only be queried before the build has begun "
