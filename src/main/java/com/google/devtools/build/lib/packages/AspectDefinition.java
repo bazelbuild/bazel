@@ -181,7 +181,8 @@ public final class AspectDefinition {
      * <p>Note that {@code AspectFactory} instances are expected in the second argument, but we
      * cannot reference that interface here.
      */
-    public Builder attributeAspect(
+    @SafeVarargs
+    public final Builder attributeAspect(
         String attribute, Class<? extends AspectFactory<?, ?, ?>>... aspectFactories) {
       Preconditions.checkNotNull(attribute);
       for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : aspectFactories) {
