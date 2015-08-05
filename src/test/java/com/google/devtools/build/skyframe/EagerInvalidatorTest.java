@@ -517,9 +517,10 @@ public class EagerInvalidatorTest {
     @Override
     protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
+      Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       InvalidatingNodeVisitor invalidatingVisitor =
-          EagerInvalidator.createVisitor(/*delete=*/true, graph, ImmutableList.copyOf(keys),
-              invalidationReceiver, state, true, dirtyKeyTracker);
+          EagerInvalidator.createDeletingVisitorIfNeeded(graph, diff, invalidationReceiver, state,
+              true, dirtyKeyTracker);
       if (invalidatingVisitor != null) {
         visitor.set(invalidatingVisitor);
         invalidatingVisitor.run();
@@ -552,17 +553,16 @@ public class EagerInvalidatorTest {
       TrackingInvalidationReceiver receiver = new TrackingInvalidationReceiver();
 
       // Dirty the node, and ensure that the tracker is aware of it:
-      InvalidatingNodeVisitor dirtyingVisitor =
-          EagerInvalidator.createVisitor(/*delete=*/false, graph, ImmutableList.of(skyKey("a")),
-              receiver, new DirtyingInvalidationState(), true, dirtyKeyTracker);
-      dirtyingVisitor.run();
+      Iterable<SkyKey> diff1 = ImmutableList.of(skyKey("a"));
+      InvalidationState state1 = new DirtyingInvalidationState();
+      Preconditions.checkNotNull(EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff1,
+          receiver, state1, dirtyKeyTracker)).run();
       assertThat(dirtyKeyTracker.getDirtyKeys()).containsExactly(skyKey("a"), skyKey("ab"));
 
       // Delete the node, and ensure that the tracker is no longer tracking it:
-      InvalidatingNodeVisitor deletingVisitor =
-          EagerInvalidator.createVisitor(/*delete=*/true, graph, ImmutableList.of(skyKey("a")),
-              receiver, state, true, dirtyKeyTracker);
-      deletingVisitor.run();
+      Iterable<SkyKey> diff = ImmutableList.of(skyKey("a"));
+      Preconditions.checkNotNull(EagerInvalidator.createDeletingVisitorIfNeeded(graph, diff,
+          receiver, state, true, dirtyKeyTracker)).run();
       assertThat(dirtyKeyTracker.getDirtyKeys()).containsExactly(skyKey("ab"));
     }
   }
@@ -575,9 +575,10 @@ public class EagerInvalidatorTest {
     @Override
     protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
+      Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       InvalidatingNodeVisitor invalidatingVisitor =
-          EagerInvalidator.createVisitor(/*delete=*/false, graph, ImmutableList.copyOf(keys),
-              invalidationReceiver, state, true, dirtyKeyTracker);
+          EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff, invalidationReceiver,
+              state, dirtyKeyTracker);
       if (invalidatingVisitor != null) {
         visitor.set(invalidatingVisitor);
         invalidatingVisitor.run();

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
@@ -51,6 +52,65 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link #work(boolean)} method will throw {@link InterruptedException}.
  */
 public class AbstractQueueVisitor {
+
+  /**
+   * Configuration parameters for {@link ThreadPoolExecutor} construction.
+   */
+  public static class ThreadPoolExecutorParams {
+    private final int corePoolSize;
+    private final int maxPoolSize;
+    private final long keepAliveTime;
+    private final TimeUnit units;
+    private final String poolName;
+    private final BlockingQueue<Runnable> workQueue;
+
+    public ThreadPoolExecutorParams(int corePoolSize, int maxPoolSize, long keepAliveTime,
+        TimeUnit units, String poolName, BlockingQueue<Runnable> workQueue) {
+      this.corePoolSize = corePoolSize;
+      this.maxPoolSize = maxPoolSize;
+      this.keepAliveTime = keepAliveTime;
+      this.units = units;
+      this.poolName = poolName;
+      this.workQueue = workQueue;
+    }
+
+    public int getCorePoolSize() {
+      return corePoolSize;
+    }
+
+    public int getMaxPoolSize() {
+      return maxPoolSize;
+    }
+
+    public long getKeepAliveTime() {
+      return keepAliveTime;
+    }
+
+    public TimeUnit getUnits() {
+      return units;
+    }
+
+    public String getPoolName() {
+      return poolName;
+    }
+
+    public BlockingQueue<Runnable> getWorkQueue() {
+      return workQueue;
+    }
+  }
+
+  /**
+   * Default factory function for constructing {@link ThreadPoolExecutor}s.
+   */
+  public static final Function<ThreadPoolExecutorParams, ThreadPoolExecutor> EXECUTOR_FACTORY =
+      new Function<ThreadPoolExecutorParams, ThreadPoolExecutor>() {
+        @Override
+        public ThreadPoolExecutor apply(ThreadPoolExecutorParams p) {
+          return new ThreadPoolExecutor(p.getCorePoolSize(), p.getMaxPoolSize(),
+              p.getKeepAliveTime(), p.getUnits(), p.getWorkQueue(),
+              new ThreadFactoryBuilder().setNameFormat(p.getPoolName() + " %d").build());
+        }
+      };
 
   /**
    * The first unhandled exception thrown by a worker thread.  We save it
@@ -136,7 +196,8 @@ public class AbstractQueueVisitor {
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
    * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit, java.util.concurrent.BlockingQueue)}
+   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
+   *                     BlockingQueue)}
    * @param maxPoolSize the max number of threads in the pool.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
@@ -149,15 +210,41 @@ public class AbstractQueueVisitor {
   public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
       long keepAliveTime, TimeUnit units, boolean failFastOnException,
       boolean failFastOnInterrupt, String poolName) {
-    Preconditions.checkNotNull(poolName);
+    this(concurrent, corePoolSize, maxPoolSize, keepAliveTime, units, failFastOnException,
+        failFastOnInterrupt, poolName, EXECUTOR_FACTORY);
+  }
 
+  /**
+   * Create the AbstractQueueVisitor.
+   *
+   * @param concurrent true if concurrency should be enabled. Only set to
+   *                   false for debugging.
+   * @param corePoolSize the core pool size of the thread pool. See
+   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
+   *                     BlockingQueue)}
+   * @param maxPoolSize the max number of threads in the pool.
+   * @param keepAliveTime the keep-alive time for the thread pool.
+   * @param units the time units of keepAliveTime.
+   * @param failFastOnException if true, don't run new actions after an uncaught exception.
+   * @param failFastOnInterrupt if true, don't run new actions after interrupt.
+   * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
+   *                    thread naming will be used.
+   * @param executorFactory the factory for constructing the thread pool if {@code concurrent} is
+   *                        true.
+   */
+  public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
+      long keepAliveTime, TimeUnit units, boolean failFastOnException,
+      boolean failFastOnInterrupt, String poolName,
+      Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
+    Preconditions.checkNotNull(poolName);
+    Preconditions.checkNotNull(executorFactory);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.failFastOnInterrupt = failFastOnInterrupt;
     this.ownThreadPool = true;
     this.pool = concurrent
-      ? new ThreadPoolExecutor(corePoolSize, maxPoolSize, keepAliveTime, units, getWorkQueue(),
-          new ThreadFactoryBuilder().setNameFormat(poolName + " %d").build())
+      ? executorFactory.apply(new ThreadPoolExecutorParams(corePoolSize, maxPoolSize,
+        keepAliveTime, units, poolName, getWorkQueue()))
       : null;
   }
 
@@ -167,7 +254,8 @@ public class AbstractQueueVisitor {
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
    * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit, java.util.concurrent.BlockingQueue)}
+   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
+   *                     BlockingQueue)}
    * @param maxPoolSize the max number of threads in the pool.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
@@ -233,7 +321,8 @@ public class AbstractQueueVisitor {
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
    * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit, java.util.concurrent.BlockingQueue)}
+   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
+   *                     BlockingQueue)}
    * @param maxPoolSize the max number of threads in the pool.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
@@ -249,7 +338,8 @@ public class AbstractQueueVisitor {
    * Create the AbstractQueueVisitor with concurrency enabled.
    *
    * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit, java.util.concurrent.BlockingQueue)}
+   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
+   *                     BlockingQueue)}
    * @param maxPoolSize the max number of threads in the pool.
    * @param keepAlive the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
