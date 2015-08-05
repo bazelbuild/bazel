@@ -196,22 +196,6 @@ public final class BuildConfiguration implements ClassObject {
     }
 
     /**
-     * Determines whether this fragment can be accessed in Skylark as a field of
-     * ctx.configuration
-     */
-    public boolean isSkylarkVisible() {
-      return false;
-    }
-
-    /**
-     * If this fragment is skylarkVisible, it will be accessible in Skylark via
-     * ctx.configuration.NAME where NAME = getName()
-     */
-    public String getName() {
-      return getClass().getName();
-    }
-
-    /**
      * Returns a fragment of the output directory name for this configuration. The output
      * directory for the whole configuration contains all the short names by all fragments.
      */
@@ -910,7 +894,7 @@ public final class BuildConfiguration implements ClassObject {
   private Set<BuildConfiguration> allReachableConfigurations;
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
-  private final ImmutableMap<String, Fragment> skylarkVisibleFragments;
+  private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
 
   /**
    * Directories in the output tree.
@@ -1136,15 +1120,15 @@ public final class BuildConfiguration implements ClassObject {
     checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
-  private ImmutableMap<String, Fragment> buildIndexOfVisibleFragments() {
-    ImmutableMap.Builder<String, Fragment> builder = ImmutableMap.builder();
+  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfVisibleFragments() {
+    ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
 
-    for (Fragment fragment : fragments.values()) {
-      if (fragment.isSkylarkVisible()) {
-        builder.put(fragment.getName(), fragment);
+    for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
+      SkylarkModule annotation = fragmentClass.getAnnotation(SkylarkModule.class);
+      if (annotation != null) {
+        builder.put(annotation.name(), fragmentClass);
       }
     }
-
     return builder.build();
   }
 
@@ -1948,7 +1932,8 @@ public final class BuildConfiguration implements ClassObject {
   @Override
   @Nullable
   public Object getValue(String name) {
-    return skylarkVisibleFragments.get(name);
+    Class<? extends Fragment> fragmentClass = skylarkVisibleFragments.get(name);
+    return (fragmentClass == null) ? null : fragments.get(fragmentClass);
   }
 
   @Override

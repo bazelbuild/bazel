@@ -34,7 +34,7 @@ import java.util.List;
  * A java compiler configuration containing the flags required for compilation.
  */
 @Immutable
-@SkylarkModule(name = "java_configuration", doc = "A java compiler configuration")
+@SkylarkModule(name = "java", doc = "A java compiler configuration")
 public final class JavaConfiguration extends Fragment {
   /**
    * Values for the --experimental_java_classpath option
@@ -103,16 +103,6 @@ public final class JavaConfiguration extends Fragment {
       }
     }
     this.translationTargets = translationsBuilder.build();
-  }
-  
-  @Override
-  public boolean isSkylarkVisible() {
-    return true;
-  }
-
-  @Override
-  public String getName() {
-    return "java";
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
