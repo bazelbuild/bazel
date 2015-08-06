@@ -105,6 +105,7 @@ EOF
   cat $(cat $TEST_log | tail -n 1) > build
 
   assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
+  assert_contains "repository = \"http://localhost:$m2_port/\"," ws
   assert_contains "\"@blorp/glorp//jar\"," build
 }
 

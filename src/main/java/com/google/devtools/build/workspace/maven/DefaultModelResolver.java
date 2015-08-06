@@ -41,18 +41,18 @@ import java.util.Set;
 public class DefaultModelResolver implements ModelResolver {
 
   private final Set<Repository> repositories;
-  private final Map<String, ModelSource> artifactToRepository;
+  private final Map<String, ModelSource> artifactToUrl;
 
   public DefaultModelResolver() {
     repositories = Sets.newHashSet();
     repositories.add(MavenConnector.getMavenCentral());
-    artifactToRepository = Maps.newHashMap();
+    artifactToUrl = Maps.newHashMap();
   }
 
   private DefaultModelResolver(
       Set<Repository> repositories, Map<String, ModelSource> artifactToRepository) {
     this.repositories = repositories;
-    this.artifactToRepository = artifactToRepository;
+    this.artifactToUrl = artifactToRepository;
   }
 
   @Override
@@ -83,7 +83,7 @@ public class DefaultModelResolver implements ModelResolver {
           + "-" + version + ".pom");
       if (pomFileExists(urlUrl)) {
         UrlModelSource urlModelSource = new UrlModelSource(urlUrl);
-        artifactToRepository.put(Rule.name(groupId, artifactId), urlModelSource);
+        artifactToUrl.put(Rule.name(groupId, artifactId), urlModelSource);
         return urlModelSource;
       }
     } catch (MalformedURLException e) {
@@ -128,14 +128,7 @@ public class DefaultModelResolver implements ModelResolver {
 
   @Override
   public ModelResolver newCopy() {
-    return new DefaultModelResolver(repositories, artifactToRepository);
-  }
-
-  /**
-   * Returns the repository used to resolve the given artifact.
-   */
-  public ModelSource getPomUrl(String groupId, String artifactId) {
-    return artifactToRepository.get(Rule.name(groupId, artifactId));
+    return new DefaultModelResolver(repositories, artifactToUrl);
   }
 
   /**

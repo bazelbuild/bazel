@@ -109,10 +109,9 @@ public class Resolver {
               && !attributeMap.get("artifact", Type.STRING).isEmpty()) {
             rule = new Rule(attributeMap.get("artifact", Type.STRING));
           } else {
-            rule = new Rule(
-                attributeMap.get("artifact_id", Type.STRING),
-                attributeMap.get("group_id", Type.STRING),
-                attributeMap.get("version", Type.STRING));
+            rule = new Rule(attributeMap.get("group_id", Type.STRING) + ":"
+                + attributeMap.get("artifact_id", Type.STRING) + ":"
+                + attributeMap.get("version", Type.STRING));
           }
           if (attributeMap.has("repository", Type.STRING)
               && !attributeMap.get("repository", Type.STRING).isEmpty()) {

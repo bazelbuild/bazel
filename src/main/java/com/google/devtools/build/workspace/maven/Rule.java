@@ -16,6 +16,8 @@ package com.google.devtools.build.workspace.maven;
 
 import com.google.common.collect.Sets;
 
+import com.google.devtools.build.lib.bazel.repository.MavenConnector;
+import org.apache.maven.model.Dependency;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
@@ -38,9 +40,9 @@ public final class Rule {
     this.parents = Sets.newHashSet();
   }
 
-  public Rule(String artifactId, String groupId, String version)
-      throws InvalidRuleException {
-    this(groupId + ":" + artifactId + ":" + version);
+  public Rule(Dependency dependency) throws InvalidRuleException {
+    this(dependency.getGroupId() + ":" + dependency.getArtifactId() + ":"
+        + dependency.getVersion());
   }
 
   public void addParent(String parent) {
@@ -81,8 +83,20 @@ public final class Rule {
     return groupId() + ":" + artifactId() + ":" + version();
   }
 
-  public void setRepository(String repository) {
-    this.repository = repository;
+  public void setRepository(String url) throws InvalidRuleException {
+    // url is of the form repository/group/artifact/version/artifact-version.pom. Strip off
+    // everything after repository/.
+    int uriStart = url.indexOf(getUri());
+    if (uriStart == -1) {
+      throw new InvalidRuleException("Cannot find expected URI (" + getUri()
+          + ") in URL (" + url + ")");
+    }
+    this.repository = url.substring(0, uriStart);
+  }
+
+  private String getUri() {
+    return groupId().replaceAll("\\.", "/") + "/" + artifactId() + "/" + version() + "/"
+        + artifactId() + "-" + version() + ".pom";
   }
 
   /**
@@ -97,9 +111,13 @@ public final class Rule {
     builder.append("maven_jar(\n"
         + "    name = \"" + name() + "\",\n"
         + "    artifact = \"" + toMavenArtifactString() + "\",\n"
-        + (repository == null ? "" : "    repository = \"" + repository + "\",\n")
+        + (hasCustomRepository() ? "    repository = \"" + repository + "\",\n" : "")
         + ")");
     return builder.toString();
+  }
+
+  private boolean hasCustomRepository() {
+    return repository != null && !repository.equals(MavenConnector.getMavenCentral().getUrl());
   }
 
   /**

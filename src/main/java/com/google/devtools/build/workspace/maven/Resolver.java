@@ -168,13 +168,13 @@ public class Resolver {
         continue;
       }
       try {
-        Rule artifactRule = new Rule(
-            dependency.getArtifactId(), dependency.getGroupId(), dependency.getVersion());
+        Rule artifactRule = new Rule(dependency);
         boolean isNewDependency = addArtifact(artifactRule, model.toString());
         if (isNewDependency) {
           ModelSource depModelSource = modelResolver.resolveModel(
               dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
           if (depModelSource != null) {
+            artifactRule.setRepository(depModelSource.getLocation());
             resolveModelSource(depModelSource);
           } else {
             handler.handle(Event.error("Could not get a model for " + dependency));
