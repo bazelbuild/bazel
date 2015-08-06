@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import org.apache.maven.model.Repository;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
 import org.eclipse.aether.AbstractRepositoryListener;
 import org.eclipse.aether.DefaultRepositorySystemSession;
@@ -61,8 +62,17 @@ public class MavenConnector {
   /**
    * How is this not a built-in for aether?
    */
-  public static RemoteRepository getMavenCentral() {
+  public static RemoteRepository getMavenCentralRemote() {
     return new RemoteRepository.Builder(
         "central", "default", MAVEN_CENTRAL_URL).build();
   }
+
+  public static Repository getMavenCentral() {
+    Repository repository = new Repository();
+    repository.setId("central");
+    repository.setName("default");
+    repository.setUrl(MAVEN_CENTRAL_URL);
+    return repository;
+  }
+
 }

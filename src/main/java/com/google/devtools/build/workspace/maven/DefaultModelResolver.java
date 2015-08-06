@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.workspace.maven;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
+
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.ModelSource;
@@ -25,21 +27,32 @@ import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-class DefaultModelResolver implements ModelResolver {
+/**
+ * Resolver to find the repository a given Maven artifact should be fetched
+ * from.
+ */
+public class DefaultModelResolver implements ModelResolver {
 
-  private final List<Repository> repositories;
+  private final Set<Repository> repositories;
+  private final Map<String, ModelSource> artifactToRepository;
 
   public DefaultModelResolver() {
-    repositories = Lists.newArrayList();
+    repositories = Sets.newHashSet();
+    repositories.add(MavenConnector.getMavenCentral());
+    artifactToRepository = Maps.newHashMap();
   }
 
-  private DefaultModelResolver(List<Repository> repositories) {
+  private DefaultModelResolver(
+      Set<Repository> repositories, Map<String, ModelSource> artifactToRepository) {
     this.repositories = repositories;
+    this.artifactToRepository = artifactToRepository;
   }
 
   @Override
@@ -52,33 +65,49 @@ class DefaultModelResolver implements ModelResolver {
         return modelSource;
       }
     }
-    UrlModelSource modelSource = getModelSource(
-      MavenConnector.getMavenCentral().getUrl(), groupId, artifactId, version);
-    if (modelSource == null) {
-      throw new UnresolvableModelException("Could not find any repositories that knew how to "
-          + "resolve the artifact (checked " + Arrays.toString(repositories.toArray()) + ")",
-          groupId, artifactId, version);
-    }
-    return modelSource;
+    throw new UnresolvableModelException("Could not find any repositories that knew how to "
+        + "resolve " + groupId + ":" + artifactId + ":" + version + " (checked "
+        + Arrays.toString(repositories.toArray()) + ")", groupId, artifactId, version);
   }
 
+  // TODO(kchodorow): make this work with local repositories.
   private UrlModelSource getModelSource(
       String url, String groupId, String artifactId, String version)
       throws UnresolvableModelException {
     try {
-      UrlModelSource urlModelSource = new UrlModelSource(new URL(url
+      if (!url.endsWith("/")) {
+        url += "/";
+      }
+      URL urlUrl = new URL(url
           + groupId.replaceAll("\\.", "/") + "/" + artifactId + "/" + version + "/" + artifactId
-          + "-" + version + ".pom"));
-      if (urlModelSource.getInputStream().available() != 0) {
+          + "-" + version + ".pom");
+      if (pomFileExists(urlUrl)) {
+        UrlModelSource urlModelSource = new UrlModelSource(urlUrl);
+        artifactToRepository.put(Rule.name(groupId, artifactId), urlModelSource);
         return urlModelSource;
       }
     } catch (MalformedURLException e) {
-      throw new UnresolvableModelException(e.getMessage(), groupId, artifactId, version, e);
-    } catch (IOException e) {
-      // The artifact could not be fetched from the current repo, just move on and check the next
-      // one.
+      throw new UnresolvableModelException("Bad URL " + url + ": " + e.getMessage(), groupId,
+          artifactId, version, e);
     }
     return null;
+  }
+
+  private boolean pomFileExists(URL url) {
+    try {
+      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("HEAD");
+      connection.setInstanceFollowRedirects(true);
+      connection.connect();
+
+      int code = connection.getResponseCode();
+      if (code == 200) {
+        return true;
+      }
+    } catch (IOException e) {
+      // Something went wrong, fall through.
+    }
+    return false;
   }
 
   @Override
@@ -99,6 +128,25 @@ class DefaultModelResolver implements ModelResolver {
 
   @Override
   public ModelResolver newCopy() {
-    return new DefaultModelResolver(repositories);
+    return new DefaultModelResolver(repositories, artifactToRepository);
   }
+
+  /**
+   * Returns the repository used to resolve the given artifact.
+   */
+  public ModelSource getPomUrl(String groupId, String artifactId) {
+    return artifactToRepository.get(Rule.name(groupId, artifactId));
+  }
+
+  /**
+   * Adds a user-specified repository to the list.
+   */
+  public void addUserRepository(String url) throws InvalidRepositoryException {
+    Repository repository = new Repository();
+    repository.setUrl(url);
+    repository.setId("user-defined repository");
+    repository.setName("default");
+    addRepository(repository);
+  }
+
 }

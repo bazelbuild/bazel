@@ -21,5 +21,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/workspace/maven",
         "//src/main/java/com/google/devtools/build/workspace/maven:rule",
         "//third_party:guava",
+        "//third_party:maven_model",
     ],
 )

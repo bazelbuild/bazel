@@ -48,4 +48,14 @@ public class GenerateWorkspaceOptions extends OptionsBase {
       defaultValue = ""
   )
   public List<String> mavenProjects;
+
+  @Option(
+      name = "output_dir",
+      abbrev = 'o',
+      help = "Output directory to store the WORKSPACE and BUILD files. If unspecified, a temporary"
+          + " directory is used.",
+      defaultValue = ""
+  )
+  public String outputDir;
+
 }

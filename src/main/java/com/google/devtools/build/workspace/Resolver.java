@@ -32,7 +32,12 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Rule;
+
+import org.apache.maven.model.building.ModelSource;
+import org.apache.maven.model.resolution.InvalidRepositoryException;
+import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.IOException;
 import java.util.List;
@@ -96,6 +101,7 @@ public class Resolver {
         com.google.devtools.build.lib.packages.Rule workspaceRule =
             externalPackage.getRepositoryInfo(repositoryName);
 
+        DefaultModelResolver modelResolver = resolver.getModelResolver();
         AttributeMap attributeMap = AggregatingAttributeMapper.of(workspaceRule);
         Rule rule;
         try {
@@ -108,11 +114,26 @@ public class Resolver {
                 attributeMap.get("group_id", Type.STRING),
                 attributeMap.get("version", Type.STRING));
           }
-        } catch (Rule.InvalidRuleException e) {
-          handler.handle(Event.error(location, e.getMessage()));
+          if (attributeMap.has("repository", Type.STRING)
+              && !attributeMap.get("repository", Type.STRING).isEmpty()) {
+            modelResolver.addUserRepository(attributeMap.get("repository", Type.STRING));
+            rule.setRepository(attributeMap.get("repository", Type.STRING));
+          }
+        } catch (Rule.InvalidRuleException | InvalidRepositoryException e) {
+          handler.handle(Event.error(location, "Couldn't get attribute: " + e.getMessage()));
           return;
         }
-        resolver.getArtifactDependencies(rule, location);
+        ModelSource modelSource;
+
+        try {
+          modelSource = modelResolver.resolveModel(
+              rule.groupId(), rule.artifactId(), rule.version());
+        } catch (UnresolvableModelException e) {
+          handler.handle(Event.error(
+              "Could not resolve model for " + target + ": " + e.getMessage()));
+          continue;
+        }
+        resolver.resolveModelSource(modelSource);
       } else {
         handler.handle(Event.warn(location, "Cannot fetch transitive dependencies for " + target
             + " yet, skipping"));

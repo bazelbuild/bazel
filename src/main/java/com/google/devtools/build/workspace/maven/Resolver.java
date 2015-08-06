@@ -16,58 +16,51 @@ package com.google.devtools.build.workspace.maven;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.io.Files;
-import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.vfs.FileSystem;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
+import org.apache.maven.model.building.DefaultModelBuilder;
 import org.apache.maven.model.building.DefaultModelBuilderFactory;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.DefaultModelProcessor;
+import org.apache.maven.model.building.FileModelSource;
 import org.apache.maven.model.building.ModelBuildingException;
 import org.apache.maven.model.building.ModelBuildingResult;
+import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.locator.DefaultModelLocator;
 import org.apache.maven.model.resolution.InvalidRepositoryException;
-import org.apache.maven.model.resolution.ModelResolver;
-import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.RepositorySystemSession;
-import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.graph.Dependency;
-import org.eclipse.aether.resolution.ArtifactDescriptorException;
-import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
-import org.eclipse.aether.resolution.ArtifactDescriptorResult;
+import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * Resolves Maven dependencies.
  */
 public class Resolver {
-  private final MavenConnector connector;
-  private final File localRepository;
-  private final FileSystem fileSystem;
+  private static final String COMPILE_SCOPE = "compile";
+
   private final EventHandler handler;
+  private final DefaultModelBuilder modelBuilder;
+  private final DefaultModelResolver modelResolver;
 
   private final List<String> headers;
   // Mapping of maven_jar name to Rule.
   private final Map<String, Rule> deps;
 
-  public Resolver(EventHandler handler, FileSystem fileSystem) {
+  public Resolver(EventHandler handler) {
     this.handler = handler;
-    this.fileSystem = fileSystem;
-    this.localRepository = Files.createTempDir();
-    this.connector = new MavenConnector(localRepository.getPath());
-    headers = Lists.newArrayList();
-    deps = Maps.newHashMap();
+    this.headers = Lists.newArrayList();
+    this.deps = Maps.newHashMap();
+    this.modelBuilder = new DefaultModelBuilderFactory().newInstance();
+    this.modelResolver = new DefaultModelResolver();
   }
 
   /**
@@ -108,46 +101,56 @@ public class Resolver {
     headers.add(header);
   }
 
+  public DefaultModelResolver getModelResolver() {
+    return modelResolver;
+  }
+
   /**
-   * Remove the temporary directory storing pom files.
+   * Given a local path to a Maven project, this attempts to find the transitive dependencies of
+   * the project.
+   * @param projectPath The path to search for Maven projects.
    */
-  public void cleanup() {
-    try {
-      for (File file : Files.fileTreeTraverser().postOrderTraversal(localRepository)) {
-        java.nio.file.Files.delete(file.toPath());
-      }
-    } catch (IOException e) {
-      handler.handle(Event.error(Location.fromFile(fileSystem.getPath(localRepository.getPath())),
-          "Could not create local repository directory " + localRepository + ": "
-              + e.getMessage()));
+  public void resolvePomDependencies(String projectPath) {
+    DefaultModelProcessor processor = new DefaultModelProcessor();
+    processor.setModelLocator(new DefaultModelLocator());
+    processor.setModelReader(new DefaultModelReader());
+    File pom = processor.locatePom(new File(projectPath));
+    addHeader(pom.getAbsolutePath());
+    Model model = resolveModelSource(new FileModelSource(pom));
+
+    // For the top-level pom _only_, resolve all of its submodules.
+    resolveSubmodules(model, pom);
+  }
+
+  /**
+   * This calls resolvePomDependencies on each submodule of the model, thus filling in the
+   * transitive submodules' dependencies as well as the main project's.
+   */
+  private void resolveSubmodules(Model model, File pom) {
+    for (String module : model.getModules()) {
+      resolvePomDependencies(pom.getParent() + "/" + module);
     }
   }
 
   /**
-   * Resolves all dependencies from a pom.xml file in the given directory.
+   * Resolves all dependencies from a given "model source," which could be either a URL or a local
+   * file.
+   * @return the model.
    */
-  public void resolvePomDependencies(String project) {
-    DefaultModelProcessor processor = new DefaultModelProcessor();
-    processor.setModelLocator(new DefaultModelLocator());
-    processor.setModelReader(new DefaultModelReader());
-    File pom = processor.locatePom(new File(project));
-    Location pomLocation = Location.fromFile(fileSystem.getPath(pom.getPath()));
-    addHeader(pom.getAbsolutePath());
-
-    DefaultModelBuilderFactory factory = new DefaultModelBuilderFactory();
+  @Nullable
+  public Model resolveModelSource(ModelSource modelSource) {
     DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
-    ModelResolver modelResolver = new DefaultModelResolver();
     request.setModelResolver(modelResolver);
-    request.setPomFile(pom);
+    request.setModelSource(modelSource);
     Model model;
     try {
-      ModelBuildingResult result = factory.newInstance().build(request);
+      ModelBuildingResult result = modelBuilder.build(request);
       model = result.getEffectiveModel();
     } catch (ModelBuildingException | IllegalArgumentException e) {
       // IllegalArg can be thrown if the parent POM cannot be resolved.
-      handler.handle(Event.error(pomLocation,
-          "Unable to resolve Maven model from " + pom + ": " + e.getMessage()));
-      return;
+      handler.handle(Event.error("Unable to resolve Maven model from " + modelSource.getLocation()
+          + ": " + e.getMessage()));
+      return null;
     }
 
     for (Repository repo : model.getRepositories()) {
@@ -156,68 +159,40 @@ public class Resolver {
       } catch (InvalidRepositoryException e) {
         handler.handle(Event.error("Unable to add repository " + repo.getName()
             + " (" + repo.getId() + "," + repo.getUrl() + ")"));
-        return;
+        return model;
       }
-    }
-
-    for (String module : model.getModules()) {
-      resolvePomDependencies(project + "/" + module);
     }
 
     for (org.apache.maven.model.Dependency dependency : model.getDependencies()) {
+      if (!dependency.getScope().equals(COMPILE_SCOPE)) {
+        continue;
+      }
       try {
         Rule artifactRule = new Rule(
             dependency.getArtifactId(), dependency.getGroupId(), dependency.getVersion());
-        addArtifact(artifactRule, model.toString());
-        getArtifactDependencies(artifactRule, pomLocation);
-      } catch (Rule.InvalidRuleException e) {
-        handler.handle(Event.error(pomLocation, e.getMessage()));
-      }
-    }
-  }
-
-  /**
-   * Adds transitive dependencies of the given artifact.
-   */
-  public void getArtifactDependencies(Rule artifactRule, Location location) {
-    Artifact artifact = artifactRule.getArtifact();
-
-    RepositorySystem system = connector.newRepositorySystem();
-    RepositorySystemSession session = connector.newRepositorySystemSession(system);
-
-    ArtifactDescriptorRequest descriptorRequest = new ArtifactDescriptorRequest();
-    descriptorRequest.setArtifact(artifact);
-    descriptorRequest.addRepository(MavenConnector.getMavenCentral());
-
-    ArtifactDescriptorResult descriptorResult;
-    try {
-      descriptorResult = system.readArtifactDescriptor(session, descriptorRequest);
-      if (descriptorResult == null) {
-        return;
-      }
-    } catch (ArtifactDescriptorException e) {
-      handler.handle(Event.error(location, e.getMessage()));
-      return;
-    }
-
-    for (Dependency dependency : descriptorResult.getDependencies()) {
-      Artifact depArtifact = dependency.getArtifact();
-      try {
-        Rule rule = new Rule(
-            depArtifact.getArtifactId(), depArtifact.getGroupId(), depArtifact.getVersion());
-        if (addArtifact(rule, artifactRule.toMavenArtifactString())) {
-          getArtifactDependencies(rule, location);
+        boolean isNewDependency = addArtifact(artifactRule, model.toString());
+        if (isNewDependency) {
+          ModelSource depModelSource = modelResolver.resolveModel(
+              dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
+          if (depModelSource != null) {
+            resolveModelSource(depModelSource);
+          } else {
+            handler.handle(Event.error("Could not get a model for " + dependency));
+          }
         }
-      } catch (Rule.InvalidRuleException e) {
-        handler.handle(Event.error(location, e.getMessage()));
+      } catch (UnresolvableModelException | Rule.InvalidRuleException e) {
+        handler.handle(Event.error("Could not resolve dependency " + dependency.getGroupId()
+            + ":" + dependency.getArtifactId() + ":" + dependency.getVersion() + ": "
+            + e.getMessage()));
       }
     }
+    return model;
   }
 
   /**
-   * Adds the artifact to the list of deps, if it is not already there. Returns if the artifact
-   * was already in the list. If the artifact was in the list at a different version, adds an
-   * error event to the event handler.
+   * Adds the artifact to the map of deps, if it is not already there. Returns if the artifact
+   * was newly added. If the artifact was in the list at a different version, adds an annotation
+   * about the desired version.
    */
   private boolean addArtifact(Rule dependency, String parent) {
     String artifactName = dependency.name();

@@ -14,19 +14,20 @@
 
 package com.google.devtools.build.workspace.maven;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
-import java.util.List;
+import java.util.Set;
 
 /**
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
 public final class Rule {
   private final Artifact artifact;
-  private final List<String> parents;
+  private final Set<String> parents;
+  private String repository;
 
   public Rule(String artifactStr) throws InvalidRuleException {
     try {
@@ -34,7 +35,7 @@ public final class Rule {
     } catch (IllegalArgumentException e) {
       throw new InvalidRuleException(e.getMessage());
     }
-    this.parents = Lists.newArrayList();
+    this.parents = Sets.newHashSet();
   }
 
   public Rule(String artifactId, String groupId, String version)
@@ -62,7 +63,14 @@ public final class Rule {
    * A unique name for this artifact to use in maven_jar's name attribute.
    */
   String name() {
-    return (groupId() + "/" + artifactId()).replaceAll("\\.", "/");
+    return Rule.name(groupId(), artifactId());
+  }
+
+  /**
+   * A unique name for this artifact to use in maven_jar's name attribute.
+   */
+  public static String name(String groupId, String artifactId) {
+    return (groupId + "/" + artifactId).replaceAll("\\.", "/");
   }
 
   public Artifact getArtifact() {
@@ -71,6 +79,10 @@ public final class Rule {
 
   public String toMavenArtifactString() {
     return groupId() + ":" + artifactId() + ":" + version();
+  }
+
+  public void setRepository(String repository) {
+    this.repository = repository;
   }
 
   /**
@@ -85,6 +97,7 @@ public final class Rule {
     builder.append("maven_jar(\n"
         + "    name = \"" + name() + "\",\n"
         + "    artifact = \"" + toMavenArtifactString() + "\",\n"
+        + (repository == null ? "" : "    repository = \"" + repository + "\",\n")
         + ")");
     return builder.toString();
   }

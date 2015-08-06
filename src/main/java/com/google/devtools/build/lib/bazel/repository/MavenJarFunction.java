@@ -158,7 +158,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
               "user-defined repository " + repositories.size(), "default", repositoryUrl).build());
         }
       } else {
-        this.repositories = ImmutableList.of(MavenConnector.getMavenCentral());
+        this.repositories = ImmutableList.of(MavenConnector.getMavenCentralRemote());
       }
     }
 
