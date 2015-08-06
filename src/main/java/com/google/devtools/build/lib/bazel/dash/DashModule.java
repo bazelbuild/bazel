@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
+import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.ByteString;
 
@@ -59,6 +59,7 @@ public class DashModule extends BlazeModule {
   private Sendable sender;
   private BlazeRuntime runtime;
   private final ExecutorService executorService;
+  private BuildData optionsBuildData;
 
   public DashModule() {
     // Make sure sender != null before we hop on the event bus.
@@ -91,21 +92,25 @@ public class DashModule extends BlazeModule {
   public void handleOptions(OptionsProvider optionsProvider) {
     DashOptions options = optionsProvider.getOptions(DashOptions.class);
     sender = (options == null || !options.useDash)
-        ? new NoOpSender()
-        : new Sender(options.url, runtime, executorService);
+      ? new NoOpSender() : new Sender(options.url, runtime, executorService);
+    if (optionsBuildData != null) {
+      sender.send("options", optionsBuildData);
+    }
+    optionsBuildData = null;
   }
 
   @Subscribe
   public void gotOptions(GotOptionsEvent event) {
     BuildData.Builder builder = BuildData.newBuilder();
     BuildData.CommandLine.Builder cmdLineBuilder = BuildData.CommandLine.newBuilder();
-    for (OptionValueDescription option : event.getStartupOptions().asListOfEffectiveOptions()) {
+    for (UnparsedOptionValueDescription option :
+        event.getStartupOptions().asListOfUnparsedOptions()) {
       cmdLineBuilder.addStartupOptions(getOption(option));
     }
 
-    for (OptionValueDescription option : event.getOptions().asListOfEffectiveOptions()) {
+    for (UnparsedOptionValueDescription option : event.getOptions().asListOfUnparsedOptions()) {
       if (option.getName().equals("client_env")) {
-        String env[] = option.getValue().toString().split("=");
+        String env[] = option.getUnparsedValue().split("=");
         if (env.length == 1) {
           builder.addClientEnv(
               EnvironmentVar.newBuilder().setName(env[0]).setValue("true").build());
@@ -122,7 +127,10 @@ public class DashModule extends BlazeModule {
       cmdLineBuilder.addResidue(residue);
     }
     builder.setCommandLine(cmdLineBuilder.build());
-    sender.send("options", builder.build());
+
+    // This can be called before handleOptions, so the BuildData is stored until we know if it
+    // should be sent somewhere.
+    optionsBuildData = builder.build();
   }
 
   @Subscribe
@@ -187,13 +195,13 @@ public class DashModule extends BlazeModule {
     executorService.shutdownNow();
   }
 
-  private BuildData.CommandLine.Option getOption(OptionValueDescription option) {
+  private BuildData.CommandLine.Option getOption(UnparsedOptionValueDescription option) {
     Option.Builder optionBuilder = Option.newBuilder();
     optionBuilder.setName(option.getName());
     if (option.getSource() != null) {
       optionBuilder.setSource(option.getSource());
     }
-    Object value = option.getValue();
+    Object value = option.getUnparsedValue();
     if (value != null) {
       if (value instanceof Iterable<?>) {
         for (Object v : ((Iterable<?>) value)) {

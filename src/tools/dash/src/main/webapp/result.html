@@ -115,9 +115,17 @@
         <div id="command-line" class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
             <h1>bazel command line</h1>
             <div>
-            <pre>
-bazel #foreach( $option in $build_data.getCommandLine().getStartupOptionsList())--$option #end $build_data.getCommandName() #foreach( $option in $build_data.getCommandLine().getOptionsList())--$option #end #foreach( $residue in $build_data.getCommandLine().getResidueList())$residue #end
-            </pre>
+            <code>
+bazel
+#foreach( $option in $build_data.getCommandLine().getStartupOptionsList())
+  #foreach ($value in $option.getValueList())--$option.getName()=$value #end
+#end
+$build_data.getCommandName()
+#foreach( $option in $build_data.getCommandLine().getOptionsList())
+  #foreach ($value int $option.getValueList())--$option.getName()=$value #end
+#end
+#foreach( $residue in $build_data.getCommandLine().getResidueList())$residue #end
+            </code>
             </div>
         </div>
 
