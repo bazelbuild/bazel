@@ -62,9 +62,27 @@ message CToolchain {
   // ... will get expanded to -I /to/path1 -I /to/path2 ... for each
   // include_path /to/pathN.
   //
+  // Flag groups can be nested; if they are, the flag group must only contain
+  // other flag groups (no flags) so the order is unambiguously specified.
+  // Nested flag groups require build variables of nested list types, and
+  // will be expanded recursively.
+  //
+  // For example:
+  // flag_group {
+  //   flag_group { flag: '--start-lib' }
+  //   flag_group { flag: '%{object_files}' }
+  //   flag_group { flag: '--end-lib' }
+  // }
+  // ... will get expanded to
+  //   --start-lib a1.o a2.o ... --end-lib --start-lib b1.o b2.o .. --end-lib
+  //   with %{object_files} being a variable of nested list type
+  //   [['a1.o', 'a2.o', ...], ['b1.o', 'b2.o', ...], ...].
+  //
   // TODO(bazel-team): Write more elaborate documentation and add a link to it.
   message FlagGroup {
     repeated string flag = 1;
+
+    repeated FlagGroup flag_group = 2;
   }
 
   // A set of features; used to support logical 'and' when specifying feature
