@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
 
-import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -50,41 +49,6 @@ public class ExternalPackage extends Package {
    */
   public Rule getRepositoryInfo(RepositoryName repositoryName) {
     return repositoryMap.get(repositoryName);
-  }
-
-  /**
-   * Checks if the given package is //external.
-   */
-  public static boolean isExternal(Package pkg) {
-    return pkg != null && pkg.getName().equals(NAME);
-  }
-
-  /**
-   * Holder for a binding's actual label and location.
-   */
-  public static class Binding implements Serializable {
-    private final Label actual;
-    private final Location location;
-
-    public Binding(Label actual, Location location) {
-      this.actual = actual;
-      this.location = location;
-    }
-
-    public Label getActual() {
-      return actual;
-    }
-
-    public Location getLocation() {
-      return location;
-    }
-
-    /**
-     * Checks if the label is bound, i.e., starts with {@code //external:}.
-     */
-    public static boolean isBoundLabel(Label label) {
-      return label.getPackageName().equals(NAME);
-    }
   }
 
   /**
