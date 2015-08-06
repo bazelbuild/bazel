@@ -393,10 +393,12 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   private static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
+    private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
       this.actions = ImmutableSet.copyOf(flagSet.getActionList());
+      this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
       ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
       for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
         builder.add(new FlagGroup(flagGroup));
@@ -408,6 +410,11 @@ public class CcToolchainFeatures implements Serializable {
      * Adds the flags that apply to the given {@code action} to {@code commandLine}.
      */
     private void expandCommandLine(String action, Variables variables, List<String> commandLine) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable)) {
+          return;
+        }
+      }
       if (!actions.contains(action)) {
         return;
       }
@@ -737,6 +744,13 @@ public class CcToolchainFeatures implements Serializable {
         return new FixedView(viewMap);
       }
       return new NestedView(viewMap, sequenceName, sequenceVariables.get(sequenceName));
+    }
+
+    /**
+     * Returns whether {@code variable} is set.
+     */
+    private boolean isAvailable(String variable) {
+      return variables.containsKey(variable) || sequenceVariables.containsKey(variable);
     }
   }
   
