@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfo
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -60,6 +61,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -156,10 +158,10 @@ public final class SkyframeBuildView {
   /**
    * Analyzes the specified targets using Skyframe as the driving framework.
    *
-   * @return the configured targets that should be built
+   * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
-  public Collection<ConfiguredTarget> configureTargets(List<ConfiguredTargetKey> values,
-      EventBus eventBus, boolean keepGoing)
+  public Pair<Collection<ConfiguredTarget>, WalkableGraph> configureTargets(
+      List<ConfiguredTargetKey> values, EventBus eventBus, boolean keepGoing)
           throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ConfiguredTargetValue> result;
@@ -184,7 +186,7 @@ public final class SkyframeBuildView {
 
     if (!result.hasError() && badActions.isEmpty()) {
       setDeserializedArtifactOwners();
-      return goodCts;
+      return Pair.of(goodCts, result.getWalkableGraph());
     }
 
     // --nokeep_going so we fail with an exception for the first error.
@@ -289,7 +291,7 @@ public final class SkyframeBuildView {
       }
     }
     setDeserializedArtifactOwners();
-    return goodCts;
+    return Pair.of(goodCts, result.getWalkableGraph());
   }
 
   @Nullable
