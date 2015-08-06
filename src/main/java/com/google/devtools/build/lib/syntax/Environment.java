@@ -315,6 +315,7 @@ public class Environment {
    * Registers a function with namespace to this global environment.
    */
   public void registerFunction(Class<?> nameSpace, String name, BaseFunction function) {
+    nameSpace = getCanonicalRepresentation(nameSpace);
     Preconditions.checkArgument(parent == null);
     if (!functions.containsKey(nameSpace)) {
       functions.put(nameSpace, new HashMap<String, BaseFunction>());
@@ -323,6 +324,7 @@ public class Environment {
   }
 
   private Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
+    nameSpace = getCanonicalRepresentation(nameSpace);
     if (disabledNameSpaces.contains(nameSpace)
         || (parent != null && parent.disabledNameSpaces.contains(nameSpace))) {
       return null;
@@ -332,6 +334,17 @@ public class Environment {
       topLevel = topLevel.parent;
     }
     return topLevel.functions.get(nameSpace);
+  }
+
+  /**
+   * Returns the canonical representation of the given class, i.e. the super class for which any
+   * functions were registered.
+   *
+   * <p>Currently, this is only necessary for mapping the different subclasses of {@link
+   * java.util.Map} to the interface.
+   */
+  private Class<?> getCanonicalRepresentation(Class<?> clazz) {
+    return Map.class.isAssignableFrom(clazz) ? Map.class : clazz;
   }
 
   /**
