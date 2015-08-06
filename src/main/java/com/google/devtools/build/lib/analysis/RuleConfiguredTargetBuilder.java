@@ -396,11 +396,7 @@ public final class RuleConfiguredTargetBuilder {
         checkSkylarkObjectSafe(entry.getValue());
       }
       return;
-    } else if (object instanceof ClassObject && !(object instanceof BuildConfiguration)) {
-      // We had to make BuildConfiguration implement ClassObject in order to allow access to
-      // individual fragments as fields.
-      // However, we don't want to expose it to the outside world, thus forcing us to add this
-      // explicit check here.
+    } else if (object instanceof ClassObject) {
       ClassObject struct = (ClassObject) object;
       for (String key : struct.getKeys()) {
         checkSkylarkObjectSafe(struct.getValue(key));
