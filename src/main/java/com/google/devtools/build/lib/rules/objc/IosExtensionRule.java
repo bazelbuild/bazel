@@ -31,6 +31,7 @@ public class IosExtensionRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class)
         /*<!-- #BLAZE_RULE(ios_extension).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.ipa</code>: the extension bundle as an <code>.ipa</code>

@@ -31,6 +31,7 @@ public class ObjcImportRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_import).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which

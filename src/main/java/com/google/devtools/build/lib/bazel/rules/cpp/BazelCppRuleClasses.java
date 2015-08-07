@@ -699,6 +699,7 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .requiresConfigurationFragments(CppConfiguration.class)
           .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)
           .override(attr("linkstatic", BOOLEAN).value(false))
           .override(attr("stamp", TRISTATE).value(TriState.NO))

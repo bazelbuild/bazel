@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBin
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
 /**
  * Rule definition for the py_test rule.
@@ -33,6 +34,7 @@ public final class BazelPyTestRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .override(attr("testonly", BOOLEAN).value(true)
             .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(py_test).ATTRIBUTE(stamp) -->

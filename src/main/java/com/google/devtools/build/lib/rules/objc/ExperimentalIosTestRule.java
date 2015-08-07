@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -47,6 +48,7 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class)
         /*<!-- #BLAZE_RULE(experimental_ios_test).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.ipa</code>: the test bundle as an

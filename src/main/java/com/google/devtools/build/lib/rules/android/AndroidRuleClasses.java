@@ -314,6 +314,7 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
+          .requiresConfigurationFragments(AndroidConfiguration.class)
           .setUndocumented()
           // This is the Proguard that comes from the --proguard_top attribute.
           .add(attr(":proguard", LABEL).cfg(HOST).value(PROGUARD).exec())

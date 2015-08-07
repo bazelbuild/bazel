@@ -35,6 +35,7 @@ public class IosApplicationRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class)
         /*<!-- #BLAZE_RULE(ios_application).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>

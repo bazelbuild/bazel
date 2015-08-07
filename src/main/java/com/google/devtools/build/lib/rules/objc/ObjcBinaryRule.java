@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 
 /**
  * Rule definition for objc_binary.
@@ -35,6 +36,7 @@ public class ObjcBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
