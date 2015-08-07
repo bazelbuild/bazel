@@ -39,8 +39,6 @@ public class BuildFileAST extends ASTNode {
 
   private ImmutableSet<PathFragment> loads;
 
-  private ImmutableSet<String> subincludes;
-
   private ImmutableSet<Label> includes;
 
   /**
@@ -70,30 +68,6 @@ public class BuildFileAST extends ASTNode {
     } else {
       setLocation(Location.fromPathFragment(lexer.getFilename()));
     }
-  }
-
-  /** Collects labels from all subinclude statements */
-  private ImmutableSet<String> fetchSubincludes(List<Statement> stmts) {
-    ImmutableSet.Builder<String> subincludes = new ImmutableSet.Builder<>();
-    for (Statement stmt : stmts) {
-      // The code below matches:  subinclude("literal string")
-      if (!(stmt instanceof ExpressionStatement)) {
-        continue;
-      }
-      Expression expr = ((ExpressionStatement) stmt).getExpression();
-      if (!(expr instanceof FuncallExpression)) {
-        continue;
-      }
-      FuncallExpression call = (FuncallExpression) expr;
-      if (!call.getFunction().getName().equals("subinclude") || call.getArguments().size() != 1) {
-        continue;
-      }
-      Expression arg = call.getArguments().get(0).getValue();
-      if (arg instanceof StringLiteral) {
-        subincludes.add(((StringLiteral) arg).getValue());
-      }
-    }
-    return subincludes.build();
   }
 
   private ImmutableSet<Label> fetchIncludes(List<Statement> stmts) {
@@ -173,16 +147,6 @@ public class BuildFileAST extends ASTNode {
       loads = fetchLoads(stmts);
     }
     return loads;
-  }
-
-  /**
-   * Returns a set of subincludes in this BUILD file.
-   */
-  public synchronized ImmutableSet<String> getSubincludes() {
-    if (subincludes == null) {
-      subincludes = fetchSubincludes(stmts);
-    }
-    return subincludes;
   }
 
   public synchronized ImmutableSet<Label> getIncludes() {

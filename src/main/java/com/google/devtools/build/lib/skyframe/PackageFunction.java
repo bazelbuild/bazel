@@ -458,13 +458,6 @@ public class PackageFunction implements SkyFunction {
           packageId, e.getMessage()), Transience.TRANSIENT);
     }
 
-    SkylarkImportResult importResult =
-        discoverSkylarkImports(
-            buildFilePath, buildFileFragment, packageId, env, inputSource, preludeStatements);
-    if (importResult == null) {
-      return null;
-    }
-
     Package.LegacyBuilder legacyPkgBuilder =
         loadPackage(
             externalPkg,
@@ -472,9 +465,13 @@ public class PackageFunction implements SkyFunction {
             replacementContents,
             packageId,
             buildFilePath,
+            buildFileFragment,
             defaultVisibility,
             preludeStatements,
-            importResult);
+            env);
+    if (legacyPkgBuilder == null) {
+      return null;
+    }
     legacyPkgBuilder.buildPartial();
     try {
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
@@ -518,6 +515,9 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
+  /**
+   * Returns true if includes referencing a different repository have already been computed.
+   */
   private boolean fetchIncludeRepositoryDeps(Environment env, BuildFileAST ast) {
     boolean ok = true;
     for (Label label : ast.getIncludes()) {
@@ -534,7 +534,7 @@ public class PackageFunction implements SkyFunction {
     return ok;
   }
 
-  // Why does this need both buildFilePath and buildFileFragment?
+  // TODO(bazel-team): this should take the AST so we don't parse the file twice.
   @Nullable
   private SkylarkImportResult discoverSkylarkImports(
       Path buildFilePath,
@@ -546,13 +546,15 @@ public class PackageFunction implements SkyFunction {
       throws PackageFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildFileAST buildFileAST =
-        BuildFileAST.parseBuildFile(inputSource, preludeStatements, eventHandler, null, true);
+        BuildFileAST.parseBuildFile(
+            inputSource,
+            preludeStatements,
+            eventHandler,
+            /* package locator */ null,
+            /* parse python */ false);
     SkylarkImportResult importResult;
     boolean includeRepositoriesFetched;
     if (eventHandler.hasErrors()) {
-      // In case of Python preprocessing, errors have already been reported (see checkSyntax).
-      // In other cases, errors will be reported later.
-      // TODO(bazel-team): maybe we could get rid of checkSyntax and always report errors here?
       importResult =
           new SkylarkImportResult(
               ImmutableMap.<PathFragment, SkylarkEnvironment>of(), ImmutableList.<Label>of());
@@ -570,6 +572,10 @@ public class PackageFunction implements SkyFunction {
     return importResult;
   }
 
+  /**
+   * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet,
+   * returns null.
+   */
   @Nullable
   private SkylarkImportResult fetchImportsFromBuildFile(
       Path buildFilePath,
@@ -762,16 +768,20 @@ public class PackageFunction implements SkyFunction {
   /**
    * Constructs a {@link Package} object for the given package using legacy package loading.
    * Note that the returned package may be in error.
+   *
+   * <p>May return null if the computation has to be restarted.
    */
+  @Nullable
   private Package.LegacyBuilder loadPackage(
       Package externalPkg,
       ParserInputSource inputSource,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
+      PathFragment buildFileFragment,
       RuleVisibility defaultVisibility,
       List<Statement> preludeStatements,
-      SkylarkImportResult importResult)
+      Environment env)
       throws InterruptedException, PackageFunctionException {
     ParserInputSource replacementSource = replacementContents == null ? null
         : ParserInputSource.create(replacementContents, buildFilePath.asFragment());
@@ -786,6 +796,19 @@ public class PackageFunction implements SkyFunction {
             ? packageFactory.preprocess(packageId, buildFilePath, inputSource, globber,
                 localReporter)
                 : Preprocessor.Result.noPreprocessing(replacementSource);
+
+        SkylarkImportResult importResult =
+            discoverSkylarkImports(
+                buildFilePath,
+                buildFileFragment,
+                packageId,
+                env,
+                preprocessingResult.result,
+                preludeStatements);
+        if (importResult == null) {
+          return null;
+        }
+
         pkgBuilder = packageFactory.createPackageFromPreprocessingResult(externalPkg, packageId,
             buildFilePath, preprocessingResult, localReporter.getEvents(), preludeStatements,
             importResult.importMap, importResult.fileDependencies, packageLocator,
