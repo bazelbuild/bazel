@@ -283,35 +283,57 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     }
   }
 
-  @Override
-  public synchronized Artifact resolveSourceArtifact(PathFragment execPath) {
+  /**
+   * Returns an {@link Artifact} with exec path formed by composing {@param baseExecPath} and
+   * {@param relativePath} (via {@code baseExecPath.getRelative(relativePath)} if baseExecPath is
+   * not null). That Artifact will have root determined by the package roots of this factory if it
+   * lives in a subpackage distinct from that of baseExecPath, and {@param baseRoot} otherwise.
+   */
+  public synchronized Artifact resolveSourceArtifactWithAncestor(
+      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot) {
+    Preconditions.checkState(
+        (baseExecPath == null) == (baseRoot == null),
+        "%s %s %s",
+        relativePath,
+        baseExecPath,
+        baseRoot);
+    PathFragment execPath =
+        baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
     execPath = execPath.normalize();
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
-    if (artifact != null) {
-      return artifact;
-    }
     if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       return null;
+    }
+    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    if (artifact != null) {
+      return artifact;
     }
     // Don't create an artifact if it's derived.
     if (findDerivedRoot(execRoot.getRelative(execPath)) != null) {
       return null;
     }
 
-    return createArtifactIfNotValid(findSourceRoot(execPath), execPath);
+    return createArtifactIfNotValid(findSourceRoot(execPath, baseExecPath, baseRoot), execPath);
   }
 
-  private Root findSourceRoot(PathFragment execPath) {
-    // Probe the known packages to find the longest package prefix.
-    for (PathFragment dir = execPath.getParentDirectory(); dir != null;
+  @Nullable
+  private Root findSourceRoot(
+      PathFragment execPath, PathFragment baseExecPath, @Nullable Root baseRoot) {
+    // Probe the known packages to find the longest package prefix up until the base.
+    for (PathFragment dir = execPath.getParentDirectory();
+        !Objects.equals(dir, baseExecPath);
         dir = dir.getParentDirectory()) {
       Root sourceRoot = packageRoots.get(PackageIdentifier.createInDefaultRepo(dir));
       if (sourceRoot != null) {
         return sourceRoot;
       }
     }
-    return null;
+    return baseRoot;
+  }
+
+  @Override
+  public Artifact resolveSourceArtifact(PathFragment execPath) {
+    return resolveSourceArtifactWithAncestor(execPath, null, null);
   }
 
   @Override
