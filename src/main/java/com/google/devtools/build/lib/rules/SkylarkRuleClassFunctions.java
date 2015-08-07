@@ -33,6 +33,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -220,15 +222,18 @@ public class SkylarkRuleClassFunctions {
             + "there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "output_to_genfiles", type = Boolean.class, defaultValue = "False",
             doc = "If true, the files will be generated in the genfiles directory instead of the "
-            + "bin directory. This is used for compatibility with existing rules.")},
+            + "bin directory. This is used for compatibility with existing rules."),
+        @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
+           defaultValue = "[]",
+           doc = "List of names of configuration fragments that the rule requires.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
       @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
       // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
-      public BaseFunction invoke(BaseFunction implementation, Boolean test,
-          Object attrs, Object implicitOutputs, Boolean executable, Boolean outputToGenfiles,
-          FuncallExpression ast, Environment funcallEnv)
-           throws EvalException, ConversionException {
+      public BaseFunction invoke(BaseFunction implementation, Boolean test, Object attrs,
+          Object implicitOutputs, Boolean executable, Boolean outputToGenfiles,
+          SkylarkList fragments, FuncallExpression ast, Environment funcallEnv)
+          throws EvalException, ConversionException {
 
         Preconditions.checkState(funcallEnv instanceof SkylarkEnvironment);
         RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
@@ -271,6 +276,12 @@ public class SkylarkRuleClassFunctions {
 
         if (outputToGenfiles) {
           builder.setOutputToGenfiles();
+        }
+
+        if (!fragments.isEmpty()) {
+          builder.requiresConfigurationFragments(
+              new SkylarkModuleNameResolver(),
+              Iterables.toArray(castList(fragments, String.class), String.class));
         }
 
         builder.setConfiguredTargetFunction(implementation);

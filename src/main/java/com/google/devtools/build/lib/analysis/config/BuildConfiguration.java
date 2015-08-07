@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -1121,11 +1122,12 @@ public final class BuildConfiguration {
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfVisibleFragments() {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
+    SkylarkModuleNameResolver resolver = new SkylarkModuleNameResolver();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
-      SkylarkModule annotation = fragmentClass.getAnnotation(SkylarkModule.class);
-      if (annotation != null) {
-        builder.put(annotation.name(), fragmentClass);
+      String name = resolver.resolveName(fragmentClass);
+      if (name != null) {
+        builder.put(name, fragmentClass);
       }
     }
     return builder.build();

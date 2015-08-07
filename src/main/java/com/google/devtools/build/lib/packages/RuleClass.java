@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
@@ -489,6 +490,9 @@ public final class RuleClass {
     private SkylarkEnvironment ruleDefinitionEnvironment = null;
     private Set<Class<?>> configurationFragments = new LinkedHashSet<>();
     private MissingFragmentPolicy missingFragmentPolicy = MissingFragmentPolicy.FAIL_ANALYSIS;
+    private Set<String> requiredFragmentNames = new LinkedHashSet<>();
+    private FragmentClassNameResolver fragmentNameResolver;
+
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
@@ -574,8 +578,8 @@ public final class RuleClass {
           workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction, configurator,
           configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
-          externalBindingsFunction,
-          ruleDefinitionEnvironment, configurationFragments, missingFragmentPolicy,
+          externalBindingsFunction, ruleDefinitionEnvironment, configurationFragments,
+          requiredFragmentNames, fragmentNameResolver, missingFragmentPolicy,
           supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
     }
 
@@ -598,6 +602,17 @@ public final class RuleClass {
      */
     public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
       this.missingFragmentPolicy = missingFragmentPolicy;
+      return this;
+    }
+    
+    /**
+     * Does the same as {@link #requiresConfigurationFragments(Class...)}, except for taking names
+     * of fragments instead of classes.
+     */
+    public Builder requiresConfigurationFragments(
+        FragmentClassNameResolver fragmentNameResolver, String... configurationFragmentNames) {
+      Collections.addAll(requiredFragmentNames, configurationFragmentNames);
+      this.fragmentNameResolver = fragmentNameResolver;
       return this;
     }
 
@@ -948,6 +963,17 @@ public final class RuleClass {
   private final ImmutableSet<Class<?>> requiredConfigurationFragments;
 
   /**
+   * Same idea as requiredConfigurationFragments, but stores fragments by name instead of by class
+   */
+  private final ImmutableSet<String> requiredConfigurationFragmentNames;
+  
+  /**
+   * Used to resolve the names of fragments in order to compare them to values in {@link
+   * #requiredConfigurationFragmentNames}
+   */
+  private final FragmentClassNameResolver fragmentNameResolver;
+  
+  /**
    * What to do during analysis if a configuration fragment is missing.
    */
   private final MissingFragmentPolicy missingFragmentPolicy;
@@ -958,6 +984,53 @@ public final class RuleClass {
    * everything except for rules that are intrinsically incompatible with the constraint system.
    */
   private final boolean supportsConstraintChecking;
+
+  /**
+   * Helper constructor that skips allowedConfigurationFragmentNames and fragmentNameResolver
+   */
+  @VisibleForTesting
+  RuleClass(String name,
+      boolean skylarkExecutable,
+      boolean documented,
+      boolean publicByDefault,
+      boolean binaryOutput,
+      boolean workspaceOnly,
+      boolean outputsDefaultExecutable,
+      ImplicitOutputsFunction implicitOutputsFunction,
+      Configurator<?, ?> configurator,
+      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
+      PredicateWithMessage<Rule> validityPredicate,
+      Predicate<String> preferredDependencyPredicate,
+      ImmutableSet<Class<?>> advertisedProviders,
+      @Nullable BaseFunction configuredTargetFunction,
+      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
+      @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
+      Set<Class<?>> allowedConfigurationFragments,
+      MissingFragmentPolicy missingFragmentPolicy,
+      boolean supportsConstraintChecking,
+      Attribute... attributes) {
+    this(name,
+        skylarkExecutable,
+        documented,
+        publicByDefault,
+        binaryOutput,
+        workspaceOnly,
+        outputsDefaultExecutable,
+        implicitOutputsFunction,
+        configurator,
+        configuredTargetFactory,
+        validityPredicate,
+        preferredDependencyPredicate,
+        advertisedProviders,
+        configuredTargetFunction,
+        externalBindingsFunction,
+        ruleDefinitionEnvironment,
+        allowedConfigurationFragments,
+        ImmutableSet.<String>of(), null,
+        missingFragmentPolicy,
+        supportsConstraintChecking,
+        attributes);
+  }
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes
@@ -993,7 +1066,10 @@ public final class RuleClass {
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
-      Set<Class<?>> allowedConfigurationFragments, MissingFragmentPolicy missingFragmentPolicy,
+      Set<Class<?>> allowedConfigurationFragments,
+      Set<String> allowedConfigurationFragmentNames,
+      @Nullable FragmentClassNameResolver fragmentNameResolver,
+      MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
     this.name = name;
@@ -1016,6 +1092,9 @@ public final class RuleClass {
     this.workspaceOnly = workspaceOnly;
     this.outputsDefaultExecutable = outputsDefaultExecutable;
     this.requiredConfigurationFragments = ImmutableSet.copyOf(allowedConfigurationFragments);
+    this.requiredConfigurationFragmentNames =
+        ImmutableSet.copyOf(allowedConfigurationFragmentNames);
+    this.fragmentNameResolver = fragmentNameResolver;
     this.missingFragmentPolicy = missingFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
 
@@ -1177,10 +1256,23 @@ public final class RuleClass {
   public boolean isLegalConfigurationFragment(Class<?> configurationFragment) {
     // For now, we allow all rules that don't declare allowed fragments to access any fragment.
     // TODO(bazel-team): All built-in rules declare fragments, but Skylark rules don't.
-    if (requiredConfigurationFragments.isEmpty()) {
+    if (requiredConfigurationFragments.isEmpty() && requiredConfigurationFragmentNames.isEmpty()) {
       return true;
     }
-    return requiredConfigurationFragments.contains(configurationFragment);
+    return requiredConfigurationFragments.contains(configurationFragment)
+        || hasLegalFragmentName(configurationFragment);
+  }
+
+  /**
+   * Checks whether the name of the given fragment class was declared as required fragment
+   */
+  private boolean hasLegalFragmentName(Class<?> configurationFragment) {
+    if (fragmentNameResolver == null) {
+      return false;
+    }
+
+    String name = fragmentNameResolver.resolveName(configurationFragment);
+    return (name != null && requiredConfigurationFragmentNames.contains(name));
   }
 
   /**
