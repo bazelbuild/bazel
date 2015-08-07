@@ -75,10 +75,10 @@ public class PackageDeserializer {
 
   private class Context {
     private final Package.Builder packageBuilder;
-    private final Path buildFilePath;
+    private final PathFragment buildFilePath;
 
     public Context(Path buildFilePath, Package.Builder packageBuilder) {
-      this.buildFilePath = buildFilePath;
+      this.buildFilePath = buildFilePath.asFragment();
       this.packageBuilder = packageBuilder;
     }
 
@@ -165,11 +165,11 @@ public class PackageDeserializer {
     private final int endLine;
     private final int endColumn;
 
-    private ExplicitLocation(Path path, Build.Location location) {
+    private ExplicitLocation(PathFragment path, Build.Location location) {
       super(
           location.hasStartOffset() && location.hasEndOffset() ? location.getStartOffset() : 0,
           location.hasStartOffset() && location.hasEndOffset() ? location.getEndOffset() : 0);
-      this.path = path.asFragment();
+      this.path = path;
       if (location.hasStartLine() && location.hasStartColumn()
           && location.hasEndLine() && location.hasEndColumn()) {
         this.startLine = location.getStartLine();
