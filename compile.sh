@@ -111,7 +111,7 @@ if [ $DO_TOOLS_COMPILATION ]; then
   if [[ $PLATFORM == "darwin" ]]; then
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar \
         tools/objc/precomp_actoolzip_deploy.jar
-    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper 0755
+    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper.sh 0755
     bazel_bootstrap //src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar \
         tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
     bazel_bootstrap //src/objc_tools/momczip:momczip_deploy.jar \
