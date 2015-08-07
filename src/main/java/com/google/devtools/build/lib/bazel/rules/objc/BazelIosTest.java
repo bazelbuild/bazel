@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.objc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -22,10 +23,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.IosTest;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider;
 
 /**
@@ -38,11 +41,21 @@ public final class BazelIosTest extends IosTest {
   public ConfiguredTarget create(RuleContext ruleContext, ObjcCommon common,
       XcodeProvider xcodeProvider, NestedSet<Artifact> filesToBuild) throws InterruptedException {
     Artifact testRunner = ruleContext.getPrerequisiteArtifact(IOS_TEST_ON_BAZEL_ATTR, Mode.TARGET);
-    Runfiles runfiles = new Runfiles.Builder()
-        .addArtifact(testRunner)
-        .build();
+
+    Artifact testScript =
+        ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, "_test_script");
+
+    ruleContext.registerAction(
+        new TemplateExpansionAction(
+            ruleContext.getActionOwner(),
+            testRunner,
+            testScript,
+            ImmutableList.<TemplateExpansionAction.Substitution>of(),
+            /*executable=*/ true));
+
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(testScript).build();
     RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(ruleContext, runfiles, testRunner);
+        RunfilesSupport.withExecutable(ruleContext, runfiles, testScript);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>stableOrder()
