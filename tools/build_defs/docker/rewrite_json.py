@@ -91,6 +91,14 @@ def Resolve(value, environment):
     os.environ = outer_env
 
 
+def DeepCopySkipNull(data):
+  """Do a deep copy, skipping null entry."""
+  if type(data) == type(dict()):
+    return dict((DeepCopySkipNull(k), DeepCopySkipNull(v))
+                for k, v in data.iteritems() if v is not None)
+  return copy.deepcopy(data)
+
+
 def RewriteMetadata(data, options):
   """Rewrite and return a copy of the input data according to options.
 
@@ -106,7 +114,7 @@ def RewriteMetadata(data, options):
   Raises:
     Exception: a required option was missing.
   """
-  output = copy.deepcopy(data)
+  output = DeepCopySkipNull(data)
 
   if not options.name:
     raise Exception('Missing required option: name')

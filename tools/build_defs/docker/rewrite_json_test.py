@@ -616,6 +616,35 @@ class RewriteJsonTest(unittest.TestCase):
         name=name, env=env, parent=parent))
     self.assertEquals(expected, actual)
 
+  def testAugmentVolumeWithNullInput(self):
+    in_data = {
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor',
+            'Volumes': None,
+        }
+    }
+    name = 'deadbeef'
+    parent = 'blah'
+    volume = '/data'
+    expected = {
+        'id': name,
+        'parent': parent,
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor',
+            'Volumes': {
+                volume: {}
+            }
+        },
+        'docker_version': _DOCKER_VERSION,
+        'architecture': _PROCESSOR_ARCHITECTURE,
+        'os': _OPERATING_SYSTEM,
+    }
+
+    actual = RewriteMetadata(in_data, MetadataOptions(
+        name=name, parent=parent, volumes=[volume]))
+    self.assertEquals(expected, actual)
 
 if __name__ == '__main__':
   unittest.main()
