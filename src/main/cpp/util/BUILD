@@ -31,15 +31,17 @@ cc_library(
 cc_library(
     name = "strings",
     srcs = ["strings.cc"],
-    hdrs = [
-        # This really belongs into its own library, but that doesn't work on the
-        # Mac, because of issue #61 (header-only libraries don't build).
-        "exit_code.h",
-        "strings.h",
-    ],
+    hdrs = ["strings.h"],
     # Automatically propagate the symbol definition to rules depending on this.
     defines = [
         "BLAZE_OPENSOURCE",
     ],
+    visibility = ["//visibility:public"],
+    deps = [":blaze_exit_code"],
+)
+
+cc_library(
+    name = "blaze_exit_code",
+    hdrs = ["exit_code.h"],
     visibility = ["//visibility:public"],
 )
