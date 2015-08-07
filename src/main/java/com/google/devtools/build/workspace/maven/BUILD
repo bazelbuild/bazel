@@ -18,6 +18,7 @@ java_library(
         "//src/main/java:events",
         "//src/main/java:maven-connector",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:maven_model",
         "//third_party:plexus_component_annotations",
     ],
