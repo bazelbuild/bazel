@@ -215,12 +215,6 @@ public class BuildView {
   @Nullable private final CoverageReportActionFactory coverageReportActionFactory;
 
   /**
-   * A union of package roots of all previous incremental analysis results. This is used to detect
-   * changes of package roots between incremental analysis instances.
-   */
-  private final Map<PackageIdentifier, Path> cumulativePackageRoots = new HashMap<>();
-
-  /**
    * Used only for testing that we clear Skyframe caches correctly.
    * TODO(bazel-team): Remove this once we get rid of legacy Skyframe synchronization.
    */
@@ -312,7 +306,6 @@ public class BuildView {
    */
   @VisibleForTesting
   public void clear() {
-    cumulativePackageRoots.clear();
     artifactFactory.clear();
   }
 
@@ -574,22 +567,8 @@ public class BuildView {
     }
     skyframeAnalysisWasDiscarded = false;
     ImmutableMap<PackageIdentifier, Path> packageRoots = loadingResult.getPackageRoots();
-
-    if (buildHasIncompatiblePackageRoots(packageRoots)) {
-      // When a package root changes source artifacts with the new root will be created, but we
-      // cannot be sure that there are no references remaining to the corresponding artifacts
-      // with the old root. To avoid that scenario, the analysis cache is simply dropped when
-      // a package root change is detected.
-      LOG.info("Discarding analysis cache: package roots have changed.");
-
-      skyframeExecutor.dropConfiguredTargets();
-      skyframeCacheWasInvalidated = true;
-      clear();
-    }
-    cumulativePackageRoots.putAll(packageRoots);
     this.configurations = configurations;
     setArtifactRoots(packageRoots);
-
     // Determine the configurations.
     List<TargetAndConfiguration> nodes = nodesForTargets(targets);
 
@@ -775,23 +754,6 @@ public class BuildView {
       }
     }
     return ImmutableList.copyOf(nodes);
-  }
-
-  /**
-   * Detects when a package root changes between instances of incremental analysis.
-   *
-   * <p>This case is currently problematic for incremental analysis because when a package root
-   * changes, source artifacts with the new root will be created, but we can not be sure that there
-   * are no references remaining to the corresponding artifacts with the old root.
-   */
-  private boolean buildHasIncompatiblePackageRoots(Map<PackageIdentifier, Path> packageRoots) {
-    for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
-      Path prevRoot = cumulativePackageRoots.get(entry.getKey());
-      if (prevRoot != null && !entry.getValue().equals(prevRoot)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
