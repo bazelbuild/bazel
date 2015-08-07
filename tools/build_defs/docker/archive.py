@@ -53,6 +53,9 @@ class SimpleArFile(object):
     """
 
     def __init__(self, f):
+      if f.tell() % 2 != 0:
+        # AR sections are 2 bytes aligned
+        f.read(1)
       self.filename = f.read(16).strip()
       if self.filename.endswith('/'):  # SysV variant
         self.filename = self.filename[:-1]
@@ -61,8 +64,9 @@ class SimpleArFile(object):
       self.group_id = int(f.read(6).strip())
       self.mode = int(f.read(8).strip(), 8)
       self.size = int(f.read(10).strip())
-      if f.read(2) != '\x60\x0a':
-        raise self.ArError('Invalid AR file header')
+      pad = f.read(2)
+      if pad != '\x60\x0a':
+        raise SimpleArFile.ArError('Invalid AR file header')
       self.data = f.read(self.size)
 
   MAGIC_STRING = '!<arch>\n'
