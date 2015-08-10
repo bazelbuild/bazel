@@ -39,15 +39,13 @@ public final class SkyKey implements Serializable {
    */
   private transient int hashCode;
 
-  /**
-   * Whether the hash code is cached. Needed for {de,}serialization.
-   */
-  private transient boolean hashCodeCached;
-
   public SkyKey(SkyFunctionName functionName, Object valueName) {
     this.functionName = Preconditions.checkNotNull(functionName);
     this.argument = Preconditions.checkNotNull(valueName);
-    cacheHashCode();
+    // 'hashCode' is non-volatile and non-final, so this write may in fact *not* be visible to other
+    // threads. But this isn't a concern from a correctness perspective. See the comments in
+    // #hashCode for more details.
+    this.hashCode = computeHashCode();
   }
 
   public SkyFunctionName functionName() {
@@ -65,15 +63,29 @@ public final class SkyKey implements Serializable {
 
   @Override
   public int hashCode() {
-    if (!hashCodeCached) {
-      cacheHashCode();
+    // We use the hash code caching strategy employed by java.lang.String. There are three subtle
+    // things going on here:
+    //
+    // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
+    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
+    //
+    // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+    // first one to compute and cache the hash code.
+    //
+    // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
+    // thread may not be visible by another.
+    //
+    // All three of these issues are benign from a correctness perspective; in the end we have no
+    // overhead from synchronization, at the cost of potentially computing the hash code more than
+    // once.
+    if (hashCode == 0) {
+      hashCode = computeHashCode();
     }
     return hashCode;
   }
 
-  private void cacheHashCode() {
-    hashCode = 31 * functionName.hashCode() + argument.hashCode();
-    hashCodeCached = true;
+  private int computeHashCode() {
+    return 31 * functionName.hashCode() + argument.hashCode();
   }
 
   @Override
