@@ -94,9 +94,9 @@ public final class SkyframeBuildView {
   // Used to see if checks of graph consistency need to be done after analysis.
   private volatile boolean someConfiguredTargetEvaluated = false;
 
-  // We keep the set of invalidated configuration targets so that we can know if something
+  // We keep the set of invalidated configuration target keys so that we can know if something
   // has been invalidated after graph pruning has been executed.
-  private Set<ConfiguredTargetValue> dirtyConfiguredTargets = Sets.newConcurrentHashSet();
+  private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
 
   public SkyframeBuildView(ConfiguredTargetFactory factory,
@@ -414,12 +414,12 @@ public final class SkyframeBuildView {
 
   /** Clear the invalidated configured targets detected during loading and analysis phases. */
   public void clearInvalidatedConfiguredTargets() {
-    dirtyConfiguredTargets = Sets.newConcurrentHashSet();
+    dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
     anyConfiguredTargetDeleted = false;
   }
 
   public boolean isSomeConfiguredTargetInvalidated() {
-    return anyConfiguredTargetDeleted || !dirtyConfiguredTargets.isEmpty();
+    return anyConfiguredTargetDeleted || !dirtiedConfiguredTargetKeys.isEmpty();
   }
 
   /**
@@ -454,15 +454,16 @@ public final class SkyframeBuildView {
 
   private class ConfiguredTargetValueInvalidationReceiver implements EvaluationProgressReceiver {
     @Override
-    public void invalidated(SkyValue value, InvalidationState state) {
-      if (value instanceof ConfiguredTargetValue) {
-        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
-        // If the value was just dirtied and not deleted, then it may not be truly invalid, since
-        // it may later get re-validated.
+    public void invalidated(SkyKey skyKey, InvalidationState state) {
+      if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET) {
         if (state == InvalidationState.DELETED) {
           anyConfiguredTargetDeleted = true;
         } else {
-          dirtyConfiguredTargets.add(ctValue);
+          // If the value was just dirtied and not deleted, then it may not be truly invalid, since
+          // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
+          // is provisional--if the key is later evaluated and the value found to be clean, then we
+          // remove it from the set.
+          dirtiedConfiguredTargetKeys.add(skyKey);
         }
       }
     }
@@ -473,14 +474,18 @@ public final class SkyframeBuildView {
     @Override
     public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
       if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET && value != null) {
-        if (state == EvaluationState.BUILT) {
-          evaluatedConfiguredTargets.add(skyKey);
-          // During multithreaded operation, this is only set to true, so no concurrency issues.
-          someConfiguredTargetEvaluated = true;
+        switch (state) {
+          case BUILT:
+            evaluatedConfiguredTargets.add(skyKey);
+            // During multithreaded operation, this is only set to true, so no concurrency issues.
+            someConfiguredTargetEvaluated = true;
+            break;
+          case CLEAN:
+            // If the configured target value did not need to be rebuilt, then it wasn't truly
+            // invalid.
+            dirtiedConfiguredTargetKeys.remove(skyKey);
+            break;
         }
-        Preconditions.checkNotNull(value, "%s %s", skyKey, state);
-        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
-        dirtyConfiguredTargets.remove(ctValue);
       }
     }
   }

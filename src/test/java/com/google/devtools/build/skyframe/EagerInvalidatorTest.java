@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
+import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -159,12 +160,12 @@ public class EagerInvalidatorTest {
 
   @Test
   public void receiverWorks() throws Exception {
-    final Set<String> invalidated = Sets.newConcurrentHashSet();
+    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
-        invalidated.add(((StringValue) value).getValue());
+        invalidated.add(skyKey);
       }
 
       @Override
@@ -186,21 +187,21 @@ public class EagerInvalidatorTest {
 
     set("a", "c");
     invalidateWithoutError(receiver, skyKey("a"));
-    assertThat(invalidated).containsExactly("a", "ab");
+    assertThat(invalidated).containsExactly(skyKey("a"), skyKey("ab"));
     assertValueValue("ab", "cb");
     set("b", "d");
     invalidateWithoutError(receiver, skyKey("b"));
-    assertThat(invalidated).containsExactly("a", "ab", "b", "cb");
+    assertThat(invalidated).containsExactly(skyKey("a"), skyKey("ab"), skyKey("b"));
   }
 
   @Test
-  public void receiverIsNotNotifiedAboutValuesInError() throws Exception {
-    final Set<String> invalidated = Sets.newConcurrentHashSet();
+  public void receiverIsNotifiedAboutNodesInError() throws Exception {
+    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
-        invalidated.add(((StringValue) value).getValue());
+        invalidated.add(skyKey);
       }
 
       @Override
@@ -214,23 +215,31 @@ public class EagerInvalidatorTest {
       }
     };
 
+    // Given a graph consisting of two nodes, "a" and "ab" such that "ab" depends on "a",
+    // And given "ab" is in error,
     graph = new InMemoryGraph();
     set("a", "a");
     tester.getOrCreate("ab").addDependency("a").setHasError(true);
     eval(false, skyKey("ab"));
 
+    // When "a" is invalidated,
     invalidateWithoutError(receiver, skyKey("a"));
-    assertThat(invalidated).containsExactly("a").inOrder();
+
+    // Then the invalidation receiver is notified of both "a" and "ab"'s invalidations.
+    assertThat(invalidated).containsExactly(skyKey("a"), skyKey("ab"));
+
+    // Note that this behavior isn't strictly required for correctness. This test is
+    // meant to document current behavior and protect against programming error.
   }
 
   @Test
   public void invalidateValuesNotInGraph() throws Exception {
-    final Set<String> invalidated = Sets.newConcurrentHashSet();
+    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
         Preconditions.checkState(state == InvalidationState.DIRTY);
-        invalidated.add(((StringValue) value).getValue());
+        invalidated.add(skyKey);
       }
 
       @Override
@@ -323,17 +332,17 @@ public class EagerInvalidatorTest {
     tester.getOrCreate(parent).addDependency(family[numValues - 1]).setComputedValue(CONCATENATE);
     eval(/*keepGoing=*/false, parent);
     final Thread mainThread = Thread.currentThread();
-    final AtomicReference<SkyValue> badValue = new AtomicReference<>();
+    final AtomicReference<SkyKey> badKey = new AtomicReference<>();
     EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
-        if (value == childValue) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
+        if (skyKey.equals(child)) {
           // Interrupt on the very first invalidate
           mainThread.interrupt();
-        } else if (!childValue.equals(value)) {
-          // All other invalidations should be of the same value.
+        } else if (skyKey.functionName() != NODE_TYPE) {
+          // All other invalidations should have the GraphTester's key type.
           // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
-          badValue.set(value);
+          badKey.set(skyKey);
         }
         try {
           assertTrue(visitor.get().awaitInterruptionForTestingOnly(2, TimeUnit.HOURS));
@@ -359,16 +368,16 @@ public class EagerInvalidatorTest {
     } catch (InterruptedException e) {
       // Expected.
     }
-    assertNull(badValue.get());
+    assertNull(badKey.get());
     assertFalse(state.isEmpty());
-    final Set<SkyValue> invalidated = Sets.newConcurrentHashSet();
+    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     assertFalse(isInvalidated(parent));
     SkyValue parentValue = graph.getValue(parent);
     assertNotNull(parentValue);
     receiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
-        invalidated.add(value);
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
+        invalidated.add(skyKey);
       }
 
       @Override
@@ -382,7 +391,7 @@ public class EagerInvalidatorTest {
       }
     };
     invalidateWithoutError(receiver);
-    assertTrue(invalidated.contains(parentValue));
+    assertTrue(invalidated.contains(parent));
     assertThat(state.getInvalidationsForTesting()).isEmpty();
 
     // Regression test coverage:
@@ -451,7 +460,7 @@ public class EagerInvalidatorTest {
       final CountDownLatch countDownToInterrupt = new CountDownLatch(countDownStart);
       final EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
         @Override
-        public void invalidated(SkyValue value, InvalidationState state) {
+        public void invalidated(SkyKey skyKey, InvalidationState state) {
           countDownToInterrupt.countDown();
           if (countDownToInterrupt.getCount() == 0) {
             mainThread.interrupt();

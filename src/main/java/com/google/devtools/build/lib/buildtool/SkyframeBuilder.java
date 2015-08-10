@@ -240,7 +240,7 @@ public class SkyframeBuilder implements Builder {
     }
 
     @Override
-    public void invalidated(SkyValue node, InvalidationState state) {}
+    public void invalidated(SkyKey skyKey, InvalidationState state) {}
 
     @Override
     public void enqueueing(SkyKey skyKey) {

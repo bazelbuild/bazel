@@ -199,9 +199,9 @@ public class MemoizingEvaluatorTest {
     tester.delete("d1");
     tester.eval(true, "d3");
 
-    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
     assertEquals(
-        ImmutableSet.of(new StringValue("1"), new StringValue("123")), tester.getDeletedValues());
+        ImmutableSet.of(skyKey("d1"), skyKey("top")), tester.getDeletedKeys());
     assertEquals(null, tester.getExistingValue("top"));
     assertEquals(null, tester.getExistingValue("d1"));
     assertEquals(d2, tester.getExistingValue("d2"));
@@ -1888,11 +1888,11 @@ public class MemoizingEvaluatorTest {
       private final AtomicBoolean firstInvalidation = new AtomicBoolean(true);
 
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
         if (interruptInvalidation.get() && !firstInvalidation.getAndSet(false)) {
           thread.interrupt();
         }
-        super.invalidated(value, state);
+        super.invalidated(skyKey, state);
       }
     });
     SkyKey key = null;
@@ -1946,8 +1946,8 @@ public class MemoizingEvaluatorTest {
     assertFalse(result.hasError());
     topValue = result.get(top);
     assertEquals("leafy", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
   }
 
   @Test
@@ -1973,15 +1973,14 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("leaf");
     assertEquals("leafy", value.getValue());
-    assertThat(tester.getDirtyValues()).containsExactly(new StringValue("leafysuffix"),
-        new StringValue("leafysuffixsuffix"));
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).containsExactly(mid, top);
+    assertThat(tester.getDeletedKeys()).isEmpty();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
     value = result.get(top);
     assertEquals("leafysuffixsuffix", value.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
   }
 
   @Test
@@ -2025,9 +2024,8 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("joyce drank whiskey", topValue.getValue());
-    assertThat(tester.getDirtyValues()).containsExactly(new StringValue("hemingway"),
-        new StringValue("hemingway drank absinthe"));
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).containsExactly(buildFile, top);
+    assertThat(tester.getDeletedKeys()).isEmpty();
   }
 
   @Test
@@ -2042,21 +2040,21 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("ignore", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
     // Change leaf.
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("ignore", topValue.getValue());
-    assertThat(tester.getDirtyValues()).containsExactly(new StringValue("leafy"));
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).containsExactly(leaf);
+    assertThat(tester.getDeletedKeys()).isEmpty();
     tester.set(leaf, new StringValue("smushy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("ignore", topValue.getValue());
-    assertThat(tester.getDirtyValues()).containsExactly(new StringValue("crunchy"));
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).containsExactly(leaf);
+    assertThat(tester.getDeletedKeys()).isEmpty();
   }
 
   private static final SkyFunction INTERRUPT_BUILDER = new SkyFunction() {
@@ -2104,8 +2102,8 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("leafy", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
     failBuildAndRemoveValue(leaf);
     // Leaf should no longer exist in the graph. Check that this doesn't cause problems.
     tester.set(leaf, null);
@@ -2129,8 +2127,8 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("leafy", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
     failBuildAndRemoveValue(leaf);
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
@@ -2199,8 +2197,8 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("leafy", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
     // Change leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true).setHasError(true);
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
@@ -2224,8 +2222,8 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertEquals("leafysecondError", topValue.getValue());
-    assertThat(tester.getDirtyValues()).isEmpty();
-    assertThat(tester.getDeletedValues()).isEmpty();
+    assertThat(tester.getDirtyKeys()).isEmpty();
+    assertThat(tester.getDeletedKeys()).isEmpty();
     // Invalidate leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.set(leaf, new StringValue("crunchy"));
@@ -3060,11 +3058,11 @@ public class MemoizingEvaluatorTest {
       emittedEventState.clear();
     }
 
-    public Set<SkyValue> getDirtyValues() {
+    public Set<SkyKey> getDirtyKeys() {
       return invalidationReceiver.dirty;
     }
 
-    public Set<SkyValue> getDeletedValues() {
+    public Set<SkyKey> getDeletedKeys() {
       return invalidationReceiver.deleted;
     }
 

@@ -1488,12 +1488,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
 
     @Override
-    public void invalidated(SkyValue value, InvalidationState state) {
+    public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (ignoreInvalidations) {
         return;
       }
       if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().invalidated(value, state);
+        skyframeBuildView.getInvalidationReceiver().invalidated(skyKey, state);
       }
     }
 

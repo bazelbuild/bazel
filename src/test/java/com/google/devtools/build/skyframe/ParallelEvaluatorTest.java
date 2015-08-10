@@ -249,7 +249,7 @@ public class ParallelEvaluatorTest {
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
     revalidationReceiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {}
+      public void invalidated(SkyKey skyKey, InvalidationState state) {}
 
       @Override
       public void enqueueing(SkyKey key) {}
@@ -1886,7 +1886,7 @@ public class ParallelEvaluatorTest {
     final Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
     EvaluationProgressReceiver progressReceiver = new EvaluationProgressReceiver() {
       @Override
-      public void invalidated(SkyValue value, InvalidationState state) {
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
         throw new IllegalStateException();
       }
 

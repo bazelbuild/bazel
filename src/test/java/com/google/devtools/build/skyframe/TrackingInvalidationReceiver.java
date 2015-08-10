@@ -22,21 +22,21 @@ import java.util.Set;
  * A testing utility to keep track of evaluation.
  */
 public class TrackingInvalidationReceiver implements EvaluationProgressReceiver {
-  public final Set<SkyValue> dirty = Sets.newConcurrentHashSet();
-  public final Set<SkyValue> deleted = Sets.newConcurrentHashSet();
+  public final Set<SkyKey> dirty = Sets.newConcurrentHashSet();
+  public final Set<SkyKey> deleted = Sets.newConcurrentHashSet();
   public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();
   public final Set<SkyKey> evaluated = Sets.newConcurrentHashSet();
 
   @Override
-  public void invalidated(SkyValue value, InvalidationState state) {
+  public void invalidated(SkyKey skyKey, InvalidationState state) {
     switch (state) {
       case DELETED:
-        dirty.remove(value);
-        deleted.add(value);
+        dirty.remove(skyKey);
+        deleted.add(skyKey);
         break;
       case DIRTY:
-        dirty.add(value);
-        Preconditions.checkState(!deleted.contains(value));
+        dirty.add(skyKey);
+        Preconditions.checkState(!deleted.contains(skyKey));
         break;
       default:
         throw new IllegalStateException();
@@ -52,8 +52,10 @@ public class TrackingInvalidationReceiver implements EvaluationProgressReceiver 
   public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
     evaluated.add(skyKey);
     if (value != null) {
-      dirty.remove(value);
-      deleted.remove(value);
+      deleted.remove(skyKey);
+      if (state.equals(EvaluationState.CLEAN)) {
+        dirty.remove(skyKey);
+      }
     }
   }
 
