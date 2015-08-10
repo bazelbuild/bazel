@@ -35,7 +35,7 @@ class SkyframeIncrementalBuildMonitor {
 
   public void accrue(Iterable<SkyKey> invalidatedValues) {
     for (SkyKey skyKey : invalidatedValues) {
-      if (skyKey.functionName() == SkyFunctions.FILE_STATE) {
+      if (skyKey.functionName().equals(SkyFunctions.FILE_STATE)) {
         RootedPath file = (RootedPath) skyKey.argument();
         maybeAddFile(file.getRelativePath());
       }

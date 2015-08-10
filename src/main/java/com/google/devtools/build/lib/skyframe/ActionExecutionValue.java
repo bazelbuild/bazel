@@ -93,7 +93,7 @@ public class ActionExecutionValue implements SkyValue {
    * towards enqueued and completed actions.
    */
   public static boolean isReportWorthyAction(SkyKey key) {
-    return key.functionName() == SkyFunctions.ACTION_EXECUTION
+    return key.functionName().equals(SkyFunctions.ACTION_EXECUTION)
         && isReportWorthyAction((Action) key.argument());
   }
 

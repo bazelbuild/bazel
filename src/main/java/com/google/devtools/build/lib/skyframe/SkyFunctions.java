@@ -86,7 +86,7 @@ public final class SkyFunctions {
     return new Predicate<SkyKey>() {
       @Override
       public boolean apply(SkyKey key) {
-        return key.functionName() == functionName;
+        return key.functionName().equals(functionName);
       }
     };
   }

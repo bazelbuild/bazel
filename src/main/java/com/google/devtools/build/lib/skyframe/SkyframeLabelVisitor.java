@@ -121,7 +121,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       }
       warnAboutLoadingFailure(topLevelLabel, eventHandler);
       for (SkyKey badKey : errorInfo.getRootCauses()) {
-        if (badKey.functionName() == SkyFunctions.PACKAGE) {
+        if (badKey.functionName().equals(SkyFunctions.PACKAGE)) {
           // Transitive target function may ask for a Package, but don't include this in the root
           // causes. We'll get more precise information from dependencies on transitive and direct
           // target dependencies.

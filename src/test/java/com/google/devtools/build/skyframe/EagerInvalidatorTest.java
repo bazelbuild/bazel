@@ -339,7 +339,7 @@ public class EagerInvalidatorTest {
         if (skyKey.equals(child)) {
           // Interrupt on the very first invalidate
           mainThread.interrupt();
-        } else if (skyKey.functionName() != NODE_TYPE) {
+        } else if (!skyKey.functionName().equals(NODE_TYPE)) {
           // All other invalidations should have the GraphTester's key type.
           // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
           badKey.set(skyKey);

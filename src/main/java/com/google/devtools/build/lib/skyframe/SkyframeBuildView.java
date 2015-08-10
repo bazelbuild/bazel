@@ -455,7 +455,7 @@ public final class SkyframeBuildView {
   private class ConfiguredTargetValueInvalidationReceiver implements EvaluationProgressReceiver {
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
-      if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET) {
+      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         if (state == InvalidationState.DELETED) {
           anyConfiguredTargetDeleted = true;
         } else {
@@ -473,7 +473,7 @@ public final class SkyframeBuildView {
 
     @Override
     public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
-      if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET && value != null) {
+      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET) && value != null) {
         switch (state) {
           case BUILT:
             evaluatedConfiguredTargets.add(skyKey);
