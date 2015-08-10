@@ -967,6 +967,36 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> stmts3 = parseFile("[ i for (i, j, k) in [(1, 2, 3)] ]\n");
     assertThat(stmts3).hasSize(1);
   }
+  
+  @Test
+  public void testReturnNone() throws Exception {
+    List<Statement> defNone = parseFileForSkylark("def foo():", "  return None\n");
+    assertThat(defNone).hasSize(1);
+
+    List<Statement> bodyNone = ((FunctionDefStatement) defNone.get(0)).getStatements();
+    assertThat(bodyNone).hasSize(1);
+
+    ReturnStatement returnNone = (ReturnStatement) bodyNone.get(0);
+    assertEquals("None", ((Identifier) returnNone.getReturnExpression()).getName());
+
+    int i = 0;
+    for (String end : new String[]{";", "\n"}) {
+      List<Statement> defNoExpr = parseFileForSkylark("def bar" + i + "():", "  return" + end);
+      i++;
+      assertThat(defNoExpr).hasSize(1);
+  
+      List<Statement> bodyNoExpr = ((FunctionDefStatement) defNoExpr.get(0)).getStatements();
+      assertThat(bodyNoExpr).hasSize(1);
+  
+      ReturnStatement returnNoExpr = (ReturnStatement) bodyNoExpr.get(0);
+      Identifier none = (Identifier) returnNoExpr.getReturnExpression();
+      assertEquals("None", none.getName());
+      assertLocation(
+          returnNoExpr.getLocation().getStartOffset(),
+          returnNoExpr.getLocation().getEndOffset(),
+          none.getLocation());
+    }
+  }
 
   @Test
   public void testForLoopBadSyntax() throws Exception {
