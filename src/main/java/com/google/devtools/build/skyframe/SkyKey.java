@@ -67,7 +67,8 @@ public final class SkyKey implements Serializable {
     // things going on here:
     //
     // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
-    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
+    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
+    // this isn't a problem in practice since a hash code of 0 should be rare.
     //
     // (2) Since we have no synchronization, multiple threads can race here thinking there are the
     // first one to compute and cache the hash code.
