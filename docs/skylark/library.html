@@ -187,7 +187,7 @@ Converts any object to a string representation. This is useful for debugging.<br
 	</li>
 </ul>
 <li><h3 id="modules._top_level.rule">rule</h3>
-<code>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False)</code><br>
+<code>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False, fragments=[])</code><br>
 Creates a new rule. Store it in a global value, so that it can be loaded and called from BUILD files.
 <h4>Parameters</h4>
 <ul>
@@ -204,6 +204,8 @@ Creates a new rule. Store it in a global value, so that it can be loaded and cal
 	<li id="modules._top_level.rule.executable"><code>executable (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: whether this rule is marked as executable or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.
 	</li>
 	<li id="modules._top_level.rule.output_to_genfiles"><code>output_to_genfiles (<a class="anchor" href="#modules._top_level.bool">bool</a>)</code>: If true, the files will be generated in the genfiles directory instead of the bin directory. This is used for compatibility with existing rules.
+	</li>
+	<li id="modules._top_level.rule.fragments"><code>fragments (<a class="anchor" href="#modules.list">list</a> of <a class="anchor" href="#modules.string">string</a>s)</code>: List of names of configuration fragments that the rule requires.
 	</li>
 </ul>
 <li><h3 id="modules._top_level.select">select</h3>
