@@ -37,33 +37,50 @@
 
 //  For a practical example of using it see run_tests.sh
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-static void SetUpStdFileDescriptor(const char *env_name, int fileNo) {
+// Using __assert_rtn to log asserts because it has the side benefit of
+// putting data in the CrashReport logs which would be useful.
+// __assert_rtn is a somewhat "private" api.
+// Since we are going to "assert" anyway, we ignore leaks from asprintf.
+static void SetUpStdFileDescriptor(const char *env_name, int file_no) {
   const char *path = getenv(env_name);
   if (path) {
     int fd = open(path, O_RDWR | O_CREAT | O_APPEND);
     if (fd == -1) {
-      syslog(LOG_ERR, "Could not open %s for %s - %s", env_name, path, strerror(errno));
+      char *crash_log_message;
+      asprintf(&crash_log_message, "Could not open %s for %s - %s",
+               env_name, path, strerror(errno));
+      __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
     } else {
       if (fchmod(fd, 0666) == -1) {
-        syslog(LOG_ERR, "Could not chmod %s for %s - %s", env_name, path, strerror(errno));
+      char *crash_log_message;
+      asprintf(&crash_log_message, "Could not chmod %s for %s - %s",
+               env_name, path, strerror(errno));
+      __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
       }
-      if (dup2(fd, fileNo) == -1) {
-        syslog(LOG_ERR, "Could not dup %s for %s - %s", env_name, path, strerror(errno));
+      if (dup2(fd, file_no) == -1) {
+      char *crash_log_message;
+      asprintf(&crash_log_message, "Could not dup %s for %s - %s",
+               env_name, path, strerror(errno));
+      __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
       }
     }
   }
 }
 
 __attribute__((constructor)) static void SetUpStdFileDescriptors() {
-  SetUpStdFileDescriptor("GSTDIN", STDIN_FILENO);
-  SetUpStdFileDescriptor("GSTDOUT", STDOUT_FILENO);
+  // Set up Error first with the hope that if out/in fail, that at least
+  // we will get errors logged.
   SetUpStdFileDescriptor("GSTDERR", STDERR_FILENO);
+  SetUpStdFileDescriptor("GSTDOUT", STDOUT_FILENO);
+  SetUpStdFileDescriptor("GSTDIN", STDIN_FILENO);
 }
