@@ -126,6 +126,14 @@ public class CppRuleClasses {
   public static final String GENERATE_SUBMODULES = "generate_submodules";
 
   /**
+   * A string constant for the transitive_module_maps feature.
+   *
+   * <p>This feature is used temporarily to switch between adding transitive module maps to a
+   * modules enabled build or only adding module maps from direct dependencies.
+   */
+  public static final String TRANSITIVE_MODULE_MAPS = "transitive_module_maps";
+
+  /**
    * A string constant for switching on that a header module file includes information about
    * all its dependencies, so we do not need to pass all transitive dependent header modules on
    * the command line.
