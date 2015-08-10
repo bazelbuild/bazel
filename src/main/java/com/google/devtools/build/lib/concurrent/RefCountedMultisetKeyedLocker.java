@@ -102,8 +102,7 @@ public class RefCountedMultisetKeyedLocker<K> implements BatchedKeyedLocker<K> {
           waitersLock.lock();
           // Note that ConcurrentHashMultiset automatically removes removes entries for keys whose
           // count is 0.
-          waiters.remove(key);
-          if (waiters.count(key) == 0) {
+          if (waiters.remove(key, 1) == 1) {
             // No other thread is waiting to access this key, nor does the current thread have
             // another AutoUnlocker instance, so we garbage collect the lock.
             Preconditions.checkState(locks.remove(key, lock), key);
