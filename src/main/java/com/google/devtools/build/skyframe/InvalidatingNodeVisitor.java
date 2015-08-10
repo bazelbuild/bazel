@@ -351,11 +351,10 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
           }
 
           // This entry remains in the graph in this dirty state until it is re-evaluated.
-          Pair<? extends Iterable<SkyKey>, ? extends SkyValue> depsAndValue =
-              entry.markDirty(isChanged);
+          Iterable<SkyKey> deps = entry.markDirty(isChanged);
           // It is not safe to interrupt the logic from this point until the end of the method.
           // Any exception thrown should be unrecoverable.
-          if (depsAndValue == null) {
+          if (deps == null) {
             // Another thread has already dirtied this node. Don't do anything in this thread.
             pendingVisitations.remove(invalidationPair);
             return;
@@ -368,12 +367,12 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
 
           // Remove this node as a reverse dep from its children, since we have reset it and it no
           // longer lists its children as direct deps.
-          Map<SkyKey, NodeEntry> children = graph.getBatch(depsAndValue.first);
-          if (children.size() != Iterables.size(depsAndValue.first)) {
-            Set<SkyKey> deps = ImmutableSet.copyOf(depsAndValue.first);
+          Map<SkyKey, NodeEntry> children = graph.getBatch(deps);
+          if (children.size() != Iterables.size(deps)) {
+            Set<SkyKey> depsSet = ImmutableSet.copyOf(deps);
             throw new IllegalStateException("Mismatch in getBatch: " + key + ", " + entry + "\n"
-                + Sets.difference(deps, children.keySet()) + "\n"
-                + Sets.difference(children.keySet(), deps));
+                + Sets.difference(depsSet, children.keySet()) + "\n"
+                + Sets.difference(children.keySet(), depsSet));
           }
           for (NodeEntry child : children.values()) {
             child.removeReverseDep(key);

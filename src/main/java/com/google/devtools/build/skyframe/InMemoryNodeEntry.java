@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.lib.util.Pair;
 
 import java.util.Collection;
 import java.util.List;
@@ -316,17 +315,14 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   @Nullable
-  public synchronized Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(
-      boolean isChanged) {
+  public synchronized Iterable<SkyKey> markDirty(boolean isChanged) {
     assertKeepEdges();
     if (isDone()) {
       GroupedList<SkyKey> lastDirectDeps = GroupedList.create(directDeps);
       buildingState = BuildingState.newDirtyState(isChanged, lastDirectDeps, value);
-      Pair<? extends Iterable<SkyKey>, ? extends SkyValue> result =
-          Pair.of(lastDirectDeps.toSet(), value);
       value = null;
       directDeps = null;
-      return result;
+      return lastDirectDeps.toSet();
     }
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
     // thread may have lost the race, but it is the caller's responsibility not to try to mark

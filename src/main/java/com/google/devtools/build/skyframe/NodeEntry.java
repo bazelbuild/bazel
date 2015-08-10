@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.lib.util.Pair;
 
 import java.util.Collection;
 import java.util.Set;
@@ -227,13 +226,13 @@ public interface NodeEntry {
    * the caller will only ever want to call {@code markDirty()} a second time if a transition from a
    * dirty-unchanged state to a dirty-changed state is required.
    *
-   * @return The direct deps and value of this entry, or null if the entry has already been marked
+   * @return The direct deps of this entry, or null if the entry has already been marked
    * dirty. In the latter case, the caller should abort its handling of this node, since another
    * thread is already dealing with it.
    */
   @Nullable
   @ThreadSafe
-  Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged);
+  Iterable<SkyKey> markDirty(boolean isChanged);
 
   /**
    * Marks this entry as up-to-date at this version.
