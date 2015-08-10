@@ -72,9 +72,10 @@ ${ATTRIBUTE_DEFINITION}
 
 <h4 id="bind_examples">Examples</h4>
 
-<p>To give a target an alias, bind it in the <i>WORKSPACE</i> file.  For example, suppose there is
-  a <code>java_library</code> target called <code>//third_party/javacc-v2</code>.  This could be
-  aliased by adding the following to the <i>WORKSPACE</i> file:</p>
+<p>To give a target an alias, <code>bind</code> it in the <i>WORKSPACE</i> file.  For example,
+  suppose there is a <code>java_library</code> target called
+  <code>//third_party/javacc-v2</code>.  This can be aliased by adding the following to the
+  <i>WORKSPACE</i> file:</p>
 
 <pre class="code">
 bind(
@@ -84,14 +85,14 @@ bind(
 </pre>
 
 <p>Now targets can depend on <code>//external:javacc-latest</code> instead of
-  <code>//third_party/javacc-v2</code>. If javacc-v3 is released, the binding can be updated and
-  all of the BUILD files depending on <code>//external:javacc-latest</code> will now depend on
-  javacc-v3 without needing to be edited.</p>
+  <code>//third_party/javacc-v2</code>. If javacc-v3 is released, the <code>bind</code> rule can be
+  updated and all of the BUILD files depending on <code>//external:javacc-latest</code> will now
+  depend on javacc-v3 without needing to be edited.</p>
 
-<p>Bind can also be used to refer to external repositories' targets. For example, if there is a
-  remote repository named <code>@my-ssl</code> imported in the WORKSPACE file. If the
-  <code>@my-ssl</code> repository has a cc_library target <code>//src:openssl-lib</code>, you
-  could make this target accessible for your program to depend on by using <code>bind</code>:</p>
+<p>Bind can also be used to make targets in external repositories available to your workspace.
+  For example, if there is a remote repository named <code>@my-ssl</code> imported in the
+  <i>WORKSPACE</i> file and it has a cc_library target <code>//src:openssl-lib</code>, you can
+  create an alias for this target using <code>bind</code>:</p>
 
 <pre class="code">
 bind(
@@ -100,12 +101,7 @@ bind(
 )
 </pre>
 
-<p>BUILD files cannot use labels that include a repository name
-  ("@repository-name//package-name:target-name"), so the only way to depend on a target from
-  another repository is to <code>bind</code> it in the WORKSPACE file and then refer to it by its
-  aliased name in <code>//external</code> from a BUILD file.</p>
-
-<p>For example, in a BUILD file, the bound target could be used as follows:</p>
+<p>Then, in a BUILD file in your workspace, the bound target can be used as follows:</p>
 
 <pre class="code">
 cc_library(
@@ -117,7 +113,7 @@ cc_library(
 </pre>
 
 <p>Within <code>sign_in.cc</code> and <code>sign_in.h</code>, the header files exposed by
-  <code>//external:openssl</code> can be referred to by their path relative to their repository
+  <code>//external:openssl</code> can be referred to using their path relative to their repository
   root.  For example, if the rule definition for <code>@my-ssl//src:openssl-lib</code> looks like
   this:</p>
 
@@ -129,7 +125,7 @@ cc_library(
 )
 </pre>
 
-<p>Then <code>sign_in.cc</code>'s first lines might look like this:</p>
+<p>Then <code>sign_in.cc</code>'s includes might look like this:</p>
 
 <pre class="code">
 #include "sign_in.h"

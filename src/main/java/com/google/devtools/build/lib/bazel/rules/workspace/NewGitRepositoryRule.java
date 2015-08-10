@@ -53,12 +53,12 @@ public class NewGitRepositoryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("tag", STRING))
         /* <!-- #BLAZE_RULE(new_git_repository).ATTRIBUTE(build_file) -->
-        A file to use as a BUILD file for this directory.
+        The file to use as the BUILD file for this repository.
         ${SYNOPSIS}
 
         <p>This path is relative to the build's workspace. The file does not need to be named
-        BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
-        from the repository's actual BUILD files.</p>
+        BUILD, but can be something like BUILD.new-repo-name to distinguish it
+        from the workspace's actual BUILD files.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_git_repository).ATTRIBUTE(init_submodules) -->
@@ -107,7 +107,7 @@ src/
   openssl.h
 </pre>
 
-<p>In the local repository, the user creates a <i>ssl.BUILD</i> file which contains the following
+<p>In the local repository, the user creates a <i>BUILD.ssl</i> file which contains the following
 target definition:</p>
 
 <pre class="code">
@@ -126,7 +126,7 @@ new_git_repository(
     name = "my-ssl",
     remote = "http://example.com/openssl/openssl.git",
     tag = "v1.0.2",
-    build_file = "ssl.BUILD",
+    build_file = "BUILD.ssl",
 )
 </pre>
 
