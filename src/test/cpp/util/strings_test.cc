@@ -14,6 +14,8 @@
 #include "src/main/cpp/util/strings.h"
 #include "gtest/gtest.h"
 
+using std::vector;
+
 namespace blaze_util {
 
 TEST(BlazeUtil, JoinStrings) {
