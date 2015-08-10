@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,8 @@ public final class LinkCommandLine extends CommandLine {
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
   private final boolean needWholeArchive;
+
+  @Nullable private final Iterable<LTOBackendArtifacts> allLTOArtifacts;
   @Nullable private final Artifact paramFile;
   @Nullable private final Artifact interfaceSoBuilder;
 
@@ -106,6 +109,7 @@ public final class LinkCommandLine extends CommandLine {
       boolean nativeDeps,
       boolean useTestOnlyFlags,
       boolean needWholeArchive,
+      @Nullable Iterable<LTOBackendArtifacts> allLTOArtifacts,
       @Nullable Artifact paramFile,
       Artifact interfaceSoBuilder,
       CcToolchainFeatures.Variables variables,
@@ -161,6 +165,7 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.needWholeArchive = needWholeArchive;
+    this.allLTOArtifacts = allLTOArtifacts;
     this.paramFile = paramFile;
 
     // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
@@ -641,7 +646,7 @@ public final class LinkCommandLine extends CommandLine {
           && linkTargetType == LinkTargetType.EXECUTABLE
           && cppConfiguration.skipStaticOutputs()) {
         // Linked binary goes to /dev/null; bogus dependency info in its place.
-        Collections.addAll(argv, "/dev/null", "-MMD", "-MF", execpath);  // thanks Ambrose
+        Collections.addAll(argv, "/dev/null", "-MMD", "-MF", execpath);
       } else {
         argv.add(execpath);
       }
@@ -784,6 +789,23 @@ public final class LinkCommandLine extends CommandLine {
 
     boolean includeSolibDir = false;
 
+
+    Map<Artifact, Artifact> ltoMap = null;
+    if (allLTOArtifacts != null) {
+      // TODO(bazel-team): The LTO final link can only work if there are individual .o files on the
+      // command line. Rather than crashing, this should issue a nice error. We will get this by
+      // 1) moving supports_start_end_lib to a toolchain feature
+      // 2) having thin_lto require start_end_lib
+      // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
+      // of a command line option.
+
+      Preconditions.checkState(cppConfiguration.useStartEndLib());
+      ltoMap = new HashMap<>();
+      for (LTOBackendArtifacts l : allLTOArtifacts) {
+        ltoMap.put(l.getBitcodeFile(), l.getObjectFile());
+      }
+    }
+
     for (LinkerInput input : getLinkerInputs()) {
       if (isDynamicLibrary(input)) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
@@ -795,7 +817,7 @@ public final class LinkCommandLine extends CommandLine {
         }
         addDynamicInputLinkOptions(input, linkerInputs, libOpts, solibDir, rpathRoot);
       } else {
-        addStaticInputLinkOptions(input, linkerInputs);
+        addStaticInputLinkOptions(input, linkerInputs, ltoMap);
       }
     }
 
@@ -813,7 +835,7 @@ public final class LinkCommandLine extends CommandLine {
         includeRuntimeSolibDir = true;
         addDynamicInputLinkOptions(input, optionsList, libOpts, solibDir, rpathRoot);
       } else {
-        addStaticInputLinkOptions(input, optionsList);
+        addStaticInputLinkOptions(input, optionsList, ltoMap);
       }
     }
 
@@ -856,6 +878,11 @@ public final class LinkCommandLine extends CommandLine {
        * we have no idea what the right order should be, or if anyone cares.
        */
       argv.addAll(linkopts);
+    }
+
+    if (ltoMap != null) {
+      Preconditions.checkState(
+          ltoMap.size() == 0, "Still have LTO objects left: " + ltoMap + ", command-line: " + argv);
     }
   }
 
@@ -902,8 +929,12 @@ public final class LinkCommandLine extends CommandLine {
   /**
    * Adds command-line options for a static library or non-library input
    * into options.
+   *
+   * @param ltoMap is a mutable list of exec paths that should be on the command-line, which
+   *    must be supplied for LTO final links.
    */
-  private void addStaticInputLinkOptions(LinkerInput input, List<String> options) {
+  private void addStaticInputLinkOptions(
+      LinkerInput input, List<String> options, @Nullable Map<Artifact, Artifact> ltoMap) {
     Preconditions.checkState(!isDynamicLibrary(input));
 
     // start-lib/end-lib library: adds its input object files.
@@ -912,13 +943,32 @@ public final class LinkCommandLine extends CommandLine {
       if (!Iterables.isEmpty(archiveMembers)) {
         options.add("-Wl,--start-lib");
         for (Artifact member : archiveMembers) {
-          options.add(member.getExecPathString());
+          if (ltoMap != null) {
+            Artifact backend = ltoMap.remove(member);
+
+            if (backend == null) {
+              System.err.println(
+                  "LTO backend file missing for " + member + " already did: " + options);
+              backend = member;
+            }
+            options.add(backend.getExecPathString());
+          } else {
+            options.add(member.getExecPathString());
+          }
         }
         options.add("-Wl,--end-lib");
       }
-    // For anything else, add the input directly.
     } else {
+      // For anything else, add the input directly.
       Artifact inputArtifact = input.getArtifact();
+
+      if (ltoMap != null) {
+        Artifact ltoArtifact = ltoMap.remove(inputArtifact);
+        if (ltoArtifact != null) {
+          inputArtifact = ltoArtifact;
+        }
+      }
+
       if (input.isFake()) {
         options.add(Link.FAKE_OBJECT_PREFIX + inputArtifact.getExecPathString());
       } else {
@@ -968,6 +1018,7 @@ public final class LinkCommandLine extends CommandLine {
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
     private boolean needWholeArchive;
+    @Nullable private Iterable<LTOBackendArtifacts> allLTOBackendArtifacts;
     @Nullable private Artifact paramFile;
     @Nullable private Artifact interfaceSoBuilder;
 
@@ -1023,6 +1074,7 @@ public final class LinkCommandLine extends CommandLine {
           nativeDeps,
           useTestOnlyFlags,
           needWholeArchive,
+          allLTOBackendArtifacts,
           paramFile,
           interfaceSoBuilder,
           variables,
@@ -1189,6 +1241,11 @@ public final class LinkCommandLine extends CommandLine {
 
     public Builder setParamFile(Artifact paramFile) {
       this.paramFile = paramFile;
+      return this;
+    }
+
+    public Builder setAllLTOArtifacts(Iterable<LTOBackendArtifacts> allLTOArtifacts) {
+      this.allLTOBackendArtifacts = allLTOArtifacts;
       return this;
     }
   }
