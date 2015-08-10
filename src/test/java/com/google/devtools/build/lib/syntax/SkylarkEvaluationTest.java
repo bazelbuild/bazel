@@ -867,15 +867,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testCannotCreateMixedListInSkylark() throws Exception {
-    new SkylarkTest().update("mock", new Mock()).testIfExactError(
-        "Incompatible types in list: found a int but the previous elements were strings",
-        "[mock.string(), 1, 2]");
+    new SkylarkTest().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
   }
 
   @Test
   public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {
-    new SkylarkTest().update("mock", new Mock()).testIfExactError(
-        "cannot concatenate list of string with list of int", "mock.string_list() + [1, 2]");
+    new SkylarkTest().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
   }
 
   @Test
