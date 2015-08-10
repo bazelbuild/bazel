@@ -784,6 +784,33 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "}",
             toolchainBuilder);
       }
+      if (!features.contains("coverage")) {
+        TextFormat.merge(
+            ""
+                + "feature {"
+                + "  name: 'coverage'"
+                + "  flag_set {"
+                + "    action: 'preprocess-assemble'"
+                + "    action: 'c-compile'"
+                + "    action: 'c++-compile'"
+                + "    action: 'c++-header-parsing'"
+                + "    action: 'c++-header-preprocessing'"
+                + "    action: 'c++-module-compile'"
+                + "    expand_if_all_available: 'gcov_gcno_file'"
+                + "    flag_group {"
+                + "      flag: '-fprofile-arcs'"
+                + "      flag: '-ftest-coverage'"
+                + "    }"
+                + "  }"
+                + "  flag_set {"
+                + "    action: 'c++-link'"
+                + "    flag_group {"
+                + "      flag: '-lgcov'"
+                + "    }"
+                + "  }"
+                + "}",
+            toolchainBuilder);
+      }
     } catch (ParseException e) {
       // Can only happen if we change the proto definition without changing our configuration above.
       throw new RuntimeException(e);

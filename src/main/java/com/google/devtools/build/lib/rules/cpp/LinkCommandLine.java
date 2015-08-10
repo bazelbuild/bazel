@@ -668,10 +668,6 @@ public final class LinkCommandLine extends CommandLine {
       argv.addAll(cppConfiguration.getTestOnlyLinkOptions());
     }
 
-    if (configuration.isCodeCoverageEnabled()) {
-      argv.add("-lgcov");
-    }
-
     if (linkTargetType == LinkTargetType.EXECUTABLE && cppConfiguration.forcePic()) {
       argv.add("-pie");
     }

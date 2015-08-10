@@ -241,9 +241,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (cppConfiguration != null && !cppConfiguration.shouldScanIncludes()) {
       inputsKnown = true;
     }
-    this.cppCompileCommandLine = new CppCompileCommandLine(sourceFile, dotdFile,
-        copts, coptsFilter, pluginOpts, (gcnoFile != null), features,
-        featureConfiguration, variables, fdoBuildStamp);
+    this.cppCompileCommandLine =
+        new CppCompileCommandLine(
+            sourceFile,
+            dotdFile,
+            copts,
+            coptsFilter,
+            pluginOpts,
+            features,
+            featureConfiguration,
+            variables,
+            fdoBuildStamp);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
@@ -1165,7 +1173,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
     private final List<String> pluginOpts;
-    private final boolean isInstrumented;
     private final Collection<String> features;
     private final FeatureConfiguration featureConfiguration;
     private final CcToolchainFeatures.Variables variables;
@@ -1173,10 +1180,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // The value of the BUILD_FDO_TYPE macro to be defined on command line
     @Nullable private final String fdoBuildStamp;
 
-    public CppCompileCommandLine(Artifact sourceFile, DotdFile dotdFile,
-        ImmutableList<String> copts, Predicate<String> coptsFilter,
-        ImmutableList<String> pluginOpts, boolean isInstrumented,
-        Collection<String> features, FeatureConfiguration featureConfiguration,
+    public CppCompileCommandLine(
+        Artifact sourceFile,
+        DotdFile dotdFile,
+        ImmutableList<String> copts,
+        Predicate<String> coptsFilter,
+        ImmutableList<String> pluginOpts,
+        Collection<String> features,
+        FeatureConfiguration featureConfiguration,
         CcToolchainFeatures.Variables variables,
         @Nullable String fdoBuildStamp) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
@@ -1184,7 +1195,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.pluginOpts = Preconditions.checkNotNull(pluginOpts);
-      this.isInstrumented = isInstrumented;
       this.features = Preconditions.checkNotNull(features);
       this.featureConfiguration = featureConfiguration;
       this.variables = variables;
@@ -1245,11 +1255,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // pluginOpts has to be added before defaultCopts because -fplugin must precede -plugin-arg.
       options.addAll(pluginOpts);
       addFilteredOptions(options, toolchain.getCompilerOptions(features));
-
-      // Enable instrumentation if requested.
-      if (isInstrumented) {
-        addFilteredOptions(options, ImmutableList.of("-fprofile-arcs", "-ftest-coverage"));
-      }
 
       String sourceFilename = sourceFile.getExecPathString();
       if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {

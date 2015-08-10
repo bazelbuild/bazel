@@ -178,4 +178,9 @@ public class CppRuleClasses {
    * A string constant for the lipo feature.
    */
   public static final String LIPO = "lipo";
+
+  /**
+   * A string constant for the coverage feature.
+   */
+  public static final String COVERAGE = "coverage";
 }
