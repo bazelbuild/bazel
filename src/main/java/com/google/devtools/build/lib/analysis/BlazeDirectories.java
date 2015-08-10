@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Root;
@@ -53,6 +54,8 @@ public final class BlazeDirectories {
 
   // Include directory name, relative to execRoot/blaze-out/configuration.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");
+  @VisibleForTesting
+  static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
   private final Path installBase;  // Where Blaze gets unpacked
   private final Path workspace;    // Workspace root and server CWD
@@ -68,16 +71,18 @@ public final class BlazeDirectories {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
-    if (this.workspace == null) {
-      // TODO(bazel-team): this should be null, but at the moment there is a lot of code that
-      // depends on it being non-null.
-      this.execRoot = outputBase.getChild("default-exec-root");
+    boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
+    if (useDefaultExecRootName) {
+      // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
+      // a lot of code that depends on it being non-null.
+      this.execRoot = outputBase.getChild(DEFAULT_EXEC_ROOT);
     } else {
       this.execRoot = outputBase.getChild(workspace.getBaseName());
     }
     this.outputPath = execRoot.getRelative(RELATIVE_OUTPUT_PATH);
-    Preconditions.checkState(this.workspace == null || outputPath.asFragment().equals(
+    Preconditions.checkState(useDefaultExecRootName || outputPath.asFragment().equals(
         outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment())));
+
     this.localOutputPath = outputBase.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH);
   }
 
