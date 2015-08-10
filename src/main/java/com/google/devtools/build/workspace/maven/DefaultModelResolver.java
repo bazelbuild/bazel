@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.workspace.maven;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
@@ -30,7 +32,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -65,9 +67,15 @@ public class DefaultModelResolver implements ModelResolver {
         return modelSource;
       }
     }
+
+    // TODO(kchodorow): use Java 8 features to make this a one-liner.
+    List<String> urls = Lists.newArrayList();
+    for (Repository repository : repositories) {
+      urls.add(repository.getUrl());
+    }
     throw new UnresolvableModelException("Could not find any repositories that knew how to "
         + "resolve " + groupId + ":" + artifactId + ":" + version + " (checked "
-        + Arrays.toString(repositories.toArray()) + ")", groupId, artifactId, version);
+        + Joiner.on(", ").join(urls) + ")", groupId, artifactId, version);
   }
 
   // TODO(kchodorow): make this work with local repositories.

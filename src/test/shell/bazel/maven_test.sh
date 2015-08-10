@@ -29,14 +29,14 @@ function set_up() {
   mkdir $m2
   cd $m2
   m2_port=$(pick_random_unused_tcp_port) || exit 1
-  python -m SimpleHTTPServer $m2_port > $TEST_TMPDIR/m2_log &
+  python -m SimpleHTTPServer $m2_port &
   m2_pid=$!
+  wait_for_server_startup
   cd -
 }
 
 function tear_down() {
   kill $m2_pid
-  cat $TEST_TMPDIR/m2_log
 }
 
 # Takes: groupId, artifactId, and version.
@@ -69,6 +69,18 @@ EOF
   ${bazel_javabase}/bin/jar cf $pkg_dir/$artifactId-$version.jar $TEST_TMPDIR/$groupId.class
 }
 
+# Waits for the SimpleHTTPServer to actually start up before the test is run.
+# Otherwise the entire test can run before the server starts listening for
+# connections, which causes flakes.
+function wait_for_server_startup() {
+  touch some-file
+  while ! curl localhost:$m2_port/some-file; do
+    echo "waiting for server, exit code: $?"
+  done
+  echo "done waiting for server, exit code: $?"
+  rm some-file
+}
+
 function test_pom() {
   # Create a maven repo
   make_artifact blorp glorp 1.2.3
@@ -99,7 +111,7 @@ function test_pom() {
 EOF
 
   ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$TEST_TMPDIR &> $TEST_log
+    --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
 
   cat $(cat $TEST_log | tail -n 2 | head -n 1) > ws
   cat $(cat $TEST_log | tail -n 1) > build
