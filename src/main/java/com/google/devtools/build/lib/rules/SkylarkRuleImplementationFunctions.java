@@ -391,7 +391,12 @@ public class SkylarkRuleImplementationFunctions {
           ImmutableList.Builder<Substitution> substitutions = ImmutableList.builder();
           for (Map.Entry<String, String> substitution : castMap(
               substitutionsO, String.class, String.class, "substitutions").entrySet()) {
-            substitutions.add(Substitution.of(substitution.getKey(), substitution.getValue()));
+            // ParserInputSource.create(Path) uses Latin1 when reading BUILD files, which might
+            // contain UTF-8 encoded symbols as part of template substitution.
+            // As a quick fix, the substitution values are corrected before being passed on.
+            // In the long term, fixing ParserInputSource.create(Path) would be a better approach.
+            substitutions.add(Substitution.of(
+                substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
           }
           TemplateExpansionAction action = new TemplateExpansionAction(
               ctx.getRuleContext().getActionOwner(),
@@ -403,6 +408,15 @@ public class SkylarkRuleImplementationFunctions {
           return action;
         }
       };
+
+  /**
+   * Returns the proper UTF-8 representation of a String that was erroneously read using Latin1.
+   * @param latin1 Input string
+   * @return The input string, UTF8 encoded
+   */
+  private static String convertLatin1ToUtf8(String latin1) {
+    return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+  }
 
   /**
    * A built in Skylark helper function to access the
