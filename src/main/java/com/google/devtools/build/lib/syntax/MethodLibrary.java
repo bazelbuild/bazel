@@ -1366,12 +1366,12 @@ public class MethodLibrary {
       items, get, keys, values);
 
   private static final List<BaseFunction> pureGlobalFunctions = ImmutableList.<BaseFunction>of(
-      bool, enumerate, int_, len, minus, range, repr, select, sorted, str);
+      bool, dict, enumerate, int_, len, list, minus, range, repr, select, sorted, str, zip);
 
   private static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
       .addAll(pureGlobalFunctions)
-      .add(list, struct, hasattr, getattr, set, dict, dir, type, fail, print, zip)
+      .add(dir, fail, getattr, hasattr, print, set, struct, type)
       .build();
 
   /**
