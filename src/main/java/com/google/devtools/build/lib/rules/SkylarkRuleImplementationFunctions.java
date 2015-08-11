@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.PseudoAction;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -41,6 +42,9 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -141,9 +145,12 @@ public class SkylarkRuleImplementationFunctions {
         Location loc) throws EvalException, ConversionException {
       SpawnAction.Builder builder = new SpawnAction.Builder();
       // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
-      builder.addInputs(castList(inputs, Artifact.class));
+      boolean hasCommand = commandO != Environment.NONE;
+      Iterable<Artifact> actualInputs = castList(inputs, Artifact.class);
+
+      builder.addInputs(actualInputs);
       builder.addOutputs(castList(outputs, Artifact.class));
-      if (commandO != Environment.NONE && arguments.size() > 0) {
+      if (hasCommand && arguments.size() > 0) {
         // When we use a shell command, add an empty argument before other arguments.
         //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
         // bash will use the empty argument as the value of $0 (which we don't care about).
@@ -171,7 +178,7 @@ public class SkylarkRuleImplementationFunctions {
       if ((commandO == Environment.NONE) == (executableO == Environment.NONE)) {
         throw new EvalException(loc, "You must specify either 'command' or 'executable' argument");
       }
-      if (commandO != Environment.NONE) {
+      if (hasCommand) {
         if (commandO instanceof String) {
           builder.setShellCommand((String) commandO);
         } else if (commandO instanceof SkylarkList) {
@@ -184,6 +191,11 @@ public class SkylarkRuleImplementationFunctions {
           throw new EvalException(loc, "expected string or list of strings for "
               + "command instead of " + EvalUtils.getDataTypeName(commandO));
         }
+
+        // The actual command can refer to an executable from the inputs, which could require some
+        // runfiles. Consequently, we add the runfiles of every executable input file that is in
+        // HOST configuration to the action as a precaution.
+        addRequiredIndirectRunfiles(ctx, builder);
       }
       if (mnemonicO != Environment.NONE) {
         builder.setMnemonic((String) mnemonicO);
@@ -213,6 +225,27 @@ public class SkylarkRuleImplementationFunctions {
       return Environment.NONE;
     }
   };
+
+  /**
+   * Adds the runfiles of the given input files to the action builder when they are executable and
+   * in HOST configuration.
+   */
+  private static void addRequiredIndirectRunfiles(
+      SkylarkRuleContext ctx, SpawnAction.Builder builder) {
+    RuleContext ruleContext = ctx.getRuleContext();
+    AttributeMap attrMap = ruleContext.attributes();
+
+    for (String attrName : attrMap.getAttributeNames()) {
+      Attribute attr = attrMap.getAttributeDefinition(attrName);
+      if (attr.isExecutable()
+          && (attr.getConfigurationTransition() == ConfigurationTransition.HOST)) {
+        FilesToRunProvider prov = ruleContext.getExecutablePrerequisite(attrName, Mode.HOST);
+        if (prov != null) {
+          builder.addTool(prov);
+        }
+      }
+    }
+  }
 
   @SkylarkSignature(name = "expand_location",
       doc =
