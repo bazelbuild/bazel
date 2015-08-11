@@ -49,14 +49,20 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   }
 
   private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
-  private final ExtraLinkArgs extraLinkArgs;
   private final XcodeProductType productType;
 
   protected BinaryLinkingTargetFactory(HasReleaseBundlingSupport hasReleaseBundlingSupport,
-      ExtraLinkArgs extraLinkArgs, XcodeProductType productType) {
+      XcodeProductType productType) {
     this.hasReleaseBundlingSupport = hasReleaseBundlingSupport;
-    this.extraLinkArgs = extraLinkArgs;
     this.productType = productType;
+  }
+
+  /**
+   * Returns extra linker arguments. Default implementation returns empty list.
+   * Subclasses can override and customize.
+   */
+  protected ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) {
+    return new ExtraLinkArgs();
   }
 
   @VisibleForTesting
@@ -93,7 +99,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .registerJ2ObjcCompileAndArchiveActions(objcProvider)
         .registerCompileAndArchiveActions(common)
         .addXcodeSettings(xcodeProviderBuilder, common)
-        .registerLinkActions(objcProvider, extraLinkArgs, ImmutableList.<Artifact>of())
+        .registerLinkActions(objcProvider, getExtraLinkArgs(ruleContext),
+            ImmutableList.<Artifact>of())
         .validateAttributes();
 
     if (ruleContext.hasErrors()) {
@@ -160,6 +167,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
       RunfilesSupport runfilesSupport = maybeRunfilesSupport.get();
       targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
     }
+    configureTarget(targetBuilder, ruleContext);
     return targetBuilder.build();
   }
 
@@ -202,4 +210,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     return builder.build();
   }
+
+  /**
+   * Performs additional configuration of the target. The default implementation does nothing, but
+   * subclasses may override it to add logic.
+   */
+  protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext) {};
 }

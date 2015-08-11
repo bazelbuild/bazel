@@ -212,7 +212,13 @@ public final class ObjcProvider implements TransitiveInfoProvider {
      * Indicates that Swift source files are present. This affects bundling, compiling and linking
      * actions.
      */
-    USES_SWIFT
+    USES_SWIFT,
+
+    /**
+     * Indicates that the resulting bundle will have embedded frameworks. This affects linking step.
+     */
+    USES_FRAMEWORKS
+
   }
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;

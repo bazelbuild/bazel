@@ -50,7 +50,9 @@ public class ObjcXcodeprojRule implements RuleDefinition {
                 "ios_application",
                 "ios_extension_binary",
                 "ios_extension",
-                "ios_test",                
+                "ios_framework",
+                "ios_framework_binary",
+                "ios_test",
                 "objc_bundle_library",
                 "objc_import",
                 "objc_library")

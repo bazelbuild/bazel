@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-
 /**
  * Implementation for the "objc_binary" rule.
  */
@@ -25,7 +23,6 @@ public class ObjcBinary extends BinaryLinkingTargetFactory {
         // TODO(bazel-team): Remove the enum and delete all code depending on YES case once all
         // bundle users are migrated to ios_application.
         HasReleaseBundlingSupport.YES,
-        new ExtraLinkArgs(),
 
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle

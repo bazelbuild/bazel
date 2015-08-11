@@ -327,6 +327,9 @@ public class ObjcRuleClasses {
 
   static final FileType XIB_TYPE = FileType.of(".xib");
 
+  // TODO(bazel-team): Restrict this to actual header files only.
+  static final FileTypeSet HDRS_TYPE = FileTypeSet.ANY_FILE;
+
   /**
    * Common attributes for {@code objc_*} rules that allow the definition of resources such as
    * storyboards. These resources are used during compilation of the declaring rule as well as when
@@ -513,7 +516,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedFileTypes(FileTypeSet.ANY_FILE))
+              .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
@@ -558,7 +561,8 @@ public class ObjcRuleClasses {
         "objc_framework",
         "objc_proto_library",
         "j2objc_library",
-        "cc_library");
+        "cc_library",
+        "ios_framework");
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {

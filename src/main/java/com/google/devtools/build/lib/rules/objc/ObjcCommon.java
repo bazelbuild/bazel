@@ -505,7 +505,7 @@ public final class ObjcCommon {
 
   static final FileType ASSET_CATALOG_CONTAINER_TYPE = FileType.of(".xcassets");
 
-  static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
+  public static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final ObjcProvider objcProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;

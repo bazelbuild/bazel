@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2014 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,36 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 
 /**
- * Implementation for the "ios_extension_binary" rule.
+ * Implementation for the "ios_framework_binary" rule.
  */
-public class IosExtensionBinary extends BinaryLinkingTargetFactory {
-  public IosExtensionBinary() {
+public class IosFrameworkBinary extends BinaryLinkingTargetFactory {
+  public IosFrameworkBinary() {
     super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC);
   }
 
   @Override
   protected ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) {
-    return new ExtraLinkArgs("-e", "_NSExtensionMain", "-fapplication-extension");
+    String frameworkName = getFrameworkName(ruleContext);
+
+    return new ExtraLinkArgs(
+        "-dynamiclib",
+        String.format("-install_name @rpath/%1$s.framework/%1$s", frameworkName));
+  }
+
+  private String getFrameworkName(RuleContext ruleContext) {
+    return ruleContext.getLabel().getName();
+  }
+
+  @Override
+  protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext) {
+    IosFrameworkProvider frameworkProvider =
+        new IosFrameworkProvider(getFrameworkName(ruleContext));
+
+    target.addProvider(IosFrameworkProvider.class, frameworkProvider);
   }
 }

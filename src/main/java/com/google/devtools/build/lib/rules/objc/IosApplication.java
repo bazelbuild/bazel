@@ -44,7 +44,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
 
   public IosApplication() {
     super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, XcodeProductType.APPLICATION,
-        ExposeAsNestedBundle.NO, DEPENDENCY_ATTRIBUTES, ConfigurationDistinguisher.APPLICATION);
+        DEPENDENCY_ATTRIBUTES, ConfigurationDistinguisher.APPLICATION);
   }
 
   @Override

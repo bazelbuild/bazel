@@ -84,6 +84,7 @@ public class XcodeprojGeneration {
   public static final String FILE_TYPE_WRAPPER_APPLICATION = "wrapper.application";
   public static final String FILE_TYPE_WRAPPER_BUNDLE = "wrapper.cfbundle";
   public static final String FILE_TYPE_APP_EXTENSION = "wrapper.app-extension";
+  public static final String FILE_TYPE_FRAMEWORK = "wrapper.frawework";
   private static final String DEFAULT_OPTIONS_NAME = "Debug";
   private static final Escaper QUOTE_ESCAPER = Escapers.builder().addEscape('"', "\\\"").build();
 
@@ -128,13 +129,15 @@ public class XcodeprojGeneration {
       ProductType.APPLICATION,
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
-      ProductType.APP_EXTENSION);
+      ProductType.APP_EXTENSION,
+      ProductType.FRAMEWORK);
 
   private static final EnumSet<ProductType> PRODUCT_TYPES_THAT_HAVE_A_BINARY = EnumSet.of(
       ProductType.APPLICATION,
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
-      ProductType.APP_EXTENSION);
+      ProductType.APP_EXTENSION,
+      ProductType.FRAMEWORK);
 
   /**
    * Detects the product type of the given target based on multiple fields in {@code targetControl}.
@@ -201,6 +204,11 @@ public class XcodeprojGeneration {
         return FileReference.of(
             String.format("%s.appex", productName), SourceTree.BUILT_PRODUCTS_DIR)
                 .withExplicitFileType(FILE_TYPE_APP_EXTENSION);
+      case FRAMEWORK:
+        return FileReference.of(
+            String.format("%s.framwork", productName), SourceTree.BUILT_PRODUCTS_DIR)
+                .withExplicitFileType(FILE_TYPE_FRAMEWORK);
+
       default:
         throw new IllegalArgumentException("unknown: " + type);
     }

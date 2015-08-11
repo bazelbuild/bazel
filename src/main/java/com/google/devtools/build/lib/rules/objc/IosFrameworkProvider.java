@@ -14,19 +14,26 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
- * Implementation for the "ios_extension_binary" rule.
+ * Provider for iOS Framework info.
  */
-public class IosExtensionBinary extends BinaryLinkingTargetFactory {
-  public IosExtensionBinary() {
-    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC);
+@Immutable
+public final class IosFrameworkProvider implements TransitiveInfoProvider {
+
+  private final String frameworkName;
+
+  public IosFrameworkProvider(String frameworkName) {
+    this.frameworkName = Preconditions.checkNotNull(frameworkName);
   }
 
-  @Override
-  protected ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) {
-    return new ExtraLinkArgs("-e", "_NSExtensionMain", "-fapplication-extension");
+  /**
+   * Returns the name of the framework.
+   */
+  public String getFrameworkName() {
+    return frameworkName;
   }
 }

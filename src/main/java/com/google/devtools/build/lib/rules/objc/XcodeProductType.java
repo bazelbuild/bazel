@@ -23,7 +23,8 @@ enum XcodeProductType {
   BUNDLE("com.apple.product-type.bundle"),
   APPLICATION("com.apple.product-type.application"),
   UNIT_TEST("com.apple.product-type.bundle.unit-test"),
-  EXTENSION("com.apple.product-type.app-extension");
+  EXTENSION("com.apple.product-type.app-extension"),
+  FRAMEWORK("com.apple.product-type.framework");
 
   private final String identifier;
 

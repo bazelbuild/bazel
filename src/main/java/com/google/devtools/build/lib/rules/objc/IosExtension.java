@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,13 +50,20 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
 
   public IosExtension() {
     super(ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT, XcodeProductType.EXTENSION,
-        ExposeAsNestedBundle.YES, ImmutableSet.of(new Attribute("binary", Mode.SPLIT)),
-        ConfigurationDistinguisher.EXTENSION);
+        ImmutableSet.of(new Attribute("binary", Mode.SPLIT)), ConfigurationDistinguisher.EXTENSION);
   }
 
   @Override
   protected String bundleMinimumOsVersion(RuleContext ruleContext) {
     return determineMinimumOsVersion(ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs());
+  }
+
+  @Override
+  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) {
+    // Nest this target's bundle under final IPA
+    return new ObjcProvider.Builder()
+        .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
+        .build();
   }
 
   private static String determineMinimumOsVersion(String fromFlag) {

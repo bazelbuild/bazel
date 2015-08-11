@@ -464,7 +464,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   @VisibleForTesting
   static final EnumSet<XcodeProductType> CAN_LINK_PRODUCT_TYPES = EnumSet.of(
       XcodeProductType.APPLICATION, XcodeProductType.BUNDLE, XcodeProductType.UNIT_TEST,
-      XcodeProductType.EXTENSION);
+      XcodeProductType.EXTENSION, XcodeProductType.FRAMEWORK);
 
   /**
    * Returns the name of the Xcode target that corresponds to a build target with the given name.

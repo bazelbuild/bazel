@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -536,8 +537,12 @@ final class CompilationSupport {
     }
 
     if (objcProvider.is(USES_SWIFT)) {
+      commandLine.add("-L").add(IosSdkCommands.swiftLibDir(objcConfiguration));
+    }
+
+    if (objcProvider.is(USES_SWIFT) || objcProvider.is(USES_FRAMEWORKS)) {
+      // Enable loading bundled frameworks.
       commandLine
-          .add("-L").add(IosSdkCommands.swiftLibDir(objcConfiguration))
           .add("-Xlinker").add("-rpath")
           .add("-Xlinker").add("@executable_path/Frameworks");
     }
