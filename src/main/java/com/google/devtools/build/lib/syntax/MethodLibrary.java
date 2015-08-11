@@ -1385,12 +1385,14 @@ public class MethodLibrary {
     setupMethodEnvironment(env, List.class, listPureFunctions);
     setupMethodEnvironment(env, SkylarkList.class, listPureFunctions);
     setupMethodEnvironment(env, SkylarkNestedSet.class, setFunctions);
+    // TODO(bazel-team): Simplify when list types are unified.
+    env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
+    env.registerFunction(List.class, indexOperator.getName(), indexOperator);
+    env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
+
     if (env.isSkylarkEnabled()) {
-      env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
       setupMethodEnvironment(env, skylarkGlobalFunctions);
     } else {
-      env.registerFunction(List.class, indexOperator.getName(), indexOperator);
-      env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);
