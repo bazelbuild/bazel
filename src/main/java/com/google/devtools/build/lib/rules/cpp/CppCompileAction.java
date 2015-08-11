@@ -583,6 +583,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // is always searched for DLLs first. Not sure what to make of it.
       // Other options are to forward the system path (brittle), or to add a PATH field to
       // the crosstool file.
+      //
+      // @see com.google.devtools.build.lib.rules.cpp.CppLinkAction#getEnvironment
       environment.put("PATH", cppConfiguration.getToolPathFragment(Tool.GCC).getParentDirectory()
           .getPathString());
    }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -45,7 +44,7 @@ public final class LocalLinkStrategy extends LinkStrategy {
     Executor executor = actionExecutionContext.getExecutor();
     List<String> argv = action.getCommandLine();
     executor.getSpawnActionContext(action.getMnemonic()).exec(
-        new BaseSpawn.Local(argv, ImmutableMap.<String, String>of(), action),
+        new BaseSpawn.Local(argv, action.getEnvironment(), action),
         actionExecutionContext);
   }
 
