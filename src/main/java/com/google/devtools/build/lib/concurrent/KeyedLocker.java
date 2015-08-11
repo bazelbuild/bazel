@@ -22,7 +22,7 @@ public interface KeyedLocker<K> {
   @ThreadSafe
   interface AutoUnlocker extends AutoCloseable {
     /** Exception used to indicate illegal use of {@link AutoUnlocker#close}. */
-    public static class IllegalUnlockException extends RuntimeException {
+    class IllegalUnlockException extends RuntimeException {
       public IllegalUnlockException(String msg) {
         super(msg);
       }

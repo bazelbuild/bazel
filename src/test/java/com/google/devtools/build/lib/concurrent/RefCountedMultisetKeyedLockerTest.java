@@ -18,9 +18,9 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RefCountedMultisetKeyedLocker}. */
 @RunWith(JUnit4.class)
-public class RefCountedMultisetKeyedLockerTest extends BatchedKeyedLockerTest {
-  @Override
-  protected BatchedKeyedLocker.Factory<String> getLockerFactory() {
-    return new RefCountedMultisetKeyedLocker.Factory<String>();
-  }
+public class RefCountedMultisetKeyedLockerTest extends KeyedLockerTest {
+ @Override
+ protected KeyedLocker<String> makeFreshLocker() {
+  return new RefCountedMultisetKeyedLocker<>();
+ }
 }

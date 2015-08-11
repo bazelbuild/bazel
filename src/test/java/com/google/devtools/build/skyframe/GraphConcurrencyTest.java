@@ -158,8 +158,7 @@ public abstract class GraphConcurrencyTest {
   @Test
   public void testAddingInflightNodes() throws Exception {
     int numThreads = 50;
-    final KeyedLocker<SkyKey> locker =
-        new RefCountedMultisetKeyedLocker.Factory<SkyKey>().create();
+    final KeyedLocker<SkyKey> locker = new RefCountedMultisetKeyedLocker<>();
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     final int numKeys = 500;
     // Add each key 10 times.
