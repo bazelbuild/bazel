@@ -257,6 +257,15 @@ public abstract class EvalUtils {
    * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
    */
   public static String getDataTypeNameFromClass(Class<?> c) {
+    return getDataTypeNameFromClass(c, true);
+  }
+
+  /**
+   * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
+   * @param highlightNameSpaces Determines whether the result should also contain a special comment
+   * when the given class identifies a Skylark name space.
+   */
+  public static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
     if (c.equals(Object.class)) {
       return "unknown";
     } else if (c.equals(String.class)) {
@@ -292,7 +301,7 @@ public abstract class EvalUtils {
     } else if (c.isAnnotationPresent(SkylarkModule.class)) {
       SkylarkModule module = c.getAnnotation(SkylarkModule.class);
       return c.getAnnotation(SkylarkModule.class).name()
-          + (module.namespace() ? " (a language module)" : "");
+          + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();

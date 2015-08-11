@@ -445,6 +445,7 @@ public abstract class BaseFunction {
   /**
    * Render this object in the form of an equivalent Python function signature.
    */
+  @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append(getName());
@@ -474,5 +475,59 @@ public abstract class BaseFunction {
     // this function is called after the signature was initialized
     Preconditions.checkState(signature != null);
     enforcedArgumentTypes = signature.getTypes();
+  }
+
+  protected boolean hasSelfArgument() {
+    Class<?> clazz = getObjectType();
+    if (clazz == null) {
+      return false;
+    }
+    List<SkylarkType> types = signature.getTypes();
+    ImmutableList<String> names = signature.getSignature().getNames();
+
+    return (!types.isEmpty() && types.get(0).canBeCastTo(clazz))
+        || (!names.isEmpty() && names.get(0).equals("self"));
+  }
+
+  protected String getObjectTypeString() {
+    Class<?> clazz = getObjectType();
+    if (clazz == null) {
+      return "";
+    }
+    return EvalUtils.getDataTypeNameFromClass(clazz, false) + ".";
+  }
+
+  /**
+   * Returns the signature as "[className.]methodName(paramType1, paramType2, ...)"
+   */
+  public String getShortSignature() {
+    StringBuilder builder = new StringBuilder();
+    boolean hasSelf = hasSelfArgument();
+
+    builder.append(getObjectTypeString()).append(getName()).append("(");
+    signature.toStringBuilder(builder, true, false, false, hasSelf);
+    builder.append(")");
+
+    return builder.toString();
+  }
+
+  /**
+   * Prints the types of the first {@code howManyArgsToPrint} given arguments as
+   * "(type1, type2, ...)"
+   */
+  protected String printTypeString(Object[] args, int howManyArgsToPrint) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("(");
+
+    int start = hasSelfArgument() ? 1 : 0;
+    for (int pos = start; pos < howManyArgsToPrint; ++pos) {
+      builder.append(EvalUtils.getDataTypeName(args[pos]));
+
+      if (pos < howManyArgsToPrint - 1) {
+        builder.append(", ");
+      }
+    }  
+    builder.append(")");
+    return builder.toString();
   }
 }

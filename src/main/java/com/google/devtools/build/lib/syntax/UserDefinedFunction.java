@@ -46,6 +46,14 @@ public class UserDefinedFunction extends BaseFunction {
     return location;
   }
 
+  /**
+   * Since the types of parameters of user defined functions are unknown, we just return
+   * "name(parameterCount)"
+   */
+  @Override
+  public String getShortSignature() {
+    return String.format("%s(%d)", getName(), getArgArraySize());
+  }
 
   @Override
   public Object call(Object[] arguments, FuncallExpression ast, Environment env)

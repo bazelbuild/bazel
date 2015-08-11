@@ -164,21 +164,25 @@ public class BuiltinFunction extends BaseFunction {
         throw badCallException(loc, e, args);
       }
     } catch (IllegalArgumentException e) {
-        // Either this was thrown by Java itself, or it's a bug
-        // To cover the first case, let's manually check the arguments.
-        final int len = args.length - ((extraArgs == null) ? 0 : extraArgs.length);
-        final Class<?>[] types = invokeMethod.getParameterTypes();
-        for (int i = 0; i < args.length; i++) {
-          if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
-            String paramName = i < len
-                ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
-            throw new EvalException(loc, String.format(
-                "expected %s for '%s' while calling %s but got %s instead",
-                EvalUtils.getDataTypeNameFromClass(types[i]), paramName, getName(),
-                EvalUtils.getDataTypeName(args[i])));
-          }
+      // Either this was thrown by Java itself, or it's a bug
+      // To cover the first case, let's manually check the arguments.
+      final int len = args.length - ((extraArgs == null) ? 0 : extraArgs.length);
+      final Class<?>[] types = invokeMethod.getParameterTypes();
+      for (int i = 0; i < args.length; i++) {
+        if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
+          String paramName =
+              i < len ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
+          int extraArgsCount = (extraArgs == null) ? 0 : extraArgs.length;
+          throw new EvalException(
+              loc,
+              String.format(
+                  "Method %s is not applicable for arguments %s: '%s' is %s, but should be %s",
+                  getShortSignature(), printTypeString(args, args.length - extraArgsCount),
+                  paramName, EvalUtils.getDataTypeName(args[i]),
+                  EvalUtils.getDataTypeNameFromClass(types[i])));
         }
-        throw badCallException(loc, e, args);
+      }
+      throw badCallException(loc, e, args);
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     }
