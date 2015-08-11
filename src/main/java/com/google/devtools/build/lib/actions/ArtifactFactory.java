@@ -297,6 +297,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
         relativePath,
         baseExecPath,
         baseRoot);
+    Preconditions.checkState(
+        relativePath.segmentCount() > 0, "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
     execPath = execPath.normalize();
@@ -319,10 +321,18 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @Nullable
   private Root findSourceRoot(
       PathFragment execPath, PathFragment baseExecPath, @Nullable Root baseRoot) {
+    Preconditions.checkState(
+        baseExecPath == null
+            || (execPath.startsWith(baseExecPath) && !execPath.equals(baseExecPath)),
+        "%s %s %s",
+        execPath,
+        baseExecPath,
+        baseRoot);
     // Probe the known packages to find the longest package prefix up until the base.
     for (PathFragment dir = execPath.getParentDirectory();
         !Objects.equals(dir, baseExecPath);
         dir = dir.getParentDirectory()) {
+      Preconditions.checkNotNull(dir, "%s %s %s", execPath, baseExecPath, baseRoot);
       Root sourceRoot = packageRoots.get(PackageIdentifier.createInDefaultRepo(dir));
       if (sourceRoot != null) {
         return sourceRoot;
