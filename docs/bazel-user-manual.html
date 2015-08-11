@@ -2911,7 +2911,7 @@ in an environment closer to the current shell environment. Note that none of the
 <p>
   <code>shutdown</code> accepts one
   option, <code class='flag'>--iff_heap_size_greater_than <i>n</i></code>, which
-  requires an integer argument.  If specified, this makes the shutdown
+  requires an integer argument (in MB).  If specified, this makes the shutdown
   conditional on the amount of memory already consumed.  This is
   useful for scripts that initiate a lot of builds, as any memory
   leaks in the Bazel server could cause it to crash spuriously on
@@ -3285,8 +3285,8 @@ in an environment closer to the current shell environment. Note that none of the
 
 <h4 id='flag--announce_rc'><code class='flag'>--[no]announce_rc</code></h4>
 <p>
-  Controls whether Bazel announces the options read from the bazelrc file when
-  starting up.
+  Controls whether Bazel announces command options read from the bazelrc file when
+  starting up. (Startup options are unconditionally announced.)
 </p>
 
 <h4 id='flag--color'><code class='flag'>--color (yes|no|auto)</code></h4>
