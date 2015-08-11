@@ -154,7 +154,7 @@ def _impl(ctx):
 ```
 
 This can be useful for exposing files generated with
-[ctx.new_file](library#modules.ctx.new_file). You can also have "implicit
+[ctx.new_file](library.html#modules.ctx.new_file). You can also have "implicit
 outputs", i.e. files that are declared in the rule, but not in the default
 outputs (like `_deploy.jar` in `java_binary`).
 
