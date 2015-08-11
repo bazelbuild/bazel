@@ -17,7 +17,10 @@
 #include <string.h>  // strerror
 #include <sys/socket.h>
 #include <sys/statfs.h>
+#include <sys/cygwin.h>
 #include <unistd.h>
+
+#include <windows.h>
 
 #include <cstdlib>
 #include <cstdio>
@@ -105,6 +108,97 @@ string GetDefaultHostJavabase() {
         "Error: JAVA_HOME not set.");
   }
   return javahome;
+}
+
+// Replace the current process with the given program in the given working
+// directory, using the given argument vector.
+// This function does not return on success.
+void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
+  if (VerboseLogging()) {
+    string dbg;
+    for (const auto& s : args_vector) {
+      dbg.append(s);
+      dbg.append(" ");
+    }
+
+    char cwd[PATH_MAX] = {};
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
+    }
+
+    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(), cwd,
+            dbg.c_str());
+  }
+
+  // Build full command line.
+  string cmdline;
+  bool first = true;
+  for (const auto& s : args_vector) {
+    if (first) {
+      first = false;
+      // Skip first argument, instead use quoted executable name with ".exe"
+      // suffix.
+      cmdline.append("\"");
+      cmdline.append(exe);
+      cmdline.append(".exe");
+      cmdline.append("\"");
+      continue;
+    } else {
+      cmdline.append(" ");
+    }
+    cmdline.append(s);
+  }
+
+  // Copy command line into a mutable buffer.
+  // CreateProcess is allowed to mutate its command line argument.
+  // Max command line length is per CreateProcess documentation
+  // (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
+  static const int kMaxCmdLineLength = 32768;
+  char actual_line[kMaxCmdLineLength];
+  if (cmdline.length() >= kMaxCmdLineLength) {
+    pdie(255, "Command line too long: %s", cmdline.c_str());
+  }
+  strncpy(actual_line, cmdline.c_str(), kMaxCmdLineLength);
+  // Add trailing '\0' to be sure.
+  actual_line[kMaxCmdLineLength - 1] = '\0';
+
+  // Execute program.
+  STARTUPINFO startupinfo = {0};
+  PROCESS_INFORMATION pi = {0};
+
+  bool success = CreateProcess(
+      nullptr,       // _In_opt_    LPCTSTR               lpApplicationName,
+      actual_line,   // _Inout_opt_ LPTSTR                lpCommandLine,
+      nullptr,       // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      nullptr,       // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      true,          // _In_        BOOL                  bInheritHandles,
+      0,             // _In_        DWORD                 dwCreationFlags,
+      nullptr,       // _In_opt_    LPVOID                lpEnvironment,
+      nullptr,       // _In_opt_    LPCTSTR               lpCurrentDirectory,
+      &startupinfo,  // _In_        LPSTARTUPINFO         lpStartupInfo,
+      &pi);          // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+
+  if (!success) {
+    pdie(255, "Error %u executing: %s\n", GetLastError(), actual_line);
+  }
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD exit_code;
+  GetExitCodeProcess(pi.hProcess, &exit_code);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+
+  // Emulate execv.
+  exit(exit_code);
+}
+
+string ListSeparator() { return ";"; }
+
+string ConvertPath(const string& path) {
+  char* wpath = static_cast<char*>(cygwin_create_path(
+      CCP_POSIX_TO_WIN_A, static_cast<const void*>(path.c_str())));
+  string result(wpath);
+  free(wpath);
+  return result;
 }
 
 }  // namespace blaze

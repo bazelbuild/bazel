@@ -4,8 +4,14 @@
 filegroup(
     name = "blaze_util_os",
     srcs = select({
-        "//src:darwin": ["blaze_util_darwin.cc"],
-        "//conditions:default": ["blaze_util_linux.cc"],
+        "//src:darwin": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
+        "//conditions:default": [
+            "blaze_util_linux.cc",
+            "blaze_util_posix.cc",
+        ],
     }),
 )
 

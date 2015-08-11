@@ -54,6 +54,20 @@ bool IsSharedLibrary(const std::string& filename);
 // (must be an absolute directory).
 std::string GetDefaultHostJavabase();
 
+// Replace the current process with the given program in the given working
+// directory, using the given argument vector.
+// This function does not return on success.
+void ExecuteProgram(const string& exe, const std::vector<string>& args_vector);
+
+// Convert a path from Bazel internal form to underlying OS form.
+// On Unixes this is an identity operation.
+// On Windows, Bazel internal from is cygwin path, and underlying OS form
+// is Windows path.
+std::string ConvertPath(const std::string& path);
+
+// Return a string used to separate paths in a list.
+std::string ListSeparator();
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

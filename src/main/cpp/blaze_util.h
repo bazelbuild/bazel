@@ -66,8 +66,6 @@ int GetTerminalColumns();
 void AddJVMSpecificArguments(const string &host_javabase,
                              std::vector<string> *result);
 
-void ExecuteProgram(const string &exe, const std::vector<string> &args_vector);
-
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
 // Returns NULL otherwise.

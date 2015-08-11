@@ -276,11 +276,11 @@ static vector<string> GetArgumentArray() {
   for (const auto& it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
       if (!first) {
-        java_library_path += ":";
+        java_library_path += blaze::ListSeparator();
       }
       first = false;
-      java_library_path += blaze_util::JoinPath(real_install_dir,
-                                                blaze_util::Dirname(it));
+      java_library_path += blaze::ConvertPath(
+          blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it)));
     }
   }
   result.push_back(java_library_path);
@@ -299,8 +299,8 @@ static vector<string> GetArgumentArray() {
   result.insert(result.end(), user_options.begin(), user_options.end());
 
   result.push_back("-jar");
-  result.push_back(blaze_util::JoinPath(real_install_dir,
-                                        globals->extracted_binaries[0]));
+  result.push_back(blaze::ConvertPath(
+      blaze_util::JoinPath(real_install_dir, globals->extracted_binaries[0])));
 
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");
@@ -310,9 +310,12 @@ static vector<string> GetArgumentArray() {
     // the code expects it to be at args[0] if it's been set.
     result.push_back("--batch");
   }
-  result.push_back("--install_base=" + globals->options.install_base);
-  result.push_back("--output_base=" + globals->options.output_base);
-  result.push_back("--workspace_directory=" + globals->workspace);
+  result.push_back("--install_base=" +
+                   blaze::ConvertPath(globals->options.install_base));
+  result.push_back("--output_base=" +
+                   blaze::ConvertPath(globals->options.output_base));
+  result.push_back("--workspace_directory=" +
+                   blaze::ConvertPath(globals->workspace));
   if (!globals->options.skyframe.empty()) {
     result.push_back("--skyframe=" + globals->options.skyframe);
   }

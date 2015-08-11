@@ -32,6 +32,7 @@
 
 #include <sstream>
 
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -241,37 +242,6 @@ int GetTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
-}
-
-// Replace the current process with the given program in the given working
-// directory, using the given argument vector.
-// This function does not return on success.
-void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
-  if (VerboseLogging()) {
-    string dbg;
-    for (const auto& s : args_vector) {
-      dbg.append(s);
-      dbg.append(" ");
-    }
-
-    char cwd[PATH_MAX] = {};
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-    }
-
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n",
-            exe.c_str(), cwd, dbg.c_str());
-  }
-
-  // Copy to a char* array for execv:
-  int n = args_vector.size();
-  const char **argv = new const char *[n + 1];
-  for (int i = 0; i < n; ++i) {
-    argv[i] = args_vector[i].c_str();
-  }
-  argv[n] = NULL;
-
-  execv(exe.c_str(), const_cast<char**>(argv));
 }
 
 const char* GetUnaryOption(const char *arg,
