@@ -44,7 +44,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.zip.ZipException;
 
 /**
@@ -502,29 +501,6 @@ public class FdoSupport {
                 fdoRootExecPath.getPathString());
           }
         }
-      } else {
-        // TODO(bazel-team): Remove this workaround once the feature configuration
-        // supports per-file feature enabling.
-        // The feature configuration was created based on blaze options, which
-        // enabled the fdo optimize options since the fdoRoot was set.
-        // In this case the source file doesn't have an associated profile,
-        // so we need to disable these features so that we don't add the FDO options.
-        // However, the list of features is immutable and set on the CppModel.
-        // Create a new feature config here, enabling just what we want,
-        // and set it in this builder.
-        Collection<String> featureNames = cppConfiguration.getFeatures().getFeatureNames();
-        Collection<String> newFeatureNames = new HashSet<>();
-        for (String name : featureNames) {
-          if (featureConfiguration.isEnabled(name)) {
-            newFeatureNames.add(name);
-          }
-        }
-        newFeatureNames.remove(CppRuleClasses.FDO_OPTIMIZE);
-        newFeatureNames.remove(CppRuleClasses.AUTOFDO);
-        newFeatureNames.remove(CppRuleClasses.LIPO);
-        FeatureConfiguration newFeatureConfiguration =
-            cppConfiguration.getFeatures().getFeatureConfiguration(newFeatureNames);
-        builder.setFeatureConfiguration(newFeatureConfiguration);
       }
     }
   }

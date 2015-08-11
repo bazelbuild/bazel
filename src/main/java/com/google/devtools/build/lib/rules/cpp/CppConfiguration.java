@@ -719,69 +719,81 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             toolchainBuilder);
       }
       if (!features.contains("fdo_instrument")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'fdo_instrument'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-link'"
-            + "    flag_group {"
-            + "      flag: '-Xgcc-only=-fprofile-generate=%{fdo_instrument_path}'"
-            + "      flag: '-Xclang-only=-fprofile-instr-generate=%{fdo_instrument_path}'"
-            + "    }"
-            + "    flag_group {"
-            + "      flag: '-fno-data-sections'"
-            + "    }"
-            + "  }"
-            + "}",
+        TextFormat.merge(
+            ""
+                + "feature {"
+                + "  name: 'fdo_instrument'"
+                + "  provides: 'profile'"
+                + "  flag_set {"
+                + "    action: 'c-compile'"
+                + "    action: 'c++-compile'"
+                + "    action: 'c++-link'"
+                + "    flag_group {"
+                + "      flag: '-Xgcc-only=-fprofile-generate=%{fdo_instrument_path}'"
+                + "      flag: '-Xclang-only=-fprofile-instr-generate=%{fdo_instrument_path}'"
+                + "    }"
+                + "    flag_group {"
+                + "      flag: '-fno-data-sections'"
+                + "    }"
+                + "  }"
+                + "}",
             toolchainBuilder);
       }
       if (!features.contains("fdo_optimize")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'fdo_optimize'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    flag_group {"
-            + "      flag: '-Xgcc-only=-fprofile-use=%{fdo_profile_path}'"
-            + "      flag: '-Xclang-only=-fprofile-instr-use=%{fdo_profile_path}'"
-            + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
-            + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
-            + "      flag: '-fprofile-correction'"
-            + "    }"
-            + "  }"
-            + "}",
+        TextFormat.merge(
+            ""
+                + "feature {"
+                + "  name: 'fdo_optimize'"
+                + "  provides: 'profile'"
+                + "  flag_set {"
+                + "    action: 'c-compile'"
+                + "    action: 'c++-compile'"
+                + "    expand_if_all_available: 'fdo_profile_path'"
+                + "    flag_group {"
+                + "      flag: '-Xgcc-only=-fprofile-use=%{fdo_profile_path}'"
+                + "      flag: '-Xclang-only=-fprofile-instr-use=%{fdo_profile_path}'"
+                + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
+                + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
+                + "      flag: '-fprofile-correction'"
+                + "    }"
+                + "  }"
+                + "}",
             toolchainBuilder);
       }
       if (!features.contains("autofdo")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'autofdo'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    flag_group {"
-            + "      flag: '-fauto-profile=%{fdo_profile_path}'"
-            + "      flag: '-fprofile-correction'"
-            + "    }"
-            + "  }"
-            + "}",
+        TextFormat.merge(
+            ""
+                + "feature {"
+                + "  name: 'autofdo'"
+                + "  provides: 'profile'"
+                + "  flag_set {"
+                + "    action: 'c-compile'"
+                + "    action: 'c++-compile'"
+                + "    expand_if_all_available: 'fdo_profile_path'"
+                + "    flag_group {"
+                + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+                + "      flag: '-fprofile-correction'"
+                + "    }"
+                + "  }"
+                + "}",
             toolchainBuilder);
       }
       if (!features.contains("lipo")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'lipo'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    flag_group {"
-            + "      flag: '-fripa'"
-            + "    }"
-            + "  }"
-            + "}",
+        TextFormat.merge(
+            ""
+                + "feature {"
+                + "  name: 'lipo'"
+                + "  requires { feature: 'autofdo' }"
+                + "  requires { feature: 'fdo_optimize' }"
+                + "  requires { feature: 'fdo_instrument' }"
+                + "  flag_set {"
+                + "    action: 'c-compile'"
+                + "    action: 'c++-compile'"
+                + "    flag_group {"
+                + "      flag: '-fripa'"
+                + "    }"
+                + "  }"
+                + "}",
             toolchainBuilder);
       }
       if (!features.contains("coverage")) {
@@ -789,6 +801,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             ""
                 + "feature {"
                 + "  name: 'coverage'"
+                + "  provides: 'profile'"
                 + "  flag_set {"
                 + "    action: 'preprocess-assemble'"
                 + "    action: 'c-compile'"
