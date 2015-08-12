@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -21,8 +23,11 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -35,6 +40,7 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -145,6 +151,34 @@ public class TransitiveTargetFunction
     }
 
     return builder.build(errorLoadingTarget);
+  }
+
+  @Override
+  protected Iterable<SkyKey> getLabelAspectKeys(Target target, Environment env) {
+    List<SkyKey> depKeys = Lists.newArrayList();
+    if (target instanceof Rule) {
+      Multimap<Attribute, Label> transitions =
+          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+      for (Entry<Attribute, Label> entry : transitions.entries()) {
+        SkyKey packageKey = PackageValue.key(entry.getValue().getPackageIdentifier());
+        try {
+          PackageValue pkgValue = (PackageValue) env.getValueOrThrow(packageKey,
+              NoSuchThingException.class);
+          if (pkgValue == null) {
+            continue;
+          }
+          Collection<Label> labels = AspectDefinition.visitAspectsIfRequired(target, entry.getKey(),
+              pkgValue.getPackage().getTarget(entry.getValue().getName())).values();
+          for (Label label : labels) {
+            depKeys.add(getKey(label));
+          }
+        } catch (NoSuchThingException e) {
+          // Do nothing. This error was handled when we computed the corresponding
+          // TransitiveTargetValue.
+        }
+      }
+    }
+    return depKeys;
   }
 
   /**

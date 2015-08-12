@@ -13,10 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectFactory;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.DummyAccumulator;
 import com.google.devtools.build.lib.syntax.Label;
@@ -79,7 +86,28 @@ public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction
         : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(errorLoadingTarget);
   }
 
-  /**
+ @Override
+ protected Iterable<SkyKey> getLabelAspectKeys(Target target, Environment env) {
+  if (!(target instanceof Rule)) {
+   return ImmutableSet.of();
+  }
+  Rule rule = (Rule) target;
+  Multimap<Attribute, Label> attibuteMap = LinkedHashMultimap.create();
+   for (Attribute attribute : rule.getTransitions(Rule.NO_NODEP_ATTRIBUTES).keys()) {
+    for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
+      AspectDefinition.addAllAttributesOfAspect(rule, attibuteMap,
+          AspectFactory.Util.create(aspectFactory).getDefinition(), Rule.ALL_DEPS);
+    }
+  }
+
+  ImmutableSet.Builder<SkyKey> depKeys = new ImmutableSet.Builder<>();
+  for (Label label : attibuteMap.values()) {
+    depKeys.add(getKey(label));
+  }
+  return depKeys.build();
+ }
+
+ /**
    * Because {@link TransitiveTraversalFunction} is invoked only when its side-effects are desired,
    * this value accumulator has nothing to keep track of.
    */
