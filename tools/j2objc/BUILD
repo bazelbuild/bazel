@@ -7,6 +7,12 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+java_binary(
+    name = "j2objc",
+    main_class = "com.google.devtools.j2objc.J2ObjC",
+    runtime_deps = ["@bazel-j2objc//:j2objc"],
+)
+
 py_library(
     name = "j2objc_wrapper",
     srcs = ["j2objc_wrapper.py"],

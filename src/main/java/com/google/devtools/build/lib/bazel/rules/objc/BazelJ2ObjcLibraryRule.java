@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.bazel.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.objc.J2ObjcAspect;
+import com.google.devtools.build.lib.rules.objc.J2ObjcLibrary;
+import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
 
 /**
  * Concrete implementation of J2ObjCLibraryBaseRule.

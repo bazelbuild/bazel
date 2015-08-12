@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelIosTestRule;
+import com.google.devtools.build.lib.bazel.rules.objc.BazelJ2ObjcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
@@ -95,7 +96,6 @@ import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
-import com.google.devtools.build.lib.rules.objc.BazelJ2ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ExperimentalIosTestRule;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
@@ -279,6 +279,8 @@ public class BazelRuleClassProvider {
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFile(
           ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));
+      builder.addWorkspaceFile(
+          ResourceFileLoader.loadResource(BazelJ2ObjcLibraryRule.class, "j2objc.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
