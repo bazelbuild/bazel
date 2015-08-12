@@ -614,4 +614,51 @@ EOF
   bazel build //:m
 }
 
+function test_remote_pkg_boundaries() {
+  other_ws=$TEST_TMPDIR/ws
+  mkdir -p $other_ws/a
+  touch $other_ws/WORKSPACE
+  cat > $other_ws/a/b <<EOF
+abcxyz
+EOF
+  cat > $other_ws/BUILD <<EOF
+exports_files(["a/b"])
+EOF
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "other",
+    path = "$other_ws",
+)
+EOF
+  cat > BUILD <<EOF
+load('/sample', 'sample_bin')
+
+sample_bin(
+    name = "x",
+)
+EOF
+  cat > sample.bzl <<EOF
+def impl(ctx):
+    ctx.action(
+        command = "cat %s > %s" % (ctx.file._dep.path, ctx.outputs.sh.path),
+        outputs = [ctx.outputs.sh]
+    )
+
+sample_bin = rule(
+    attrs = {
+        '_dep': attr.label(
+            default=Label("@other//:a/b"),
+            executable=True,
+            allow_files=True,
+            single_file=True)
+    },
+    outputs = {'sh': "%{name}.sh"},
+    implementation = impl,
+)
+EOF
+
+  bazel build -s //:x
+  assert_contains "abcxyz" bazel-bin/x.sh
+}
+
 run_suite "local repository tests"
