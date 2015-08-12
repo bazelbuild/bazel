@@ -220,46 +220,11 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * Sends {@code EventKind.{STDOUT|STDERR}} messages to the given {@link OutErr}.
-   *
-   * <p>This is necessary because we cannot delete the output files from the previous Blaze run
-   * because there can be processes spawned by the previous invocation that are still processing
-   * them, in which case we need to print a warning message about that.
-   *
-   * <p>Thus, messages sent to {@link Reporter#getOutErr} get sent to this event handler, then
-   * to its {@link OutErr}. We need to go deeper!
-   */
-  private static class OutErrEventHandler implements EventHandler {
-    private final OutErr outErr;
-
-    private OutErrEventHandler(OutErr outErr) {
-      this.outErr = outErr;
-    }
-
-    @Override
-    public void handle(Event event) {
-      try {
-        switch (event.getKind()) {
-          case STDOUT:
-            outErr.getOutputStream().write(event.getMessageBytes());
-            break;
-          case STDERR:
-            outErr.getErrorStream().write(event.getMessageBytes());
-            break;
-        }
-      } catch (IOException e) {
-        // We cannot do too much here -- ErrorEventListener#handle does not provide us with ways to
-        // report an error.
-      }
-    }
-  }
-
-  /**
    * Executes a single command. Returns the Unix exit status for the Blaze
    * client process, or throws {@link ShutdownBlazeServerException} to
    * indicate that a command wants to shutdown the Blaze server.
    */
-  public int exec(List<String> args, OutErr originalOutErr, long firstContactTime)
+  public int exec(List<String> args, OutErr outErr, long firstContactTime)
       throws ShutdownBlazeServerException {
     // Record the start time for the profiler and the timestamp granularity monitor. Do not put
     // anything before this!
@@ -275,14 +240,6 @@ public class BlazeCommandDispatcher {
     // rather than in runtime.beforeCommand().
     runtime.getTimestampGranularityMonitor().setCommandStartTime();
     runtime.initEventBus();
-
-    // Give a chance for module.beforeCommand() to report an errors to stdout and stderr.
-    // Once we can close the old streams, this event handler is removed.
-    OutErrEventHandler originalOutErrEventHandler =
-        new OutErrEventHandler(originalOutErr);
-    runtime.getReporter().addHandler(originalOutErrEventHandler);
-    OutErr outErr = originalOutErr;
-    runtime.getReporter().removeHandler(originalOutErrEventHandler);
 
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -329,7 +286,7 @@ public class BlazeCommandDispatcher {
       commandLog.delete();
 
       logOutputStream = commandLog.getOutputStream();
-      outErr = tee(originalOutErr, OutErr.create(logOutputStream, logOutputStream));
+      outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
     } catch (IOException ioException) {
       LoggingUtil.logToRemote(
           Level.WARNING, "Unable to delete or open command.log", ioException);
