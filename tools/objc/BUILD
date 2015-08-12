@@ -79,9 +79,7 @@ sh_binary(
 )
 
 # TODO(bazel-team): Open-source the script once J2ObjC support is open-sourced.
-genrule(
+py_library(
     name = "j2objc_dead_code_pruner",
-    srcs = [],
-    outs = ["dummy_dead_code_pruner.py"],
-    cmd = "touch $(OUTS)",
+    srcs = ["j2objc_dead_code_pruner.py"],
 )
