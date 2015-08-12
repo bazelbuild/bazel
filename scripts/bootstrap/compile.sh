@@ -93,7 +93,11 @@ linux)
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
     PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_64.exe}
   else
-    PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
+    if [ "${MACHINE_IS_ARM}" = 'yes' ]; then
+      PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-arm32.exe}
+    else
+      PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
+    fi
   fi
   ;;
 

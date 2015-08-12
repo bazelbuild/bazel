@@ -14,6 +14,7 @@ filegroup(
         ":darwin": ["protobuf/protoc-osx-x86_32.exe"],
         ":k8": ["protobuf/protoc-linux-x86_64.exe"],
         ":piii": ["protobuf/protoc-linux-x86_32.exe"],
+        ":arm": ["protobuf/protoc-linux-arm32.exe"],
     }),
 )
 
@@ -368,4 +369,9 @@ config_setting(
 config_setting(
     name = "piii",
     values = {"host_cpu": "piii"},
+)
+
+config_setting(
+    name = "arm",
+    values = {"host_cpu": "arm"},
 )
