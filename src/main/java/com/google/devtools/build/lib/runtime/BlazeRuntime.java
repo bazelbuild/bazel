@@ -1469,7 +1469,8 @@ public final class BlazeRuntime {
     }
 
     BlazeDirectories directories =
-        new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath);
+        new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
+                             startupOptions.installMD5);
 
     Clock clock = BlazeClock.instance();
 

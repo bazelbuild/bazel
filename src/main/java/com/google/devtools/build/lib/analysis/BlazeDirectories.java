@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -57,20 +59,23 @@ public final class BlazeDirectories {
   @VisibleForTesting
   static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
-  private final Path installBase;  // Where Blaze gets unpacked
-  private final Path workspace;    // Workspace root and server CWD
-  private final Path outputBase;   // The root of the temp and output trees
-  private final Path execRoot;     // the root of all build actions
+  private final Path installBase;     // Where Blaze gets unpacked
+  private final HashCode installMD5;  // The content hash of everything in installBase
+  private final Path workspace;       // Workspace root and server CWD
+  private final Path outputBase;      // The root of the temp and output trees
+  private final Path execRoot;        // the root of all build actions
 
   // These two are kept to avoid creating new objects every time they are accessed. This showed up
   // in a profiler.
   private final Path outputPath;
   private final Path localOutputPath;
 
-  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace) {
+  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace,
+                          @Nullable String installMD5) {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
+    this.installMD5 = installMD5 == null ? null : checkMD5(HashCode.fromString(installMD5));
     boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
@@ -84,6 +89,17 @@ public final class BlazeDirectories {
         outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment())));
 
     this.localOutputPath = outputBase.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH);
+  }
+
+  private static HashCode checkMD5(HashCode hash) {
+    Preconditions.checkArgument(hash.bits() == Hashing.md5().bits(),
+                                "Hash '%s' has %s bits", hash, hash.bits());
+    return hash;
+  }
+
+  @VisibleForTesting
+  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace) {
+    this(installBase, outputBase, workspace, null);
   }
 
   /**
@@ -182,5 +198,13 @@ public final class BlazeDirectories {
    */
   public Root getBuildDataDirectory() {
     return Root.asDerivedRoot(getExecRoot(), getOutputPath());
+  }
+
+ /**
+  * Returns the MD5 content hash of the blaze binary (includes deploy JAR, embedded binaries, and
+  * anything else that ends up in the install_base).
+  */
+  public HashCode getInstallMD5() {
+    return installMD5;
   }
 }

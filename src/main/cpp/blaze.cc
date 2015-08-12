@@ -140,6 +140,10 @@ struct GlobalVariables {
 
   // Absolute path of the blaze binary
   string binary_path;
+
+  // MD5 hash of the Blaze binary (includes deploy.jar, extracted binaries, and
+  // anything else that ends up under the install_base).
+  string install_md5;
 };
 
 static GlobalVariables *globals;
@@ -198,8 +202,7 @@ class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
 // 'install_base_key' contained as a ZIP entry in the Blaze binary); as a side
 // effect, it also populates the extracted_binaries global variable.
 static string GetInstallBase(const string &root, const string &self_path) {
-  string install_base_key;
-  GetInstallKeyFileProcessor processor(&install_base_key);
+  GetInstallKeyFileProcessor processor(&globals->install_md5);
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
   if (extractor.get() == NULL) {
@@ -212,11 +215,11 @@ static string GetInstallBase(const string &root, const string &self_path) {
         "\nFailed to extract install_base_key: %s", extractor->GetError());
   }
 
-  if (install_base_key.empty()) {
+  if (globals->install_md5.empty()) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "\nFailed to find install_base_key's in zip file");
   }
-  return root + "/" + install_base_key;
+  return root + "/" + globals->install_md5;
 }
 
 // Escapes colons by replacing them with '_C' and underscores by replacing them
@@ -312,6 +315,7 @@ static vector<string> GetArgumentArray() {
   }
   result.push_back("--install_base=" +
                    blaze::ConvertPath(globals->options.install_base));
+  result.push_back("--install_md5=" + globals->install_md5);
   result.push_back("--output_base=" +
                    blaze::ConvertPath(globals->options.output_base));
   result.push_back("--workspace_directory=" +
@@ -1348,7 +1352,8 @@ static void ComputeBaseDirectories(const string &self_path) {
     globals->options.install_base =
         GetInstallBase(install_user_root, self_path);
   } else {
-    // We call GetInstallBase anyway to populate extracted_binaries.
+    // We call GetInstallBase anyway to populate extracted_binaries and
+    // install_md5.
     GetInstallBase("", self_path);
   }
 

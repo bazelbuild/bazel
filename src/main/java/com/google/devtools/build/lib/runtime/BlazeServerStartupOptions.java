@@ -82,6 +82,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "This launcher option is intended for use only by tests.")
   public PathFragment installBase;
 
+  /*
+   * The installation MD5 - a content hash of the blaze binary (includes the Blaze deploy JAR and
+   * any other embedded binaries - anything that ends up in the install_base).
+   */
+  @Option(name = "install_md5",
+                 defaultValue = "", // NOTE: purely decorative!  See class docstring.
+                 category = "hidden",
+                 help = "This launcher option is intended for use only by tests.")
+  public String installMD5;
+
   /* Note: The help string in this option applies to the client code; not
    * the server code. The server code will only accept a non-empty path; it's
    * the responsibility of the client to compute a proper default if
