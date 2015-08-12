@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompre
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -58,9 +59,18 @@ public class TarGzFunction implements SkyFunction {
         if (entry.isDirectory()) {
           FileSystemUtils.createDirectoryAndParents(filename);
         } else {
-          Files.copy(tarStream, filename.getPathFile().toPath(),
-              StandardCopyOption.REPLACE_EXISTING);
-          filename.chmod(entry.getMode());
+          if (entry.isSymbolicLink()) {
+            PathFragment linkName = new PathFragment(entry.getLinkName());
+            if (linkName.isAbsolute()) {
+              linkName = linkName.relativeTo(PathFragment.ROOT_DIR);
+              linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
+            }
+            FileSystemUtils.ensureSymbolicLink(filename, linkName);
+          } else {
+            Files.copy(
+                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+            filename.chmod(entry.getMode());
+          }
         }
       }
     } catch (IOException e) {

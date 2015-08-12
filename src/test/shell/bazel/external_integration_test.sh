@@ -72,10 +72,14 @@ function tar_gz_up() {
 # fox/
 #   BUILD
 #   male
+#   male_relative -> male
+#   male_absolute -> /fox/male
 function http_archive_helper() {
   zipper=$1
   local write_workspace
   [[ $# -gt 1 ]] && [[ "$2" = "nowrite" ]] && write_workspace=1 || write_workspace=0
+  local do_symlink
+  [[ $# -gt 1 ]] && [[ "$2" = "do_symlink" ]] && do_symlink=1 || do_symlink=0
 
   if [[ $write_workspace = 0 ]]; then
     # Create a zipped-up repository HTTP response.
@@ -97,6 +101,10 @@ EOF
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
+    if [[ $do_symlink = 1 ]]; then
+      ln -s male fox/male_relative
+      ln -s /fox/male fox/male_absolute
+    fi
     # Add some padding to the .zip to test that Bazel's download logic can
     # handle breaking a response into chunks.
     dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
@@ -135,6 +143,19 @@ fi
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
+
+  if [[ $do_symlink = 1 ]]; then
+    if [[ -x ${realpath_path} ]]; then
+      realpath=${realpath_path}
+    else
+      realpath=realpath
+    fi
+    base_external_path=bazel-out/../external/endangered/fox
+    assert_equals $(${realpath} ${base_external_path}/male) \
+      $(${realpath} ${base_external_path}/male_relative)
+    assert_equals $(${realpath} ${base_external_path}/male) \
+      $(${realpath} ${base_external_path}/male_absolute)
+  fi
 }
 
 function test_http_archive_zip() {
@@ -157,9 +178,9 @@ EOF
 }
 
 function test_http_archive_tgz() {
-  http_archive_helper tar_gz_up
+  http_archive_helper tar_gz_up "do_symlink"
   bazel shutdown
-  http_archive_helper tar_gz_up
+  http_archive_helper tar_gz_up "do_symlink"
 }
 
 function test_http_archive_no_server() {
