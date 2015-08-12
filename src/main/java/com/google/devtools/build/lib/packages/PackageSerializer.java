@@ -223,7 +223,7 @@ public class PackageSerializer {
     } else if (type == STRING_DICT) {
       // TODO(bazel-team): support better de-duping here and in other dictionaries.
       for (Object value : values) {
-      Map<String, String> dict = (Map<String, String>) value;
+        Map<String, String> dict = (Map<String, String>) value;
         for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
           Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
               .setKey(keyValueList.getKey())
