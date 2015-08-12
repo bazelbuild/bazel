@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -247,12 +246,10 @@ public class BlazeCommandEventHandler implements EventHandler {
       out.write(event.getMessageBytes());
       out.flush();
     } catch (IOException e) {
-      // This can happen in server mode if the blaze client has exited,
-      // or if output is redirected to a file and the disk is full, etc.
-      // TODO(bazel-team): Maybe crash here after gathering some data on how common this is.
-      String message = "Failed to write event";
-      LOG.log(Level.WARNING, message, e);
-      LoggingUtil.logToRemote(Level.WARNING, message, e);
+      // This can happen in server mode if the blaze client has exited, or if output is redirected
+      // to a file and the disk is full, etc. May be moot in the case of full disk, or useful in
+      // the case of real bug in our handling of streams.
+      LOG.log(Level.WARNING, "Failed to write event", e);
     }
   }
 
