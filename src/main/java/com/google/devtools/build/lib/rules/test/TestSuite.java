@@ -73,7 +73,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
       directTestsAndSuitesBuilder.add(dep);
     }
 
-    Runfiles runfiles = new Runfiles.Builder()
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addTargets(directTestsAndSuitesBuilder, RunfilesProvider.DATA_RUNFILES)
         .build();
 

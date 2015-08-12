@@ -857,7 +857,7 @@ public final class CcLibraryHelper {
 
   private Runfiles collectCppRunfiles(
       CcLinkingOutputs ccLinkingOutputs, boolean linkingStatically) {
-    Runfiles.Builder builder = new Runfiles.Builder();
+    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
     builder.addTargets(deps, CppRunfilesProvider.runfilesFunction(linkingStatically));
     // Add the shared libraries to the runfiles.

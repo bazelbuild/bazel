@@ -221,7 +221,7 @@ public final class Runfiles {
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
       EmptyFilesSupplier emptyFilesSupplier) {
-    this.suffix = suffix == null ? Constants.DEFAULT_RUNFILES_PREFIX : suffix;
+    this.suffix = suffix.isEmpty() ? Constants.DEFAULT_RUNFILES_PREFIX : suffix;
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
@@ -503,6 +503,17 @@ public final class Runfiles {
     private EmptyFilesSupplier emptyFilesSupplier = DUMMY_EMPTY_FILES_SUPPLIER;
 
     /**
+     * Only used for Runfiles.EMPTY.
+     */
+    public Builder() {
+      this.suffix = "";
+    }
+
+    public Builder(String suffix) {
+      this.suffix = suffix;
+    }
+
+    /**
      * Builds a new Runfiles object.
      */
     public Runfiles build() {
@@ -645,7 +656,6 @@ public final class Runfiles {
         Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(mapping);
       Preconditions.checkNotNull(ruleContext);
-      suffix = ruleContext.getWorkspaceName();
       addDataDeps(ruleContext);
       addNonDataDeps(ruleContext, mapping);
       return this;
@@ -660,7 +670,6 @@ public final class Runfiles {
         Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(ruleContext);
       Preconditions.checkNotNull(mapping);
-      suffix = ruleContext.getWorkspaceName();
       for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
         Runfiles runfiles = mapping.apply(dep);
         if (runfiles != null) {
@@ -675,7 +684,6 @@ public final class Runfiles {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      suffix = ruleContext.getWorkspaceName();
       addTargets(getPrerequisites(ruleContext, "data", Mode.DATA), RunfilesProvider.DATA_RUNFILES);
       return this;
     }
@@ -685,7 +693,6 @@ public final class Runfiles {
      */
     public Builder addNonDataDeps(RuleContext ruleContext,
         Function<TransitiveInfoCollection, Runfiles> mapping) {
-      suffix = ruleContext.getWorkspaceName();
       for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
         addTargetExceptFileTargets(target, mapping);
       }
@@ -757,15 +764,6 @@ public final class Runfiles {
     }
 
     /**
-     * Sets the directory name to put runfiles under. "" is the default and puts the runfiles
-     * immediately under the &lt;target&gt;.runfiles directory.
-     */
-    public Builder setSuffix(String workspaceName) {
-      suffix = workspaceName;
-      return this;
-    }
-
-    /**
      * Add the other {@link Runfiles} object transitively, with the option to include or exclude
      * pruning manifests in the merge.
      */
@@ -773,7 +771,7 @@ public final class Runfiles {
       artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
-      if (suffix == null) {
+      if (suffix.isEmpty()) {
         suffix = runfiles.suffix;
       }
       if (includePruningManifests) {

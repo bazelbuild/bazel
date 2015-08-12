@@ -521,7 +521,7 @@ public class AndroidCommon {
           ruleContext, idls, transitiveIdlImportData, translatedIdlSources);
     }
 
-    Runfiles runfiles = new Runfiles.Builder()
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
         .build();
 

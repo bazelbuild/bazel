@@ -53,7 +53,8 @@ public final class BazelIosTest extends IosTest {
             ImmutableList.<TemplateExpansionAction.Substitution>of(),
             /*executable=*/ true));
 
-    Runfiles runfiles = new Runfiles.Builder().addArtifact(testScript).build();
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
+        .addArtifact(testScript).build();
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, runfiles, testScript);
 

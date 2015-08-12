@@ -56,7 +56,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .add(src)
         .add(symlink)
         .build();
-    Runfiles runfiles = new Runfiles.Builder()
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addTransitiveArtifacts(filesToBuild)
         .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
         .build();

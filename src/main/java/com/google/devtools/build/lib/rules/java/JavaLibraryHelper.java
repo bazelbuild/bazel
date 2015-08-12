@@ -361,7 +361,7 @@ public final class JavaLibraryHelper {
 
   private JavaRunfilesProvider collectJavaRunfiles(
       JavaCompilationArtifacts javaCompilationArtifacts) {
-    Runfiles runfiles = new Runfiles.Builder()
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         // Compiled templates as well, for API.
         .addArtifacts(javaCompilationArtifacts.getRuntimeJars())
         .addTargets(deps, JavaRunfilesProvider.TO_RUNFILES)

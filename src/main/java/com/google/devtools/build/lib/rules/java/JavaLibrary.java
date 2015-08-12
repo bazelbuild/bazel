@@ -183,10 +183,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     // runfiles from this target or its dependencies.
     Runfiles runfiles = Runfiles.EMPTY;
     if (!neverLink) {
-      Runfiles.Builder runfilesBuilder = new Runfiles.Builder().addArtifacts(
-          common.getJavaCompilationArtifacts().getRuntimeJars());
-
-
+      Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
+          .addArtifacts(common.getJavaCompilationArtifacts().getRuntimeJars());
       runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
       runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 

@@ -447,7 +447,7 @@ public final class ReleaseBundlingSupport {
    */
   RunfilesSupport runfilesSupport(Artifact runnerScript) {
     Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
-    Runfiles runfiles = new Runfiles.Builder()
+    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifact(ipaFile)
         .addArtifact(runnerScript)
         .addArtifact(attributes.iossim())

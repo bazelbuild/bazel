@@ -68,7 +68,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
       }
     };
 
-    Runfiles.Builder runfilesBuilder = new Runfiles.Builder();
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     if (common.getConvertedFiles() != null) {
       runfilesBuilder.addSymlinks(common.getConvertedFiles());
     } else {
