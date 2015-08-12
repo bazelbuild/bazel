@@ -18,107 +18,111 @@
 #
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
+src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source $src/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
-
-export JAVA_RUNFILES=$TEST_SRCDIR
+source $src/remote_helpers.sh \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  # Set up custom repository directory.
-  m2=$TEST_TMPDIR/my-m2
-  mkdir $m2
-  cd $m2
-  m2_port=$(pick_random_unused_tcp_port) || exit 1
-  python -m SimpleHTTPServer $m2_port &
-  m2_pid=$!
-  wait_for_server_startup
-  cd -
-}
-
-function tear_down() {
-  kill $m2_pid
-}
-
-# Takes: groupId, artifactId, and version.
-function make_artifact() {
-  local groupId=$1
-  local artifactId=$2
-  local version=$3
-
-  local pkg_dir=$m2/$groupId/$artifactId/$version
-  mkdir -p $pkg_dir
-  # Make the pom.xml.
-  cat > $pkg_dir/$artifactId-$version.pom <<EOF
-<project>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>$artifactId</groupId>
-  <artifactId>$artifactId</artifactId>
-  <version>$version</version>
-</project>
+  mkdir -p zoo
+  cat > zoo/BUILD <<EOF
+java_binary(
+    name = "ball-pit",
+    srcs = ["BallPit.java"],
+    main_class = "BallPit",
+    deps = ["//external:mongoose"],
+)
 EOF
 
-  # Make the jar with one class (we use the groupId for the classname).
-  cat > $TEST_TMPDIR/$groupId.java <<EOF
-public class $groupId {
-  public static void print() {
-    System.out.println("$artifactId");
-  }
+  cat > zoo/BallPit.java <<EOF
+import carnivore.Mongoose;
+
+public class BallPit {
+    public static void main(String args[]) {
+        Mongoose.frolic();
+    }
 }
 EOF
-  ${bazel_javabase}/bin/javac $TEST_TMPDIR/$groupId.java
-  ${bazel_javabase}/bin/jar cf $pkg_dir/$artifactId-$version.jar $TEST_TMPDIR/$groupId.class
 }
 
-# Waits for the SimpleHTTPServer to actually start up before the test is run.
-# Otherwise the entire test can run before the server starts listening for
-# connections, which causes flakes.
-function wait_for_server_startup() {
-  touch some-file
-  while ! curl localhost:$m2_port/some-file; do
-    echo "waiting for server, exit code: $?"
-  done
-  echo "done waiting for server, exit code: $?"
-  rm some-file
-}
+function test_maven_jar() {
+  serve_jar
 
-function test_pom() {
-  # Create a maven repo
-  make_artifact blorp glorp 1.2.3
-
-  # Create a pom that references the artifacts.
-  cat > $TEST_TMPDIR/pom.xml <<EOF
-<project>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>my</groupId>
-  <artifactId>thing</artifactId>
-  <version>1.0</version>
-  <repositories>
-    <repository>
-      <id>my-repo1</id>
-      <name>a custom repo</name>
-      <url>http://localhost:$m2_port/</url>
-    </repository>
-  </repositories>
-
-  <dependencies>
-    <dependency>
-      <groupId>blorp</groupId>
-      <artifactId>glorp</artifactId>
-      <version>1.2.3</version>
-    </dependency>
-  </dependencies>
-</project>
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '$sha1',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
-
-  cat $(cat $TEST_log | tail -n 2 | head -n 1) > ws
-  cat $(cat $TEST_log | tail -n 1) > build
-
-  assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
-  assert_contains "repository = \"http://localhost:$m2_port/\"," ws
-  assert_contains "\"@blorp/glorp//jar\"," build
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  kill_nc
+  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
+  expect_log "Tra-la!"
 }
 
-run_suite "maven tests"
+# Same as test_maven_jar, except omit sha1 implying "we don't care".
+function test_maven_jar_no_sha1() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://localhost:$nc_port/',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel fetch //zoo:ball-pit || fail "Fetch failed"
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  kill_nc
+  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
+  expect_log "Tra-la!"
+}
+
+function test_maven_jar_404() {
+  http_response=$TEST_TMPDIR/http_response
+  cat > $http_response <<EOF
+HTTP/1.0 404 Not Found
+
+EOF
+  nc_port=$(pick_random_unused_tcp_port) || exit 1
+  nc_l $nc_port < $http_response &
+  nc_pid=$!
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://localhost:$nc_port/',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  kill_nc
+  expect_log "Failed to fetch Maven dependency: Could not find artifact"
+}
+
+function test_maven_jar_mismatched_sha1() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://localhost:$nc_port/',
+    sha1 = '$sha256',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  kill_nc
+  expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($sha256)"
+}

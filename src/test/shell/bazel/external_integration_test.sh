@@ -18,8 +18,11 @@
 #
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
+src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source $src/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
+source $src/remote_helpers.sh \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function set_up() {
   bazel clean --expunge >& $TEST_log
@@ -42,94 +45,6 @@ public class BallPit {
     }
 }
 EOF
-}
-
-case "${PLATFORM}" in
-  darwin)
-    function nc_l() {
-      nc -l $1
-    }
-    ;;
-  *)
-    function nc_l() {
-      nc -l -p $1 -q 1
-    }
-    ;;
-esac
-
-# Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
-#   * nc_port - the port nc is listening on.
-#   * nc_log - the path to nc's log.
-#   * nc_pid - the PID of nc.
-#   * http_response - the full response nc will provide to a request.
-# This also creates the file $TEST_TMPDIR/http_response.
-function serve_file() {
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 200 OK
-
-EOF
-  cat $1 >> $http_response
-  # Assign random_port to nc_port if not already set.
-  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  nc_log=$TEST_TMPDIR/nc.log
-  nc_l $nc_port < $http_response >& $nc_log &
-  nc_pid=$!
-}
-
-# Creates a jar carnivore.Mongoose and serves it using serve_file.
-function serve_jar() {
-  pkg_dir=$TEST_TMPDIR/carnivore
-  if [ -e "$pkg_dir" ]; then
-    rm -fr $pkg_dir
-  fi
-
-  mkdir $pkg_dir
-  cat > $pkg_dir/Mongoose.java <<EOF
-package carnivore;
-public class Mongoose {
-    public static void frolic() {
-        System.out.println("Tra-la!");
-    }
-}
-EOF
-  ${bazel_javabase}/bin/javac $pkg_dir/Mongoose.java
-  test_jar=$TEST_TMPDIR/libcarnivore.jar
-  cd ${TEST_TMPDIR}
-  ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
-
-  sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
-  # OS X doesn't have sha1sum, so use openssl.
-  sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
-  serve_file $test_jar
-  cd ${WORKSPACE_DIR}
-}
-
-# Serves a redirection from localhost:$redirect_port to $1. Sets the following variables:
-#   * redirect_port - the port nc is listening on.
-#   * redirect_log - the path to nc's log.
-#   * redirect_pid - the PID of nc.
-function serve_redirect() {
-  # Assign random_port to nc_port if not already set.
-  echo ${redirect_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  redirect_log=$TEST_TMPDIR/redirect.log
-  local response=$(cat <<EOF
-HTTP/1.0 301 Moved Permanently
-Location: $1
-
-EOF
-)
-  nc_l $redirect_port >& $redirect_log <<<"$response" &
-  redirect_pid=$!
-}
-
-function kill_nc() {
-  # Try to kill nc, otherwise the test will time out if Bazel has a bug and
-  # didn't make a request to it.
-  kill $nc_pid || true  # kill can fails if the process already finished
-  [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
-  [ -z "${nc_log:-}" ] || cat $nc_log
-  [ -z "${redirect_log:-}" ] || cat $redirect_log
 }
 
 function zip_up() {
@@ -477,87 +392,6 @@ EOF
   expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
 }
 
-function test_maven_jar() {
-  serve_jar
-
-  cat > WORKSPACE <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
-    sha1 = '$sha1',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
-
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
-  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
-  kill_nc
-  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
-  expect_log "Tra-la!"
-}
-
-# Same as test_maven_jar, except omit sha1 implying "we don't care".
-function test_maven_jar_no_sha1() {
-  serve_jar
-
-  cat > WORKSPACE <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
-
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
-  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
-  kill_nc
-  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
-  expect_log "Tra-la!"
-}
-
-function test_maven_jar_404() {
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 404 Not Found
-
-EOF
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  nc_l $nc_port < $http_response &
-  nc_pid=$!
-  cat > WORKSPACE <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
-
-  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
-  kill_nc
-  expect_log "Failed to fetch Maven dependency: Could not find artifact"
-}
-
-function test_maven_jar_mismatched_sha1() {
-  serve_jar
-
-  cat > WORKSPACE <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
-    sha1 = '$sha256',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
-
-  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
-  kill_nc
-  expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($sha256)"
-}
-
 function test_new_remote_repo() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
@@ -640,8 +474,7 @@ EOF
   bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
 
   # But it is required after a clean.
-  bazel clean --expunge
-  # TODO(kchodorow): remove the --fetch=false option once that's the default.
+  bazel clean --expunge || fail "Clean failed"
   bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
   expect_log "bazel fetch //..."
 }
