@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Maps;
+
 import java.util.Collection;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * Calculate set of changed values in a graph.
@@ -24,7 +29,7 @@ public interface Differencer {
   /**
    * Represents a set of changed values.
    */
-  public interface Diff {
+  interface Diff {
     /**
      * Returns the value keys whose values have changed, but for which we don't have the new values.
      */
@@ -36,7 +41,52 @@ public interface Differencer {
      * <p> The values in here cannot have any dependencies. This is required in order to prevent
      * conflation of injected values and derived values.
      */
-    Map<SkyKey, ? extends SkyValue> changedKeysWithNewValues();
+    Map<SkyKey, SkyValue> changedKeysWithNewValues();
+  }
+
+  /** A {@Diff} that also potentially contains the new and old values for each changed key. */
+  interface DiffWithDelta extends Diff {
+    /** Returns the value keys whose values have changed, along with their old and new values. */
+    Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
+
+    /** Represents the delta between two values of the same key. */
+    final class Delta {
+      private static final Function<Delta, SkyValue> NEW_VALUE_EXTRACTOR =
+          new Function<Delta, SkyValue>() {
+            @Override
+            public SkyValue apply(Delta delta) {
+              return delta.getNewValue();
+            }
+          };
+
+      @Nullable
+      private final SkyValue oldValue;
+      private final SkyValue newValue;
+
+      public Delta(SkyValue newValue) {
+        this(null, newValue);
+      }
+
+      public Delta(SkyValue oldValue, SkyValue newValue) {
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+      }
+
+      /** Returns the old value, if any. */
+      @Nullable
+      public SkyValue getOldValue() {
+        return oldValue;
+      }
+
+      /** Returns the new value. */
+      public SkyValue getNewValue() {
+        return newValue;
+      }
+
+      public static Map<SkyKey, SkyValue> newValues(Map<SkyKey, Delta> delta) {
+        return Maps.transformValues(delta, NEW_VALUE_EXTRACTOR);
+      }
+    }
   }
 
   /**

@@ -72,6 +72,13 @@ class FilesystemValueChecker {
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
 
+  FilesystemValueChecker(Supplier<Map<SkyKey, SkyValue>> valuesSupplier,
+      TimestampGranularityMonitor tsgm, Range<Long> lastExecutionTimeRange) {
+    this.valuesSupplier = valuesSupplier;
+    this.tsgm = tsgm;
+    this.lastExecutionTimeRange = lastExecutionTimeRange;
+  }
+
   FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm,
       Range<Long> lastExecutionTimeRange) {
     this.tsgm = tsgm;
@@ -90,12 +97,23 @@ class FilesystemValueChecker {
   }
 
   /**
-   * Returns a {@link Differencer.Diff} containing keys that are dirty according to the passed-in
-   * {@param dirtinessChecker}.
+   * Returns a {@link Differencer.DiffWithDelta} containing keys from the backing graph (of the
+   * {@link MemoizingEvaluator} given at construction time) that are dirty according to the
+   * passed-in {@code dirtinessChecker}.
    */
-  Differencer.Diff getDirtyKeys(SkyValueDirtinessChecker dirtinessChecker)
+  Differencer.DiffWithDelta getDirtyKeys(SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
-    return getDirtyValues(valuesSupplier.get().keySet(), dirtinessChecker);
+    return getDirtyValues(valuesSupplier.get().keySet(), dirtinessChecker,
+        /*checkMissingValues=*/false);
+  }
+
+  /**
+   * Returns a {@link Differencer.DiffWithDelta} containing keys that are dirty according to the
+   * passed-in {@code dirtinessChecker}.
+   */
+  Differencer.DiffWithDelta getNewAndOldValues(Iterable<SkyKey> keys,
+      SkyValueDirtinessChecker dirtinessChecker) throws InterruptedException {
+    return getDirtyValues(keys, dirtinessChecker, /*checkMissingValues=*/true);
   }
 
   /**
@@ -264,7 +282,8 @@ class FilesystemValueChecker {
   }
 
   private BatchDirtyResult getDirtyValues(
-      Iterable<SkyKey> values, final SkyValueDirtinessChecker checker) throws InterruptedException {
+      Iterable<SkyKey> values, final SkyValueDirtinessChecker checker,
+      final boolean checkMissingValues) throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
             DIRTINESS_CHECK_THREADS,
@@ -280,10 +299,10 @@ class FilesystemValueChecker {
               new Runnable() {
                 @Override
                 public void run() {
-                  if (value != null) {
+                  if (value != null || checkMissingValues) {
                     DirtyResult result = checker.maybeCheck(key, value, tsgm);
                     if (result != null && result.isDirty()) {
-                      batchResult.add(key, result.getNewValue());
+                      batchResult.add(key, value, result.getNewValue());
                     }
                   }
                 }
@@ -302,18 +321,22 @@ class FilesystemValueChecker {
    * Result of a batch call to {@link SkyValueDirtinessChecker#maybeCheck}. Partitions the dirty
    * values based on whether we have a new value available for them or not.
    */
-  private static class BatchDirtyResult implements Differencer.Diff {
+  private static class BatchDirtyResult implements Differencer.DiffWithDelta {
 
     private final Set<SkyKey> concurrentDirtyKeysWithoutNewValues =
         Collections.newSetFromMap(new ConcurrentHashMap<SkyKey, Boolean>());
-    private final ConcurrentHashMap<SkyKey, SkyValue> concurrentDirtyKeysWithNewValues =
+    private final ConcurrentHashMap<SkyKey, Delta> concurrentDirtyKeysWithNewAndOldValues =
         new ConcurrentHashMap<>();
 
-    private void add(SkyKey key, @Nullable SkyValue newValue) {
+    private void add(SkyKey key, @Nullable SkyValue oldValue, @Nullable SkyValue newValue) {
       if (newValue == null) {
         concurrentDirtyKeysWithoutNewValues.add(key);
       } else {
-        concurrentDirtyKeysWithNewValues.put(key, newValue);
+        if (oldValue == null) {
+          concurrentDirtyKeysWithNewAndOldValues.put(key, new Delta(newValue));
+        } else {
+          concurrentDirtyKeysWithNewAndOldValues.put(key, new Delta(oldValue, newValue));
+        }
       }
     }
 
@@ -323,8 +346,13 @@ class FilesystemValueChecker {
     }
 
     @Override
-    public Map<SkyKey, ? extends SkyValue> changedKeysWithNewValues() {
-      return concurrentDirtyKeysWithNewValues;
+    public Map<SkyKey, Delta> changedKeysWithNewAndOldValues() {
+      return concurrentDirtyKeysWithNewAndOldValues;
+    }
+
+    @Override
+    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
+      return Delta.newValues(concurrentDirtyKeysWithNewAndOldValues);
     }
   }
 

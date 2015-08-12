@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.devtools.build.lib.bazel.repository.HttpDownloader.getHash;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -142,6 +143,13 @@ public class BazelRepositoryModule extends BlazeModule {
       new SkyValueDirtinessChecker() {
         @Override
         @Nullable
+        public Optional<SkyValue> maybeCreateNewValue(SkyKey key,
+            TimestampGranularityMonitor tsgm) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        @Nullable
         public DirtyResult maybeCheck(
             SkyKey skyKey, SkyValue skyValue, TimestampGranularityMonitor tsgm) {
           if (!skyKey.functionName().equals(HttpDownloadFunction.NAME)) {
@@ -152,10 +160,10 @@ public class BazelRepositoryModule extends BlazeModule {
           try {
             return ((HttpDownloadFunction.HttpDescriptor) skyKey.argument())
                     .getSha256().equals(getHash(sha256().newHasher(), path))
-                ? DirtyResult.NOT_DIRTY
-                : DirtyResult.DIRTY;
+                ? DirtyResult.notDirty(httpDownloadValue)
+                : DirtyResult.dirty(httpDownloadValue);
           } catch (IOException e) {
-            return DirtyResult.DIRTY;
+            return DirtyResult.dirty(httpDownloadValue);
           }
         }
       };

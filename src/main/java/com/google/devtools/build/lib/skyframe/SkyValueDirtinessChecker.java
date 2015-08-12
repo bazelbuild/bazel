@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -24,41 +25,87 @@ import javax.annotation.Nullable;
  * Given a {@link SkyKey} and the previous {@link SkyValue} it had, returns whether this value is
  * up to date.
  */
-public interface SkyValueDirtinessChecker {
+public abstract class SkyValueDirtinessChecker {
+
+  /**
+   * Returns
+   * <ul>
+   *   <li>{@code null}, if the checker can't handle {@code key}.
+   *   <li>{@code Optional.<SkyValue>absent()} if the checker can handle {@code key} but was unable
+   *       to create a new value.
+   *   <li>{@code Optional.<SkyValue>of(v)} if the checker can handle {@code key} and the new value
+   *       should be {@code v}.
+   * </ul>
+   */
+  @Nullable
+  public abstract Optional<SkyValue> maybeCreateNewValue(SkyKey key,
+      TimestampGranularityMonitor tsgm);
+
   /**
    * Returns the result of checking whether this key's value is up to date, or null if this
    * dirtiness checker does not apply to this key. If non-null, this answer is assumed to be
    * definitive.
    */
-  @Nullable DirtyResult maybeCheck(SkyKey key, SkyValue oldValue, TimestampGranularityMonitor tsgm);
+  @Nullable
+  public DirtyResult maybeCheck(SkyKey key, @Nullable SkyValue oldValue,
+      TimestampGranularityMonitor tsgm) {
+    Optional<SkyValue> newValueMaybe = maybeCreateNewValue(key, tsgm);
+    if (newValueMaybe == null) {
+      return null;
+    }
+    if (!newValueMaybe.isPresent()) {
+      return DirtyResult.dirty(oldValue);
+    }
+    SkyValue newValue = Preconditions.checkNotNull(newValueMaybe.get(), key);
+    return newValue.equals(oldValue)
+        ? DirtyResult.notDirty(oldValue)
+        : DirtyResult.dirtyWithNewValue(oldValue, newValue);
+  }
 
   /** An encapsulation of the result of checking to see if a value is up to date. */
-  class DirtyResult {
-    /** The external value is unchanged from the value in the graph. */
-    public static final DirtyResult NOT_DIRTY = new DirtyResult(false, null);
+  public static class DirtyResult {
     /**
-     * The external value is different from the value in the graph, but the new value is not known.
+     * Creates a DirtyResult indicating that the external value is the same as the value in the
+     * graph.
      */
-    public static final DirtyResult DIRTY = new DirtyResult(true, null);
+    public static DirtyResult notDirty(SkyValue oldValue) {
+      return new DirtyResult(/*dirty=*/false, oldValue,  /*newValue=*/null);
+    }
 
     /**
-     * Creates a DirtyResult indicating that the external value is {@param newValue}, which is
+     * Creates a DirtyResult indicating that external value is different from the value in the
+     * graph, but this new value is not known.
+     */
+    public static DirtyResult dirty(@Nullable SkyValue oldValue) {
+      return new DirtyResult(/*dirty=*/true, oldValue, /*newValue=*/null);
+    }
+
+    /**
+     * Creates a DirtyResult indicating that the external value is {@code newValue}, which is
      * different from the value in the graph,
      */
-    public static DirtyResult dirtyWithNewValue(SkyValue newValue) {
-      return new DirtyResult(true, newValue);
+    public static DirtyResult dirtyWithNewValue(@Nullable SkyValue oldValue, SkyValue newValue) {
+      return new DirtyResult(/*dirty=*/true, oldValue, newValue);
     }
 
     private final boolean isDirty;
+    @Nullable private final SkyValue oldValue;
     @Nullable private final SkyValue newValue;
 
-    private DirtyResult(boolean isDirty, @Nullable SkyValue newValue) {
+    private DirtyResult(boolean isDirty, @Nullable SkyValue oldValue,
+        @Nullable SkyValue newValue) {
       this.isDirty = isDirty;
+      this.oldValue = oldValue;
       this.newValue = newValue;
     }
 
     boolean isDirty() {
       return isDirty;
+    }
+
+    @Nullable
+    SkyValue getOldValue() {
+      return oldValue;
     }
 
     /**

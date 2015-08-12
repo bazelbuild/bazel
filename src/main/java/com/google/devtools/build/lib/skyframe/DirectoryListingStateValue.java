@@ -32,6 +32,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 
+import javax.annotation.Nullable;
+
 /**
  * Encapsulates the filesystem operations needed to get the directory entries of a directory.
  *
@@ -65,7 +67,7 @@ final class DirectoryListingStateValue implements SkyValue {
    *
    * <p>Symlinks are not expanded.
    */
-  public Iterable<Dirent> getDirents() {
+  public Dirents getDirents() {
     return compactSortedDirents;
   }
 
@@ -87,7 +89,7 @@ final class DirectoryListingStateValue implements SkyValue {
   }
 
   /** A space-efficient, sorted, immutable dirent structure. */
-  private static class CompactSortedDirents implements Iterable<Dirent>, Serializable {
+  private static class CompactSortedDirents implements Dirents, Serializable {
 
     private final String[] names;
     private final BitSet packedTypes;
@@ -135,6 +137,13 @@ final class DirectoryListingStateValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hash(Arrays.hashCode(names), packedTypes);
+    }
+
+    @Override
+    @Nullable
+    public Dirent maybeGetDirent(String baseName) {
+      int pos = Arrays.binarySearch(names, baseName);
+      return pos < 0 ? null : direntAt(pos);
     }
 
     @Override

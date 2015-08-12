@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
-import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
@@ -310,16 +309,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * invalidated, so the map should be empty upon completion of this function.
    */
   private void handleDiffsWithCompleteDiffInformation(
-      Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry) {
+      Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry)
+          throws InterruptedException {
     for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
           modifiedFilesByPathEntry.get(pathEntry);
       ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
-      Iterable<SkyKey> dirtyValues = getSkyKeysPotentiallyAffected(
-          modifiedFileSet.modifiedSourceFiles(), pathEntry);
       handleChangedFiles(ImmutableList.of(pathEntry),
-          new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
+          getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry));
       processableModifiedFileSet.markProcessed();
     }
   }
@@ -368,7 +366,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private void handleChangedFiles(Collection<Path> pathEntries, Differencer.Diff diff) {
     Collection<SkyKey> changedKeysWithoutNewValues = diff.changedKeysWithoutNewValues();
-    Map<SkyKey, ? extends SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
+    Map<SkyKey, SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
 
     logDiffInfo(pathEntries, changedKeysWithoutNewValues, changedKeysWithNewValues);
 
@@ -442,18 +440,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow();
       lastAnalysisDiscarded = false;
     }
-    Iterable<SkyKey> keys;
+    Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      Differencer.Diff diff =
-          new FilesystemValueChecker(memoizingEvaluator, tsgm, null)
-              .getDirtyKeys(new BasicFilesystemDirtinessChecker());
-      keys = diff.changedKeysWithoutNewValues();
-      recordingDiffer.inject(diff.changedKeysWithNewValues());
+      diff = new FilesystemValueChecker(memoizingEvaluator, tsgm, null).getDirtyKeys(
+          new BasicFilesystemDirtinessChecker());
     } else {
-      keys = getSkyKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
+      diff = getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
     syscalls.set(new PerBuildSyscallCache());
-    recordingDiffer.invalidate(keys);
+    recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
+    recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.
     invalidateTransientErrors();
   }
