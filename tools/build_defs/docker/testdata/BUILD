@@ -6,6 +6,11 @@ package(
 
 load("/tools/build_defs/docker/docker", "docker_build")
 
+filegroup(
+    name = "archive_testdata",
+    srcs = glob(["archive/**"]),
+)
+
 genrule(
     name = "gen",
     outs = ["gen.out"],

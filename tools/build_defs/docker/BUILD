@@ -47,6 +47,16 @@ py_library(
     visibility = ["//tools/build_defs/docker:__subpackages__"],
 )
 
+py_test(
+    name = "archive_test",
+    srcs = [
+        "archive_test.py",
+        "testenv.py",
+    ],
+    data = ["//tools/build_defs/docker/testdata:archive_testdata"],
+    deps = [":archive"],
+)
+
 py_binary(
     name = "rewrite_json",
     srcs = ["rewrite_json.py"],
