@@ -9,3 +9,14 @@ How to update these files:
 7. Update third_party/BUILD to point to the new jar file.
 8. Done.
 
+
+Because maven.org doesn't have a prebuilt binary for linux on ARM, you need to build the binary
+yourself on the target system. Please follow the build steps of protocol buffer to create the
+binary, copy it to this directory and rename it to "protoc-linux-arm.exe".
+
+For example:
+
+$ cp /usr/bin/protoc $BAZEL/third_party/protobuf/protoc-linux-arm.exe
+
+This should be done before you run ./compile.sh.
+
