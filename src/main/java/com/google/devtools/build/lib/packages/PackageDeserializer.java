@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -541,17 +543,35 @@ public class PackageDeserializer {
         return attrPb.hasLicense() ? deserializeLicense(attrPb.getLicense()) : null;
 
       case STRING_DICT: {
+        // Building an immutable map will fail if the builder was given duplicate keys. These entry
+        // lists may contain duplicate keys if the serialized map value was configured (e.g. via
+        // the select function) and the different configuration values had keys in common. This is
+        // because serialization flattens configurable map-valued attributes.
+        //
+        // As long as serialization does this flattening, to avoid failure during deserialization,
+        // we dedupe entries in the list by their keys.
+        // TODO(bazel-team): Serialize and deserialize configured values with fidelity (without
+        // flattening them).
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        HashSet<String> keysSeenSoFar = Sets.newHashSet();
         for (Build.StringDictEntry entry : attrPb.getStringDictValueList()) {
-          builder.put(entry.getKey(), entry.getValue());
+          String key = entry.getKey();
+          if (keysSeenSoFar.add(key)) {
+            builder.put(key, entry.getValue());
+          }
         }
         return builder.build();
       }
 
       case STRING_DICT_UNARY: {
+        // See STRING_DICT case's comment about why this dedupes entries by their keys.
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        HashSet<String> keysSeenSoFar = Sets.newHashSet();
         for (StringDictUnaryEntry entry : attrPb.getStringDictUnaryValueList()) {
-          builder.put(entry.getKey(), entry.getValue());
+          String key = entry.getKey();
+          if (keysSeenSoFar.add(key)) {
+            builder.put(key, entry.getValue());
+          }
         }
         return builder.build();
       }
@@ -560,17 +580,27 @@ public class PackageDeserializer {
         return deserializeFilesetEntries(attrPb.getFilesetListValueList());
 
       case LABEL_LIST_DICT: {
+        // See STRING_DICT case's comment about why this dedupes entries by their keys.
         ImmutableMap.Builder<String, List<Label>> builder = ImmutableMap.builder();
+        HashSet<String> keysSeenSoFar = Sets.newHashSet();
         for (Build.LabelListDictEntry entry : attrPb.getLabelListDictValueList()) {
-          builder.put(entry.getKey(), deserializeLabels(entry.getValueList()));
+          String key = entry.getKey();
+          if (keysSeenSoFar.add(key)) {
+            builder.put(key, deserializeLabels(entry.getValueList()));
+          }
         }
         return builder.build();
       }
 
       case STRING_LIST_DICT: {
+        // See STRING_DICT case's comment about why this dedupes entries by their keys.
         ImmutableMap.Builder<String, List<String>> builder = ImmutableMap.builder();
+        HashSet<String> keysSeenSoFar = Sets.newHashSet();
         for (Build.StringListDictEntry entry : attrPb.getStringListDictValueList()) {
-          builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValueList()));
+          String key = entry.getKey();
+          if (keysSeenSoFar.add(key)) {
+            builder.put(key, ImmutableList.copyOf(entry.getValueList()));
+          }
         }
         return builder.build();
       }
