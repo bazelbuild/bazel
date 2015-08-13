@@ -37,6 +37,7 @@ namespace blaze {
 using blaze_util::die;
 using blaze_util::pdie;
 using std::string;
+using std::vector;
 
 void WarnFilesystemType(const string& output_base) {
 }
