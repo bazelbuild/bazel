@@ -150,6 +150,7 @@ static GlobalVariables *globals;
 
 static void InitGlobals() {
   globals = new GlobalVariables;
+  globals->server_pid = -1;
   globals->sigint_count = 0;
   globals->startup_time = 0;
   globals->extract_data_time = 0;
@@ -620,6 +621,24 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
   fclose(fp);
 }
 
+// After connecting to the Blaze server, initialize server_pid.
+static void GetServerPid(int s, const string &pid_file) {
+  globals->server_pid = GetPeerProcessId(s);
+  if (globals->server_pid == -1) {
+    // Note: there is no race here on startup since the server creates
+    // the pid file strictly before it binds the socket.
+    char buf[16];
+    auto len = readlink(pid_file.c_str(), buf, sizeof(buf) - 1);
+    if (len > 0) {
+      buf[len] = '\0';
+      globals->server_pid = atoi(buf);
+    } else {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "can't get server pid from connection");
+    }
+  }
+}
+
 // Connects to the Blaze server, returning the socket, or -1 if no
 // server is running and !start.  If start, attempts to start a new
 // server, and exits on failure.
@@ -640,8 +659,11 @@ static int ConnectToServer(bool start) {
   }
 
   string socket_file = server_dir + "/server.socket";
+  string pid_file = server_dir + "/server.pid";
 
+  globals->server_pid = 0;
   if (Connect(s, socket_file) == 0) {
+    GetServerPid(s, pid_file);
     return s;
   }
   if (start) {
@@ -661,6 +683,7 @@ static int ConnectToServer(bool start) {
           fputc('\n', stderr);
           fflush(stderr);
         }
+        GetServerPid(s, pid_file);
         return s;
       }
       fputc('.', stderr);
@@ -685,6 +708,7 @@ static int ConnectToServer(bool start) {
 
 // Kills the specified running Blaze server.
 static void KillRunningServer(pid_t server_pid) {
+  if (server_pid == -1) return;
   fprintf(stderr, "Sending SIGTERM to previous %s server (pid=%d)... ",
           globals->options.GetProductName().c_str(), server_pid);
   fflush(stderr);
@@ -715,7 +739,7 @@ static void KillRunningServer(pid_t server_pid) {
 static bool KillRunningServerIfAny() {
   int socket = ConnectToServer(false);
   if (socket != -1) {
-    KillRunningServer(GetPeerProcessId(socket));
+    KillRunningServer(globals->server_pid);
     return true;
   }
   return false;
@@ -993,7 +1017,6 @@ static void KillRunningServerIfDifferentStartupOptions() {
     return;
   }
 
-  pid_t server_pid = GetPeerProcessId(socket);
   close(socket);
   string cmdline_path = globals->options.output_base + "/server/cmdline";
   string joined_arguments;
@@ -1014,7 +1037,7 @@ static void KillRunningServerIfDifferentStartupOptions() {
             "WARNING: Running %s server needs to be killed, because the "
             "startup options are different.\n",
             globals->options.GetProductName().c_str());
-    KillRunningServer(server_pid);
+    KillRunningServer(globals->server_pid);
   }
 }
 
@@ -1161,7 +1184,6 @@ static void SendServerRequest(void) {
   int socket = -1;
   while (true) {
     socket = ConnectToServer(true);
-    globals->server_pid = GetPeerProcessId(socket);
 
     // Check for deleted server cwd:
     string server_cwd = GetProcessCWD(globals->server_pid);

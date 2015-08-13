@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.unix.LocalClientSocket;
 import com.google.devtools.build.lib.unix.LocalServerSocket;
 import com.google.devtools.build.lib.unix.LocalSocketAddress;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.StreamMultiplexer;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -364,6 +366,18 @@ public final class RPCServer {
     }
 
     ensureExclusiveAccess(socketFile);
+
+    // We create the server.pid file strictly before binding the socket.
+    // The client only accesses the pid file after connecting to the socket
+    // which ensures that it gets the correct pid value.
+    Path pidFile = serverDirectory.getRelative("server.pid");
+    deleteAtExit(pidFile, /*deleteParent=*/ false);
+    try {
+      pidFile.delete();
+    } catch (IOException e) {
+      // Ignore.
+    }
+    pidFile.createSymbolicLink(new PathFragment(String.valueOf(OsUtils.getpid())));
 
     LocalServerSocket serverSocket = new LocalServerSocket();
     serverSocket.bind(new LocalSocketAddress(socketFile.getPathFile()));
