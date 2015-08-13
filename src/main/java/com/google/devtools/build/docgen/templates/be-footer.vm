@@ -463,7 +463,7 @@ exports_files(["jquery-2.1.1.js"])
 <p><code>load(path, symbols...)</code></p>
 
 <p><code>load()</code> is a statement that imports definitions from a
-  Skylark module. For example:
+  Skylark module (<code>.bzl</code> file). For example:
 </p>
 
 <pre class="code">
@@ -476,8 +476,16 @@ build_test(name = ...)
 
   Skylark
   module <code>tools/build_rules/build_test.bzl</code> and import the symbol
-  <code>build_test</code> in the local environment. By using more arguments, you
-  can load more symbols at once.</p>
+  <code>build_test</code> in the local environment. This is useful for
+  using macros or for sharing values between multiple BUILD files. By
+  using more arguments, you can load more symbols at once.</p>
+
+<p>Relative paths are allowed only to load a file from the same directory
+  (not a subdirectory), e.g.</p>
+
+<pre class="code">
+load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
+</pre>
 
 
 <!-- =================================================================
