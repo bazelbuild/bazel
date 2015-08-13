@@ -71,19 +71,40 @@ You can also add this line to your `~/.bashrc` file.
 
 ### Building Bazel on OS X
 
-Bazel on Mac OS X requires:
-
-* The Xcode command line tools. Xcode can be downloaded from the
-  [Apple Developer Site](https://developer.apple.com/xcode/downloads/).
-
-* MacPorts or Homebrew for installing required packages.
-
-* An installation of JDK 7.
-
-* For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with
-  iOS SDK 8.1 installed on your system.
-
 To build Bazel on Mac OS X:
+
+#### 1. Install JDK 7
+
+JDK7 can be downloaded from
+[Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html).
+Look for "Mac OS X x64" under "Java SE Development Kit". This will download a
+DMG image with an install wizard.
+
+#### 2. Install XCode Command Line Tools
+
+Xcode can be downloaded from the
+[Apple Developer Site](https://developer.apple.com/xcode/downloads/), which will
+redirect to the App Store.
+
+For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with
+iOS SDK 8.1 installed on your system.
+
+Once XCode is installed you can trigger the license signature with the following command:
+
+```
+$ sudo gcc --version
+```
+
+#### 3. Install MacPorts or Homebrew for installing required packages.
+
+While not required to compile Bazel, a package manager like MacPorts or Homebrew
+is recommended to help install other dependencies like protobuffer support.
+
+Homebrew can be installed via a 1-line script from [brew.sh](http://brew.sh/).
+
+Macports is available from [macports.org](https://www.macports.org/install.php).
+
+#### 4. Build Bazel
 
 ```
 $ cd bazel
