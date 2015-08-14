@@ -14,28 +14,7 @@ be compiled with the Closure Tools toolchain. The following rules are defined:
 
 The rules defined in `//tools/build_rules/closure/closure.WORKSPACE` must be
 copied into your `WORKSPACE` file before using these rules. These rules define
-the locations of the various Closure Tools binaries.
-
-You must also have a local copy of the Closure Library source code and reference
-the path in your WORKSPACE file. The following commands provide an example of
-how this can be accomplished:
-
-```bash
-mkdir -p src/github/google
-pushd src/github/google
-git clone https://github.com/google/closure-library.git
-popd
-```
-
-Finally, modify your WORKSPACE file:
-
-```python
-new_local_repository(
-    name = "closure_library",
-    build_file = "tools/build_rules/closure/closure_library.BUILD",
-    path = "/home/user/src/github/google/closure-library",
-)
-```
+the locations of the various Closure Tools binaries and the Closure Library.
 
 ## Usage
 
@@ -120,10 +99,19 @@ closure_template_library(
 ## Known Issues
 
 The version of the Closure Templates compiler that is used will emit warnings
-about an invalid JSDoc tag (@notypecheck) and about a missing enum value. These
-issues have been fixed in the source, but are not yet available as a
-downloadable archive. These warnings are safe to ignore.
+about protected property access and about a missing enum value. These issues
+have been fixed in the source, but are not yet available as a downloadable
+archive. These warnings are safe to ignore.
 
 You may define a new_local_repository target if you wish to check out the source
 from Github yourself. Otherwise you may wish to wait until the Closure tools are
-available as Bazel workspaces.
+available as Bazel workspaces. e.g.
+
+```python
+new_local_repository(
+    name = "closure_templates",
+    build_file = "tools/build_rules/closure/closure_templates.BUILD",
+    path = "/home/user/src/github/google/closure-templates/target",
+)
+```
+
