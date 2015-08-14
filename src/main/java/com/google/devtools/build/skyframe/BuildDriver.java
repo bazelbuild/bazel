@@ -28,5 +28,11 @@ public interface BuildDriver {
       Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
       throws InterruptedException;
 
+  /**
+   * Retrieve metadata about the computation over the given roots. Data returned is specific to the
+   * underlying evaluator implementation.
+   */
+  String meta(Iterable<SkyKey> roots);
+
   MemoizingEvaluator getGraphForTesting();
 }

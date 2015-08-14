@@ -1255,14 +1255,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Override
   public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns,
       int numThreads, EventHandler eventHandler) throws InterruptedException {
-    SkyframeTargetPatternEvaluator patternEvaluator =
-        (SkyframeTargetPatternEvaluator) packageManager.getTargetPatternEvaluator();
-    String offset = patternEvaluator.getOffset();
-    SkyKey skyKey = PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
+    SkyKey skyKey = getPrepareDepsKey(patterns);
     EvaluationResult<SkyValue> evaluationResult =
         buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
     Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
     return evaluationResult;
+  }
+
+  /**
+   * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
+   * underlying evaluation implementation.
+   */
+  public String prepareAndGetMetadata(Collection<String> patterns) {
+    return buildDriver.meta(ImmutableList.of(getPrepareDepsKey(patterns)));
+  }
+
+  private SkyKey getPrepareDepsKey(Collection<String> patterns) {
+    SkyframeTargetPatternEvaluator patternEvaluator =
+        (SkyframeTargetPatternEvaluator) packageManager.getTargetPatternEvaluator();
+    String offset = patternEvaluator.getOffset();
+    return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
   }
 
   /**

@@ -151,13 +151,15 @@ public class PathPackageLocator implements Serializable {
    * @param eventHandler The eventHandler.
    * @param workspace The nearest enclosing package root directory.
    * @param clientWorkingDirectory The client's working directory.
+   * @param checkExistence If true, verify that the element exists before adding it to the locator.
    * @return a list of {@link Path}s.
    */
   public static PathPackageLocator create(Path outputBase,
                                           List<String> pathElements,
                                           EventHandler eventHandler,
                                           Path workspace,
-                                          Path clientWorkingDirectory) {
+                                          Path clientWorkingDirectory,
+                                          boolean checkExistence) {
     List<Path> resolvedPaths = new ArrayList<>();
     final String workspaceWildcard = "%workspace%";
 
@@ -179,12 +181,35 @@ public class PathPackageLocator implements Serializable {
                 + "If so, please use the '" + workspaceWildcard + "' wildcard."));
       }
 
-      if (rootPath.exists()) {
+      if (!checkExistence || rootPath.exists()) {
         resolvedPaths.add(rootPath);
       }
     }
     return new PathPackageLocator(outputBase, resolvedPaths);
   }
+
+    /**
+     * A factory of PathPackageLocators from a list of path elements.  Elements
+     * may contain "%workspace%", indicating the workspace.
+     *
+     * @param outputBase the output base. Can be null if remote repositories are not in use.
+     * @param pathElements Each element must be an absolute path, relative path,
+     *                     or some string "%workspace%" + relative, where relative is itself a
+     *                     relative path.  The special symbol "%workspace%" means to interpret
+     *                     the path relative to the nearest enclosing workspace.  Relative
+     *                     paths are interpreted relative to the client's working directory,
+     *                     which may be below the workspace.
+     * @param eventHandler The eventHandler.
+     * @param workspace The nearest enclosing package root directory.
+     * @param clientWorkingDirectory The client's working directory.
+     * @return a list of {@link Path}s.
+     */
+    public static PathPackageLocator create(Path outputBase,
+            List<String> pathElements, EventHandler eventHandler, Path workspace,
+            Path clientWorkingDirectory) {
+        return create(outputBase, pathElements, eventHandler, workspace, clientWorkingDirectory,
+                /*checkExistence=*/true);
+    }
 
   /**
    * Returns the path to the WORKSPACE file for this build.

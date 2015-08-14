@@ -39,7 +39,12 @@ public class SequentialBuildDriver implements BuildDriver {
     }
   }
 
-  @Override
+ @Override
+ public String meta(Iterable<SkyKey> of) {
+   return "";
+ }
+
+ @Override
   public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
   }
