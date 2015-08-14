@@ -291,9 +291,15 @@ final class CompilationSupport {
       .addExecPath("-o", objFile)
       .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile));
 
-    // Add all ObjC headers to the compiler, in case Swift code is calling into Objc
-    // TODO(bazel-team): This can be augmented by an explicit bridging header field in the rule.
-    commandLine.addBeforeEachExecPath("-import-objc-header", attributes.hdrs());
+
+    ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.builder();
+    inputHeaders.addAll(attributes.hdrs());
+
+    Optional<Artifact> bridgingHeader = attributes.bridgingHeader();
+    if (bridgingHeader.isPresent()) {
+      commandLine.addExecPath("-import-objc-header", bridgingHeader.get());
+      inputHeaders.add(bridgingHeader.get());
+    }
 
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
         .setMnemonic("SwiftCompile")
@@ -301,7 +307,7 @@ final class CompilationSupport {
         .setCommandLine(commandLine.build())
         .addInput(sourceFile)
         .addInputs(otherSwiftSources)
-        .addInputs(attributes.hdrs())
+        .addInputs(inputHeaders.build())
         .addOutput(objFile)
         .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
         .build(ruleContext));

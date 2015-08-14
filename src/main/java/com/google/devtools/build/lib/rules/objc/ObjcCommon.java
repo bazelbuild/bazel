@@ -96,6 +96,11 @@ public final class ObjcCommon {
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
     }
 
+    Optional<Artifact> bridgingHeader() {
+      Artifact header = ruleContext.getPrerequisiteArtifact("bridging_header", Mode.TARGET);
+      return Optional.fromNullable(header);
+    }
+
     Iterable<PathFragment> includes() {
       return Iterables.transform(
           ruleContext.attributes().get("includes", Type.STRING_LIST),

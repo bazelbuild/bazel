@@ -519,6 +519,13 @@ public class ObjcRuleClasses {
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(bridging_header) -->
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          ${SYNOPSIS}
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("bridging_header", Type.LABEL)
+              .direct_compile_time_input()
+              .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
