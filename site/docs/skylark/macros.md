@@ -61,3 +61,4 @@ optional (don't give a default value).
   cc_library `foo` and a genrule `foo_gen`.
 
 * Macros should have an optional `visibility` argument.
+
