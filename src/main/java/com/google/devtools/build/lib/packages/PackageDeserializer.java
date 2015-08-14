@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -74,6 +79,23 @@ public class PackageDeserializer {
   // volatile is needed to ensure that the objects are published safely.
   // TODO(bazel-team): Subclass ObjectOutputStream to pass this through instead.
   public static volatile PackageDeserializationEnvironment defaultPackageDeserializationEnvironment;
+
+  // Cache label deserialization across all instances- PackgeDeserializers need to be created on
+  // demand due to initialiation constraints wrt the setting of static members.
+  private static final LoadingCache<String, Label> labelCache =
+      CacheBuilder.newBuilder()
+        .weakValues()
+        .build(
+            new CacheLoader<String, Label>() {
+              @Override
+              public Label load(String labelString) throws PackageDeserializationException {
+                try {
+                  return Label.parseAbsolute(labelString);
+                } catch (SyntaxException e) {
+                  throw new PackageDeserializationException("Invalid label: " + e.getMessage(), e);
+                }
+              }
+            });
 
   /** Class encapsulating state for a single package deserialization. */
   private static class DeserializationContext {
@@ -255,9 +277,10 @@ public class PackageDeserializer {
 
   private static Label deserializeLabel(String labelName) throws PackageDeserializationException {
     try {
-      return Label.parseAbsolute(labelName);
-    } catch (Label.SyntaxException e) {
-      throw new PackageDeserializationException("Invalid label: " + e.getMessage(), e);
+      return labelCache.get(labelName);
+    } catch (ExecutionException e) {
+      Throwables.propagateIfInstanceOf(e.getCause(), PackageDeserializationException.class);
+      throw new IllegalStateException("Failed to decode label: " + labelName, e);
     }
   }
 
