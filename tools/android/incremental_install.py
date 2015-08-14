@@ -498,9 +498,10 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   else:
     # Otherwise, parse the manifest. Note that this branch is also taken if the
     # manifest is empty.
-    for name, checksum in [
-        l.split(" ") for l in device_manifest.split("\n") if l]:
-      device_checksums[name] = checksum
+    for manifest_line in device_manifest.split("\n"):
+      if manifest_line:
+        name, checksum = manifest_line.split(" ")
+        device_checksums[name] = checksum
 
   libs_to_delete = set(device_checksums) - set(install_checksums)
   libs_to_upload = set(install_checksums) - set(device_checksums)
