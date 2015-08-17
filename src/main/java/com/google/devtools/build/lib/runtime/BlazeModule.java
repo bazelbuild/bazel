@@ -352,6 +352,12 @@ public abstract class BlazeModule {
   }
 
   /**
+   * Perform module specific check of current blaze runtime.
+   */
+  public void checkRuntime(BlazeRuntime runtime) {
+  }
+
+  /**
    * Optionally specializes the cache that ensures source files are looked at just once during
    * a build. Only one module may do so.
    */

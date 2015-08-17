@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.StringUtilities;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -35,6 +37,8 @@ public class BlazeVersionInfo {
   private static BlazeVersionInfo instance = null;
 
   private static final Logger LOG = Logger.getLogger(BlazeVersionInfo.class.getName());
+
+  public static final String BUILD_TIMESTAMP = "Build timestamp as int";
 
   public BlazeVersionInfo(Map<String, String> info) {
     buildData.putAll(info);
@@ -110,5 +114,21 @@ public class BlazeVersionInfo {
     return (buildLabel != null && buildLabel.length() > 0)
         ? "release " + buildLabel
         : "development version";
+  }
+
+  /**
+   * Returns the release timestamp.
+   */
+  public long getTimestamp() {
+    String timestamp = buildData.get(BUILD_TIMESTAMP);
+    if (timestamp == null) {
+      return new Date().getTime();
+    }
+    return Long.parseLong(timestamp);
+  }
+
+  @VisibleForTesting
+  public Map<String, String> getBuildData() {
+    return buildData;
   }
 }

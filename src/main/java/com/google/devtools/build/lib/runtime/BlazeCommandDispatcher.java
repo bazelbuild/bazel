@@ -360,6 +360,10 @@ public class BlazeCommandDispatcher {
       System.setOut(new PrintStream(reporterOutErr.getOutputStream(), /*autoflush=*/true));
       System.setErr(new PrintStream(reporterOutErr.getErrorStream(), /*autoflush=*/true));
 
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        module.checkRuntime(runtime);
+      }
+
       if (commonOptions.announceRcOptions) {
         for (String note : rcfileNotes) {
           reporter.handle(Event.info(note));
