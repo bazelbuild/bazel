@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -55,7 +55,7 @@ import javax.annotation.Nullable;
 public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironment<T> {
   protected final ErrorSensingEventHandler eventHandler;
   private final Map<String, Set<T>> letBindings = new HashMap<>();
-  protected final Map<String, ResolvedTargets<Target>> resolvedTargetPatterns = new HashMap<>();
+  protected final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
   protected final boolean keepGoing;
   protected final boolean strictScope;
 
@@ -225,15 +225,16 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
         resolvedTargetPatterns.putAll(preloadOrThrow(caller, ImmutableList.of(pattern)));
       } catch (TargetParsingException e) {
         // Will skip the target and keep going if -k is specified.
-        resolvedTargetPatterns.put(pattern, ResolvedTargets.<Target>empty());
+        resolvedTargetPatterns.put(pattern, ImmutableSet.<Target>of());
         reportBuildFileError(caller, e.getMessage());
       }
     }
     return getTargetsMatchingPattern(caller, pattern);
   }
 
-  protected abstract Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
-      Collection<String> patterns) throws QueryException, TargetParsingException;
+  protected abstract Map<String, Set<Target>> preloadOrThrow(
+      QueryExpression caller, Collection<String> patterns)
+      throws QueryException, TargetParsingException;
 
   @Override
   public boolean isSettingEnabled(Setting setting) {
