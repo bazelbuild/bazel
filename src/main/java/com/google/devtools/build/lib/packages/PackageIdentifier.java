@@ -15,6 +15,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -29,6 +33,7 @@ import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -46,21 +51,37 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * A human-readable name for the repository.
    */
   public static final class RepositoryName {
-    private final String name;
+    private static final LoadingCache<String, RepositoryName> repositoryNameCache =
+        CacheBuilder.newBuilder()
+          .weakValues()
+          .build(
+              new CacheLoader<String, RepositoryName> () {
+                @Override
+                public RepositoryName load(String name) throws SyntaxException {
+                  String errorMessage = validate(name);
+                  if (errorMessage != null) {
+                    errorMessage = "invalid repository name '"
+                        + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
+                    throw new SyntaxException(errorMessage);
+                  }
+                  return new RepositoryName(StringCanonicalizer.intern(name));
+                }
+              });
 
     /**
      * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
      * @throws SyntaxException if the name is invalid.
      */
     public static RepositoryName create(String name) throws SyntaxException {
-      String errorMessage = validate(name);
-      if (errorMessage != null) {
-        errorMessage = "invalid repository name '"
-            + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
-        throw new SyntaxException(errorMessage);
+      try {
+        return repositoryNameCache.get(name);
+      } catch (ExecutionException e) {
+        Throwables.propagateIfInstanceOf(e.getCause(), SyntaxException.class);
+        throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
       }
-      return new RepositoryName(StringCanonicalizer.intern(name));
     }
+
+    private final String name;
 
     private RepositoryName(String name) {
       this.name = name;
