@@ -1,0 +1,58 @@
+<h1 id="modules.${module.name}">${module.title}</h1>
+
+${module.documentation}
+
+#if (!$module.methods.isEmpty())
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+  #foreach ($method in $module.methods)
+    #if ($method.documented())
+    <li><a href="#${method.name}">${method.name}</a></li>
+    #end
+  #end
+  </ul>
+</div>
+#end
+#foreach ($method in $module.methods)
+  #if ($method.documented())
+    <h2 id="${method.name}">${method.name}</h2>
+    #if (!$method.signature.isEmpty())
+    <p><pre>${method.signature}</pre></p>
+    #end
+
+    ${method.documentation}
+
+    #if (!$method.params.isEmpty())
+      <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+        #foreach ($param in $method.params)
+          <tr>
+            <td id="${param.method.name}.${param.name}">
+              <code>${param.name}</code>
+            </td>
+            <td>
+            #if (!$param.type.isEmpty())
+              <p><code>${param.type}</code></p>
+            #end
+              <p>${param.documentation}</p>
+            </td>
+          </tr>
+        #end
+        </tbody>
+      </table>
+    #end
+    ${method.returnTypeExtraMessage}
+  #end
+#end

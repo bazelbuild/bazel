@@ -39,9 +39,8 @@ public class SkylarkDocumentationGenerator {
   public static void main(String[] args) {
     if (checkArgs(args)) {
       System.out.println("Generating Skylark documentation...");
-      SkylarkDocumentationProcessor processor = new SkylarkDocumentationProcessor(); 
       try {
-        processor.generateDocumentation(args[0]);
+        SkylarkDocumentationProcessor.generateDocumentation(args[0]);
       } catch (Throwable e) {
         fail(e, true);
       }

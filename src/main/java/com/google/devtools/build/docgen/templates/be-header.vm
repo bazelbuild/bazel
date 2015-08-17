@@ -20,7 +20,7 @@ ${LEFT_PANEL}
 
   <h3>Concepts and terminology</h3>
   <table class="layout"><tr><td>
-  <ul class="toc">
+  <ul class="be-toc">
     <li><a href="#common-definitions">Common definitions</a>:
       <ul>
       <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
@@ -34,9 +34,9 @@ ${LEFT_PANEL}
     </li>
   </ul>
   </td><td>
-  <ul class="toc">
+  <ul class="be-toc">
     <li><a href="#make_variables">"Make" variables</a>
-    <ul class="toc">
+    <ul class="be-toc">
       <li><a href="#make-var-substitution">"Make" variable substitution</a></li>
       <li><a href="#predefined_variables">Predefined variables</a></li>
 
@@ -44,7 +44,7 @@ ${LEFT_PANEL}
     <li><a href="#predefined-python-variables">Predefined Python Variables</a></li>
   </ul>
   </td><td>
-  <ul class="toc">
+  <ul class="be-toc">
     <li><a href="#load">load</a></li>
 
     <li><a href="#package">package</a></li>

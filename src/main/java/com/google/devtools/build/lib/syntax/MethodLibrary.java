@@ -952,7 +952,7 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "set", returnType = SkylarkNestedSet.class,
-      doc = "Creates a <a href=\"#modules.set\">set</a> from the <code>items</code>."
+      doc = "Creates a <a href=\"set.html\">set</a> from the <code>items</code>."
       + " The set supports nesting other sets of the same element"
       + " type in it. A desired iteration order can also be specified.<br>"
       + " Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
@@ -965,7 +965,7 @@ public class MethodLibrary {
             doc = "The ordering strategy for the set if it's nested, "
             + "possible values are: <code>stable</code> (default), <code>compile</code>, "
             + "<code>link</code> or <code>naive_link</code>. An explanation of the "
-            + "values can be found <a href=\"#modules.set\">here</a>.")},
+            + "values can be found <a href=\"set.html\">here</a>.")},
       useLocation = true)
   private static final BuiltinFunction set = new BuiltinFunction("set") {
     public SkylarkNestedSet invoke(Object items, String order,
@@ -1022,7 +1022,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "union", objectType = SkylarkNestedSet.class,
       returnType = SkylarkNestedSet.class,
-      doc = "Creates a new <a href=\"#modules.set\">set</a> that contains both "
+      doc = "Creates a new <a href=\"set.html\">set</a> that contains both "
           + "the input set as well as all additional elements.",
       mandatoryPositionals = {
         @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input set"),

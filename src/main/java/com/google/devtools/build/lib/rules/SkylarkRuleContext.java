@@ -329,14 +329,14 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(name = "configuration", structField = true,
-      doc = "Returns the default configuration. See the <a href=\"#modules.configuration\">"
+      doc = "Returns the default configuration. See the <a href=\"configuration.html\">"
           + "configuration</a> type for more details.")
   public BuildConfiguration getConfiguration() {
     return ruleContext.getConfiguration();
   }
 
   @SkylarkCallable(name = "host_configuration", structField = true,
-      doc = "Returns the host configuration. See the <a href=\"#modules.configuration\">"
+      doc = "Returns the host configuration. See the <a href=\"configuration.html\">"
           + "configuration</a> type for more details.")
   public BuildConfiguration getHostConfiguration() {
     return ruleContext.getHostConfiguration();

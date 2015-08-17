@@ -44,10 +44,9 @@ import java.util.Map;
 /**
  * A helper class to provide Attr module in Skylark.
  *
- * It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark
+ * <p>It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark
  * users. The functions are executed through reflection. As everywhere in Skylark,
  * arguments are type-checked with the signature and cannot be null.
- *
  */
 @SkylarkModule(
   name = "attr",
@@ -55,7 +54,7 @@ import java.util.Map;
   onlyLoadingPhase = true,
   doc =
       "Module for creating new attributes. "
-          + "They are only for use with the <a href=\"#modules._top_level.rule\">rule</a> function."
+          + "They are only for use with the <a href=\"globals.html#rule\">rule</a> function."
 )
 public final class SkylarkAttr {
 
@@ -463,7 +462,7 @@ public final class SkylarkAttr {
     name = "label_list",
     doc =
         "Creates an attribute of type list of labels. "
-            + "See <a href=\"#modules.attr.label\">label</a> for more information.",
+            + "See <a href=\"attr.html#label\">label</a> for more information.",
     objectType = SkylarkAttr.class,
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {
@@ -623,7 +622,7 @@ public final class SkylarkAttr {
     name = "output_list",
     doc =
         "Creates an attribute of type list of outputs. Its default value is <code>[]</code>. "
-            + "See <a href=\"#modules.attr.output\">output</a> above for more information.",
+            + "See <a href=\"attr.html#output\">output</a> above for more information.",
     objectType = SkylarkAttr.class,
     returnType = Attribute.Builder.class,
     optionalNamedOnly = {

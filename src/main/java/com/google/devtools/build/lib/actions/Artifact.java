@@ -367,7 +367,7 @@ public class Artifact implements FileType.HasFilename, ActionInput {
   @SkylarkCallable(name = "path", structField = true,
       doc = "The execution path of this file, relative to the execution directory. It consists of "
       + "two parts, an optional first part called the <i>root</i> (see also the <a "
-      + "href=\"#modules.root\">root</a> module), and the second part which is the "
+      + "href=\"root.html\">root</a> module), and the second part which is the "
       + "<code>short_path</code>. The root may be empty, which it usually is for non-generated "
       + "files. For generated files it usually contains a configuration-specific path fragment that"
       + " encodes things like the target CPU architecture that was used while building said file.")

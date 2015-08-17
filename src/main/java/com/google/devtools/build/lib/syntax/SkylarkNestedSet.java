@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "set",
     doc = "A language built-in type that supports (nested) sets. "
-        + "Sets can be created using the <a href=\"#modules._top_level.set\">set</a> function, and "
+        + "Sets can be created using the <a href=\"globals.html#set\">set</a> function, and "
         + "they support the <code>+</code> operator to extend the set with more elements or "
         + "to nest other sets inside of it. Examples:<br>"
         + "<pre class=language-python>s = set([1, 2])\n"

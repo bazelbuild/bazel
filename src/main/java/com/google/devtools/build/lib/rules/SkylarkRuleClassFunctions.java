@@ -191,7 +191,7 @@ public class SkylarkRuleClassFunctions {
       mandatoryPositionals = {
         @Param(name = "implementation", type = BaseFunction.class,
             doc = "the function implementing this rule, must have exactly one parameter: "
-            + "<a href=\"#modules.ctx\">ctx</a>. The function is called during the analysis phase "
+            + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis phase "
             + "for each instance of the rule. It can access the attributes provided by the user. "
             + "It must create actions to generate all the declared outputs.")
       },
@@ -202,7 +202,7 @@ public class SkylarkRuleClassFunctions {
             + "and there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute name "
-            + "to an attribute object (see <a href=\"#modules.attr\">attr</a> module). "
+            + "to an attribute object (see <a href=\"attr.html\">attr</a> module). "
             + "Attributes starting with <code>_</code> are private, and can be used to add "
             + "an implicit dependency on a label. The attribute <code>name</code> is implicitly "
             + "added and must not be specified. Attributes <code>visibility</code>, "

@@ -32,7 +32,11 @@ public class DocgenConsts {
   public static final String HEADER_TEMPLATE = "templates/be-header.html";
   public static final String FOOTER_TEMPLATE = "templates/be-footer.html";
   public static final String BODY_TEMPLATE = "templates/be-body.html";
-  public static final String SKYLARK_BODY_TEMPLATE = "templates/skylark-body.html";
+
+  public static final String SKYLARK_LIBRARY_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/skylark-library.vm";
+  public static final String SKYLARK_NAV_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/skylark-nav.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
