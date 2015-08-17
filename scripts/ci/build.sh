@@ -23,7 +23,7 @@
 
 # Load common.sh
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source $(dirname ${SCRIPT_DIR})/scripts/release/common.sh
+source $(dirname ${SCRIPT_DIR})/release/common.sh
 
 : ${GIT_REPOSITORY_URL:=https://github.com/google/bazel}
 
