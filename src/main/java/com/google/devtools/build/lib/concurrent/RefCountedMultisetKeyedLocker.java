@@ -31,13 +31,14 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
   // Multiset of keys that have threads waiting on a lock or using a lock.
   private final ConcurrentHashMultiset<K> waiters = ConcurrentHashMultiset.<K>create();
 
-  private static final int NUM_STRIPES = 256;
+  private static final int NUM_STRIPES = 2048;
   // For each key, gives the striped lock to use for atomically managing the waiters on that key
   // internally.
   private final Striped<Lock> waitersLocks = Striped.lazyWeakLock(NUM_STRIPES);
 
   // Map of key to current lock, for keys that have at least one waiting or live thread.
-  private final ConcurrentMap<K, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<K, ReentrantLock> locks =
+      new ConcurrentHashMap<>(1024, .75f, NUM_STRIPES);
 
   public RefCountedMultisetKeyedLocker() {
   }
