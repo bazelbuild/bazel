@@ -365,7 +365,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
     globalEnv = newGlobalEnvironment();
-    threadPool = new ThreadPoolExecutor(100, 100, 3L, TimeUnit.SECONDS,
+    threadPool = new ThreadPoolExecutor(100, 100, 15L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
         new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
     // Do not consume threads when not in use.
