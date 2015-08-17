@@ -1624,6 +1624,7 @@ ios_extension_binary(<a href="#ios_extension_binary.name">name</a>,
 <a href="#ios_extension_binary.resources">resources</a>,
 <a href="#ios_extension_binary.hdrs">hdrs</a>,
 <a href="#ios_extension_binary.asset_catalogs">asset_catalogs</a>,
+<a href="#ios_extension_binary.bridging_header">bridging_header</a>,
 <a href="#ios_extension_binary.bundles">bundles</a>,
 <a href="#ios_extension_binary.copts">copts</a>,
 <a href="#ios_extension_binary.datamodels">datamodels</a>,
@@ -1705,6 +1706,11 @@ Objective-C libraries.</p>
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="ios_extension_binary.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="ios_extension_binary.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
@@ -2017,6 +2023,7 @@ ios_framework_binary(<a href="#ios_framework_binary.name">name</a>,
 <a href="#ios_framework_binary.resources">resources</a>,
 <a href="#ios_framework_binary.hdrs">hdrs</a>,
 <a href="#ios_framework_binary.asset_catalogs">asset_catalogs</a>,
+<a href="#ios_framework_binary.bridging_header">bridging_header</a>,
 <a href="#ios_framework_binary.bundles">bundles</a>,
 <a href="#ios_framework_binary.copts">copts</a>,
 <a href="#ios_framework_binary.datamodels">datamodels</a>,
@@ -2098,6 +2105,11 @@ libraries.</p>
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="ios_framework_binary.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="ios_framework_binary.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
@@ -2551,6 +2563,7 @@ objc_binary(<a href="#objc_binary.name">name</a>,
 <a href="#objc_binary.hdrs">hdrs</a>,
 <a href="#objc_binary.app_icon">app_icon</a>,
 <a href="#objc_binary.asset_catalogs">asset_catalogs</a>,
+<a href="#objc_binary.bridging_header">bridging_header</a>,
 <a href="#objc_binary.bundle_id">bundle_id</a>,
 <a href="#objc_binary.bundles">bundles</a>,
 <a href="#objc_binary.copts">copts</a>,
@@ -2659,6 +2672,11 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="objc_binary.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="objc_binary.bundle_id"><code>bundle_id</code>:
           The bundle ID (reverse-DNS path followed by app name) of the binary.
@@ -4419,6 +4437,7 @@ objc_import(<a href="#objc_import.name">name</a>,
 <a href="#objc_import.alwayslink">alwayslink</a>,
 <a href="#objc_import.archives">archives</a>,
 <a href="#objc_import.asset_catalogs">asset_catalogs</a>,
+<a href="#objc_import.bridging_header">bridging_header</a>,
 <a href="#objc_import.bundles">bundles</a>,
 <a href="#objc_import.datamodels">datamodels</a>,
 <a href="#common.deprecation">deprecation</a>,
@@ -4492,6 +4511,11 @@ attributes supported by <code>objc_library</code>.</p>
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="objc_import.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="objc_import.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
@@ -4627,6 +4651,7 @@ objc_library(<a href="#objc_library.name">name</a>,
 <a href="#objc_library.hdrs">hdrs</a>,
 <a href="#objc_library.alwayslink">alwayslink</a>,
 <a href="#objc_library.asset_catalogs">asset_catalogs</a>,
+<a href="#objc_library.bridging_header">bridging_header</a>,
 <a href="#objc_library.bundles">bundles</a>,
 <a href="#objc_library.copts">copts</a>,
 <a href="#objc_library.datamodels">datamodels</a>,
@@ -4718,6 +4743,11 @@ objc_library(<a href="#objc_library.name">name</a>,
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="objc_library.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="objc_library.bundles"><code>bundles</code>:
           The list of bundle targets that this target requires to be included
@@ -5442,6 +5472,7 @@ experimental_ios_test(<a href="#experimental_ios_test.name">name</a>,
 <a href="#experimental_ios_test.app_icon">app_icon</a>,
 <a href="#test.args">args</a>,
 <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>,
+<a href="#experimental_ios_test.bridging_header">bridging_header</a>,
 <a href="#experimental_ios_test.bundle_id">bundle_id</a>,
 <a href="#experimental_ios_test.bundles">bundles</a>,
 <a href="#experimental_ios_test.copts">copts</a>,
@@ -5544,6 +5575,11 @@ on both iOS simulator and real devices.
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="experimental_ios_test.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="experimental_ios_test.bundle_id"><code>bundle_id</code>:
           The bundle ID (reverse-DNS path followed by app name) of the binary.
@@ -5829,6 +5865,7 @@ ios_test(<a href="#ios_test.name">name</a>,
 <a href="#ios_test.app_icon">app_icon</a>,
 <a href="#test.args">args</a>,
 <a href="#ios_test.asset_catalogs">asset_catalogs</a>,
+<a href="#ios_test.bridging_header">bridging_header</a>,
 <a href="#ios_test.bundle_id">bundle_id</a>,
 <a href="#ios_test.bundles">bundles</a>,
 <a href="#ios_test.copts">copts</a>,
@@ -5928,6 +5965,11 @@ on both iOS simulator and real devices.
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
           target.
+</li>
+<li id="ios_test.bridging_header"><code>bridging_header</code>:
+          A header defining the Objective-C interfaces to be exposed in Swift.
+          <i>(<a href="build-ref.html#labels">Label</a>; optional)</i><br/>
+
 </li>
 <li id="ios_test.bundle_id"><code>bundle_id</code>:
           The bundle ID (reverse-DNS path followed by app name) of the binary.
