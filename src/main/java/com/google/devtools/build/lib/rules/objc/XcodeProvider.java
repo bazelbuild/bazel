@@ -556,6 +556,10 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addSupportFile(buildFilePath);
 
     if (CAN_LINK_PRODUCT_TYPES.contains(productType)) {
+      // For builds with --ios_multi_cpus set, we may have several copies of some XCodeProviders
+      // in the dependencies (one per cpu architecture). We deduplicate the corresponding
+      // xcode target names with a LinkedHashSet before adding to the TargetControl.
+      Set<DependencyControl> dependencySet = new LinkedHashSet<>();
       for (XcodeProvider dependency : propagatedDependencies) {
         // Only add a library target to a binary's dependencies if it has source files to compile
         // and it is not from the "non_propagated_deps" attribute. Xcode cannot build targets
@@ -572,10 +576,15 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         boolean hasSources = dependency.compilationArtifacts.isPresent()
             && dependency.compilationArtifacts.get().getArchive().isPresent();
         if (hasSources || (dependency.productType == XcodeProductType.BUNDLE)) {
-            targetControl.addDependency(DependencyControl.newBuilder()
-                .setTargetLabel(dependency.dependencyXcodeTargetName())
+          String dependencyXcodeTargetName = dependency.dependencyXcodeTargetName();
+          dependencySet.add(DependencyControl.newBuilder()
+                .setTargetLabel(dependencyXcodeTargetName)
                 .build());
         }
+      }
+
+      for (DependencyControl dependencyControl : dependencySet) {
+        targetControl.addDependency(dependencyControl);
       }
     }
     for (XcodeProvider justTestHost : testHost.asSet()) {
