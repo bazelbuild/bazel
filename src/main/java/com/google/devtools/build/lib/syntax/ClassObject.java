@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -110,6 +111,29 @@ public interface ClassObject {
     @Override
     public String errorMessage(String name) {
       return errorMessage != null ? String.format(errorMessage, name) : null;
+    }
+
+    /**
+     * Convert the object to string using Skylark syntax. The output tries to be
+     * reversible (but there is no guarantee, it depends on the actual values).
+     */
+    @Override
+    public String toString() {
+      StringBuilder builder = new StringBuilder();
+      boolean first = true;
+      builder.append("struct(");
+      // Sort by key to ensure deterministic output.
+      for (String key : Ordering.natural().sortedCopy(values.keySet())) {
+        if (!first) {
+          builder.append(", ");
+        }
+        first = false;
+        builder.append(key);
+        builder.append(" = ");
+        Printer.write(builder, values.get(key));
+      }
+      builder.append(")");
+      return builder.toString();
     }
   }
 }
