@@ -17,7 +17,6 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,10 +117,10 @@ public class BuildEncyclopediaProcessor {
 
     renderBeHeader(docEntries, page);
 
-    page.add(DocgenConsts.VAR_SECTION_BINARY, getRuleDocs(binaryDocs));
-    page.add(DocgenConsts.VAR_SECTION_LIBRARY, getRuleDocs(libraryDocs));
-    page.add(DocgenConsts.VAR_SECTION_TEST, getRuleDocs(testDocs));
-    page.add(DocgenConsts.VAR_SECTION_OTHER, getRuleDocs(otherDocs));
+    page.add("binaryDocs", binaryDocs);
+    page.add("libraryDocs", libraryDocs);
+    page.add("testDocs", testDocs);
+    page.add("otherDocs", otherDocs);
   }
 
   private void renderBeHeader(Iterable<RuleDocumentation> docEntries, Page page)
@@ -134,42 +134,25 @@ public class BuildEncyclopediaProcessor {
     Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping = new HashMap<>();
     createRuleMapping(docEntries, ruleMapping);
 
-    String languageSpecificTable;
-    {
-      StringBuilder sb = new StringBuilder();
-
-      sb.append("<colgroup span=\"6\" width=\"20%\"></colgroup>\n")
-        .append("<tr><th>Language</th><th>Binary rules</th><th>Library rules</th>"
-          + "<th>Test rules</th><th>Other rules</th><th></th></tr>\n");
-
-      // Generate the table.
-      for (String ruleFamily : languageSpecificRuleFamilies) {
-        generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
-      }
-      languageSpecificTable = sb.toString();
+    List<SummaryRuleFamily> languageSpecificSummaryFamilies =
+        new ArrayList<SummaryRuleFamily>(languageSpecificRuleFamilies.size());
+    for (String ruleFamily : languageSpecificRuleFamilies) {
+      languageSpecificSummaryFamilies.add(
+          new SummaryRuleFamily(ruleMapping.get(ruleFamily), ruleFamily));
     }
 
-    String otherRulesTable;
-    {
-      StringBuilder sb = new StringBuilder();
-
-      sb.append("<colgroup span=\"6\" width=\"20%\"></colgroup>\n");
-      for (String ruleFamily : genericRuleFamilies) {
-        generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
-      }
-      otherRulesTable = sb.toString();
+    List<SummaryRuleFamily> otherSummaryFamilies =
+        new ArrayList<SummaryRuleFamily>(genericRuleFamilies.size());
+    for (String ruleFamily : genericRuleFamilies) {
+      otherSummaryFamilies.add(
+          new SummaryRuleFamily(ruleMapping.get(ruleFamily), ruleFamily));
     }
-    page.add(DocgenConsts.VAR_LANG_SPECIFIC_HEADER_TABLE, languageSpecificTable);
-    page.add(DocgenConsts.VAR_OTHER_RULES_HEADER_TABLE, otherRulesTable);
-    page.add(DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION,
-        generateCommonAttributeDocs(
-            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES));
-    page.add(DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION,
-        generateCommonAttributeDocs(
-            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES));
-    page.add(DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION,
-        generateCommonAttributeDocs(
-            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES));
+
+    page.add("langSpecificSummaryFamilies", languageSpecificSummaryFamilies);
+    page.add("otherSummaryFamilies", otherSummaryFamilies);
+    page.add("commonAttributes", PredefinedAttributes.COMMON_ATTRIBUTES);
+    page.add("testAttributes", PredefinedAttributes.TEST_ATTRIBUTES);
+    page.add("binaryAttributes", PredefinedAttributes.BINARY_ATTRIBUTES);
     page.add(DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
   }
 
@@ -233,60 +216,6 @@ public class BuildEncyclopediaProcessor {
       if (ruleClass.isDocumented()) {
         sb.append(String.format("<a href=\"#%s\">%s</a><br/>\n", ruleName, ruleName));
       }
-    }
-    return sb.toString();
-  }
-
-  private String generateCommonAttributeDocs(Map<String, RuleDocumentationAttribute> attributes,
-      String attributeGroupName) throws BuildEncyclopediaDocException {
-    RuleDocumentation ruleDoc = new RuleDocumentation(
-        attributeGroupName, "OTHER", null, null, 0, null, ImmutableSet.<String>of(),
-        ruleClassProvider);
-    for (RuleDocumentationAttribute attribute : attributes.values()) {
-      ruleDoc.addAttribute(attribute);
-    }
-    return ruleDoc.generateAttributeDefinitions();
-  }
-
-  private void generateHeaderTableRuleFamily(StringBuilder sb,
-      ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String ruleFamily) {
-    sb.append("<tr>\n")
-      .append(String.format("<td class=\"lang\">%s</td>\n", ruleFamily));
-    boolean otherRulesSplitted = false;
-    for (RuleType ruleType : DocgenConsts.RuleType.values()) {
-      sb.append("<td>");
-      int i = 0;
-      List<RuleDocumentation> ruleDocList = ruleTypeMap.get(ruleType);
-      for (RuleDocumentation ruleDoc : ruleDocList) {
-        if (i > 0) {
-          if (ruleType.equals(RuleType.OTHER)
-              && ruleDocList.size() >= 4 && i == (ruleDocList.size() + 1) / 2) {
-            // Split 'other rules' into two columns if there are too many of them.
-            sb.append("</td>\n<td>");
-            otherRulesSplitted = true;
-          } else {
-            sb.append("<br/>");
-          }
-        }
-        String ruleName = ruleDoc.getRuleName();
-        String deprecatedString = ruleDoc.hasFlag(DocgenConsts.FLAG_DEPRECATED)
-            ? " class=\"deprecated\"" : "";
-        sb.append(String.format("<a href=\"#%s\"%s>%s</a>", ruleName, deprecatedString, ruleName));
-        i++;
-      }
-      sb.append("</td>\n");
-    }
-    // There should be 6 columns.
-    if (!otherRulesSplitted) {
-      sb.append("<td></td>\n");
-    }
-    sb.append("</tr>\n");
-  }
-
-  private String getRuleDocs(Iterable<RuleDocumentation> docEntries) {
-    StringBuilder sb = new StringBuilder();
-    for (RuleDocumentation doc : docEntries) {
-      sb.append(doc.getHtmlDocumentation());
     }
     return sb.toString();
   }

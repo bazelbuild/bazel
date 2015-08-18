@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 import java.util.HashMap;
@@ -43,8 +41,7 @@ import java.util.TreeSet;
  * such as declaring file name and the first line of the raw documentation. This can be useful for
  * proper error signaling during documentation processing.
  */
-class RuleDocumentation implements Comparable<RuleDocumentation> {
-
+public class RuleDocumentation implements Comparable<RuleDocumentation> {
   private final String ruleName;
   private final RuleType ruleType;
   private final String ruleFamily;
@@ -86,7 +83,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   /**
    * Returns the name of the rule.
    */
-  String getRuleName() {
+  public String getRuleName() {
     return ruleName;
   }
 
@@ -124,8 +121,8 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
    * Returns true if this rule applies to a specific programming language (e.g. java_library),
    * returns false if it is a generic action (e.g. genrule, filegroup).
    *
-   * A rule is considered to be specific to a programming language by default. Generic rules have
-   * to be marked with the flag GENERIC_RULE in their #BLAZE_RULE definition.
+   * <p>A rule is considered to be specific to a programming language by default. Generic rules
+   * have to be marked with the flag GENERIC_RULE in their #BLAZE_RULE definition.
    */
   boolean isLanguageSpecific() {
     return !flags.contains(DocgenConsts.FLAG_GENERIC_RULE);
@@ -146,22 +143,31 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
+   * Returns the rule's set of RuleDocumentationAttributes.
+   */
+  public Set<RuleDocumentationAttribute> getAttributes() {
+    return attributes;
+  }
+
+  /**
    * Returns the html documentation in the exact format it should be written into the Build
    * Encyclopedia (expanding variables).
    */
-  String getHtmlDocumentation() {
+  public String getHtmlDocumentation() {
     String expandedDoc = htmlDocumentation;
     // Substituting variables
     for (Entry<String, String> docVariable : docVariables.entrySet()) {
       expandedDoc = expandedDoc.replace("${" + docVariable.getKey() + "}",
           expandBuiltInVariables(docVariable.getKey(), docVariable.getValue()));
     }
-    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_SIGNATURE + "}",
-        generateAttributeSignatures());
-    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_DEFINITION + "}",
-        generateAttributeDefinitions(true));
-    return String.format("<h3 id=\"%s\"%s>%s</h3>\n\n%s", ruleName,
-        getDeprecatedString(hasFlag(DocgenConsts.FLAG_DEPRECATED)), ruleName, expandedDoc);
+    // Replace the instances of the ATTRIBUTE_SIGNATURE and ATTRIBUTE_DEFINITION variables
+    // with the empty string since the variables are no longer used but are still present
+    // in the rule doc comments..
+    // TODO(dzc): Remove uses of ${ATTRIBUTE_SIGNATURE} and ${ATTRIBUTE_DEFINITION} from Bazel
+    // doc comments.
+    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_SIGNATURE + "}", "");
+    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_DEFINITION + "}", "");
+    return expandedDoc;
   }
 
   /**
@@ -172,57 +178,38 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
-   * Returns the html code of the attribute definitions without the header and name
-   * attribute of the rule.
+   * Returns a string containing any extra documentation for the name attribute for this
+   * rule.
    */
-  String generateAttributeDefinitions() {
-    return generateAttributeDefinitions(false);
+  public String getNameExtraHtmlDoc() {
+    return docVariables.containsKey(DocgenConsts.VAR_NAME)
+        ? docVariables.get(DocgenConsts.VAR_NAME)
+        : "";
   }
 
-  private String generateAttributeDefinitions(boolean generateNameAndHeader) {
-    StringBuilder sb = new StringBuilder();
-    if (generateNameAndHeader){
-      String nameExtraHtmlDoc = docVariables.containsKey(DocgenConsts.VAR_NAME)
-          ? docVariables.get(DocgenConsts.VAR_NAME) : "";
-      sb.append(String.format(Joiner.on('\n').join(new String[] {
-          "<h4 id=\"%s_args\">Arguments</h4>",
-          "<ul>",
-          "<li id=\"%s.name\"><code>name</code>: A unique name for this rule.",
-          "<i>(<a href=\"build-ref.html#name\">Name</a>; required)</i>%s</li>\n"}),
-          ruleName, ruleName, nameExtraHtmlDoc));
-    } else {
-      sb.append("<ul>\n");
-    }
-    for (RuleDocumentationAttribute attributeDoc : attributes) {
-      // Only generate attribute documentation here if the rule and the attribute is
-      // either both user defined or built in (of common type).
-      if (isCommonType() == attributeDoc.isCommonType()) {
-        String attrName = attributeDoc.getAttributeName();
-        Attribute attribute = isCommonType() ? null
-            : ruleClassProvider.getRuleClassMap().get(ruleName).getAttributeByName(attrName);
-        sb.append(String.format("<li id=\"%s.%s\"%s><code>%s</code>:\n%s</li>\n",
-            ruleName.toLowerCase(), attrName, getDeprecatedString(
-                attributeDoc.hasFlag(DocgenConsts.FLAG_DEPRECATED)),
-            attrName, attributeDoc.getHtmlDocumentation(attribute, ruleName)));
-      }
-    }
-    sb.append("</ul>\n");
+  /**
+   * Returns whether this rule has public visibility by default.
+   */
+  public boolean isPublicByDefault() {
     RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(ruleName);
-    if (ruleClass != null && ruleClass.isPublicByDefault()) {
-      sb.append(
-          "The default visibility is public: <code>visibility = [\"//visibility:public\"]</code>.");
-    }
-    return sb.toString();
+    return ruleClass != null && ruleClass.isPublicByDefault();
   }
 
-  private String getDeprecatedString(boolean deprecated) {
-    return deprecated ? " class=\"deprecated\"" : "";
+  /**
+   * Returns whether this rule is deprecated.
+   */
+  public boolean isDeprecated() {
+    return hasFlag(DocgenConsts.FLAG_DEPRECATED);
   }
 
-  private String generateAttributeSignatures() {
+  /**
+   * Returns a string containing the attribute signature for this rule with HTML links
+   * to the attributes.
+   */
+  public String getAttributeSignature() {
     StringBuilder sb = new StringBuilder();
     sb.append(String.format(
-        "<p class=\"rule-signature\">\n%s(<a href=\"#%s.name\">name</a>,\n",
+        "%s(<a href=\"#%s.name\">name</a>, ",
         ruleName, ruleName));
     int i = 0;
     for (RuleDocumentationAttribute attributeDoc : attributes) {
@@ -231,14 +218,12 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
           attributeDoc.getGeneratedInRule(ruleName).toLowerCase(), attrName, attrName));
       if (i < attributes.size() - 1) {
-        sb.append(",");
+        sb.append(", ");
       } else {
         sb.append(")");
       }
-      sb.append("\n");
       i++;
     }
-    sb.append("</p>\n");
     return sb.toString();
   }
 
@@ -287,13 +272,6 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       lineCount++;
     }
     return examples;
-  }
-
-  /**
-   * Return true if the rule doesn't belong to a specific rule family.
-   */
-  private boolean isCommonType() {
-    return ruleFamily == null;
   }
 
   /**

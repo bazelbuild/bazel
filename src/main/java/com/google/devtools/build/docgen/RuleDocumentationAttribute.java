@@ -34,7 +34,7 @@ import java.util.Set;
  *
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
-class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
+public class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
 
   private static final Map<Type<?>, String> TYPE_DESC = ImmutableMap.<Type<?>, String>builder()
       .put(Type.BOOLEAN, "Boolean")
@@ -61,6 +61,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   private final String commonType;
   private int startLineCnt;
   private Set<String> flags;
+  private Attribute attribute;
 
   /**
    * Creates common RuleDocumentationAttribute such as deps or data.
@@ -96,34 +97,41 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   }
 
   /**
+   * Sets the Attribute object that this documents.
+   */
+  void setAttribute(Attribute attribute) {
+    this.attribute = attribute;
+  }
+
+  /**
    * Returns the name of the rule attribute.
    */
-  String getAttributeName() {
+  public String getAttributeName() {
     return attributeName;
+  }
+
+  /**
+   * Returns whether this attribute is marked as deprecated.
+   */
+  public boolean isDeprecated() {
+    return hasFlag(DocgenConsts.FLAG_DEPRECATED);
   }
 
   /**
    * Returns the raw html documentation of the rule attribute.
    */
-  String getHtmlDocumentation(Attribute attribute, String ruleName) {
-    // TODO(bazel-team): this is needed for common type attributes. Fix those and remove this.
-    if (attribute == null) {
-      return htmlDocumentation;
-    }
-    StringBuilder sb = new StringBuilder()
-        .append("<i>(")
-        .append(TYPE_DESC.get(attribute.getType()))
-        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
-        .append(getDefaultValue(attribute))
-        .append(")</i><br/>\n");
-    String synposisVar = "${" + DocgenConsts.VAR_SYNOPSIS + "}";
-    if (!flags.contains(DocgenConsts.FLAG_DEPRECATED) && !htmlDocumentation.contains(synposisVar)) {
-      System.err.println("WARNING: No synopsis found for " + ruleName + "." + attributeName);
-    }
-    return htmlDocumentation.replace(synposisVar, sb.toString());
+  public String getHtmlDocumentation() {
+    // Replace the instances of the SYNOPSIS variable in the rule attribute doc with the
+    // empty string since the variables are no longer used but are still present in the
+    // rule doc comments..
+    // TODO(dzc): Remove uses of ${SYNOPSIS} from Bazel doc comments.
+    return htmlDocumentation.replace("${" + DocgenConsts.VAR_SYNOPSIS + "}", "");
   }
 
-  private String getDefaultValue(Attribute attribute) {
+  private String getDefaultValue() {
+    if (attribute == null) {
+      return "";
+    }
     String prefix = "; default is ";
     Object value = attribute.getDefaultValueForTesting();
     if (value instanceof Boolean) {
@@ -148,6 +156,20 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   }
 
   /**
+   * Returns a string containing the synopsis for this attribute.
+   */
+  public String getSynopsis() {
+    if (attribute == null) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder()
+        .append(TYPE_DESC.get(attribute.getType()))
+        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
+        .append(getDefaultValue());
+    return sb.toString();
+  }
+
+  /**
    * Returns the number of first line of the attribute documentation in its declaration file.
    */
   int getStartLineCnt() {
@@ -157,7 +179,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   /**
    * Returns true if the attribute doc is of a common attribute type.
    */
-  boolean isCommonType() {
+  public boolean isCommonType() {
     return commonType != null;
   }
 

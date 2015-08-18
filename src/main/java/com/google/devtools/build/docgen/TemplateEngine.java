@@ -38,6 +38,7 @@ final class TemplateEngine {
     engine.setProperty("output.encoding", "UTF-8");
     engine.setProperty("directive.set.null.allowed", true);
     engine.setProperty("parser.pool.size", 3);
+    engine.setProperty("runtime.references.strict", true);
     return new Page(engine, template);
   }
 }

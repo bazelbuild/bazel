@@ -119,6 +119,9 @@ class BuildDocCollector {
                 }
               }
               if (bestAttributeDoc != null) {
+                // Add reference to the Attribute that the attribute doc is associated with
+                // in order to generate documentation for the Attribute.
+                bestAttributeDoc.setAttribute(attribute);
                 ruleDoc.addAttribute(bestAttributeDoc);
               // If there is no matching attribute doc try to add the common.
               } else if (ruleDoc.getRuleType().equals(RuleType.BINARY)

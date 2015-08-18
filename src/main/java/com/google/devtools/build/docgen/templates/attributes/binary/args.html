@@ -1,11 +1,18 @@
-Add these arguments to the target when executed by
-<code>bazel run</code>.
-<i>(List of strings; optional; subject to
+<p>
+<code>List of strings; optional; subject to
 <a href="#location">$(location)</a> and
 <a href="#make_variables">"Make variable"</a> substitution, and
-<a href="#sh-tokenization">Bourne shell tokenization</a>)</i><br/>
-These arguments are passed to the target before the target options
-specified on the <code>bazel run</code> command line.
-<p>Most binary rules permit an <code>args</code> attribute, but where
+<a href="#sh-tokenization">Bourne shell tokenization</a></code>
+</p>
+
+<p>
+Command line arguments that bazel will pass to the target. These arguments are
+passed before the ones that are specified on the <code>bazel run</code>
+command line.
+</p>
+
+<p>
+Most binary rules permit an <code>args</code> attribute, but where
 this attribute is not allowed, this fact is documented under the
-specific rule.</p>
+specific rule.
+</p>

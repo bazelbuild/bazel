@@ -315,6 +315,7 @@ java_library(
     deps = [
         ":analysis-exec-rules-skyframe",
         ":common",
+        ":concurrent",
         ":packages",
         ":vfs",
         "//third_party:apache_velocity",
@@ -539,6 +540,7 @@ java_library(
         ":analysis-exec-rules-skyframe",
         ":bazel-core",
         ":common",
+        ":concurrent",
         ":packages",
         ":vfs",
         "//third_party:apache_velocity",

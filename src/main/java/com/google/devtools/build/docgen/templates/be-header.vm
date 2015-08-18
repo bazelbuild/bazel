@@ -62,16 +62,76 @@ ${LEFT_PANEL}
 
 <h4>Language-specific Rules</h4>
 
-<table class="table table-condensed table-striped"
-    summary="Table of rules sorted by language">
-${LANG_SPECIFIC_HEADER_TABLE}
+#macro(summaryTable $ruleFamilies)
+  <tbody>
+  #foreach($ruleFamily in $ruleFamilies)
+    <tr>
+      <td class="lang">${ruleFamily.name}</td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.binaryRules)
+        <a href="#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.libraryRules)
+        <a href="#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.testRules)
+        <a href="#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.otherRules1)
+        <a href="#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.otherRules2)
+        <a href="#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+    </tr>
+  #end
+  </tbody>
+#end
+
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <colgroup span="6" width="20%"></colgroup>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+      <th></th>
+    </tr>
+  </thead>
+#summaryTable($langSpecificSummaryFamilies)
 
 </table>
 <h4>Rules that do not apply to a specific programming language</h4>
 
-<table class="table table-condensed table-striped"
-    summary="Table of rules not specific to a programming language">
-${OTHER_RULES_HEADER_TABLE}
+<table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
+  <colgroup span="6" width="20%"></colgroup>
+#summaryTable($otherSummaryFamilies)
 
 </table>
 <h2 id="common-definitions">Common definitions</h2>
@@ -122,24 +182,47 @@ many functions or build rules below.
 
 <h3 id="common-attributes">Attributes common to all build rules</h3>
 
+#macro(commonAttributeDoc $type $attributeMap)
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Attribute</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+  #foreach ($name in $attributeMap.keySet())
+      <tr>
+        <td id="${type}.${name}"><code>${name}</code></td>
+        <td>${attributeMap.get($name).htmlDocumentation}</td>
+      </tr>
+  #end
+    </tbody>
+  </table>
+#end
+
 <p>This section describes attributes that are common to all build rules.<br/>
 Please note that it is an error to list the same label twice in a list of
 labels attribute.
 </p>
 
-${COMMON_ATTRIBUTE_DEFINITION}
+#commonAttributeDoc("common" $commonAttributes)
 
 <h3 id="common-attributes-tests">Attributes common to all test rules (*_test)</h3>
 
 <p>This section describes attributes that are common to all test rules.</p>
 
-${TEST_ATTRIBUTE_DEFINITION}
+#commonAttributeDoc("test" $testAttributes)
 
 <h3 id="common-attributes-binaries">Attributes common to all binary rules (*_binary)</h3>
 
 <p>This section describes attributes that are common to all binary rules.</p>
 
-${BINARY_ATTRIBUTE_DEFINITION}
+#commonAttributeDoc("binary" $binaryAttributes)
 
 <h3 id="configurable-attributes">Configurable attributes</h3>
 

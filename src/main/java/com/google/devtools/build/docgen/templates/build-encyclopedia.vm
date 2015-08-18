@@ -2,6 +2,60 @@
 
 #parse("com/google/devtools/build/docgen/templates/be-header.vm")
 
+#macro(ruledoc $ruleDocs)
+  #foreach ($rule in $ruleDocs)
+    <h3 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
+      ${rule.ruleName}
+    </h3>
+
+    <pre class="rule-signature">${rule.attributeSignature}</pre>
+
+    $rule.htmlDocumentation
+
+    <h4 id="${rule.ruleName}_args">Arguments</h4>
+    <table class="table table-condensed table-bordered table-params">
+      <colgroup>
+        <col class="col-param" />
+        <col class="param-description" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="${rule.ruleName}.name"><code>name</code></td>
+          <td>
+            <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
+            <p>A unique name for this rule.</p>
+            ${rule.nameExtraHtmlDoc}
+          </td>
+        </tr>
+      #foreach ($attribute in $rule.attributes)
+        #if (!$attribute.isCommonType())
+        <tr>
+          <td id="${rule.ruleName.toLowerCase()}.${attribute.attributeName}"#if($attribute.isDeprecated()) class="deprecated"#end>
+            <code>${attribute.attributeName}</code>
+          </td>
+          <td>
+            #if (!$attribute.synopsis.isEmpty())
+            <p><code>${attribute.synopsis}</code></p>
+            #end
+            $attribute.htmlDocumentation
+          </td>
+        </tr>
+        #end
+      #end
+      </tbody>
+    </table>
+    #if ($rule.isPublicByDefault())
+      The default visibility is public: <code>visibility = ["//visibility:public"]</code>.
+    #end
+  #end
+#end
+
 <!-- ============================================
                       binary
      ============================================
@@ -11,7 +65,7 @@
 <p>A <code>*_binary</code> rule compiles an application. This might be
    an executable, a <code>.jar</code> file, and/or a collection of scripts.</p>
 
-${SECTION_BINARY}
+#ruledoc($binaryDocs)
 
 <!-- ============================================
                       library
@@ -24,7 +78,7 @@ ${SECTION_BINARY}
    the corresponding <code><var>language</var>_binary</code> rule, but
    doesn't generate an executable.</p>
 
-${SECTION_LIBRARY}
+#ruledoc($libraryDocs)
 
 <!-- ============================================
                       test
@@ -34,8 +88,7 @@ ${SECTION_LIBRARY}
 
 <p>A <code>*_test</code> rule compiles a test.
 
-
-${SECTION_TEST}
+#ruledoc($testDocs)
 
 <!-- ============================================
                       variables
@@ -240,7 +293,7 @@ in your genrule's cmd attribute.
 -->
 <h2 id="misc">Other Stuff</h2>
 
-${SECTION_OTHER}
+#ruledoc($otherDocs)
 
 
 #parse("com/google/devtools/build/docgen/templates/be-footer.vm")
