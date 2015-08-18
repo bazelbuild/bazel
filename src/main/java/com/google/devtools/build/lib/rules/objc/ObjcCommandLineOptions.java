@@ -40,11 +40,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       )
   public String iosSdkVersion;
 
-  @VisibleForTesting static final String DEFAULT_SDK_VERSION = "8.1";
+  @VisibleForTesting static final String DEFAULT_SDK_VERSION = "8.4";
 
   @Option(name = "ios_simulator_version",
-      defaultValue = "7.1",
+      defaultValue = "8.4",
       category = "run",
+      deprecationWarning = "Use target_device instead to drive the simulator to use.",
       help = "The version of iOS to run on the simulator when running or testing. This is ignored "
           + "for ios_test rules if a target device is specified in the rule.")
   public String iosSimulatorVersion;
@@ -166,7 +167,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public ConfigurationDistinguisher configurationDistinguisher;
 
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "i386";
+  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {
