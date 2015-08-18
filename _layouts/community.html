@@ -16,8 +16,13 @@ nav: community
 
     <div class="container vpad">
       <div class="row">
-        <div class="col-lg-2 col-md-3 col-sm-3">
-          <nav class="sidebar">
+        <div class="col-lg-2 col-md-3">
+          <a class="btn btn-default btn-lg btn-block sidebar-toggle"
+              data-toggle="collapse" href="#sidebar-nav" aria-expanded="false"
+              aria-controls="sidebar-nav">
+            <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
+          </a>
+          <nav class="sidebar collapse" id="sidebar-nav">
             <ul class="sidebar-nav">
               <li><a href="/contributing.html">Contributing to Bazel</a></li>
               <li><a href="/users.html">Who's Using Bazel</a></li>
@@ -40,7 +45,7 @@ nav: community
             </ul>
           </nav>
         </div>
-        <div class="col-lg-10 col-md-9 col-sm-9">
+        <div class="col-lg-10 col-md-9">
           {{ content }}
         </div>
       </div>

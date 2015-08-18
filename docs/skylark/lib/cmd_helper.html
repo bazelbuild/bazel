@@ -1,0 +1,96 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.cmd_helper">cmd_helper</h1>
+
+Module for creating memory efficient command lines.
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+          <li><a href="#join_paths">join_paths</a></li>
+              <li><a href="#template">template</a></li>
+        </ul>
+</div>
+      <h2 id="join_paths">join_paths</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> cmd_helper.join_paths(separator, files)
+</pre></p>
+    
+    Creates a single command line argument joining the paths of a set of files on the separator string.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="join_paths.separator">
+              <code>separator</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>the separator string to join on</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="join_paths.files">
+              <code>files</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="set.html">set</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>the files to concatenate</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="template">template</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> cmd_helper.template(items, template)
+</pre></p>
+    
+    Transforms a set of files to a list of strings using the template string.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="template.items">
+              <code>items</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="set.html">set</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>The set of structs to transform.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="template.template">
+              <code>template</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The template to use for the transformation, <code>%{path}</code> and <code>%{short_path}</code> being substituted with the corresponding fields of each file.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+  

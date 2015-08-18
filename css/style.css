@@ -226,11 +226,20 @@ code {
 .sidebar ul.sidebar-nav li a {
   padding: 4px 0px;
   display: block;
+  border-right: 2px solid #ffffff;
 }
-.sidebar ul.sidebar-nav li a:focus,
+.sidebar ul.sidebar-nav li a:focus {
+  text-decoration: none;
+}
+.sidebar ul.sidebar-nav li a:active,
 .sidebar ul.sidebar-nav li a:hover {
   border-right: 2px solid #66bb6a;
   text-decoration: none;
+}
+.sidebar ul.sidebar-nav li a .caret {
+  float: right;
+  margin-top: 8px;
+  margin-right: 10px;
 }
 .sidebar ul.sidebar-nav li.active a {
   border-right: 2px solid #66bb6a;
@@ -238,8 +247,54 @@ code {
 .sidebar ul.sidebar-nav ul.sidebar-nav {
   padding-left: 20px;
 }
+@media (min-width: 992px) {
+  .sidebar-toggle {
+    display: none;
+  }
+  .sidebar.collapse {
+    display: block;
+  }
+}
 .faq-context h4 {
   margin-top: 30px;
+}
+.table-params {
+  border: 1px solid #81C784;
+}
+.table-params colgroup .col-param {
+  width: 25%;
+}
+.table-params colgroup .col-description {
+  width: 75%;
+}
+.table-params thead > tr > th {
+  color: #ffffff;
+  border: 1px solid #81C784;
+  background-color: #81C784;
+}
+.table-params tbody > tr > td {
+  background-color: #E8F5E9;
+  border: 1px solid #81C784;
+}
+.toc {
+  border-left: 4px solid #C8E6C9;
+  padding-left: 18px;
+  margin-bottom: 20px;
+}
+.toc h1 {
+  font-size: 24px;
+  color: #757575;
+  margin-bottom: 12px;
+}
+.toc ul {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 0;
+}
+.toc ul li {
+  line-height: 36px;
+  font-size: 16px;
+  font-weight: 400;
 }
 .blog-post {
   margin-bottom: 60px;

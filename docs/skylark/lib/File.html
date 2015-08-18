@@ -1,0 +1,42 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.File">File</h1>
+
+This type represents a file used by the build system. It can be either a source file or a derived file produced by a rule.
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+          <li><a href="#basename">basename</a></li>
+              <li><a href="#dirname">dirname</a></li>
+              <li><a href="#path">path</a></li>
+              <li><a href="#short_path">short_path</a></li>
+        </ul>
+</div>
+      <h2 id="basename">basename</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> File.basename</pre></p>
+    
+    The base file name of this file.
+
+        
+        <h2 id="dirname">dirname</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> File.dirname</pre></p>
+    
+    The name of the directory containing this file.
+
+        
+        <h2 id="path">path</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> File.path</pre></p>
+    
+    The execution path of this file, relative to the execution directory. It consists of two parts, an optional first part called the <i>root</i> (see also the <a href="root.html">root</a> module), and the second part which is the <code>short_path</code>. The root may be empty, which it usually is for non-generated files. For generated files it usually contains a configuration-specific path fragment that encodes things like the target CPU architecture that was used while building said file.
+
+        
+        <h2 id="short_path">short_path</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> File.short_path</pre></p>
+    
+    The path of this file relative to its root. This excludes the aforementioned <i>root</i>, i.e. configuration-specific fragments of the path. This is also the path under which the file is mapped if its in the runfiles of a binary.
+
+        
+  

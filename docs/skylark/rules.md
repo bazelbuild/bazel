@@ -51,7 +51,7 @@ has exactly one input parameter, `ctx` and it may return
 the [runfiles](#runfiles) and [providers](#providers)
 of the rule. The input parameter `ctx` can be used to access attribute values,
 outputs and dependent targets and files. It also has some helper functions.
-See [the library](library.html#ctx) for more context. Example:
+See [the library](lib/ctx.html) for more context. Example:
 
 ```python
 def impl(ctx):
@@ -133,7 +133,7 @@ actions. There are three ways to create output files in Skylark:
   [See example](cookbook.html#outputs-custom)
 
 All output files must have exactly one generating action. See the
-[library](library.html#modules.ctx.outputs) for more context.
+[library](lib/ctx.html#outputs) for more context.
 
 Default outputs
 ---------------
@@ -144,7 +144,7 @@ Every rule has a set of default outputs. This is used:
   outputs of the rule.
 
 * When the target is used as a dependency to another rule. A rule can access
-  the default outputs by using [target.files](library.html#modules.Target.files).
+  the default outputs by using [target.files](lib/Target.html#files).
   This is the case for example if you use a rule in the `srcs` attribute of a
   `genrule`.
 
@@ -158,7 +158,7 @@ def _impl(ctx):
 ```
 
 This can be useful for exposing files generated with
-[ctx.new_file](library.html#modules.ctx.new_file). You can also have "implicit
+[ctx.new_file](lib/ctx.html#new_file). You can also have "implicit
 outputs", i.e. files that are declared in the rule, but not in the default
 outputs (like `_deploy.jar` in `java_binary`).
 
@@ -321,7 +321,7 @@ Executable rules
 ----------------
 
 To make a rule executable, set `executable=True` in the
-[rule function](library.html#modules._top_level.rule). During the analysis
+[rule function](lib/Globals.html#rule). During the analysis
 phase, the rule must generate the output file `ctx.outputs.executable`.
 [See example](cookbook.html#outputs-executable)
 
@@ -331,7 +331,7 @@ Test rules
 ----------
 
 To create a test rule, set `test=True` in the
-[rule function](library.html#modules._top_level.rule). The name of the rule must
+[rule function](lib/Globals.html#rule). The name of the rule must
 also end with `_test`. Test rules are implicitly executable, which means they
 must generate the output file `ctx.outputs.executable`.
 

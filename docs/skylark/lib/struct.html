@@ -1,0 +1,55 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.struct">struct</h1>
+
+A special language element to support structs (i.e. simple value objects). See the global <a href="globals.html#struct">struct</a> function for more details.
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+          <li><a href="#to_proto">to_proto</a></li>
+        </ul>
+</div>
+      <h2 id="to_proto">to_proto</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> struct.to_proto()
+</pre></p>
+    
+    Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or a list of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+</pre>
+
+        
+  

@@ -1,0 +1,176 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.native">native</h1>
+
+A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations).<br/>Extra helper functions:
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+          <li><a href="#exports_files">exports_files</a></li>
+              <li><a href="#glob">glob</a></li>
+              <li><a href="#package_group">package_group</a></li>
+        </ul>
+</div>
+      <h2 id="exports_files">exports_files</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> native.exports_files(srcs, visibility=&hellip;, licenses=&hellip;)
+</pre></p>
+    
+    Specifies a list of files belonging to this package that are exported to other packages but not otherwise mentioned.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="exports_files.srcs">
+              <code>srcs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>The list of files to export.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="exports_files.visibility">
+              <code>visibility</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a></code></p>
+                          <p>A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="exports_files.licenses">
+              <code>licenses</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>Licenses to be specified.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="glob">glob</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> native.glob(include, exclude=[], excludes=[], exclude_directories=1)
+</pre></p>
+    
+    Glob returns a list of every file in the current package that:<ul>
+<li>Matches at least one pattern in <code>include</code>.</li>
+<li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
+If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>), files of type directory will be omitted from the results (default <code>1</code>).
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="glob.include">
+              <code>include</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>The list of glob patterns to include.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.exclude">
+              <code>exclude</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>The list of glob patterns to exclude.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.excludes">
+              <code>excludes</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>The list of glob patterns to exclude.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.exclude_directories">
+              <code>exclude_directories</code>
+            </td>
+            <td>
+                          <p><code>int</code></p>
+                          <p>A flag whether to exclude directories or not.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="package_group">package_group</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> native.package_group(name, packages=[], includes=[])
+</pre></p>
+    
+    This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="package_group.packages">
+              <code>packages</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>A complete enumeration of packages in this group.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="package_group.includes">
+              <code>includes</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>Other package groups that are included in this one.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="package_group.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The unique name for this rule.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+  

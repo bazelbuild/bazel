@@ -1,0 +1,964 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.globals">Globals</h1>
+
+Objects, functions and modules registered in the global environment.
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+                            <li><a href="#DATA_CFG">DATA_CFG</a></li>
+              <li><a href="#False">False</a></li>
+              <li><a href="#FileType">FileType</a></li>
+              <li><a href="#HOST_CFG">HOST_CFG</a></li>
+              <li><a href="#Label">Label</a></li>
+              <li><a href="#None">None</a></li>
+              <li><a href="#PACKAGE_NAME">PACKAGE_NAME</a></li>
+              <li><a href="#True">True</a></li>
+                    <li><a href="#bool">bool</a></li>
+              <li><a href="#dict">dict</a></li>
+              <li><a href="#dir">dir</a></li>
+              <li><a href="#enumerate">enumerate</a></li>
+                    <li><a href="#fail">fail</a></li>
+              <li><a href="#getattr">getattr</a></li>
+              <li><a href="#hasattr">hasattr</a></li>
+              <li><a href="#int">int</a></li>
+              <li><a href="#len">len</a></li>
+              <li><a href="#list">list</a></li>
+              <li><a href="#print">print</a></li>
+              <li><a href="#provider">provider</a></li>
+              <li><a href="#range">range</a></li>
+              <li><a href="#repr">repr</a></li>
+              <li><a href="#rule">rule</a></li>
+              <li><a href="#select">select</a></li>
+              <li><a href="#set">set</a></li>
+              <li><a href="#sorted">sorted</a></li>
+              <li><a href="#str">str</a></li>
+              <li><a href="#struct">struct</a></li>
+              <li><a href="#type">type</a></li>
+              <li><a href="#zip">zip</a></li>
+        </ul>
+</div>
+            <h2 id="DATA_CFG">DATA_CFG</h2>
+        <p><pre><a class="anchor" href="ConfigurationTransition.html">ConfigurationTransition</a></pre></p>
+    
+    Experimental. Specifies a transition to the data configuration.
+
+        
+        <h2 id="False">False</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a></pre></p>
+    
+    Literal for the boolean false.
+
+        
+        <h2 id="FileType">FileType</h2>
+        <p><pre><a class="anchor" href="FileType.html">FileType</a> FileType(types)
+</pre></p>
+    
+    Creates a file filter from a list of strings. For example, to match files ending with .cc or .cpp, use: <pre class=language-python>FileType([".cc", ".cpp"])</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="FileType.types">
+              <code>types</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>a list of the accepted file extensions</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="HOST_CFG">HOST_CFG</h2>
+        <p><pre><a class="anchor" href="ConfigurationTransition.html">ConfigurationTransition</a></pre></p>
+    
+    Specifies a transition to the host configuration.
+
+        
+        <h2 id="Label">Label</h2>
+        <p><pre><a class="anchor" href="Label.html">Label</a> Label(label_string)
+</pre></p>
+    
+    Creates a Label referring to a BUILD target. Use this function only when you want to give a default value for the label attributes. The argument must refer to an absolute label. Example: <br><pre class=language-python>Label("//tools:default")</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="Label.label_string">
+              <code>label_string</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>the label string</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="None">None</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a></pre></p>
+    
+    Literal for the None value.
+
+        
+        <h2 id="PACKAGE_NAME">PACKAGE_NAME</h2>
+        <p><pre><a class="anchor" href="string.html">string</a></pre></p>
+    
+    The name of the package the rule or build extension is called from. For example, in the BUILD file <code>some/package/BUILD</code>, its value will be <code>some/package</code>. This variable is special, because its value comes from outside of the extension module (it comes from the BUILD file), so it can only be accessed in functions (transitively) called from BUILD files. For example:<br><pre class=language-python>def extension():
+  return PACKAGE_NAME</pre>In this case calling <code>extension()</code> works from the BUILD file (if the function is loaded), but not as a top level function call in the extension module.
+
+        
+        <h2 id="True">True</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a></pre></p>
+    
+    Literal for the boolean true.
+
+        
+          <h2 id="bool">bool</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> bool(x)
+</pre></p>
+    
+    Constructor for the bool type. It returns False if the object is None, False, an empty string, the number 0, or an empty collection. Otherwise, it returns True.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="bool.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The variable to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="dict">dict</h2>
+        <p><pre><a class="anchor" href="dict.html">dict</a> dict(args=[], **kwargs)
+</pre></p>
+    
+    Creates a <a href="#modules.dict">dictionary</a> from an optional positional argument and an optional set of keyword arguments. Values from the keyword argument will overwrite values from the positional argument if a key appears multiple times. Dictionaries are always sorted by their keys
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="dict.args">
+              <code>args</code>
+            </td>
+            <td>
+                          <p><code>Iterable</code></p>
+                          <p>List of entries. Entries must be tuples or lists with exactly two elements: key, value</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="dict.kwargs">
+              <code>kwargs</code>
+            </td>
+            <td>
+                          <p>Dictionary of additional entries.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="dir">dir</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> dir(x)
+</pre></p>
+    
+    Returns a list strings: the names of the attributes and methods of the parameter object.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="dir.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to check.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="enumerate">enumerate</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> enumerate(list)
+</pre></p>
+    
+    Return a list of pairs (two-element tuples), with the index (int) and the item from the input list.
+<pre class="language-python">enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>
+
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="enumerate.list">
+              <code>list</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a></code></p>
+                          <p>input list</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+          <h2 id="fail">fail</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> fail(msg, attr=None)
+</pre></p>
+    
+    Raises an error that cannot be intercepted. It can be used anywhere, both in the loading phase and in the analysis phase.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="fail.msg">
+              <code>msg</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>Error message to display for the user</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="fail.attr">
+              <code>attr</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The name of the attribute that caused the error. This is used only for error reporting.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="getattr">getattr</h2>
+        <p><pre>unknown getattr(x, name, default=None)
+</pre></p>
+    
+    Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existent attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
+getattr(ctx.attr, "myattr", "mydefault")</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="getattr.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The struct whose attribute is accessed.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="getattr.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <p>The name of the struct attribute.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="getattr.default">
+              <code>default</code>
+            </td>
+            <td>
+                          <p>The default value to return in case the struct doesn't have an attribute of the given name.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="hasattr">hasattr</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> hasattr(x, name)
+</pre></p>
+    
+    Returns True if the object <code>x</code> has an attribute of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="hasattr.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to check.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="hasattr.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The name of the attribute.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="int">int</h2>
+        <p><pre>int int(x)
+</pre></p>
+    
+    Converts a value to int. If the argument is a string, it is converted using base 10 and raises an error if the conversion fails. If the argument is a bool, it returns 0 (False) or 1 (True). If the argument is an int, it is simply returned.<pre class="language-python">int("123") == 123</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="int.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The string to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="len">len</h2>
+        <p><pre>int len(x)
+</pre></p>
+    
+    Returns the length of a string, list, tuple, set, or dictionary.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="len.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to check length of.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="list">list</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> list(x)
+</pre></p>
+    
+    Converts a collection (e.g. set or dictionary) to a list.<pre class="language-python">list([1, 2]) == [1, 2]
+list(set([2, 3, 2])) == [2, 3]
+list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="list.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="print">print</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> print(*args, sep=' ')
+</pre></p>
+    
+    Prints <code>msg</code> to the console.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="print.sep">
+              <code>sep</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The separator string between the objects, default is space (" ").</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="print.args">
+              <code>args</code>
+            </td>
+            <td>
+                          <p>The objects to print.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="provider">provider</h2>
+        <p><pre>unknown provider(target, type)
+</pre></p>
+    
+    Returns the transitive info provider provided by the target.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="provider.target">
+              <code>target</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="Target.html">Target</a></code></p>
+                          <p>the configured target which provides the provider</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="provider.type">
+              <code>type</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>the class type of the provider</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="range">range</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> range(start_or_stop, stop_or_none=None, step=1)
+</pre></p>
+    
+    Creates a list where items go from <code>start</code> to <code>stop</code>, using a <code>step</code> increment. If a single argument is provided, items will range from 0 to that element.<pre class="language-python">range(4) == [0, 1, 2, 3]
+range(3, 9, 2) == [3, 5, 7]
+range(3, 0, -1) == [3, 2, 1]</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="range.start_or_stop">
+              <code>start_or_stop</code>
+            </td>
+            <td>
+                          <p><code>int</code></p>
+                          <p>Value of the start element if stop is provided, otherwise value of stop and the actual start is 0</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="range.stop_or_none">
+              <code>stop_or_none</code>
+            </td>
+            <td>
+                          <p><code>int</code></p>
+                          <p>optional index of the first item <i>not</i> to be included in the resulting list; generation of the list stops before <code>stop</code> is reached.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="range.step">
+              <code>step</code>
+            </td>
+            <td>
+                          <p><code>int</code></p>
+                          <p>The increment (default is 1). It may be negative.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="repr">repr</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> repr(x)
+</pre></p>
+    
+    Converts any object to a string representation. This is useful for debugging.<br><pre class="language-python">str("ab") == \"ab\"</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="repr.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="rule">rule</h2>
+        <p><pre>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False, fragments=[])
+</pre></p>
+    
+    Creates a new rule. Store it in a global value, so that it can be loaded and called from BUILD files.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rule.implementation">
+              <code>implementation</code>
+            </td>
+            <td>
+                          <p><code>function</code></p>
+                          <p>the function implementing this rule, must have exactly one parameter: <a href="ctx.html">ctx</a>. The function is called during the analysis phase for each instance of the rule. It can access the attributes provided by the user. It must create actions to generate all the declared outputs.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.test">
+              <code>test</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>Whether this rule is a test rule. If True, the rule must end with <code>_test</code> (otherwise it must not), and there must be an action that generates <code>ctx.outputs.executable</code>.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.attrs">
+              <code>attrs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see <a href="attr.html">attr</a> module). Attributes starting with <code>_</code> are private, and can be used to add an implicit dependency on a label. The attribute <code>name</code> is implicitly added and must not be specified. Attributes <code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly added and might be overriden.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.outputs">
+              <code>outputs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>outputs of this rule. It is a dictionary mapping from string to a template name. For example: <code>{"ext": "%{name}.ext"}</code>. <br>The dictionary key becomes an attribute in <code>ctx.outputs</code>. It may also be a function (which receives <code>ctx.attr</code> as argument) returning such a dictionary.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>whether this rule is marked as executable or not. If True, there must be an action that generates <code>ctx.outputs.executable</code>.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.output_to_genfiles">
+              <code>output_to_genfiles</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>If true, the files will be generated in the genfiles directory instead of the bin directory. This is used for compatibility with existing rules.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.fragments">
+              <code>fragments</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>List of names of configuration fragments that the rule requires.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="select">select</h2>
+        <p><pre>unknown select(x)
+</pre></p>
+    
+    Creates a SelectorValue from the dict parameter.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="select.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>The parameter to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="set">set</h2>
+        <p><pre><a class="anchor" href="set.html">set</a> set(items=[], order="stable")
+</pre></p>
+    
+    Creates a <a href="set.html">set</a> from the <code>items</code>. The set supports nesting other sets of the same element type in it. A desired iteration order can also be specified.<br> Examples:<br><pre class="language-python">set(["a", "b"])
+set([1, 2, 3], order="compile")</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="set.items">
+              <code>items</code>
+            </td>
+            <td>
+                          <p>The items to initialize the set with. May contain both standalone items and other sets.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="set.order">
+              <code>order</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The ordering strategy for the set if it's nested, possible values are: <code>stable</code> (default), <code>compile</code>, <code>link</code> or <code>naive_link</code>. An explanation of the values can be found <a href="set.html">here</a>.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="sorted">sorted</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> sorted(self)
+</pre></p>
+    
+    Sort a collection.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="sorted.self">
+              <code>self</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a></code></p>
+                          <p>This list.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="str">str</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> str(x)
+</pre></p>
+    
+    Converts any object to string. This is useful for debugging.<pre class="language-python">str("ab") == "ab"</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="str.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="struct">struct</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> struct(**kwargs)
+</pre></p>
+    
+    Creates an immutable struct using the keyword arguments as attributes. It is used to group multiple values together.Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
+return s.x + getattr(s, "y")  # returns 5</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="struct.kwargs">
+              <code>kwargs</code>
+            </td>
+            <td>
+                          <p>the struct attributes</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="type">type</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> type(x)
+</pre></p>
+    
+    Returns the type name of its argument.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="type.x">
+              <code>x</code>
+            </td>
+            <td>
+                          <p>The object to check type of.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="zip">zip</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> zip(*args)
+</pre></p>
+    
+    Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains the i-th element from each of the argument sequences or iterables. The list has the size of the shortest input. With a single iterable argument, it returns a list of 1-tuples. With no arguments, it returns an empty list. Examples:<pre class="language-python">zip()  # == []
+zip([1, 2])  # == [(1,), (2,)]
+zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]
+zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="zip.args">
+              <code>args</code>
+            </td>
+            <td>
+                          <p>lists to zip</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+  

@@ -1,0 +1,536 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.ctx">ctx</h1>
+
+The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
+
+<div class="toc">
+  <h1>Methods</h1>
+  <ul>
+          <li><a href="#action">action</a></li>
+              <li><a href="#attr">attr</a></li>
+                    <li><a href="#command_helper">command_helper</a></li>
+              <li><a href="#configuration">configuration</a></li>
+              <li><a href="#empty_action">empty_action</a></li>
+              <li><a href="#executable">executable</a></li>
+                    <li><a href="#expand_location">expand_location</a></li>
+              <li><a href="#expand_make_variables">expand_make_variables</a></li>
+              <li><a href="#file">file</a></li>
+              <li><a href="#file_action">file_action</a></li>
+              <li><a href="#files">files</a></li>
+              <li><a href="#fragments">fragments</a></li>
+              <li><a href="#host_configuration">host_configuration</a></li>
+                    <li><a href="#label">label</a></li>
+                    <li><a href="#new_file">new_file</a></li>
+              <li><a href="#new_file">new_file</a></li>
+                    <li><a href="#new_file_suffix">new_file_suffix</a></li>
+              <li><a href="#outputs">outputs</a></li>
+              <li><a href="#runfiles">runfiles</a></li>
+              <li><a href="#template_action">template_action</a></li>
+                    <li><a href="#var">var</a></li>
+                    <li><a href="#workspace_name">workspace_name</a></li>
+        </ul>
+</div>
+      <h2 id="action">action</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> ctx.action(outputs, inputs=[], executable=None, arguments=[], mnemonic=None, command=None, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None)
+</pre></p>
+    
+    Creates an action that runs an executable or a shell command. You must specify either <code>command</code> or <code>executable</code>.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="action.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>list of the input files of the action</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                          <p>the executable file to be called by the action</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.arguments">
+              <code>arguments</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>command line arguments of the action</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.mnemonic">
+              <code>mnemonic</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>a one-word description of the action, e.g. CppCompile or GoLink</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.command">
+              <code>command</code>
+            </td>
+            <td>
+                          <p>shell command to execute. It is usually preferable to use <code>executable</code> instead. Arguments are available with <code>$1</code>, <code>$2</code>, etc.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.progress_message">
+              <code>progress_message</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>progress message to show to the user during the build, e.g. "Compiling foo.cc to create foo.o"</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.use_default_shell_env">
+              <code>use_default_shell_env</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>whether the action should use the built in shell environment or not</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.env">
+              <code>env</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>sets the dictionary of environment variables</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.execution_requirements">
+              <code>execution_requirements</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>information for scheduling the action</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.input_manifests">
+              <code>input_manifests</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>sets the map of input manifests files; they are typicially generated by the command_helper</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="action.outputs">
+              <code>outputs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>list of the output files of the action</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="attr">attr</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> ctx.attr</pre></p>
+    
+    A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
+
+        
+          <h2 id="command_helper">command_helper</h2>
+        <p><pre><a class="anchor" href="command_helper.html">command_helper</a> ctx.command_helper(tools, label_dict)
+</pre></p>
+    
+    Experimental. Creates a command helper class.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="command_helper.tools">
+              <code>tools</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="Target.html">Target</a>s</code></p>
+                          <p>list of tools (list of targets)</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="command_helper.label_dict">
+              <code>label_dict</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>dictionary of resolved labels and the corresponding list of Files (a dict of Label : list of Files)</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="configuration">configuration</h2>
+        <p><pre><a class="anchor" href="configuration.html">configuration</a> ctx.configuration</pre></p>
+    
+    Returns the default configuration. See the <a href="configuration.html">configuration</a> type for more details.
+
+        
+        <h2 id="empty_action">empty_action</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> ctx.empty_action(mnemonic, inputs=[])
+</pre></p>
+    
+    Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="empty_action.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>list of the input files of the action</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="empty_action.mnemonic">
+              <code>mnemonic</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>a one-word description of the action, e.g. CppCompile or GoLink</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="executable">executable</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> ctx.executable</pre></p>
+    
+    A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. Each struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
+
+        
+          <h2 id="expand_location">expand_location</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> ctx.expand_location(input, targets=[])
+</pre></p>
+    
+    Expands the given string so that all labels are replaced with the location of their target file(s). Currently, the algorithm uses output, srcs, deps, tools and data attributes for looking up mappings from label to locations.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="expand_location.input">
+              <code>input</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>string to be expanded</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="expand_location.targets">
+              <code>targets</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of AbstractConfiguredTargets</code></p>
+                          <p>list of targets for additional lookup information</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="expand_make_variables">expand_make_variables</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> ctx.expand_make_variables(<a class="anchor" href="string.html">string</a>, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="dict.html">dict</a>)</pre></p>
+    
+    Returns a string after expanding all references to "Make variables". The variables must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:<ul><li>The name of the attribute (<code>string</code>). It's only used for error reporting.</li>
+<li>The expression to expand (<code>string</code>). It can contain references to "Make variables".</li>
+<li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : <code>string</code>).</li></ul>
+Examples:<pre class=language-python>
+ctx.expand_make_variables("cmd", "$(MY_VAR)", {"MY_VAR": "Hi"})  # == "Hi"
+ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
+</pre>Additional variables may come from other places, such as configurations. Note that this function is experimental.
+
+        
+        <h2 id="file">file</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> ctx.file</pre></p>
+    
+    A <code>struct</code> containing files defined in label type attributes marked as <code>single_file=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code> or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>single_file=True</code>, no corresponding struct field is generated.
+
+        
+        <h2 id="file_action">file_action</h2>
+        <p><pre>FileWriteAction ctx.file_action(output, content, executable=False)
+</pre></p>
+    
+    Creates a file write action.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="file_action.output">
+              <code>output</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="File.html">File</a></code></p>
+                          <p>the output file</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="file_action.content">
+              <code>content</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>the contents of the file</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="file_action.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>whether the output file should be executable (default is False)</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="files">files</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> ctx.files</pre></p>
+    
+    A <code>struct</code> containing files defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <code>file</code>s. If an optional attribute is not specified in the rule, an empty list is generated.
+
+        
+        <h2 id="fragments">fragments</h2>
+        <p><pre><a class="anchor" href="fragments.html">fragments</a> ctx.fragments</pre></p>
+    
+    Allows access to configuration fragments.
+
+        
+        <h2 id="host_configuration">host_configuration</h2>
+        <p><pre><a class="anchor" href="configuration.html">configuration</a> ctx.host_configuration</pre></p>
+    
+    Returns the host configuration. See the <a href="configuration.html">configuration</a> type for more details.
+
+        
+          <h2 id="label">label</h2>
+        <p><pre><a class="anchor" href="Label.html">Label</a> ctx.label</pre></p>
+    
+    The label of this rule.
+
+        
+          <h2 id="new_file">new_file</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="string.html">string</a>)</pre></p>
+    
+    Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+
+        
+        <h2 id="new_file">new_file</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
+    
+    Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule. Deprecated: Please use ctx.new_file_suffix() instead.
+
+        
+          <h2 id="new_file_suffix">new_file_suffix</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file_suffix(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
+    
+    Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+
+        
+        <h2 id="outputs">outputs</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> ctx.outputs</pre></p>
+    
+    A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct attribute is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct attribute is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
+
+        
+        <h2 id="runfiles">runfiles</h2>
+        <p><pre><a class="anchor" href="runfiles.html">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)
+</pre></p>
+    
+    Creates a runfiles object.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="runfiles.files">
+              <code>files</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>The list of files to be added to the runfiles.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="runfiles.transitive_files">
+              <code>transitive_files</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="set.html">set</a> of <a class="anchor" href="File.html">File</a>s</code></p>
+                          <p>The (transitive) set of files to be added to the runfiles.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="runfiles.collect_data">
+              <code>collect_data</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>Whether to collect the data runfiles from the dependencies in srcs, data and deps attributes.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="runfiles.collect_default">
+              <code>collect_default</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+        <h2 id="template_action">template_action</h2>
+        <p><pre>TemplateExpansionAction ctx.template_action(template, output, substitutions, executable=&hellip;)
+</pre></p>
+    
+    Creates a template expansion action.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="template_action.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>whether the output file should be executable (default is False)</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="template_action.template">
+              <code>template</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="File.html">File</a></code></p>
+                          <p>the template file</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="template_action.output">
+              <code>output</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="File.html">File</a></code></p>
+                          <p>the output file</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="template_action.substitutions">
+              <code>substitutions</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>substitutions to make when expanding the template</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
+          <h2 id="var">var</h2>
+        <p><pre><a class="anchor" href="dict.html">dict</a> ctx.var</pre></p>
+    
+    Dictionary (String to String) of configuration variables
+
+        
+          <h2 id="workspace_name">workspace_name</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> ctx.workspace_name</pre></p>
+    
+    Returns the workspace name as defined in the WORKSPACE file.
+
+        
+  
