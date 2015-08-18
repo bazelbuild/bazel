@@ -38,6 +38,7 @@ public class BlazeVersionInfo {
 
   private static final Logger LOG = Logger.getLogger(BlazeVersionInfo.class.getName());
 
+  /** Key for the release timestamp is seconds. */
   public static final String BUILD_TIMESTAMP = "Build timestamp as int";
 
   public BlazeVersionInfo(Map<String, String> info) {
@@ -117,11 +118,11 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the release timestamp.
+   * Returns the release timestamp in seconds.
    */
   public long getTimestamp() {
     String timestamp = buildData.get(BUILD_TIMESTAMP);
-    if (timestamp == null) {
+    if (timestamp == null || timestamp.equals("0")) {
       return new Date().getTime();
     }
     return Long.parseLong(timestamp);
