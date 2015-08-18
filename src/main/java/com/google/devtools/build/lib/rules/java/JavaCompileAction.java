@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -754,6 +753,7 @@ public class JavaCompileAction extends AbstractAction {
     private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
+    private PathFragment classDirectory;
     private final List<Artifact> processorPath = new ArrayList<>();
     private final List<String> processorNames = new ArrayList<>();
     private String ruleKind;
@@ -843,8 +843,6 @@ public class JavaCompileAction extends AbstractAction {
           gensrcOutputJar,
           manifestProtoOutput,
           outputDepsProto), Predicates.notNull()));
-      PathFragment classDirectory =
-          configuration.getBinFragment().getRelative(workDir(outputJar, "_files"));
 
       CustomCommandLine.Builder paramFileContentsBuilder = javaCompileCommandLine(
           semantics,
@@ -911,17 +909,6 @@ public class JavaCompileAction extends AbstractAction {
           directJars,
           strictJavaDeps,
           compileTimeDependencyArtifacts);
-    }
-
-    /**
-     * For an output jar and a suffix, produces a derived directory under
-     * {@code bin} directory with a given suffix.
-     */
-    private PathFragment workDir(Artifact outputJar, String suffix) {
-      PathFragment path = outputJar.getRootRelativePath();
-      String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
-      path = path.replaceName(basename);
-      return path;
     }
 
     public Builder setParameterFile(Artifact paramFile) {
@@ -1056,6 +1043,11 @@ public class JavaCompileAction extends AbstractAction {
 
     public Builder setTempDirectory(PathFragment tempDirectory) {
       this.tempDirectory = tempDirectory;
+      return this;
+    }
+
+    public Builder setClassDirectory(PathFragment classDirectory) {
+      this.classDirectory = classDirectory;
       return this;
     }
 

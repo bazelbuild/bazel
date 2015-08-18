@@ -217,15 +217,21 @@ public class BaseJavaCompilationHelper {
     return workDir(outputJar, "_temp");
   }
 
+  protected PathFragment classDir(Artifact outputJar) {
+    return workDir(outputJar, "_classes");
+  }
+
   /**
    * For an output jar and a suffix, produces a derived directory under
    * {@code bin} directory with a given suffix.
+   *
+   * <p>Note that this won't work if a rule produces two jars with the same basename.
    */
   private PathFragment workDir(Artifact outputJar, String suffix) {
-    PathFragment path = outputJar.getRootRelativePath();
-    String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
-    path = path.replaceName(basename);
-    return getConfiguration().getBinDirectory().getExecPath().getRelative(path);
+    String basename = FileSystemUtils.removeExtension(outputJar.getExecPath().getBaseName());
+    return getConfiguration().getBinDirectory().getExecPath()
+        .getRelative(ruleContext.getUniqueDirectory("_javac"))
+        .getRelative(basename + suffix);
   }
 
   /**

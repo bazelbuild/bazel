@@ -131,6 +131,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setCompressJar(true);
     builder.setSourceGenDirectory(sourceGenDir(outputJar));
     builder.setTempDirectory(tempDir(outputJar));
+    builder.setClassDirectory(classDir(outputJar));
     builder.addProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
@@ -316,6 +317,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.addTranslations(getTranslations());
     builder.setCompressJar(true);
     builder.setTempDirectory(tempDir(resourceJar));
+    builder.setClassDirectory(classDir(resourceJar));
     builder.setJavaBuilderJar(getJavaBuilderJar());
     builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
     builder.setJavacJvmOpts(
