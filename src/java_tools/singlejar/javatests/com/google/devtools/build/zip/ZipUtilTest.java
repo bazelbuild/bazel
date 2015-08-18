@@ -111,9 +111,6 @@ public class ZipUtilTest {
   @Test public void testGetUnsignedShort_FFFF() {
     int result = ZipUtil.getUnsignedShort(new byte[]{ (byte) 0xff,  (byte) 0xff }, 0);
     assertThat((short) result).isEqualTo((short) -1);
-    if ((short) result == -1) {
-      System.out.println("-1");
-    }
   }
 
   @Test public void testGetUnsignedInt_Big() {
