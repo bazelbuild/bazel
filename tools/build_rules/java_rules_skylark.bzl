@@ -220,7 +220,6 @@ bootstrap_java_library = rule(
 java_binary_attrs_common = java_library_attrs + {
     "jvm_flags": attr.string_list(),
     "jvm": attr.label(default=Label("//tools/jdk:jdk"), allow_files=True),
-    "args": attr.string_list(),
 }
 
 java_binary_attrs = java_binary_attrs_common + {

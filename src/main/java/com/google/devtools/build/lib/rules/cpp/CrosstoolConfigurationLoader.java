@@ -383,8 +383,9 @@ public class CrosstoolConfigurationLoader {
     // crosstool_config.proto file.
     String rx = "[a-zA-Z_][\\.\\- \\w]*";
     if (!selectedIdentifier.matches(rx)) {
-      throw new InvalidConfigurationException("Toolchain identifier for cpu '" + cpu + "' " +
-          "is illegal (does not match '" + rx + "')");
+      throw new InvalidConfigurationException(String.format(
+          "Toolchain identifier '%s' for cpu '%s' is illegal (does not match '%s')",
+          selectedIdentifier, cpu, rx));
     }
   }
 

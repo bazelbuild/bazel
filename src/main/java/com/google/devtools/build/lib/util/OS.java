@@ -20,7 +20,7 @@ public enum OS {
   DARWIN("osx", "Mac OS X"),
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
-  UNKNOWN("", "");
+  UNKNOWN("unknown", "");
 
   private final String canonicalName;
   private final String detectionName;
@@ -39,6 +39,11 @@ public enum OS {
 
   public String getCanonicalName() {
     return canonicalName;
+  }
+
+  @Override
+  public String toString() {
+    return getCanonicalName();
   }
 
   // We inject a the OS name through blaze.os, so we can have
