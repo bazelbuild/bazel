@@ -481,64 +481,91 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
+    try {
+      return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    } catch (EvalException ex) {
+      // BaseFunction will not get the exact location of some errors (such as exceptions thrown in
+      // #invokeJavaMethod), so we create a new stack trace with the correct location here.
+      throw (ex instanceof EvalExceptionWithStackTrace)
+          ? ex
+          : new EvalExceptionWithStackTrace(ex, ex.getLocation());
+    }
+  }
+
+  /**
+   * Invokes obj.func() and returns the result.
+   */
+  private Object invokeObjectMethod(Environment env) throws EvalException, InterruptedException {
+    Object objValue = obj.eval(env);
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();
 
-    Object returnValue;
-    BaseFunction function;
-    if (obj != null) { // obj.func(...)
-      Object objValue = obj.eval(env);
-      // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
-      // For other classes, we can call the Java methods.
-      function =
-          env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
-      if (function != null) {
-        if (!isNamespace(objValue.getClass())) {
-          // Add self as an implicit parameter in front.
-          posargs.add(objValue);
-        }
-        evalArguments(posargs, kwargs, env, function);
-        returnValue = function.call(
-            posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
-      } else if (env.isSkylarkEnabled()) {
-        // Only allow native Java calls when using Skylark
-        // When calling a Java method, the name is not in the Environment,
-        // so evaluating 'func' would fail.
-        evalArguments(posargs, kwargs, env, null);
-        if (!kwargs.isEmpty()) {
-          throw new EvalException(func.getLocation(),
-              String.format("Keyword arguments are not allowed when calling a java method"
-                  + "\nwhile calling method '%s' on object %s of type %s",
-                  func.getName(), objValue, EvalUtils.getDataTypeName(objValue)));
-        }
-        if (objValue instanceof Class<?>) {
-          // Static Java method call. We can return the value from here directly because
-          // invokeJavaMethod() has special checks.
-          return invokeJavaMethod(null, (Class<?>) objValue, func.getName(), posargs.build());
-        } else {
-          return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs.build());
-        }
-      } else {
-        throw new EvalException(getLocation(), String.format(
-            "%s is not defined on object of type '%s'",
-            functionName(), EvalUtils.getDataTypeName(objValue)));
+    // Strings, lists and dictionaries (maps) have functions that we want to use in
+    // MethodLibrary.
+    // For other classes, we can call the Java methods.
+    BaseFunction function =
+        env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
+    if (function != null) {
+      if (!isNamespace(objValue.getClass())) {
+        // Add self as an implicit parameter in front.
+        posargs.add(objValue);
       }
-    } else { // func(...)
-      Object funcValue = func.eval(env);
-      if ((funcValue instanceof BaseFunction)) {
-        function = (BaseFunction) funcValue;
-        evalArguments(posargs, kwargs, env, function);
-        returnValue = function.call(
-            posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
-      } else {
-        throw new EvalException(getLocation(),
-            "'" + EvalUtils.getDataTypeName(funcValue)
-            + "' object is not callable");
+      evalArguments(posargs, kwargs, env, function);
+      return convertFromSkylark(
+          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
+          env);
+    } else if (env.isSkylarkEnabled()) {
+      // Only allow native Java calls when using Skylark
+      // When calling a Java method, the name is not in the Environment,
+      // so evaluating 'func' would fail.
+      evalArguments(posargs, kwargs, env, null);
+      if (!kwargs.isEmpty()) {
+        throw new EvalException(
+            func.getLocation(),
+            String.format(
+                "Keyword arguments are not allowed when calling a java method"
+                + "\nwhile calling method '%s' on object %s of type %s",
+                func.getName(), objValue, EvalUtils.getDataTypeName(objValue)));
       }
+      if (objValue instanceof Class<?>) {
+        // Static Java method call. We can return the value from here directly because
+        // invokeJavaMethod() has special checks.
+        return invokeJavaMethod(null, (Class<?>) objValue, func.getName(), posargs.build());
+      } else {
+        return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs.build());
+      }
+    } else {
+      throw new EvalException(
+          getLocation(),
+          String.format("%s is not defined on object of type '%s'", functionName(),
+              EvalUtils.getDataTypeName(objValue)));
     }
+  }
 
+  /**
+   * Invokes func() and returns the result.
+   */
+  private Object invokeGlobalFunction(Environment env) throws EvalException, InterruptedException {
+    Object funcValue = func.eval(env);
+    ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
+    // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
+    // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
+    Map<String, Object> kwargs = new HashMap<>();
+    if ((funcValue instanceof BaseFunction)) {
+      BaseFunction function = (BaseFunction) funcValue;
+      evalArguments(posargs, kwargs, env, function);
+      return convertFromSkylark(
+          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
+          env);
+    } else {
+      throw new EvalException(
+          getLocation(), "'" + EvalUtils.getDataTypeName(funcValue) + "' object is not callable");
+    }
+  }
+
+  protected Object convertFromSkylark(Object returnValue, Environment env) throws EvalException {
     EvalUtils.checkNotNull(this, returnValue);
     if (!env.isSkylarkEnabled()) {
       // The call happens in the BUILD language. Note that accessing "BUILD language" functions in

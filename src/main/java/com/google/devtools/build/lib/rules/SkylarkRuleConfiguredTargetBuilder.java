@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -75,13 +77,13 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
       checkOrphanArtifacts(ruleContext);
       return configuredTarget;
-
     } catch (InterruptedException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     } catch (EvalException e) {
+      addRuleToStackTrace(e, ruleContext.getRule());
       // If the error was expected, return an empty target.
-      if (!expectFailure.isEmpty() && e.getMessage().matches(expectFailure)) {
+      if (!expectFailure.isEmpty() && getMessageWithoutStackTrace(e).matches(expectFailure)) {
         return new com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder(ruleContext)
             .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
             .build();
@@ -89,6 +91,25 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       ruleContext.ruleError("\n" + e.print());
       return null;
     }
+  }
+
+  /**
+   * Adds an entry for the given rule to the stack trace of the exception (if there is one).
+   */
+  private static void addRuleToStackTrace(EvalException ex, Rule rule) {
+    if (ex instanceof EvalExceptionWithStackTrace) {
+      ((EvalExceptionWithStackTrace) ex).registerRule(rule);
+    }
+  }
+
+  /**
+   * Returns the message of the given exception after removing the stack trace, if present.
+   */
+  private static String getMessageWithoutStackTrace(EvalException ex) {
+    if (ex instanceof EvalExceptionWithStackTrace) {
+      return ((EvalExceptionWithStackTrace) ex).getOriginalMessage();
+    }
+    return ex.getMessage();
   }
 
   private static void checkOrphanArtifacts(RuleContext ruleContext) throws EvalException {

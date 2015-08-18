@@ -275,4 +275,20 @@ public abstract class Location implements Serializable {
       return line * 41 + column;
     }
   }
+
+  /**
+   * Dummy location for built-in functions which ensures that stack traces contain "nice" location
+   * strings.
+   */
+  public static final Location BUILTIN = new Location(0, 0) {
+    @Override
+    public String toString() {
+      return "Built-In";
+    }
+
+    @Override
+    public PathFragment getPath() {
+      return null;
+    }
+  };
 }

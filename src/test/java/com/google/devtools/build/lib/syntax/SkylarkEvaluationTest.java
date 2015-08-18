@@ -804,7 +804,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testFunctionCallBadOrdering() throws Exception {
-    new SkylarkTest().testIfExactError("name 'foo' is not defined",
+    new SkylarkTest().testIfErrorContains("name 'foo' is not defined",
          "def func(): return foo() * 2",
          "x = func()",
          "def foo(): return 2");

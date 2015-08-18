@@ -70,8 +70,12 @@ public final class DotExpression extends Expression {
    */
   public static Object eval(Object objValue, String name, Location loc) throws EvalException {
     if (objValue instanceof ClassObject) {
-      Object result = ((ClassObject) objValue).getValue(name);
-
+      Object result = null;
+      try {
+        result = ((ClassObject) objValue).getValue(name);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
       // ClassObjects may have fields that are annotated with @SkylarkCallable.
       // Since getValue() does not know about those, we cannot expect that result is a valid object.
       if (result != null) {

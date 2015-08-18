@@ -396,21 +396,31 @@ public abstract class BaseFunction {
   }
 
   /**
+   * Returns the environment for the scope of this function.
+   *
+   * <p>Since this is a BaseFunction, we don't create a new environment.
+   */
+  @SuppressWarnings("unused") // For the exception
+  protected Environment getOrCreateChildEnvironment(Environment parent) throws EvalException {
+    return parent;
+  }
+
+  /**
    * The outer calling convention to a BaseFunction.
    *
    * @param args a list of all positional arguments (as in *starArg)
    * @param kwargs a map for key arguments (as in **kwArgs)
    * @param ast the expression for this function's definition
-   * @param env the lexical Environment for the function call
+   * @param parentEnv the lexical Environment for the function call
    * @return the value resulting from evaluating the function with the given arguments
    * @throws construction of EvalException-s containing source information.
    */
   public Object call(@Nullable List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression ast,
-      @Nullable Environment env)
+      @Nullable Environment parentEnv)
       throws EvalException, InterruptedException {
-
+    Environment env = getOrCreateChildEnvironment(parentEnv);
     Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
 
     // ast is null when called from Java (as there's no Skylark call site).
@@ -421,9 +431,21 @@ public abstract class BaseFunction {
 
     try {
       return call(arguments, ast, env);
-    } catch (ConversionException e) {
-      throw new EvalException(loc, e.getMessage());
+    } catch (EvalExceptionWithStackTrace ex) {
+      throw updateStackTrace(ex, loc);
+    } catch (EvalException | RuntimeException | InterruptedException ex) {
+      throw updateStackTrace(new EvalExceptionWithStackTrace(ex, Location.BUILTIN), loc);
     }
+  }
+
+  /**
+   * Adds an entry for the current function to the stack trace of the exception.
+   */
+  private EvalExceptionWithStackTrace updateStackTrace(
+      EvalExceptionWithStackTrace ex, Location location) {
+    ex.registerFunction(this);
+    ex.setLocation(location);
+    return ex;
   }
 
   /**
@@ -432,13 +454,14 @@ public abstract class BaseFunction {
    *
    * @param args an array of argument values sorted as per the signature.
    * @param ast the source code for the function if user-defined
-   * @param ast the lexical environment of the function call
+   * @param env the lexical environment of the function call
    */
   // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  public Object call(Object[] args,
+  protected Object call(Object[] args,
       @Nullable FuncallExpression ast, @Nullable Environment env)
       throws EvalException, ConversionException, InterruptedException {
-    throw new EvalException(ast.getLocation(),
+    throw new EvalException(
+        (ast == null) ? Location.BUILTIN : ast.getLocation(),
         String.format("function %s not implemented", getName()));
   }
 
@@ -498,14 +521,22 @@ public abstract class BaseFunction {
   }
 
   /**
-   * Returns the signature as "[className.]methodName(paramType1, paramType2, ...)"
+   * Returns [class.]function (depending on whether func belongs to a class).
    */
-  public String getShortSignature() {
+  public String getFullName() {
+    return String.format("%s%s", getObjectTypeString(), getName());
+  }
+
+  /**
+   * Returns the signature as "[className.]methodName(name1: paramType1, name2: paramType2, ...)"
+   * or "[className.]methodName(paramType1, paramType2, ...)", depending on the value of showNames.
+   */
+  public String getShortSignature(boolean showNames) {
     StringBuilder builder = new StringBuilder();
     boolean hasSelf = hasSelfArgument();
 
-    builder.append(getObjectTypeString()).append(getName()).append("(");
-    signature.toStringBuilder(builder, true, false, false, hasSelf);
+    builder.append(getFullName()).append("(");
+    signature.toStringBuilder(builder, showNames, false, false, hasSelf);
     builder.append(")");
 
     return builder.toString();

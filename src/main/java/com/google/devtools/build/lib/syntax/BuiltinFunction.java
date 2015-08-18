@@ -177,7 +177,7 @@ public class BuiltinFunction extends BaseFunction {
               loc,
               String.format(
                   "Method %s is not applicable for arguments %s: '%s' is %s, but should be %s",
-                  getShortSignature(), printTypeString(args, args.length - extraArgsCount),
+                  getShortSignature(true), printTypeString(args, args.length - extraArgsCount),
                   paramName, EvalUtils.getDataTypeName(args[i]),
                   EvalUtils.getDataTypeNameFromClass(types[i])));
         }

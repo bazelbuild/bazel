@@ -46,35 +46,33 @@ public class UserDefinedFunction extends BaseFunction {
     return location;
   }
 
-  /**
-   * Since the types of parameters of user defined functions are unknown, we just return
-   * "name(parameterCount)"
-   */
-  @Override
-  public String getShortSignature() {
-    return String.format("%s(%d)", getName(), getArgArraySize());
-  }
-
   @Override
   public Object call(Object[] arguments, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
-        env, definitionEnv, this);
     ImmutableList<String> names = signature.getSignature().getNames();
 
     // Registering the functions's arguments as variables in the local Environment
     int i = 0;
     for (String name : names) {
-      functionEnv.update(name, arguments[i++]);
+      env.update(name, arguments[i++]);
     }
 
     try {
       for (Statement stmt : statements) {
-        stmt.exec(functionEnv);
+        stmt.exec(env);
       }
     } catch (ReturnStatement.ReturnException e) {
       return e.getValue();
     }
     return Environment.NONE;
+  }
+
+  /**
+   * Creates a new environment for the execution of this function.
+   */
+  @Override
+  protected Environment getOrCreateChildEnvironment(Environment parent) throws EvalException {
+   return SkylarkEnvironment.createEnvironmentForFunctionCalling(
+       parent, definitionEnv, this);
   }
 }
