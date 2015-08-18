@@ -31,6 +31,7 @@ import org.apache.maven.model.building.ModelBuildingResult;
 import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.locator.DefaultModelLocator;
+import org.apache.maven.model.profile.DefaultProfileSelector;
 import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
@@ -59,7 +60,8 @@ public class Resolver {
     this.handler = handler;
     this.headers = Lists.newArrayList();
     this.deps = Maps.newHashMap();
-    this.modelBuilder = new DefaultModelBuilderFactory().newInstance();
+    this.modelBuilder = new DefaultModelBuilderFactory().newInstance()
+        .setProfileSelector(new DefaultProfileSelector());
     this.modelResolver = new DefaultModelResolver();
   }
 

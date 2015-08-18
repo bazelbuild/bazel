@@ -26,7 +26,7 @@ export JAVA_RUNFILES=$TEST_SRCDIR
 function set_up() {
   # Set up custom repository directory.
   m2=$TEST_TMPDIR/my-m2
-  mkdir $m2
+  mkdir -p $m2
   cd $m2
   m2_port=$(pick_random_unused_tcp_port) || exit 1
   python -m SimpleHTTPServer $m2_port &
@@ -37,6 +37,7 @@ function set_up() {
 
 function tear_down() {
   kill $m2_pid
+  rm -rf $m2
 }
 
 # Takes: groupId, artifactId, and version.
@@ -119,6 +120,32 @@ EOF
   assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
   assert_contains "repository = \"http://localhost:$m2_port/\"," ws
   assert_contains "\"@blorp/glorp//jar\"," build
+}
+
+function test_profile() {
+  cat > $TEST_TMPDIR/pom.xml <<EOF
+
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>my</groupId>
+  <artifactId>thing</artifactId>
+  <version>1.0</version>
+  <profiles>
+    <profile>
+      <id>my-profile</id>
+      <activation>
+        <property>
+          <name>makeThing</name>
+          <value>thing</value>
+        </property>
+      </activation>
+    </profile>
+  </profiles>
+</project>
+EOF
+
+  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
+    --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
 }
 
 run_suite "maven tests"
