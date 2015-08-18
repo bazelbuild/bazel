@@ -67,7 +67,8 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
 
   @Override
   public Object get(String providerKey) {
-    throw new UnsupportedOperationException();
+    // No providers.
+    return null;
   }
 
   @Override
