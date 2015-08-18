@@ -120,7 +120,7 @@ def _ReadDepMapping(input_file_queue, output_dep_mapping_queue, objc_file_path,
     input_file_queue.task_done()
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
   parser.add_argument(
       '--java',
       required=True,

@@ -215,7 +215,7 @@ def PruneDeadCode(input_files, output_files, dependency_mapping_files,
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
   parser.add_argument(
       '--input_files',
       required=True,
