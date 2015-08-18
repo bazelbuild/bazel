@@ -19,7 +19,7 @@
 
 set -eu
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$(dirname ${SCRIPT_DIR})/scripts/release/common.sh"
+source "$(dirname ${SCRIPT_DIR})/release/common.sh"
 
 git_hash=$(git rev-parse --short HEAD)
 echo "RELEASE_GIT_HASH ${git_hash}"
