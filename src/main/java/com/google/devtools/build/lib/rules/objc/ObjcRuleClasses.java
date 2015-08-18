@@ -106,7 +106,9 @@ public class ObjcRuleClasses {
 
     // TODO(bazel-team): Refactor the code to stop flattening the nested set here.
     for (J2ObjcSource j2ObjcSource : J2ObjcSrcsProvider.buildFrom(ruleContext).getSrcs()) {
-      j2objcLibraries.add(j2objcIntermediateArtifacts(ruleContext, j2ObjcSource).archive());
+      if (j2ObjcSource.hasSourceFiles()) {
+        j2objcLibraries.add(j2objcIntermediateArtifacts(ruleContext, j2ObjcSource).archive());
+      }
     }
 
     return j2objcLibraries.build();

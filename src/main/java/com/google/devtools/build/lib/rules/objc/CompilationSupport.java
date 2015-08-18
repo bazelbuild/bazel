@@ -642,19 +642,21 @@ final class CompilationSupport {
     }
 
     for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
-      J2ObjcSource sourceToCompile =
-          j2ObjcSource.getSourceType() == SourceType.JAVA && stripJ2ObjcDeadCode
-              ? j2ObjcSource.toPrunedSource(ruleContext)
-              : j2ObjcSource;
-      IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, sourceToCompile);
-      CompilationArtifacts compilationArtifact = new CompilationArtifacts.Builder()
-          .addNonArcSrcs(sourceToCompile.getObjcSrcs())
-          .setIntermediateArtifacts(intermediateArtifacts)
-          .setPchFile(Optional.<Artifact>absent())
-          .build();
-      registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
-          ruleContext.getConfiguration().isCodeCoverageEnabled());
+      if (j2ObjcSource.hasSourceFiles()) {
+        J2ObjcSource sourceToCompile =
+            j2ObjcSource.getSourceType() == SourceType.JAVA && stripJ2ObjcDeadCode
+                ? j2ObjcSource.toPrunedSource(ruleContext)
+                : j2ObjcSource;
+        IntermediateArtifacts intermediateArtifacts =
+            ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, sourceToCompile);
+        CompilationArtifacts compilationArtifact = new CompilationArtifacts.Builder()
+            .addNonArcSrcs(sourceToCompile.getObjcSrcs())
+            .setIntermediateArtifacts(intermediateArtifacts)
+            .setPchFile(Optional.<Artifact>absent())
+            .build();
+        registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
+            ruleContext.getConfiguration().isCodeCoverageEnabled());
+      }
     }
 
     return this;
@@ -668,7 +670,8 @@ final class CompilationSupport {
     NestedSet<Artifact> j2ObjcHeaderMappingFiles = provider.getHeaderMappingFiles();
 
     for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
-      if (j2ObjcSource.getSourceType() == SourceType.JAVA) {
+      if (j2ObjcSource.getSourceType() == SourceType.JAVA
+          && j2ObjcSource.hasSourceFiles()) {
         Iterable<Artifact> sourceArtifacts = j2ObjcSource.getObjcSrcs();
         Iterable<Artifact> prunedSourceArtifacts =
             j2ObjcSource.toPrunedSource(ruleContext).getObjcSrcs();
