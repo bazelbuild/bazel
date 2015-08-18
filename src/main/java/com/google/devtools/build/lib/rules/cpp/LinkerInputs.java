@@ -152,7 +152,8 @@ public abstract class LinkerInputs {
 
     @Override
     public Iterable<Artifact> getObjectFiles() {
-      throw new IllegalStateException();
+      throw new IllegalStateException(
+          "LinkerInputs: does not support getObjectFiles: " + toString());
     }
 
     @Override
