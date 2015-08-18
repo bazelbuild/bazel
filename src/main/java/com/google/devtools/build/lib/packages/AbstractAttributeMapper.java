@@ -29,6 +29,8 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
 
+  private static final PathFragment VISIBILITY = new PathFragment("visibility");
+
   private final Package pkg;
   private final RuleClass ruleClass;
   private final Label ruleLabel;
@@ -162,8 +164,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
           // generally tools, which go to the main repository.
           absoluteLabel = label;
         } else if (label.getPackageIdentifier().getRepository().isDefault()
-            && label.getPackageIdentifier().getPackageFragment().equals(
-                new PathFragment("visibility"))) {
+            && VISIBILITY.equals(label.getPackageIdentifier().getPackageFragment())) {
           // //visibility: labels must also be special-cased :(
           absoluteLabel = label;
         } else {
