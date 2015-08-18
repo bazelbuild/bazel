@@ -26,7 +26,6 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -190,20 +189,16 @@ public class LoadingPhaseRunner {
     private final ImmutableSet<Target> targetsToAnalyze;
     private final ImmutableSet<Target> testsToRun;
     private final ImmutableMap<PackageIdentifier, Path> packageRoots;
-    // TODO(bazel-team): consider moving this to LoadedPackageProvider
-    private final ImmutableSet<PackageIdentifier> visitedPackages;
 
     public LoadingResult(boolean hasTargetPatternError, boolean hasLoadingError,
         Collection<Target> targetsToAnalyze, Collection<Target> testsToRun,
-        ImmutableMap<PackageIdentifier, Path> packageRoots,
-        Set<PackageIdentifier> visitedPackages) {
+        ImmutableMap<PackageIdentifier, Path> packageRoots) {
       this.hasTargetPatternError = hasTargetPatternError;
       this.hasLoadingError = hasLoadingError;
       this.targetsToAnalyze =
           targetsToAnalyze == null ? null : ImmutableSet.copyOf(targetsToAnalyze);
       this.testsToRun = testsToRun == null ? null : ImmutableSet.copyOf(testsToRun);
       this.packageRoots = packageRoots;
-      this.visitedPackages = ImmutableSet.copyOf(visitedPackages);
     }
 
     /** Whether there were errors during target pattern evaluation. */
@@ -232,16 +227,6 @@ public class LoadingPhaseRunner {
      */
     public ImmutableMap<PackageIdentifier, Path> getPackageRoots() {
       return packageRoots;
-    }
-
-    /**
-     * Returns all packages that were visited during this loading phase.
-     *
-     * <p>We use this to decide when to evict ConfiguredTarget nodes from the graph.
-     */
-    @ThreadCompatible
-    private ImmutableSet<PackageIdentifier> getVisitedPackages() {
-      return visitedPackages;
     }
   }
 
@@ -386,23 +371,26 @@ public class LoadingPhaseRunner {
     if (targets.hasError()) {
       eventHandler.handle(Event.warn("Target pattern parsing failed. Continuing anyway"));
     }
-
     if (callback != null) {
       callback.notifyTargets(targets.getTargets());
     }
-
     maybeReportDeprecation(eventHandler, targets.getTargets());
 
-    // Load the transitive closure of all targets.
-    LoadingResult result = doLoadingPhase(eventHandler, eventBus, targets.getTargets(),
-        testsToRun, labelsToLoadUnconditionally, keepGoing, options.loadingPhaseThreads,
-        targets.hasError());
+    BaseLoadingResult result = doLoadingPhase(eventHandler, eventBus, targets.getTargets(),
+        labelsToLoadUnconditionally, keepGoing, options.loadingPhaseThreads);
+    LoadingResult loadingResult = new LoadingResult(targets.hasError(), !result.isSuccesful(),
+        result.getTargets(), testsToRun,
+        collectPackageRoots(pkgLoader.getErrorFreeVisitedPackages()));
+    freeMemoryAfterLoading(callback, pkgLoader.getVisitedPackageNames());
+    return loadingResult;
+  }
 
+  private void freeMemoryAfterLoading(Callback callback, Set<PackageIdentifier> visitedPackages) {
     if (callback != null) {
-      callback.notifyVisitedPackages(result.getVisitedPackages());
+      callback.notifyVisitedPackages(visitedPackages);
     }
-
-    return result;
+    // Clear some targets from the cache to free memory.
+    packageManager.partiallyClear();
   }
 
   /**
@@ -411,21 +399,38 @@ public class LoadingPhaseRunner {
    * errors.
    *
    * @param targetsToLoad the list of command-line target patterns specified by the user
-   * @param testsToRun the tests to run as a subset of the targets to load
    * @param labelsToLoadUnconditionally the labels to load unconditionally (presumably for the build
    *                                    configuration)
    * @param keepGoing if true, don't throw ViewCreationFailedException if some
    *                  targets could not be loaded, just skip thm.
    */
-  private LoadingResult doLoadingPhase(EventHandler eventHandler, EventBus eventBus,
-      ImmutableSet<Target> targetsToLoad, Collection<Target> testsToRun,
-      ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      int loadingPhaseThreads, boolean hasError)
+  private BaseLoadingResult doLoadingPhase(EventHandler eventHandler, EventBus eventBus,
+      ImmutableSet<Target> targetsToLoad, ListMultimap<String, Label> labelsToLoadUnconditionally,
+      boolean keepGoing, int loadingPhaseThreads)
           throws InterruptedException, LoadingFailedException {
     eventHandler.handle(Event.progress("Loading..."));
     Stopwatch timer = Stopwatch.createStarted();
     LOG.info("Starting loading phase");
 
+    BaseLoadingResult baseResult = performLoadingOfTargets(eventHandler, eventBus, targetsToLoad,
+        labelsToLoadUnconditionally, keepGoing, loadingPhaseThreads);
+    BaseLoadingResult expandedResult = expandTestSuites(eventHandler, baseResult.getTargets(),
+        keepGoing);
+
+    Set<Target> testSuiteTargets = Sets.difference(baseResult.getTargets(),
+        expandedResult.getTargets());
+    eventBus.post(new LoadingPhaseCompleteEvent(expandedResult.getTargets(), testSuiteTargets,
+        packageManager.getStatistics(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+    LOG.info("Loading phase finished");
+
+    return new BaseLoadingResult(expandedResult.getTargets(),
+        baseResult.isSuccesful() && expandedResult.isSuccesful());
+  }
+
+  private BaseLoadingResult performLoadingOfTargets(EventHandler eventHandler, EventBus eventBus,
+      ImmutableSet<Target> targetsToLoad, ListMultimap<String, Label> labelsToLoadUnconditionally,
+      boolean keepGoing, int loadingPhaseThreads) throws InterruptedException,
+      LoadingFailedException {
     Set<Label> labelsToLoad = ImmutableSet.copyOf(labelsToLoadUnconditionally.values());
 
     // For each label in {@code targetsToLoad}, ensure that the target to which
@@ -445,56 +450,59 @@ public class LoadingPhaseRunner {
     } else if (keepGoing) {
       // Keep going: filter out the error-free targets and only continue with those.
       targetsToAnalyze = filterErrorFreeTargets(eventBus, targetsToLoad,
-          pkgLoader, labelsToLoadUnconditionally);
-
-      // Tell the user about the subset of successful targets.
-      int requested = targetsToLoad.size();
-      int loaded = targetsToAnalyze.size();
-      if (0 < loaded && loaded < requested) {
-        String message = String.format("Loading succeeded for only %d of %d targets", loaded,
-            requested);
-        eventHandler.handle(Event.info(message));
-        LOG.info(message);
-      }
+          labelsToLoadUnconditionally);
+      reportAboutPartiallySuccesfulLoading(targetsToLoad, targetsToAnalyze, eventHandler);
     } else {
       throw new LoadingFailedException("Loading failed; build aborted");
     }
+    return new BaseLoadingResult(targetsToAnalyze, loadingSuccessful);
+  }
 
-    Set<Target> filteredTargets = targetsToAnalyze;
+  private void reportAboutPartiallySuccesfulLoading(ImmutableSet<Target> requestedTargets,
+      ImmutableSet<Target> loadedTargets, EventHandler eventHandler) {
+    // Tell the user about the subset of successful targets.
+    int requested = requestedTargets.size();
+    int loaded = loadedTargets.size();
+    if (0 < loaded) {
+      String message = String.format("Loading succeeded for only %d of %d targets", loaded,
+          requested);
+      eventHandler.handle(Event.info(message));
+      LOG.info(message);
+    }
+  }
+
+  private BaseLoadingResult expandTestSuites(EventHandler eventHandler,
+      ImmutableSet<Target> targets, boolean keepGoing) throws LoadingFailedException {
     try {
       // We use strict test_suite expansion here to match the analysis-time checks.
       ResolvedTargets<Target> expandedResult = TestTargetUtils.expandTestSuites(
-          packageManager, eventHandler, targetsToAnalyze, /*strict=*/true, /*keepGoing=*/true);
-      targetsToAnalyze = expandedResult.getTargets();
-      filteredTargets = Sets.difference(filteredTargets, targetsToAnalyze);
-      if (expandedResult.hasError()) {
-        if (!keepGoing) {
-          throw new LoadingFailedException("Could not expand test suite target");
-        }
-        loadingSuccessful = false;
+          packageManager, eventHandler, targets, /*strict=*/true, /*keepGoing=*/true);
+      if (expandedResult.hasError() && !keepGoing) {
+        throw new LoadingFailedException("Could not expand test suite target");
       }
+      return new BaseLoadingResult(expandedResult.getTargets(), !expandedResult.hasError());
     } catch (TargetParsingException e) {
       // This shouldn't happen, because we've already loaded the targets successfully.
       throw (AssertionError) (new AssertionError("Unexpected target failure").initCause(e));
     }
+  }
 
-    // Perform some operations on the set of packages containing the collected targets.
-    ImmutableMap<PackageIdentifier, Path> packageRoots = collectPackageRoots(
-        pkgLoader.getErrorFreeVisitedPackages());
+  private static class BaseLoadingResult {
+    private final ImmutableSet<Target> targets;
+    private final boolean succesful;
 
-    Set<PackageIdentifier> visitedPackageNames = pkgLoader.getVisitedPackageNames();
+    BaseLoadingResult(ImmutableSet<Target> targets, boolean succesful) {
+      this.targets = targets;
+      this.succesful = succesful;
+    }
 
-    // Clear some targets from the cache to free memory.
-    packageManager.partiallyClear();
+    ImmutableSet<Target> getTargets() {
+      return targets;
+    }
 
-    eventBus.post(new LoadingPhaseCompleteEvent(
-        targetsToAnalyze, filteredTargets, packageManager.getStatistics(),
-        timer.stop().elapsed(TimeUnit.MILLISECONDS)));
-    LOG.info("Loading phase finished");
-
-    // testsToRun can contain targets that aren't analyzed, but the BuildView ignores those.
-    return new LoadingResult(hasError, !loadingSuccessful, targetsToAnalyze, testsToRun,
-        packageRoots, visitedPackageNames);
+    boolean isSuccesful() {
+      return succesful;
+    }
   }
 
   private Collection<Target> getTargetsForLabels(Collection<Label> labels) {
@@ -520,7 +528,6 @@ public class LoadingPhaseRunner {
 
   private ImmutableSet<Target> filterErrorFreeTargets(
       EventBus eventBus, Collection<Target> targetsToLoad,
-      TransitivePackageLoader pkgLoader,
       ListMultimap<String, Label> labelsToLoadUnconditionally) throws LoadingFailedException {
     // Error out if any of the labels needed for the configuration could not be loaded.
     Collection<Label> labelsToLoad = new ArrayList<>(labelsToLoadUnconditionally.values());
