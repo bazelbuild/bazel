@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -111,18 +112,23 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
     TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) loadTargetResults;
     TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
-    // Process deps from attributes of current target.
+    // Process deps from attributes and conservative aspects of current target.
     Iterable<SkyKey> labelDepKeys = getLabelDepKeys(targetAndErrorIfAny.getTarget());
+    Iterable<SkyKey> labelAspectKeys =
+        getConservativeLabelAspectKeys(targetAndErrorIfAny.getTarget());
+    Iterable<SkyKey> depAndAspectKeys = Iterables.concat(labelDepKeys, labelAspectKeys);
+
     Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-        labelDepEntries = env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
-        NoSuchTargetException.class).entrySet();
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelDepEntries);
+        depsAndAspectEntries = env.getValuesOrThrow(depAndAspectKeys,
+        NoSuchPackageException.class, NoSuchTargetException.class).entrySet();
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depsAndAspectEntries);
     if (env.valuesMissing()) {
       return null;
     }
 
-    // Process deps from aspects.
-    Iterable<SkyKey> labelAspectKeys = getLabelAspectKeys(targetAndErrorIfAny.getTarget(), env);
+
+    // Process deps from strict aspects.
+    labelAspectKeys = getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), env);
     Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
         labelAspectEntries = env.getValuesOrThrow(labelAspectKeys, NoSuchPackageException.class,
         NoSuchTargetException.class).entrySet();
@@ -142,9 +148,20 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
   /**
    * Return an Iterable of SkyKeys corresponding to the Aspect-related dependencies of target.
    *
+   *  <p>This method may return a precise set of aspect keys, but may need to request additional
+   *  dependencies from the env to do so.
+   *
+   *  <p>Subclasses should implement only one of #getStrictLabelAspectKeys and
+   *  @getConservativeLabelAspectKeys.
+   */
+  protected abstract Iterable<SkyKey> getStrictLabelAspectKeys(Target target, Environment env);
+
+  /**
+   * Return an Iterable of SkyKeys corresponding to the Aspect-related dependencies of target.
+   *
    *  <p>This method may return a conservative over-approximation of the exact set.
    */
-  protected abstract Iterable<SkyKey> getLabelAspectKeys(Target target, Environment env);
+  protected abstract Iterable<SkyKey> getConservativeLabelAspectKeys(Target target);
 
   private Iterable<SkyKey> getLabelDepKeys(Target target) {
     List<SkyKey> depKeys = Lists.newArrayList();

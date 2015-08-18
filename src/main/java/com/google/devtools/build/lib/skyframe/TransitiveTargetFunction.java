@@ -154,7 +154,7 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  protected Iterable<SkyKey> getLabelAspectKeys(Target target, Environment env) {
+  protected Iterable<SkyKey> getStrictLabelAspectKeys(Target target, Environment env) {
     List<SkyKey> depKeys = Lists.newArrayList();
     if (target instanceof Rule) {
       Multimap<Attribute, Label> transitions =
@@ -179,6 +179,11 @@ public class TransitiveTargetFunction
       }
     }
     return depKeys;
+  }
+
+  @Override
+  protected Iterable<SkyKey> getConservativeLabelAspectKeys(Target target) {
+    return ImmutableSet.of();
   }
 
   /**
