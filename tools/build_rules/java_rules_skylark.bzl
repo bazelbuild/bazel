@@ -16,11 +16,11 @@ java_filetype = FileType([".java"])
 jar_filetype = FileType([".jar"])
 srcjar_filetype = FileType([".jar", ".srcjar"])
 
-def is_windows(config):
-  return config.fragment(cpp).compiler.startswith("windows_")
+def is_windows(fragments):
+  return fragments.cpp.compiler.startswith("windows_")
 
 def path_separator(ctx):
-  if is_windows(ctx.configuration):
+  if is_windows(ctx.fragments):
     return ";"
   else:
     return ":"
@@ -29,7 +29,7 @@ def path_separator(ctx):
 # production ready.
 
 def java_library_impl(ctx):
-  javac_options = ctx.configuration.fragment(java_configuration).default_javac_flags
+  javac_options = ctx.fragments.java.default_javac_flags
   class_jar = ctx.outputs.class_jar
   compile_time_jars = set(order="link")
   runtime_jars = set(order="link")

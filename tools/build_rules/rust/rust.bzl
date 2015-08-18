@@ -123,7 +123,7 @@ def _build_rustc_command(ctx, crate_type, src, output_dir, depinfo,
   rustlib_path = ctx.files._rustlib[0].dirname
 
   # Paths to cc (for linker) and ar
-  cpp_fragment = ctx.configuration.fragment(cpp)
+  cpp_fragment = ctx.fragments.cpp
   cc = cpp_fragment.compiler_executable
   ar = cpp_fragment.ar_executable
   # Currently, the CROSSTOOL config for darwin sets ar to "libtool". Because
