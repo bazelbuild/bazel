@@ -1034,14 +1034,7 @@ public final class Digraph<T> implements Cloneable {
     visitor.endVisit();
   }
 
-  /**
-   * A visitation over the graph that visits all nodes and edges in some order
-   * such that each node is visited before any edge coming out of that node;
-   * the order is otherwise unspecified.
-   *
-   * @param startNodes the set of nodes from which to begin the visitation.
-   */
-  public void visitNodesBeforeEdges(GraphVisitor<T> visitor,
+  private void visitNodesBeforeEdges(GraphVisitor<T> visitor,
                                     Iterable<Node<T>> startNodes) {
     visitor.beginVisit();
     for (Node<T> fromNode: startNodes) {
@@ -1054,7 +1047,9 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Equivalent to {@code visitNodesBeforeEdges(visitor, getNodes())}.
+   * A visitation over the graph that visits all nodes and edges in some order
+   * such that each node is visited before any edge coming out of that node;
+   * the order is otherwise unspecified.
    */
   public void visitNodesBeforeEdges(GraphVisitor<T> visitor) {
     visitNodesBeforeEdges(visitor, nodes.values());
