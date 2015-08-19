@@ -58,8 +58,8 @@ ${GCC} "$@"
 
 function get_library_path() {
     for libdir in ${LIB_DIRS}; do
-        if [ -f ${libdir}/lib$1.dylib ]; then
-            echo "${libdir}/lib$1.dylib"
+        if [ -f ${libdir}/lib$1.so ]; then
+            echo "${libdir}/lib$1.so"
         fi
     done
 }
@@ -87,7 +87,7 @@ if [ -n "${RPATH}" ]; then
     for lib in ${LIBS}; do
         libpath=$(get_library_path ${lib})
         if [ -n "${libpath}" ]; then
-            ${INSTALL_NAME_TOOL} -change "@rpath/lib${lib}.dylib" $(get_otool_path "${libpath}") "${OUTPUT}"
+            ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") "@loader_path/${RPATH}/lib${lib}.so" "${OUTPUT}"
         fi
     done
 fi
