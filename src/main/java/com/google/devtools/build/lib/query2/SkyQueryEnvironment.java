@@ -174,7 +174,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   private Set<Label> getAllowedDeps(Rule rule) {
-    Set<Label> allowedLabels = new HashSet<>(rule.getLabels(dependencyFilter));
+    Set<Label> allowedLabels = new HashSet<>(rule.getTransitions(dependencyFilter).values());
     allowedLabels.addAll(rule.getVisibility().getDependencyLabels());
     // We should add deps from aspects, otherwise they are going to be filtered out.
     allowedLabels.addAll(rule.getAspectLabelsSuperset(dependencyFilter));
