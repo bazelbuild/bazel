@@ -911,7 +911,7 @@ public final class LinkCommandLine extends CommandLine {
 
     String name = inputArtifact.getFilename();
     if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
-      String libName = name.replaceAll("(^lib|\\.so$)", "");
+      String libName = name.replaceAll("(^lib|\\.(dylib|so)$)", "");
       options.add("-l" + libName);
     } else {
       // Interface shared objects have a non-standard extension
