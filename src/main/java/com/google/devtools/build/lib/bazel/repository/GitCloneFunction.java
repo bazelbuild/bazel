@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -28,14 +29,19 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRefNameException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.RefNotFoundException;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -51,21 +57,71 @@ public class GitCloneFunction implements SkyFunction {
     this.reporter = reporter;
   }
 
+  private boolean isUpToDate(GitRepositoryDescriptor descriptor) {
+    // Initializing/checking status of/etc submodules cleanly is hard, so don't try for now.
+    if (descriptor.initSubmodules) {
+      return false;
+    }
+    Repository repository = null;
+    try {
+      repository =
+          new FileRepositoryBuilder()
+              .setGitDir(descriptor.directory.getChild(Constants.DOT_GIT).getPathFile())
+              .setMustExist(true)
+              .build();
+      ObjectId head = repository.resolve(Constants.HEAD);
+      ObjectId checkout = repository.resolve(descriptor.checkout);
+      if (head != null && checkout != null && head.equals(checkout)) {
+        Status status = Git.wrap(repository).status().call();
+        if (!status.hasUncommittedChanges()) {
+          // new_git_repository puts (only) BUILD and WORKSPACE, and
+          // git_repository doesn't add any files.
+          Set<String> untracked = status.getUntracked();
+          if (untracked.isEmpty()
+              || (untracked.size() == 2
+                  && untracked.contains("BUILD")
+                  && untracked.contains("WORKSPACE"))) {
+            return true;
+          }
+        }
+      }
+    } catch (GitAPIException | IOException e) {
+      // Any exceptions here, we'll just blow it away and try cloning fresh.
+      // The fresh clone avoids any weirdness due to what's there and has nicer
+      // error reporting.
+    } finally {
+      if (repository != null) {
+        repository.close();
+      }
+    }
+    return false;
+  }
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     GitRepositoryDescriptor descriptor = (GitRepositoryDescriptor) skyKey.argument();
-    String outputDirectory = descriptor.directory.toString();
 
     Git git = null;
     try {
-      git = Git.cloneRepository()
-          .setURI(descriptor.remote)
-          .setDirectory(new File(outputDirectory))
-          .setCloneSubmodules(false)
-          .setProgressMonitor(
-              new GitProgressMonitor("Cloning " + descriptor.remote, reporter))
-          .call();
+      if (descriptor.directory.exists()) {
+        if (isUpToDate(descriptor)) {
+          return new HttpDownloadValue(descriptor.directory);
+        }
+        try {
+          FileSystemUtils.deleteTree(descriptor.directory);
+        } catch (IOException e) {
+          throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+        }
+      }
+      git =
+          Git.cloneRepository()
+              .setURI(descriptor.remote)
+              .setDirectory(descriptor.directory.getPathFile())
+              .setCloneSubmodules(false)
+              .setNoCheckout(true)
+              .setProgressMonitor(new GitProgressMonitor("Cloning " + descriptor.remote, reporter))
+              .call();
       git.checkout()
           .setCreateBranch(true)
           .setName("bazel-checkout")
