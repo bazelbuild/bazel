@@ -98,12 +98,14 @@ public final class DiffAwarenessManager {
 
     View baselineView = diffAwarenessState.baselineView;
     if (baselineView == null) {
+      LOG.info("Initial baseline view for " + pathEntry + " is " + newView);
       diffAwarenessState.baselineView = newView;
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
 
     ModifiedFileSet diff;
-    LOG.info("About to compute diff between " + baselineView + " and " + newView);
+    LOG.info("About to compute diff between " + baselineView + " and " + newView + " for "
+        + pathEntry);
     try {
       diff = diffAwareness.getDiff(baselineView, newView);
     } catch (BrokenDiffAwarenessException e) {
