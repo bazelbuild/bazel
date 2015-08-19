@@ -25,11 +25,18 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.IjarB
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaSemantics;
+
+import java.util.Set;
 
 /**
  * Rule definition for the java_import rule.
  */
 public final class BazelJavaImportRule implements RuleDefinition {
+
+  private static final Set<String> ALLOWED_DEPS =
+      ImmutableSet.of("java_library", "java_import", "cc_library", "cc_binary");
+
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
@@ -39,10 +46,18 @@ public final class BazelJavaImportRule implements RuleDefinition {
         See <a href="#java_library.exports">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
-            .allowedRuleClasses(ImmutableSet.of(
-                "java_library", "java_import", "cc_library", "cc_binary"))
+            .allowedRuleClasses(ALLOWED_DEPS)
             .allowedFileTypes()  // none allowed
             .validityPredicate(ANY_EDGE))
+        /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
+        Libraries to make available to the final binary or test at runtime only.
+        ${SYNOPSIS}
+        See <a href="#$java_rule.runtime_deps">java_library.runtime_deps</a>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("runtime_deps", LABEL_LIST)
+            .allowedFileTypes(JavaSemantics.JAR)
+            .allowedRuleClasses(ALLOWED_DEPS)
+            .skipAnalysisTimeFileTypeCheck())
         .build();
 
   }
