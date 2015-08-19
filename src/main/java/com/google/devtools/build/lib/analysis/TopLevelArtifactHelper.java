@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.test.TestProvider;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 
 /**
  * A small static class containing utility methods for handling the inclusion of
@@ -96,6 +97,22 @@ public final class TopLevelArtifactHelper {
   }
 
   /**
+   * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
+   */
+  public static ArtifactsToBuild getAllArtifactsToBuildFromAspects(
+      Iterable<AspectValue> aspects, TopLevelArtifactContext context) {
+    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> importantArtifacts = NestedSetBuilder.stableOrder();
+    for (AspectValue aspect : aspects) {
+      ArtifactsToBuild aspectArtifacts = getAllArtifactsToBuild(aspect, context);
+      allArtifacts.addTransitive(aspectArtifacts.getAllArtifacts());
+      importantArtifacts.addTransitive(aspectArtifacts.getImportantArtifacts());
+    }
+    return new ArtifactsToBuild(importantArtifacts.build(), allArtifacts.build());
+  }
+
+
+  /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
    * set includes the temps and either the files to compile, if
    * {@code context.compileOnly() == true}, or the files to run.
@@ -118,6 +135,41 @@ public final class TopLevelArtifactHelper {
       if (outputGroup.equals(OutputGroupProvider.DEFAULT)) {
         // For the default group, we also throw in filesToBuild
         FileProvider fileProvider = target.getProvider(FileProvider.class);
+        if (fileProvider != null) {
+          results.addTransitive(fileProvider.getFilesToBuild());
+        }
+      }
+
+      if (outputGroupProvider != null) {
+        results.addTransitive(outputGroupProvider.getOutputGroup(outputGroup));
+      }
+
+      if (outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
+        allBuilder.addTransitive(results.build());
+      } else {
+        importantBuilder.addTransitive(results.build());
+      }
+    }
+
+    NestedSet<Artifact> importantArtifacts = importantBuilder.build();
+    allBuilder.addTransitive(importantArtifacts);
+    return new ArtifactsToBuild(importantArtifacts, allBuilder.build());
+  }
+
+  public static ArtifactsToBuild getAllArtifactsToBuild(
+      AspectValue aspectValue, TopLevelArtifactContext context) {
+    NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
+
+    OutputGroupProvider outputGroupProvider =
+        aspectValue.getAspect().getProvider(OutputGroupProvider.class);
+
+    for (String outputGroup : context.outputGroups()) {
+      NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
+
+      if (outputGroup.equals(OutputGroupProvider.DEFAULT)) {
+        // For the default group, we also throw in filesToBuild
+        FileProvider fileProvider = aspectValue.getAspect().getProvider(FileProvider.class);
         if (fileProvider != null) {
           results.addTransitive(fileProvider.getFilesToBuild());
         }

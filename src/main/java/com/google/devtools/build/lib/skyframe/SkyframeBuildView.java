@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -48,11 +49,11 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -61,7 +62,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.WalkableGraph;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -160,33 +160,51 @@ public final class SkyframeBuildView {
    *
    * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
-  public Pair<Collection<ConfiguredTarget>, WalkableGraph> configureTargets(
-      List<ConfiguredTargetKey> values, EventBus eventBus, boolean keepGoing)
-          throws InterruptedException, ViewCreationFailedException {
+  public SkyframeAnalysisResult configureTargets(
+      List<ConfiguredTargetKey> values,
+      List<AspectKey> aspectKeys,
+      EventBus eventBus,
+      boolean keepGoing)
+      throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
-    EvaluationResult<ConfiguredTargetValue> result;
+    EvaluationResult<ActionLookupValue> result;
     try {
-      result = skyframeExecutor.configureTargets(values, keepGoing);
+      result = skyframeExecutor.configureTargets(values, aspectKeys, keepGoing);
     } finally {
       enableAnalysis(false);
     }
     ImmutableMap<Action, ConflictException> badActions = skyframeExecutor.findArtifactConflicts();
+
+    Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
+    for (AspectKey aspectKey : aspectKeys) {
+      AspectValue value = (AspectValue) result.get(AspectValue.key(aspectKey));
+      if (value == null) {
+        // Skip aspects that couldn't be applied to targets.
+        continue;
+      }
+      goodAspects.add(value);
+    }
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
     // code ensures that the resulting list of configured targets has the same order as the incoming
     // list of values, i.e., that the order is deterministic.
     Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(values.size());
     for (ConfiguredTargetKey value : values) {
-      ConfiguredTargetValue ctValue = result.get(ConfiguredTargetValue.key(value));
+      ConfiguredTargetValue ctValue =
+          (ConfiguredTargetValue) result.get(ConfiguredTargetValue.key(value));
       if (ctValue == null) {
         continue;
       }
       goodCts.add(ctValue.getConfiguredTarget());
     }
 
+
     if (!result.hasError() && badActions.isEmpty()) {
       setDeserializedArtifactOwners();
-      return Pair.of(goodCts, result.getWalkableGraph());
+      return new SkyframeAnalysisResult(
+          ImmutableList.copyOf(goodCts),
+          result.getWalkableGraph(),
+          ImmutableList.copyOf(goodAspects));
     }
 
     // --nokeep_going so we fail with an exception for the first error.
@@ -291,7 +309,10 @@ public final class SkyframeBuildView {
       }
     }
     setDeserializedArtifactOwners();
-    return Pair.of(goodCts, result.getWalkableGraph());
+    return new SkyframeAnalysisResult(
+        ImmutableList.copyOf(goodCts),
+        result.getWalkableGraph(),
+        ImmutableList.copyOf(goodAspects));
   }
 
   @Nullable

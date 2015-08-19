@@ -17,10 +17,16 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.UnmodifiableIterator;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeMap;
+
+import javax.annotation.Nullable;
 
 /**
  * Extra information about a configured target computed on request of a dependent.
@@ -34,12 +40,22 @@ import java.util.Map;
  */
 @Immutable
 public final class Aspect implements Iterable<TransitiveInfoProvider> {
-  private final
-      ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers;
+  private final String name;
+  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
+      providers;
 
   private Aspect(
+      String name,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
+    this.name = name;
     this.providers = providers;
+  }
+
+  /**
+   * Returns the aspect name.
+   */
+  public String getName() {
+    return name;
   }
 
   /**
@@ -48,6 +64,14 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
   public ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       getProviders() {
     return providers;
+  }
+
+
+  @Nullable
+  <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    AnalysisUtils.checkProvider(providerClass);
+
+    return providerClass.cast(providers.get(providerClass));
   }
 
   @Override
@@ -61,6 +85,12 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
   public static class Builder {
     private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
         providers = new LinkedHashMap<>();
+    private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+    private final String name;
+
+    public Builder(String name) {
+      this.name = name;
+    }
 
     /**
      * Adds a provider to the aspect.
@@ -75,8 +105,35 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
       return this;
     }
 
+    /**
+     * Adds a set of files to an output group.
+     */
+    public Builder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
+      NestedSetBuilder<Artifact> nestedSetBuilder = outputGroupBuilders.get(name);
+      if (nestedSetBuilder == null) {
+        nestedSetBuilder = NestedSetBuilder.<Artifact>stableOrder();
+        outputGroupBuilders.put(name, nestedSetBuilder);
+      }
+      nestedSetBuilder.addTransitive(artifacts);
+      return this;
+    }
+
+
     public Aspect build() {
-      return new Aspect(ImmutableMap.copyOf(providers));
+      if (!outputGroupBuilders.isEmpty()) {
+        ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
+        for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
+          outputGroups.put(entry.getKey(), entry.getValue().build());
+        }
+
+        if (providers.containsKey(OutputGroupProvider.class)) {
+          throw new IllegalStateException(
+              "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
+        }
+        addProvider(OutputGroupProvider.class, new OutputGroupProvider(outputGroups.build()));
+      }
+
+      return new Aspect(name, ImmutableMap.copyOf(providers));
     }
   }
 }

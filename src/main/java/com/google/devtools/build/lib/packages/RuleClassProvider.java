@@ -30,6 +30,11 @@ public interface RuleClassProvider {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
+   * Returns a map from aspect names to aspect factory objects.
+   */
+  Map<String, Class<? extends AspectFactory<?, ?, ?>>> getAspectFactoryMap();
+
+  /**
    * Returns a new Skylark Environment instance for rule creation. Implementations need to be
    * thread safe.
    */

@@ -81,7 +81,7 @@ public class BuildRequest implements OptionsClassProvider {
   /**
    * Options interface--can be used to parse command-line arguments.
    *
-   * See also ExecutionOptions; from the user's point of view, there's no
+   * <p>See also ExecutionOptions; from the user's point of view, there's no
    * qualitative difference between these two sets of options.
    */
   public static class BuildRequestOptions extends OptionsBase {
@@ -261,6 +261,15 @@ public class BuildRequest implements OptionsClassProvider {
             help = "Check for modifications made to the output files of a build. Consider setting "
                 + "this flag to false to see the effect on incremental build times.")
     public boolean checkOutputFiles;
+
+    @Option(
+      name = "aspects",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      category = "undocumented", // for now
+      help = "List of top-level aspects"
+    )
+    public List<String> aspects;
   }
 
   /**
@@ -520,6 +529,10 @@ public class BuildRequest implements OptionsClassProvider {
 
   public ImmutableSortedSet<String> getMultiCpus() {
     return ImmutableSortedSet.copyOf(getBuildOptions().multiCpus);
+  }
+
+  public ImmutableList<String> getAspects() {
+    return ImmutableList.copyOf(getBuildOptions().aspects);
   }
 
   public static BuildRequest create(String commandName, OptionsProvider options,

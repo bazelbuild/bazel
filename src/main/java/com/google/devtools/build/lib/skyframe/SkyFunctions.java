@@ -60,8 +60,9 @@ public final class SkyFunctions {
       SkyFunctionName.create("POST_CONFIGURED_TARGET");
   public static final SkyFunctionName TARGET_COMPLETION =
       SkyFunctionName.create("TARGET_COMPLETION");
-  public static final SkyFunctionName TEST_COMPLETION =
-      SkyFunctionName.create("TEST_COMPLETION");
+  public static final SkyFunctionName ASPECT_COMPLETION =
+      SkyFunctionName.create("ASPECT_COMPLETION");
+  public static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.create("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.create("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -83,6 +84,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final  Map<String, Class<? extends RuleDefinition>> ruleDefinitionMap =
         new HashMap<>();
+    private final Map<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap =
+        new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleDefinition> ruleDefinitionInstanceCache =
         new HashMap<>();
@@ -113,6 +116,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       for (Class<? extends RuleDefinition> ancestor : ruleDefinition.getMetadata().ancestors()) {
         dependencyGraph.addEdge(ancestor, ruleDefinitionClass);
       }
+
+      return this;
+    }
+
+    public Builder addAspectFactory(
+        String name, Class<? extends AspectFactory<?, ?, ?>> configuredAspectFactoryClass) {
+      aspectFactoryMap.put(name, configuredAspectFactoryClass);
 
       return this;
     }
@@ -199,6 +209,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return new ConfiguredRuleClassProvider(
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
+          ImmutableMap.copyOf(aspectFactoryMap),
           defaultWorkspaceFile.toString(),
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
@@ -247,6 +258,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap;
 
   /**
+   * Maps aspect name to the aspect factory meta class.
+   */
+  private final ImmutableMap<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap;
+
+  /**
    * The configuration options that affect the behavior of the rules.
    */
   private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
@@ -272,6 +288,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public ConfiguredRuleClassProvider(
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
+      ImmutableMap<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap,
       String defaultWorkspaceFile,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
@@ -282,6 +299,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
+    this.aspectFactoryMap = aspectFactoryMap;
     this.defaultWorkspaceFile = defaultWorkspaceFile;
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
@@ -300,6 +318,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public Map<String, RuleClass> getRuleClassMap() {
     return ruleClassMap;
+  }
+
+  @Override
+  public Map<String, Class<? extends AspectFactory<?, ?, ?>>> getAspectFactoryMap() {
+    return aspectFactoryMap;
   }
 
   /**

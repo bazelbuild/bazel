@@ -50,6 +50,7 @@ import java.util.List;
  * J2ObjC transpilation aspect for Java rules.
  */
 public class J2ObjcAspect implements ConfiguredAspectFactory {
+  public static final String NAME = "J2ObjcAspect";
   /**
    * Adds the attribute aspect args to the given AspectDefinition.Builder.
    */
@@ -85,7 +86,7 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
 
   @Override
   public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
-    Aspect.Builder builder = new Aspect.Builder();
+    Aspect.Builder builder = new Aspect.Builder(NAME);
 
     JavaCompilationArgsProvider compilationArgsProvider =
         base.getProvider(JavaCompilationArgsProvider.class);

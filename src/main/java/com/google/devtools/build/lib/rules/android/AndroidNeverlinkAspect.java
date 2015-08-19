@@ -38,14 +38,16 @@ import java.util.List;
  * ijars,
  */
 public class AndroidNeverlinkAspect implements ConfiguredAspectFactory {
-  private static final ImmutableList<String> ATTRIBUTES = ImmutableList.of(
-      "deps", "exports", "runtime_deps", "binary_under_test", "$instrumentation_test_runner");
+  public static final String NAME = "AndroidNeverlinkAspect";
+  private static final ImmutableList<String> ATTRIBUTES =
+      ImmutableList.of(
+          "deps", "exports", "runtime_deps", "binary_under_test", "$instrumentation_test_runner");
 
   @Override
   public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
-      return new Aspect.Builder().build();
+      return new Aspect.Builder(NAME).build();
     }
 
     List<TransitiveInfoCollection> deps = new ArrayList<>();
@@ -61,12 +63,14 @@ public class AndroidNeverlinkAspect implements ConfiguredAspectFactory {
       deps.addAll(ruleContext.getPrerequisites(attribute, Mode.TARGET));
     }
 
-    return new Aspect.Builder()
-        .addProvider(AndroidNeverLinkLibrariesProvider.class,
-            new AndroidNeverLinkLibrariesProvider(AndroidCommon.collectTransitiveNeverlinkLibraries(
-                ruleContext,
-                deps,
-                base.getProvider(JavaRuntimeJarProvider.class).getRuntimeJars())))
+    return new Aspect.Builder(NAME)
+        .addProvider(
+            AndroidNeverLinkLibrariesProvider.class,
+            new AndroidNeverLinkLibrariesProvider(
+                AndroidCommon.collectTransitiveNeverlinkLibraries(
+                    ruleContext,
+                    deps,
+                    base.getProvider(JavaRuntimeJarProvider.class).getRuntimeJars())))
         .build();
   }
 

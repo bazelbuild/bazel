@@ -263,8 +263,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     masterConfig = skyframeExecutor.createConfigurations(
         configurationFactory, buildOptions, directories, multiCpu, false);
-    analysisResult = buildView.update(loadingResult, masterConfig, viewOptions,
-        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT, reporter, eventBus);
+    analysisResult =
+        buildView.update(
+            loadingResult,
+            masterConfig,
+            ImmutableList.<String>of(),
+            viewOptions,
+            AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+            reporter,
+            eventBus);
   }
 
   protected void update(FlagBuilder config, String... labels) throws Exception {

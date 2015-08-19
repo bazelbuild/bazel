@@ -65,13 +65,15 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue;
+import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
+import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -79,6 +81,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -434,12 +437,17 @@ public class BuildView {
    */
   public static final class AnalysisResult {
 
-    public static final AnalysisResult EMPTY = new AnalysisResult(
-        ImmutableList.<ConfiguredTarget>of(), null, null, null,
-        ImmutableList.<Artifact>of(),
-        ImmutableList.<ConfiguredTarget>of(),
-        ImmutableList.<ConfiguredTarget>of(),
-        null);
+    public static final AnalysisResult EMPTY =
+        new AnalysisResult(
+            ImmutableList.<ConfiguredTarget>of(),
+            ImmutableList.<AspectValue>of(),
+            null,
+            null,
+            null,
+            ImmutableList.<Artifact>of(),
+            ImmutableList.<ConfiguredTarget>of(),
+            ImmutableList.<ConfiguredTarget>of(),
+            null);
 
     private final ImmutableList<ConfiguredTarget> targetsToBuild;
     @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
@@ -449,13 +457,20 @@ public class BuildView {
     private final ImmutableSet<ConfiguredTarget> parallelTests;
     private final ImmutableSet<ConfiguredTarget> exclusiveTests;
     @Nullable private final TopLevelArtifactContext topLevelContext;
+    private final ImmutableList<AspectValue> aspects;
 
     private AnalysisResult(
-        Collection<ConfiguredTarget> targetsToBuild, Collection<ConfiguredTarget> targetsToTest,
-        @Nullable String error, ActionGraph actionGraph,
-        Collection<Artifact> artifactsToBuild, Collection<ConfiguredTarget> parallelTests,
-        Collection<ConfiguredTarget> exclusiveTests, TopLevelArtifactContext topLevelContext) {
+        Collection<ConfiguredTarget> targetsToBuild,
+        Collection<AspectValue> aspects,
+        Collection<ConfiguredTarget> targetsToTest,
+        @Nullable String error,
+        ActionGraph actionGraph,
+        Collection<Artifact> artifactsToBuild,
+        Collection<ConfiguredTarget> parallelTests,
+        Collection<ConfiguredTarget> exclusiveTests,
+        TopLevelArtifactContext topLevelContext) {
       this.targetsToBuild = ImmutableList.copyOf(targetsToBuild);
+      this.aspects = ImmutableList.copyOf(aspects);
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
       this.error = error;
       this.actionGraph = actionGraph;
@@ -470,6 +485,16 @@ public class BuildView {
      */
     public Collection<ConfiguredTarget> getTargetsToBuild() {
       return targetsToBuild;
+    }
+
+    /**
+     * Returns aspects of configured targets to build.
+     *
+     * <p>If this list is empty, build the targets returned by {@code getTargetsToBuild()}.
+     * Otherwise, only build these aspects of the targets returned by {@code getTargetsToBuild()}.
+     */
+    public Collection<AspectValue> getAspects() {
+      return aspects;
     }
 
     /**
@@ -520,10 +545,11 @@ public class BuildView {
   static Iterable<? extends ConfiguredTarget> filterTestsByTargets(
       Collection<? extends ConfiguredTarget> targets,
       final Set<? extends Target> allowedTargets) {
-    return Iterables.filter(targets,
+    return Iterables.filter(
+        targets,
         new Predicate<ConfiguredTarget>() {
           @Override
-              public boolean apply(ConfiguredTarget rule) {
+          public boolean apply(ConfiguredTarget rule) {
             return allowedTargets.contains(rule.getTarget());
           }
         });
@@ -536,10 +562,15 @@ public class BuildView {
   }
 
   @ThreadCompatible
-  public AnalysisResult update(LoadingResult loadingResult,
-      BuildConfigurationCollection configurations, Options viewOptions,
-      TopLevelArtifactContext topLevelOptions, EventHandler eventHandler, EventBus eventBus)
-          throws ViewCreationFailedException, InterruptedException {
+  public AnalysisResult update(
+      LoadingResult loadingResult,
+      BuildConfigurationCollection configurations,
+      List<String> aspects,
+      Options viewOptions,
+      TopLevelArtifactContext topLevelOptions,
+      EventHandler eventHandler,
+      EventBus eventBus)
+      throws ViewCreationFailedException, InterruptedException {
     LOG.info("Starting analysis");
     pollInterruptedStatus();
 
@@ -580,21 +611,36 @@ public class BuildView {
           }
         });
 
+    List<AspectKey> aspectKeys = new ArrayList<>();
+    for (String aspect : aspects) {
+      @SuppressWarnings("unchecked")
+      final Class<? extends ConfiguredAspectFactory> aspectFactoryClass =
+          (Class<? extends ConfiguredAspectFactory>)
+              ruleClassProvider.getAspectFactoryMap().get(aspect);
+      if (aspectFactoryClass != null) {
+        for (ConfiguredTargetKey targetSpec : targetSpecs) {
+          aspectKeys.add(
+              AspectValue.createAspectKey(
+                  targetSpec.getLabel(), targetSpec.getConfiguration(), aspectFactoryClass));
+        }
+      } else {
+        throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
+      }
+    }
+
     prepareToBuild(new SkyframePackageRootResolver(skyframeExecutor));
     skyframeExecutor.injectWorkspaceStatusData();
-    Collection<ConfiguredTarget> configuredTargets;
-    WalkableGraph graph;
+    SkyframeAnalysisResult skyframeAnalysisResult;
     try {
-      Pair<Collection<ConfiguredTarget>, WalkableGraph> configuredTargetsResult =
-          skyframeBuildView.configureTargets(targetSpecs, eventBus, viewOptions.keepGoing);
-      configuredTargets = configuredTargetsResult.getFirst();
-      graph = configuredTargetsResult.getSecond();
+      skyframeAnalysisResult =
+          skyframeBuildView.configureTargets(
+              targetSpecs, aspectKeys, eventBus, viewOptions.keepGoing);
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
 
     int numTargetsToAnalyze = nodes.size();
-    int numSuccessful = configuredTargets.size();
+    int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     boolean analysisSuccessful = (numSuccessful == numTargetsToAnalyze);
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
@@ -603,17 +649,28 @@ public class BuildView {
       LOG.info(msg);
     }
 
-    AnalysisResult result = createResult(loadingResult, topLevelOptions,
-        viewOptions, configuredTargets, analysisSuccessful, graph);
+    AnalysisResult result =
+        createResult(
+            loadingResult,
+            topLevelOptions,
+            viewOptions,
+            skyframeAnalysisResult.getConfiguredTargets(),
+            skyframeAnalysisResult.getAspects(),
+            skyframeAnalysisResult.getWalkableGraph(),
+            analysisSuccessful);
     LOG.info("Finished analysis");
     return result;
   }
 
-  private AnalysisResult createResult(LoadingResult loadingResult,
-      TopLevelArtifactContext topLevelOptions, BuildView.Options viewOptions,
-      Collection<ConfiguredTarget> configuredTargets, boolean analysisSuccessful,
-      final WalkableGraph graph)
-          throws InterruptedException {
+  private AnalysisResult createResult(
+      LoadingResult loadingResult,
+      TopLevelArtifactContext topLevelOptions,
+      BuildView.Options viewOptions,
+      Collection<ConfiguredTarget> configuredTargets,
+      Collection<AspectValue> aspects,
+      final WalkableGraph graph,
+      boolean analysisSuccessful)
+      throws InterruptedException {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
     Collection<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
@@ -667,8 +724,16 @@ public class BuildView {
         return null;
       }
     };
-    return new AnalysisResult(configuredTargets, allTargetsToTest, error, actionGraph,
-        artifactsToBuild, parallelTests, exclusiveTests, topLevelOptions);
+    return new AnalysisResult(
+        configuredTargets,
+        aspects,
+        allTargetsToTest,
+        error,
+        actionGraph,
+        artifactsToBuild,
+        parallelTests,
+        exclusiveTests,
+        topLevelOptions);
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(

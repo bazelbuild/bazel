@@ -27,8 +27,10 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -127,15 +129,50 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     Set<Class<? extends TransitiveInfoProvider>> providers = new HashSet<>();
 
     providers.addAll(base.providers.keySet());
+
+    // Merge output group providers.
+    OutputGroupProvider baseOutputGroupProvider = base.getProvider(OutputGroupProvider.class);
+    List<OutputGroupProvider> outputGroupProviders = new ArrayList<>();
+    if (baseOutputGroupProvider != null) {
+      outputGroupProviders.add(baseOutputGroupProvider);
+    }
+
+    for (Aspect aspect : aspects) {
+      final OutputGroupProvider aspectProvider = aspect.getProvider(OutputGroupProvider.class);
+      if (aspectProvider == null) {
+        continue;
+      }
+      outputGroupProviders.add(aspectProvider);
+    }
+    OutputGroupProvider outputGroupProvider = OutputGroupProvider.merge(outputGroupProviders);
+
+    // Validate that all other providers are only provided once.
     for (Aspect aspect : aspects) {
       for (TransitiveInfoProvider aspectProvider : aspect) {
-        if (!providers.add(aspectProvider.getClass())) {
-          throw new IllegalStateException(
-              "Provider " + aspectProvider.getClass() + " provided twice");
+        Class<? extends TransitiveInfoProvider> aClass = aspectProvider.getClass();
+        if (OutputGroupProvider.class.equals(aClass)) {
+          continue;
+        }
+        if (!providers.add(aClass)) {
+          throw new IllegalStateException("Provider " + aClass + " provided twice");
         }
       }
     }
-    this.providers = base.providers;
+
+    if (baseOutputGroupProvider == outputGroupProvider) {
+      this.providers = base.providers;
+    } else {
+      ImmutableMap.Builder<Class<? extends TransitiveInfoProvider>, Object> builder =
+          new ImmutableMap.Builder<>();
+      for (Class<? extends TransitiveInfoProvider> aClass : base.providers.keySet()) {
+        if (OutputGroupProvider.class.equals(aClass)) {
+          continue;
+        }
+        builder.put(aClass, base.providers.get(aClass));
+      }
+      builder.put(OutputGroupProvider.class, outputGroupProvider);
+      this.providers = builder.build();
+    }
     this.mandatoryStampFiles = base.mandatoryStampFiles;
     this.configConditions = base.configConditions;
     this.aspects = ImmutableList.copyOf(aspects);

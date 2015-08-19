@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -338,7 +339,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(ruleClassProvider, pkgFactory, directories));
-    map.put(SkyFunctions.TARGET_COMPLETION, new TargetCompletionFunction(eventBus));
+    map.put(SkyFunctions.TARGET_COMPLETION, CompletionFunction.targetCompletionFunction(eventBus));
+    map.put(SkyFunctions.ASPECT_COMPLETION, CompletionFunction.aspectCompletionFunction(eventBus));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputs));
     map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory,
@@ -1003,13 +1005,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
+      Collection<AspectValue> aspects,
       Collection<ConfiguredTarget> targetsToTest,
       boolean exclusiveTesting,
       boolean keepGoing,
       boolean explain,
       int numJobs,
       ActionCacheChecker actionCacheChecker,
-      @Nullable EvaluationProgressReceiver executionProgressReceiver) throws InterruptedException {
+      @Nullable EvaluationProgressReceiver executionProgressReceiver)
+      throws InterruptedException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
@@ -1020,9 +1024,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
       Iterable<SkyKey> artifactKeys = ArtifactValue.mandatoryKeys(artifactsToBuild);
       Iterable<SkyKey> targetKeys = TargetCompletionValue.keys(targetsToBuild);
+      Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects);
       Iterable<SkyKey> testKeys = TestCompletionValue.keys(targetsToTest, exclusiveTesting);
-      return buildDriver.evaluate(Iterables.concat(artifactKeys, targetKeys, testKeys), keepGoing,
-          numJobs, errorEventListener);
+      return buildDriver.evaluate(
+          Iterables.concat(artifactKeys, targetKeys, aspectKeys, testKeys),
+          keepGoing,
+          numJobs,
+          errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -1108,7 +1116,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           continue DependentNodeLoop;
         }
 
-        aspects.add(((AspectValue) result.get(aspectKey)).get());
+        aspects.add(((AspectValue) result.get(aspectKey)).getAspect());
       }
 
       cts.add(RuleConfiguredTarget.mergeAspects(configuredTarget, aspects));
@@ -1157,13 +1165,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Configures a given set of configured targets.
    */
-  public EvaluationResult<ConfiguredTargetValue> configureTargets(
-      List<ConfiguredTargetKey> values, boolean keepGoing) throws InterruptedException {
+  public EvaluationResult<ActionLookupValue> configureTargets(
+      List<ConfiguredTargetKey> values, List<AspectKey> aspectKeys, boolean keepGoing)
+      throws InterruptedException {
     checkActive();
 
+    Set<SkyKey> keys = new HashSet<>();
+    keys.addAll(ConfiguredTargetValue.keys(values));
+    for (AspectKey aspectKey : aspectKeys) {
+      keys.add(AspectValue.key(aspectKey));
+    }
+
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return buildDriver.evaluate(ConfiguredTargetValue.keys(values), keepGoing,
-        ResourceUsage.getAvailableProcessors(), errorEventListener);
+    return buildDriver.evaluate(
+        keys, keepGoing, ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
   /**

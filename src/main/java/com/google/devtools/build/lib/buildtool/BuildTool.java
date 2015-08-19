@@ -460,9 +460,16 @@ public class BuildTool {
     getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
-    AnalysisResult analysisResult = getView().update(loadingResult, configurations,
-        request.getViewOptions(), request.getTopLevelArtifactContext(), getReporter(),
-        getEventBus());
+    AnalysisResult analysisResult =
+        getView()
+            .update(
+                loadingResult,
+                configurations,
+                request.getAspects(),
+                request.getViewOptions(),
+                request.getTopLevelArtifactContext(),
+                getReporter(),
+                getEventBus());
 
     // TODO(bazel-team): Merge these into one event.
     getEventBus().post(new AnalysisPhaseCompleteEvent(analysisResult.getTargetsToBuild(),

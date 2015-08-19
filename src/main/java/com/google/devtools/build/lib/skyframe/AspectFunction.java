@@ -80,9 +80,14 @@ public final class AspectFunction implements SkyFunction {
           "aspects must be attached to rules"));
     }
 
-    RuleConfiguredTarget associatedTarget = (RuleConfiguredTarget)
-        ((ConfiguredTargetValue) env.getValue(ConfiguredTargetValue.key(
-            key.getLabel(), key.getConfiguration()))).getConfiguredTarget();
+    final ConfiguredTargetValue configuredTargetValue =
+        (ConfiguredTargetValue)
+            env.getValue(ConfiguredTargetValue.key(key.getLabel(), key.getConfiguration()));
+    if (configuredTargetValue == null) {
+      return null;
+    }
+    RuleConfiguredTarget associatedTarget =
+        (RuleConfiguredTarget) configuredTargetValue.getConfiguredTarget();
 
     if (associatedTarget == null) {
       return null;
@@ -152,7 +157,11 @@ public final class AspectFunction implements SkyFunction {
     Preconditions.checkNotNull(aspect);
 
     return new AspectValue(
-        aspect, ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()));
+        key,
+        associatedTarget.getLabel(),
+        associatedTarget.getTarget().getLocation(),
+        aspect,
+        ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()));
   }
 
   @Nullable

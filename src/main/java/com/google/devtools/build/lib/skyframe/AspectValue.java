@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -91,19 +92,49 @@ public final class AspectValue extends ActionLookupValue {
     }
   }
 
+  private final Label label;
+  private final Location location;
+  private final AspectKey key;
   private final Aspect aspect;
 
-  public AspectValue(Aspect aspect, Iterable<Action> actions) {
+  public AspectValue(
+      AspectKey key, Label label, Location location, Aspect aspect, Iterable<Action> actions) {
     super(actions);
+    this.location = location;
+    this.label = label;
+    this.key = key;
     this.aspect = aspect;
   }
 
-  public Aspect get() {
+  public Aspect getAspect() {
     return aspect;
+  }
+
+  public Label getLabel() {
+    return label;
+  }
+
+  public Location getLocation() {
+    return location;
+  }
+
+  public AspectKey getKey() {
+    return key;
   }
 
   public static SkyKey key(Label label, BuildConfiguration configuration,
       Class<? extends ConfiguredAspectFactory> aspectFactory) {
     return new SkyKey(SkyFunctions.ASPECT, new AspectKey(label, configuration, aspectFactory));
+  }
+
+  public static SkyKey key(AspectKey aspectKey) {
+    return new SkyKey(SkyFunctions.ASPECT, aspectKey);
+  }
+
+  public static AspectKey createAspectKey(
+      Label label,
+      BuildConfiguration configuration,
+      Class<? extends ConfiguredAspectFactory> aspectFactory) {
+    return new AspectKey(label, configuration, aspectFactory);
   }
 }

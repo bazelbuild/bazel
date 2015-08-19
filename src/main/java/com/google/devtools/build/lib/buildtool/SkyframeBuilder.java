@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.runtime.BugReport;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
@@ -90,10 +93,12 @@ public class SkyframeBuilder implements Builder {
   }
 
   @Override
-  public void buildArtifacts(Set<Artifact> artifacts,
+  public void buildArtifacts(
+      Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
       Collection<ConfiguredTarget> targetsToBuild,
+      Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
       boolean explain,
@@ -125,17 +130,32 @@ public class SkyframeBuilder implements Builder {
     watchdog.start();
 
     try {
-      result = skyframeExecutor.buildArtifacts(executor, artifacts, targetsToBuild, parallelTests,
-          /*exclusiveTesting=*/false, keepGoing, explain, numJobs, actionCacheChecker,
-          executionProgressReceiver);
+      result =
+          skyframeExecutor.buildArtifacts(
+              executor,
+              artifacts,
+              targetsToBuild,
+              aspects,
+              parallelTests,
+              /*exclusiveTesting=*/ false,
+              keepGoing,
+              explain,
+              numJobs,
+              actionCacheChecker,
+              executionProgressReceiver);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       success = processResult(result, keepGoing, skyframeExecutor);
 
       Preconditions.checkState(
-          !success || result.keyNames().size()
-              == (artifacts.size() + targetsToBuild.size() + parallelTests.size()),
+          !success
+              || result.keyNames().size()
+                  == (artifacts.size()
+                      + targetsToBuild.size()
+                      + aspects.size()
+                      + parallelTests.size()),
           "Build reported as successful but not all artifacts and targets built: %s, %s",
-          result, artifacts);
+          result,
+          artifacts);
 
       // Run exclusive tests: either tagged as "exclusive" or is run in an invocation with
       // --test_output=streamed.
@@ -143,9 +163,19 @@ public class SkyframeBuilder implements Builder {
       for (ConfiguredTarget exclusiveTest : exclusiveTests) {
         // Since only one artifact is being built at a time, we don't worry about an artifact being
         // built and then the build being interrupted.
-        result = skyframeExecutor.buildArtifacts(executor, ImmutableSet.<Artifact>of(),
-            targetsToBuild, ImmutableSet.of(exclusiveTest), /*exclusiveTesting=*/true, keepGoing,
-            explain, numJobs, actionCacheChecker, null);
+        result =
+            skyframeExecutor.buildArtifacts(
+                executor,
+                ImmutableSet.<Artifact>of(),
+                targetsToBuild,
+                aspects,
+                ImmutableSet.of(exclusiveTest), /*exclusiveTesting=*/
+                true,
+                keepGoing,
+                explain,
+                numJobs,
+                actionCacheChecker,
+                null);
         boolean exclusiveSuccess = processResult(result, keepGoing, skyframeExecutor);
         Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
@@ -177,7 +207,7 @@ public class SkyframeBuilder implements Builder {
   /**
    * Process the Skyframe update, taking into account the keepGoing setting.
    *
-   * Returns false if the update() failed, but we should continue. Returns true on success.
+   * <p>Returns false if the update() failed, but we should continue. Returns true on success.
    * Throws on fail-fast failures.
    */
   private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
@@ -305,6 +335,9 @@ public class SkyframeBuilder implements Builder {
         ConfiguredTarget target = val.getConfiguredTarget();
         builtTargets.add(target);
         eventBus.post(TargetCompleteEvent.createSuccessful(target));
+      } else if (type == SkyFunctions.ASPECT_COMPLETION && node != null) {
+        AspectCompletionValue val = (AspectCompletionValue) node;
+        eventBus.post(AspectCompleteEvent.createSuccessful(val.getAspectValue()));
       } else if (type == SkyFunctions.ACTION_EXECUTION) {
         // Remember all completed actions, even those in error, regardless of having been cached or
         // really executed.

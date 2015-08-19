@@ -23,7 +23,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * TargetCompletionFunction builds all relevant test artifacts of a {@link
+ * TestCompletionFunction builds all relevant test artifacts of a {@link
  * com.google.devtools.build.lib.analysis.ConfiguredTarget}. This includes test shards and repeated
  * runs.
  */

@@ -1281,8 +1281,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
     }
-    return view.update(loadingResult, masterConfig, viewOptions,
-        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT, reporter, eventBus);
+    return view.update(
+        loadingResult,
+        masterConfig,
+        ImmutableList.<String>of(),
+        viewOptions,
+        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+        reporter,
+        eventBus);
   }
 
   protected static Predicate<Artifact> artifactNamed(final String name) {

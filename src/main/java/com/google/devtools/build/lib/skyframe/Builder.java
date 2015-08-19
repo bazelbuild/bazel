@@ -54,6 +54,7 @@ public interface Builder {
    *        artifacts.
    * @param exclusiveTests are executed one at a time, only after all other tasks have completed
    * @param targetsToBuild Set of targets which will be built
+   * @param aspects Set of aspects that will be built
    * @param executor an opaque application-specific value that will be
    *        passed down to the execute() method of any Action executed during
    *        this call
@@ -69,10 +70,12 @@ public interface Builder {
    * @throws TestExecException if any test fails
    */
   @ThreadCompatible
-  void buildArtifacts(Set<Artifact> artifacts,
+  void buildArtifacts(
+      Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
       Collection<ConfiguredTarget> targetsToBuild,
+      Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
       boolean explain,

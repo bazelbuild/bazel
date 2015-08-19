@@ -132,8 +132,9 @@ public class TestAspects {
   public abstract static class BaseAspect implements ConfiguredAspectFactory {
     @Override
     public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
-      return new Aspect.Builder()
-          .addProvider(AspectInfo.class,
+      return new Aspect.Builder(getClass().getName())
+          .addProvider(
+              AspectInfo.class,
               new AspectInfo(collectAspectData("aspect " + ruleContext.getLabel(), ruleContext)))
           .build();
     }
