@@ -76,6 +76,9 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    */
   public static final Key<String> FORCE_LOAD_FOR_XCODEGEN = new Key<>(LINK_ORDER);
 
+  /**
+   * Contains all header files. These may be either public or private headers.
+   */
   public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER);
 
   /**
@@ -90,7 +93,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
 
   /**
    * Contains all .gcno files one for every source file if in coverage mode.
-   * It contains information to reconstruct the basic block graphs and assign source line numbers 
+   * It contains information to reconstruct the basic block graphs and assign source line numbers
    * to blocks.
    */
   public static final Key<Artifact> GCNO = new Key<>(STABLE_ORDER);
@@ -334,7 +337,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     /**
      * Add elements from providers, but don't propagate them to any dependers on this ObjcProvider.
      * These elements will be exposed to {@link #get(Key)} calls, but not to any ObjcProviders
-     * which add this provider to themself.
+     * which add this provider to themselves.
      */
     public Builder addTransitiveWithoutPropagating(Iterable<ObjcProvider> providers) {
       for (ObjcProvider provider : providers) {

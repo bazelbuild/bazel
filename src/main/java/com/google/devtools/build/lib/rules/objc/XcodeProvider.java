@@ -526,6 +526,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .setName(label.getName())
             .setLabel(xcodeTargetName(label))
             .setProductType(productType.getIdentifier())
+            .addSupportFile(buildFilePath)
             .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
             .addAllUserHeaderSearchPath(userHeaderSearchPaths)
             .addAllHeaderSearchPath(headerSearchPaths)
@@ -552,8 +553,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addAllGeneralResourceFile(
                 Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)))
             .addAllGeneralResourceFile(
-                PathFragment.safePathStrings(objcProvider.get(GENERAL_RESOURCE_DIR)))
-            .addSupportFile(buildFilePath);
+                PathFragment.safePathStrings(objcProvider.get(GENERAL_RESOURCE_DIR)));
 
     if (CAN_LINK_PRODUCT_TYPES.contains(productType)) {
       // For builds with --ios_multi_cpus set, we may have several copies of some XCodeProviders
@@ -605,6 +605,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
       targetControl
           .addAllSourceFile(Artifact.toExecPaths(artifacts.getSrcs()))
+          .addAllSupportFile(Artifact.toExecPaths(artifacts.getAdditionalHdrs()))
+          .addAllSupportFile(Artifact.toExecPaths(artifacts.getPrivateHdrs()))
           .addAllNonArcSourceFile(Artifact.toExecPaths(artifacts.getNonArcSrcs()));
 
       for (Artifact pchFile : artifacts.getPchFile().asSet()) {

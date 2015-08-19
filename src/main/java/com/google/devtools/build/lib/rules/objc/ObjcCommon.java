@@ -93,6 +93,10 @@ public final class ObjcCommon {
     }
 
     ImmutableList<Artifact> hdrs() {
+      // Some rules may compile but not have the "hdrs" attribute.
+      if (!ruleContext.attributes().has("hdrs", Type.LABEL_LIST)) {
+        return ImmutableList.of();
+      }
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
     }
 
@@ -241,7 +245,6 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
-    private Iterable<Artifact> headers = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
@@ -326,11 +329,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    public Builder addHeaders(Iterable<Artifact> headers) {
-      this.headers = Iterables.concat(this.headers, headers);
-      return this;
-    }
-
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
@@ -397,7 +395,6 @@ public final class ObjcCommon {
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
           .addAll(INCLUDE, userHeaderSearchPaths)
           .addAll(DEFINE, defines)
-          .addAll(HEADER, headers)
           .addTransitiveAndPropagate(depObjcProviders)
           .addTransitiveWithoutPropagating(directDepObjcProviders);
 
@@ -453,8 +450,12 @@ public final class ObjcCommon {
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         Iterable<Artifact> allSources =
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
-        objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
-        objcProvider.addAll(SOURCE, allSources);
+        // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
+        // them.
+        objcProvider
+            .addAll(HEADER, artifacts.getAdditionalHdrs())
+            .addAll(LIBRARY, artifacts.getArchive().asSet())
+            .addAll(SOURCE, allSources);
         BuildConfiguration configuration = context.getConfiguration();
         RegexFilter filter = configuration.getInstrumentationFilter();
         if (configuration.isCodeCoverageEnabled()

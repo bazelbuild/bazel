@@ -27,8 +27,11 @@ import com.google.devtools.build.lib.actions.Artifact;
  */
 final class CompilationArtifacts {
   static class Builder {
+    // TODO(bazel-team): Should these be sets instead of just iterables?
     private Iterable<Artifact> srcs = ImmutableList.of();
     private Iterable<Artifact> nonArcSrcs = ImmutableList.of();
+    private Iterable<Artifact> additionalHdrs = ImmutableList.of();
+    private Iterable<Artifact> privateHdrs = ImmutableList.of();
     private Optional<Artifact> pchFile;
     private IntermediateArtifacts intermediateArtifacts;
 
@@ -39,6 +42,25 @@ final class CompilationArtifacts {
 
     Builder addNonArcSrcs(Iterable<Artifact> nonArcSrcs) {
       this.nonArcSrcs = Iterables.concat(this.nonArcSrcs, nonArcSrcs);
+      return this;
+    }
+
+    /**
+     * Adds header artifacts that should be directly accessible to dependers, but aren't specified
+     * in the hdrs attribute. {@code additionalHdrs} should not be a {@link NestedSet}, as it will
+     * be flattened when added.
+     */
+    Builder addAdditionalHdrs(Iterable<Artifact> additionalHdrs) {
+      this.additionalHdrs = Iterables.concat(this.additionalHdrs, additionalHdrs);
+      return this;
+    }
+
+    /**
+     * Adds header artifacts that should not be directly accessible to dependers.
+     * {@code privateHdrs} should not be a {@link NestedSet}, as it will be flattened when added.
+     */
+    Builder addPrivateHdrs(Iterable<Artifact> privateHdrs) {
+      this.privateHdrs = Iterables.concat(this.privateHdrs, privateHdrs);
       return this;
     }
 
@@ -61,23 +83,30 @@ final class CompilationArtifacts {
       if (!Iterables.isEmpty(srcs) || !Iterables.isEmpty(nonArcSrcs)) {
         archive = Optional.of(intermediateArtifacts.archive());
       }
-      return new CompilationArtifacts(srcs, nonArcSrcs, archive, pchFile);
+      return new CompilationArtifacts(
+          srcs, nonArcSrcs, additionalHdrs, privateHdrs, archive, pchFile);
     }
   }
 
   private final Iterable<Artifact> srcs;
   private final Iterable<Artifact> nonArcSrcs;
   private final Optional<Artifact> archive;
+  private final Iterable<Artifact> additionalHdrs;
+  private final Iterable<Artifact> privateHdrs;
   private final Optional<Artifact> pchFile;
   private final boolean hasSwiftSources;
 
   private CompilationArtifacts(
       Iterable<Artifact> srcs,
       Iterable<Artifact> nonArcSrcs,
+      Iterable<Artifact> additionalHdrs,
+      Iterable<Artifact> privateHdrs,
       Optional<Artifact> archive,
       Optional<Artifact> pchFile) {
     this.srcs = Preconditions.checkNotNull(srcs);
     this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
+    this.additionalHdrs = Preconditions.checkNotNull(additionalHdrs);
+    this.privateHdrs = Preconditions.checkNotNull(privateHdrs);
     this.archive = Preconditions.checkNotNull(archive);
     this.pchFile = Preconditions.checkNotNull(pchFile);
     this.hasSwiftSources = Iterables.any(this.srcs, new Predicate<Artifact>() {
@@ -94,6 +123,21 @@ final class CompilationArtifacts {
 
   public Iterable<Artifact> getNonArcSrcs() {
     return nonArcSrcs;
+  }
+
+  /**
+   * Returns the public headers that aren't included in the hdrs attribute.
+   */
+  public Iterable<Artifact> getAdditionalHdrs() {
+    return additionalHdrs;
+  }
+
+  /**
+   * Returns the private headers from the srcs attribute, which may by imported by any source or
+   * header in this target, but not by sources or headers of dependers.
+   */
+  public Iterable<Artifact> getPrivateHdrs() {
+    return privateHdrs;
   }
 
   public Optional<Artifact> getArchive() {
