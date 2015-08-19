@@ -32,6 +32,7 @@ class MockAdb(object):
     self.package_timestamp = None
     self._last_package_timestamp = 0
     self.shell_cmdlns = []
+    self.abi = "armeabi-v7a"
 
   def Exec(self, args):
     if self._error:
@@ -79,7 +80,7 @@ class MockAdb(object):
         file_path = shell_cmdln.split()[2]
         self.files.pop(file_path, None)
       elif shell_cmdln.startswith("getprop ro.product.cpu.abi"):
-        return self._CreatePopenMock(0, "armeabi-v7a", "")
+        return self._CreatePopenMock(0, self.abi, "")
       else:
         raise Exception("Unknown shell command line: %s" % shell_cmdln)
     # Return a mock subprocess.Popen object
@@ -91,6 +92,9 @@ class MockAdb(object):
 
   def SetError(self, returncode, stdout, stderr, for_arg=None):
     self._error = ((returncode, stdout, stderr), for_arg)
+
+  def SetAbi(self, abi):
+    self.abi = abi
 
 
 class IncrementalInstallTest(unittest.TestCase):
@@ -232,6 +236,16 @@ class IncrementalInstallTest(unittest.TestCase):
     # However, a full install should overwrite it.
     self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
     self.assertEquals("liba_1", self._GetDeviceFile("native/liba.so"))
+
+  def testNativeAbiCompatibility(self):
+    self._CreateZip()
+    with open("liba.so", "w") as f:
+      f.write("liba")
+
+    native_libs = ["armeabi:liba.so"]
+    self._mock_adb.SetAbi("arm64-v8a")
+    self._CallIncrementalInstall(incremental=False, native_libs=native_libs)
+    self.assertEquals("liba", self._GetDeviceFile("native/liba.so"))
 
   def testUploadNativeLibs(self):
     self._CreateZip()

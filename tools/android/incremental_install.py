@@ -60,6 +60,14 @@ FLAGS = gflags.FLAGS
 
 DEVICE_DIRECTORY = "/data/local/tmp/incrementaldeployment"
 
+# Some devices support ABIs other than those reported by getprop. In this case,
+# if the most specific ABI is not available in the .apk, we push the more
+# general ones.
+COMPATIBLE_ABIS = {
+    "armeabi-v7a": ["armeabi"],
+    "arm64-v8a": ["armeabi-v7a", "armeabi"]
+}
+
 
 class AdbError(Exception):
   """An exception class signaling an error in an adb invocation."""
@@ -467,17 +475,31 @@ def ConvertNativeLibs(args):
   return native_libs
 
 
+def FindAbi(device_abi, app_abis):
+  """Selects which ABI native libs should be installed for."""
+  if device_abi in app_abis:
+    return device_abi
+
+  if device_abi in COMPATIBLE_ABIS:
+    for abi in COMPATIBLE_ABIS[device_abi]:
+      if abi in app_abis:
+        logging.warn("App does not have native libs for ABI '%s'. Using ABI "
+                     "'%s'.", device_abi, abi)
+        return abi
+
+  logging.warn("No native libs for device ABI '%s'. App has native libs for "
+               "ABIs: %s", device_abi, ", ".join(app_abis))
+  return None
+
+
 def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   """Uploads native libraries to the device."""
 
   native_libs = ConvertNativeLibs(native_lib_args)
   libs = set()
   if native_libs:
-    abi = adb.GetAbi()
-    if abi not in native_libs:
-      logging.warn("No native libs for device ABI '%s'. Available ABIs: %s",
-                   abi, ", ".join(native_libs))
-    else:
+    abi = FindAbi(adb.GetAbi(), native_libs.keys())
+    if abi:
       libs = native_libs[abi]
 
   basename_to_path = {}
