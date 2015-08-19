@@ -330,15 +330,15 @@ public class SkyframeBuilder implements Builder {
     @Override
     public void evaluated(SkyKey skyKey, SkyValue node, EvaluationState state) {
       SkyFunctionName type = skyKey.functionName();
-      if (type == SkyFunctions.TARGET_COMPLETION && node != null) {
+      if (type.equals(SkyFunctions.TARGET_COMPLETION) && node != null) {
         TargetCompletionValue val = (TargetCompletionValue) node;
         ConfiguredTarget target = val.getConfiguredTarget();
         builtTargets.add(target);
         eventBus.post(TargetCompleteEvent.createSuccessful(target));
-      } else if (type == SkyFunctions.ASPECT_COMPLETION && node != null) {
+      } else if (type.equals(SkyFunctions.ASPECT_COMPLETION) && node != null) {
         AspectCompletionValue val = (AspectCompletionValue) node;
         eventBus.post(AspectCompleteEvent.createSuccessful(val.getAspectValue()));
-      } else if (type == SkyFunctions.ACTION_EXECUTION) {
+      } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
         // Remember all completed actions, even those in error, regardless of having been cached or
         // really executed.
         actionCompleted((Action) skyKey.argument());

@@ -51,7 +51,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     } else if (arg instanceof Action) {
       return "action: " + ((Action) arg).getMnemonic();
     } else if (arg instanceof LabelAndConfiguration
-        && skyFunctionName == SkyFunctions.TARGET_COMPLETION) {
+        && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
       return "configured target: " + ((LabelAndConfiguration) arg).getLabel();
     }
     throw new IllegalStateException(
