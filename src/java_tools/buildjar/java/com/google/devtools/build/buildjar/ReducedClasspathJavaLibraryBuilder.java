@@ -21,6 +21,7 @@ import com.sun.tools.javac.main.Main.Result;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.regex.Pattern;
 
 /**
  * A variant of SimpleJavaLibraryBuilder that attempts to reduce the compile-time classpath right
@@ -76,10 +77,14 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     }
     return result;
   }
-  
+
+  private static final Pattern MISSING_PACKAGE =
+      Pattern.compile("error: package ([\\p{javaJavaIdentifierPart}\\.]+) does not exist");
+
   private boolean hasRecognizedError(String javacOutput) {
     return javacOutput.contains("error: cannot access")
         || javacOutput.contains("error: cannot find symbol")
-        || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure");
+        || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
+        || MISSING_PACKAGE.matcher(javacOutput).find();
   }
 }
