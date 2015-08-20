@@ -36,7 +36,6 @@ import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Rule;
 
 import org.apache.maven.model.building.ModelSource;
-import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.IOException;
@@ -116,9 +115,9 @@ public class Resolver {
           if (attributeMap.has("repository", Type.STRING)
               && !attributeMap.get("repository", Type.STRING).isEmpty()) {
             modelResolver.addUserRepository(attributeMap.get("repository", Type.STRING));
-            rule.setRepository(attributeMap.get("repository", Type.STRING));
+            rule.setRepository(attributeMap.get("repository", Type.STRING), handler);
           }
-        } catch (Rule.InvalidRuleException | InvalidRepositoryException e) {
+        } catch (Rule.InvalidRuleException e) {
           handler.handle(Event.error(location, "Couldn't get attribute: " + e.getMessage()));
           return;
         }
@@ -132,7 +131,7 @@ public class Resolver {
               "Could not resolve model for " + target + ": " + e.getMessage()));
           continue;
         }
-        resolver.resolveModelSource(modelSource);
+        resolver.resolveEffectiveModel(modelSource);
       } else {
         handler.handle(Event.warn(location, "Cannot fetch transitive dependencies for " + target
             + " yet, skipping"));

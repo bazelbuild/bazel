@@ -24,7 +24,6 @@ import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.building.UrlModelSource;
-import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
@@ -60,6 +59,10 @@ public class DefaultModelResolver implements ModelResolver {
   @Override
   public ModelSource resolveModel(String groupId, String artifactId, String version)
       throws UnresolvableModelException {
+    String artifact = Rule.name(groupId, artifactId);
+    if (artifactToUrl.containsKey(artifact)) {
+      return artifactToUrl.get(artifact);
+    }
     for (Repository repository : repositories) {
       UrlModelSource modelSource = getModelSource(
           repository.getUrl(), groupId, artifactId, version);
@@ -124,13 +127,12 @@ public class DefaultModelResolver implements ModelResolver {
   }
 
   @Override
-  public void addRepository(Repository repository) throws InvalidRepositoryException {
+  public void addRepository(Repository repository) {
     repositories.add(repository);
   }
 
   @Override
-  public void addRepository(Repository repository, boolean replace)
-      throws InvalidRepositoryException {
+  public void addRepository(Repository repository, boolean replace) {
     addRepository(repository);
   }
 
@@ -142,7 +144,7 @@ public class DefaultModelResolver implements ModelResolver {
   /**
    * Adds a user-specified repository to the list.
    */
-  public void addUserRepository(String url) throws InvalidRepositoryException {
+  public void addUserRepository(String url) {
     Repository repository = new Repository();
     repository.setUrl(url);
     repository.setId("user-defined repository");
@@ -150,4 +152,12 @@ public class DefaultModelResolver implements ModelResolver {
     addRepository(repository);
   }
 
+  public boolean putModelSource(String groupId, String artifactId, ModelSource modelSource) {
+    String key = Rule.name(groupId, artifactId);
+    if (!artifactToUrl.containsKey(key)) {
+      artifactToUrl.put(key, modelSource);
+      return true;
+    }
+    return false;
+  }
 }

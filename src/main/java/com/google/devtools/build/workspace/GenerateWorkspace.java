@@ -39,7 +39,7 @@ import java.util.List;
  */
 public class GenerateWorkspace {
 
-  private final StoredEventHandler handler;
+  private final EventHandler handler;
   private final FileSystem fileSystem;
   private final com.google.devtools.build.workspace.maven.Resolver resolver;
   private final Path outputDir;
@@ -76,7 +76,7 @@ public class GenerateWorkspace {
   }
 
   private GenerateWorkspace(String outputDir) {
-    this.handler = new StoredEventHandler();
+    this.handler = new EventHandler();
     this.fileSystem = getFileSystem();
     this.resolver = new com.google.devtools.build.workspace.maven.Resolver(handler);
     if (outputDir.isEmpty()) {
@@ -146,6 +146,13 @@ public class GenerateWorkspace {
   private void cleanup() {
     for (Event event : handler.getEvents()) {
       System.err.println(event);
+    }
+  }
+
+  private class EventHandler extends StoredEventHandler {
+    @Override
+    public void handle(Event event) {
+      System.err.println(event.getKind() + ": " + event.getMessage());
     }
   }
 }

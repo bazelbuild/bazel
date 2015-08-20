@@ -31,6 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build:__subpackages__",
     ],
     deps = [
+        "//src/main/java:events",
         "//src/main/java:maven-connector",
         "//third_party:aether",
         "//third_party:guava",

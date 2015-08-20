@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
 import org.apache.maven.model.Model;
+import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuilder;
 import org.apache.maven.model.building.DefaultModelBuilderFactory;
@@ -29,13 +30,17 @@ import org.apache.maven.model.building.FileModelSource;
 import org.apache.maven.model.building.ModelBuildingException;
 import org.apache.maven.model.building.ModelBuildingResult;
 import org.apache.maven.model.building.ModelSource;
+import org.apache.maven.model.composition.DefaultDependencyManagementImporter;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.locator.DefaultModelLocator;
+import org.apache.maven.model.management.DefaultDependencyManagementInjector;
+import org.apache.maven.model.management.DefaultPluginManagementInjector;
+import org.apache.maven.model.plugin.DefaultPluginConfigurationExpander;
 import org.apache.maven.model.profile.DefaultProfileSelector;
-import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +66,11 @@ public class Resolver {
     this.headers = Lists.newArrayList();
     this.deps = Maps.newHashMap();
     this.modelBuilder = new DefaultModelBuilderFactory().newInstance()
-        .setProfileSelector(new DefaultProfileSelector());
+        .setProfileSelector(new DefaultProfileSelector())
+        .setPluginConfigurationExpander(new DefaultPluginConfigurationExpander())
+        .setPluginManagementInjector(new DefaultPluginManagementInjector())
+        .setDependencyManagementImporter(new DefaultDependencyManagementImporter())
+        .setDependencyManagementInjector(new DefaultDependencyManagementInjector());
     this.modelResolver = new DefaultModelResolver();
   }
 
@@ -118,20 +127,11 @@ public class Resolver {
     processor.setModelReader(new DefaultModelReader());
     File pom = processor.locatePom(new File(projectPath));
     addHeader(pom.getAbsolutePath());
-    Model model = resolveModelSource(new FileModelSource(pom));
-
-    // For the top-level pom _only_, resolve all of its submodules.
-    resolveSubmodules(model, pom);
-  }
-
-  /**
-   * This calls resolvePomDependencies on each submodule of the model, thus filling in the
-   * transitive submodules' dependencies as well as the main project's.
-   */
-  private void resolveSubmodules(Model model, File pom) {
-    for (String module : model.getModules()) {
-      resolvePomDependencies(pom.getParent() + "/" + module);
-    }
+    FileModelSource pomSource = new FileModelSource(pom);
+    // First resolve the model source locations.
+    resolveSourceLocations(pomSource);
+    // Next, fully resolve the models.
+    resolveEffectiveModel(pomSource);
   }
 
   /**
@@ -140,7 +140,7 @@ public class Resolver {
    * @return the model.
    */
   @Nullable
-  public Model resolveModelSource(ModelSource modelSource) {
+  public Model resolveEffectiveModel(ModelSource modelSource) {
     DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
     request.setModelResolver(modelResolver);
     request.setModelSource(modelSource);
@@ -154,15 +154,8 @@ public class Resolver {
           + ": " + e.getMessage()));
       return null;
     }
-
     for (Repository repo : model.getRepositories()) {
-      try {
-        modelResolver.addRepository(repo);
-      } catch (InvalidRepositoryException e) {
-        handler.handle(Event.error("Unable to add repository " + repo.getName()
-            + " (" + repo.getId() + "," + repo.getUrl() + ")"));
-        return model;
-      }
+      modelResolver.addRepository(repo);
     }
 
     for (org.apache.maven.model.Dependency dependency : model.getDependencies()) {
@@ -176,8 +169,8 @@ public class Resolver {
           ModelSource depModelSource = modelResolver.resolveModel(
               dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
           if (depModelSource != null) {
-            artifactRule.setRepository(depModelSource.getLocation());
-            resolveModelSource(depModelSource);
+            artifactRule.setRepository(depModelSource.getLocation(), handler);
+            resolveEffectiveModel(depModelSource);
           } else {
             handler.handle(Event.error("Could not get a model for " + dependency));
           }
@@ -189,6 +182,56 @@ public class Resolver {
       }
     }
     return model;
+  }
+
+  /**
+   * Find the POM files for a given pom's parent(s) and submodules.
+   */
+  private void resolveSourceLocations(FileModelSource fileModelSource) {
+    DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
+    request.setModelResolver(modelResolver);
+    request.setModelSource(fileModelSource);
+    Model model;
+    try {
+      ModelBuildingResult result = modelBuilder.build(request);
+      model = result.getRawModel();
+    } catch (ModelBuildingException | IllegalArgumentException e) {
+      // IllegalArg can be thrown if the parent POM cannot be resolved.
+      handler.handle(Event.error("Unable to resolve raw Maven model from "
+          + fileModelSource.getLocation() + ": " + e.getMessage()));
+      return;
+    }
+
+    // Self.
+    Parent parent = model.getParent();
+    if (model.getGroupId() == null) {
+      model.setGroupId(parent.getGroupId());
+    }
+    if (!modelResolver.putModelSource(
+        model.getGroupId(), model.getArtifactId(), fileModelSource)) {
+      return;
+    }
+
+    // Parent.
+    File pomDirectory = new File(fileModelSource.getLocation()).getParentFile();
+    if (parent != null && !parent.getArtifactId().equals(model.getArtifactId())) {
+      File parentPom;
+      try {
+        parentPom = new File(pomDirectory, parent.getRelativePath()).getCanonicalFile();
+      } catch (IOException e) {
+        handler.handle(Event.error("Unable to get canonical path of " + pomDirectory + " and "
+            + parent.getRelativePath()));
+        return;
+      }
+      if (parentPom.exists()) {
+        resolveSourceLocations(new FileModelSource(parentPom));
+      }
+    }
+
+    // Submodules.
+    for (String module : model.getModules()) {
+      resolveSourceLocations(new FileModelSource(new File(pomDirectory, module + "/pom.xml")));
+    }
   }
 
   /**

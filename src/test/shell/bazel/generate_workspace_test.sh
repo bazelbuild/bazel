@@ -40,6 +40,10 @@ function tear_down() {
   rm -rf $m2
 }
 
+function generate_workspace() {
+  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace $@
+}
+
 # Takes: groupId, artifactId, and version.
 function make_artifact() {
   local groupId=$1
@@ -82,6 +86,14 @@ function wait_for_server_startup() {
   rm some-file
 }
 
+function get_workspace_file() {
+  cat $TEST_log | tail -n 2 | head -n 1
+}
+
+function get_build_file() {
+  cat $TEST_log | tail -n 1
+}
+
 function test_pom() {
   # Create a maven repo
   make_artifact blorp glorp 1.2.3
@@ -122,9 +134,22 @@ EOF
   assert_contains "\"@blorp/glorp//jar\"," build
 }
 
+function test_invalid_pom() {
+  # No pom file.
+  rm -f $TEST_TMPDIR/pom.xml
+  generate_workspace -m $TEST_TMPDIR &> $TEST_log
+  expect_log "Non-readable POM $TEST_TMPDIR/pom.xml"
+
+  # Invalid XML.
+  cat > $TEST_TMPDIR/pom.xml <<EOF
+<project>
+EOF
+  generate_workspace -m $TEST_TMPDIR &> $TEST_log
+  expect_log "expected end tag </project>"
+}
+
 function test_profile() {
   cat > $TEST_TMPDIR/pom.xml <<EOF
-
 <project>
   <modelVersion>4.0.0</modelVersion>
   <groupId>my</groupId>
@@ -146,6 +171,59 @@ EOF
 
   ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
     --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
+}
+
+function test_submodules() {
+  cat > $TEST_TMPDIR/pom.xml <<EOF
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>xyz</groupId>
+    <artifactId>a</artifactId>
+    <version>1.0</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>b1</module>
+        <module>b2</module>
+    </modules>
+</project>
+EOF
+
+  # Create submodules, version and group are inherited from parent.
+  mkdir -p $TEST_TMPDIR/{b1,b2}
+  cat > $TEST_TMPDIR/b1/pom.xml <<EOF
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>b1</artifactId>
+    <parent>
+        <groupId>xyz</groupId>
+        <artifactId>a</artifactId>
+        <version>1.0</version>
+    </parent>
+    <dependencies>
+        <dependency>
+            <groupId>xyz</groupId>
+            <artifactId>b2</artifactId>
+            <version>1.0</version>
+        </dependency>
+    </dependencies>
+</project>
+EOF
+
+  cat > $TEST_TMPDIR/b2/pom.xml <<EOF
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>b2</artifactId>
+    <parent>
+        <groupId>xyz</groupId>
+        <artifactId>a</artifactId>
+        <version>1.0</version>
+    </parent>
+</project>
+EOF
+
+  generate_workspace -m $TEST_TMPDIR/b1 &> $TEST_log || fail "generate failed"
+  expect_log "xyz/b2 was defined in $TEST_TMPDIR/b2/pom.xml which isn't a repository URL"
+  assert_contains "artifact = \"xyz:b2:1.0\"," $(get_workspace_file)
 }
 
 run_suite "maven tests"

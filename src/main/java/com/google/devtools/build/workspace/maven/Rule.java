@@ -17,6 +17,8 @@ package com.google.devtools.build.workspace.maven;
 import com.google.common.collect.Sets;
 
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import org.apache.maven.model.Dependency;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
@@ -83,15 +85,21 @@ public final class Rule {
     return groupId() + ":" + artifactId() + ":" + version();
   }
 
-  public void setRepository(String url) throws InvalidRuleException {
+  public void setRepository(String url, EventHandler handler) {
     // url is of the form repository/group/artifact/version/artifact-version.pom. Strip off
     // everything after repository/.
     int uriStart = url.indexOf(getUri());
     if (uriStart == -1) {
-      throw new InvalidRuleException("Cannot find expected URI (" + getUri()
-          + ") in URL (" + url + ")");
+      // If url is actually a path to a file, it won't match the URL pattern described above.
+      // However, in that case we also have no way of fetching the artifact, so we'll print a
+      // warning.
+      handler.handle(Event.warn(name() + " was defined in " + url
+          + " which isn't a repository URL, so we couldn't figure out how to fetch "
+          + toMavenArtifactString() + " in a general way. You will need to set the \"repository\""
+          + " attribute manually"));
+    } else {
+      this.repository = url.substring(0, uriStart);
     }
-    this.repository = url.substring(0, uriStart);
   }
 
   private String getUri() {
