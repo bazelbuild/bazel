@@ -467,6 +467,18 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns an artifact that can be an output of shared actions. Only use when there is no other
+   * option.
+   *
+   * <p>This artifact can be created anywhere in the output tree, which, in addition to making
+   * sharing possible, opens up the possibility of action conflicts and makes it impossible to
+   * infer the label of the rule creating the artifact from the path of the artifact.
+   */
+  public Artifact getShareableArtifact(PathFragment rootRelativePath, Root root) {
+    return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
+  }
+
+  /**
    * Creates an artifact in a directory that is unique to the package that contains the rule,
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */

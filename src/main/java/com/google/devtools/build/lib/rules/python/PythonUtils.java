@@ -83,7 +83,7 @@ public final class PythonUtils {
   private static Artifact get2to3OutputArtifact(RuleContext ruleContext, Artifact input) {
     Root root = ruleContext.getConfiguration().getGenfilesDirectory();
     PathFragment path = new PathFragment("python3").getRelative(input.getRootRelativePath());
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(path, root);
+    return ruleContext.getShareableArtifact(path, root);
   }
 
   /**

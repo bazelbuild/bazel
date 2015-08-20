@@ -153,7 +153,7 @@ public abstract class NativeDepsHelper {
             linkopts, linkstamps.keySet(), buildInfoArtifacts,
             ruleContext.getFeatures())
         : nativeDepsPath;
-    Artifact sharedLibrary = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+    Artifact sharedLibrary = ruleContext.getShareableArtifact(
         linkerOutputPath, configuration.getBinDirectory());
     CppLinkAction.Builder builder = new CppLinkAction.Builder(
         ruleContext, sharedLibrary, configuration, toolchain);
