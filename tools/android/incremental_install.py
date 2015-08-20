@@ -174,7 +174,7 @@ class Adb(object):
   def GetInstallTime(self, package):
     """Get the installation time of a package."""
     _, stdout, _, _ = self._Shell("dumpsys package %s" % package)
-    match = re.search("lastUpdateTime=(.*)$", stdout, re.MULTILINE)
+    match = re.search("firstInstallTime=(.*)$", stdout, re.MULTILINE)
     if match:
       return match.group(1)
     else:
@@ -239,6 +239,12 @@ class Adb(object):
     # standard out instead of relying on the return code.
     if "Success" not in stderr and "Success" not in stdout:
       raise AdbError(args, ret, stdout, stderr)
+
+  def Uninstall(self, pkg):
+    """Invoke 'adb uninstall'."""
+    self._Exec(["uninstall", pkg])
+    # No error checking. If this fails, we assume that the app was not installed
+    # in the first place.
 
   def Delete(self, remote):
     """Delete the given file (or directory) on the device."""
@@ -586,6 +592,71 @@ def VerifyInstallTimestamp(adb, app_package):
                              "'mobile-install'?" % app_package)
 
 
+def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
+                            split_apks):
+  """Does incremental installation using split packages."""
+  app_dir = os.path.join(DEVICE_DIRECTORY, app_package)
+  device_manifest_path = "%s/split_manifest" % app_dir
+  device_manifest = adb.Pull(device_manifest_path)
+  expected_timestamp = adb.Pull("%s/install_timestamp" % app_dir)
+  actual_timestamp = adb.GetInstallTime(app_package)
+  device_checksums = {}
+  if device_manifest is not None:
+    for manifest_line in device_manifest.split("\n"):
+      if manifest_line:
+        name, checksum = manifest_line.split(" ")
+        device_checksums[name] = checksum
+
+  install_checksums = {}
+  install_checksums["__MAIN__"] = Checksum(
+      os.path.join(execroot, split_main_apk))
+  for apk in split_apks:
+    install_checksums[apk] = Checksum(os.path.join(execroot, apk))
+
+  reinstall_main = False
+  if (device_manifest is None or actual_timestamp is None or
+      actual_timestamp != expected_timestamp or
+      install_checksums["__MAIN__"] != device_checksums["__MAIN__"] or
+      set(device_checksums.keys()) != set(install_checksums.keys())):
+    # The main app is not up to date or not present or something happened
+    # with the on-device manifest. Start from scratch. Notably, we cannot
+    # uninstall a split package, so if the set of packages changes, we also
+    # need to do a full reinstall.
+    reinstall_main = True
+    device_checksums = {}
+
+  apks_to_update = [
+      apk for apk in split_apks if
+      apk not in device_checksums or
+      device_checksums[apk] != install_checksums[apk]]
+
+  if not apks_to_update and not reinstall_main:
+    # Nothing to do
+    return
+
+  # Delete the device manifest so that if something goes wrong, we do a full
+  # reinstall next time
+  adb.Delete(device_manifest_path)
+
+  if reinstall_main:
+    logging.info("Installing main APK...")
+    adb.Uninstall(app_package)
+    adb.InstallMultiple(os.path.join(execroot, split_main_apk))
+    adb.PushString(
+        adb.GetInstallTime(app_package),
+        "%s/install_timestamp" % app_dir).result()
+
+  logging.info("Reinstalling %s APKs...", len(apks_to_update))
+
+  for apk in apks_to_update:
+    adb.InstallMultiple(os.path.join(execroot, apk), app_package)
+
+  install_manifest = [
+      name + " " + checksum for name, checksum in install_checksums.iteritems()]
+  adb.PushString("\n".join(install_manifest),
+                 "%s/split_manifest" % app_dir).result()
+
+
 def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
                        adb_jobs, start_type, dexmanifest=None, apk=None,
                        native_libs=None, resource_apk=None,
@@ -615,11 +686,8 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
     app_package = GetAppPackage(os.path.join(execroot, stub_datafile))
     app_dir = os.path.join(DEVICE_DIRECTORY, app_package)
     if split_main_apk:
-      adb.InstallMultiple(os.path.join(execroot, split_main_apk))
-      for split_apk in split_apks:
-        # TODO(build-team): This always reinstalls everything, which defeats the
-        # purpose of this whole system.
-        adb.InstallMultiple(os.path.join(execroot, split_apk), app_package)
+      SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
+                              split_apks)
     else:
       if not apk:
         VerifyInstallTimestamp(adb, app_package)

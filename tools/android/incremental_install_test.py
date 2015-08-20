@@ -28,9 +28,10 @@ class MockAdb(object):
   def __init__(self):
     # Map of file name -> contents.
     self.files = {}
+    self.split_apks = set()
     self._error = None
     self.package_timestamp = None
-    self._last_package_timestamp = 0
+    self._last_package_timestamp = 1
     self.shell_cmdlns = []
     self.abi = "armeabi-v7a"
 
@@ -64,6 +65,19 @@ class MockAdb(object):
       self.package_timestamp = self._last_package_timestamp
       self._last_package_timestamp += 1
       return self._CreatePopenMock(0, "Success", "")
+    elif cmd == "install-multiple":
+      if args[3] == "-p":
+        with open(args[5]) as f:
+          content = f.read()
+        self.split_apks.add(content)
+      else:
+        self.package_timestamp = self._last_package_timestamp
+        self._last_package_timestamp += 1
+      return self._CreatePopenMock(0, "Success", "")
+    elif cmd == "uninstall":
+      self._CreatePopenMock(0, "Success", "")
+      self.split_apks = set()
+      self.package_timestamp = None
     elif cmd == "shell":
       # "/test/adb shell ..."
       # mkdir, rm, am (application manager), or monkey
@@ -74,7 +88,7 @@ class MockAdb(object):
       elif shell_cmdln.startswith("dumpsys package "):
         return self._CreatePopenMock(
             0,
-            "lastUpdateTime=%s" % self.package_timestamp,
+            "firstInstallTime=%s" % self.package_timestamp,
             "")
       elif shell_cmdln.startswith("rm"):
         file_path = shell_cmdln.split()[2]
@@ -161,8 +175,11 @@ class IncrementalInstallTest(unittest.TestCase):
     self._mock_adb.files.pop(self._GetDeviceAppPath(f), None)
 
   def _CallIncrementalInstall(self, incremental, native_libs=None,
+                              split_main_apk=None, split_apks=None,
                               start_type="no"):
-    if incremental:
+    if split_main_apk:
+      apk = split_main_apk
+    elif incremental:
       apk = None
     else:
       apk = self._APK
@@ -174,6 +191,8 @@ class IncrementalInstallTest(unittest.TestCase):
         dexmanifest=self._DEXMANIFEST,
         apk=apk,
         resource_apk=self._RESOURCE_APK,
+        split_main_apk=split_main_apk,
+        split_apks=split_apks,
         native_libs=native_libs,
         output_marker=self._OUTPUT_MARKER,
         adb_jobs=1,
@@ -200,6 +219,50 @@ class IncrementalInstallTest(unittest.TestCase):
     self.assertEquals("content2", self._GetDeviceFile("dex/ip2"))
     self.assertEquals("content3", self._GetDeviceFile("dex/ip3"))
     self.assertEquals("resource apk", self._GetDeviceFile("resources.ap_"))
+
+  def testSplitInstallToPristineDevice(self):
+    with open("split1", "w") as f:
+      f.write("split_content1")
+
+    with open("main", "w") as f:
+      f.write("main_Content")
+
+    self._CallIncrementalInstall(
+        incremental=False, split_main_apk="main", split_apks=["split1"])
+    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+
+  def testSplitInstallUnchanged(self):
+    with open("split1", "w") as f:
+      f.write("split_content1")
+
+    with open("main", "w") as f:
+      f.write("main_Content")
+
+    self._CallIncrementalInstall(
+        incremental=False, split_main_apk="main", split_apks=["split1"])
+    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+    self._mock_adb.split_apks = set()
+    self._CallIncrementalInstall(
+        incremental=False, split_main_apk="main", split_apks=["split1"])
+    self.assertEquals(set([]), self._mock_adb.split_apks)
+
+  def testSplitInstallChanges(self):
+    with open("split1", "w") as f:
+      f.write("split_content1")
+
+    with open("main", "w") as f:
+      f.write("main_Content")
+
+    self._CallIncrementalInstall(
+        incremental=False, split_main_apk="main", split_apks=["split1"])
+    self.assertEquals(set(["split_content1"]), self._mock_adb.split_apks)
+
+    with open("split1", "w") as f:
+      f.write("split_content2")
+    self._mock_adb.split_apks = set()
+    self._CallIncrementalInstall(
+        incremental=False, split_main_apk="main", split_apks=["split1"])
+    self.assertEquals(set(["split_content2"]), self._mock_adb.split_apks)
 
   def testMissingNativeManifestWithIncrementalInstall(self):
     self._CreateZip()
@@ -356,8 +419,8 @@ class IncrementalInstallTest(unittest.TestCase):
         "zip1 zip2 ip2 1")
     self._PutDeviceFile("dex/ip1", "content1")
     self._PutDeviceFile("dex/ip2", "content2")
-    self._PutDeviceFile("install_timestamp", "0")
-    self._mock_adb.package_timestamp = "0"
+    self._PutDeviceFile("install_timestamp", "1")
+    self._mock_adb.package_timestamp = "1"
 
     self._CreateZip("zip1", ("zp1", "content1"))
     self._CreateLocalManifest("zip1 zp1 ip1 0")
