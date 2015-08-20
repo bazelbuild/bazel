@@ -723,7 +723,6 @@ public class ExecutionTool {
         }
       }
       if (headerFlag) {
-        outErr.printErr("Here we are\n");
         outErr.printErr("Target " + label + " up-to-date (nothing to build)\n");
       }
     }
