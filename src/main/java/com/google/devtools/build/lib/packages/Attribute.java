@@ -1065,6 +1065,20 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
+   * Returns the public name of this attribute. This is the name we use in Skylark code
+   * and we can use it to display to the end-user.
+   * Implicit and late-bound attributes start with '_' (instead of '$' or ':').
+   */
+  public String getPublicName() {
+    String name = getName();
+    // latebound and implicit attributes have a one-character prefix we want to drop
+    if (isLateBound() || isImplicit()) {
+      return "_" + name.substring(1);
+    }
+    return name;
+  }
+
+  /**
    * Returns the logical type of this attribute. (May differ from the actual
    * representation as a value in the build interpreter; for example, an
    * attribute may logically be a list of labels, but be represented as a list

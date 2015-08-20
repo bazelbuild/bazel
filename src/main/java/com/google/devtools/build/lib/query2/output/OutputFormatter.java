@@ -303,7 +303,7 @@ public abstract class OutputFormatter implements Serializable {
           continue;  // Don't print default values.
         }
         Object value = Iterables.getOnlyElement(values.first);
-        out.printf("  %s = ", attr.getName());
+        out.printf("  %s = ", attr.getPublicName());
         if (value instanceof Label) {
           value = value.toString();
         } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
