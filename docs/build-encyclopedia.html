@@ -2445,12 +2445,14 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -2478,8 +2480,9 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -3025,12 +3028,14 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -3058,8 +3063,9 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -3766,12 +3772,14 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -3799,8 +3807,9 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -5468,7 +5477,7 @@ can be found <a href="http://j2objc.org">here</a>.
       java_import
     </h3>
 
-    <pre class="rule-signature">java_import(<a href="#java_import.name">name</a>, <a href="#common.data">data</a>, <a href="#java_import.constraints">constraints</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#java_import.exports">exports</a>, <a href="#common.features">features</a>, <a href="#java_import.jars">jars</a>, <a href="#common.licenses">licenses</a>, <a href="#java_import.neverlink">neverlink</a>, <a href="#java_import.srcjar">srcjar</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">java_import(<a href="#java_import.name">name</a>, <a href="#common.data">data</a>, <a href="#java_import.constraints">constraints</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#java_import.exports">exports</a>, <a href="#common.features">features</a>, <a href="#java_import.jars">jars</a>, <a href="#common.licenses">licenses</a>, <a href="#java_import.neverlink">neverlink</a>, <a href="#java_import.runtime_deps">runtime_deps</a>, <a href="#java_import.srcjar">srcjar</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -5562,6 +5571,18 @@ can be found <a href="http://j2objc.org">here</a>.
         during execution. Examples of libraries like this are IDE APIs
         for IDE plug-ins or <code>tools.jar</code> for anything running on
         a standard JDK.
+
+          </td>
+        </tr>
+                              <tr>
+          <td id="java_import.runtime_deps">
+            <code>runtime_deps</code>
+          </td>
+          <td>
+                        <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+                                Libraries to make available to the final binary or test at runtime only.
+        
+        See <a href="#$java_rule.runtime_deps">java_library.runtime_deps</a>.
 
           </td>
         </tr>
@@ -6288,8 +6309,9 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -6597,12 +6619,14 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -6630,8 +6654,9 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -7707,12 +7732,14 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -7740,8 +7767,9 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>
@@ -8283,12 +8311,14 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
+                                  The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
           
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
 
           </td>
         </tr>
@@ -8316,8 +8346,9 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are included as headers by source
-          files in this rule or by users of this library.
+                                  The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library.
           
 
           </td>

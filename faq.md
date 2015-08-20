@@ -192,12 +192,12 @@ straightforward, provided a JDK is available for the platform.
 What about Windows?
 -------------------
 
-We have experimented with a Windows port
-[using MinGW/MSYS](docs/windows.html), but have no plans to invest in this
-port right now. Due to its Unix heritage, porting Bazel is significant
-work. For example, Bazel uses symlinks extensively, which has varying
-levels of support across Windows versions.
+Due to its Unix heritage, porting Bazel to Windows is significant work. For
+example, Bazel uses symlinks extensively, which has varying levels of support
+across Windows versions.
 
+We are currently actively working on improving Windows support, but it's still
+ways from being usable.
 
 What should I not use Bazel for?
 --------------------------------
@@ -302,7 +302,7 @@ including Docker images.
 Can I build Docker images with Bazel?
 -------------------------------------
 
-Yes, you can use our [Docker rules](https://www.google.com/url?q=https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md&usg=AFQjCNEHadeay7nnQm-WCcZ-UQoHCccXqA)
+Yes, you can use our [Docker rules](https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md)
 to build docker images that are reproducible.
 
 
@@ -318,8 +318,8 @@ will need to take some extra care:
     execution (--spawn_strategy=sandboxed, only on Linux) can
     help find undeclared dependencies.
 
-  * Avoid storing timestamps in generated files. ZIP files and other
-    archives are especially prone to this.
+  * Avoid storing timestamps and user-IDs in generated files. ZIP files and
+    other archives are especially prone to this.
 
   * Avoid connecting to the network. Sandboxed execution can help here
     too.
@@ -331,7 +331,7 @@ will need to take some extra care:
 Do you have binary releases?
 ----------------------------
 
-No, but we should. Stay tuned.
+Not yet, but we are actively working on this. Stay tuned.
 
 
 I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
@@ -356,7 +356,7 @@ I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
 
 Bazel returns a non-zero exit code if the build or test invocation
 fails, and this should be enough for basic CI integration.  Since
-Bazel does not need clean builds for correctness, the CI system can
+Bazel does not need clean builds for correctness, the CI system should
 be configured to not clean before starting a build/test run.
 
 Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
@@ -384,8 +384,8 @@ files for python:
 We are working on opening up a subset of our internal Python rules, so
 they can be used as helper scripts as part of a build.
 
-We currently have no plans to provide packaging up of self-contained
-Python binaries.
+Simplistic support for PEX-style binaries is at
+[here](https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl).
 
 
 What about Go?
@@ -394,11 +394,10 @@ What about Go?
 If your codebase is 100% Go, the `go` tool has excellent support for
 building and testing, and Bazel will not bring you much benefit.
 
-The server code written in Go at Google is built with Bazel. However,
-the rules that accomplish this are rather complex due to their
-interactions with our C++ libraries, and are incompatible with the
-conventions of the `go` tool.  For this reason, we'd rather not open
-them up in their current form.
+The server code written in Go at Google is built with Bazel. However, the rules
+that accomplish this are rather complex due to their interactions with our C++
+libraries, and are incompatible with the conventions of the `go` tool.  We are
+working on improving this situation.
 
 
 Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
@@ -410,6 +409,11 @@ without recompiling Bazel.
 For documentation: see [here](docs/skylark/index.html).
 
 At present, the extension mechanism is experimental though.
+
+For the following languages, we have experimental rules:
+
+   * [Rust](https://github.com/google/bazel/blob/master/tools/build_rules/rust/README.md)
+   * [Closure](https://github.com/google/bazel/blob/master/tools/build_rules/closure/README.md)
 
 
 I need more functionality; can I add rules that are compiled into Bazel?

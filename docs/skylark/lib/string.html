@@ -12,9 +12,7 @@ c = """multiline string"""
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
 z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"bc" in "abcd"   # evaluates to True
-x = []
-for s in "abc":
-  x += [s]     # x == ["a", "b", "c"]</pre>
+x = [s for s in "abc"]  # x == ["a", "b", "c"]</pre>
 Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead.
 
 <div class="toc">
@@ -191,7 +189,12 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
         <p><pre><a class="anchor" href="string.html">string</a> string.format(*args, **kwargs)
 </pre></p>
     
-    Replace the values surrounded by curly brackets in the string.<pre class="language-python">"x{key}x".format(key = 2) == "x2x"</pre>
+    Perform string interpolation. Format strings contain replacement fields surrounded by curly braces <code>{}</code>. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: <code>{{</code> and <code>}}</code>A replacement field can be either a name, a number, or empty. Values are converted to strings using the <a href="globals.html#str">str</a> function.<pre class="language-python"># Access in order:
+"{} < {}".format(4, 5) == "4 < 5"
+# Access by position:
+"{1}, {0}".format(2, 1) == "1, 2"
+# Access by name:
+"x{key}x".format(key = 2) == "x2x"</pre>
 
 
           <h3>Parameters</h3>
@@ -231,7 +234,7 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
         <p><pre>int string.index(sub, start=0, end=&hellip;)
 </pre></p>
     
-    Returns the first index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+    Returns the first index where <code>sub</code> is found, or raises an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -447,7 +450,7 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
         <p><pre>int string.rindex(sub, start=0, end=None)
 </pre></p>
     
-    Returns the last index where <code>sub</code> is found, or throw an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
+    Returns the last index where <code>sub</code> is found, or raises an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">

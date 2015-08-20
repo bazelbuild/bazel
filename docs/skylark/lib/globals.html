@@ -316,7 +316,7 @@ Objects, functions and modules registered in the global environment.
         <p><pre>unknown getattr(x, name, default=None)
 </pre></p>
     
-    Returns the struct's field of the given name if exists, otherwise <code>default</code> if specified, otherwise raises an error. For example, <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>, except that it returns <code>default</code> for a non-existent attribute instead of raising an error.<br><pre class="language-python">getattr(ctx.attr, "myattr")
+    Returns the struct's field of the given name if it exists. If not, it either returns <code>default</code> (if specified) or raises an error. <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.<pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 
           <h3>Parameters</h3>
@@ -810,7 +810,7 @@ set([1, 2, 3], order="compile")</pre>
         <p><pre><a class="anchor" href="list.html">list</a> sorted(self)
 </pre></p>
     
-    Sort a collection.
+    Sort a collection. Elements are sorted first by their type, then by their value (in ascending order).
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
