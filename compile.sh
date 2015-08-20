@@ -122,8 +122,10 @@ if [ $DO_TOOLS_COMPILATION ]; then
         tools/objc/precomp_plmerge_deploy.jar
     bazel_bootstrap //src/objc_tools/xcodegen:xcodegen_deploy.jar \
         tools/objc/precomp_xcodegen_deploy.jar
-    bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
-        tools/objc/StdRedirect.dylib 0755
+    if xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
+        bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
+            tools/objc/StdRedirect.dylib 0755
+    fi
     bazel_bootstrap //src/tools/xcode/realpath:realpath tools/objc/realpath 0755
   fi
 fi
