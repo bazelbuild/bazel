@@ -419,8 +419,8 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>Clones a InMemoryMutableNodeEntry iff it is a done node. Otherwise it fails.
    */
   public synchronized InMemoryNodeEntry cloneNodeEntry() {
-    // As this is temporary, for now lets limit to done nodes
-    Preconditions.checkState(isDone(), "Only done nodes can be copied");
+    // As this is temporary, for now let's limit to done nodes.
+    Preconditions.checkState(isDone(), "Only done nodes can be copied: %s", this);
     InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
     nodeEntry.value = value;
     nodeEntry.version = this.version;

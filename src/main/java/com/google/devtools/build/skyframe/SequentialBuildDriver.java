@@ -16,6 +16,8 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.EventHandler;
 
+import javax.annotation.Nullable;
+
 /**
  * A driver for auto-updating graphs which operate over monotonically increasing integer versions.
  */
@@ -47,5 +49,17 @@ public class SequentialBuildDriver implements BuildDriver {
  @Override
   public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
+  }
+
+  @Nullable
+  @Override
+  public SkyValue getExistingValueForTesting(SkyKey key) {
+    return memoizingEvaluator.getExistingValueForTesting(key);
+  }
+
+  @Nullable
+  @Override
+  public ErrorInfo getExistingErrorForTesting(SkyKey key) {
+    return memoizingEvaluator.getExistingErrorForTesting(key);
   }
 }

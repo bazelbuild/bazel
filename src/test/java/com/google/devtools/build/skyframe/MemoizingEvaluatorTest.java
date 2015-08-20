@@ -84,7 +84,7 @@ public class MemoizingEvaluatorTest {
   private MemoizingEvaluatorTester tester;
   private EventCollector eventCollector;
   private EventHandler reporter;
-  private MemoizingEvaluator.EmittedEventState emittedEventState;
+  protected MemoizingEvaluator.EmittedEventState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
   private static final int TEST_NODE_COUNT = 100;
@@ -103,6 +103,22 @@ public class MemoizingEvaluatorTest {
       tester.setInvalidationReceiver(customInvalidationReceiver);
     }
     tester.initialize();
+  }
+
+  protected MemoizingEvaluator getMemoizingEvaluator(
+      Map<? extends SkyFunctionName, ? extends SkyFunction> functions,
+      Differencer differencer,
+      EvaluationProgressReceiver invalidationReceiver) {
+    return new InMemoryMemoizingEvaluator(
+        functions, differencer, invalidationReceiver, emittedEventState, true);
+  }
+
+  protected BuildDriver getBuildDriver(MemoizingEvaluator evaluator) {
+    return new SequentialBuildDriver(evaluator);
+  }
+
+  protected boolean eventsStored() {
+    return true;
   }
 
   @Before
@@ -135,8 +151,10 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
     assertEquals("y", value.getValue());
-    assertContainsEvent(eventCollector, "fizzlepop");
-    assertEventCount(1, eventCollector);
+    if (eventsStored()) {
+      assertContainsEvent(eventCollector, "fizzlepop");
+      assertEventCount(1, eventCollector);
+    }
   }
 
   private abstract static class NoExtractorFunction implements SkyFunction {
@@ -220,23 +238,23 @@ public class MemoizingEvaluatorTest {
     tester.eval(true, "d2");
 
     // The graph now contains the three above nodes (and ERROR_TRANSIENCE).
-    assertThat(tester.graph.getValues().keySet()).containsExactly(
-        skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+    assertThat(tester.evaluator.getValues().keySet())
+        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
 
     String[] noKeys = {};
-    tester.graph.deleteDirty(2);
+    tester.evaluator.deleteDirty(2);
     tester.eval(true, noKeys);
 
     // The top node's value is dirty, but less than two generations old, so it wasn't deleted.
-    assertThat(tester.graph.getValues().keySet()).containsExactly(
-        skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+    assertThat(tester.evaluator.getValues().keySet())
+        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
 
-    tester.graph.deleteDirty(2);
+    tester.evaluator.deleteDirty(2);
     tester.eval(true, noKeys);
 
     // The top node's value was dirty, and was two generations old, so it was deleted.
-    assertThat(tester.graph.getValues().keySet()).containsExactly(
-        skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+    assertThat(tester.evaluator.getValues().keySet())
+        .containsExactly(skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
   }
 
   @Test
@@ -277,9 +295,11 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       tester.evalAndGet("top");
-      assertContainsEvent(eventCollector, "warn-d1");
-      assertContainsEvent(eventCollector, "warn-d2");
-      assertEventCount(2, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "warn-d1");
+        assertContainsEvent(eventCollector, "warn-d2");
+        assertEventCount(2, eventCollector);
+      }
     }
   }
 
@@ -295,8 +315,10 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      assertContainsEvent(eventCollector, "warn-dep");
-      assertEventCount(1, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "warn-dep");
+        assertEventCount(1, eventCollector);
+      }
     }
   }
 
@@ -311,8 +333,10 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      assertContainsEvent(eventCollector, "warning msg");
-      assertEventCount(1, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "warning msg");
+        assertEventCount(1, eventCollector);
+      }
     }
   }
 
@@ -327,8 +351,10 @@ public class MemoizingEvaluatorTest {
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
-      assertContainsEvent(eventCollector, "warning msg");
-      assertEventCount(1, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "warning msg");
+        assertEventCount(1, eventCollector);
+      }
     }
   }
 
@@ -341,8 +367,10 @@ public class MemoizingEvaluatorTest {
       // Make sure we see the warning exactly once.
       initializeReporter();
       tester.eval(/*keepGoing=*/false, "t1", "t2");
-      assertContainsEvent(eventCollector, "look both ways before crossing");
-      assertEventCount(1, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "look both ways before crossing");
+        assertEventCount(1, eventCollector);
+      }
     }
   }
 
@@ -355,14 +383,18 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       tester.evalAndGetError("error-value");
-      assertContainsEvent(eventCollector, "don't chew with your mouth open");
-      assertEventCount(1, eventCollector);
+      if (i == 0 || eventsStored()) {
+        assertContainsEvent(eventCollector, "don't chew with your mouth open");
+        assertEventCount(1, eventCollector);
+      }
     }
 
     initializeReporter();
     tester.evalAndGet("warning-value");
-    assertContainsEvent(eventCollector, "don't chew with your mouth open");
-    assertEventCount(1, eventCollector);
+    if (eventsStored()) {
+      assertContainsEvent(eventCollector, "don't chew with your mouth open");
+      assertEventCount(1, eventCollector);
+    }
   }
 
   @Test
@@ -379,12 +411,14 @@ public class MemoizingEvaluatorTest {
     assertContainsEvent(eventCollector, "just letting you know");
     assertEventCount(2, eventCollector);
 
-    // On the rebuild, we only replay warning messages.
-    initializeReporter();
-    value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
-    assertContainsEvent(eventCollector, "fizzlepop");
-    assertEventCount(1, eventCollector);
+    if (eventsStored()) {
+      // On the rebuild, we only replay warning messages.
+      initializeReporter();
+      value = (StringValue) tester.evalAndGet("x");
+      assertEquals("y", value.getValue());
+      assertContainsEvent(eventCollector, "fizzlepop");
+      assertEventCount(1, eventCollector);
+    }
   }
 
   @Test
@@ -752,7 +786,8 @@ public class MemoizingEvaluatorTest {
     assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
     assertThat(cycleInfo.getPathToCycle()).isEmpty();
     cycleInfo =
-        Iterables.getOnlyElement(tester.graph.getExistingErrorForTesting(cycleKey2).getCycleInfo());
+        Iterables.getOnlyElement(
+            tester.driver.getExistingErrorForTesting(cycleKey2).getCycleInfo());
     assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
     assertThat(cycleInfo.getPathToCycle()).containsExactly(cycleKey2).inOrder();
   }
@@ -955,7 +990,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
+    assertEquals(null, tester.getExistingValue(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -995,7 +1030,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
+    assertEquals(null, tester.getExistingValue(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -1080,7 +1115,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
+    assertEquals(null, tester.getExistingValue(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -1739,7 +1774,7 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, parentKey);
     if (removeError) {
-      assertEquals("reformedleaf2" + lastString, result.get(parentKey).getValue());
+      assertThat(result.get(parentKey).getValue()).isEqualTo("reformedleaf2" + lastString);
     } else {
       assertNotNull(result.getError(parentKey));
     }
@@ -1921,7 +1956,7 @@ public class MemoizingEvaluatorTest {
     interruptInvalidation.set(false);
     // Now delete all the nodes. The node that was going to be dirtied is also deleted, which we
     // should handle.
-    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
+    tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
     assertEquals("new", ((StringValue) tester.evalAndGet(/*keepGoing=*/false, key)).getValue());
   }
 
@@ -1976,7 +2011,7 @@ public class MemoizingEvaluatorTest {
     assertThat(tester.getDirtyKeys()).containsExactly(mid, top);
     assertThat(tester.getDeletedKeys()).isEmpty();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertFalse(result.hasError());
+    assertWithMessage(result.toString()).that(result.hasError()).isFalse();
     value = result.get(top);
     assertEquals("leafysuffixsuffix", value.getValue());
     assertThat(tester.getDirtyKeys()).isEmpty();
@@ -2619,7 +2654,7 @@ public class MemoizingEvaluatorTest {
     SkyValue val = new StringValue("val");
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
-    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
+    tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("value"));
   }
@@ -2645,7 +2680,7 @@ public class MemoizingEvaluatorTest {
     tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("value"));
 
-    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
+    tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("value"));
   }
@@ -3001,7 +3036,7 @@ public class MemoizingEvaluatorTest {
   }
 
   private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
-    InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.graph;
+    InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.evaluator;
     memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
   }
 
@@ -3023,20 +3058,22 @@ public class MemoizingEvaluatorTest {
    */
   private class MemoizingEvaluatorTester extends GraphTester {
     private RecordingDifferencer differencer;
-    private MemoizingEvaluator graph;
-    private SequentialBuildDriver driver;
+    private MemoizingEvaluator evaluator;
+    private BuildDriver driver;
     private TrackingInvalidationReceiver invalidationReceiver = new TrackingInvalidationReceiver();
 
     public void initialize() {
       this.differencer = new RecordingDifferencer();
-      this.graph = new InMemoryMemoizingEvaluator(
-          ImmutableMap.of(NODE_TYPE, createDelegatingFunction()), differencer,
-          invalidationReceiver, emittedEventState, true);
-      this.driver = new SequentialBuildDriver(graph);
+      this.evaluator =
+          getMemoizingEvaluator(
+              ImmutableMap.of(NODE_TYPE, createDelegatingFunction()),
+              differencer,
+              invalidationReceiver);
+      this.driver = getBuildDriver(evaluator);
     }
 
     public void setInvalidationReceiver(TrackingInvalidationReceiver customInvalidationReceiver) {
-      Preconditions.checkState(graph == null, "graph already initialized");
+      Preconditions.checkState(evaluator == null, "evaluator already initialized");
       invalidationReceiver = customInvalidationReceiver;
     }
 
@@ -3051,7 +3088,7 @@ public class MemoizingEvaluatorTest {
     }
 
     public void delete(String key) {
-      graph.delete(Predicates.equalTo(GraphTester.skyKey(key)));
+      evaluator.delete(Predicates.equalTo(GraphTester.skyKey(key)));
     }
 
     public void resetPlayedEvents() {
@@ -3115,8 +3152,13 @@ public class MemoizingEvaluatorTest {
     }
 
     @Nullable
+    public SkyValue getExistingValue(SkyKey key) {
+      return driver.getExistingValueForTesting(key);
+    }
+
+    @Nullable
     public SkyValue getExistingValue(String key) {
-      return graph.getExistingValueForTesting(new SkyKey(NODE_TYPE, key));
+      return getExistingValue(new SkyKey(NODE_TYPE, key));
     }
   }
 }
