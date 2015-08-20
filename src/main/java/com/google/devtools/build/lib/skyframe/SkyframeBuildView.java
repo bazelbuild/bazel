@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -493,13 +494,16 @@ public final class SkyframeBuildView {
     public void enqueueing(SkyKey skyKey) {}
 
     @Override
-    public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
-      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET) && value != null) {
+    public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+        EvaluationState state) {
+      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         switch (state) {
           case BUILT:
-            evaluatedConfiguredTargets.add(skyKey);
-            // During multithreaded operation, this is only set to true, so no concurrency issues.
-            someConfiguredTargetEvaluated = true;
+            if (skyValueSupplier.get() != null) {
+              evaluatedConfiguredTargets.add(skyKey);
+              // During multithreaded operation, this is only set to true, so no concurrency issues.
+              someConfiguredTargetEvaluated = true;
+            }
             break;
           case CLEAN:
             // If the configured target value did not need to be rebuilt, then it wasn't truly

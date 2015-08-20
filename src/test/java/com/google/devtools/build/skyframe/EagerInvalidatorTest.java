@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -174,7 +175,8 @@ public class EagerInvalidatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -210,7 +212,8 @@ public class EagerInvalidatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -248,7 +251,8 @@ public class EagerInvalidatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -358,7 +362,8 @@ public class EagerInvalidatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -386,7 +391,8 @@ public class EagerInvalidatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -484,7 +490,8 @@ public class EagerInvalidatorTest {
         }
 
         @Override
-        public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+        public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+            EvaluationState state) {
           throw new UnsupportedOperationException();
         }
       };

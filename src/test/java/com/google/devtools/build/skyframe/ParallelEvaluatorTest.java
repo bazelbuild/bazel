@@ -31,6 +31,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -255,7 +256,8 @@ public class ParallelEvaluatorTest {
       public void enqueueing(SkyKey key) {}
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         receivedValues.add(skyKey);
       }
     };
@@ -1896,7 +1898,8 @@ public class ParallelEvaluatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
+          EvaluationState state) {
         evaluatedValues.add(skyKey);
       }
     };

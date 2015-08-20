@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Sets;
 
 import java.util.Set;
@@ -49,9 +50,9 @@ public class TrackingInvalidationReceiver implements EvaluationProgressReceiver 
   }
 
   @Override
-  public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+  public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
     evaluated.add(skyKey);
-    if (value != null) {
+    if (skyValueSupplier.get() != null) {
       deleted.remove(skyKey);
       if (state.equals(EvaluationState.CLEAN)) {
         dirty.remove(skyKey);

@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-
-import javax.annotation.Nullable;
 
 /**
  * Receiver to inform callers which values have been invalidated. Values may be invalidated and then
@@ -68,8 +67,9 @@ public interface EvaluationProgressReceiver {
    *
    * <p>{@code state} indicates the new state of the node.
    *
-   * <p>If the value builder threw an error when building this node, then {@code value} is null.
+   * <p>If the value builder threw an error when building this node, then
+   * {@code valueSupplier.get()} evaluates to null.
    */
   @ThreadSafety.ThreadSafe
-  void evaluated(SkyKey skyKey, @Nullable SkyValue value, EvaluationState state);
+  void evaluated(SkyKey skyKey, Supplier<SkyValue> valueSupplier, EvaluationState state);
 }

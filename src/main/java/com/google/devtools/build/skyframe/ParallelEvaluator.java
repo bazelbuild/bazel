@@ -16,6 +16,8 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -105,6 +107,20 @@ public final class ParallelEvaluator implements Evaluator {
       return isDoneForBuild(graph.get(skyKey));
     }
   };
+
+  private static class SkyValueSupplier implements Supplier<SkyValue> {
+
+    private final NodeEntry state;
+
+    public SkyValueSupplier(NodeEntry state) {
+      this.state = state;
+    }
+
+    @Override
+    public SkyValue get() {
+      return state.getValue();
+    }
+  }
 
   private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
 
@@ -459,7 +475,7 @@ public final class ParallelEvaluator implements Evaluator {
         // by the Preconditions check above, and was not actually changed this run -- when it was
         // written above, its version stayed below this update's version, so its value remains the
         // same as before.
-        progressReceiver.evaluated(skyKey, value,
+        progressReceiver.evaluated(skyKey, Suppliers.ofInstance(value),
             valueVersion.equals(graphVersion) ? EvaluationState.BUILT : EvaluationState.CLEAN);
       }
       signalValuesAndEnqueueIfReady(enqueueParents ? visitor : null, reverseDeps, valueVersion);
@@ -670,10 +686,10 @@ public final class ParallelEvaluator implements Evaluator {
             // without any re-evaluation.
             visitor.notifyDone(skyKey);
             Set<SkyKey> reverseDeps = state.markClean();
-            SkyValue value = state.getValue();
             if (progressReceiver != null) {
               // Tell the receiver that the value was not actually changed this run.
-              progressReceiver.evaluated(skyKey, value, EvaluationState.CLEAN);
+              progressReceiver.evaluated(skyKey, new SkyValueSupplier(state),
+                  EvaluationState.CLEAN);
             }
             if (!keepGoing && state.getErrorInfo() != null) {
               if (!visitor.preventNewEvaluations()) {
@@ -920,7 +936,7 @@ public final class ParallelEvaluator implements Evaluator {
       // retrieve them, but top-level nodes are presumably of more interest.
       // If valueVersion is not equal to graphVersion, it must be less than it (by the
       // Preconditions check above), and so the node is clean.
-      progressReceiver.evaluated(key, value, valueVersion.equals(graphVersion)
+      progressReceiver.evaluated(key, Suppliers.ofInstance(value), valueVersion.equals(graphVersion)
           ? EvaluationState.BUILT
           : EvaluationState.CLEAN);
     }
