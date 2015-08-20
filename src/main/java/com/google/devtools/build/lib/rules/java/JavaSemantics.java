@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -213,8 +212,8 @@ public interface JavaSemantics {
   /**
    * Creates the instrumentation metadata artifact for the specified output .jar .
    */
-  @Nullable Artifact createInstrumentationMetadataArtifact(
-      AnalysisEnvironment analysisEnvironment, Artifact outputJar);
+  @Nullable
+  Artifact createInstrumentationMetadataArtifact(RuleContext ruleContext, Artifact outputJar);
 
   /**
    * Returns the instrumentation libraries (jars) for the given context.

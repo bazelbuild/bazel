@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -135,7 +134,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public Artifact createInstrumentationMetadataArtifact(
-      AnalysisEnvironment analysisEnvironment, Artifact outputJar) {
+      RuleContext ruleContext, Artifact outputJar) {
     return null;
   }
 
