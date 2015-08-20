@@ -20,12 +20,14 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.CompactHashSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -44,7 +47,9 @@ import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -53,6 +58,8 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -499,7 +506,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         }
       };
 
-  private Iterable<SkyKey> makeKeys(Iterable<Target> targets) {
+  private static Iterable<SkyKey> makeKeys(Iterable<Target> targets) {
     return Iterables.transform(targets, TARGET_TO_SKY_KEY);
   }
 
@@ -508,9 +515,89 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return target;
   }
 
+  /**
+   * Get SkyKeys for the FileValues for the given {@param pathFragments}. To do this, we look for a
+   * package lookup node for each path fragment, since package lookup nodes contain the "root" of a
+   * package. The returned SkyKeys correspond to FileValues that may not exist in the graph.
+   */
+  private Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments) {
+    Set<SkyKey> result = new HashSet<>();
+    Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
+    for (PathFragment pathFragment : pathFragments) {
+      currentToOriginal.put(pathFragment, pathFragment);
+    }
+    while (!currentToOriginal.isEmpty()) {
+      Map<SkyKey, PathFragment> keys = new HashMap<>();
+      for (PathFragment pathFragment : currentToOriginal.keySet()) {
+        keys.put(
+            PackageLookupValue.key(PackageIdentifier.createInDefaultRepo(pathFragment)),
+            pathFragment);
+      }
+      Map<SkyKey, SkyValue> lookupValues = graph.getDoneValues(keys.keySet());
+      for (Map.Entry<SkyKey, SkyValue> entry : lookupValues.entrySet()) {
+        PackageLookupValue packageLookupValue = (PackageLookupValue) entry.getValue();
+        PathFragment dir = keys.get(entry.getKey());
+        if (packageLookupValue.packageExists()) {
+          Collection<PathFragment> originalFiles = currentToOriginal.get(dir);
+          Preconditions.checkState(!originalFiles.isEmpty(), entry);
+          for (PathFragment fileName : originalFiles) {
+            result.add(
+                FileValue.key(RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
+          }
+        }
+        currentToOriginal.removeAll(dir);
+      }
+      Multimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
+      for (PathFragment pathFragment : currentToOriginal.keySet()) {
+        PathFragment parent = pathFragment.getParentDirectory();
+        if (parent != null) {
+          newCurrentToOriginal.putAll(parent, currentToOriginal.get(pathFragment));
+        }
+      }
+      currentToOriginal = newCurrentToOriginal;
+    }
+    return result;
+  }
+
+  /**
+   * Calculates the set of {@link Package} objects, represented as source file targets, that depend
+   * on the given list of BUILD files and subincludes (other files are filtered out).
+   */
+  @Nullable
+  Set<Target> getRBuildFiles(Collection<PathFragment> fileIdentifiers) {
+    Collection<SkyKey> files = getSkyKeysForFileFragments(fileIdentifiers);
+    Collection<SkyKey> current = graph.getDoneValues(files).keySet();
+    Set<SkyKey> resultKeys = CompactHashSet.create();
+    while (!current.isEmpty()) {
+      Collection<Iterable<SkyKey>> reverseDeps = graph.getReverseDeps(current).values();
+      current = new HashSet<>();
+      for (SkyKey rdep : Iterables.concat(reverseDeps)) {
+        if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
+          resultKeys.add(rdep);
+        } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)) {
+          // Packages may depend on subpackages for existence, but we don't report them as rdeps.
+          current.add(rdep);
+        }
+      }
+    }
+    Map<SkyKey, SkyValue> packageValues = graph.getDoneValues(resultKeys);
+    if (packageValues.size() != resultKeys.size()) {
+      throw new IllegalStateException(
+          "Missing values: " + Sets.difference(resultKeys, packageValues.keySet()));
+    }
+    ImmutableSet.Builder<Target> result = ImmutableSet.builder();
+    for (SkyValue value : packageValues.values()) {
+      result.add(((PackageValue) value).getPackage().getBuildFile());
+    }
+    return result.build();
+  }
+
   @Override
   public Iterable<QueryFunction> getFunctions() {
     return ImmutableList.<QueryFunction>builder()
-        .addAll(super.getFunctions()).add(new AllRdepsFunction()).build();
+        .addAll(super.getFunctions())
+        .add(new AllRdepsFunction())
+        .add(new RBuildFilesFunction())
+        .build();
   }
 }

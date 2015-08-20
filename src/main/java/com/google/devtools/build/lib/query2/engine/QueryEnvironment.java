@@ -30,17 +30,15 @@ import javax.annotation.Nonnull;
  * @param <T> the node type of the dependency graph
  */
 public interface QueryEnvironment<T> {
-  /**
-   * Type of an argument of a user-defined query function.
-   */
-  public enum ArgumentType {
-    EXPRESSION, WORD, INTEGER;
+  /** Type of an argument of a user-defined query function. */
+  enum ArgumentType {
+    EXPRESSION,
+    WORD,
+    INTEGER;
   }
 
-  /**
-   * Value of an argument of a user-defined query function.
-   */
-  public static class Argument {
+  /** Value of an argument of a user-defined query function. */
+  class Argument {
     private final ArgumentType type;
     private final QueryExpression expression;
     private final String word;
@@ -92,10 +90,8 @@ public interface QueryEnvironment<T> {
     }
   }
 
-  /**
-   * A user-defined query function.
-   */
-  public interface QueryFunction {
+  /** A user-defined query function. */
+  interface QueryFunction {
     /**
      * Name of the function as it appears in the query language.
      */
@@ -109,10 +105,8 @@ public interface QueryEnvironment<T> {
      */
     int getMandatoryArguments();
 
-    /**
-     * The types of the arguments of the function.
-     */
-    List<ArgumentType> getArgumentTypes();
+    /** The types of the arguments of the function. */
+    Iterable<ArgumentType> getArgumentTypes();
 
     /**
      * Called when a user-defined function is to be evaluated.
@@ -130,7 +124,7 @@ public interface QueryEnvironment<T> {
    * Exception type for the case where a target cannot be found. It's basically a wrapper for
    * whatever exception is internally thrown.
    */
-  public static final class TargetNotFoundException extends Exception {
+  final class TargetNotFoundException extends Exception {
     public TargetNotFoundException(String msg) {
       super(msg);
     }
@@ -227,7 +221,7 @@ public interface QueryEnvironment<T> {
   /**
    * Settings for the query engine. See {@link QueryEnvironment#isSettingEnabled}.
    */
-  public static enum Setting {
+  enum Setting {
 
     /**
      * Whether to evaluate tests() expressions in strict mode. If {@link #isSettingEnabled} returns
@@ -257,7 +251,7 @@ public interface QueryEnvironment<T> {
    * An adapter interface giving access to properties of T. There are four types of targets: rules,
    * package groups, source files, and generated files. Of these, only rules can have attributes.
    */
-  public static interface TargetAccessor<T> {
+  interface TargetAccessor<T> {
     /**
      * Returns the target type represented as a string of the form {@code &lt;type&gt; rule} or
      * {@code package group} or {@code source file} or {@code generated file}. This is widely used
@@ -345,8 +339,8 @@ public interface QueryEnvironment<T> {
   }
 
   /** List of the default query functions. */
-  public static final List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
-      ImmutableList.<QueryFunction>of(
+  List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
+      ImmutableList.of(
           new AllPathsFunction(),
           new BuildFilesFunction(),
           new AttrFunction(),
@@ -358,6 +352,5 @@ public interface QueryEnvironment<T> {
           new TestsFunction(),
           new DepsFunction(),
           new RdepsFunction(),
-          new VisibleFunction()
-          );
+          new VisibleFunction());
 }

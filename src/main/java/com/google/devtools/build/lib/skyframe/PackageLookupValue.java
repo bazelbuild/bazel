@@ -34,7 +34,7 @@ import java.util.Objects;
  *
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
-abstract class PackageLookupValue implements SkyValue {
+public abstract class PackageLookupValue implements SkyValue {
 
   enum ErrorReason {
     // There is no BUILD file.
@@ -115,7 +115,7 @@ abstract class PackageLookupValue implements SkyValue {
     return key(PackageIdentifier.createInDefaultRepo(directory));
   }
 
-  static SkyKey key(PackageIdentifier pkgIdentifier) {
+  public static SkyKey key(PackageIdentifier pkgIdentifier) {
     return new SkyKey(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
   }
 
