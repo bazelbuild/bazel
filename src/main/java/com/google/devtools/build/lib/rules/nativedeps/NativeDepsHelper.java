@@ -196,7 +196,7 @@ public abstract class NativeDepsHelper {
       // mangle path names such that the library's conventional _solib RPATH entry
       // no longer resolves (because the target directory's relative depth gets lost).
       for (final Artifact runtimeInput : toolchain.getDynamicRuntimeLinkInputs()) {
-        final Artifact runtimeSymlink = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        final Artifact runtimeSymlink = ruleContext.getPackageRelativeArtifact(
             getRuntimeLibraryPath(ruleContext, runtimeInput), bindirIfShared);
         // Since runtime library symlinks are underneath the target's output directory and
         // multiple targets may share the same output directory, we need to make sure this
@@ -221,7 +221,7 @@ public abstract class NativeDepsHelper {
    * symlink for the native library for the specified rule.
    */
   private static PathFragment getRuntimeLibraryPath(RuleContext ruleContext, Artifact lib) {
-    PathFragment relativePath = Util.getWorkspaceRelativePath(ruleContext.getRule());
+    PathFragment relativePath = new PathFragment(ruleContext.getLabel().getName());
     PathFragment libParentDir =
         relativePath.replaceName(lib.getExecPath().getParentDirectory().getBaseName());
     String libName = lib.getExecPath().getBaseName();
