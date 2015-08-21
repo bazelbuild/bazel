@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -79,22 +78,20 @@ public final class LTOBackendArtifacts {
       PathFragment ltoOutputRootPrefix,
       Artifact bitcodeFile,
       NestedSet<Artifact> allBitCodeFiles,
-      AnalysisEnvironment analysisEnvironment,
-      BuildConfiguration configuration) {
+      BuildConfiguration configuration,
+      RuleContext ruleContext,
+      CppLinkAction.LinkArtifactFactory linkArtifactFactory) {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
     Root binDir = configuration.getBinDirectory();
 
-    objectFile = analysisEnvironment.getDerivedArtifact(obj, binDir);
-    imports =
-        analysisEnvironment.getDerivedArtifact(
-            FileSystemUtils.replaceExtension(obj, ".imports"), binDir);
-    index =
-        analysisEnvironment.getDerivedArtifact(
-            FileSystemUtils.replaceExtension(obj, ".thinlto.index"), binDir);
-    beCommandline =
-        analysisEnvironment.getDerivedArtifact(
-            FileSystemUtils.replaceExtension(obj, ".thinlto_commandline.txt"), binDir);
+    objectFile = linkArtifactFactory.create(ruleContext, obj);
+    imports = linkArtifactFactory.create(
+        ruleContext, FileSystemUtils.replaceExtension(obj, ".imports"));
+    index = linkArtifactFactory.create(
+        ruleContext, FileSystemUtils.replaceExtension(obj, ".thinlto.index"));
+    beCommandline = linkArtifactFactory.create(
+        ruleContext, FileSystemUtils.replaceExtension(obj, ".thinlto_commandline.txt"));
 
     bitcodeFiles = allBitCodeFiles;
   }

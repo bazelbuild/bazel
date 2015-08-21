@@ -76,6 +76,33 @@ import javax.annotation.Nullable;
  */
 @ThreadCompatible
 public final class CppLinkAction extends AbstractAction {
+  /**
+   * An abstraction for creating intermediate and output artifacts for C++ linking.
+   *
+   * <p>This is unfortunately necessary, because most of the time, these artifacts are well-behaved
+   * ones sitting under a package directory, but nativedeps link actions can be shared. In order to
+   * avoid creating every artifact here with {@code getShareableArtifact()}, we abstract the
+   * artifact creation away.
+   */
+  public interface LinkArtifactFactory {
+    /**
+     * Create an artifact at the specified root-relative path in the bin directory.
+     */
+    Artifact create(RuleContext ruleContext, PathFragment rootRelativePath);
+  }
+
+  /**
+   * An implementation of {@link LinkArtifactFactory} that can only create artifacts in the package
+   * directory.
+   */
+  public static final LinkArtifactFactory DEFAULT_ARTIFACT_FACTORY = new LinkArtifactFactory() {
+    @Override
+    public Artifact create(RuleContext ruleContext, PathFragment rootRelativePath) {
+      return ruleContext.getDerivedArtifact(rootRelativePath,
+          ruleContext.getConfiguration().getBinDirectory());
+    }
+  };
+
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
 
@@ -517,6 +544,7 @@ public final class CppLinkAction extends AbstractAction {
     private boolean isNativeDeps;
     private boolean useTestOnlyFlags;
     private boolean wholeArchive;
+    private LinkArtifactFactory linkArtifactFactory = DEFAULT_ARTIFACT_FACTORY;
 
     private boolean isLTOIndexing = false;
     private Iterable<LTOBackendArtifacts> allLTOArtifacts = null;
@@ -597,6 +625,11 @@ public final class CppLinkAction extends AbstractAction {
       this.useTestOnlyFlags = linkContext.useTestOnlyFlags;
     }
 
+    public CppLinkAction.Builder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
+      this.linkArtifactFactory = linkArtifactFactory;
+      return this;
+    }
+
     private Iterable<LTOBackendArtifacts> createLTOArtifacts(
         PathFragment ltoOutputRootPrefix, NestedSet<LibraryToLink> uniqueLibraries) {
       // This flattens the set of object files, so for M binaries and N .o files,
@@ -618,9 +651,8 @@ public final class CppLinkAction extends AbstractAction {
 
       ImmutableList.Builder<LTOBackendArtifacts> ltoOutputs = ImmutableList.builder();
       for (Artifact a : allBitcode) {
-        LTOBackendArtifacts ltoArtifacts =
-            new LTOBackendArtifacts(
-                ltoOutputRootPrefix, a, allBitcode, analysisEnvironment, configuration);
+        LTOBackendArtifacts ltoArtifacts = new LTOBackendArtifacts(
+            ltoOutputRootPrefix, a, allBitcode, configuration, ruleContext, linkArtifactFactory);
         ltoOutputs.add(ltoArtifacts);
       }
       return ltoOutputs.build();
@@ -688,7 +720,7 @@ public final class CppLinkAction extends AbstractAction {
               : LinkerInputs.newInputLibrary(interfaceOutput, filteredNonLibraryArtifacts);
 
       final ImmutableMap<Artifact, Artifact> linkstampMap =
-          mapLinkstampsToOutputs(linkstamps, ruleContext, output);
+          mapLinkstampsToOutputs(linkstamps, ruleContext, output, linkArtifactFactory);
 
       PathFragment ltoOutputRootPrefix = null;
       if (isLTOIndexing && allLTOArtifacts == null) {
@@ -721,8 +753,7 @@ public final class CppLinkAction extends AbstractAction {
       @Nullable
       final Artifact paramFile =
           canSplitCommandLine()
-              ? analysisEnvironment.getDerivedArtifact(
-                  paramRootPath, configuration.getBinDirectory())
+              ? linkArtifactFactory.create(ruleContext, paramRootPath)
               : null;
 
       LinkCommandLine.Builder linkCommandLineBuilder =
@@ -865,7 +896,8 @@ public final class CppLinkAction extends AbstractAction {
      *         corresponding object file that should be fed into the link
      */
     public static ImmutableMap<Artifact, Artifact> mapLinkstampsToOutputs(
-        Collection<Artifact> linkstamps, RuleContext ruleContext, Artifact outputBinary) {
+        Collection<Artifact> linkstamps, RuleContext ruleContext, Artifact outputBinary,
+        LinkArtifactFactory linkArtifactFactory) {
       ImmutableMap.Builder<Artifact, Artifact> mapBuilder = ImmutableMap.builder();
 
       PathFragment outputBinaryPath = outputBinary.getRootRelativePath();
@@ -878,8 +910,7 @@ public final class CppLinkAction extends AbstractAction {
         mapBuilder.put(linkstamp,
             // Note that link stamp actions can be shared between link actions that output shared
             // native dep libraries.
-            ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-                stampOutputPath, outputBinary.getRoot()));
+            linkArtifactFactory.create(ruleContext, stampOutputPath));
       }
       return mapBuilder.build();    }
 

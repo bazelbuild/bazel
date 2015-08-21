@@ -52,6 +52,21 @@ import java.util.Map;
  * that some rules are implicitly neverlink.
  */
 public abstract class NativeDepsHelper {
+  /**
+   * An implementation of {@link CppLinkAction.LinkArtifactFactory} that can create artifacts
+   * anywhere.
+   *
+   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
+   * be under the package directory.
+   */
+  private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
+      new CppLinkAction.LinkArtifactFactory() {
+        @Override
+        public Artifact create(RuleContext ruleContext, PathFragment rootRelativePath) {
+          return ruleContext.getShareableArtifact(rootRelativePath,
+              ruleContext.getConfiguration().getBinDirectory());
+        }
+      };
 
   private NativeDepsHelper() {}
 
@@ -157,6 +172,7 @@ public abstract class NativeDepsHelper {
         linkerOutputPath, configuration.getBinDirectory());
     CppLinkAction.Builder builder = new CppLinkAction.Builder(
         ruleContext, sharedLibrary, configuration, toolchain);
+    builder.setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY);
     CppLinkAction linkAction = builder
         .setCrosstoolInputs(toolchain.getLink())
         .addLibraries(linkerInputs)
