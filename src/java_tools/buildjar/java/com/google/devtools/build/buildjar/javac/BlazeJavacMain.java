@@ -29,6 +29,7 @@ import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.api.MultiTaskListener;
+import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
@@ -150,7 +151,8 @@ public class BlazeJavacMain {
     } finally {
       if (result.isOK()) {
         verifyNotNull(compiler);
-        if (compiler.flowEvents() == 0) {
+        if (compiler.shouldStopPolicyIfNoError.isAfter(CompileState.FLOW)
+            && compiler.flowEvents() == 0) {
           errOutput.println("Expected at least one FLOW event");
           result = Result.ABNORMAL;
         }
