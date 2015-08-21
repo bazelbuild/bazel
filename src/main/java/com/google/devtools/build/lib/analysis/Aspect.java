@@ -106,6 +106,13 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
     }
 
     /**
+     * Adds a provider to the aspect. Shortcut for addProvider(value.getClass(), value).
+     */
+    public Builder addProvider(TransitiveInfoProvider value) {
+      return addProvider(value.getClass(), value);
+    }
+
+    /**
      * Adds a set of files to an output group.
      */
     public Builder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
@@ -117,7 +124,6 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
       nestedSetBuilder.addTransitive(artifacts);
       return this;
     }
-
 
     public Aspect build() {
       if (!outputGroupBuilders.isEmpty()) {

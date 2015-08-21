@@ -317,6 +317,13 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
+   * Add a specific provider with a given value. Shortcut for addProvider(value.getClass(), value).
+   */
+  public RuleConfiguredTargetBuilder addProvider(TransitiveInfoProvider value) {
+    return addProvider(value.getClass(), value);
+  }
+
+  /**
    * Add multiple providers with given values.
    */
   public RuleConfiguredTargetBuilder addProviders(
