@@ -27,8 +27,10 @@ cc_binary(
     name = "libunix.so",
     srcs = [
         "localsocket.cc",
+        "macros.h",
         "process.cc",
         "unix_jni.cc",
+        "unix_jni.h",
         ":jni.h",
         ":jni_md.h",
         ":jni_os",
@@ -41,6 +43,7 @@ cc_binary(
     linkshared = 1,
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
     ],
 )

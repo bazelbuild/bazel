@@ -20,9 +20,13 @@ cc_binary(
     srcs = [
         "blaze.cc",
         "blaze_startup_options.cc",
+        "blaze_startup_options.h",
         "blaze_startup_options_common.cc",
         "blaze_util.cc",
+        "blaze_util.h",
+        "blaze_util_platform.h",
         "option_processor.cc",
+        "option_processor.h",
         ":blaze_util_os",
     ],
     copts = [
