@@ -101,6 +101,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
 
+  private static final Function<Target, Label> TARGET_LABEL_FUNCTION =
+      new Function<Target, Label>() {
+    
+    @Override
+    public Label apply(Target target) {
+      return target.getLabel();
+    }
+  };
+
   public SkyQueryEnvironment(boolean keepGoing, boolean strictScope, int loadingPhaseThreads,
       Predicate<Label> labelFilter,
       EventHandler eventHandler,
@@ -211,23 +220,29 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return result;
   }
 
-  private Collection<Target> filterReverseDeps(final Target target,
-      Collection<Target> rawReverseDeps) {
-    return Collections2.filter(rawReverseDeps, new Predicate<Target>() {
-      @Override
-      public boolean apply(Target parent) {
-        return !(parent instanceof Rule)
-            || getAllowedDeps((Rule) parent).contains(target.getLabel());
-      }
-    });
-
-  }
-
   @Override
   public Collection<Target> getReverseDeps(Iterable<Target> targets) {
-    Set<Target> result = new HashSet<>();
-    for (Map.Entry<Target, Collection<Target>> entry : getRawReverseDeps(targets).entrySet()) {
-      result.addAll(filterReverseDeps(entry.getKey(), entry.getValue()));
+    Set<Target> result = CompactHashSet.create();
+    Map<Target, Collection<Target>> rawReverseDeps = getRawReverseDeps(targets);
+
+    CompactHashSet<Target> visited = CompactHashSet.create();
+
+    Set<Label> keys = CompactHashSet.create(Collections2.transform(rawReverseDeps.keySet(),
+        TARGET_LABEL_FUNCTION));
+    for (Collection<Target> parentCollection : rawReverseDeps.values()) {
+      for (Target parent : parentCollection) {
+        if (visited.add(parent)) {
+          if (parent instanceof Rule) {
+            for (Label label : getAllowedDeps((Rule) parent)) {
+              if (keys.contains(label)) {
+                result.add(parent);
+              }
+            }
+          } else {
+            result.add(parent);
+          }
+        }
+      }
     }
     return result;
   }
