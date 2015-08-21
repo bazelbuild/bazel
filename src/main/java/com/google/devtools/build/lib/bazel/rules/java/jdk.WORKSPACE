@@ -45,6 +45,11 @@ bind(
 )
 
 bind(
+    name = "jre-default",
+    actual = "@local-jdk//:jre-default",
+)
+
+bind(
     name = "jdk-default",
     actual = "@local-jdk//:jdk-default",
 )

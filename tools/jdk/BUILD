@@ -60,6 +60,17 @@ java_import(
 )
 
 # This one is just needed because of how filegroup redirection works.
+filegroup(name = "jre-null")
+
+filegroup(
+    name = "jre",
+    srcs = [
+        ":jre-null",
+        "//external:jre-default",
+    ],
+)
+
+# This one is just needed because of how filegroup redirection works.
 filegroup(name = "jdk-null")
 
 filegroup(

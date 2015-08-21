@@ -81,7 +81,7 @@ def java_library_impl(ctx):
          "touch " + build_output + "\n")
   ctx.action(
     inputs = (sources + compile_time_jars_list + [sources_param_file] +
-              ctx.files.resources + ctx.files.srcjars),
+              [ctx.file._jar] + ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
     outputs = [class_jar],
     mnemonic='Javac',
     command=cmd,
@@ -116,7 +116,7 @@ def java_binary_impl(ctx):
          "touch " + build_output + "\n")
 
   ctx.action(
-    inputs=list(library_result.runtime_jars) + [manifest],
+    inputs=list(library_result.runtime_jars) + [manifest] + ctx.files._jdk,
     outputs=[deploy_jar],
     mnemonic='Deployjar',
     command=cmd,
@@ -167,8 +167,7 @@ def java_binary_impl(ctx):
         ]),
     executable = True)
 
-  runfiles = ctx.runfiles(files = [
-      deploy_jar, executable] + ctx.files.jvm, collect_data = True)
+  runfiles = ctx.runfiles(files = [deploy_jar, executable] + ctx.files._jdk, collect_data = True)
   files_to_build = set([deploy_jar, manifest, executable])
   files_to_build += library_result.files
 
@@ -191,6 +190,7 @@ java_library_attrs = {
     "_java": attr.label(default=Label("//tools/jdk:java"), single_file=True),
     "_javac": attr.label(default=Label("//tools/jdk:javac"), single_file=True),
     "_jar": attr.label(default=Label("//tools/jdk:jar"), single_file=True),
+    "_jdk": attr.label(default=Label("//tools/jdk:jdk"), allow_files=True),
     "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
     "resources": attr.label_list(allow_files=True),
     "srcs": attr.label_list(allow_files=java_filetype),
