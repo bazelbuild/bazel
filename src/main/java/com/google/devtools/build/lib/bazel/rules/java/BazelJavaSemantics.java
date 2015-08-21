@@ -283,7 +283,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       Iterable<Artifact> buildInfoFiles, ImmutableList<Artifact> resources,
       Iterable<Artifact> classpath, boolean includeBuildData,
       Compression compression, Artifact launcher) {
-    return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines, 
+    return DeployArchiveBuilder.defaultSingleJarCommandLine(output, mainClass, manifestLines,
         buildInfoFiles, resources, classpath, includeBuildData, compression, launcher).build();
   }
 
@@ -296,10 +296,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public Artifact getLauncher(RuleContext ruleContext, JavaCommon common,
       DeployArchiveBuilder deployArchiveBuilder, Runfiles.Builder runfilesBuilder,
-      List<String> jvmFlags, JavaTargetAttributes.Builder attributesBuilder) {
+      List<String> jvmFlags, JavaTargetAttributes.Builder attributesBuilder, boolean shouldStrip) {
     return JavaHelper.launcherArtifactForTarget(this, ruleContext);
   }
-  
+
   @Override
   public void addDependenciesForRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
   }

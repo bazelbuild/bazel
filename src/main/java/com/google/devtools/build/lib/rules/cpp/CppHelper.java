@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -523,5 +524,32 @@ public class CppHelper {
     PathFragment parent = configuration.getGenfilesFragment().getParentDirectory();
     return parent.replaceName(parent.getBaseName() + "-lipodata")
         .getChild(configuration.getGenfilesFragment().getBaseName());
+  }
+
+  /**
+   * Creates an action to strip an executable.
+   */
+  public static void createStripAction(RuleContext context,
+      CppConfiguration cppConfiguration, Artifact input, Artifact output) {
+    context.registerAction(new SpawnAction.Builder()
+        .addInput(input)
+        .addTransitiveInputs(CppHelper.getToolchain(context).getStrip())
+        .addOutput(output)
+        .useDefaultShellEnvironment()
+        .setExecutable(cppConfiguration.getStripExecutable())
+        .addArguments("-S", "-p", "-o", output.getExecPathString())
+        .addArguments("-R", ".gnu.switches.text.quote_paths")
+        .addArguments("-R", ".gnu.switches.text.bracket_paths")
+        .addArguments("-R", ".gnu.switches.text.system_paths")
+        .addArguments("-R", ".gnu.switches.text.cpp_defines")
+        .addArguments("-R", ".gnu.switches.text.cpp_includes")
+        .addArguments("-R", ".gnu.switches.text.cl_args")
+        .addArguments("-R", ".gnu.switches.text.lipo_info")
+        .addArguments("-R", ".gnu.switches.text.annotation")
+        .addArguments(cppConfiguration.getStripOpts())
+        .addArgument(input.getExecPathString())
+        .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
+        .setMnemonic("CcStrip")
+        .build(context));
   }
 }

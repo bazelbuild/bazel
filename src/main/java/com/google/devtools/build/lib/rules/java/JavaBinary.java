@@ -29,10 +29,12 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
@@ -103,8 +105,21 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     ImmutableList<Artifact> srcJars = ImmutableList.of(srcJar);
 
+    CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
+        CppConfiguration.class);
+    boolean stripAsDefault = cppConfiguration.useFission();
     Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
-        runfilesBuilder, jvmFlags, attributesBuilder);
+        runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
+
+    DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
+    Artifact unstrippedLauncher = null;
+    if (stripAsDefault) {
+      unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
+      unstrippedLauncher = semantics.getLauncher(ruleContext, common,
+          unstrippedDeployArchiveBuilder, runfilesBuilder, jvmFlags, attributesBuilder,
+          false  /* shouldStrip */);
+    }
+
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
     Artifact instrumentationMetadata =
         helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
@@ -217,6 +232,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
 
+    Artifact unstrippedDeployJar =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR);
+
     deployArchiveBuilder
         .setOutputJar(deployJar)
         .setJavaStartClass(mainClass)
@@ -230,6 +248,27 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setLauncher(launcher);
 
     deployArchiveBuilder.build();
+
+    if (stripAsDefault) {
+      unstrippedDeployArchiveBuilder
+          .setOutputJar(unstrippedDeployJar)
+          .setJavaStartClass(mainClass)
+          .setDeployManifestLines(deployManifestLines)
+          .setAttributes(attributes)
+          .addRuntimeJars(common.getJavaCompilationArtifacts().getRuntimeJars())
+          .setIncludeBuildData(true)
+          .setRunfilesMiddleman(
+              runfilesSupport == null ? null : runfilesSupport.getRunfilesMiddleman())
+          .setCompression(COMPRESSED)
+          .setLauncher(unstrippedLauncher);
+
+      unstrippedDeployArchiveBuilder.build();
+    } else {
+      // Write an empty file as the name_deploy.jar.unstripped when the default output jar is not
+      // stripped.
+      ruleContext.registerAction(
+          new FileWriteAction(ruleContext.getActionOwner(), unstrippedDeployJar, "", false));
+    }
 
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
 
