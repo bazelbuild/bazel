@@ -137,12 +137,11 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu.")
   public boolean enableCcDeps;
 
-  // TODO(bazel-team): Add "-DDEBUG=1" to FASTBUILD_COPTS.
   @Option(name = "experimental_objc_fastbuild_options",
-      defaultValue = "-O0",
+      defaultValue = "-O0,-DDEBUG",
       category = "undocumented",
       converter = CommaSeparatedOptionListConverter.class,
-      help = "Adds these strings to fastbuild compiler options.")
+      help = "Uses these strings as objc fastbuild compiler options.")
   public List<String> fastbuildOptions;
 
   @Option(name = "objc_enable_binary_stripping",
