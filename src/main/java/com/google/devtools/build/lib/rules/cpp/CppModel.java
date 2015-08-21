@@ -80,10 +80,10 @@ public final class CppModel {
   private FeatureConfiguration featureConfiguration;
 
   public CppModel(RuleContext ruleContext, CppSemantics semantics) {
-    this.ruleContext = ruleContext;
+    this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
     configuration = ruleContext.getConfiguration();
-    cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
   }
 
   /**

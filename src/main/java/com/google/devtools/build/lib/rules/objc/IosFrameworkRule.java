@@ -33,6 +33,7 @@ public class IosFrameworkRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class)
         // TODO(blaze-team): IPA is not right here, should probably be just zipped framework bundle.
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))

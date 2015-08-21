@@ -1047,7 +1047,7 @@ public final class LinkCommandLine extends CommandLine {
         featureConfiguration = CcCommon.configureFeatures(ruleContext);
         CcToolchainFeatures.Variables.Builder buildVariables =
             new CcToolchainFeatures.Variables.Builder();
-        CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
+        CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
         cppConfiguration.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
         variables = buildVariables.build();
       }

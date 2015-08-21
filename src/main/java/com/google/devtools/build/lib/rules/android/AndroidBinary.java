@@ -773,7 +773,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   static boolean shouldDexWithJack(RuleContext ruleContext) {
     return ruleContext
-        .getConfiguration()
         .getFragment(AndroidConfiguration.class)
         .isJackUsedForDexing();
   }

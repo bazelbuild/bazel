@@ -163,7 +163,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     boolean libPerProtoIncludes =
          ruleContext.attributes().get(
              ObjcProtoLibraryRule.PER_PROTO_INCLUDES, Type.BOOLEAN);
-    if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).perProtoIncludes()
+    if (ruleContext.getFragment(ObjcConfiguration.class).perProtoIncludes()
         || libPerProtoIncludes) {
       searchPathEntriesBuilder
           .add(generatedProtoDir)

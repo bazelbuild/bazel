@@ -157,7 +157,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     Preconditions.checkNotNull(executable);
     Preconditions.checkNotNull(javaStartClass);
     Preconditions.checkNotNull(javaExecutable);
-    BuildConfiguration config = ruleContext.getConfiguration();
 
     List<Substitution> arguments = new ArrayList<>();
     String workspacePrefix = ruleContext.getWorkspaceName();
@@ -167,7 +166,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
-        config.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+        ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
     arguments.add(new ComputedSubstitution("%classpath%") {
       @Override
       public String getValue() {

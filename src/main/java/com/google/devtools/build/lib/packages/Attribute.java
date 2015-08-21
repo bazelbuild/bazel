@@ -825,6 +825,10 @@ public final class Attribute implements Comparable<Attribute> {
       this((Label) null);
     }
 
+    public LateBoundLabel(Class<?>... requiredConfigurationFragments) {
+      this((Label) null, requiredConfigurationFragments);
+    }
+
     public LateBoundLabel(Label label) {
       this.label = label;
       this.requiredConfigurationFragments = ImmutableSet.of();

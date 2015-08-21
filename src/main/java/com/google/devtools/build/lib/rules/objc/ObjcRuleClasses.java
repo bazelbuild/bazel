@@ -712,7 +712,7 @@ public class ObjcRuleClasses {
           .add(attr(":dumpsyms", LABEL)
           .cfg(HOST)
           .singleArtifact()
-          .value(new LateBoundLabel<BuildConfiguration>() {
+          .value(new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
             @Override
             public Label getDefault(Rule rule, BuildConfiguration configuration) {
               if (!configuration.getFragment(ObjcConfiguration.class).generateDebugSymbols()) {
@@ -892,7 +892,7 @@ public class ObjcRuleClasses {
           .add(attr(":default_provisioning_profile", LABEL)
               .singleArtifact()
               .allowedFileTypes(FileType.of(".mobileprovision"))
-              .value(new LateBoundLabel<BuildConfiguration>() {
+              .value(new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                 @Override
                 public Label getDefault(Rule rule, BuildConfiguration configuration) {
                   ObjcConfiguration objcConfiguration =

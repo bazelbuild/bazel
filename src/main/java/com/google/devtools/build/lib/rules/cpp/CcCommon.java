@@ -530,8 +530,7 @@ public final class CcCommon {
     requestedFeatures.addAll(ruleSpecificRequestedFeatures);
 
     // Enable FDO related features requested by options.
-    CppConfiguration cppConfiguration =
-        ruleContext.getConfiguration().getFragment(CppConfiguration.class);
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     FdoSupport fdoSupport = cppConfiguration.getFdoSupport();
     if (fdoSupport.getFdoInstrument() != null) {
       requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);

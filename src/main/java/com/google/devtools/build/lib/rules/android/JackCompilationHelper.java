@@ -784,7 +784,6 @@ public final class JackCompilationHelper {
 
       boolean useSanityChecks =
           ruleContext
-              .getConfiguration()
               .getFragment(AndroidConfiguration.class)
               .isJackSanityChecked();
       FilesToRunProvider jackBinary = androidSdk.getJack();

@@ -153,7 +153,7 @@ public final class AndroidRuleClasses {
    * Implementation for the :proguard attribute.
    */
   static final LateBoundLabel<BuildConfiguration> PROGUARD =
-      new LateBoundLabel<BuildConfiguration>() {
+      new LateBoundLabel<BuildConfiguration>(AndroidConfiguration.class) {
     @Override
     public Label getDefault(Rule rule, BuildConfiguration configuration) {
       // If --proguard_top is not specified, null is returned. AndroidSdk will take care of using
@@ -163,7 +163,7 @@ public final class AndroidRuleClasses {
   };
 
   public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK) {
+      new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
           return configuration.getFragment(AndroidConfiguration.class).getSdk();

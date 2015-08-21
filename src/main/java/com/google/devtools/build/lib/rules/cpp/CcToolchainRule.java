@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.Label;
  */
 public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
-      new LateBoundLabel<BuildConfiguration>() {
+      new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getLibcLabel();
