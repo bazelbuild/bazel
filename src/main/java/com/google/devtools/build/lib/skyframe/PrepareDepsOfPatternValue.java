@@ -32,7 +32,7 @@ import java.util.List;
  * invoked only for its side effect (i.e. ensuring the graph contains targets matching the
  * pattern and its transitive dependencies), this value carries no information.
  *
- * <p>Because the returned value is always the same object, this value and the
+ * <p>Because the returned value is always equal to objects that share its type, this value and the
  * {@link PrepareDepsOfPatternFunction} which computes it are incompatible with change pruning. It
  * should only be requested by consumers who do not require reevaluation when
  * {@link PrepareDepsOfPatternFunction} is reevaluated. Safe consumers include, e.g., top-level
@@ -40,9 +40,21 @@ import java.util.List;
  * side-effects.
  */
 public class PrepareDepsOfPatternValue implements SkyValue {
+  // Note that this value does not guarantee singleton-like reference equality because we use Java
+  // deserialization. Java deserialization can create other instances.
   public static final PrepareDepsOfPatternValue INSTANCE = new PrepareDepsOfPatternValue();
 
   private PrepareDepsOfPatternValue() {
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof PrepareDepsOfPatternValue;
+  }
+
+  @Override
+  public int hashCode() {
+    return 42;
   }
 
   /**

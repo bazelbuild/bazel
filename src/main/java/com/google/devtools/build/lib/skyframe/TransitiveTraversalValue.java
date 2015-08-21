@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.Objects;
+
 import javax.annotation.Nullable;
 
 /**
@@ -33,6 +35,9 @@ public class TransitiveTraversalValue implements SkyValue {
   @Nullable
   private final NoSuchTargetException errorLoadingTarget;
 
+  // Note that this value does not guarantee singleton-like reference equality for successful
+  // {@link TransitiveTraversalValue}s because we use Java deserialization. Java deserialization can
+  // create other instances.
   static final TransitiveTraversalValue SUCCESSFUL_TRANSITIVE_TRAVERSAL_VALUE =
       new TransitiveTraversalValue(null);
 
@@ -49,6 +54,23 @@ public class TransitiveTraversalValue implements SkyValue {
   @Nullable
   public NoSuchTargetException getErrorLoadingTarget() {
     return errorLoadingTarget;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof TransitiveTraversalValue)) {
+      return false;
+    }
+    TransitiveTraversalValue that = (TransitiveTraversalValue) o;
+    return Objects.equals(this.errorLoadingTarget, that.errorLoadingTarget);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(errorLoadingTarget);
   }
 
   @ThreadSafe

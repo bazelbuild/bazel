@@ -26,9 +26,21 @@ import com.google.devtools.build.skyframe.SkyValue;
 @ThreadSafe
 public final class TargetMarkerValue implements SkyValue {
 
+  // Note that this value does not guarantee singleton-like reference equality because we use Java
+  // deserialization. java deserialization can create other instances.
   static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
 
   private TargetMarkerValue() {
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof TargetMarkerValue;
+  }
+
+  @Override
+  public int hashCode() {
+    return 42;
   }
 
   @ThreadSafe

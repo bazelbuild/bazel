@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.util.Objects;
+
 import javax.annotation.Nullable;
 
 /**
@@ -57,5 +59,22 @@ public class NoSuchTargetException extends NoSuchThingException {
    */
   public boolean hasTarget() {
     return hasTarget;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof NoSuchTargetException)) {
+      return false;
+    }
+    NoSuchTargetException that = (NoSuchTargetException) o;
+    return Objects.equals(this.label, that.label) && Objects.equals(this.hasTarget, that.hasTarget);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, hasTarget);
   }
 }
