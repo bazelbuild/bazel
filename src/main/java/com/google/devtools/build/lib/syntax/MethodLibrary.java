@@ -638,67 +638,88 @@ public class MethodLibrary {
   };
 
   // slice operator
-  @SkylarkSignature(name = "$slice", documented = false,
-      mandatoryPositionals = {
-        @Param(name = "self", type = Object.class, doc = "This string, list or tuple."),
-        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
-        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
-      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
-      useLocation = true, useEnvironment = true)
-  private static BuiltinFunction slice = new BuiltinFunction("$slice") {
-    public Object invoke(Object self, Integer left, Integer right,
-        Location loc, Environment env) throws EvalException, ConversionException {
-      // Substring
-      if (self instanceof String) {
-        return pythonSubstring((String) self, left, right, "");
-      }
+  @SkylarkSignature(
+    name = "$slice",
+    documented = false,
+    mandatoryPositionals = {
+      @Param(name = "self", type = Object.class, doc = "This string, list or tuple."),
+      @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+      @Param(name = "end", type = Integer.class, doc = "end position of the slice.")
+    },
+    doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction slice =
+      new BuiltinFunction("$slice") {
+        public Object invoke(
+            Object self, Integer left, Integer right, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          // Substring
+          if (self instanceof String) {
+            return pythonSubstring((String) self, left, right, "");
+          }
 
-      // List slice
-      List<Object> list = Type.OBJECT_LIST.convert(self, "list operand");
-      left = clampIndex(left, list.size());
-      right = clampIndex(right, list.size());
-      if (left > right) {
-        left = right;
-      }
-      return convert(list.subList(left, right), env, loc);
-    }
-  };
+          // List slice
+          List<Object> list = Type.OBJECT_LIST.convert(self, "list operand");
+          left = clampIndex(left, list.size());
+          right = clampIndex(right, list.size());
+          if (left > right) {
+            left = right;
+          }
+          return convert(list.subList(left, right), env, loc);
+        }
+      };
 
   // supported list methods
-  @SkylarkSignature(name = "sorted", returnType = HackHackEitherList.class,
-      doc = "Sort a collection. Elements are sorted first by their type, "
-          + "then by their value (in ascending order).",
-      mandatoryPositionals = {
-        @Param(name = "self", type = HackHackEitherList.class, doc = "This list.")},
-        useLocation = true, useEnvironment = true)
-  private static BuiltinFunction sorted = new BuiltinFunction("sorted") {
-    public Object invoke(Object self, Location loc, Environment env)
-        throws EvalException, ConversionException {
-      List<Object> list = Type.OBJECT_LIST.convert(self, "'sorted' operand");
-      try {
-        list = Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(list);
-      } catch (EvalUtils.ComparisonException e) {
-        throw new EvalException(loc, e);
-      }
-      return convert(list, env, loc);
-    }
-  };
+  @SkylarkSignature(
+    name = "sorted",
+    returnType = HackHackEitherList.class,
+    doc =
+        "Sort a collection. Elements are sorted first by their type, "
+            + "then by their value (in ascending order).",
+    mandatoryPositionals = {@Param(name = "self", type = Object.class, doc = "This collection.")},
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction sorted =
+      new BuiltinFunction("sorted") {
+        public Object invoke(Object self, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          try {
+            Collection<?> col =
+                Ordering.from(EvalUtils.SKYLARK_COMPARATOR)
+                    .sortedCopy(EvalUtils.toCollection(self, loc));
+            return convert(col, env, loc);
+          } catch (EvalUtils.ComparisonException e) {
+            throw new EvalException(loc, e);
+          }
+        }
+      };
 
   // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
-  @SkylarkSignature(name = "append", returnType = Environment.NoneType.class, documented = false,
-      doc = "Adds an item to the end of the list.",
-      mandatoryPositionals = {
-        // we use List rather than SkylarkList because this is actually for use *outside* Skylark
-        @Param(name = "self", type = List.class, doc = "This list."),
-        @Param(name = "item", type = Object.class, doc = "Item to add at the end.")},
-        useLocation = true, useEnvironment = true)
-  private static BuiltinFunction append = new BuiltinFunction("append") {
-    public Environment.NoneType invoke(List<Object> self, Object item,
-        Location loc, Environment env) throws EvalException, ConversionException {
-      self.add(item);
-      return Environment.NONE;
-    }
-  };
+  @SkylarkSignature(
+    name = "append",
+    returnType = Environment.NoneType.class,
+    documented = false,
+    doc = "Adds an item to the end of the list.",
+    mandatoryPositionals = {
+      // we use List rather than SkylarkList because this is actually for use *outside* Skylark
+      @Param(name = "self", type = List.class, doc = "This list."),
+      @Param(name = "item", type = Object.class, doc = "Item to add at the end.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction append =
+      new BuiltinFunction("append") {
+        public Environment.NoneType invoke(
+            List<Object> self, Object item, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          self.add(item);
+          return Environment.NONE;
+        }
+      };
 
   // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
   @SkylarkSignature(name = "extend", returnType = Environment.NoneType.class, documented = false,
