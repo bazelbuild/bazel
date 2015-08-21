@@ -21,7 +21,7 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
   || { echo "testenv.sh not found!" >&2; exit 1; }
 
-# OS X as a limit in the pipe length, so force the root to a shorter one
+# OS X has a limit in the pipe length, so force the root to a shorter one
 bazel_root="${TEST_TMPDIR}/root"
 mkdir -p "${bazel_root}"
 
@@ -314,7 +314,7 @@ function assert_build_fails() {
 }
 
 function assert_test_ok() {
-  bazel test --test_output=errors $* \
+  bazel test --test_output=errors $* >& $TEST_log \
     || fail "Test $1 failed while expecting success"
 }
 
