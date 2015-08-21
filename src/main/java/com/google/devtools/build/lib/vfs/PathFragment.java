@@ -81,6 +81,15 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         }
       };
 
+  /** Lower-level API. Create a PathFragment, interning segments. */
+  public static PathFragment create(char driveLetter, boolean isAbsolute, String[] segments) {
+    String[] internedSegments = new String[segments.length];
+    for (int i = 0; i < segments.length; i++) {
+      internedSegments[i] = StringCanonicalizer.intern(segments[i]);
+    }
+    return new PathFragment(driveLetter, isAbsolute, segments);
+  }
+
   // We have 3 word-sized fields (segments, hashCode and path), and 2
   // byte-sized ones, which fits in 16 bytes. Object sizes are rounded
   // to 16 bytes.  Medium sized builds can easily hold millions of
@@ -576,6 +585,11 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return "";
     }
     return (driveLetter != '\0') ? driveLetter + ":" : "";
+  }
+
+  /** Return the drive letter or '\0' if not applicable. */
+  public char getDriveLetter() {
+    return driveLetter;
   }
 
   /**
