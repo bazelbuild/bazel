@@ -65,22 +65,28 @@ sh_test(
 EOF
 }
 
+# We have to use --spawn_strategy=standalone, because the test actions
+# communicate with each other via a hard-linked file.
 function test_3_cpus() {
   set_up_jobcount
   # 3 CPUs, so no more than 3 tests in parallel.
-  bazel test --test_output=errors --local_resources=10000,3,100  --runs_per_test=10 //dir:test
+  bazel test --spawn_strategy=standalone --test_output=errors \
+    --local_resources=10000,3,100  --runs_per_test=10 //dir:test
 }
 
 function test_3_local_jobs() {
   set_up_jobcount
   # 3 local test jobs, so no more than 3 tests in parallel.
-  bazel test --test_output=errors --local_test_jobs=3 --local_resources=10000,10,100 --runs_per_test=10 //dir:test
+  bazel test --spawn_strategy=standalone --test_output=errors \
+    --local_test_jobs=3 --local_resources=10000,10,100 \
+    --runs_per_test=10 //dir:test
 }
 
 function test_unlimited_local_jobs() {
   set_up_jobcount
   # unlimited local test jobs, so local resources enforces 3 tests in parallel.
-  bazel test --test_output=errors --local_resources=10000,3,100 --runs_per_test=10 //dir:test
+  bazel test --spawn_strategy=standalone --test_output=errors \
+    --local_resources=10000,3,100 --runs_per_test=10 //dir:test
 }
 
 function test_tmpdir() {
