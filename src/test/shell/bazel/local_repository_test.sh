@@ -641,6 +641,7 @@ EOF
 def impl(ctx):
     ctx.action(
         command = "cat %s > %s" % (ctx.file._dep.path, ctx.outputs.sh.path),
+        inputs = [ctx.file._dep],
         outputs = [ctx.outputs.sh]
     )
 
