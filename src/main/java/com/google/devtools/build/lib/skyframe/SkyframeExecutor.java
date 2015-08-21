@@ -1162,16 +1162,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return tsgm;
   }
 
-  /**
-   * Configures a given set of configured targets.
-   */
+  /** Configures a given set of configured targets. */
   public EvaluationResult<ActionLookupValue> configureTargets(
       List<ConfiguredTargetKey> values, List<AspectKey> aspectKeys, boolean keepGoing)
       throws InterruptedException {
     checkActive();
 
-    Set<SkyKey> keys = new HashSet<>();
-    keys.addAll(ConfiguredTargetValue.keys(values));
+    List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
     for (AspectKey aspectKey : aspectKeys) {
       keys.add(AspectValue.key(aspectKey));
     }
