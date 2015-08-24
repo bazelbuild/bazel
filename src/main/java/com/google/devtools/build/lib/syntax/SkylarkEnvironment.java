@@ -44,7 +44,7 @@ public class SkylarkEnvironment extends Environment implements Serializable {
    */
   private final Set<String> readGlobalVariables = new HashSet<>();
 
-  private ImmutableList<String> stackTrace;
+  private ImmutableList<BaseFunction> stackTrace;
 
   @Nullable private String fileContentHashCode;
 
@@ -55,13 +55,15 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   public static SkylarkEnvironment createEnvironmentForFunctionCalling(
       Environment callerEnv, SkylarkEnvironment definitionEnv,
       UserDefinedFunction function) throws EvalException {
-    if (callerEnv.getStackTrace().contains(function.getName())) {
-      throw new EvalException(function.getLocation(), "Recursion was detected when calling '"
-          + function.getName() + "' from '" + Iterables.getLast(callerEnv.getStackTrace()) + "'");
+    if (callerEnv.getStackTrace().contains(function)) {
+      throw new EvalException(
+          function.getLocation(),
+          "Recursion was detected when calling '" + function.getName() + "' from '"
+          + Iterables.getLast(callerEnv.getStackTrace()).getName() + "'");
     }
-    ImmutableList<String> stackTrace = new ImmutableList.Builder<String>()
+    ImmutableList<BaseFunction> stackTrace = new ImmutableList.Builder<BaseFunction>()
         .addAll(callerEnv.getStackTrace())
-        .add(function.getName())
+        .add(function)
         .build();
     SkylarkEnvironment childEnv =
         // Always use the caller Environment's EventHandler. We cannot assume that the
@@ -79,8 +81,8 @@ public class SkylarkEnvironment extends Environment implements Serializable {
     return childEnv;
   }
 
-  private SkylarkEnvironment(SkylarkEnvironment definitionEnv, ImmutableList<String> stackTrace,
-      EventHandler eventHandler) {
+  private SkylarkEnvironment(SkylarkEnvironment definitionEnv,
+      ImmutableList<BaseFunction> stackTrace, EventHandler eventHandler) {
     super(definitionEnv.getGlobalEnvironment());
     this.stackTrace = stackTrace;
     this.eventHandler = Preconditions.checkNotNull(eventHandler,
@@ -109,7 +111,7 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   }
 
   @Override
-  public ImmutableList<String> getStackTrace() {
+  public ImmutableList<BaseFunction> getStackTrace() {
     return stackTrace;
   }
 
