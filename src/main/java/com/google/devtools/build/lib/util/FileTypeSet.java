@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.annotation.concurrent.Immutable;
@@ -98,6 +99,11 @@ public class FileTypeSet implements Predicate<String> {
     }
   }
 
+  /** Returns a copy of this {@link FileTypeSet} including the specified `fileTypes`. */
+  public FileTypeSet including(FileType... fileTypes) {
+    return new FileTypeSet(Iterables.concat(this.types, Arrays.asList(fileTypes)));
+  }
+
   /** Returns true if the filename can be matched by any FileType in this set. */
   public boolean matches(String filename) {
     int slashIndex = filename.lastIndexOf('/');
@@ -135,5 +141,4 @@ public class FileTypeSet implements Predicate<String> {
   public String toString() {
     return StringUtil.joinEnglishList(getExtensions());
   }
-
 }
