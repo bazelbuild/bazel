@@ -129,6 +129,13 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testPrecedence5() throws Exception {
+    BinaryOperatorExpression e =
+        (BinaryOperatorExpression) parseExpression("2 * x | y + 1");
+    assertEquals(Operator.PIPE, e.getOperator());
+  }
+
+  @Test
   public void testUnaryMinusExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpression("-5");
     FuncallExpression e2 = (FuncallExpression) parseExpression("- 5");
