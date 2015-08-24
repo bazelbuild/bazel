@@ -1509,12 +1509,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     if (checkOutputFiles) {
       // Detect external modifications in the output tree.
-      FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm,
+      FilesystemValueChecker fsvc = new FilesystemValueChecker(memoizingEvaluator, tsgm,
           lastExecutionTimeRange);
-      invalidateDirtyActions(fsnc.getDirtyActionValues(batchStatter));
-      modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
-      outputDirtyFiles += fsnc.getNumberOfModifiedOutputFiles();
-      modifiedFilesDuringPreviousBuild += fsnc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
+      invalidateDirtyActions(fsvc.getDirtyActionValues(batchStatter));
+      modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
+      outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
+      modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
     }
     informAboutNumberOfModifiedFiles();
   }
