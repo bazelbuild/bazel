@@ -84,12 +84,14 @@ public interface NodeEntry {
 
 
   /**
-   * Returns the {@link SkyValue} for this entry and the metadata associated with it (Like events
-   * and errors). This method may only be called after the evaluation of this node is complete,
-   * i.e., after {@link #setValue} has been called.
+   * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
+   * it (like events and errors). This method may only be called after the evaluation of this node
+   * is complete, i.e., after {@link #setValue} has been called.
+   *
+   * <p>Use the static methods of {@link ValueWithMetadata} to extract metadata if necessary.
    */
   @ThreadSafe
-  ValueWithMetadata getValueWithMetadata();
+  SkyValue getValueMaybeWithMetadata();
 
   /**
    * Returns the value, even if dirty or changed. Returns null otherwise.

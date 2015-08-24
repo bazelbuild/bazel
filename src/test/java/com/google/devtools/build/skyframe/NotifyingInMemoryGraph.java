@@ -135,9 +135,9 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    public ValueWithMetadata getValueWithMetadata() {
+    public SkyValue getValueMaybeWithMetadata() {
       graphListener.accept(myKey, EventType.GET_VALUE_WITH_METADATA, Order.BEFORE, this);
-      return super.getValueWithMetadata();
+      return super.getValueMaybeWithMetadata();
     }
   }
 }
