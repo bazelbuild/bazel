@@ -1651,8 +1651,6 @@ public final class BuildConfiguration {
   /**
    * Returns a configuration fragment instances of the given class.
    */
-  @SkylarkCallable(name = "fragment", documented = false,
-      doc = "Returns a configuration fragment using the key.")
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }
