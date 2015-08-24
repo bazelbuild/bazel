@@ -186,7 +186,6 @@ public class SkylarkRuleClassFunctions {
   @SkylarkSignature(name = "rule", doc =
       "Creates a new rule. Store it in a global value, so that it can be loaded and called "
       + "from BUILD files.",
-      onlyLoadingPhase = true,
       returnType = BaseFunction.class,
       mandatoryPositionals = {
         @Param(name = "implementation", type = BaseFunction.class,

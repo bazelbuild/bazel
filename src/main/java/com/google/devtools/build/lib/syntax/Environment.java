@@ -89,13 +89,8 @@ public class Environment {
   protected Map<PathFragment, SkylarkEnvironment> importedExtensions;
 
   /**
-   * A set of disable variables propagating through function calling. This is needed because
+   * A set of disabled namespaces propagating through function calling. This is needed because
    * UserDefinedFunctions lock the definition Environment which should be immutable.
-   */
-  protected Set<String> disabledVariables = new HashSet<>();
-
-  /**
-   * A set of disable namespaces propagating through function calling. See disabledVariables.
    */
   protected Set<Class<?>> disabledNameSpaces = new HashSet<>();
 
@@ -166,9 +161,6 @@ public class Environment {
    *
    */
   public Object lookup(String varname) throws NoSuchVariableException {
-    if (disabledVariables.contains(varname)) {
-      throw new NoSuchVariableException(varname);
-    }
     Object value = env.get(varname);
     if (value == null) {
       if (parent != null) {

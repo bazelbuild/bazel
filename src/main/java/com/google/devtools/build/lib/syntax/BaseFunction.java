@@ -76,9 +76,6 @@ public abstract class BaseFunction {
   // Documentation for variables, if any
   @Nullable protected List<String> paramDoc;
 
-  // True if this function is only allowed during the Loading Phase
-  protected boolean onlyLoadingPhase;
-
   // The types actually enforced by the Skylark runtime, as opposed to those enforced by the JVM,
   // or those displayed to the user in the documentation.
   @Nullable protected List<SkylarkType> enforcedArgumentTypes;
@@ -117,11 +114,6 @@ public abstract class BaseFunction {
   /** Returns true if the BaseFunction is configured. */
   public boolean isConfigured() {
     return signature != null;
-  }
-
-  /** Returns true if the function is only available during loading phase */
-  public boolean isOnlyLoadingPhase() {
-    return onlyLoadingPhase;
   }
 
   /**
@@ -489,7 +481,6 @@ public abstract class BaseFunction {
         getName(), annotation, unconfiguredDefaultValues, paramDoc, getEnforcedArgumentTypes());
     this.objectType = annotation.objectType().equals(Object.class)
         ? null : annotation.objectType();
-    this.onlyLoadingPhase = annotation.onlyLoadingPhase();
     configure();
   }
 

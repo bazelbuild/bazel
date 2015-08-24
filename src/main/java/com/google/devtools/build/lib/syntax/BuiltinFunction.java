@@ -294,7 +294,6 @@ public class BuiltinFunction extends BaseFunction {
     this.signature = factory.getSignature();
     this.extraArgs = factory.getExtraArgs();
     this.objectType = factory.getObjectType();
-    this.onlyLoadingPhase = factory.isOnlyLoadingPhase();
     configure();
   }
 

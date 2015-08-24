@@ -52,8 +52,6 @@ public @interface SkylarkSignature {
 
   Class<?> returnType() default Object.class;
 
-  boolean onlyLoadingPhase() default false;
-
   // TODO(bazel-team): determine this way whether to accept mutable Lists
   // boolean mutableLists() default false;
 
