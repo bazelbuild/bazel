@@ -16,15 +16,6 @@ java_filetype = FileType([".java"])
 jar_filetype = FileType([".jar"])
 srcjar_filetype = FileType([".jar", ".srcjar"])
 
-def is_windows(fragments):
-  return fragments.cpp.compiler.startswith("windows_")
-
-def path_separator(ctx):
-  if is_windows(ctx.fragments):
-    return ";"
-  else:
-    return ":"
-
 # This is a quick and dirty rule to make Bazel compile itself. It's not
 # production ready.
 
@@ -70,7 +61,7 @@ def java_library_impl(ctx):
     cmd += ctx.file._javac.path
     cmd += " " + " ".join(javac_options)
     if compile_time_jars:
-      cmd += " -classpath '" + cmd_helper.join_paths(path_separator(ctx), compile_time_jars) + "'"
+      cmd += " -classpath '" + cmd_helper.join_paths(ctx.configuration.host_path_separator, compile_time_jars) + "'"
     cmd += " -d " + build_output + files + "\n"
 
   # We haven't got a good story for where these should end up, so
@@ -207,7 +198,9 @@ java_library = rule(
     attrs = java_library_attrs,
     outputs = {
         "class_jar": "lib%{name}.jar",
-    })
+    },
+    fragments = ['java'],
+)
 
 # A copy to avoid conflict with native rule.
 bootstrap_java_library = rule(
@@ -215,7 +208,9 @@ bootstrap_java_library = rule(
     attrs = java_library_attrs,
     outputs = {
         "class_jar": "lib%{name}.jar",
-    })
+    },
+    fragments = ['java'],
+)
 
 java_binary_attrs_common = java_library_attrs + {
     "jvm_flags": attr.string_list(),
@@ -235,13 +230,17 @@ java_binary_outputs = {
 java_binary = rule(java_binary_impl,
    executable = True,
    attrs = java_binary_attrs,
-   outputs = java_binary_outputs)
+   outputs = java_binary_outputs,
+   fragments = ['java'],
+)
 
 # A copy to avoid conflict with native rule
 bootstrap_java_binary = rule(java_binary_impl,
    executable = True,
    attrs = java_binary_attrs,
-   outputs = java_binary_outputs)
+   outputs = java_binary_outputs,
+   fragments = ['java'],
+)
 
 java_test = rule(java_binary_impl,
    executable = True,
@@ -253,6 +252,7 @@ java_test = rule(java_binary_impl,
    },
    outputs = java_binary_outputs,
    test = True,
+   fragments = ['java'],
 )
 
 java_import = rule(

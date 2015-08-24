@@ -1494,8 +1494,8 @@ public final class BuildConfiguration {
   @SkylarkCallable(name = "host_path_separator", structField = true,
       doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
   public String getHostPathSeparator() {
-    // TODO(bazel-team): This needs to change when we support Windows.
-    return ":";
+    // TODO(bazel-team): Maybe do this in the constructor instead? This isn't serialization-safe.
+    return OS.getCurrent() == OS.WINDOWS ? ";" : ":";
   }
 
   /**
