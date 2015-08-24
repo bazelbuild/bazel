@@ -609,6 +609,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testUnionSet() throws Exception {
+    new SkylarkTest()
+        .testStatement("str(set([1, 3]) | set([1, 2]))", "set([1, 2, 3])")
+        .testStatement("str(set([1, 2]) | [1, 3])", "set([1, 2, 3])")
+        .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
+  }
+
+  @Test
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())

@@ -128,7 +128,7 @@ public class EvaluationTestCase {
     setFailFast(true);
     try {
       eval(input);
-      fail();
+      fail("Expected error '" + msg + "' but got no error");
     } catch (IllegalArgumentException | EvalException e) {
       assertThat(e).hasMessage(msg);
     }
@@ -137,7 +137,7 @@ public class EvaluationTestCase {
   public void checkEvalErrorContains(String msg, String... input) throws Exception {
     try {
       eval(input);
-      fail();
+      fail("Expected error containing '" + msg + "' but got no error");
     } catch (IllegalArgumentException | EvalException e) {
       assertThat(e.getMessage()).contains(msg);
     }
@@ -146,7 +146,7 @@ public class EvaluationTestCase {
   public void checkEvalErrorStartsWith(String msg, String... input) throws Exception {
     try {
       eval(input);
-      fail();
+      fail("Expected error starting with '" + msg + "' but got no error");
     } catch (IllegalArgumentException | EvalException e) {
       assertThat(e.getMessage()).startsWith(msg);
     }

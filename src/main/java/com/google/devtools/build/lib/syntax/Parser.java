@@ -134,6 +134,7 @@ class Parser {
           .put(TokenKind.PERCENT, Operator.PERCENT)
           .put(TokenKind.SLASH, Operator.DIVIDE)
           .put(TokenKind.PLUS, Operator.PLUS)
+          .put(TokenKind.PIPE, Operator.PIPE)
           .put(TokenKind.STAR, Operator.MULT)
           .build();
 
@@ -151,6 +152,7 @@ class Parser {
       EnumSet.of(Operator.NOT),
       EnumSet.of(Operator.EQUALS_EQUALS, Operator.NOT_EQUALS, Operator.LESS, Operator.LESS_EQUALS,
           Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN, Operator.NOT_IN),
+      EnumSet.of(Operator.PIPE),
       EnumSet.of(Operator.MINUS, Operator.PLUS),
       EnumSet.of(Operator.DIVIDE, Operator.MULT, Operator.PERCENT));
 

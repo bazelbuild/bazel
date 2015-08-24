@@ -121,18 +121,22 @@ public final class BinaryOperatorExpression extends Expression {
     Object rval = rhs.eval(env);
 
     switch (operator) {
-      case PLUS: {
+      case PLUS:
         return plus(lval, rval);
-      }
 
-      case MINUS: {
+      case PIPE:
+        if (lval instanceof SkylarkNestedSet) {
+          return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, getLocation());
+        }
+        break;
+
+      case MINUS:
         if (lval instanceof Integer && rval instanceof Integer) {
           return ((Integer) lval).intValue() - ((Integer) rval).intValue();
         }
         break;
-      }
 
-      case MULT: {
+      case MULT:
         // int * int
         if (lval instanceof Integer && rval instanceof Integer) {
           return ((Integer) lval).intValue() * ((Integer) rval).intValue();
@@ -148,9 +152,8 @@ public final class BinaryOperatorExpression extends Expression {
           return Strings.repeat((String) rval, ((Integer) lval).intValue());
         }
         break;
-      }
 
-      case DIVIDE: {
+      case DIVIDE:
         // int / int
         if (lval instanceof Integer && rval instanceof Integer) {
           if (rval.equals(0)) {
@@ -163,9 +166,9 @@ public final class BinaryOperatorExpression extends Expression {
           // We want to follow Python semantics, so we use float division and round down.
           return (int) Math.floor(new Double((Integer) lval) / (Integer) rval);
         }
-      }
+        break;
 
-      case PERCENT: {
+      case PERCENT:
         // int % int
         if (lval instanceof Integer && rval instanceof Integer) {
           if (rval.equals(0)) {
@@ -207,43 +210,33 @@ public final class BinaryOperatorExpression extends Expression {
           }
         }
         break;
-      }
 
-      case EQUALS_EQUALS: {
+      case EQUALS_EQUALS:
         return lval.equals(rval);
-      }
 
-      case NOT_EQUALS: {
+      case NOT_EQUALS:
         return !lval.equals(rval);
-      }
 
-      case LESS: {
+      case LESS:
         return compare(lval, rval) < 0;
-      }
 
-      case LESS_EQUALS: {
+      case LESS_EQUALS:
         return compare(lval, rval) <= 0;
-      }
 
-      case GREATER: {
+      case GREATER:
         return compare(lval, rval) > 0;
-      }
 
-      case GREATER_EQUALS: {
+      case GREATER_EQUALS:
         return compare(lval, rval) >= 0;
-      }
 
-      case IN: {
+      case IN:
         return evalIn(lval, rval);
-      }
 
-      case NOT_IN: {
+      case NOT_IN:
         return !evalIn(lval, rval);
-      }
 
-      default: {
+      default:
         throw new AssertionError("Unsupported binary operator: " + operator);
-      }
     } // endswitch
 
     // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
@@ -310,6 +303,7 @@ public final class BinaryOperatorExpression extends Expression {
           getLocation());
     }
 
+    // TODO(bazel-team): Remove this case. Union of sets should use '|' instead of '+'.
     if (lval instanceof SkylarkNestedSet) {
       return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, getLocation());
     }

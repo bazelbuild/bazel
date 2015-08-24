@@ -33,6 +33,7 @@ public enum Operator {
   NOT_IN("not in"),
   OR("or"),
   PERCENT("%"),
+  PIPE("|"),
   PLUS("+");
 
   private final String name;
