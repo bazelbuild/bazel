@@ -276,12 +276,14 @@ rust_library = rule(
     outputs = {
         "rust_lib": "lib%{name}.rlib",
     },
+    fragments = ["cpp"],
 )
 
 rust_binary = rule(
     _rust_binary_impl,
     executable = True,
     attrs = _rust_common_attrs,
+    fragments = ["cpp"],
 )
 
 rust_test = rule(
@@ -289,4 +291,6 @@ rust_test = rule(
     executable = True,
     attrs = _rust_common_attrs,
     test = True,
+    fragments = ["cpp"],
 )
+
