@@ -99,18 +99,27 @@ ${ATTRIBUTE_DEFINITION}
 
 <h4 id="action_listener_example">Example</h4>
 <pre>
-    action_listener(name = "index_all_languages",
-                    mnemonics = [ "Javac", "CppCompile" ],
-                    extra_actions = [ ":indexer" ])
+action_listener(
+    name = "index_all_languages",
+    mnemonics = [
+        "Javac",
+        "CppCompile",
+    ],
+    extra_actions = [":indexer"],
+)
 
-    action_listener(name = "index_java",
-                    mnemonics = [ "Javac" ],
-                    extra_actions = [ ":indexer" ])
+action_listener(
+    name = "index_java",
+    mnemonics = ["Javac"],
+    extra_actions = [":indexer"],
+)
 
-    extra_action(name = "indexer",
-                 tools = [ "//my/tools:indexer" ],
-                 cmd = "$(location //my/tools:indexer)" +
-                       "--extra_action_file=$(EXTRA_ACTION_FILE)")
+extra_action(
+    name = "indexer",
+    tools = ["//my/tools:indexer"],
+    cmd = "$(location //my/tools:indexer)" +
+          "--extra_action_file=$(EXTRA_ACTION_FILE)",
+)
 </pre>
 
 <!-- #END_BLAZE_RULE -->*/
