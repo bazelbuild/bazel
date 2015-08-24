@@ -1,5 +1,95 @@
-#!/bin/bash -eu
+#!/usr/bin/python
 
-STUBPATH=$(%python_binary% -c "import os.path; print(os.path.realpath('$0'));")
-export PYTHONPATH=$STUBPATH.runfiles
-exec %python_binary% ${PYTHONPATH}/%main% "$@"
+import os
+import re
+import sys
+
+
+PYTHON_BINARY = '%python_binary%'
+
+# Find a file in a given search path.
+def SearchPath(name):
+  search_path = os.getenv('PATH', os.defpath).split(os.pathsep)
+  for directory in search_path:
+    path = os.path.join(directory, name)
+    if os.path.exists(path):
+      return path
+  return None
+
+# Find the real Python binary if it's not a normal absolute path
+def FindPythonBinary():
+  if PYTHON_BINARY.startswith('//'):
+    # Case 1: Path is a label. Not supported yet.
+    raise AssertionError(
+      'Bazel does not support execution of Python interpreters via labels yet')
+  elif PYTHON_BINARY.startswith('/'):
+    # Case 2: Absolute path.
+    return PYTHON_BINARY
+  elif '/' in PYTHON_BINARY:
+    # Case 3: Path is relative to current working directory.
+    return os.path.join(os.getcwd(), PYTHON_BINARY)
+  else:
+    # Case 4: Path has to be looked up in the search path.
+    return SearchPath(PYTHON_BINARY)
+
+def Main():
+  args = sys.argv[1:]
+
+  new_env = {}
+
+  # Follow symlinks, looking for my module space
+  stub_filename = os.path.abspath(sys.argv[0])
+  while True:
+    # Found it?
+    module_space = stub_filename + '.runfiles'
+    if os.path.isdir(module_space):
+      break
+
+    # Follow a symlink, try again?
+    if os.path.islink(stub_filename):
+      link = os.readlink(stub_filename)
+      # Absolutize
+      stub_filename = os.path.join(os.path.dirname(stub_filename), link)
+      continue
+
+    matchobj = re.match("(.*\.runfiles)/.*", os.path.abspath(sys.argv[0]))
+    if matchobj:
+      module_space = matchobj.group(1)
+      break
+
+    raise AssertionError('Cannot find .runfiles directory for %s' %
+                         sys.argv[0])
+
+  # Now look for my main python source file.
+  # The magic string percent-main-percent is replaced with the filename of the
+  # main file of the Python binary in BazelPythonSemantics.java.
+  main_filename = os.path.join(module_space, '%main%')
+  assert os.path.exists(main_filename), \
+         'Cannot exec() %r: file not found.' % main_filename
+  assert os.access(main_filename, os.R_OK), \
+         'Cannot exec() %r: file not readable.' % main_filename
+
+  python_path = os.environ.get('PYTHONPATH')
+  if not python_path:
+    new_env['PYTHONPATH'] = module_space
+  else:
+    new_env['PYTHONPATH'] = '%s:%s' % (module_space, python_path)
+
+  program = python_program = FindPythonBinary()
+  if python_program is None:
+    raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
+  args = [python_program, main_filename] + args
+
+  os.environ.update(new_env)
+
+  try:
+    sys.stdout.flush()
+    os.execv(program, args)
+  except EnvironmentError, e:
+    # This exception occurs when os.execv() fails for some reason.
+    if not getattr(e, 'filename', None):
+      e.filename = program  # Add info to error message
+    raise
+
+if __name__ == '__main__':
+  Main()
