@@ -14,16 +14,37 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Predicate;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 import java.io.Serializable;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 /** An identifier for a {@code SkyFunction}. */
 public final class SkyFunctionName implements Serializable {
 
+  // In practice the number of unique SkyFunctionNames should be reasonably limited, use this cache
+  // to avoid accidentally creating many of the same.
+  private static final LoadingCache<String, SkyFunctionName> skyFunctionNameCache =
+      CacheBuilder.newBuilder()
+        .weakValues()
+        .build(
+            new CacheLoader<String, SkyFunctionName>() {
+              @Override
+              public SkyFunctionName load(String name) {
+                return new SkyFunctionName(name);
+              }
+            });
+
   /** Create a SkyFunctionName identified by {@code name}. */
   public static SkyFunctionName create(String name) {
-    return new SkyFunctionName(name);
+    try {
+      return skyFunctionNameCache.get(name);
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Unexpected exception creating SkyFunctionName", e);
+    }
   }
 
   private final String name;
