@@ -25,8 +25,9 @@ import javax.annotation.Nullable;
 /**
  * Represents a collection of configuration fragments in Skylark.
  */
+// Documentation can be found at ctx.fragments
 @Immutable
-@SkylarkModule(name = "fragments", doc = "Allows access to configuration fragments.")
+@SkylarkModule(name = "fragments", documented = false, doc = "")
 public class FragmentCollection implements ClassObject {
   private final RuleContext ruleContext;
 

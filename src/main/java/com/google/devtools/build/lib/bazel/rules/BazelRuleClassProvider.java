@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
@@ -82,19 +81,16 @@ import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.java.J2ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaCpuSupplier;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
-import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ExperimentalIosTestRule;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
@@ -121,7 +117,6 @@ import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.workspace.BindRule;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 
 import java.io.IOException;
@@ -211,23 +206,13 @@ public class BazelRuleClassProvider {
           AndroidConfiguration.Options.class
       );
 
-  /**
-   * Java objects accessible from Skylark rule implementations using this module.
-   */
-  private static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
-      ImmutableMap.of(
-          "jvm", SkylarkType.of(Jvm.class),
-          "java_configuration", SkylarkType.of(JavaConfiguration.class),
-          "cpp", SkylarkType.of(CppConfiguration.class));
-
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder
         .addBuildInfoFactory(new BazelJavaBuildInfoFactory())
         .addBuildInfoFactory(new CppBuildInfo())
         .addBuildInfoFactory(new ObjcBuildInfoFactory())
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
-        .setPrerequisiteValidator(new BazelPrerequisiteValidator())
-        .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);
+        .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
     for (Class<? extends FragmentOptions> fragmentOptions : BUILD_OPTIONS) {
       builder.addConfigurationOptions(fragmentOptions);

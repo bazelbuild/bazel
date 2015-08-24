@@ -219,6 +219,27 @@ in the attribute.
 `DATA_CFG` is present for legacy reasons and should be used for the `data`
 attributes.
 
+<a name="fragments"></a>
+Configuration Fragments
+--------------
+
+Rules may access configuration fragments such as `cpp`, `java` and `jvm`.
+However, all required fragments have to be declared in order to avoid access
+errors:
+
+```python
+def impl(ctx):
+    # Using ctx.fragments.cpp would lead to an error since it was not declared.
+    x = ctx.fragments.java
+    ...
+
+my_rule = rule(
+    implementation=impl,
+    fragments = ["java"],
+    ...
+)
+```
+
 Providers
 ---------
 

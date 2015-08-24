@@ -312,7 +312,14 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(
-      name = "fragments", structField = true, doc = "Allows access to configuration fragments.")
+    name = "fragments",
+    structField = true,
+    doc =
+        "Allows access to configuration fragments. Possible fields are <code>cpp</code>, "
+            + "<code>java</code> and <code>jvm</code>. "
+            + "However, rules have to declare their required fragments in order to access them "
+            + "(see <a href=\"../rules.html#fragments\">here</a>)."
+  )
   public FragmentCollection getFragments() {
     return fragments;
   }
