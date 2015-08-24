@@ -481,7 +481,7 @@ EOF
   assert_contains "Michaelangelo" bazel-genfiles/external/mutant/tmnt
 }
 
-function test_local_deps() {
+function test_external_deps_in_remote_repo() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
@@ -491,6 +491,42 @@ local_repository(
     path = "$r",
 )
 
+bind(
+    name = "e",
+    actual = "@r//:g",
+)
+EOF
+
+  cat > $r/BUILD <<EOF
+genrule(
+    name = "r",
+    srcs = ["//external:e"],
+    outs = ["r.out"],
+    cmd = "cp \$< \$@",
+)
+
+genrule(
+    name = "g",
+    srcs = [],
+    outs = ["g.out"],
+    cmd = "echo GOLF > \$@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+ bazel build @r//:r || fail "build failed"
+ assert_contains "GOLF" bazel-genfiles/external/r/r.out
+}
+
+function test_local_deps() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
 EOF
 
   mkdir -p $r/a
