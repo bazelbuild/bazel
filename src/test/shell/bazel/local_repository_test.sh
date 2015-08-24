@@ -636,7 +636,12 @@ function test_output_file_in_local_repository() {
   mkdir $r
   touch $r/WORKSPACE
   cat > $r/BUILD <<'EOF'
-genrule(name="r", srcs=[], outs=["r.out"], cmd="touch $@")
+genrule(
+    name="r",
+    srcs=[],
+    outs=["r.out"],
+    cmd="touch $@",
+    visibility=["//visibility:public"])
 EOF
 
   cat > WORKSPACE <<EOF
@@ -696,6 +701,66 @@ EOF
 
   bazel build -s //:x
   assert_contains "abcxyz" bazel-bin/x.sh
+}
+
+function test_visibility_through_bind() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir $r
+
+  cat > $r/BUILD <<EOF
+genrule(
+    name = "public",
+    srcs = ["//external:public"],
+    outs = ["public.out"],
+    cmd = "cp \$< \$@",
+)
+
+genrule(
+    name = "private",
+    srcs = ["//external:private"],
+    outs = ["private.out"],
+    cmd = "cp \$< \$@",
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+
+bind(
+    name = "public",
+    actual = "//:public",
+)
+
+bind(
+    name = "private",
+    actual = "//:private",
+)
+EOF
+
+  cat > BUILD <<EOF
+genrule(
+    name = "public",
+    srcs = [],
+    outs = ["public.out"],
+    cmd = "echo PUBLIC > \$@",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "private",
+    srcs = [],
+    outs = ["private.out"],
+    cmd = "echo PRIVATE > \$@",
+)
+EOF
+
+  bazel build @r//:public >& $TEST_log || fail "failed to build public target"
+  bazel build @r//:private >& $TEST_log && fail "could build private target"
+  expect_log "Target '//:private' is not visible from target '@r//:private'"
 }
 
 run_suite "local repository tests"

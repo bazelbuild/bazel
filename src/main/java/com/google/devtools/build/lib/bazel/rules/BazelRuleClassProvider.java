@@ -118,6 +118,7 @@ import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.workspace.BindRule;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 
@@ -125,6 +126,7 @@ import java.io.IOException;
  * A rule class provider implementing the rules Bazel knows.
  */
 public class BazelRuleClassProvider {
+  private static final PathFragment EXTERNAL = new PathFragment("external");
 
   /**
    * Used by the build encyclopedia generator.
@@ -154,12 +156,17 @@ public class BazelRuleClassProvider {
     private void validateDirectPrerequisiteVisibility(
         RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
       Rule rule = context.getRule();
+      if (rule.getLabel().getPackageFragment().equals(EXTERNAL)) {
+        // //external: labels are special. They have access to everything and visibility is checked
+        // at the edge that points to the //external: label.
+        return;
+      }
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
       // We don't check the visibility of late-bound attributes, because it would break some
       // features.
-      if (!context.getRule().getLabel().getPackageName().equals(
-              prerequisite.getTarget().getLabel().getPackageName())
+      if (!context.getRule().getLabel().getPackageIdentifier().equals(
+              prerequisite.getTarget().getLabel().getPackageIdentifier())
           && !context.isVisible(prerequisite)) {
         if (!context.getConfiguration().checkVisibility()) {
           context.ruleWarning(String.format("Target '%s' violates visibility of target "
