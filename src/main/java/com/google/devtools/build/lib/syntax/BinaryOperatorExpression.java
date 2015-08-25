@@ -193,18 +193,18 @@ public final class BinaryOperatorExpression extends Expression {
             if (rval instanceof List<?>) {
               List<?> rlist = (List<?>) rval;
               if (EvalUtils.isTuple(rlist)) {
-                return Printer.formatString(pattern, rlist);
+                return Printer.formatToString(pattern, rlist);
               }
               /* string % list: fall thru */
             }
             if (rval instanceof SkylarkList) {
               SkylarkList rlist = (SkylarkList) rval;
               if (rlist.isTuple()) {
-                return Printer.formatString(pattern, rlist.toList());
+                return Printer.formatToString(pattern, rlist.toList());
               }
             }
 
-            return Printer.formatString(pattern, Collections.singletonList(rval));
+            return Printer.formatToString(pattern, Collections.singletonList(rval));
           } catch (IllegalFormatException e) {
             throw new EvalException(getLocation(), e.getMessage());
           }

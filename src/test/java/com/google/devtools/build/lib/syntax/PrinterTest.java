@@ -122,12 +122,12 @@ public class PrinterTest {
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertEquals("foo 3", Printer.formatString("%s %d", makeTuple("foo", 3)));
+    assertEquals("foo 3", Printer.formatToString("%s %d", makeTuple("foo", 3)));
     assertEquals("foo 3", Printer.format("%s %d", "foo", 3));
 
-    // Note: formatString doesn't perform scalar x -> (x) conversion;
+    // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertThat(Printer.formatString("", makeTuple())).isEmpty();
+    assertThat(Printer.formatToString("", makeTuple())).isEmpty();
     assertEquals("foo", Printer.format("%s", "foo"));
     assertEquals("3.14159", Printer.format("%s", 3.14159));
     checkFormatPositionalFails("not all arguments converted during string formatting",

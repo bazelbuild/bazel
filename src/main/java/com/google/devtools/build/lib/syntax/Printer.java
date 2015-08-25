@@ -37,7 +37,7 @@ import java.util.TreeMap;
 public final class Printer {
 
   private static final char SKYLARK_QUOTATION_MARK = '"';
-  
+
   private Printer() {
   }
 
@@ -55,7 +55,7 @@ public final class Printer {
   public static String str(Object x) {
     return str(x, SKYLARK_QUOTATION_MARK);
   }
-  
+
   /**
    * Get an official representation of object x.
    * For regular data structures, the value should be parsable back into an equal data structure.
@@ -69,7 +69,7 @@ public final class Printer {
   public static String repr(Object x) {
     return repr(x, SKYLARK_QUOTATION_MARK);
   }
-  
+
   // In absence of a Python naming tradition, the write() vs print() function names
   // follow the Lisp tradition: print() displays the informal representation (as in Python str)
   // whereas write() displays a readable representation (as in Python repr).
@@ -91,11 +91,11 @@ public final class Printer {
     }
     return write(buffer, o, quotationMark);
   }
-  
+
   public static Appendable print(Appendable buffer, Object o) {
     return print(buffer, o, SKYLARK_QUOTATION_MARK);
   }
-  
+
   /**
    * Print an official representation of object x.
    * For regular data structures, the value should be parsable back into an equal data structure.
@@ -202,7 +202,7 @@ public final class Printer {
   public static Appendable write(Appendable buffer, Object o) {
     return write(buffer, o, SKYLARK_QUOTATION_MARK);
   }
-  
+
   // Throughout this file, we transform IOException into AssertionError.
   // During normal operations, we only use in-memory Appendable-s that
   // cannot cause an IOException.
@@ -323,7 +323,7 @@ public final class Printer {
     return printList(
         buffer, list, before, separator, after, singletonTerminator, SKYLARK_QUOTATION_MARK);
   }
-  
+
   /**
    * Print a Skylark list or tuple of object representations
    * @param buffer an appendable buffer onto which to write the list.
@@ -380,66 +380,27 @@ public final class Printer {
   }
 
   /**
-   * Convert BUILD language objects to Formattable so JDK can render them correctly.
-   * Don't do this for numeric or string types because we want %d, %x, %s to work.
-   * This function is intended for use in assertions such as Precondition.checkArgument
-   * so that you only pay the cost of computing the string when the assertion passes.
+   * Perform Python-style string formatting, lazily.
+   *
+   * @param pattern a format string.
+   * @param arguments positional arguments.
+   * @return the formatted string.
    */
-  public static Object strFormattable(final Object o, final char quotationMark) {
-    if (o instanceof Integer || o instanceof Double || o instanceof String) {
-      return o;
-    } else {
-      return new Formattable() {
+  public static Formattable formattable(final String pattern, Object... arguments)
+      throws IllegalFormatException {
+    final ImmutableList<Object> args = ImmutableList.copyOf(arguments);
+    return new Formattable() {
         @Override
         public String toString() {
-          return str(o, quotationMark);
+          return formatToString(pattern, args);
         }
 
         @Override
         public void formatTo(Formatter formatter, int flags, int width, int precision) {
-          print(formatter.out(), o, quotationMark);
+          Printer.formatTo(formatter.out(), pattern, args);
         }
       };
-    }
   }
-
-  public static Object strFormattable(final Object o) {
-    return strFormattable(o, SKYLARK_QUOTATION_MARK);
-  }
-  
-  /**
-   * Convert BUILD language objects to Formattable so JDK can render them correctly.
-   * Don't do this for numeric or string types because we want %d, %x, %s to work.
-   * This function is intended for use in assertions such as Precondition.checkArgument
-   * so that you only pay the cost of computing the string when the assertion passes.
-   */
-  public static Object reprFormattable(final Object o, final char quotationMark) {
-    if (o instanceof Integer || o instanceof Double) {
-      return o;
-    } else {
-      return new Formattable() {
-        @Override
-        public String toString() {
-          return repr(o);
-        }
-
-        @Override
-        public void formatTo(Formatter formatter, int flags, int width, int precision) {
-          write(formatter.out(), o, quotationMark);
-        }
-      };
-    }
-  }
-
-  public static Object reprFormattable(final Object o) {
-    return reprFormattable(o, SKYLARK_QUOTATION_MARK);
-  }
-  
-  
-  /*
-   * N.B. MissingFormatWidthException is the only kind of IllegalFormatException
-   * whose constructor can take and display arbitrary error message, hence its use below.
-   */
 
   /**
    * Perform Python-style string formatting.
@@ -448,20 +409,21 @@ public final class Printer {
    * @param arguments a tuple containing positional arguments.
    * @return the formatted string.
    */
-  public static String formatString(String pattern, List<?> arguments)
+  public static String format(String pattern, Object... arguments)
       throws IllegalFormatException {
-    return format(new StringBuilder(), pattern, arguments).toString();
+    return formatToString(pattern, ImmutableList.copyOf(arguments));
   }
 
   /**
    * Perform Python-style string formatting.
    *
    * @param pattern a format string.
-   * @param arguments positional arguments.
+   * @param arguments a tuple containing positional arguments.
    * @return the formatted string.
    */
-  public static String format(String pattern, Object... arguments) throws IllegalFormatException {
-    return formatString(pattern, ImmutableList.copyOf(arguments));
+  public static String formatToString(String pattern, List<?> arguments)
+      throws IllegalFormatException {
+    return formatTo(new StringBuilder(), pattern, arguments).toString();
   }
 
   /**
@@ -474,7 +436,7 @@ public final class Printer {
    * @return the buffer, in fluent style.
    */
   // TODO(bazel-team): support formatting arguments, and more complex Python patterns.
-  public static Appendable format(Appendable buffer, String pattern, List<?> arguments)
+  public static Appendable formatTo(Appendable buffer, String pattern, List<?> arguments)
       throws IllegalFormatException {
     // N.B. MissingFormatWidthException is the only kind of IllegalFormatException
     // whose constructor can take and display arbitrary error message, hence its use below.
