@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,7 +36,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -46,6 +53,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -57,6 +65,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
 
@@ -64,6 +73,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -111,9 +121,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
   };
 
   private final BuildViewProvider buildViewProvider;
+  private final RuleClassProvider ruleClassProvider;
 
-  ConfiguredTargetFunction(BuildViewProvider buildViewProvider) {
+  ConfiguredTargetFunction(BuildViewProvider buildViewProvider,
+      RuleClassProvider ruleClassProvider) {
     this.buildViewProvider = buildViewProvider;
+    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -163,20 +176,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
       // Get the configuration targets that trigger this rule's configurable attributes.
       Set<ConfigMatchingProvider> configConditions =
           getConfigConditions(ctgValue.getTarget(), env, resolver, ctgValue);
-      if (configConditions == null) {
-        // Those targets haven't yet been resolved.
+      if (env.valuesMissing()) {
         return null;
       }
 
-      ListMultimap<Attribute, ConfiguredTarget> depValueMap =
-          computeDependencies(env, resolver, ctgValue, null, configConditions);
-
-      // TODO(bazel-team): Support dynamically created host configurations.
-      BuildConfiguration hostConfiguration = configuration == null
-          ? null : configuration.getConfiguration(Attribute.ConfigurationTransition.HOST);
-
-      return createConfiguredTarget(
-          view, env, target, configuration, hostConfiguration, depValueMap, configConditions);
+      ListMultimap<Attribute, ConfiguredTarget> depValueMap = computeDependencies(env, resolver,
+          ctgValue, null, configConditions, ruleClassProvider,
+          view.getHostConfiguration(configuration));
+      ConfiguredTargetValue ans = createConfiguredTarget(
+          view, env, target, configuration, depValueMap, configConditions);
+      return ans;
     } catch (DependencyEvaluationException e) {
       throw new ConfiguredTargetFunctionException(e.getRootCauseSkyKey(), e.getCause());
     }
@@ -195,39 +204,241 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * @param aspectDefinition the aspect of the node (if null, the node is a configured target,
    *     otherwise it's an asect)
    * @param configConditions the configuration conditions for evaluating the attributes of the node
+   * @param ruleClassProvider rule class provider for determining the right configuration fragments
+   *   to apply to deps
+   * @param hostConfiguration the host configuration. There's a noticeable performance hit from
+   *     instantiating this on demand for every dependency that wants it, so it's best to compute
+   *     the host configuration as early as possible and pass this reference to all consumers
+   *     without involving Skyframe.
    * @return an attribute -&gt; direct dependency multimap
    */
   @Nullable
   static ListMultimap<Attribute, ConfiguredTarget> computeDependencies(
       Environment env, SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue,
-      AspectDefinition aspectDefinition, Set<ConfigMatchingProvider> configConditions)
+      AspectDefinition aspectDefinition, Set<ConfigMatchingProvider> configConditions,
+      RuleClassProvider ruleClassProvider, BuildConfiguration hostConfiguration)
       throws DependencyEvaluationException {
 
-    // 1. Create the map from attributes to list of (target, configuration) pairs.
+    // Create the map from attributes to list of (target, configuration) pairs.
     ListMultimap<Attribute, Dependency> depValueNames;
     try {
-      depValueNames = resolver.dependentNodeMap(ctgValue, aspectDefinition, configConditions);
+      depValueNames = resolver.dependentNodeMap(ctgValue, hostConfiguration, aspectDefinition,
+          configConditions);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(new ConfiguredValueCreationException(e.print()));
     }
 
-    // 2. Resolve configured target dependencies and handle errors.
+    // Trim each dep's configuration so it only includes the fragments needed by its transitive
+    // closure (only dynamic configurations support this).
+    if (ctgValue.getConfiguration() != null
+        && ctgValue.getConfiguration().useDynamicConfigurations()) {
+      depValueNames = trimConfigurations(env, ctgValue, depValueNames, hostConfiguration,
+          ruleClassProvider);
+      if (depValueNames == null) {
+        return null;
+      }
+    }
+
+    // Resolve configured target dependencies and handle errors.
     Map<SkyKey, ConfiguredTarget> depValues =
         resolveConfiguredTargetDependencies(env, depValueNames.values(), ctgValue.getTarget());
     if (depValues == null) {
       return null;
     }
 
-    // 3. Resolve required aspects.
+    // Resolve required aspects.
     ListMultimap<SkyKey, Aspect> depAspects = resolveAspectDependencies(
         env, depValues, depValueNames.values());
     if (depAspects == null) {
       return null;
     }
 
-    // 3. Merge the dependent configured targets and aspects into a single map.
+    // Merge the dependent configured targets and aspects into a single map.
     return mergeAspects(depValueNames, depValues, depAspects);
+  }
+
+  /**
+   * Helper class for {@link #trimConfigurations} - encapsulates a set of config fragments and
+   * a dynamic transition. This can be used to determine the exact build options needed to
+   * set a dynamic configuration.
+   */
+  private static final class FragmentsAndTransition {
+    // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
+    // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
+    final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
+    final Attribute.Transition transition;
+    private final int hashCode;
+
+    FragmentsAndTransition(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+        Attribute.Transition transition) {
+      this.fragments = fragments;
+      this.transition = transition;
+      hashCode = Objects.hash(this.fragments, this.transition);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      } else if (o == null) {
+        return false;
+      } else {
+        FragmentsAndTransition other = (FragmentsAndTransition) o;
+        return other.transition.equals(transition) && other.fragments.equals(fragments);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
+  /**
+   * Creates a dynamic configuration for each dep that's custom-fitted specifically for that dep.
+   *
+   * <p>More specifically: given a set of {@link Dependency} instances holding dynamic config
+   * transition requests (e.g. {@link Dependency#hasStaticConfiguration()} == false}), returns
+   * equivalent dependencies containing dynamically created configurations that a) apply those
+   * transitions and b) only contain the fragments needed by the dep and everything in its
+   * transitive closure.
+   *
+   * <p>This method is heavily performance-optimized. Because it, in aggregate, reads over every
+   * edge in the configured target graph, small inefficiencies can have observable impact on
+   * build analysis time. Keep this in mind when making modifications and performance-test any
+   * changes you make.
+   */
+  @Nullable
+  static ListMultimap<Attribute, Dependency> trimConfigurations(Environment env,
+      TargetAndConfiguration ctgValue, ListMultimap<Attribute, Dependency> originalDeps,
+      BuildConfiguration hostConfiguration, RuleClassProvider ruleClassProvider)
+      throws DependencyEvaluationException {
+
+    // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
+    // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
+    // we just re-used the original rule's configuration), we should skip this outright.
+    Multimap<SkyKey, Map.Entry<Attribute, Dependency>> keysToEntries = ArrayListMultimap.create();
+
+    // Stores the result of applying a dynamic transition to the current configuration using a
+    // particular subset of fragments. By caching this, we save from redundantly computing the
+    // same transition for every dependency edge that requests that transition. This can have
+    // real effect on analysis time for commonly triggered transitions.
+    Map<FragmentsAndTransition, BuildOptions> transitionsMap = new HashMap<>();
+
+    // The fragments used by the current target's configuration.
+    Set<Class<? extends BuildConfiguration.Fragment>> ctgFragments =
+        ctgValue.getConfiguration().fragmentClasses();
+    BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
+
+    // Our output map.
+    ListMultimap<Attribute, Dependency> trimmedDeps = ArrayListMultimap.create();
+
+    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
+      Dependency dep = depsEntry.getValue();
+
+      if (dep.hasStaticConfiguration()) {
+        // Certain targets (like output files) trivially pass their configurations to their deps.
+        // So no need to transform them in any way.
+        trimmedDeps.put(depsEntry.getKey(),
+            new Dependency(dep.getLabel(), dep.getConfiguration(), dep.getAspects()));
+        continue;
+      } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
+        trimmedDeps.put(depsEntry.getKey(),
+            new Dependency(dep.getLabel(), (BuildConfiguration) null, dep.getAspects()));
+        continue;
+      }
+
+      // Figure out the required fragments for this dep and its transitive closure.
+      SkyKey fragmentsKey = TransitiveTargetValue.key(dep.getLabel());
+      TransitiveTargetValue transitiveDepInfo = (TransitiveTargetValue) env.getValue(fragmentsKey);
+      if (transitiveDepInfo == null) {
+        // This should only be possible for tests. In actual runs, this was already called
+        // as a routine part of the loading phase.
+        // TODO(bazel-team): check this only occurs in a test context.
+        return null;
+      }
+      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+          transitiveDepInfo.getTransitiveConfigFragments().toSet();
+
+      boolean sameFragments = depFragments.equals(ctgFragments);
+      Attribute.Transition transition = dep.getTransition();
+
+      if (sameFragments) {
+        if (transition == Attribute.ConfigurationTransition.NONE) {
+          // The dep uses the same exact configuration.
+          trimmedDeps.put(depsEntry.getKey(),
+              new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+          continue;
+        } else if (transition == HostTransition.INSTANCE) {
+          // The current rule's host configuration can also be used for the dep. We short-circuit
+          // the standard transition logic for host transitions because these transitions are
+          // uniquely frequent. It's possible, e.g., for every node in the configured target graph
+          // to incur multiple host transitions. So we aggressively optimize to avoid hurting
+          // analysis time.
+          trimmedDeps.put(depsEntry.getKey(),
+              new Dependency(dep.getLabel(), hostConfiguration, dep.getAspects()));
+          continue;
+        }
+      }
+
+      // Apply the transition or use the cached result if it was already applied.
+      FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
+      BuildOptions toOptions = transitionsMap.get(transitionKey);
+      if (toOptions == null) {
+        Verify.verify(transition == Attribute.ConfigurationTransition.NONE
+            || transition instanceof PatchTransition);
+        BuildOptions fromOptions = ctgOptions;
+        if (!sameFragments) {
+          // TODO(bazel-team): pre-compute getOptionsClasses in the constructor.
+          fromOptions = fromOptions.trim(BuildConfiguration.getOptionsClasses(
+              transitiveDepInfo.getTransitiveConfigFragments(), ruleClassProvider));
+        }
+        // TODO(bazel-team): safety-check that the below call never mutates fromOptions.
+        toOptions = transition == Attribute.ConfigurationTransition.NONE
+            ? fromOptions
+            : ((PatchTransition) transition).apply(fromOptions);
+        transitionsMap.put(transitionKey, toOptions);
+      }
+
+      // If the transition doesn't change the configuration, trivially re-use the original
+      // configuration.
+      if (sameFragments && toOptions.equals(ctgOptions)) {
+        trimmedDeps.put(depsEntry.getKey(),
+            new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+        continue;
+      }
+
+      // If we get here, we have to get the configuration from Skyframe.
+      keysToEntries.put(BuildConfigurationValue.key(depFragments, toOptions), depsEntry);
+    }
+
+    // Get all BuildConfigurations we need to get from Skyframe.
+    Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
+        env.getValuesOrThrow(keysToEntries.keySet(), InvalidConfigurationException.class);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // Now fill in the remaining unresolved deps with the now-resolved configurations.
+    try {
+      for (Map.Entry<SkyKey, ValueOrException<InvalidConfigurationException>> entry :
+          depConfigValues.entrySet()) {
+        SkyKey key = entry.getKey();
+        BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) entry.getValue().get();
+        for (Map.Entry<Attribute, Dependency> info : keysToEntries.get(key)) {
+          Attribute attribute = info.getKey();
+          Dependency originalDep = info.getValue();
+          trimmedDeps.put(attribute,
+              new Dependency(originalDep.getLabel(), trimmedConfig.getConfiguration(),
+                  originalDep.getAspects()));
+        }
+      }
+    } catch (InvalidConfigurationException e) {
+      throw new DependencyEvaluationException(e);
+    }
+
+    return trimmedDeps;
   }
 
   /**
@@ -364,6 +575,20 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // been computed yet.
     Collection<Dependency> configValueNames =
         resolver.resolveRuleLabels(ctgValue, null, configLabelMap);
+
+    // No need to get new configs from Skyframe - config_setting rules always use the current
+    // target's config.
+    // TODO(bazel-team): remove the need for this special transformation. We can probably do this by
+    // simply passing this through trimConfigurations.
+    BuildConfiguration targetConfig = ctgValue.getConfiguration();
+    if (targetConfig != null && targetConfig.useDynamicConfigurations()) {
+      ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
+      for (Dependency dep : configValueNames) {
+        staticConfigs.add(new Dependency(dep.getLabel(), targetConfig, dep.getAspects()));
+      }
+      configValueNames = staticConfigs.build();
+    }
+
     Map<SkyKey, ConfiguredTarget> configValues =
         resolveConfiguredTargetDependencies(env, configValueNames, target);
     if (configValues == null) {
@@ -470,7 +695,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   private ConfiguredTargetValue createConfiguredTarget(SkyframeBuildView view,
       Environment env, Target target, BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration, ListMultimap<Attribute, ConfiguredTarget> depValueMap,
+      ListMultimap<Attribute, ConfiguredTarget> depValueMap,
       Set<ConfigMatchingProvider> configConditions)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
@@ -484,7 +709,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     ConfiguredTarget configuredTarget = view.createConfiguredTarget(target, configuration,
-        hostConfiguration, analysisEnvironment, depValueMap, configConditions);
+        analysisEnvironment, depValueMap, configConditions);
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {

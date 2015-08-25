@@ -1240,7 +1240,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected BuildConfiguration getDataConfiguration() {
-    return getTargetConfiguration().getConfiguration(ConfigurationTransition.DATA);
+    BuildConfiguration targetConfig = getTargetConfiguration();
+    // TODO(bazel-team): do a proper data transition for dynamic configurations.
+    return targetConfig.useDynamicConfigurations()
+        ? targetConfig
+        : targetConfig.getConfiguration(ConfigurationTransition.DATA);
   }
 
   protected BuildConfiguration getHostConfiguration() {

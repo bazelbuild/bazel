@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.cache.Cache;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -51,4 +52,16 @@ public interface ConfigurationCollectionFactory {
       BuildOptions buildOptions,
       EventHandler errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException;
+
+  /**
+   * Returns the module the given configuration should use for choosing dynamic transitions.
+   *
+   * <p>We can presumably factor away this method once static global configurations are properly
+   * deprecated. But for now we retain the
+   * {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions}
+   * interface since that's the same place where static transition logic is determined and
+   * {@link BuildConfigurationCollection.Transitions#configurationHook}
+   * is still used.
+   */
+  BuildConfigurationCollection.Transitions getDynamicTransitionLogic(BuildConfiguration config);
 }

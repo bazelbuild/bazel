@@ -18,24 +18,27 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -56,10 +59,13 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   };
 
   private final SkyframeExecutor.BuildViewProvider buildViewProvider;
+  private final RuleClassProvider ruleClassProvider;
 
   public PostConfiguredTargetFunction(
-      SkyframeExecutor.BuildViewProvider buildViewProvider) {
+      SkyframeExecutor.BuildViewProvider buildViewProvider,
+      RuleClassProvider ruleClassProvider) {
     this.buildViewProvider = Preconditions.checkNotNull(buildViewProvider);
+    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Nullable
@@ -90,8 +96,22 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
-    Collection<Dependency> deps = resolver.dependentNodes(ctgValue, configConditions);
-    env.getValues(Iterables.transform(deps, TO_KEYS));
+    ListMultimap<Attribute, Dependency> deps;
+    try {
+      BuildConfiguration hostConfiguration =
+          buildViewProvider.getSkyframeBuildView().getHostConfiguration(ct.getConfiguration());
+      deps = resolver.dependentNodeMap(ctgValue, hostConfiguration, null, configConditions);
+      if (ct.getConfiguration() != null && ct.getConfiguration().useDynamicConfigurations()) {
+        deps = ConfiguredTargetFunction.trimConfigurations(env, ctgValue, deps, hostConfiguration,
+            ruleClassProvider);
+      }
+    } catch (EvalException e) {
+      throw new PostConfiguredTargetFunctionException(e);
+    } catch (ConfiguredTargetFunction.DependencyEvaluationException e) {
+      throw new PostConfiguredTargetFunctionException(e);
+    }
+
+    env.getValues(Iterables.transform(deps.values(), TO_KEYS));
     if (env.valuesMissing()) {
       return null;
     }
@@ -139,6 +159,12 @@ public class PostConfiguredTargetFunction implements SkyFunction {
 
   private static class ActionConflictFunctionException extends SkyFunctionException {
     public ActionConflictFunctionException(ConflictException e) {
+      super(e, Transience.PERSISTENT);
+    }
+  }
+
+  private static class PostConfiguredTargetFunctionException extends SkyFunctionException {
+    public PostConfiguredTargetFunctionException(Exception e) {
       super(e, Transience.PERSISTENT);
     }
   }

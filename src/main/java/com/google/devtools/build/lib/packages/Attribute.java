@@ -99,6 +99,9 @@ public final class Attribute implements Comparable<Attribute> {
     /** Transition to the host configuration. */
     HOST,
 
+    /** Transition to a null configuration (applies to, e.g., input files). */
+    NULL,
+
     /** Transition from the target configuration to the data configuration. */
     // TODO(bazel-team): Move this elsewhere.
     DATA;

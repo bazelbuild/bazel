@@ -20,12 +20,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -269,8 +269,9 @@ public class BuildView {
               public void run() {
                 clear();
               }
-        },
-        binTools);
+            },
+            binTools,
+            ruleClassProvider);
     skyframeExecutor.setSkyframeBuildView(skyframeBuildView);
   }
 
@@ -298,6 +299,7 @@ public class BuildView {
   @VisibleForTesting
   public void setConfigurationsForTesting(BuildConfigurationCollection configurations) {
     this.configurations = configurations;
+    skyframeBuildView.setTopLevelHostConfiguration(configurations.getHostConfiguration());
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
@@ -352,8 +354,8 @@ public class BuildView {
 
   public Iterable<ConfiguredTarget> getDirectPrerequisites(
       ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache) {
-    return skyframeExecutor.getConfiguredTargets(
-        getDirectPrerequisiteDependencies(ct, targetCache));
+    return skyframeExecutor.getConfiguredTargets(ct.getConfiguration(),
+        getDirectPrerequisiteDependencies(ct, targetCache), false);
   }
 
   public Iterable<Dependency> getDirectPrerequisiteDependencies(
@@ -391,7 +393,8 @@ public class BuildView {
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
-    return dependencyResolver.dependentNodes(ctgNode, getConfigurableAttributeKeys(ctgNode));
+    return dependencyResolver.dependentNodes(ctgNode, configurations.getHostConfiguration(),
+        getConfigurableAttributeKeys(ctgNode));
   }
 
   /**
@@ -603,6 +606,7 @@ public class BuildView {
     skyframeAnalysisWasDiscarded = false;
     ImmutableMap<PackageIdentifier, Path> packageRoots = loadingResult.getPackageRoots();
     this.configurations = configurations;
+    skyframeBuildView.setTopLevelHostConfiguration(this.configurations.getHostConfiguration());
     setArtifactRoots(packageRoots);
     // Determine the configurations.
     List<TargetAndConfiguration> nodes = nodesForTargets(targets);
@@ -633,7 +637,7 @@ public class BuildView {
     }
 
     prepareToBuild(new SkyframePackageRootResolver(skyframeExecutor));
-    skyframeExecutor.injectWorkspaceStatusData();
+    skyframeExecutor.injectWorkspaceStatusData(configurations);
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =
@@ -843,7 +847,7 @@ public class BuildView {
       Label label, BuildConfiguration configuration) {
     return Iterables.getFirst(
         skyframeExecutor.getConfiguredTargets(
-            ImmutableList.of(new Dependency(label, configuration))),
+            configuration, ImmutableList.of(new Dependency(label, configuration)), true),
         null);
   }
 
@@ -868,23 +872,21 @@ public class BuildView {
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
     ListMultimap<Attribute, Dependency> depNodeNames;
     try {
-      depNodeNames = resolver.dependentNodeMap(ctNode, null, getConfigurableAttributeKeys(ctNode));
+      depNodeNames = resolver.dependentNodeMap(ctNode, configurations.getHostConfiguration(), null,
+          getConfigurableAttributeKeys(ctNode));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
 
-    final Map<LabelAndConfiguration, ConfiguredTarget> depMap = new HashMap<>();
-    for (ConfiguredTarget dep : skyframeExecutor.getConfiguredTargets(depNodeNames.values())) {
-      depMap.put(LabelAndConfiguration.of(dep.getLabel(), dep.getConfiguration()), dep);
-    }
+    ImmutableMap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
+        ctNode.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
 
-    return Multimaps.transformValues(depNodeNames, new Function<Dependency, ConfiguredTarget>() {
-      @Override
-      public ConfiguredTarget apply(Dependency depName) {
-        return depMap.get(LabelAndConfiguration.of(depName.getLabel(),
-            depName.getConfiguration()));
-      }
-    });
+    ImmutableListMultimap.Builder<Attribute, ConfiguredTarget> builder =
+        ImmutableListMultimap.builder();
+    for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
+      builder.put(entry.getKey(), cts.get(entry.getValue()));
+    }
+    return builder.build();
   }
 
   /**
@@ -955,7 +957,7 @@ public class BuildView {
             /*isSystemEnv=*/false, config.extendedSanityChecks(), eventHandler,
             /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);
     return new RuleContext.Builder(analysisEnvironment,
-        (Rule) target.getTarget(), config, getHostConfigurationForTesting(config),
+        (Rule) target.getTarget(), config, configurations.getHostConfiguration(),
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
@@ -972,18 +974,13 @@ public class BuildView {
   public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env) {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
-        env, (Rule) target.getTarget(), targetConfig, getHostConfigurationForTesting(targetConfig),
+        env, (Rule) target.getTarget(), targetConfig, configurations.getHostConfiguration(),
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
-  }
-
-  private BuildConfiguration getHostConfigurationForTesting(BuildConfiguration config) {
-    // TODO(bazel-team): support dynamic transitions in tests.
-    return config == null ? null : config.getConfiguration(Attribute.ConfigurationTransition.HOST);
   }
 
   /**

@@ -394,8 +394,13 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      Preconditions.checkArgument(dep.getConfiguration() == null
-          || dep.getConfiguration().equals(configuration));
+      BuildConfiguration depConfig = dep.getConfiguration();
+      if (depConfig != null && depConfig.hasFragment(CppConfiguration.class)) {
+        // We can't just check for configuration equality because the dep configuration may
+        // not have all the fragments that rule's configuration does.
+        Preconditions.checkState(depConfig.getFragment(CppConfiguration.class).equals(
+            configuration.getFragment(CppConfiguration.class)));
+      }
       this.deps.add(dep);
     }
     return this;

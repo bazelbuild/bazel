@@ -281,11 +281,11 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment env, RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions) {
+      Set<ConfigMatchingProvider> configConditions, BuildConfiguration hostConfiguration) {
     RuleContext.Builder builder = new RuleContext.Builder(env,
         associatedTarget.getTarget(),
         associatedTarget.getConfiguration(),
-        getHostConfiguration(associatedTarget.getConfiguration()),
+        hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator());
     RuleContext ruleContext = builder
         .setVisibility(convertVisibility(
@@ -298,11 +298,6 @@ public final class ConfiguredTargetFactory {
     }
 
     return aspectFactory.create(associatedTarget, ruleContext);
-  }
-
-  private static BuildConfiguration getHostConfiguration(BuildConfiguration config) {
-    // TODO(bazel-team): support dynamic transitions.
-    return config == null ? null : config.getConfiguration(Attribute.ConfigurationTransition.HOST);
   }
 
   /**

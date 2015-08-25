@@ -64,10 +64,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -327,11 +329,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
     map.put(SkyFunctions.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
     map.put(SkyFunctions.CONFIGURED_TARGET,
-        new ConfiguredTargetFunction(new BuildViewProvider()));
-    map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider()));
+        new ConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
-        new PostConfiguredTargetFunction(new BuildViewProvider()));
-    map.put(SkyFunctions.BUILD_CONFIGURATION, new BuildConfigurationFunction(directories));
+        new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(SkyFunctions.BUILD_CONFIGURATION,
+        new BuildConfigurationFunction(directories, ruleClassProvider));
     map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
         configurationFactory, configurationPackages));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
@@ -551,7 +554,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
   }
 
-  public void injectWorkspaceStatusData() {
+  public void injectWorkspaceStatusData(BuildConfigurationCollection configurations) {
     PrecomputedValue.WORKSPACE_STATUS_KEY.set(injectable(),
         workspaceStatusActionFactory.createWorkspaceStatusAction(
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
@@ -1061,47 +1064,60 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableList<ConfiguredTarget> getConfiguredTargets(Iterable<Dependency> keys) {
+  public ImmutableList<ConfiguredTarget> getConfiguredTargets(BuildConfiguration originalConfig,
+      Iterable<Dependency> keys, boolean useOriginalConfig) {
+    return getConfiguredTargetMap(originalConfig, keys, useOriginalConfig).values().asList();
+  }
+
+  @ThreadSafety.ThreadSafe
+  public ImmutableMap<Dependency, ConfiguredTarget> getConfiguredTargetMap(
+      BuildConfiguration originalConfig, Iterable<Dependency> keys, boolean useOriginalConfig) {
     checkActive();
     if (skyframeBuildView == null) {
       // If build view has not yet been initialized, no configured targets can have been created.
       // This is most likely to happen after a failed loading phase.
-      return ImmutableList.of();
+      return ImmutableMap.of();
     }
-    final List<SkyKey> skyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
-      skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), key.getConfiguration()));
-      for (Class<? extends ConfiguredAspectFactory> aspect : key.getAspects()) {
-        skyKeys.add(AspectValue.key(key.getLabel(), key.getConfiguration(), aspect));
+
+    Map<Dependency, BuildConfiguration> configs;
+    if (originalConfig != null) {
+      if (useOriginalConfig) {
+        // This flag is used because of some unfortunate complexity in the configuration machinery:
+        // Most callers of this method pass a <Label, Configuration> pair to directly create a
+        // ConfiguredTarget from, but happen to use the Dependency data structure to pass that
+        // info (even though the data has nothing to do with dependencies). If this configuration
+        // includes a split transition, a dynamic configuration created from it will *not*
+        // include that transition (because dynamic configurations don't embed transitions to
+        // other configurations. In that case, we need to preserve the original configuration.
+        // TODO(bazel-team); make this unnecessary once split transition logic is properly ported
+        // out of configurations.
+        configs = new HashMap<>();
+        configs.put(Iterables.getOnlyElement(keys), originalConfig);
+      } else {
+        configs = getConfigurations(originalConfig.getOptions(), keys);
+      }
+    } else {
+      configs = new HashMap<>();
+      for (Dependency key : keys) {
+        configs.put(key, null);
       }
     }
 
-    EvaluationResult<SkyValue> result;
-    try {
-      result = callUninterruptibly(new Callable<EvaluationResult<SkyValue>>() {
-        @Override
-        public EvaluationResult<SkyValue> call() throws Exception {
-          synchronized (valueLookupLock) {
-            try {
-              skyframeBuildView.enableAnalysis(true);
-              return buildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT,
-                  errorEventListener);
-            } finally {
-              skyframeBuildView.enableAnalysis(false);
-            }
-          }
-        }
-      });
-    } catch (Exception e) {
-      throw new IllegalStateException(e);  // Should never happen.
+    final List<SkyKey> skyKeys = new ArrayList<>();
+    for (Dependency key : keys) {
+      skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), configs.get(key)));
+      for (Class<? extends ConfiguredAspectFactory> aspect : key.getAspects()) {
+        skyKeys.add(AspectValue.key(key.getLabel(), configs.get(key), aspect));
+      }
     }
 
-    ImmutableList.Builder<ConfiguredTarget> cts = ImmutableList.builder();
+    EvaluationResult<SkyValue> result = evaluateSkyKeys(skyKeys);
+    ImmutableMap.Builder<Dependency, ConfiguredTarget> cts = ImmutableMap.builder();
 
   DependentNodeLoop:
     for (Dependency key : keys) {
       SkyKey configuredTargetKey = ConfiguredTargetValue.key(
-          key.getLabel(), key.getConfiguration());
+          key.getLabel(), configs.get(key));
       if (result.get(configuredTargetKey) == null) {
         continue;
       }
@@ -1111,7 +1127,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       List<Aspect> aspects = new ArrayList<>();
 
       for (Class<? extends ConfiguredAspectFactory> aspect : key.getAspects()) {
-        SkyKey aspectKey = AspectValue.key(key.getLabel(), key.getConfiguration(), aspect);
+        SkyKey aspectKey = AspectValue.key(key.getLabel(), configs.get(key), aspect);
         if (result.get(aspectKey) == null) {
           continue DependentNodeLoop;
         }
@@ -1119,10 +1135,123 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         aspects.add(((AspectValue) result.get(aspectKey)).getAspect());
       }
 
-      cts.add(RuleConfiguredTarget.mergeAspects(configuredTarget, aspects));
+      cts.put(key, RuleConfiguredTarget.mergeAspects(configuredTarget, aspects));
     }
 
     return cts.build();
+  }
+
+  /**
+   * Retrieves the configurations needed for the given deps, trimming down their fragments
+   * to those only needed by their transitive closures.
+   */
+  private Map<Dependency, BuildConfiguration> getConfigurations(BuildOptions fromOptions,
+      Iterable<Dependency> keys) {
+    Map<Dependency, BuildConfiguration> builder = new HashMap<>();
+    Set<Dependency> depsToEvaluate = new HashSet<>();
+
+    // Check: if !Configuration.useDynamicConfigs then just return the original configs.
+
+    // Get the fragments needed for dynamic configuration nodes.
+    final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
+    Map<Label, Set<Class<? extends BuildConfiguration.Fragment>>> fragmentsMap = new HashMap<>();
+    Set<Label> labelsWithErrors = new HashSet<>();
+    for (Dependency key : keys) {
+      if (key.hasStaticConfiguration()) {
+        builder.put(key, key.getConfiguration());
+      } else if (key.getTransition() == Attribute.ConfigurationTransition.NULL) {
+        builder.put(key, null);
+      } else {
+        depsToEvaluate.add(key);
+        transitiveFragmentSkyKeys.add(TransitiveTargetValue.key(key.getLabel()));
+      }
+    }
+    EvaluationResult<SkyValue> fragmentsResult = evaluateSkyKeys(transitiveFragmentSkyKeys);
+    for (Dependency key : keys) {
+      if (!depsToEvaluate.contains(key)) {
+        // No fragments to compute here.
+      } else if (fragmentsResult.getError(TransitiveTargetValue.key(key.getLabel())) != null) {
+        labelsWithErrors.add(key.getLabel());
+      } else {
+        TransitiveTargetValue ttv =
+            (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetValue.key(key.getLabel()));
+        fragmentsMap.put(key.getLabel(), ttv.getTransitiveConfigFragments().toSet());
+      }
+    }
+
+    // Now get the configurations.
+    final List<SkyKey> configSkyKeys = new ArrayList<>();
+    for (Dependency key : keys) {
+      if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
+        continue;
+      }
+      configSkyKeys.add(BuildConfigurationValue.key(fragmentsMap.get(key.getLabel()),
+          getDynamicConfigOptions(key, fromOptions)));
+    }
+    EvaluationResult<SkyValue> configsResult = evaluateSkyKeys(configSkyKeys);
+    for (Dependency key : keys) {
+      if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
+        continue;
+      }
+      SkyKey configKey = BuildConfigurationValue.key(fragmentsMap.get(key.getLabel()),
+          getDynamicConfigOptions(key, fromOptions));
+      builder.put(key, ((BuildConfigurationValue) configsResult.get(configKey)).getConfiguration());
+    }
+
+    return builder;
+  }
+
+  /**
+   * Computes the build options needed for the given key, accounting for transitions possibly
+   * specified in the key.
+   */
+  private BuildOptions getDynamicConfigOptions(Dependency key, BuildOptions fromOptions) {
+    if (key.hasStaticConfiguration()) {
+      return key.getConfiguration().getOptions();
+    } else if (key.getTransition() == Attribute.ConfigurationTransition.NONE) {
+      return fromOptions;
+    } else {
+      return ((PatchTransition) key.getTransition()).apply(fromOptions);
+    }
+  }
+
+  /**
+   * Evaluates the given sky keys, blocks, and returns their evaluation results.
+   */
+  private EvaluationResult<SkyValue> evaluateSkyKeys(final Iterable<SkyKey> skyKeys) {
+    EvaluationResult<SkyValue> result;
+    try {
+      result = callUninterruptibly(new Callable<EvaluationResult<SkyValue>>() {
+        @Override
+        public EvaluationResult<SkyValue> call() throws Exception {
+          synchronized (valueLookupLock) {
+            try {
+              skyframeBuildView.enableAnalysis(true);
+              return buildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT, errorEventListener);
+            } finally {
+              skyframeBuildView.enableAnalysis(false);
+            }
+          }
+        }
+      });
+    } catch (Exception e) {
+      throw new IllegalStateException(e);  // Should never happen.
+    }
+    return result;
+  }
+
+  /**
+   * Returns a dynamic configuration constructed from the given configuration fragments and build
+   * options.
+   */
+  @VisibleForTesting
+  public BuildConfiguration getConfigurationForTesting(
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions options)
+      throws InterruptedException {
+    SkyKey key = BuildConfigurationValue.key(fragments, options);
+    BuildConfigurationValue result = (BuildConfigurationValue) buildDriver
+        .evaluate(ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, errorEventListener).get(key);
+    return result.getConfiguration();
   }
 
   /**
@@ -1136,10 +1265,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label, BuildConfiguration configuration) {
     if (memoizingEvaluator.getExistingValueForTesting(
         PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
-      injectWorkspaceStatusData();
+      injectWorkspaceStatusData(null);
     }
-    return Iterables.getFirst(getConfiguredTargets(ImmutableList.of(
-        new Dependency(label, configuration))), null);
+    return Iterables.getFirst(
+        getConfiguredTargets(configuration, ImmutableList.of(new Dependency(label, configuration)),
+            true),
+        null);
   }
 
   /**

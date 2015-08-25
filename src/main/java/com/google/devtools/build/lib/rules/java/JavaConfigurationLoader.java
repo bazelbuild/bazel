@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -33,7 +34,9 @@ import com.google.devtools.build.lib.syntax.Label;
 public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>of(JavaOptions.class);
+    // TODO(bazel-team): either require CppOptions only for dependency trees that use the JAVA_CPU
+    // make variable or break out CppConfiguration.getTargetCpu() into its own distinct fragment.
+    return ImmutableSet.of(JavaOptions.class, CppOptions.class);
   }
 
 

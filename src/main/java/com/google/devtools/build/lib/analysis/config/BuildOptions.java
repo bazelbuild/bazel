@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -38,13 +39,14 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import javax.annotation.Nullable;
+
 /**
- * This is a collection of command-line options from all configuration fragments. Contains
- * a single instance for all FragmentOptions classes provided by Blaze language modules.
+ * Stores the command-line options from a set of configuration fragments.
  */
 public final class BuildOptions implements Cloneable, Serializable {
   /**
-   * Creates a BuildOptions object with all options set to its default value.
+   * Creates a BuildOptions object with all options set to their default values.
    */
   public static BuildOptions createDefaults(Iterable<Class<? extends FragmentOptions>> options) {
     Builder builder = builder();
@@ -55,7 +57,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * This function creates a new BuildOptions instance for host.
+   * Creates a new BuildOptions instance for host.
    *
    * @param fallback if true, we have already tried the user specified hostCpu options
    *                 and it didn't work, so now we try the default options instead.
@@ -81,7 +83,22 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Creates an BuildOptions class by taking the option values from an options provider
+   * Returns an equivalent instance to this one with only options from the given
+   * {@link FragmentOptions} classes.
+   */
+  public BuildOptions trim(Set<Class<? extends FragmentOptions>> optionsClasses) {
+    Builder builder = builder();
+    for (FragmentOptions options : fragmentOptionsMap.values()) {
+      if (optionsClasses.contains(options.getClass())
+          || options instanceof BuildConfiguration.Options) {
+        builder.add(options);
+      }
+    }
+    return builder.build();
+  }
+
+  /**
+   * Creates a BuildOptions class by taking the option values from an options provider
    * (eg. an OptionsParser).
    */
   public static BuildOptions of(List<Class<? extends FragmentOptions>> optionsList,
@@ -94,11 +111,21 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Creates an BuildOptions class by taking the option values from command-line arguments
+   * Creates a BuildOptions class by taking the option values from command-line arguments
    */
   @VisibleForTesting
   public static BuildOptions of(List<Class<? extends FragmentOptions>> optionsList, String... args)
       throws OptionsParsingException {
+    return of(optionsList, null, args);
+  }
+
+  /**
+   * Creates a BuildOptions class by taking the option values from command-line arguments and
+   * applying the specified original options.
+   */
+  @VisibleForTesting
+  static BuildOptions of(List<Class<?extends FragmentOptions>> optionsList,
+      BuildOptions originalOptions, String... args) throws OptionsParsingException {
     Builder builder = builder();
     OptionsParser parser = OptionsParser.newOptionsParser(
         ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsList));
@@ -106,6 +133,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.add(parser.getOptions(optionsClass));
     }
+    builder.setOriginalOptions(originalOptions);
     return builder.build();
   }
 
@@ -200,19 +228,44 @@ public final class BuildOptions implements Cloneable, Serializable {
    */
   @Override
   public BuildOptions clone() {
+    return clone(null);
+  }
+
+  /**
+   * Creates a copy of the BuildOptions object that stores a set of original options. This can
+   * be used to power "reversion" of options changes.
+   */
+  public BuildOptions clone(@Nullable BuildOptions originalOptions) {
     ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> builder =
         ImmutableMap.builder();
     for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> entry :
         fragmentOptionsMap.entrySet()) {
       builder.put(entry.getKey(), entry.getValue().clone());
     }
-    return new BuildOptions(builder.build());
+    // TODO(bazel-team): only store the diff between the current options and its original
+    // options. This may be easier with immutable options.
+    return new BuildOptions(builder.build(), originalOptions);
+  }
+
+  /**
+   * Returns the original options these options were spawned from, or null if this info wasn't
+   * recorded.
+   */
+  public BuildOptions getOriginal() {
+    return originalOptions;
   }
 
   @Override
   public boolean equals(Object other) {
-    return (this == other) || (other instanceof BuildOptions &&
-        fragmentOptionsMap.equals(((BuildOptions) other).fragmentOptionsMap));
+    if (this == other) {
+      return true;
+    } else if (!(other instanceof BuildOptions)) {
+      return false;
+    } else {
+      BuildOptions otherOptions = (BuildOptions) other;
+      return fragmentOptionsMap.equals(otherOptions.fragmentOptionsMap)
+          && Objects.equal(originalOptions, otherOptions.originalOptions);
+    }
   }
 
   @Override
@@ -225,9 +278,17 @@ public final class BuildOptions implements Cloneable, Serializable {
    */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
 
+  /**
+   * Records an original set of options these options came from. When set, this
+   * provides the ability to "revert" options back to a previous form.
+   */
+  @Nullable private final BuildOptions originalOptions;
+
   private BuildOptions(
-      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap) {
+      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,
+      BuildOptions originalOptions) {
     this.fragmentOptionsMap = fragmentOptionsMap;
+    this.originalOptions = originalOptions;
   }
 
   /**
@@ -250,11 +311,21 @@ public final class BuildOptions implements Cloneable, Serializable {
       return this;
     }
 
+    /**
+     * Specify the original options these options were branched from. This should only be used
+     * when there's a desire to revert back to the old options, e.g. for a parent transition.
+     */
+    public Builder setOriginalOptions(BuildOptions originalOptions) {
+      this.originalOptions = originalOptions;
+      return this;
+    }
+
     public BuildOptions build() {
-      return new BuildOptions(ImmutableMap.copyOf(builderMap));
+      return new BuildOptions(ImmutableMap.copyOf(builderMap), originalOptions);
     }
 
     private Map<Class<? extends FragmentOptions>, FragmentOptions> builderMap;
+    @Nullable private BuildOptions originalOptions;
 
     private Builder() {
       builderMap = new HashMap<>();

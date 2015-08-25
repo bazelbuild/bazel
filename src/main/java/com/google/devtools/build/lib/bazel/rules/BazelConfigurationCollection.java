@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
@@ -85,6 +86,17 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         ArrayListMultimap.create();
     for (SplitTransition<BuildOptions> transition : buildOptions.getPotentialSplitTransitions()) {
       List<BuildOptions> splitOptionsList = transition.split(buildOptions);
+
+      // While it'd be clearer to condition the below on "if (!splitOptionsList.empty())",
+      // IosExtension.ExtensionSplitArchTransition defaults to a single-value split. If we failed
+      // that case then no builds would work, whether or not they're iOS builds (since iOS
+      // configurations are unconditionally loaded). Once we have dynamic configuraiton support
+      // for split transitions, this will all go away.
+      if (splitOptionsList.size() > 1 && targetConfiguration.useDynamicConfigurations()) {
+        throw new InvalidConfigurationException(
+            "dynamic configurations don't yet support split transitions");
+      }
+
       for (BuildOptions splitOptions : splitOptionsList) {
         BuildConfiguration splitConfig = configurationFactory.getConfiguration(
             loadedPackageProvider, splitOptions, false, cache);
@@ -118,6 +130,29 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         targetConfiguration, dataConfiguration, hostConfiguration, splitTransitionsTable);
     result.reportInvalidOptions(errorEventListener);
     return result;
+  }
+
+  private static class BazelTransitions extends BuildConfigurationCollection.Transitions {
+    public BazelTransitions(BuildConfiguration configuration,
+        Map<? extends Transition, ConfigurationHolder> transitionTable,
+        ListMultimap<? extends SplitTransition<?>, BuildConfiguration> splitTransitionTable) {
+      super(configuration, transitionTable, splitTransitionTable);
+    }
+
+    @Override
+    protected Transition getDynamicTransition(Transition configurationTransition) {
+      if (configurationTransition == ConfigurationTransition.DATA) {
+        return ConfigurationTransition.NONE;
+      } else {
+        return super.getDynamicTransition(configurationTransition);
+      }
+    }
+  }
+
+  @Override
+  public Transitions getDynamicTransitionLogic(BuildConfiguration config)  {
+    return new BazelTransitions(config, ImmutableMap.<Transition, ConfigurationHolder>of(),
+          ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>of());
   }
 
   /**
@@ -193,7 +228,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     for (BuildConfiguration config : allConfigurations) {
       Transitions outgoingTransitions =
-          new BuildConfigurationCollection.Transitions(config, transitionBuilder.row(config),
+          new BazelTransitions(config, transitionBuilder.row(config),
               // Split transitions must not have their own split transitions because then they
               // would be applied twice due to a quirk in DependencyResolver. See the comment in
               // DependencyResolver.resolveLateBoundAttributes().

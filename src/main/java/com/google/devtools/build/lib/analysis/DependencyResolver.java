@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -65,8 +65,12 @@ public abstract class DependencyResolver {
   /**
    * A dependency of a configured target through a label.
    *
-   * <p>Includes the target and the configuration of the dependency configured target and any
-   * aspects that may be required.
+   * <p>For static configurations: includes the target and the configuration of the dependency
+   * configured target and any aspects that may be required.
+   *
+   * <p>For dynamic configurations: includes the target and the desired configuration transitions
+   * that should be applied to produce the dependency's configuration. It's the caller's
+   * responsibility to construct an actual configuration out of that.
    *
    * <p>Note that the presence of an aspect here does not necessarily mean that it will be created.
    * They will be filtered based on the {@link TransitiveInfoProvider} instances their associated
@@ -91,21 +95,59 @@ public abstract class DependencyResolver {
 
     private final Label label;
 
+    // Only one of the two below fields is set. Use hasStaticConfiguration to determine which.
     @Nullable private final BuildConfiguration configuration;
+    private final Attribute.Transition transition;
 
+    private final boolean hasStaticConfiguration;
     private final ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects;
 
-    public Dependency(
-        Label label,
+    /**
+     * Constructs a Dependency with a given configuration (suitable for static configuration
+     * builds).
+     */
+    public Dependency(Label label,
         @Nullable BuildConfiguration configuration,
         ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
       this.label = Preconditions.checkNotNull(label);
       this.configuration = configuration;
+      this.transition = null;
+      this.hasStaticConfiguration = true;
       this.aspects = Preconditions.checkNotNull(aspects);
     }
 
+    /**
+     * Constructs a Dependency with a given configuration (suitable for static configuration
+     * builds).
+     */
     public Dependency(Label label, @Nullable BuildConfiguration configuration) {
       this(label, configuration, ImmutableSet.<Class<? extends ConfiguredAspectFactory>>of());
+    }
+
+    /**
+     * Constructs a Dependency with a given transition (suitable for dynamic configuration builds).
+     */
+    public Dependency(Label label, Attribute.Transition transition,
+        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
+      this.label = Preconditions.checkNotNull(label);
+      this.configuration = null;
+      this.transition = Preconditions.checkNotNull(transition);
+      this.hasStaticConfiguration = false;
+      this.aspects = Preconditions.checkNotNull(aspects);
+    }
+
+    /**
+     * Does this dependency represent a null configuration?
+     */
+    public boolean isNull() {
+      return configuration == null && transition == null;
+    }
+
+    /**
+     * Does this dependency specify a static configuration (vs. a dynamic transition)?
+     */
+    public boolean hasStaticConfiguration() {
+      return hasStaticConfiguration;
     }
 
     public Label getLabel() {
@@ -114,7 +156,13 @@ public abstract class DependencyResolver {
 
     @Nullable
     public BuildConfiguration getConfiguration() {
+      Verify.verify(hasStaticConfiguration);
       return configuration;
+    }
+
+    public Attribute.Transition getTransition() {
+      Verify.verify(!hasStaticConfiguration);
+      return transition;
     }
 
     public ImmutableSet<Class<? extends ConfiguredAspectFactory>> getAspects() {
@@ -168,7 +216,7 @@ public abstract class DependencyResolver {
    * dependency.
    */
   public final ListMultimap<Attribute, Dependency> dependentNodeMap(
-      TargetAndConfiguration node, AspectDefinition aspect,
+      TargetAndConfiguration node, BuildConfiguration hostConfig, AspectDefinition aspect,
       Set<ConfigMatchingProvider> configConditions)
       throws EvalException {
     Target target = node.getTarget();
@@ -188,7 +236,7 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, outgoingEdges.get(null));
       Rule rule = (Rule) target;
       ListMultimap<Attribute, LabelAndConfiguration> labelMap =
-          resolveAttributes(rule, aspect, config, configConditions);
+          resolveAttributes(rule, aspect, config, hostConfig, configConditions);
       visitRule(rule, aspect, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
@@ -200,7 +248,7 @@ public abstract class DependencyResolver {
 
   private ListMultimap<Attribute, LabelAndConfiguration> resolveAttributes(
       Rule rule, AspectDefinition aspect, BuildConfiguration configuration,
-      Set<ConfigMatchingProvider> configConditions)
+      BuildConfiguration hostConfiguration, Set<ConfigMatchingProvider> configConditions)
       throws EvalException {
     ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
     attributeMap.validateAttributes();
@@ -220,7 +268,8 @@ public abstract class DependencyResolver {
 
     resolveExplicitAttributes(rule, configuration, attributeMap, result);
     resolveImplicitAttributes(rule, configuration, attributeMap, attributes, result);
-    resolveLateBoundAttributes(rule, configuration, attributeMap, attributes, result);
+    resolveLateBoundAttributes(rule, configuration, hostConfiguration, attributeMap, attributes,
+        result);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(result, rule, "visibility", rule.getVisibility().getDependencyLabels(),
@@ -377,6 +426,7 @@ public abstract class DependencyResolver {
   private void resolveLateBoundAttributes(
       Rule rule,
       BuildConfiguration configuration,
+      BuildConfiguration hostConfiguration,
       AttributeMap attributeMap,
       Iterable<Attribute> attributes,
       ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> builder)
@@ -401,8 +451,7 @@ public abstract class DependencyResolver {
         LateBoundDefault<BuildConfiguration> lateBoundDefault =
             (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
         if (lateBoundDefault.useHostConfiguration()) {
-          actualConfig =
-              actualConfig.getConfiguration(ConfigurationTransition.HOST);
+          actualConfig = hostConfiguration;
         }
         // TODO(bazel-team): This might be too expensive - can we cache this somehow?
         if (!lateBoundDefault.getRequiredConfigurationFragments().isEmpty()) {
@@ -450,9 +499,11 @@ public abstract class DependencyResolver {
    * IllegalStateException}.
    */
   public final Collection<Dependency> dependentNodes(
-      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions) {
+      TargetAndConfiguration node, BuildConfiguration hostConfig,
+      Set<ConfigMatchingProvider> configConditions) {
     try {
-      return dependentNodeMap(node, null, configConditions).values();
+      return ImmutableSet.copyOf(
+          dependentNodeMap(node, hostConfig, null, configConditions).values());
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
@@ -550,12 +601,31 @@ public abstract class DependencyResolver {
         if (toTarget == null) {
           continue;
         }
-        Iterable<BuildConfiguration> toConfigurations = config.evaluateTransition(
-            rule, attribute, toTarget);
-        for (BuildConfiguration toConfiguration : toConfigurations) {
+        BuildConfiguration.TransitionApplier transitionApplier = config.getTransitionApplier();
+        if (config.useDynamicConfigurations() && config.isHostConfiguration()
+            && !BuildConfiguration.usesNullConfiguration(toTarget)) {
+          // This condition is needed because resolveLateBoundAttributes may switch config to
+          // the host configuration, which is the only case DependencyResolver applies a
+          // configuration transition outside of this method. We need to reflect that
+          // transition in the results of this method, but config.evaluateTransition is hard-set
+          // to return a NONE transition when the input is a host config. Since the outside
+          // caller originally passed the *original* value of config (before the possible
+          // switch), it can mistakenly interpret the result as a NONE transition from the
+          // original value of config. This condition fixes that. Another fix would be to have
+          // config.evaluateTransition return a HOST transition when the input config is a host,
+          // but since this blemish is specific to DependencyResolver it seems best to keep the
+          // fix here.
+          // TODO(bazel-team): eliminate this special case by passing transitionApplier to
+          // resolveLateBoundAttributes, so that method uses the same interface for transitions.
+          transitionApplier.applyTransition(Attribute.ConfigurationTransition.HOST);
+        } else {
+          config.evaluateTransition(rule, attribute, toTarget, transitionApplier);
+        }
+        for (Dependency dependency : transitionApplier.getDependencies(label,
+            requiredAspects(aspect, attribute, toTarget))) {
           outgoingEdges.put(
               entry.getKey(),
-              new Dependency(label, toConfiguration, requiredAspects(aspect, attribute, toTarget)));
+              dependency);
         }
       }
     }

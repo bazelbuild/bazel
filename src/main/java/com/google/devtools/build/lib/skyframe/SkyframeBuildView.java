@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -100,14 +102,24 @@ public final class SkyframeBuildView {
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
 
-  public SkyframeBuildView(ConfiguredTargetFactory factory,
-      ArtifactFactory artifactFactory,
-      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,  BinTools binTools) {
+  private final RuleClassProvider ruleClassProvider;
+
+  // The host configuration containing all fragments used by this build's transitive closure.
+  private BuildConfiguration topLevelHostConfiguration;
+  // Fragment-limited versions of the host configuration. It's faster to create/cache these here
+  // than to store them in Skyframe.
+  private Map<Set<Class<? extends BuildConfiguration.Fragment>>, BuildConfiguration>
+      hostConfigurationCache = Maps.newConcurrentMap();
+
+  public SkyframeBuildView(ConfiguredTargetFactory factory, ArtifactFactory artifactFactory,
+      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,  BinTools binTools,
+      RuleClassProvider ruleClassProvider) {
     this.factory = factory;
     this.artifactFactory = artifactFactory;
     this.skyframeExecutor = skyframeExecutor;
     this.legacyDataCleaner = legacyDataCleaner;
     this.binTools = binTools;
+    this.ruleClassProvider = ruleClassProvider;
     skyframeExecutor.setArtifactFactoryAndBinTools(artifactFactory, binTools);
   }
 
@@ -117,6 +129,21 @@ public final class SkyframeBuildView {
 
   public Set<SkyKey> getEvaluatedTargetKeys() {
     return ImmutableSet.copyOf(evaluatedConfiguredTargets);
+  }
+
+  /**
+   * Sets the host configuration consisting of all fragments that will be used by the top level
+   * targets' transitive closures.
+   *
+   * <p>This is used to power {@link #getHostConfiguration} during analysis, which computes
+   * fragment-trimmed host configurations from the top-level one.
+   */
+  public void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
+    if (topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
+      return;
+    }
+    hostConfigurationCache.clear();
+    this.topLevelHostConfiguration = topLevelHostConfiguration;
   }
 
   private void setDeserializedArtifactOwners() throws ViewCreationFailedException {
@@ -393,13 +420,38 @@ public final class SkyframeBuildView {
    */
   @Nullable
   ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration, CachingAnalysisEnvironment analysisEnvironment,
+      CachingAnalysisEnvironment analysisEnvironment,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
-        configuration, hostConfiguration, prerequisiteMap, configConditions);
+        configuration, getHostConfiguration(configuration), prerequisiteMap,
+        configConditions);
+  }
+
+  /**
+   * Returns the host configuration trimmed to the same fragments as the input configuration. If
+   * the input is null, returns the top-level host configuration.
+   *
+   * <p>For static configurations, this unconditionally returns the (sole) top-level configuration.
+   *
+   * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the
+   * correct host configuration at the top-level.
+   */
+  public BuildConfiguration getHostConfiguration(BuildConfiguration config) {
+    if (config == null || !config.useDynamicConfigurations()) {
+      return topLevelHostConfiguration;
+    }
+    Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses = config.fragmentClasses();
+    BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
+    if (hostConfig != null) {
+      return hostConfig;
+    }
+    BuildConfiguration trimmedConfig =
+        topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
+    hostConfigurationCache.put(fragmentClasses, trimmedConfig);
+    return trimmedConfig;
   }
 
   @Nullable
@@ -408,8 +460,8 @@ public final class SkyframeBuildView {
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions) {
-    return factory.createAspect(
-        env, associatedTarget, aspectFactory, prerequisiteMap, configConditions);
+    return factory.createAspect(env, associatedTarget, aspectFactory, prerequisiteMap,
+        configConditions, getHostConfiguration(associatedTarget.getConfiguration()));
   }
 
   @Nullable

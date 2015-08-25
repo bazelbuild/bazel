@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
-import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
@@ -22,11 +21,12 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -61,7 +61,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
       BuildConfigurationCollection result =
-          getConfigurations(env.getListener(),
+          getConfigurations(env,
               new SkyframePackageLoaderWithValueEnvironment(env, configurationPackages.get()),
               collectionKey.getBuildOptions(), collectionKey.getMultiCpu());
 
@@ -84,7 +84,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
   }
 
   /** Create the build configurations with the given options. */
-  private BuildConfigurationCollection getConfigurations(EventHandler eventHandler,
+  private BuildConfigurationCollection getConfigurations(Environment env,
       PackageProviderForConfigurations loadedPackageProvider, BuildOptions buildOptions,
       ImmutableSet<String> multiCpu)
           throws InvalidConfigurationException {
@@ -99,7 +99,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     if (!multiCpu.isEmpty()) {
       for (String cpu : multiCpu) {
         BuildConfiguration targetConfiguration = createConfiguration(
-            cache, eventHandler, loadedPackageProvider, buildOptions, cpu);
+         cache, env.getListener(), loadedPackageProvider, buildOptions, cpu);
         if (targetConfiguration == null || targetConfigurations.contains(targetConfiguration)) {
           continue;
         }
@@ -110,24 +110,47 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       }
     } else {
       BuildConfiguration targetConfiguration = createConfiguration(
-          cache, eventHandler, loadedPackageProvider, buildOptions, null);
+         cache, env.getListener(), loadedPackageProvider, buildOptions, null);
       if (targetConfiguration == null) {
         return null;
       }
       targetConfigurations.add(targetConfiguration);
     }
-
-    // Sanity check that all host configs are the same. This may not be true once we have
-    // better support for multi-host builds.
-    BuildConfiguration hostConfiguration =
-        targetConfigurations.get(0).getConfiguration(ConfigurationTransition.HOST);
-    for (BuildConfiguration targetConfig :
-        targetConfigurations.subList(1, targetConfigurations.size())) {
-      Verify.verify(
-          targetConfig.getConfiguration(ConfigurationTransition.HOST).equals(hostConfiguration));
+    BuildConfiguration hostConfiguration = getHostConfiguration(env, targetConfigurations.get(0));
+    if (hostConfiguration == null) {
+      return null;
     }
 
     return new BuildConfigurationCollection(targetConfigurations, hostConfiguration);
+  }
+
+  /**
+   * Returns the host configuration, or null on missing Skyframe deps.
+   */
+  private BuildConfiguration getHostConfiguration(Environment env,
+      BuildConfiguration targetConfiguration) throws InvalidConfigurationException {
+    if (targetConfiguration.useDynamicConfigurations()) {
+      BuildOptions hostOptions = HostTransition.INSTANCE.apply(targetConfiguration.getOptions());
+      SkyKey hostConfigKey =
+          BuildConfigurationValue.key(targetConfiguration.fragmentClasses(), hostOptions);
+      BuildConfigurationValue skyValHost = (BuildConfigurationValue)
+          env.getValueOrThrow(hostConfigKey, InvalidConfigurationException.class);
+
+      // Also preload the target configuration so the configured target functions for
+      // top-level targets don't have to waste cycles from a missing Skyframe dep.
+      BuildOptions targetOptions = targetConfiguration.getOptions();
+      SkyKey targetConfigKey =
+          BuildConfigurationValue.key(targetConfiguration.fragmentClasses(), targetOptions);
+      BuildConfigurationValue skyValTarget = (BuildConfigurationValue)
+          env.getValueOrThrow(targetConfigKey, InvalidConfigurationException.class);
+
+      if (skyValHost == null || skyValTarget == null) {
+        return null;
+      }
+      return skyValHost.getConfiguration();
+    } else {
+      return targetConfiguration.getConfiguration(Attribute.ConfigurationTransition.HOST);
+    }
   }
 
   @Nullable
