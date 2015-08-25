@@ -48,6 +48,6 @@ We also have a nice way to speed up the edit-compile-install development cycle f
  * Connect your device over USB to your workstation and enable USB debugging on it
  * Run `bazel mobile-install <android_binary rule>`
  * Edit Java code or Android resources
- * Run `blaze mobile-install --incremental <android_binary rule>`
+ * Run `bazel mobile-install --incremental <android_binary rule>`
 
 Note that if you change anything other than Java code or Android resources (C++ code or something on the device), you must omit the `--incremental` command line option. Yes, we know that this is also clunky and we are working on improving it.
