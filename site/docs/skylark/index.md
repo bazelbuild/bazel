@@ -29,5 +29,5 @@ rules or macros (composition of rules and macros).
 
 Read the [concepts](concepts.md) behind Skylark and try the
 [cookbook examples](cookbook.md). To go further, read about the
-[standard library](library.html).
+[standard library](lib/globals.html).
 
