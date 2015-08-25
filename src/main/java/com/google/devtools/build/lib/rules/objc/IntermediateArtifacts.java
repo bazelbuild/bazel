@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -71,6 +72,15 @@ final class IntermediateArtifacts {
   private Artifact appendExtension(String extension) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     return scopedArtifact(name.replaceName(name.getBaseName() + extension));
+  }
+
+  /**
+   * A dummy .c file to be included in xcode projects. This is needed if the target does not have
+   * any source files but Xcode requires one.
+   */
+  public Artifact dummySource() {
+    return scopedArtifact(
+        ruleContext.getPrerequisiteArtifact("$dummy_source", Mode.TARGET).getRootRelativePath());
   }
 
   /**

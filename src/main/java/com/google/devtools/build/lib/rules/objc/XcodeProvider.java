@@ -331,11 +331,14 @@ public final class XcodeProvider implements TransitiveInfoProvider {
    */
   public static final class Project {
     private final NestedSet<Artifact> inputsToXcodegen;
+    private final NestedSet<Artifact> additionalSources;
     private final ImmutableList<XcodeProvider> topLevelTargets;
 
     private Project(
-        NestedSet<Artifact> inputsToXcodegen, ImmutableList<XcodeProvider> topLevelTargets) {
+        NestedSet<Artifact> inputsToXcodegen, NestedSet<Artifact> additionalSources,
+        ImmutableList<XcodeProvider> topLevelTargets) {
       this.inputsToXcodegen = inputsToXcodegen;
+      this.additionalSources = additionalSources;
       this.topLevelTargets = topLevelTargets;
     }
 
@@ -345,10 +348,13 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
     public static Project fromTopLevelTargets(Iterable<XcodeProvider> topLevelTargets) {
       NestedSetBuilder<Artifact> inputsToXcodegen = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> additionalSources = NestedSetBuilder.stableOrder();
       for (XcodeProvider target : topLevelTargets) {
         inputsToXcodegen.addTransitive(target.inputsToXcodegen);
+        additionalSources.addTransitive(target.additionalSources);
       }
-      return new Project(inputsToXcodegen.build(), ImmutableList.copyOf(topLevelTargets));
+      return new Project(inputsToXcodegen.build(), additionalSources.build(),
+          ImmutableList.copyOf(topLevelTargets));
     }
 
     /**
@@ -357,6 +363,13 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      */
     public NestedSet<Artifact> getInputsToXcodegen() {
       return inputsToXcodegen;
+    }
+    
+    /**
+     * Returns artifacts that are additional sources for the Xcodegen action.
+     */
+    public NestedSet<Artifact> getAdditionalSources() {
+      return additionalSources;
     }
 
     /**
