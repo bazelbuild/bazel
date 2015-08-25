@@ -34,6 +34,13 @@ public class QueryOptions extends OptionsBase {
     }
   }
 
+  /** An enum converter for {@code OrderOutput} . Should be used internally only. */
+  public static class OrderOutputConverter extends EnumConverter<OrderOutput> {
+    public OrderOutputConverter() {
+      super(OrderOutput.class, "Order output setting");
+    }
+  }
+
   @Option(name = "output",
       defaultValue = "label",
       category = "query",
@@ -42,13 +49,54 @@ public class QueryOptions extends OptionsBase {
           + " xml, proto, record.")
   public String outputFormat;
 
-  @Option(name = "order_results",
-      defaultValue = "true",
-      category = "query",
-      help = "Output the results in dependency-ordered (default) or unordered fashion. The"
-          + " unordered output is faster but only supported when --output is one of label,"
-          + " label_kind, location, package, proto, record, xml.")
-  public boolean orderResults;
+  @Option(
+    name = "order_results",
+    defaultValue = "null",
+    category = "query",
+    deprecationWarning = "Please use --order_output=auto or --order_output=no instead of this flag",
+    expansion = {"--order_output=auto"},
+    help =
+        "Output the results in dependency-ordered (default) or unordered fashion. The "
+            + "unordered output is faster but only supported when --output is not minrank, "
+            + "maxrank, or graph."
+  )
+  public Void orderResults;
+
+  @Option(
+    name = "noorder_results",
+    defaultValue = "null",
+    category = "query",
+    deprecationWarning = "Please use --order_output=no or --order_output=auto instead of this flag",
+    expansion = {"--order_output=no"},
+    help =
+        "Output the results in dependency-ordered (default) or unordered fashion. The "
+            + "unordered output is faster but only supported when --output is not minrank, "
+            + "maxrank, or graph."
+  )
+  public Void noOrderResults;
+
+  /** Whether and how output should be ordered. */
+  public enum OrderOutput {
+    NO, /** Make no effort to order output besides that required by output formatter. */
+    DEPS, /** Output in dependency order when compatible with output formatter. */
+    AUTO, /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
+    FULL /** Output in dependency order, breaking ties with alphabetical order when needed. */
+  }
+
+  @Option(
+    name = "order_output",
+    converter = OrderOutputConverter.class,
+    defaultValue = "auto",
+    category = "query",
+    help =
+        "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full). "
+            + "The default is 'auto', meaning that results are output either dependency-ordered or "
+            + "fully ordered, depending on the output formatter (dependency-ordered for proto, "
+            + "minrank, maxrank, and graph, fully ordered for all others). When output is fully "
+            + "ordered, nodes that would otherwise be unordered by the output formatter are "
+            + "alphabetized before output."
+  )
+  public OrderOutput orderOutput;
 
   @Option(name = "keep_going",
       abbrev = 'k',

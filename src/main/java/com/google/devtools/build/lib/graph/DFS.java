@@ -63,7 +63,7 @@ public class DFS<T> {
    *  @param transpose iff true, the graph is implicitly transposed during
    *  visitation.
    */
-  public DFS(Order order, final Comparator<T> edgeOrder, boolean transpose) {
+  public DFS(Order order, final Comparator<? super T> edgeOrder, boolean transpose) {
     this.order = order;
     this.transpose = transpose;
 

@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
+import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -89,10 +91,19 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
     queryResult.build().writeTo(out);
   }
 
+  private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
+    return Iterables.transform(
+        result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+  }
+
   @Override
   public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
       AspectResolver aspectResolver) throws IOException, InterruptedException {
-    outputUnordered(options, result.getLabels(), out, aspectResolver);
+    outputUnordered(
+        options,
+        options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels(),
+        out,
+        aspectResolver);
   }
 
   /**

@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * <p> {@code Digraph} a generic directed graph or "digraph", suitable for
  * modeling asymmetric binary relations. </p>
@@ -246,23 +248,27 @@ public final class Digraph<T> implements Cloneable {
   @Override
   public Digraph<T> clone() {
     final Digraph<T> that = new Digraph<T>();
-    visitNodesBeforeEdges(new AbstractGraphVisitor<T>() {
-      @Override
-      public void visitEdge(Node<T> lhs, Node<T> rhs) {
-        that.addEdge(lhs.getLabel(), rhs.getLabel());
-      }
-      @Override
-      public void visitNode(Node<T> node) {
-        that.createNode(node.getLabel());
-      }
-    });
+    visitNodesBeforeEdges(
+        new AbstractGraphVisitor<T>() {
+          @Override
+          public void visitEdge(Node<T> lhs, Node<T> rhs) {
+            that.addEdge(lhs.getLabel(), rhs.getLabel());
+          }
+
+          @Override
+          public void visitNode(Node<T> node) {
+            that.createNode(node.getLabel());
+          }
+        },
+        nodes.values(),
+        null);
     return that;
   }
 
   /**
    * Returns a deterministic immutable view of the nodes of this graph.
    */
-  public Collection<Node<T>> getNodes(final Comparator<T> comparator) {
+  public Collection<Node<T>> getNodes(final Comparator<? super T> comparator) {
     Ordering<Node<T>> ordering = new Ordering<Node<T>>() {
       @Override
       public int compare(Node<T> o1, Node<T> o2) {
@@ -636,8 +642,7 @@ public final class Digraph<T> implements Cloneable {
    *     are visited.
    * @return The nodes of the graph, in a topological order
    */
-  public List<Node<T>> getTopologicalOrder(
-      Comparator<T> edgeOrder) {
+  public List<Node<T>> getTopologicalOrder(Comparator<? super T> edgeOrder) {
     CollectingVisitor<T> visitor = new CollectingVisitor<T>();
     DFS<T> visitation = new DFS<T>(DFS.Order.POSTORDER, edgeOrder, false);
     visitor.beginVisit();
@@ -1034,12 +1039,39 @@ public final class Digraph<T> implements Cloneable {
     visitor.endVisit();
   }
 
-  private void visitNodesBeforeEdges(GraphVisitor<T> visitor,
-                                    Iterable<Node<T>> startNodes) {
+  private static <T> Comparator<Node<T>> makeNodeComparator(
+      final Comparator<? super T> comparator) {
+    return new Comparator<Node<T>>() {
+      @Override
+      public int compare(Node<T> o1, Node<T> o2) {
+        return comparator.compare(o1.getLabel(), o2.getLabel());
+      }
+    };
+  }
+
+  /**
+   * Given {@param unordered}, a collection of nodes and a (possibly null) {@param comparator} for
+   * their labels, returns a sorted collection if {@param comparator} is non-null, otherwise returns
+   * {@param unordered}.
+   */
+  private static <T> Collection<Node<T>> maybeOrderCollection(
+      Collection<Node<T>> unordered, @Nullable final Comparator<? super T> comparator) {
+    if (comparator == null) {
+      return unordered;
+    }
+    List<Node<T>> result = new ArrayList<>(unordered);
+    Collections.sort(result, makeNodeComparator(comparator));
+    return result;
+  }
+
+  private void visitNodesBeforeEdges(
+      GraphVisitor<T> visitor,
+      Iterable<Node<T>> startNodes,
+      @Nullable Comparator<? super T> comparator) {
     visitor.beginVisit();
     for (Node<T> fromNode: startNodes) {
       visitor.visitNode(fromNode);
-      for (Node<T> toNode: fromNode.getSuccessors()) {
+      for (Node<T> toNode : maybeOrderCollection(fromNode.getSuccessors(), comparator)) {
         visitor.visitEdge(fromNode, toNode);
       }
     }
@@ -1047,12 +1079,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * A visitation over the graph that visits all nodes and edges in some order
-   * such that each node is visited before any edge coming out of that node;
-   * the order is otherwise unspecified.
+   * A visitation over the graph that visits all nodes and edges in topological order
+   * such that each node is visited before any edge coming out of that node; ties among nodes are
+   * broken using the provided {@param comparator} if not null; edges are visited in order specified
+   * by the comparator, <b>not</b> topological order of the target nodes.
    */
-  public void visitNodesBeforeEdges(GraphVisitor<T> visitor) {
-    visitNodesBeforeEdges(visitor, nodes.values());
+  public void visitNodesBeforeEdges(
+      GraphVisitor<T> visitor, @Nullable Comparator<? super T> comparator) {
+    visitNodesBeforeEdges(
+        visitor,
+        comparator == null ? getTopologicalOrder() : getTopologicalOrder(comparator),
+        comparator);
   }
-
 }

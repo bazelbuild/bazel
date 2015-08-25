@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.EquivalenceRelation;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -20,11 +22,16 @@ import com.google.devtools.build.lib.graph.DotOutputVisitor;
 import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -34,7 +41,6 @@ import java.util.Set;
 class GraphOutputFormatter extends OutputFormatter {
 
   private int graphNodeStringLimit;
-  private boolean graphFactored;
 
   @Override
   public String getName() {
@@ -45,16 +51,16 @@ class GraphOutputFormatter extends OutputFormatter {
   public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
       AspectResolver aspectProvider) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
-    this.graphFactored = options.graphFactored;
 
-    if (graphFactored) {
-      outputFactored(result, new PrintWriter(out));
+    boolean sortLabels = options.orderOutput == OrderOutput.FULL;
+    if (options.graphFactored) {
+      outputFactored(result, new PrintWriter(out), sortLabels);
     } else {
-      outputUnfactored(result, new PrintWriter(out));
+      outputUnfactored(result, new PrintWriter(out), sortLabels);
     }
   }
 
-  private void outputUnfactored(Digraph<Target> result, PrintWriter out) {
+  private void outputUnfactored(Digraph<Target> result, PrintWriter out, boolean sortLabels) {
     result.visitNodesBeforeEdges(
         new DotOutputVisitor<Target>(out, LABEL_STRINGIFIER) {
           @Override
@@ -63,26 +69,42 @@ class GraphOutputFormatter extends OutputFormatter {
             // TODO(bazel-team): (2009) make this the default in Digraph.
             out.println("  node [shape=box];");
           }
-        });
+        },
+        sortLabels ? new TargetOrdering() : null);
   }
 
-  private void outputFactored(Digraph<Target> result, PrintWriter out) {
+  private static final Ordering<Node<Target>> NODE_COMPARATOR =
+      Ordering.from(new TargetOrdering()).onResultOf(EXTRACT_NODE_LABEL);
+
+  private static final Comparator<Iterable<Node<Target>>> ITERABLE_COMPARATOR =
+      NODE_COMPARATOR.lexicographical();
+
+  /**
+   * Given {@param collectionOfUnorderedSets}, a collection of sets of nodes, returns a collection
+   * of sets with the same elements as {@param collectionOfUnorderedSets} but with a stable
+   * iteration order within each set given by the target ordering, and the collection ordered by the
+   * same induced order.
+   */
+  private static Collection<Set<Node<Target>>> orderPartition(
+      Collection<Set<Node<Target>>> collectionOfUnorderedSets) {
+    List<Set<Node<Target>>> result = new ArrayList<>();
+    for (Set<Node<Target>> part : collectionOfUnorderedSets) {
+      List<Node<Target>> toSort = new ArrayList<>(part);
+      Collections.sort(toSort, NODE_COMPARATOR);
+      result.add(ImmutableSet.copyOf(toSort));
+    }
+    Collections.sort(result, ITERABLE_COMPARATOR);
+    return result;
+  }
+
+  private void outputFactored(Digraph<Target> result, PrintWriter out, final boolean sortLabels) {
     EquivalenceRelation<Node<Target>> equivalenceRelation = createEquivalenceRelation();
 
-    // Notes on ordering:
-    // - Digraph.getNodes() returns nodes in no particular order
-    // - CollectionUtils.partition inserts elements into unordered sets
-    // This means partitions may contain nodes in a different order than perhaps expected.
-    // Example (package //foo):
-    //   some_rule(
-    //       name = 'foo',
-    //       srcs = ['a', 'b', 'c'],
-    //   )
-    // Querying for deps('foo') will return (among others) the 'foo' node with successors 'a', 'b'
-    // and 'c' (in this order), however when asking the Digraph for all of its nodes, the returned
-    // collection may be ordered differently.
     Collection<Set<Node<Target>>> partition =
         CollectionUtils.partition(result.getNodes(), equivalenceRelation);
+    if (sortLabels) {
+      partition = orderPartition(partition);
+    }
 
     Digraph<Set<Node<Target>>> factoredGraph = result.createImageUnderPartition(partition);
 
@@ -124,7 +146,8 @@ class GraphOutputFormatter extends OutputFormatter {
             // TODO(bazel-team): (2009) make this the default in Digraph.
             out.println("  node [shape=box];");
           }
-        });
+        },
+        sortLabels ? ITERABLE_COMPARATOR : null);
   }
 
   /**

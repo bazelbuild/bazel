@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSerializer;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -44,6 +45,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * Interface for classes which order, format and print the result of a Blaze
@@ -169,9 +172,13 @@ public abstract class OutputFormatter implements Serializable {
 
   abstract static class AbstractUnorderedFormatter extends OutputFormatter
       implements UnorderedFormatter {
-    private static Iterable<Target> getOrderedTargets(Digraph<Target> result) {
-      return Iterables.transform(
-          result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+    private static Iterable<Target> getOrderedTargets(
+        Digraph<Target> result, QueryOptions options) {
+      Iterable<Node<Target>> orderedResult =
+          options.orderOutput == OrderOutput.DEPS
+              ? result.getTopologicalOrder()
+              : result.getTopologicalOrder(new TargetOrdering());
+      return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
     }
 
     @Override
@@ -181,7 +188,7 @@ public abstract class OutputFormatter implements Serializable {
         PrintStream out,
         AspectResolver aspectResolver)
         throws IOException, InterruptedException {
-      outputUnordered(options, getOrderedTargets(result), out, aspectResolver);
+      outputUnordered(options, getOrderedTargets(result, options), out, aspectResolver);
     }
   }
 
@@ -323,6 +330,29 @@ public abstract class OutputFormatter implements Serializable {
     }
   }
 
+  private static class RankAndLabel implements Comparable<RankAndLabel> {
+    private final int rank;
+    private final Label label;
+
+    private RankAndLabel(int rank, Label label) {
+      this.rank = rank;
+      this.label = label;
+    }
+
+    @Override
+    public int compareTo(RankAndLabel o) {
+      if (this.rank != o.rank) {
+        return this.rank - o.rank;
+      }
+      return this.label.compareTo(o.label);
+    }
+
+    @Override
+    public String toString() {
+      return rank + " " + label;
+    }
+  }
+
   /**
    * An output formatter that prints the labels in minimum rank order, preceded by
    * their rank number.  "Roots" have rank 0, their direct prerequisites have
@@ -339,6 +369,15 @@ public abstract class OutputFormatter implements Serializable {
       return "minrank";
     }
 
+    private static void outputToStreamOrSave(
+        int rank, Label label, PrintStream out, @Nullable List<RankAndLabel> toSave) {
+      if (toSave != null) {
+        toSave.add(new RankAndLabel(rank, label));
+      } else {
+        out.println(rank + " " + label);
+      }
+    }
+
     @Override
     public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
         AspectResolver aspectResolver) {
@@ -347,6 +386,8 @@ public abstract class OutputFormatter implements Serializable {
       // cycles should be treated a "clump" of nodes all on the same rank.
       // Graphs may contain cycles because there are errors in BUILD files.
 
+      List<RankAndLabel> outputToOrder =
+          options.orderOutput == OrderOutput.FULL ? new ArrayList<RankAndLabel>() : null;
       Digraph<Set<Node<Target>>> scGraph = result.getStrongComponentGraph();
       Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
       Set<Node<Set<Node<Target>>>> seen = new HashSet<>();
@@ -355,7 +396,7 @@ public abstract class OutputFormatter implements Serializable {
         // Print out this rank:
         for (Node<Set<Node<Target>>> xScc : rankNodes) {
           for (Node<Target> x : xScc.getLabel()) {
-            out.println(rank + " " + x.getLabel().getLabel());
+            outputToStreamOrSave(rank, x.getLabel().getLabel(), out, outputToOrder);
           }
         }
 
@@ -369,6 +410,12 @@ public abstract class OutputFormatter implements Serializable {
           }
         }
         rankNodes = nextRankNodes;
+      }
+      if (outputToOrder != null) {
+        Collections.sort(outputToOrder);
+        for (RankAndLabel item : outputToOrder) {
+          out.println(item);
+        }
       }
     }
   }
@@ -419,22 +466,28 @@ public abstract class OutputFormatter implements Serializable {
       DP dp = new DP();
 
       // Now sort by rank...
-      List<Pair<Integer, Label>> output = new ArrayList<>();
+      List<RankAndLabel> output = new ArrayList<>();
       for (Node<Set<Node<Target>>> x : result.getStrongComponentGraph().getNodes()) {
         int rank = dp.rank(x);
         for (Node<Target> y : x.getLabel()) {
-          output.add(Pair.of(rank, y.getLabel().getLabel()));
+          output.add(new RankAndLabel(rank, y.getLabel().getLabel()));
         }
       }
-      Collections.sort(output, new Comparator<Pair<Integer, Label>>() {
-          @Override
-          public int compare(Pair<Integer, Label> x, Pair<Integer, Label> y) {
-            return x.first - y.first;
-          }
-        });
-
-      for (Pair<Integer, Label> pair : output) {
-        out.println(pair.first + " " + pair.second);
+      if (options.orderOutput == OrderOutput.FULL) {
+        // Use the natural order for RankAndLabels, which breaks ties alphabetically.
+        Collections.sort(output);
+      } else {
+        Collections.sort(
+            output,
+            new Comparator<RankAndLabel>() {
+              @Override
+              public int compare(RankAndLabel o1, RankAndLabel o2) {
+                return o1.rank - o2.rank;
+              }
+            });
+      }
+      for (RankAndLabel item : output) {
+        out.println(item);
       }
     }
   }

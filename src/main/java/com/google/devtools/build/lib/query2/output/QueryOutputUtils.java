@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
+import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -27,7 +28,7 @@ public class QueryOutputUtils {
   private QueryOutputUtils() {}
 
   public static boolean orderResults(QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderResults || !(formatter instanceof UnorderedFormatter);
+    return queryOptions.orderOutput != OrderOutput.NO || !(formatter instanceof UnorderedFormatter);
   }
 
   public static void output(QueryOptions queryOptions, QueryEvalResult<Target> result,

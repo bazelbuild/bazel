@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
+import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -119,6 +120,20 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --universe_scope is not allowed");
       return null;
     }
+    if (optionsParser.containsExplicitOption("order_results")) {
+      ruleContext.attributeError("opts", "option --order_results is not allowed");
+      return null;
+    }
+    if (optionsParser.containsExplicitOption("noorder_results")) {
+      ruleContext.attributeError("opts", "option --noorder_results is not allowed");
+      return null;
+    }
+    if (optionsParser.containsExplicitOption("order_output")) {
+      ruleContext.attributeError("opts", "option --order_output is not allowed");
+      return null;
+    }
+    // Force results to be deterministic.
+    queryOptions.orderOutput = OrderOutput.FULL;
 
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;

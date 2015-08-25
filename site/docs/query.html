@@ -1394,25 +1394,41 @@ genrule(
   conservation of graph order</a>", <i>presenting</i> the results may be done
   in either a dependency-ordered or unordered manner. This does <b>not</b>
   influence the targets in the result set or how the query is computed. It only
-  affects how the results are printed to stdout. The
-  <code>--[no]order_results</code> flag can be used to control this behavior.
+  affects how the results are printed to stdout. Moreover, nodes that are
+  equivalent in the dependency order may or may not be ordered alphabetically.
+  The <code>--order_output</code> flag can be used to control this behavior.
+  (The <code>--[no]order_results</code> flag has a subset of the functionality
+  of the <code>--order_output</code> flag and is deprecated.)
 </p>
 <p>
-  When <code>--order_results</code> is used (this is the default), then the
-  graph order will be preserved in the output. For example the query
-  <code>deps(x)</code> will print the dependencies of target <code>x</code>
-  before printing <code>x</code> itself.
+  The default value of this flag is <code>auto</code>, which is equivalent to
+  <code>full</code> for every output format except for <code>proto</code>,
+  <code>graph</code>, <code>minrank</code>, and <code>maxrank</code>, for which
+  it is equivalent to <code>deps</code>.
 </p>
 <p>
-  When <code>--noorder_results</code> is used and <code>--order</code> is one
-  of <code>label</code>, <code>label_kind</code>, <code>location</code>,
-  <code>package</code>, <code>proto</code>, <code>record</code> or
-  <code>xml</code>, the outputs will be printed in arbitrary order. <b>This is
-  generally faster than using <code>--order_results</code></b>. It is not
-  supported though when <code>--order</code> is one of <code>graph</code>,
+  When this flag is <code>no</code> and <code>--order</code> is one of
+  <code>build</code>, <code>label</code>, <code>label_kind</code>,
+  <code>location</code>, <code>package</code>, <code>proto</code>,
+  <code>record</code> or <code>xml</code>, the outputs will be printed in
+  arbitrary order. <b>This is generally the fastest option</b>. It is not
+  supported though when <code>--output</code> is one of <code>graph</code>,
   <code>min_rank</code> or <code>max_rank</code>: with these formats, bazel will
-  ignore the <code>--[no]order_results</code> flag and always print ordered
-  results.
+  always print results ordered by the dependency order or rank.
+</p>
+<p>
+  When this flag is <code>deps</code>, bazel will print results ordered by the
+  dependency order. However, nodes that are unordered by the dependency order
+  (because there is no path from either one to the other) may be printed in any
+  order.
+</p>
+<p>
+  When this flag is <code>full</code>, bazel will print results ordered by the
+  dependency order, with unordered nodes ordered alphabetically or reverse
+  alphabetically, depending on the output format. This may be slower than the
+  other options, and so should only be used when deterministic results are
+  important &mdash; it is guaranteed with this option that running the same query
+  multiple times will always produce the same output.
 </p>
 
 <h3 id="output-label">Print the label of each target</h3>

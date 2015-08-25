@@ -55,8 +55,8 @@ public final class GenQueryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(opts) -->
         The options that are passed to the query engine.
         These correspond to the command line options that can be passed to
-        <code>blaze query</code>. The only query option that is not allowed here
-        is <code>--keep_going</code>.
+        <code>blaze query</code>. The only query options that are not allowed here
+        are <code>--keep_going</code> and <code>--order_output</code>.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("opts", STRING_LIST))
@@ -94,6 +94,9 @@ ${ATTRIBUTE_SIGNATURE}
     wildcard target specifications (e.g. <code>//pkg:*</code> or
     <code>//pkg:all</code>) are not allowed here.
   </p>
+  <p>
+    The genquery's output is ordered using <code>--order_output=full</code> in
+    order to enforce deterministic output.
   <p>
     The name of the output file is the name of the rule.
   </p>
