@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
@@ -54,7 +54,7 @@ import javax.xml.transform.stream.StreamResult;
 /**
  * An output formatter that prints the result as XML.
  */
-class XmlOutputFormatter extends OutputFormatter implements OutputFormatter.UnorderedFormatter {
+class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean xmlLineNumbers;
   private boolean showDefaultValues;
@@ -98,14 +98,6 @@ class XmlOutputFormatter extends OutputFormatter implements OutputFormatter.Unor
       // This shouldn't be possible: all the configuration is hard-coded.
       throw new IllegalStateException("XML output failed",  e);
     }
-  }
-
-  @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-      AspectResolver aspectResolver) throws InterruptedException {
-    Iterable<Target> ordered = Iterables.transform(
-        result.getTopologicalOrder(new TargetOrdering()), OutputFormatter.EXTRACT_NODE_LABEL);
-    outputUnordered(options, ordered, out, aspectResolver);
   }
 
   /**
