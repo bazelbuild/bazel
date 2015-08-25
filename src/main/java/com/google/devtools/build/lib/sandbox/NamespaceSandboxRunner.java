@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,6 +53,33 @@ public class NamespaceSandboxRunner {
     this.sandboxExecRoot = sandboxPath.getRelative(execRoot.asFragment().relativeTo("/"));
     this.mounts = mounts;
     this.debug = debug;
+  }
+
+  static boolean isSupported(BlazeRuntime runtime) {
+    Path execRoot = runtime.getExecRoot();
+    OutErr outErr = runtime.getReporter().getOutErr();
+    BinTools binTools = runtime.getBinTools();
+
+    List<String> args = new ArrayList<>();
+    args.add(execRoot.getRelative(binTools.getExecPath("namespace-sandbox")).getPathString());
+    args.add("-C");
+
+    ImmutableMap<String, String> env = ImmutableMap.of();
+    File cwd = execRoot.getPathFile();
+
+    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    try {
+      cmd.execute(
+          /* stdin */ new byte[] {},
+          Command.NO_OBSERVER,
+          outErr.getOutputStream(),
+          outErr.getErrorStream(),
+          /* killSubprocessOnInterrupt */ true);
+    } catch (CommandException e) {
+      return false;
+    }
+
+    return true;
   }
 
   /**

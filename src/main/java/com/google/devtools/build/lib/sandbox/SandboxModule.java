@@ -20,9 +20,12 @@ import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OptionsBase;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,16 +38,58 @@ public class SandboxModule extends BlazeModule {
   private final ExecutorService backgroundWorkers = Executors.newCachedThreadPool();
   private BuildRequest buildRequest;
   private BlazeRuntime runtime;
+  private Boolean sandboxingSupported = null;
+
+  public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
+      "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "
+          + "be guaranteed. See http://bazel.io/docs/bazel-user-manual.html#sandboxing for more "
+          + "information";
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.<ActionContextProvider>of(
-        new SandboxActionContextProvider(runtime, buildRequest, backgroundWorkers));
+    Preconditions.checkNotNull(buildRequest);
+    Preconditions.checkNotNull(runtime);
+
+    // Cache
+    if (sandboxingSupported == null) {
+      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
+    }
+
+    if (sandboxingSupported) {
+      return ImmutableList.<ActionContextProvider>of(
+          new SandboxActionContextProvider(runtime, buildRequest, backgroundWorkers));
+    }
+
+    // For now, sandboxing is only supported on Linux and there's not much point in showing a scary
+    // warning to the user if they can't do anything about it.
+    if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing
+        && OS.getCurrent() == OS.LINUX) {
+      runtime.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
+    }
+
+    return ImmutableList.of();
   }
 
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
+    Preconditions.checkNotNull(runtime);
+
+    if (sandboxingSupported == null) {
+      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
+    }
+
+    if (sandboxingSupported) {
+      return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
+    }
+
+    return ImmutableList.of();
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return command.builds()
+        ? ImmutableList.<Class<? extends OptionsBase>>of(SandboxOptions.class)
+        : ImmutableList.<Class<? extends OptionsBase>>of();
   }
 
   @Override

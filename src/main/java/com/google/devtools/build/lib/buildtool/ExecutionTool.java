@@ -208,6 +208,10 @@ public class ExecutionTool {
     this.runtime = runtime;
     this.request = request;
 
+    // Create tools before getting the strategies from the modules as some of them need tools to
+    // determine whether the host actually supports certain strategies (e.g. sandboxing).
+    createToolsSymlinks();
+
     this.actionContextProviders =
         getActionContextProvidersFromModules(
             new FilesetActionContextImpl.Provider(
@@ -314,7 +318,6 @@ public class ExecutionTool {
   }
 
   void init() throws ExecutorInitException {
-    createToolsSymlinks();
     getExecutor();
   }
 

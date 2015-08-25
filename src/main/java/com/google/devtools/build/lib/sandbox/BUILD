@@ -13,6 +13,7 @@ java_library(
         "//src/main/java:buildtool-runtime",
         "//src/main/java:common",
         "//src/main/java:events",
+        "//src/main/java:options",
         "//src/main/java:packages",
         "//src/main/java:shell",
         "//src/main/java:unix",

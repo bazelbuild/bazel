@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "process-tools.h"
@@ -54,15 +55,47 @@ struct Options {
   double timeout_secs;     // How long to wait before killing the child (-T)
   double kill_delay_secs;  // How long to wait before sending SIGKILL in case of
                            // timeout (-t)
-  const char *stdout_path;       // Where to redirect stdout (-l)
-  const char *stderr_path;       // Where to redirect stderr (-L)
-  char *const *args;             // Command to run (--)
-  const char *sandbox_root;      // Sandbox root (-S)
-  const char *working_dir;       // Working directory (-W)
-  char **mount_sources;    // Map of directories to mount, from
-  char **mount_targets;    // sources -> targets (-m)
-  int num_mounts;          // How many mounts were specified
+  const char *stdout_path;   // Where to redirect stdout (-l)
+  const char *stderr_path;   // Where to redirect stderr (-L)
+  char *const *args;         // Command to run (--)
+  const char *sandbox_root;  // Sandbox root (-S)
+  const char *working_dir;   // Working directory (-W)
+  char **mount_sources;      // Map of directories to mount, from
+  char **mount_targets;      // sources -> targets (-m)
+  int num_mounts;            // How many mounts were specified
 };
+
+// Child function used by CheckNamespacesSupported() in call to clone().
+static int CheckNamespacesSupportedChild(void *arg) { return 0; }
+
+// Check whether the required namespaces are supported.
+static int CheckNamespacesSupported() {
+  const int stackSize = 1024 * 1024;
+  char *stack;
+  char *stackTop;
+  pid_t pid;
+
+  // Allocate stack for child.
+  stack = malloc(stackSize);
+  if (stack == NULL) {
+    DIE("malloc failed\n");
+  }
+
+  // Assume stack grows downward.
+  stackTop = stack + stackSize;
+
+  // Create child with own namespaces. We use clone() instead of unshare() here
+  // because of the kernel bug (ref. CreateNamespaces) that lets unshare fail
+  // sometimes. As this check has to run as fast as possible, we can't afford to
+  // spend time sleeping and retrying here until it eventually works (or not).
+  CHECK_CALL(pid = clone(CheckNamespacesSupportedChild, stackTop,
+                         CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS |
+                             CLONE_NEWIPC | SIGCHLD,
+                         NULL));
+  CHECK_CALL(waitpid(pid, NULL, 0));
+
+  return EXIT_SUCCESS;
+}
 
 // Print out a usage error. argc and argv are the argument counter and vector,
 // fmt is a format,
@@ -112,8 +145,12 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt(argc, argv, ":DS:W:t:T:M:m:l:L:")) != -1) {
+  while ((c = getopt(argc, argv, ":CDS:W:t:T:M:m:l:L:")) != -1) {
     switch (c) {
+      case 'C':
+        // Shortcut for the "does this system support sandboxing" check.
+        exit(CheckNamespacesSupported());
+        break;
       case 'S':
         if (opt->sandbox_root == NULL) {
           opt->sandbox_root = optarg;
@@ -212,9 +249,10 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
 }
 
 static void CreateNamespaces() {
-  // This weird workaround is necessary due to unshare seldomly failing with EINVAL due to a race
-  // condition in the Linux kernel (see https://lkml.org/lkml/2015/7/28/833).
-  // An alternative would be to use clone/waitpid instead.
+  // This weird workaround is necessary due to unshare seldomly failing with
+  // EINVAL due to a race condition in the Linux kernel (see
+  // https://lkml.org/lkml/2015/7/28/833). An alternative would be to use
+  // clone/waitpid instead.
   int delay = 1;
   int tries = 0;
   const int max_tries = 100;
@@ -251,7 +289,7 @@ static void CreateFile(const char *path) {
 static void SetupDevices() {
   CHECK_CALL(mkdir("dev", 0755));
   const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
-                  NULL};
+                        NULL};
   for (int i = 0; devs[i] != NULL; i++) {
     CreateFile(devs[i] + 1);
     CHECK_CALL(mount(devs[i], devs[i] + 1, NULL, MS_BIND, NULL));
@@ -321,14 +359,16 @@ static void SetupDirectories(struct Options *opt) {
   // Make sure the home directory exists and is writable.
   const char *homedir;
   if ((homedir = getenv("HOME")) == NULL) {
-      homedir = getpwuid(getuid())->pw_dir;
+    homedir = getpwuid(getuid())->pw_dir;
   }
 
   if (homedir[0] != '/') {
-    DIE("Home directory of user nobody must be an absolute path, but is %s", homedir);
+    DIE("Home directory of user nobody must be an absolute path, but is %s",
+        homedir);
   }
 
-  char *homedir_absolute = malloc(strlen(opt->sandbox_root) + strlen(homedir) + 1);
+  char *homedir_absolute =
+      malloc(strlen(opt->sandbox_root) + strlen(homedir) + 1);
   strcpy(homedir_absolute, opt->sandbox_root);
   strcat(homedir_absolute, homedir);
 
@@ -381,9 +421,9 @@ static void SetupUserNamespace(int uid, int gid) {
   // Set group and user mapping from outer namespace to inner:
   // No changes in the parent, be nobody in the child.
   //
-  // We can't be root in the child, because some code may assume that running as root grants it
-  // certain capabilities that it doesn't in fact have. It's safer to let the child think that it
-  // is just a normal user.
+  // We can't be root in the child, because some code may assume that running as
+  // root grants it certain capabilities that it doesn't in fact have. It's
+  // safer to let the child think that it is just a normal user.
   CHECK_CALL(WriteFile("/proc/self/uid_map", "%d %d 1\n", kNobodyUid, uid));
   CHECK_CALL(WriteFile("/proc/self/gid_map", "%d %d 1\n", kNobodyGid, gid));
 
