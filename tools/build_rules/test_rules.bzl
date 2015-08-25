@@ -194,8 +194,8 @@ def _rule_test_impl(ctx):
   exe = ctx.outputs.executable
   if ctx.attr.generates:
     prefix = rule_.label.package + "/"
-    generates = ctx.attr.generates
-    generated = [strip_prefix(prefix, f.short_path) for f in rule_.files]
+    generates = set(ctx.attr.generates)
+    generated = set([strip_prefix(prefix, f.short_path) for f in rule_.files])
     if generates != generated:
       fail("rule %s generates %s not %s"
            % (rule_name, repr(generated), repr(generates)))
