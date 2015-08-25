@@ -516,7 +516,7 @@ public final class FuncallExpression extends Expression {
       return convertFromSkylark(
           function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
           env);
-    } else if (env.isSkylarkEnabled()) {
+    } else if (env.isSkylark()) {
       // Only allow native Java calls when using Skylark
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
@@ -567,7 +567,7 @@ public final class FuncallExpression extends Expression {
 
   protected Object convertFromSkylark(Object returnValue, Environment env) throws EvalException {
     EvalUtils.checkNotNull(this, returnValue);
-    if (!env.isSkylarkEnabled()) {
+    if (!env.isSkylark()) {
       // The call happens in the BUILD language. Note that accessing "BUILD language" functions in
       // Skylark should never happen.
       return SkylarkType.convertFromSkylark(returnValue);

@@ -81,7 +81,7 @@ public class LValue implements Serializable {
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(result, "trying to assign null to %s", ident);
 
-    if (env.isSkylarkEnabled()) {
+    if (env.isSkylark()) {
       // The variable may have been referenced successfully if a global variable
       // with the same name exists. In this case an Exception needs to be thrown.
       SkylarkEnvironment skylarkEnv = (SkylarkEnvironment) env;

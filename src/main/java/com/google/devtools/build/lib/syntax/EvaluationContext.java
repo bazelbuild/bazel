@@ -108,7 +108,7 @@ public final class EvaluationContext {
 
   /** Is this a Skylark evaluation context? */
   public boolean isSkylark() {
-    return env.isSkylarkEnabled();
+    return env.isSkylark();
   }
 
   /** Parse a string without a supporting file, returning statements and comments */

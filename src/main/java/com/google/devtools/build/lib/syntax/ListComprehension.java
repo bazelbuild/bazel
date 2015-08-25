@@ -219,7 +219,7 @@ public final class ListComprehension extends Expression {
   Object eval(Environment env) throws EvalException, InterruptedException {
     List<Object> result = new ArrayList<>();
     evalStep(env, result, 0);
-    return env.isSkylarkEnabled() ? SkylarkList.list(result, getLocation()) : result;
+    return env.isSkylark() ? SkylarkList.list(result, getLocation()) : result;
   }
 
   @Override

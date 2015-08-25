@@ -818,7 +818,7 @@ public class MethodLibrary {
       List<Object> list = Lists.newArrayListWithCapacity(dict.size());
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
         List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
-        list.add(env.isSkylarkEnabled() ? SkylarkList.tuple(item) : item);
+        list.add(env.isSkylark() ? SkylarkList.tuple(item) : item);
       }
         return convert(list, env, loc);
       }
@@ -864,7 +864,7 @@ public class MethodLibrary {
   @SuppressWarnings("unchecked")
   private static Iterable<Object> convert(Collection<?> list, Environment env, Location loc)
       throws EvalException {
-    if (env.isSkylarkEnabled()) {
+    if (env.isSkylark()) {
       return SkylarkList.list(list, loc);
     } else {
       return Lists.newArrayList(list);
@@ -1419,7 +1419,7 @@ public class MethodLibrary {
     env.registerFunction(List.class, indexOperator.getName(), indexOperator);
     env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
 
-    if (env.isSkylarkEnabled()) {
+    if (env.isSkylark()) {
       setupMethodEnvironment(env, skylarkGlobalFunctions);
     } else {
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
