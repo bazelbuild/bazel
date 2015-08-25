@@ -53,21 +53,25 @@ public class BazelRulesModule extends BlazeModule {
    */
   public static class BazelExecutionOptions extends OptionsBase {
     @Option(
-        name = "spawn_strategy",
-        defaultValue = "standalone",
-        category = "strategy",
-        help = "Specify how spawn actions are executed by default."
-            + "'standalone' means run all of them locally."
-            + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)")
+      name = "spawn_strategy",
+      defaultValue = "",
+      category = "strategy",
+      help =
+          "Specify how spawn actions are executed by default."
+              + "'standalone' means run all of them locally."
+              + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)"
+    )
     public String spawnStrategy;
 
     @Option(
-        name = "genrule_strategy",
-        defaultValue = "standalone",
-        category = "strategy",
-        help = "Specify how to execute genrules."
-            + "'standalone' means run all of them locally."
-            + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)")
+      name = "genrule_strategy",
+      defaultValue = "",
+      category = "strategy",
+      help =
+          "Specify how to execute genrules."
+              + "'standalone' means run all of them locally."
+              + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)"
+    )
     public String genruleStrategy;
 
     @Option(name = "strategy",
