@@ -89,7 +89,7 @@ sh_test(
     data = [":test-deps"],
 )
 
-# TODO(bazel-team): zip is non-deterinistic because of file timestamp,
+# TODO(bazel-team): zip is non-deterministic because of file timestamp,
 # we should use a custom zip version (SingleJar?).
 genrule(
     name = "doc-srcs",
@@ -119,6 +119,7 @@ sh_test(
     size = "medium",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
+    tags = ["manual"],  # flaky
 )
 
 sh_test(
