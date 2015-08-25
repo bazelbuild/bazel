@@ -94,10 +94,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
 
-    // TODO(philwo) - this catches BuildInfo, which can't run in a sandbox. Is there a better way?
-    // Maybe add an annotation to actions that they can refuse to run under certain strategies?
-    if (spawn.getOwner().getLabel() == null
-        || spawn.getArguments().get(0).contains("build-runfiles")) {
+    // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
+    if (!spawn.isRemotable()) {
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
