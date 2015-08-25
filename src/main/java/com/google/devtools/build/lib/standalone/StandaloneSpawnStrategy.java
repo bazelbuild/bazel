@@ -82,7 +82,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       // Disable it for now to make the setup easier and to avoid further PATH hacks.
       // Ideally we should have a native implementation of process-wrapper for Windows.
       args.add(processWrapper.getPathString());
-      args.add("" + timeout);
+      args.add(Integer.toString(timeout));
       args.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
 
       // TODO(bazel-team): use process-wrapper redirection so we don't have to

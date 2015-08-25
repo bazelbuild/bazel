@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.SetMultimap;
+import com.google.common.io.Files;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -25,21 +31,34 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SearchPath;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.nio.charset.Charset;
+import java.util.HashSet;
 import java.util.List;
-import java.util.TreeSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Strategy that uses sandboxing to execute a process.
@@ -47,12 +66,24 @@ import java.util.TreeSet;
 @ExecutionStrategy(name = {"sandboxed"},
                    contextType = SpawnActionContext.class)
 public class LinuxSandboxedStrategy implements SpawnActionContext {
-  private final boolean verboseFailures;
-  private final BlazeDirectories directories;
+  private final ExecutorService backgroundWorkers;
 
-  public LinuxSandboxedStrategy(BlazeDirectories blazeDirectories, boolean verboseFailures) {
-    this.directories = blazeDirectories;
+  private final BlazeRuntime blazeRuntime;
+  private final BlazeDirectories blazeDirs;
+  private final Path execRoot;
+  private final boolean verboseFailures;
+  private final StandaloneSpawnStrategy standaloneStrategy;
+  private final UUID uuid = UUID.randomUUID();
+  private final AtomicInteger execCounter = new AtomicInteger();
+
+  public LinuxSandboxedStrategy(
+      BlazeRuntime blazeRuntime, boolean verboseFailures, ExecutorService backgroundWorkers) {
+    this.blazeRuntime = blazeRuntime;
+    this.blazeDirs = blazeRuntime.getDirectories();
+    this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
+    this.backgroundWorkers = backgroundWorkers;
+    this.standaloneStrategy = new StandaloneSpawnStrategy(blazeDirs.getExecRoot(), verboseFailures);
   }
 
   /**
@@ -62,158 +93,331 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
+
+    // TODO(philwo) - this catches BuildInfo, which can't run in a sandbox. Is there a better way?
+    // Maybe add an annotation to actions that they can refuse to run under certain strategies?
+    if (spawn.getOwner().getLabel() == null
+        || spawn.getArguments().get(0).contains("build-runfiles")) {
+      standaloneStrategy.exec(spawn, actionExecutionContext);
+      return;
+    }
+
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(
           Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
               + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
-    boolean processHeaders = spawn.getResourceOwner() instanceof CppCompileAction;
-
-    Path execPath = this.directories.getExecRoot();
-    List<String> spawnArguments = new ArrayList<>();
-
-    for (String arg : spawn.getArguments()) {
-      if (arg.startsWith(execPath.getPathString())) {
-        // make all paths relative for the sandbox
-        spawnArguments.add(arg.substring(execPath.getPathString().length()));
-      } else {
-        spawnArguments.add(arg);
-      }
-    }
-
-    List<? extends ActionInput> expandedInputs =
-        ActionInputHelper.expandMiddlemen(spawn.getInputFiles(),
-            actionExecutionContext.getMiddlemanExpander());
-
-    String cwd = executor.getExecRoot().getPathString();
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
+
+    // The execId is a unique ID just for this invocation of "exec".
+    String execId = uuid + "-" + Integer.toString(execCounter.getAndIncrement());
+
+    // Each invocation of "exec" gets its own sandbox.
+    Path sandboxPath =
+        execRoot.getRelative(Constants.PRODUCT_NAME + "-sandbox").getRelative(execId);
+
+    ImmutableMultimap<Path, Path> mounts;
     try {
-      PathFragment includePrefix = null; // null when there's no include mangling to do
-      List<PathFragment> includeDirectories = ImmutableList.of();
-      if (processHeaders) {
-        CppCompileAction cppAction = (CppCompileAction) spawn.getResourceOwner();
-        // headers are mounted in the sandbox in a separate include dir, so their names are mangled
-        // when running the compilation and will have to be unmangled after it's done in the *.pic.d
-        includeDirectories = extractIncludeDirs(execPath, cppAction, spawnArguments);
-        includePrefix = getSandboxIncludeDir(cppAction);
-      }
-
-      NamespaceSandboxRunner runner = new NamespaceSandboxRunner(directories, spawn, includePrefix,
-          includeDirectories, verboseFailures);
-      runner.setupSandbox(expandedInputs, spawn.getOutputFiles());
-      runner.run(spawnArguments, spawn.getEnvironment(), new File(cwd), outErr);
-      runner.copyOutputs(spawn.getOutputFiles(), outErr);
-      if (processHeaders) {
-        CppCompileAction cppAction = (CppCompileAction) spawn.getResourceOwner();
-        unmangleHeaderFiles(cppAction);
-      }
-      runner.cleanup();
-    } catch (CommandException e) {
-      String message = CommandFailureUtils.describeCommandFailure(verboseFailures,
-          spawn.getArguments(), spawn.getEnvironment(), cwd);
-      throw new UserExecException(String.format("%s: %s", message, e));
+      // Gather all necessary mounts for the sandbox.
+      mounts = getMounts(spawn, sandboxPath, actionExecutionContext);
     } catch (IOException e) {
-      throw new UserExecException(e.getMessage());
+      throw new UserExecException("Could not prepare mounts for sandbox execution", e);
+    }
+
+    int timeout = getTimeout(spawn);
+
+    try {
+      final NamespaceSandboxRunner runner =
+          new NamespaceSandboxRunner(execRoot, sandboxPath, mounts, verboseFailures);
+      try {
+        runner.run(
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            blazeDirs.getExecRoot().getPathFile(),
+            outErr,
+            spawn.getOutputFiles(),
+            timeout);
+      } finally {
+        // Due to the Linux kernel behavior, if we try to remove the sandbox too quickly after the
+        // process has exited, we get "Device busy" errors because some of the mounts have not yet
+        // been undone. A second later it usually works. We will just clean the old sandboxes up
+        // using a background worker.
+        backgroundWorkers.execute(
+            new Runnable() {
+              @Override
+              public void run() {
+                try {
+                  while (!Thread.currentThread().isInterrupted()) {
+                    try {
+                      runner.cleanup();
+                      return;
+                    } catch (IOException e2) {
+                      // Sleep & retry.
+                      Thread.sleep(250);
+                    }
+                  }
+                } catch (InterruptedException e) {
+                  // Exit.
+                }
+              }
+            });
+      }
+    } catch (CommandException e) {
+      EventHandler handler = actionExecutionContext.getExecutor().getEventHandler();
+      handler.handle(
+          Event.error("Sandboxed execution failed: " + spawn.getOwner().getLabel() + "."));
+      throw new UserExecException("Error during execution of spawn", e);
+    } catch (IOException e) {
+      EventHandler handler = actionExecutionContext.getExecutor().getEventHandler();
+      handler.handle(
+          Event.error(
+              "I/O error during sandboxed execution:\n" + Throwables.getStackTraceAsString(e)));
+      throw new UserExecException("Could not execute spawn", e);
     }
   }
 
-  private void unmangleHeaderFiles(CppCompileAction cppCompileAction) throws IOException {
-    Path execPath = this.directories.getExecRoot();
-    CppCompileAction.DotdFile dotdfile = cppCompileAction.getDotdFile();
-    DependencySet depset = new DependencySet(execPath).read(dotdfile.getPath());
-    DependencySet unmangled = new DependencySet(execPath);
-    PathFragment sandboxIncludeDir = getSandboxIncludeDir(cppCompileAction);
-    PathFragment prefix = sandboxIncludeDir.getRelative(execPath.asFragment().relativeTo("/"));
-    for (PathFragment dep : depset.getDependencies()) {
-      if (dep.startsWith(prefix)) {
-        dep = dep.relativeTo(prefix);
+  private int getTimeout(Spawn spawn) throws UserExecException {
+    String timeoutStr = spawn.getExecutionInfo().get("timeout");
+    if (timeoutStr != null) {
+      try {
+        return Integer.parseInt(timeoutStr);
+      } catch (NumberFormatException e) {
+        throw new UserExecException("could not parse timeout: " + e);
       }
-      unmangled.addDependency(dep);
     }
-    unmangled.write(execPath.getRelative(depset.getOutputFileName()), ".d");
+    return -1;
   }
 
-  private PathFragment getSandboxIncludeDir(CppCompileAction cppCompileAction) {
-    return new PathFragment(
-        "include-" + Actions.escapedPath(cppCompileAction.getPrimaryOutput().toString()));
-  }
+  private ImmutableMultimap<Path, Path> getMounts(
+      Spawn spawn, Path sandboxPath, ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    mounts.putAll(mountUsualUnixDirs(sandboxPath));
+    mounts.putAll(setupBlazeUtils(sandboxPath));
+    mounts.putAll(mountRunfilesFromManifests(spawn, sandboxPath));
+    mounts.putAll(mountRunfilesFromSuppliers(spawn, sandboxPath));
+    mounts.putAll(mountRunfilesForTests(spawn, sandboxPath));
+    mounts.putAll(mountInputs(spawn, sandboxPath, actionExecutionContext));
+    mounts.putAll(mountRunUnderCommand(spawn, sandboxPath));
 
-  private ImmutableList<PathFragment> extractIncludeDirs(Path execPath,
-      CppCompileAction cppCompileAction, List<String> spawnArguments) throws IOException {
-    List<PathFragment> includes = new ArrayList<>();
-    includes.addAll(cppCompileAction.getQuoteIncludeDirs());
-    includes.addAll(cppCompileAction.getIncludeDirs());
-    includes.addAll(cppCompileAction.getSystemIncludeDirs());
+    SetMultimap<Path, Path> fixedMounts = LinkedHashMultimap.create();
+    for (Entry<Path, Path> mount : mounts.build().entries()) {
+      Path source = mount.getKey();
+      Path target = mount.getValue();
+      validateAndAddMount(sandboxPath, fixedMounts, source, target);
 
-    // gcc implicitly includes headers in the same dir as .cc file
-    PathFragment sourceDirectory =
-        cppCompileAction.getSourceFile().getPath().getParentDirectory().asFragment();
-    includes.add(sourceDirectory);
-    spawnArguments.add("-iquote");
-    spawnArguments.add(sourceDirectory.toString());
+      // Iteratively resolve symlinks and mount the whole chain. Take care not to run into a cyclic
+      // symlink - when we already processed the source once, we can exit the loop. Skyframe will
+      // catch cyclic symlinks for declared inputs, but this won't help if there is one in the parts
+      // of the host system that we mount.
+      Set<Path> seenSources = new HashSet<>();
+      while (source.isSymbolicLink() && seenSources.add(source)) {
+        source = source.getParentDirectory().getRelative(source.readSymbolicLink());
+        target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
 
-    TreeSet<PathFragment> processedIncludes = new TreeSet<>();
-    for (int i = 0; i < includes.size(); i++) {
-      PathFragment absolutePath;
-      if (!includes.get(i).isAbsolute()) {
-        absolutePath = execPath.getRelative(includes.get(i)).asFragment();
-      } else {
-        absolutePath = includes.get(i);
+        validateAndAddMount(sandboxPath, fixedMounts, source, target);
       }
-      // CppCompileAction may provide execPath as one of the include directories. This is a big
-      // overestimation of what is actually needed and doesn't make for very hermetic sandbox
-      // (since everything from the workspace will be somehow accessed in the sandbox). To have
-      // some more hermeticity in this situation we mount all the include dirs in:
-      // sandbox-directory/include-prefix/actual-include-dir
-      // (where include-prefix is obtained from this.getSandboxIncludeDir(cppCompileAction))
-      // and make so gcc looks there for includes. This should prevent the user from accessing
-      // files that technically should not be in the sandbox.
-      // TODO(bazel-team): change CppCompileAction so that include dirs contain only subsets of the
-      // execPath
-      if (absolutePath.equals(execPath.asFragment())) {
-        // we can't mount execPath because it will lead to a circular mount; instead mount its
-        // subdirs inside (other than the ones containing sandbox)
-        String[] subdirs = FilesystemUtils.readdir(absolutePath.toString());
-        for (String dirName : subdirs) {
-          if (dirName.equals("_bin") || dirName.equals("bazel-out")) {
-            continue;
-          }
-          PathFragment child = absolutePath.getChild(dirName);
-          processedIncludes.add(child);
+    }
+    return ImmutableMultimap.copyOf(fixedMounts);
+  }
+
+  /**
+   * Adds the new mount ("source" -> "target") to "mounts" after doing some validations on it.
+   *
+   * @return true if the mount was added to the multimap, or false if the multimap already contained
+   *         the mount.
+   */
+  private static boolean validateAndAddMount(
+      Path sandboxPath, SetMultimap<Path, Path> mounts, Path source, Path target) {
+    // The source must exist.
+    Preconditions.checkArgument(source.exists(), source.toString() + " does not exist");
+
+    // We cannot mount two different things onto the same target.
+    if (!mounts.containsEntry(source, target) && mounts.containsValue(target)) {
+      // There is a conflicting entry, find it and error out.
+      for (Entry<Path, Path> mount : mounts.entries()) {
+        if (mount.getValue().equals(target)) {
+          throw new IllegalStateException(
+              String.format(
+                  "Cannot mount both '%s' and '%s' onto '%s'", mount.getKey(), source, target));
         }
-      } else {
-        processedIncludes.add(absolutePath);
       }
     }
 
-    // pseudo random name for include directory inside sandbox, so it won't be accessed by accident
-    String prefix = getSandboxIncludeDir(cppCompileAction).toString();
+    // Mounts must always mount into the sandbox, otherwise they might corrupt the host system.
+    Preconditions.checkArgument(
+        target.startsWith(sandboxPath),
+        String.format("(%s -> %s) does not mount into sandbox", source, target));
 
-    // change names in the invocation
-    for (int i = 0; i < spawnArguments.size(); i++) {
-      if (spawnArguments.get(i).startsWith("-I")) {
-        String argument = spawnArguments.get(i).substring(2);
-        spawnArguments.set(i, setIncludeDirSandboxPath(execPath, argument, "-I" + prefix));
-      }
-      if (spawnArguments.get(i).equals("-iquote") || spawnArguments.get(i).equals("-isystem")) {
-        spawnArguments.set(i + 1, setIncludeDirSandboxPath(execPath,
-            spawnArguments.get(i + 1), prefix));
-      }
-    }
-    return ImmutableList.copyOf(processedIncludes);
+    return mounts.put(source, target);
   }
 
-  private String setIncludeDirSandboxPath(Path execPath, String argument, String prefix) {
-    StringBuilder builder = new StringBuilder(prefix);
-    if (argument.charAt(0) != '/') {
-      // relative path
-      builder.append(execPath);
-      builder.append('/');
+  /**
+   * Mount a certain set of unix directories to make the usual tools and libraries available to the
+   * spawn that runs.
+   */
+  private ImmutableMultimap<Path, Path> mountUsualUnixDirs(Path sandboxPath) throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    FileSystem fs = blazeDirs.getFileSystem();
+    mounts.put(fs.getPath("/bin"), sandboxPath.getRelative("bin"));
+    mounts.put(fs.getPath("/etc"), sandboxPath.getRelative("etc"));
+    for (String entry : FilesystemUtils.readdir("/")) {
+      if (entry.startsWith("lib")) {
+        mounts.put(fs.getRootDirectory().getRelative(entry), sandboxPath.getRelative(entry));
+      }
     }
-    builder.append(argument);
+    for (String entry : FilesystemUtils.readdir("/usr")) {
+      if (!entry.equals("local")) {
+        mounts.put(
+            fs.getPath("/usr").getRelative(entry),
+            sandboxPath.getRelative("usr").getRelative(entry));
+      }
+    }
+    return mounts.build();
+  }
 
-    return builder.toString();
+  /**
+   * Mount the embedded tools.
+   */
+  private ImmutableMultimap<Path, Path> setupBlazeUtils(Path sandboxPath) throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    Path source = blazeDirs.getEmbeddedBinariesRoot().getRelative("build-runfiles");
+    Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
+    mounts.put(source, target);
+    return mounts.build();
+  }
+
+  /**
+   * Mount all runfiles that the spawn needs as specified in its runfiles manifests.
+   */
+  private ImmutableMultimap<Path, Path> mountRunfilesFromManifests(Spawn spawn, Path sandboxPath)
+      throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    FileSystem fs = blazeDirs.getFileSystem();
+    for (Entry<PathFragment, Artifact> manifest : spawn.getRunfilesManifests().entrySet()) {
+      String manifestFilePath = manifest.getValue().getPath().getPathString();
+      Preconditions.checkState(!manifest.getKey().isAbsolute());
+      Path targetDirectory = execRoot.getRelative(manifest.getKey());
+      for (String line : Files.readLines(new File(manifestFilePath), Charset.defaultCharset())) {
+        String[] fields = line.split(" ");
+        Preconditions.checkState(
+            fields.length == 2, "'" + line + "' does not split into exactly 2 parts");
+        Path source = fs.getPath(fields[1]);
+        Path targetPath = targetDirectory.getRelative(fields[0]);
+        Path targetInSandbox = sandboxPath.getRelative(targetPath.asFragment().relativeTo("/"));
+        mounts.put(source, targetInSandbox);
+      }
+    }
+    return mounts.build();
+  }
+
+  /**
+   * Mount all runfiles that the spawn needs as specified via its runfiles suppliers.
+   */
+  private ImmutableMultimap<Path, Path> mountRunfilesFromSuppliers(Spawn spawn, Path sandboxPath)
+      throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    FileSystem fs = blazeDirs.getFileSystem();
+    Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
+        spawn.getRunfilesSupplier().getMappings();
+    for (Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
+        rootsAndMappings.entrySet()) {
+      PathFragment root = rootAndMappings.getKey();
+      if (root.isAbsolute()) {
+        root = root.relativeTo("/");
+      }
+      for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+        Artifact sourceArtifact = mapping.getValue();
+        Path source = (sourceArtifact != null) ? sourceArtifact.getPath() : fs.getPath("/dev/null");
+
+        Preconditions.checkArgument(!mapping.getKey().isAbsolute());
+        Path target = sandboxPath.getRelative(root.getRelative(mapping.getKey()));
+        mounts.put(source, target);
+      }
+    }
+    return mounts.build();
+  }
+
+  /**
+   * Tests are a special case and we have to mount the TEST_SRCDIR where the test expects it to be
+   * and also provide a TEST_TMPDIR to the test where it can store temporary files.
+   */
+  private ImmutableMultimap<Path, Path> mountRunfilesForTests(Spawn spawn, Path sandboxPath)
+      throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+    FileSystem fs = blazeDirs.getFileSystem();
+    if (spawn.getEnvironment().containsKey("TEST_TMPDIR")) {
+      Path source = fs.getPath(spawn.getEnvironment().get("TEST_TMPDIR"));
+      Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
+      FileSystemUtils.createDirectoryAndParents(target);
+    }
+    return mounts.build();
+  }
+
+  /**
+   * Mount all inputs of the spawn.
+   */
+  private ImmutableMultimap<Path, Path> mountInputs(
+      Spawn spawn, Path sandboxPath, ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+
+    List<ActionInput> inputs =
+        ActionInputHelper.expandMiddlemen(
+            spawn.getInputFiles(), actionExecutionContext.getMiddlemanExpander());
+
+    if (spawn.getResourceOwner() instanceof CppCompileAction) {
+      CppCompileAction action = (CppCompileAction) spawn.getResourceOwner();
+      if (action.shouldScanIncludes()) {
+        inputs.addAll(action.getAdditionalInputs());
+      }
+    }
+
+    for (ActionInput input : inputs) {
+      if (input.getExecPathString().contains("internal/_middlemen/")) {
+        continue;
+      }
+      Path source = execRoot.getRelative(input.getExecPathString());
+      Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
+      mounts.put(source, target);
+    }
+    return mounts.build();
+  }
+
+  /**
+   * If a --run_under= option is set and refers to a command via its path (as opposed to via its
+   * label), we have to mount this. Note that this is best effort and works fine for shell scripts
+   * and small binaries, but we can't track any further dependencies of this command.
+   *
+   * <p>If --run_under= refers to a label, it is automatically provided in the spawn's input files,
+   * so mountInputs() will catch that case.
+   */
+  private ImmutableMultimap<Path, Path> mountRunUnderCommand(Spawn spawn, Path sandboxPath) {
+    ImmutableMultimap.Builder<Path, Path> mounts = ImmutableMultimap.builder();
+
+    if (spawn.getResourceOwner() instanceof TestRunnerAction) {
+      TestRunnerAction testRunnerAction = ((TestRunnerAction) spawn.getResourceOwner());
+      RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
+      if (runUnder != null && runUnder.getCommand() != null) {
+        PathFragment sourceFragment = new PathFragment(runUnder.getCommand());
+        Path source;
+        if (sourceFragment.isAbsolute()) {
+          source = blazeDirs.getFileSystem().getPath(sourceFragment);
+        } else if (blazeDirs.getExecRoot().getRelative(sourceFragment).exists()) {
+          source = blazeDirs.getExecRoot().getRelative(sourceFragment);
+        } else {
+          List<Path> searchPath =
+              SearchPath.parse(blazeDirs.getFileSystem(), blazeRuntime.getClientEnv().get("PATH"));
+          source = SearchPath.which(searchPath, runUnder.getCommand());
+        }
+        if (source != null) {
+          Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
+          mounts.put(source, target);
+        }
+      }
+    }
+    return mounts.build();
   }
 
   @Override

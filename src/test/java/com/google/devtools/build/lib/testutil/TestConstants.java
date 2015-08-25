@@ -29,6 +29,7 @@ public class TestConstants {
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
       "build-runfiles",
       "process-wrapper",
+      "namespace-sandbox",
       "build_interface_so");
 
   /**

@@ -308,16 +308,23 @@ fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
+run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -l stdc++
 
 log "Compiling process-wrapper..."
-run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c
+run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm
+
+log "Compiling namespace-sandbox..."
+if [[ $PLATFORM == "linux" ]]; then
+  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/process-tools.c -lm
+else
+  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox-dummy.c -lm
+fi
 
 cp src/main/tools/build_interface_so ${OUTPUT_DIR}/build_interface_so
 cp src/main/tools/jdk.* ${OUTPUT_DIR}
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD"
+TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} namespace-sandbox${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD"
 
 (cd ${OUTPUT_DIR}/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd ${OUTPUT_DIR}/ ; echo "${JAVA_VERSION}" > java.version)

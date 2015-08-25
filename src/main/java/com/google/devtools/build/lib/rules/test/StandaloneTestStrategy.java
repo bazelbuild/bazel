@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
@@ -77,7 +78,6 @@ public class StandaloneTestStrategy extends TestStrategy {
         .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
-
     TestRunnerAction.ResolvedPaths resolvedPaths =
         action.resolve(actionExecutionContext.getExecutor().getExecRoot());
     Map<String, String> env = getEnv(action, runfilesDir, testTmpDir, resolvedPaths);
@@ -95,6 +95,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(TEST_SETUP, "", action),
             env,
             info,
+            new RunfilesSupplierImpl(
+                runfilesDir.asFragment(), action.getExecutionSettings().getRunfiles()),
             action,
             action
                 .getTestProperties()

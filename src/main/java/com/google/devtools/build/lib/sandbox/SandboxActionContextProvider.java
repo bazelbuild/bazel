@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.util.OS;
 
+import java.util.concurrent.ExecutorService;
+
 /**
  * Provides the sandboxed spawn strategy.
  */
@@ -30,12 +32,13 @@ public class SandboxActionContextProvider extends ActionContextProvider {
   @SuppressWarnings("unchecked")
   private final ImmutableList<ActionContext> strategies;
 
-  public SandboxActionContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
+  public SandboxActionContextProvider(
+      BlazeRuntime runtime, BuildRequest buildRequest, ExecutorService backgroundWorkers) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     Builder<ActionContext> strategies = ImmutableList.builder();
 
     if (OS.getCurrent() == OS.LINUX) {
-      strategies.add(new LinuxSandboxedStrategy(runtime.getDirectories(), verboseFailures));
+      strategies.add(new LinuxSandboxedStrategy(runtime, verboseFailures, backgroundWorkers));
     }
 
     this.strategies = strategies.build();

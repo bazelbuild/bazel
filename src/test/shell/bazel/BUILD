@@ -50,6 +50,8 @@ filegroup(
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//src/main/tools:namespace-sandbox",
+        "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
         "//third_party:srcs",
         "//third_party/ijar",
@@ -180,10 +182,21 @@ sh_test(
 )
 
 sh_test(
+    name = "process_wrapper_test",
+    srcs = ["process-wrapper_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "namespace_runner_test",
+    srcs = ["namespace-runner_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_sandboxing_test",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],
-    tags = ["manual"],  # Test is still flaky.
 )
 
 sh_test(

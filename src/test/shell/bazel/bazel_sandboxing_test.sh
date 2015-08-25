@@ -61,19 +61,24 @@ EOF
 }
 
 function set_up {
-   mkdir -p examples/genrule
-   cat << 'EOF' > examples/genrule/a.txt
+  mkdir -p examples/genrule
+  cat << 'EOF' > examples/genrule/a.txt
 foo bar bz
 EOF
-   cat << 'EOF' > examples/genrule/b.txt
+  cat << 'EOF' > examples/genrule/b.txt
 apples oranges bananas
 EOF
-   cat << 'EOF' > examples/genrule/BUILD
+
+  # Create cyclic symbolic links to check whether the strategy catches that.
+  ln -sf cyclic2 examples/genrule/cyclic1
+  ln -sf cyclic1 examples/genrule/cyclic2
+
+  cat << 'EOF' > examples/genrule/BUILD
 genrule(
   name = "works",
   srcs = [ "a.txt" ],
   outs = [ "works.txt" ],
-  cmd = "wc a.txt > $@",
+  cmd = "wc $(location :a.txt) > $@",
 )
 
 sh_binary(
@@ -117,6 +122,13 @@ genrule(
   #
   cmd = "ls /home > $@",
 )
+
+genrule(
+  name = "breaks3",
+  srcs = [ "cyclic1", "cyclic2" ],
+  outs = [ "breaks3.txt" ],
+  cmd = "wc $(location :cyclic1) > $@",
+)
 EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
@@ -125,14 +137,14 @@ EOF
 #!/bin/sh
 
 set -e
-cp examples/genrule/datafile $1
+cp $(dirname $0)/tool.runfiles/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
-chmod +x examples/genrule/tool.sh
+  chmod +x examples/genrule/tool.sh
 }
 
 function test_sandboxed_genrule() {
-  bazel build --genrule_strategy=sandboxed --verbose_failures \
+  bazel build --genrule_strategy=sandboxed \
     examples/genrule:works \
     || fail "Hermetic genrule failed: examples/genrule:works"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/works.txt" ] \
@@ -140,7 +152,7 @@ function test_sandboxed_genrule() {
 }
 
 function test_sandboxed_tooldir() {
-  bazel build --genrule_strategy=sandboxed --verbose_failures \
+  bazel build --genrule_strategy=sandboxed \
     examples/genrule:tooldir \
     || fail "Hermetic genrule failed: examples/genrule:tooldir"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/tooldir.txt" ] \
@@ -150,7 +162,7 @@ function test_sandboxed_tooldir() {
 }
 
 function test_sandboxed_genrule_with_tools() {
-  bazel build --genrule_strategy=sandboxed --verbose_failures \
+  bazel build --genrule_strategy=sandboxed \
     examples/genrule:tools_work \
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/tools.txt" ] \
@@ -158,7 +170,7 @@ function test_sandboxed_genrule_with_tools() {
 }
 
 function test_sandbox_undeclared_deps() {
-  bazel build --genrule_strategy=sandboxed --verbose_failures \
+  bazel build --genrule_strategy=sandboxed \
     examples/genrule:breaks1 \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks1" || true
   [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1.txt" ] || {
@@ -168,12 +180,22 @@ function test_sandbox_undeclared_deps() {
 }
 
 function test_sandbox_block_filesystem() {
-  bazel build --genrule_strategy=sandboxed --verbose_failures \
+  bazel build --genrule_strategy=sandboxed \
     examples/genrule:breaks2 \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
   [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt" ] || {
     output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt")
     fail "Non-hermetic genrule suceeded with following output: $(output)"
+  }
+}
+
+function test_sandbox_cyclic_symlink_in_inputs() {
+  bazel build --genrule_strategy=sandboxed \
+    examples/genrule:breaks3 \
+    && fail "Genrule with cyclic symlinks succeeded: examples/genrule:breaks3" || true
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks3.txt" ] || {
+    output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks3.txt")
+    fail "Genrule with cyclic symlinks breaks3 suceeded with following output: $(output)"
   }
 }
 

@@ -1,9 +1,18 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+cc_library(
+    name = "process-tools",
+    srcs = ["process-tools.c"],
+    hdrs = ["process-tools.h"],
+    copts = ["-std=c99"],
+)
+
 cc_binary(
     name = "process-wrapper",
     srcs = ["process-wrapper.c"],
     copts = ["-std=c99"],
+    linkopts = ["-lm"],
+    deps = [":process-tools"],
 )
 
 cc_binary(
@@ -18,6 +27,8 @@ cc_binary(
         "//conditions:default": ["namespace-sandbox.c"],
     }),
     copts = ["-std=c99"],
+    linkopts = ["-lm"],
+    deps = [":process-tools"],
 )
 
 filegroup(
