@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -274,18 +275,14 @@ class Consumers {
 
     private static final int THREAD_STACK_SIZE = 32 * 1024;
 
-    private static int threadInitNumber;
-
-    private static synchronized int nextThreadNum() {
-      return threadInitNumber++;
-    }
+    private static AtomicInteger threadInitNumber = new AtomicInteger(0);
 
     @Override
     public Thread newThread(final Runnable runnable) {
       final Thread t =
         new Thread(null,
                    runnable,
-                   "Command-Accumulator-Thread-" + nextThreadNum(),
+                   "Command-Accumulator-Thread-" + threadInitNumber.getAndIncrement(),
                    THREAD_STACK_SIZE);
       // Don't let this thread hold up JVM exit
       t.setDaemon(true);
