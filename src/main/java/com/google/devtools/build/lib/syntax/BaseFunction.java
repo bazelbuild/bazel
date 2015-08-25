@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -568,5 +570,28 @@ public abstract class BaseFunction {
   @Override
   public int hashCode() {
     return Objects.hash(name, location);
+  }
+
+  /**
+   * Returns the location (filename:line) of the BaseFunction's definition.
+   *
+   * <p>If such a location is not defined, this method returns an empty string.
+   */
+  public String getLocationPathAndLine() {
+    if (location == null) {
+      return "";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    PathFragment path = location.getPath();
+    if (path != null) {
+      builder.append(path.getPathString());
+    }
+
+    LineAndColumn position = location.getStartLineAndColumn();
+    if (position != null) {
+      builder.append(":").append(position.getLine());
+    }
+    return builder.toString();
   }
 }
