@@ -212,12 +212,12 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
 }
 
 static void CreateNamespaces() {
-  // This weird workaround is necessary due to unshare sometimes failing with EINVAL due to a race
+  // This weird workaround is necessary due to unshare seldomly failing with EINVAL due to a race
   // condition in the Linux kernel (see https://lkml.org/lkml/2015/7/28/833).
   // An alternative would be to use clone/waitpid instead.
   int delay = 1;
   int tries = 0;
-  const int max_tries = 5000000;
+  const int max_tries = 100;
   while (tries++ < max_tries) {
     if (unshare(CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC) ==
         0) {
@@ -229,8 +229,12 @@ static void CreateNamespaces() {
         exit(EXIT_FAILURE);
       }
     }
+
+    // Exponential back-off, but sleep at most 250ms.
     usleep(delay);
-    delay = (delay * 3) / 2;
+    if (delay < 250000) {
+      delay *= 2;
+    }
   }
   fprintf(stderr,
           "unshare failed with EINVAL even after %d tries, giving up.\n",
