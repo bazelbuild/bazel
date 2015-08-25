@@ -36,8 +36,8 @@ function query() {
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.
 # xcode and android tools do not work out of the box.
-./output/bazel build -- //src/... //third_party/... \
-  -//third_party/ijar/test/... -//src/tools/{xcode,android,dash}/... >&2 \
+./output/bazel build -- //src/{main,java_tools,test/{java,cpp}}/... //third_party/... \
+  -//third_party/ijar/test/... -//third_party/java_src/j2objc/... >&2 \
   || exit $?
 
 # Source roots.
