@@ -24,12 +24,6 @@ rm -f "${base_workspace}/tools" && ln -s "$(pwd)/tools" "${base_workspace}/tools
 rm -f "${base_workspace}/third_party" && ln -s "$(pwd)/third_party" "${base_workspace}/third_party"
 rm -f "${base_workspace}/examples" && ln -s "$(pwd)/examples" "${base_workspace}/examples"
 rm -rf "${base_workspace}/src"
-mkdir -p ${base_workspace}/src/tools
-ln -s $(pwd)/src/tools/android ${base_workspace}/src/tools/android
-# TODO(bazel-team): Remove the src/main/java symlink once the android tools
-# don't depend on src/main/java:options.
-mkdir -p ${base_workspace}/src/main
-ln -s $(pwd)/src/main/java ${base_workspace}/src/main/java
 
 # Create a bazelrc file with the base_workspace directory in the package path.
 bazelrc='build --package_path %workspace%:'${base_workspace}

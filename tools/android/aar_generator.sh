@@ -12,4 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-exec ${TEST_SRCDIR-$0.runfiles}/src/tools/android/java/com/google/devtools/build/android/AarGeneratorAction "$@"
+if echo $0 | grep -sq /external/; then
+  PREFIX="external/$(echo $0 | sed 's_^.*external/\([^/]*\)/.*$_\1_')"
+else
+  PREFIX=""
+fi
+exec ${TEST_SRCDIR-$0.runfiles}/$PREFIX/src/tools/android/java/com/google/devtools/build/android/AarGeneratorAction "$@"
