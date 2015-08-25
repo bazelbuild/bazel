@@ -376,6 +376,7 @@ public class JavaCommon {
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
   public String getJavaBinSubstitution(@Nullable Artifact launcher) {
+    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
 
     if (launcher != null) {

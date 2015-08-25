@@ -152,6 +152,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public void createStubAction(RuleContext ruleContext, final JavaCommon javaCommon,
       List<String> jvmFlags, Artifact executable, String javaStartClass,
       String javaExecutable) {
+    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
 
     Preconditions.checkNotNull(jvmFlags);
     Preconditions.checkNotNull(executable);

@@ -290,6 +290,12 @@ public class JavaOptions extends FragmentOptions {
       help = "Check the listed constraint.")
   public List<String> checkedConstraints;
 
+  @Option(name = "experimental_disable_jvm",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Disables the Jvm configuration entirely.")
+  public boolean disableJvm;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();
