@@ -1,5 +1,3 @@
-"""Tests for rust rules."""
-#
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,46 +12,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("/third_party/bazel/tools/build_rules/rust/rust",
-     "rust_library", "rust_binary", "rust_test")
-load("/third_party/bazel/tools/build_rules/test_rules",
-     "success_target",
-     "successful_test",
-     "failure_target",
-     "failed_test",
-     "assert_",
-     "strip_prefix",
-     "expectation_description",
-     "check_results",
-     "load_results",
-     "analysis_results",
-     "rule_test",
-     "file_test")
+"""Tests for rust rules."""
 
+load(
+    "/tools/build_rules/rust/rust",
+    "rust_library",
+    "rust_binary",
+    "rust_test",
+)
+
+load(
+    "/tools/build_rules/test_rules",
+    "success_target",
+    "successful_test",
+    "failure_target",
+    "failed_test",
+    "assert_",
+    "strip_prefix",
+    "expectation_description",
+    "check_results",
+    "load_results",
+    "analysis_results",
+    "rule_test",
+    "file_test",
+)
 
 def _rust_library_test(package):
   rule_test(
-      name="hello_lib_rule_test",
-      generates=["libhello_lib.rlib"],
-      provides={
+      name ="hello_lib_rule_test",
+      generates = ["libhello_lib.rlib"],
+      provides = {
           "rust_lib": "/libhello_lib.rlib$",
-          "transitive_libs": "^\\[\\]$"},
-      rule=package + "/hello_lib:hello_lib")
+          "transitive_libs": "^\\[\\]$"
+      },
+      rule = package + "/hello_lib:hello_lib",
+  )
 
 
 def _rust_binary_test(package):
   rule_test(
-      name="hello_world_rule_test",
-      generates=["hello_world"],
-      rule=package + "/hello_world:hello_world")
+      name = "hello_world_rule_test",
+      generates = ["hello_world"],
+      rule = package + "/hello_world:hello_world",
+  )
 
 
 def _rust_test_test(package):
   """Issue rule tests for rust_test."""
   rule_test(
-      name="greeting_rule_test",
-      generates=["greeting"],
-      rule=package + "/hello_lib:greeting")
+      name = "greeting_rule_test",
+      generates = ["greeting"],
+      rule = package + "/hello_lib:greeting",
+  )
 
 
 def rust_rule_test(package):

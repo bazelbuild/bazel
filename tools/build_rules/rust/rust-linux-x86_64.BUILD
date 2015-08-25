@@ -1,4 +1,4 @@
-BASE_DIR = "rust-1.1.0-x86_64-unknown-linux-gnu/"
+BASE_DIR = "rust-1.2.0-x86_64-unknown-linux-gnu/"
 
 filegroup(
     name = "rustc",

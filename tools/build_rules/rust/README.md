@@ -148,7 +148,7 @@ Hello world
 <a name="reference-rust_library"></a>
 ### `rust_library`
 
-`rust_library(name, srcs, deps, data, features, rustc_flags)`
+`rust_library(name, srcs, deps, data, crate_features, rustc_flags)`
 
 <table>
   <thead>
@@ -209,7 +209,7 @@ Hello world
       </td>
     </tr>
     <tr>
-      <td><code>features</code></td>
+      <td><code>crate_features</code></td>
       <td>
         <code>List of strings, optional</code>
         <p>List of features to enable for this crate.</p>
@@ -234,7 +234,7 @@ Hello world
 <a name="reference-rust_binary"></a>
 ### `rust_binary`
 
-`rust_binary(name, srcs, deps, data, features, rustc_flags)`
+`rust_binary(name, srcs, deps, data, crate_features, rustc_flags)`
 
 <table>
   <thead>
@@ -295,7 +295,7 @@ Hello world
       </td>
     </tr>
     <tr>
-      <td><code>features</code></td>
+      <td><code>crate_features</code></td>
       <td>
         <code>List of strings, optional</code>
         <p>List of features to enable for this crate.</p>
@@ -320,7 +320,7 @@ Hello world
 <a name="reference-rust_test"></a>
 ### `rust_test`
 
-`rust_test(name, srcs, deps, data, features, rustc_flags)`
+`rust_test(name, srcs, deps, data, crate_features, rustc_flags)`
 
 <table>
   <thead>
@@ -380,7 +380,7 @@ Hello world
       </td>
     </tr>
     <tr>
-      <td><code>features</code></td>
+      <td><code>crate_features</code></td>
       <td>
         <code>List of strings, optional</code>
         <p>List of features to enable for this crate.</p>

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 RUST_FILETYPE = FileType([".rs"])
-C_LIB_FILETYPE = FileType([".a"])
+A_FILETYPE = FileType([".a"])
 
 def _relative(src_path, dest_path):
   """
@@ -78,7 +78,7 @@ def _setup_deps(deps, name, working_dir):
 
     # If this rule depends on a cc_library
     if hasattr(dep, "cc"):
-      native_libs = C_LIB_FILETYPE.filter(dep.cc.libs)
+      native_libs = A_FILETYPE.filter(dep.cc.libs)
       libs += native_libs
       transitive_libs += native_libs
       symlinked_libs += native_libs
@@ -135,7 +135,7 @@ def _build_rustc_command(ctx, crate_type, src, output_dir, depinfo,
     ar = "/usr/bin/ar"
 
   # Construct features flags
-  features_flags = _get_features_flags(ctx.attr.features)
+  features_flags = _get_features_flags(ctx.attr.crate_features)
 
   return " ".join([
       "set -e;",
@@ -261,7 +261,7 @@ _rust_common_attrs = {
     "srcs": attr.label_list(allow_files = RUST_FILETYPE),
     "data": attr.label_list(allow_files = True, cfg = DATA_CFG),
     "deps": attr.label_list(),
-    "features": attr.string_list(),
+    "crate_features": attr.string_list(),
     "rustc_flags": attr.string_list(),
     "_rustc": attr.label(
         default = Label("//tools/build_rules/rust:rustc"),
