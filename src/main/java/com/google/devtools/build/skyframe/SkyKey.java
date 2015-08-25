@@ -79,10 +79,12 @@ public final class SkyKey implements Serializable {
     // All three of these issues are benign from a correctness perspective; in the end we have no
     // overhead from synchronization, at the cost of potentially computing the hash code more than
     // once.
-    if (hashCode == 0) {
-      hashCode = computeHashCode();
+    int h = hashCode;
+    if (h == 0) {
+      h = computeHashCode();
+      hashCode = h;
     }
-    return hashCode;
+    return h;
   }
 
   private int computeHashCode() {
