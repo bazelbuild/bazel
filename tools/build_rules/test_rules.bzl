@@ -250,9 +250,10 @@ def _file_test_impl(ctx):
         executable=True)
     return struct(runfiles=ctx.runfiles([exe, dat, file_]))
   if matches != -1:
-    script = "[ %s == $(grep -c %s %s) ]" % (matches, repr(regexp), file_.path)
+    script = "[ %s == $(grep -c %s %s) ]" % (
+        matches, repr(regexp), file_.short_path)
   else:
-    script = "grep %s %s" % (repr(regexp), file_.path)
+    script = "grep %s %s" % (repr(regexp), file_.short_path)
   ctx.file_action(
       output=exe,
       content=script,
