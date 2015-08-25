@@ -117,3 +117,9 @@ config_setting(
     values = {"cpu": "darwin"},
     visibility = ["//visibility:public"],
 )
+
+config_setting(
+    name = "freebsd",
+    values = {"cpu": "freebsd"},
+    visibility = ["//visibility:public"],
+)

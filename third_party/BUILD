@@ -15,6 +15,7 @@ filegroup(
         ":k8": ["protobuf/protoc-linux-x86_64.exe"],
         ":piii": ["protobuf/protoc-linux-x86_32.exe"],
         ":arm": ["protobuf/protoc-linux-arm32.exe"],
+        ":freebsd": ["protobuf/protoc-linux-x86_32.exe"],
     }),
 )
 
@@ -374,4 +375,9 @@ config_setting(
 config_setting(
     name = "arm",
     values = {"host_cpu": "arm"},
+)
+
+config_setting(
+    name = "freebsd",
+    values = {"host_cpu": "freebsd"},
 )

@@ -30,6 +30,11 @@ bind(
 )
 
 bind(
+    name = "jni_md_header-freebsd",
+    actual = "@local-jdk//:jni_md_header-freebsd",
+)
+
+bind(
     name = "java",
     actual = "@local-jdk//:java",
 )

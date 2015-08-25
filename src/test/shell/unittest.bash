@@ -458,14 +458,14 @@ function __finish_test_report() {
 }
 
 # Multi-platform timestamp function
-if [ "$(uname -s | tr 'A-Z' 'a-z')" = "darwin" ]; then
+if [ "$(uname -s | tr 'A-Z' 'a-z')" = "linux" ]; then
     function timestamp() {
-      # OS X does not have %N so python is the best we can do
-      python -c 'import time; print int(round(time.time() * 1000))'
+      echo $(($(date +%s%N)/1000000))
     }
 else
     function timestamp() {
-      echo $(($(date +%s%N)/1000000))
+      # OS X and FreeBSD do not have %N so python is the best we can do
+      python -c 'import time; print int(round(time.time() * 1000))'
     }
 fi
 

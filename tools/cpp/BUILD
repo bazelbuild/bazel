@@ -28,6 +28,7 @@ filegroup(
     srcs = [
         ":cc-compiler-armeabi-v7a",
         ":cc-compiler-darwin",
+        ":cc-compiler-freebsd",
         ":cc-compiler-local",
         ":empty",
     ],
@@ -80,6 +81,20 @@ cc_toolchain(
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "darwin",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 0,
+)
+
+cc_toolchain(
+    name = "cc-compiler-freebsd",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "local",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",

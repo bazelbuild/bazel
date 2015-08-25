@@ -8,6 +8,10 @@ filegroup(
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
+        "//src:freebsd": [
+            "blaze_util_freebsd.cc",
+            "blaze_util_posix.cc",
+        ],
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
@@ -35,6 +39,9 @@ cc_binary(
     ],
     linkopts = select({
         "//src:darwin": [
+        ],
+        "//src:freebsd": [
+            "-lprocstat",
         ],
         "//conditions:default": [
             "-lrt",

@@ -23,16 +23,16 @@
 source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
-## Mac OS X stat and MD5
+## OSX/BSD stat and MD5
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-if [[ "$PLATFORM" = "darwin" ]]; then
+if [[ "$PLATFORM" = "linux" ]]; then
   function statfmt() {
-    stat -f "%z" $1
+    stat -c "%s" $1
   }
   MD5SUM=/sbin/md5
 else
   function statfmt() {
-    stat -c "%s" $1
+    stat -f "%z" $1
   }
   MD5SUM=md5sum
 fi

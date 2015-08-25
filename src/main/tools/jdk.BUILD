@@ -16,6 +16,11 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-freebsd",
+    srcs = ["include/freebsd/jni_md.h"],
+)
+
+filegroup(
     name = "java",
     srcs = ["bin/java"],
 )

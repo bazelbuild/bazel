@@ -16,6 +16,11 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-freebsd",
+    srcs = ["//external:jni_md_header-freebsd"],
+)
+
+filegroup(
     name = "java",
     srcs = ["//external:java"],
 )

@@ -152,6 +152,7 @@ static void InitGlobals() {
   globals = new GlobalVariables;
   globals->server_pid = -1;
   globals->sigint_count = 0;
+  globals->received_signal = 0;
   globals->startup_time = 0;
   globals->extract_data_time = 0;
   globals->command_wait_time = 0;

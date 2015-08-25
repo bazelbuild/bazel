@@ -68,8 +68,13 @@ LDFLAGS="$LDFLAGS"
 ZIPOPTS="$ZIPOPTS"
 
 # TODO: CC target architecture needs to match JAVA_HOME.
-CC=${CC:-gcc}
-CXX=${CXX:-g++}
+if [ "${PLATFORM}" = "freebsd" ]; then
+  CC=${CC:-clang}
+  CXX=${CXX:-clang++}
+else
+  CC=${CC:-gcc}
+  CXX=${CXX:-g++}
+fi
 CXXSTD="c++0x"
 
 unset JAVA_TOOL_OPTIONS
@@ -99,6 +104,18 @@ linux)
       PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
     fi
   fi
+  ;;
+
+freebsd)
+  LDFLAGS="-lprocstat -lz -lrt $LDFLAGS"
+  JNILIB="libunix.so"
+  MD5SUM="md5sum"
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
+  # Note: the linux protoc binary works on freebsd using linux emulation.
+  # We choose the 32-bit version for maximum compatiblity since 64-bit
+  # linux binaries are only supported in FreeBSD-11.
+  PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
   ;;
 
 darwin)

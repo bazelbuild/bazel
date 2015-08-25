@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.util;
  */
 public enum OS {
   DARWIN("osx", "Mac OS X"),
+  FREEBSD("freebsd", "FreeBSD"),
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
   UNKNOWN("unknown", "");

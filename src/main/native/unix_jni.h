@@ -31,8 +31,8 @@
       } \
     } while (0)
 
-#if defined(__APPLE__)
-// stat64 is deprecated on OS X.
+#if defined(__APPLE__) || defined(__FreeBSD__)
+// stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
 #define portable_stat ::stat
 #define portable_lstat ::lstat
@@ -40,6 +40,10 @@ typedef struct stat portable_stat_struct;
 typedef struct stat64 portable_stat_struct;
 #define portable_stat ::stat64
 #define portable_lstat ::lstat64
+#endif
+
+#if defined(__FreeBSD__)
+#define ENODATA ENOATTR
 #endif
 
 // Posts a JNI exception to the current thread with the specified

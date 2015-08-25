@@ -97,14 +97,14 @@ function get_release_notes() {
   done
 }
 
-# fmt behaves a bit different on GNU/Linux than on darwin.
-if [ "$(uname -s | tr 'A-Z' 'a-z')" = "darwin" ]; then
+# fmt behaves a bit different on GNU/Linux than on BSDs.
+if [ "$(uname -s | tr 'A-Z' 'a-z')" = "linux" ]; then
   function wrap_text() {
-    fmt -w $1
+    fmt -w $1 -g $1
   }
 else
   function wrap_text() {
-    fmt -w $1 -g $1
+    fmt -w $1
   }
 fi
 

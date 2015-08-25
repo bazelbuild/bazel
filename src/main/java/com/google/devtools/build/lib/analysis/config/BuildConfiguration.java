@@ -399,6 +399,8 @@ public final class BuildConfiguration {
         switch (OS.getCurrent()) {
           case DARWIN:
             return "darwin";
+          case FREEBSD:
+            return "freebsd";
           case LINUX:
             switch (CPU.getCurrent()) {
               case X86_32:
