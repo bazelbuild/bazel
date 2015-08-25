@@ -468,6 +468,17 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void transientPruning() throws Exception {
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    tester.getOrCreate("top").setHasTransientError(true).addDependency(leaf);
+    tester.set(leaf, new StringValue("leafy"));
+    tester.evalAndGetError("top");
+    tester.getOrCreate(leaf, /*markAsModified=*/true);
+    tester.invalidate();
+    tester.evalAndGetError("top");
+  }
+
+  @Test
   public void simpleDependency() throws Exception {
     tester.getOrCreate("ab")
         .addDependency("a")
