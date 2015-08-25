@@ -19,6 +19,38 @@ Bugs can be reported in the
 [GitHub bugtracker](https://github.com/google/bazel/issues). We will make an effort to triage all
 reported issues within 2 business days.
 
+## Releases
+
+We try to do [monthly binary releases of
+Bazel](https://github.com/google/bazel/releases). A released version of Bazel
+should be free of regression and extensively tested. The release process is the
+following:
+
+  - A baseline is tested extensively inside Google. When considered stable
+  inside Google, a Bazel release candidate is announced in
+  [bazel-discuss](bazel-discuss@googlegroups.com) for testing.
+  - Subsequent cherry-pick will be done to create new release candidate if
+  regression are discovered on the release candidate.
+  - After at least one week since the first candidate and two full business days
+  since the last candidate, if no regression were found, a release will be
+  emitted and announced in [bazel-discuss](bazel-discuss@googlegroups.com).
+
+Thus, all our releases are tested with the extensive test suite we have inside
+Google but also with our public continuous test infrastructure and user tested
+both inside and outside Google.
+
+### Release versioning
+
+Version 0.1 is our first release marking the start of our beta phase. Until
+version 1.0, each MINOR version increases will be performed when reaching a
+[new milestone](http://bazel.io/roadmap.html), otherwise only the PATCH
+version will be increased on a new release.
+
+Version 1.0 will be the end of our beta phase and we will label each release
+with a version number according to the [semantic version 2.0.0
+document](http://semver.org). By the time we reach version 1.0, we will define
+clearly what is included in our API.
+
 ## Current Status
 
 ### Fully Supported
