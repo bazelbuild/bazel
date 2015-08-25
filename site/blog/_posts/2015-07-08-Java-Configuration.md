@@ -8,9 +8,9 @@ keep the tools directory provided with Bazel in the package path, you could do
 that by having the following rc file:
 
 ```
-build --javacopts="-extra_checks:off"
-build --javacopts="-source 8"
-build --javacopts="-target 8"
+build --javacopt="-extra_checks:off"
+build --javacopt="-source 8"
+build --javacopt="-target 8"
 ```
 
 However, the file would becomes quickly overloaded, especially if you take
