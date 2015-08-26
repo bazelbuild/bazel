@@ -385,6 +385,26 @@ public class MethodLibrary {
     return result;
   }
 
+  @SkylarkSignature(
+    name = "capitalize",
+    objectType = StringModule.class,
+    returnType = String.class,
+    doc =
+        "Returns a copy of the string with its first character capitalized and the rest"
+            + "lowercased. This method does not support non-ascii characters.",
+    mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")}
+  )
+  private static BuiltinFunction capitalize =
+      new BuiltinFunction("capitalize") {
+        @SuppressWarnings("unused")
+        public String invoke(String self) throws EvalException {
+          if (self.isEmpty()) {
+            return self;
+          }
+          return Character.toUpperCase(self.charAt(0)) + self.substring(1).toLowerCase();
+        }
+      };
+
   @SkylarkSignature(name = "title", objectType = StringModule.class,
       returnType = String.class,
       doc =
@@ -1379,9 +1399,28 @@ public class MethodLibrary {
       + "</pre>")
   public static final class DictModule {}
 
-  public static final List<BaseFunction> stringFunctions = ImmutableList.<BaseFunction>of(
-      count, endswith, find, index, format, join, lower, partition, replace, rfind,
-      rindex, rpartition, rsplit, slice, split, startswith, strip, title, upper);
+  public static final List<BaseFunction> stringFunctions =
+      ImmutableList.<BaseFunction>of(
+          capitalize,
+          count,
+          endswith,
+          find,
+          index,
+          format,
+          join,
+          lower,
+          partition,
+          replace,
+          rfind,
+          rindex,
+          rpartition,
+          rsplit,
+          slice,
+          split,
+          startswith,
+          strip,
+          title,
+          upper);
 
   public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
       slice);

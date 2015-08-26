@@ -346,6 +346,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCapitalize() throws Exception {
+    new BothModesTest()
+        .testStatement("'hello world'.capitalize()", "Hello world")
+        .testStatement("'HELLO WORLD'.capitalize()", "Hello world")
+        .testStatement("''.capitalize()", "")
+        .testStatement("'12 lower UPPER 34'.capitalize()", "12 lower upper 34");
+  }
+
+  @Test
   public void testPyStringRfind() throws Exception {
     new BothModesTest()
         .testStatement("'banana'.rfind('na')", 4)
