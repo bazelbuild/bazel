@@ -59,6 +59,18 @@ import java.util.Map;
  */
 public class PackageSerializer {
 
+  public static final PackageSerializer INSTANCE = new PackageSerializer();
+
+  private PackageSerializer() {}
+
+  /**
+   * Same as {@link #serializePackage(Package, OutputStream)} but an instance method, convenient
+   * for alternate implementations or mocking in tests.
+   */
+  public void serialize(Package pkg, OutputStream out) throws IOException {
+    serializePackage(pkg, out);
+  }
+
   /**
    * Serialize a package to {@code out}. The inverse of {@link PackageDeserializer#deserialize}.
    *

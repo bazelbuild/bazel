@@ -32,7 +32,7 @@ public class PackageValue implements SkyValue {
 
   private final Package pkg;
 
-  PackageValue(Package pkg) {
+  public PackageValue(Package pkg) {
     this.pkg = Preconditions.checkNotNull(pkg);
   }
 
