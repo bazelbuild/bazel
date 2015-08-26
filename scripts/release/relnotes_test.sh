@@ -198,7 +198,7 @@ function test_create_revision_information() {
               should produce additional information about aspect
               dependencies when --output is set to {xml, proto}.'
    assert_equals "$expected" \
-		 "$(create_revision_information 965c392 bb59d88 14d905b)"
+              "$(create_revision_information 965c392 bb59d88 14d905b)"
 }
 
 run_suite "Release notes generation tests"

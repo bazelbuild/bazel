@@ -97,16 +97,10 @@ function get_release_notes() {
   done
 }
 
-# fmt behaves a bit different on GNU/Linux than on BSDs.
-if [ "$(uname -s | tr 'A-Z' 'a-z')" = "linux" ]; then
-  function wrap_text() {
-    fmt -w $1 -g $1
-  }
-else
-  function wrap_text() {
-    fmt -w $1
-  }
-fi
+# fmt behaves differently on *BSD and on GNU/Linux, use fold.
+function wrap_text() {
+  fold -s -w $1 | sed 's/ *$//'
+}
 
 # Returns the list of release notes in arguments into a list of points in
 # a markdown list. The release notes are wrapped to 70 characters so it
