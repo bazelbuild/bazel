@@ -13,53 +13,55 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.Deque;
+import java.util.LinkedList;
 
 /**
  * EvalException with a stack trace
  */
 public class EvalExceptionWithStackTrace extends EvalException {
-  private final StringBuilder builder = new StringBuilder();
-  private Location location;
-  private boolean printStackTrace;
+
+  private StackTraceElement mostRecentElement;
 
   public EvalExceptionWithStackTrace(Exception original, Location callLocation) {
     super(callLocation, original.getMessage(), original.getCause());
-    setLocation(callLocation);
-    builder.append(super.getMessage());
-    printStackTrace = false;
   }
 
   /**
-   * Adds a line for the given function to the stack trace. Requires that #setLocation() was called
-   * previously.
+   * Adds an entry for the given statement to the stack trace.
    */
-  public void registerFunction(BaseFunction function) {
-    addStackFrame(function.getFullName());
+  public void registerStatement(Statement statement) {
+    Preconditions.checkState(
+        mostRecentElement == null, "Cannot add a statement to a non-empty stack trace.");
+    addStackFrame(statement.toString().trim(), statement.getLocation());
   }
 
   /**
-   * Adds a line for the given rule to the stack trace.
+   * Adds an entry for the given function to the stack trace.
+   */
+  public void registerFunction(BaseFunction function, Location location) {
+    addStackFrame(function.getFullName(), location);
+  }
+
+  /**
+   * Adds an entry for the given rule to the stack trace.
    */
   public void registerRule(Rule rule) {
-    setLocation(rule.getLocation());
-    addStackFrame(String.format("%s(name = '%s', ...)", rule.getRuleClass(), rule.getName()));
+    addStackFrame(
+        String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()), rule.getLocation());
   }
 
   /**
-   * Adds a line for the given scope (function or rule).
+   * Adds a line for the given frame.
    */
-  private void addStackFrame(String scope) {
-    builder.append(String.format("\n\tin %s [%s]", scope, location));
-    printStackTrace |= (location != Location.BUILTIN);
-  }
-
-  /**
-   * Sets the location for the next function to be added via #registerFunction().
-   */
-  public void setLocation(Location callLocation) {
-    this.location = callLocation;
+  private void addStackFrame(String label, Location location) {
+    mostRecentElement = new StackTraceElement(label, location, mostRecentElement);
   }
 
   /**
@@ -76,7 +78,141 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   @Override
   public String print() {
-    // Only print the stack trace when it contains more than one built-in function.
-    return printStackTrace ? builder.toString() : getOriginalMessage();
+    return print(StackTracePrinter.INSTANCE);
+  }
+
+  /**
+   *  Prints the stack trace iff it contains more than just one built-in function.
+   */
+  public String print(StackTracePrinter printer) {
+    return canPrintStackTrace()
+        ? printer.print(getOriginalMessage(), mostRecentElement)
+        : getOriginalMessage();
+  }
+
+  /**
+   * Returns true when there is at least one non-built-in element.
+   */
+  protected boolean canPrintStackTrace() {
+    return mostRecentElement != null && mostRecentElement.getCause() != null;
+  }
+
+  /**
+   * An element in the stack trace which contains the name of the offending function / rule /
+   * statement and its location.
+   */
+  protected final class StackTraceElement {
+    private final String label;
+    private final Location location;
+    private final StackTraceElement cause;
+
+    StackTraceElement(String label, Location location, StackTraceElement cause) {
+      this.label = label;
+      this.location = location;
+      this.cause = cause;
+    }
+
+    String getLabel() {
+      return label;
+    }
+
+    Location getLocation() {
+      return location;
+    }
+
+    StackTraceElement getCause() {
+      return cause;
+    }
+  }
+
+  /**
+   * Singleton class that prints stack traces similar to Python.
+   */
+  public enum StackTracePrinter {
+    INSTANCE;
+
+    /**
+     * Turns the given message and StackTraceElements into a string.
+     */
+    public final String print(String message, StackTraceElement mostRecentElement) {
+      Deque<String> output = new LinkedList<>();
+
+      while (mostRecentElement != null) {
+        String entry = print(mostRecentElement);
+        if (entry != null && entry.length() > 0) {
+          addEntry(output, entry);
+        }
+
+        mostRecentElement = mostRecentElement.getCause();
+      }
+
+      addMessage(output, message);
+      return Joiner.on("\n").join(output);
+    }
+
+    /**
+     * Returns the location which should be shown on the same line as the label of the given
+     * element.
+     */
+    protected Location getDisplayLocation(StackTraceElement element) {
+      // If there is a rule definition in this element, it should print its own location in
+      // the BUILD file instead of using a location in a bzl file.
+      return describesRule(element) ? element.getLocation() : getLocation(element.getCause());
+    }
+
+    /**
+     * Returns the location of the given element or Location.BUILTIN if the element is null.
+     */
+    private Location getLocation(StackTraceElement element) {
+      return (element == null) ? Location.BUILTIN : element.getLocation();
+    }
+
+    /**
+     * Returns whether the given element describes the rule definition in a BUILD file.
+     */
+    protected boolean describesRule(StackTraceElement element) {
+      PathFragment pathFragment = element.getLocation().getPath();
+      return pathFragment != null && pathFragment.getPathString().contains("BUILD");
+    }
+
+    /**
+     * Returns the string representation of the given element.
+     */
+    protected String print(StackTraceElement element) {
+      // Similar to Python, the first (most-recent) entry in the stack frame is printed only once.
+      // Consequently, we skip it here.
+      if (element.getCause() == null) {
+        return "";
+      }
+
+      // Prints a two-line string, similar to Python.
+      Location location = getDisplayLocation(element);
+      return String.format(
+          "\tFile \"%s\", line %d, in %s%n\t\t%s",
+          printPath(location.getPath()),
+          location.getStartLineAndColumn().getLine(),
+          element.getLabel(),
+          element.getCause().getLabel());
+    }
+
+    private String printPath(PathFragment path) {
+      return (path == null) ? "<unknown>" : path.getPathString();
+    }
+
+    /**
+     * Adds the given string to the specified Deque.
+     */
+    protected void addEntry(Deque<String> output, String toAdd) {
+      output.addLast(toAdd);
+    }
+
+    /**
+     * Adds the given message to the given output dequeue after all stack trace elements have been
+     * added.
+     */
+    protected void addMessage(Deque<String> output, String message) {
+      output.addFirst("Traceback (most recent call last):");
+      output.addLast(message);
+    }
   }
 }

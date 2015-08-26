@@ -481,15 +481,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    try {
-      return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
-    } catch (EvalException ex) {
-      // BaseFunction will not get the exact location of some errors (such as exceptions thrown in
-      // #invokeJavaMethod), so we create a new stack trace with the correct location here.
-      throw (ex instanceof EvalExceptionWithStackTrace)
-          ? ex
-          : new EvalExceptionWithStackTrace(ex, ex.getLocation());
-    }
+    return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
   }
 
   /**

@@ -57,12 +57,23 @@ public class UserDefinedFunction extends BaseFunction {
       env.update(name, arguments[i++]);
     }
 
+    Statement lastStatement = null;
     try {
       for (Statement stmt : statements) {
+        lastStatement = stmt;
         stmt.exec(env);
       }
     } catch (ReturnStatement.ReturnException e) {
       return e.getValue();
+    } catch (EvalExceptionWithStackTrace ex) {
+      // We need this block since the next "catch" must only catch EvalExceptions that don't have a
+      // stack trace yet.
+      throw ex;
+    } catch (EvalException ex) {
+      EvalExceptionWithStackTrace real =
+          new EvalExceptionWithStackTrace(ex, lastStatement.getLocation());
+      real.registerStatement(lastStatement);
+      throw real;
     }
     return Environment.NONE;
   }

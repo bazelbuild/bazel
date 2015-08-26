@@ -283,8 +283,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testForNotIterable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("type 'int' is not iterable", "def func():",
-            "  for i in mock.value_of('1'): a = i", "func()\n");
+        .testIfErrorContains(
+            "type 'int' is not iterable",
+            "def func():",
+            "  for i in mock.value_of('1'): a = i",
+            "func()\n");
   }
 
   @Test
@@ -777,14 +780,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListIndexAsLValueAsLValue() throws Exception {
-    new SkylarkTest().testIfExactError("unsupported operand type(s) for +: 'list' and 'dict'",
-        "def id(l):",
-        "  return l",
-        "def func():",
-        "  l = id([1])",
-        "  l[0] = 2",
-        "  return l",
-        "l = func()");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "unsupported operand type(s) for +: 'list' and 'dict'",
+            "def id(l):",
+            "  return l",
+            "def func():",
+            "  l = id([1])",
+            "  l[0] = 2",
+            "  return l",
+            "l = func()");
   }
 
   @Test
@@ -987,23 +992,32 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Override
   @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
-    new SkylarkTest().testIfExactError("lvalue has length 3, but rvalue has has length 2",
-        "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
-        "foo()");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "lvalue has length 3, but rvalue has has length 2",
+            "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
+            "foo()");
 
-    new SkylarkTest().testIfExactError("type 'int' is not a collection",
-        "def bar (): return [x + y for x, y in (1, 2)]",
-        "bar()");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "type 'int' is not a collection",
+            "def bar (): return [x + y for x, y in (1, 2)]",
+            "bar()");
 
-    new SkylarkTest().testIfExactError("lvalue has length 3, but rvalue has has length 2",
-        "[x + y for x, y, z in [(1, 2), (3, 4)]]");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "lvalue has length 3, but rvalue has has length 2",
+            "[x + y for x, y, z in [(1, 2), (3, 4)]]");
 
     // can't reuse the same local variable twice(!)
-    new SkylarkTest().testIfExactError("ERROR 2:1: Variable x is read only",
-        "[x + y for x, y in (1, 2)]", "[x + y for x, y in (1, 2)]");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "ERROR 2:1: Variable x is read only",
+            "[x + y for x, y in (1, 2)]",
+            "[x + y for x, y in (1, 2)]");
 
-    new SkylarkTest().testIfExactError("type 'int' is not a collection",
-        "[x2 + y2 for x2, y2 in (1, 2)]");
+    new SkylarkTest()
+        .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
   }
 
   @Override

@@ -42,18 +42,35 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testStackTraceSkipBuiltInOnly() throws Exception {
+    // The error message should not include the stack trace when there is
+    // only one built-in function.
+    new SkylarkTest()
+        .testIfExactError(
+            "Method string.index(sub: string, start: int, end: int or NoneType) is not applicable "
+                + "for arguments (int, int, NoneType): 'sub' is int, but should be string",
+            "'test'.index(1)");
+  }
+
+  @Test
   public void testStackTrace() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "Method string.index(sub: string, start: int, end: int or NoneType) is not "
-        + "applicable for arguments (int, int, NoneType): 'sub' is int, but should be string\n"
-        + "\tin string.index [Built-In]\n"
-        + "\tin bar [4:4]\n"
-        + "\tin foo [2:4]",
-        "def foo():",
-        "   bar(1)",
-        "def bar(x):",
-        "   'test'.index(x)",
-        "foo()");
+    // Unlike SkylarintegrationTests#testStackTraceErrorInFunction(), this test
+    // has neither a BUILD nor a bzl file.
+    new SkylarkTest()
+        .testIfExactError(
+            "Traceback (most recent call last):\n"
+                + "\tFile \"<unknown>\", line 2, in foo\n"
+                + "\t\tbar\n"
+                + "\tFile \"<unknown>\", line 4, in bar\n"
+                + "\t\tstring.index\n"
+                + "Method string.index(sub: string, start: int, end: int or NoneType) "
+                + "is not applicable "
+                + "for arguments (int, int, NoneType): 'sub' is int, but should be string",
+            "def foo():",
+            "   bar(1)",
+            "def bar(x):",
+            "   'test'.index(x)",
+            "foo()");
   }
 
   @Test
