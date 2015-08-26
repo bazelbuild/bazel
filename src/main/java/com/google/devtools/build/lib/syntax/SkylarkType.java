@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -28,7 +31,6 @@ import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -244,19 +246,16 @@ public abstract class SkylarkType {
     @Override public boolean canBeCastTo(Class<?> type) {
       return this.type == type || super.canBeCastTo(type);
     }
-    private static HashMap<Class<?>, Simple> simpleCache = new HashMap<>();
 
-    /**
-     * The public way to create a Simple type
-     * @param type a Class
-     * @return the Simple type that contains exactly the instances of that Class
-     */
-    // NB: synchronized to avoid race conditions filling that cache.
-    public static synchronized Simple of(Class<?> type) {
-      Simple cached = simpleCache.get(type);
-      if (cached != null) {
-        return cached;
-      }
+    private static LoadingCache<Class<?>, Simple> simpleCache = CacheBuilder.newBuilder()
+      .build(new CacheLoader<Class<?>, Simple>() {
+          @Override
+          public Simple load(Class<?> type) {
+            return create(type);
+          }
+        });
+
+    private static Simple create(Class<?> type) {
       Simple simple;
       if (type == Object.class) {
         // Note that this is a bad encoding for "anything", not for "everything", i.e.
@@ -275,8 +274,16 @@ public abstract class SkylarkType {
           simple = new Simple(type);
         }
       }
-      simpleCache.put(type, simple);
       return simple;
+    }
+
+    /**
+     * The public way to create a Simple type
+     * @param type a Class
+     * @return the Simple type that contains exactly the instances of that Class
+     */
+    public static Simple of(Class<?> type) {
+      return simpleCache.getUnchecked(type);
     }
   }
 
