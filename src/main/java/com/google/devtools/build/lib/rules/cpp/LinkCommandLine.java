@@ -415,8 +415,7 @@ public final class LinkCommandLine extends CommandLine {
         argv.addAll(
             cppConfiguration.getArFlags(cppConfiguration.archiveType() == Link.ArchiveType.THIN));
         argv.add(output.getExecPathString());
-        addInputFileLinkOptions(argv, /*needWholeArchive=*/false,
-            /*includeLinkopts=*/false);
+        addInputFileLinkOptions(argv, /*needWholeArchive=*/false);
         break;
 
       default:
@@ -652,7 +651,21 @@ public final class LinkCommandLine extends CommandLine {
       }
     }
 
-    addInputFileLinkOptions(argv, needWholeArchive, /*includeLinkopts=*/true);
+    addInputFileLinkOptions(argv, needWholeArchive);
+
+    /*
+     * For backwards compatibility, linkopts come _after_ inputFiles.
+     * This is needed to allow linkopts to contain libraries and
+     * positional library-related options such as
+     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
+     * or
+     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
+     *
+     * As for the relative order of the three different flavours of linkopts
+     * (global defaults, per-target linkopts, and command-line linkopts),
+     * we have no idea what the right order should be, or if anyone cares.
+     */
+    argv.addAll(linkopts);
 
     // Extra toolchain link options based on the output's link staticness.
     if (fullyStatic) {
@@ -698,8 +711,7 @@ public final class LinkCommandLine extends CommandLine {
    * library objects (.lo) need to be wrapped with -Wl,-whole-archive and
    * -Wl,-no-whole-archive.
    */
-  private void addInputFileLinkOptions(List<String> argv, boolean globalNeedWholeArchive,
-      boolean includeLinkopts) {
+  private void addInputFileLinkOptions(List<String> argv, boolean globalNeedWholeArchive) {
     // The Apple ld doesn't support -whole-archive/-no-whole-archive. It
     // does have -all_load/-noall_load, but -all_load is a global setting
     // that affects all subsequent files, and -noall_load is simply ignored.
@@ -858,22 +870,6 @@ public final class LinkCommandLine extends CommandLine {
     if (globalNeedWholeArchive) {
       argv.add(macosx ? "-Wl,-noall_load" : "-Wl,-no-whole-archive");
       argv.addAll(noWholeArchiveInputs);
-    }
-
-    if (includeLinkopts) {
-      /*
-       * For backwards compatibility, linkopts come _after_ inputFiles.
-       * This is needed to allow linkopts to contain libraries and
-       * positional library-related options such as
-       *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
-       * or
-       *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
-       *
-       * As for the relative order of the three different flavours of linkopts
-       * (global defaults, per-target linkopts, and command-line linkopts),
-       * we have no idea what the right order should be, or if anyone cares.
-       */
-      argv.addAll(linkopts);
     }
 
     if (ltoMap != null) {

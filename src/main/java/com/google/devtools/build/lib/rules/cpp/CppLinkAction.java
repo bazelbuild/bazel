@@ -258,8 +258,7 @@ public final class CppLinkAction extends AbstractAction {
    *
    * @return a finalized command line suitable for execution
    */
-  public final List<String> getCommandLine()
-      throws ExecException {
+  public final List<String> getCommandLine() {
     return linkCommandLine.getCommandLine();
   }
 
