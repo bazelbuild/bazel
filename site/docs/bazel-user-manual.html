@@ -164,6 +164,8 @@
     <a href='#info'>info</a>                Displays runtime info about the bazel server.
 
     <a href='#fetch'>fetch</a>                Fetches all external dependencies of a target.
+    <a href='#mobile-install'>mobile-install</a>      Installs apps on mobile devices.
+
     <a href='#query'>query</a>               Executes a dependency graph query.
 
     <a href='#run'>run</a>                 Runs the specified target.
@@ -3199,6 +3201,70 @@ in an environment closer to the current shell environment. Note that none of the
   configuration.  This is guaranteed to be correct even in cases where
   the <code>bazel-bin</code> symlink cannot be created for some reason
   (e.g. you are building from a read-only directory).
+</p>
+
+<h3 id='version'>The <code>version</code> command</h3>
+
+<p>
+  The version command prints version details about the built Bazel
+  binary, including the changelist at which it was built and the date.
+  These are particularly useful in determining if you have the latest
+  Bazel, or if you are reporting bugs. Some of the interesting values
+  are:
+</p>
+<ul>
+  <li><code>changelist</code>: the changelist at which this version of
+    Bazel was released.
+  </li>
+  <li><code>label</code>: the release label for this Bazel
+    instance, or "development version" if this is not a released
+    binary. Very useful when reporting bugs.
+  </li>
+</ul>
+
+<h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
+<p>
+  The <code>mobile-install</code> command installs apps to mobile devices.
+  Currently only Android devices running ART are supported.
+</p>
+<p>
+  Note that this command does not install the same thing that
+  <code>bazel build</code> produces: Bazel tweaks the app so that it can be
+  built, installed and re-installed quickly. This should, however, be mostly
+  transparent to the app.
+</p>
+<p>
+  The following options are supported:
+</p>
+<h4 id='flag--incremental'><code class='flag'>--incremental</code></h4>
+<p>
+  If set, Bazel tries to install the app incrementally, that is, only those
+  parts that have changed since the last build. This cannot update resources
+  referenced from <code>AndroidManifest.xml</code>, native code or Java
+  resources (i.e. ones referenced by <code>Class.getResource()</code>). If these
+  things change, this option must be omitted. Contrary to the spirit of Bazel
+  and due to limitations of the Android platform, it is the
+  <b>responsibility of the user</b> to know when this command is good enough and
+  when a full install is needed. We are working to come up with a better
+  solution.
+</p>
+<h4 id='flag--adb'><code class='flag'>--adb</code></h4>
+<p>
+  Indicates the <code>adb</code> binary to be used. When unspecified, the binary
+  in the repository is used.
+</p>
+<h4 id='flag--adb_arg'><code class='flag'>--adb_arg</code></h4>
+<p>
+  Extra arguments to <code>adb</code>. These come before the subcommand in the
+  command line and are typically used to specify which device to install to.
+  Example:
+<pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
+</pre>
+will invoke <code>adb</code> as
+<pre>
+adb -s deadbeef install ...
+</pre>
+
 </p>
 
 <h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
