@@ -507,8 +507,12 @@ public class AndroidCommon {
     transitiveSourceJars = javaCommon.collectTransitiveSourceJars(srcJar);
 
     if (collectJavaCompilationArgs) {
-      this.javaCompilationArgs = collectJavaCompilationArgs(
-          ruleContext, exportDeps, asNeverLink, attributes.hasSourceFiles());
+      boolean includeSrcjars =
+          ruleContext.getFragment(AndroidConfiguration.class).treatSrcjarsAsSrcsForStrictDeps();
+      boolean hasSources =
+          attributes.hasSourceFiles() || (includeSrcjars && attributes.hasSourceJars());
+      this.javaCompilationArgs =
+          collectJavaCompilationArgs(ruleContext, exportDeps, asNeverLink, hasSources);
       this.recursiveJavaCompilationArgs = collectJavaCompilationArgs(
           ruleContext, true, asNeverLink, /* hasSources */ true);
     }
