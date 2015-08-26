@@ -50,7 +50,8 @@ int SwitchToEgid() {
 void Redirect(const char *target_path, int fd, const char *name) {
   if (target_path != NULL && strcmp(target_path, "-") != 0) {
     int fd_out;
-    CHECK_CALL(fd_out = open(target_path, O_WRONLY | O_CREAT | O_TRUNC, 0666),
+    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
+    CHECK_CALL(fd_out = open(target_path, flags, 0666),
                "Could not open %s for redirection of %s", target_path, name);
     CHECK_CALL(dup2(fd_out, fd));
     CHECK_CALL(close(fd_out));
