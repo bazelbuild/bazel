@@ -101,6 +101,15 @@ public class Environment {
   protected Set<String> propagatingVariables = new HashSet<>();
 
   /**
+   * Is this a global environment?
+   * @return true if this is a global (top-level) environment
+   * as opposed to inside the body of a function
+   */
+  public boolean isGlobal() {
+    return true;
+  }
+
+  /**
    * An EventHandler for errors and warnings. This is not used in the BUILD language,
    * however it might be used in Skylark code called from the BUILD language.
    */
@@ -191,9 +200,10 @@ public class Environment {
    * Updates the value of variable "varname" in the environment, corresponding
    * to an {@link AssignmentStatement}.
    */
-  public void update(String varname, Object value) {
+  public Environment update(String varname, Object value) {
     Preconditions.checkNotNull(value, "update(value == null)");
     env.put(varname, value);
+    return this;
   }
 
   /**

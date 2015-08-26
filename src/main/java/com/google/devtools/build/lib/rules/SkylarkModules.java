@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -30,9 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
 import java.lang.reflect.Field;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A class to handle all Skylark modules, to create and setup Validation and regular Environments.
@@ -111,32 +108,17 @@ public class SkylarkModules {
     for (Map.Entry<String, Object> entry : OBJECTS.entrySet()) {
       env.update(entry.getKey(), entry.getValue());
     }
+    // Even though PACKAGE_NAME has no value _now_ and will be bound later,
+    // it needs to be visible for the ValidationEnvironment to be happy.
+    env.update(Environment.PKG_NAME, Environment.NONE);
   }
 
   /**
    * Returns a new ValidationEnvironment with the elements of the Skylark modules.
    */
   public static ValidationEnvironment getValidationEnvironment() {
-    return getValidationEnvironment(ImmutableSet.<String>of());
-  }
-
-  /**
-   * Returns a new ValidationEnvironment with the elements of the Skylark modules and extraObjects.
-   */
-  public static ValidationEnvironment getValidationEnvironment(ImmutableSet<String> extraObjects) {
-    Set<String> builtIn = new HashSet<>();
-    collectSkylarkTypesFromFields(Environment.class, builtIn);
-    for (Class<?> moduleClass : MODULES) {
-      if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-        builtIn.add(moduleClass.getAnnotation(SkylarkModule.class).name());
-      }
-    }
-    MethodLibrary.setupValidationEnvironment(builtIn);
-    for (Class<?> module : MODULES) {
-      collectSkylarkTypesFromFields(module, builtIn);
-    }
-    builtIn.addAll(extraObjects);
-    return new ValidationEnvironment(builtIn);
+    // TODO(bazel-team): refactor constructors so we don't have those null-s
+    return new ValidationEnvironment(getNewEnvironment(null));
   }
 
   public static EvaluationContext newEvaluationContext(EventHandler eventHandler) {
@@ -168,26 +150,6 @@ public class SkylarkModules {
     } catch (IllegalArgumentException | IllegalAccessException e) {
       // This should never happen.
       throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Collects the BaseFunctions from the fields of the class of the object parameter
-   * and adds their class and their corresponding return value to the builder.
-   */
-  private static void collectSkylarkTypesFromFields(Class<?> classObject, Set<String> builtIn) {
-    for (Field field : classObject.getDeclaredFields()) {
-      if (field.isAnnotationPresent(SkylarkSignature.class)) {
-        SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
-        if (BaseFunction.class.isAssignableFrom(field.getType())) {
-          // Ignore non-global values.
-          if (annotation.objectType().equals(Object.class)) {
-            builtIn.add(annotation.name());
-          }
-        } else {
-          builtIn.add(annotation.name());
-        }
-      }
     }
   }
 }
