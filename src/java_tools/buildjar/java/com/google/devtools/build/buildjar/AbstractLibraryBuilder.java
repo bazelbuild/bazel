@@ -252,9 +252,8 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
    * Recursively cleans up the files beneath the specified output directory.
    * Does not follow symbolic links. Throws IOException if any deletion fails.
    * If removeEverything is false, keeps .class files if keepClassFilesDuringCleanup()
-   * returns true, and also keeps all flags.xml files.
-   * If removeEverything is true, removes everything.
-   * Will delete all empty directories.
+   * returns true. If removeEverything is true, removes everything. Will delete all
+   * empty directories.
    *
    * @param dir the directory to clean up.
    * @param removeEverything whether to remove all files, or keep flags.xml/.class files.
@@ -270,8 +269,6 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
       } else if (!removeEverything && keepClassFilesDuringCleanup() &&
           file.getName().endsWith(".class")) {
         isEmpty = false;
-      } else if (!removeEverything && keepFileDuringCleanup(file)) {
-        isEmpty = false;
       } else {
         file.delete();
       }
@@ -281,8 +278,6 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
     }
     return isEmpty;
   }
-
-  protected abstract boolean keepFileDuringCleanup(File file);
 
   /**
    * Returns true if cleaning the output directory should remove all

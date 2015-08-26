@@ -44,11 +44,6 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
   /** Enables more verbose output from the compiler. */
   protected boolean debug = false;
 
-  @Override
-  protected boolean keepFileDuringCleanup(File file) {
-    return false;
-  }
-
   /**
    * Flush the buffers of this JavaBuilder
    */
