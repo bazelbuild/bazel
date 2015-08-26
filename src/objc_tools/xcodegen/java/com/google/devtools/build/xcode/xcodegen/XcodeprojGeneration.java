@@ -497,15 +497,20 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(name, value);
       }
 
+      // Note that HFS+ (the Mac filesystem) is usually case insensitive, so we cast all target
+      // names to lower case before checking for duplication because otherwise users may end up
+      // having duplicated intermediate build directories that can interfere with the build.
       String targetName = targetControl.getName();
-      if (usedTargetNames.contains(targetName)) {
+      String targetNameInLowerCase = targetName.toLowerCase();
+      if (usedTargetNames.contains(targetNameInLowerCase)) {
         // Use the label in the odd case where we have two targets with the same name.
         targetName = targetControl.getLabel();
+        targetNameInLowerCase = targetName.toLowerCase();
       }
-      checkState(!usedTargetNames.contains(targetName),
-          "Name already exists for target with label/name %s/%s in list: %s",
+      checkState(!usedTargetNames.contains(targetNameInLowerCase),
+          "Name (case-insensitive) already exists for target with label/name %s/%s in list: %s",
           targetControl.getLabel(), targetControl.getName(), usedTargetNames);
-      usedTargetNames.add(targetName);
+      usedTargetNames.add(targetNameInLowerCase);
       PBXNativeTarget target = new PBXNativeTarget(targetName, productType);
       try {
         target
