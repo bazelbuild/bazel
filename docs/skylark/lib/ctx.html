@@ -24,7 +24,8 @@ The context of the rule containing helper functions and information about attrib
               <li><a href="#host_configuration">host_configuration</a></li>
                     <li><a href="#label">label</a></li>
                     <li><a href="#new_file">new_file</a></li>
-                          <li><a href="#new_file_suffix">new_file_suffix</a></li>
+              <li><a href="#new_file">new_file</a></li>
+                    <li><a href="#new_file_suffix">new_file_suffix</a></li>
               <li><a href="#outputs">outputs</a></li>
               <li><a href="#runfiles">runfiles</a></li>
               <li><a href="#template_action">template_action</a></li>
@@ -386,7 +387,13 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
     Creates a file object with the given filename. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 
         
-            <h2 id="new_file_suffix">new_file_suffix</h2>
+        <h2 id="new_file">new_file</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
+    
+    Creates a new file object in the same directory as the original file. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
+
+        
+          <h2 id="new_file_suffix">new_file_suffix</h2>
         <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file_suffix(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
     
     Creates a new file object, derived from the given file and suffix. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule. Deprecated.
