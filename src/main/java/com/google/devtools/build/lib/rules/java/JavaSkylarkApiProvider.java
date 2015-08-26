@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
     name = "JavaSkylarkApiProvider", doc = "Provides access to information about Java rules")
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
-  static final String NAME = "java";
+  public static final String NAME = "java";
 
   @SkylarkCallable(
       name = "source_jars",
