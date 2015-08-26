@@ -69,6 +69,10 @@ public class SkylarkEnvironment extends Environment implements Serializable {
         // Always use the caller Environment's EventHandler. We cannot assume that the
         // definition Environment's EventHandler is still working properly.
         new SkylarkEnvironment(definitionEnv, stackTrace, callerEnv.eventHandler);
+    if (callerEnv.isLoadingPhase()) {
+      childEnv.setLoadingPhase();
+    }
+
     try {
       for (String varname : callerEnv.propagatingVariables) {
         childEnv.updateAndPropagate(varname, callerEnv.lookup(varname));

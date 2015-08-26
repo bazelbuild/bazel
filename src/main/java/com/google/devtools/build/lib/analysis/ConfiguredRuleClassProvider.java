@@ -390,6 +390,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
       env.update(entry.getKey(), entry.getValue().getType());
     }
+    env.setLoadingPhase();
     return env;
   }
 

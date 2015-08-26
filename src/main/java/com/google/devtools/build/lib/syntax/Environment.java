@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -99,6 +100,38 @@ public class Environment {
    * native rules from Skylark build extensions.
    */
   protected Set<String> propagatingVariables = new HashSet<>();
+
+  // Only used in the global environment.
+  // TODO(bazel-team): make this a final field part of constructor.
+  private boolean isLoadingPhase = false;
+
+  /**
+   * Is this Environment being evaluated during the loading phase?
+   * This is fixed during environment setup, and enables various functions
+   * that are not available during the analysis phase.
+   * @return true if this environment corresponds to code during the loading phase.
+   */
+  boolean isLoadingPhase() {
+    return isLoadingPhase;
+  }
+
+  /**
+   * Enable loading phase only functions in this Environment.
+   * This should only be done during setup before code is evaluated.
+   */
+  public void setLoadingPhase() {
+    isLoadingPhase = true;
+  }
+
+  /**
+   * Checks that the current Evaluation context is in loading phase.
+   * @param symbol name of the function being only authorized thus.
+   */
+  public void checkLoadingPhase(String symbol, Location loc) throws EvalException {
+    if (!isLoadingPhase()) {
+      throw new EvalException(loc, symbol + "() can only be called during the loading phase");
+    }
+  }
 
   /**
    * Is this a global environment?

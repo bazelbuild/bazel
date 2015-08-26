@@ -62,6 +62,7 @@ public class SkylarkNativeModule {
           SkylarkList include, SkylarkList exclude, SkylarkList excludes,
           Integer excludeDirectories, FuncallExpression ast, Environment env)
           throws EvalException, ConversionException, InterruptedException {
+        env.checkLoadingPhase("native.glob", ast.getLocation());
         // TODO(bazel-team): Remove 'excludes' argument in July 2015.
         if (exclude.size() == 0) {
           exclude = excludes;
@@ -89,6 +90,7 @@ public class SkylarkNativeModule {
   private static final BuiltinFunction packageGroup = new BuiltinFunction("package_group") {
       public Environment.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
                 FuncallExpression ast, Environment env) throws EvalException, ConversionException {
+        env.checkLoadingPhase("native.package_group", ast.getLocation());
         return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
       }
     };
@@ -114,6 +116,7 @@ public class SkylarkNativeModule {
       public Environment.NoneType invoke(SkylarkList srcs, Object visibility, Object licenses,
           FuncallExpression ast, Environment env)
           throws EvalException, ConversionException {
+        env.checkLoadingPhase("native.exports_file", ast.getLocation());
         return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
       }
     };
