@@ -76,7 +76,6 @@ public class ErrorInfo implements Serializable {
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
     Exception firstException = null;
     SkyKey firstChildKey = null;
-    boolean isTransient = false;
     boolean isCatastrophic = false;
     // Arbitrarily pick the first error.
     for (ErrorInfo child : childErrors) {
@@ -86,14 +85,15 @@ public class ErrorInfo implements Serializable {
       }
       builder.addTransitive(child.rootCauses);
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentValue, child.cycles));
-      isTransient |= child.isTransient();
       isCatastrophic |= child.isCatastrophic();
     }
     this.rootCauses = builder.build();
     this.exception = firstException;
     this.rootCauseOfException = firstChildKey;
     this.cycles = cycleBuilder.build();
-    this.isTransient = isTransient;
+    // Parent errors should not be transient -- we depend on the child's transience, if any, to
+    // force re-evaluation if necessary.
+    this.isTransient = false;
     this.isCatastrophic = isCatastrophic;
   }
 

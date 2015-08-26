@@ -836,6 +836,33 @@ public class MemoizingEvaluatorTest {
     assertThat(cycleInfo.getPathToCycle()).isEmpty();
   }
 
+  @Test
+  public void parentOfCycleAndTransientNotTransient() throws Exception {
+    initializeTester();
+    SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
+    SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
+    SkyKey mid = GraphTester.toSkyKey("mid");
+    SkyKey errorKey = GraphTester.toSkyKey("errorKey");
+    tester.getOrCreate(cycleKey1).addDependency(cycleKey2).setComputedValue(COPY);
+    tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
+    tester.getOrCreate(errorKey).setHasTransientError(true);
+    tester.getOrCreate(mid).addErrorDependency(errorKey, new StringValue("recovered"))
+        .setComputedValue(COPY);
+    SkyKey top = GraphTester.toSkyKey("top");
+    CountDownLatch topEvaluated = new CountDownLatch(2);
+    tester.getOrCreate(top).setBuilder(new ChainedFunction(topEvaluated, null, null, false,
+        new StringValue("unused"), ImmutableList.of(mid, cycleKey1)));
+    ErrorInfo errorInfo = tester.evalAndGetError(top);
+    assertThat(topEvaluated.getCount()).isEqualTo(1);
+    assertThat(errorInfo.isTransient()).isFalse();
+    assertWithMessage(errorInfo.toString())
+        .that(errorInfo.getCycleInfo())
+        .containsExactly(
+            new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
+    assertThat(errorInfo.getException()).hasMessage("Type:errorKey");
+    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
+  }
+
   /**
    * Regression test: IllegalStateException in BuildingState.isReady(). The ParallelEvaluator used
    * to assume during cycle-checking that all values had been built as fully as possible -- that
