@@ -26,6 +26,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -673,16 +674,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /** Applies the proguard specifications, and creates a ProguardedJar. */
-  private static ProguardOutput applyProguard(RuleContext ruleContext,
+  private static ProguardOutput applyProguard(
+      RuleContext ruleContext,
       AndroidCommon common,
       Artifact deployJarArtifact,
       NestedSetBuilder<Artifact> filesBuilder,
       ResourceApk resourceApk,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardMapping) {
+    Artifact proguardOutputJar =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
+
     // Proguard will be only used for binaries which specify a proguard_spec
     if (proguardSpecs.isEmpty()) {
-      return new ProguardOutput(deployJarArtifact, null);
+      // Although normally the Proguard jar artifact is not needed for binaries which do not specify
+      // proguard_specs, targets which use a select to provide an empty list to proguard_specs will
+      // still have a Proguard jar implicit output, as it is impossible to tell what a select will
+      // produce at the time of implicit output determination. As a result, this artifact must
+      // always be created.
+      return createEmptyProguardAction(ruleContext, proguardOutputJar, deployJarArtifact);
     }
 
     ImmutableSortedSet.Builder<Artifact> builder =
@@ -694,11 +704,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact output = resourceApk.getResourceProguardConfig();
     builder.add(output);
     proguardSpecs = builder.build().asList();
-    Artifact proguardOutputJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     return createProguardAction(ruleContext, common, sdk.getProguard(), deployJarArtifact,
         proguardSpecs, proguardMapping, sdk.getAndroidJar(), proguardOutputJar, filesBuilder);
+  }
+
+  private static ProguardOutput createEmptyProguardAction(
+      RuleContext ruleContext, Artifact proguardOutputJar, Artifact deployJarArtifact) {
+    ImmutableList.Builder<Artifact> failures =
+        ImmutableList.<Artifact>builder().add(proguardOutputJar);
+    if (ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN)) {
+      failures.add(
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_MAP));
+    }
+    ruleContext.registerAction(
+        new FailAction(
+            ruleContext.getActionOwner(),
+            failures.build(),
+            "Can't generate Proguard jar or mapping without proguard_specs."));
+    return new ProguardOutput(deployJarArtifact, null);
   }
 
   private static ProguardOutput createProguardAction(RuleContext ruleContext, AndroidCommon common,
