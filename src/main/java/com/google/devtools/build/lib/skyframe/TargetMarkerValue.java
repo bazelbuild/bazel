@@ -28,7 +28,7 @@ public final class TargetMarkerValue implements SkyValue {
 
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. java deserialization can create other instances.
-  static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
+  public static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
 
   private TargetMarkerValue() {
   }
