@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 import javax.annotation.Nullable;
 
@@ -27,7 +29,10 @@ import javax.annotation.Nullable;
  * Returns information about executables produced by a target and the files needed to run it.
  */
 @Immutable
+@SkylarkModule(name = "FilesToRunProvider", doc = "")
 public final class FilesToRunProvider implements TransitiveInfoProvider {
+  /** The name of the field in Skylark used to access this class. */
+  public static final String SKYLARK_NAME = "files_to_run";
 
   private final Label label;
   private final ImmutableList<Artifact> filesToRun;
@@ -75,7 +80,14 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
   /**
    * Returns the Executable or null if it does not exist.
    */
-  @Nullable public Artifact getExecutable() {
+  @SkylarkCallable(
+    name = "executable",
+    doc = "The main executable or None if it does not exist",
+    structField = true,
+    allowReturnNones = true
+  )
+  @Nullable
+  public Artifact getExecutable() {
     return executable;
   }
 
@@ -83,7 +95,14 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
    * Returns the RunfilesManifest or null if it does not exist. It is a shortcut to
    * getRunfilesSupport().getRunfilesManifest().
    */
-  @Nullable public Artifact getRunfilesManifest() {
+  @SkylarkCallable(
+    name = "runfiles_manifest",
+    doc = "The runfiles manifest or None if it does not exist",
+    structField = true,
+    allowReturnNones = true
+  )
+  @Nullable
+  public Artifact getRunfilesManifest() {
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
   }
 
