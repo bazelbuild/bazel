@@ -51,7 +51,6 @@ import java.util.Map;
 @SkylarkModule(
   name = "attr",
   namespace = true,
-  onlyLoadingPhase = true,
   doc =
       "Module for creating new attributes. "
           + "They are only for use with the <a href=\"globals.html#rule\">rule</a> function."

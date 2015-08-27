@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 /**
  * A class for the Skylark native module.
  */
-@SkylarkModule(name = "native", namespace = true, onlyLoadingPhase = true, doc =
-      "A built-in module to support native rules and other package helper functions. "
+@SkylarkModule(name = "native", namespace = true, doc =
+    "A built-in module to support native rules and other package helper functions. "
     + "All native rules appear as functions in this module. Note that the native module is only "
     + "available in the loading phase (i.e. for macros, not for rule implementations).<br/>"
     + "Extra helper functions:")

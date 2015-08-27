@@ -90,12 +90,6 @@ public class Environment {
   protected Map<PathFragment, SkylarkEnvironment> importedExtensions;
 
   /**
-   * A set of disabled namespaces propagating through function calling. This is needed because
-   * UserDefinedFunctions lock the definition Environment which should be immutable.
-   */
-  protected Set<Class<?>> disabledNameSpaces = new HashSet<>();
-
-  /**
    * A set of variables propagating through function calling. It's only used to call
    * native rules from Skylark build extensions.
    */
@@ -360,10 +354,6 @@ public class Environment {
 
   private Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
     nameSpace = getCanonicalRepresentation(nameSpace);
-    if (disabledNameSpaces.contains(nameSpace)
-        || (parent != null && parent.disabledNameSpaces.contains(nameSpace))) {
-      return null;
-    }
     Environment topLevel = this;
     while (topLevel.parent != null) {
       topLevel = topLevel.parent;

@@ -33,6 +33,4 @@ public @interface SkylarkModule {
   boolean documented() default true;
 
   boolean namespace() default false;
-
-  boolean onlyLoadingPhase() default false;
 }

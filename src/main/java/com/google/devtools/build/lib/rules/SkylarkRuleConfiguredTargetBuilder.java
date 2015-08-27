@@ -59,9 +59,6 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       SkylarkEnvironment env = ruleContext.getRule().getRuleClassObject()
           .getRuleDefinitionEnvironment().cloneEnv(
               ruleContext.getAnalysisEnvironment().getEventHandler());
-      // Collect the symbols to disable statically and pass at the next call, so we don't need to
-      // clone the RuleDefinitionEnvironment.
-      env.disableOnlyLoadingPhaseObjects();
       Object target = ruleImplementation.call(ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(), null, env);
 

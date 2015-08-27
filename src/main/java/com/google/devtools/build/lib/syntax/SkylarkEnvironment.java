@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -81,7 +79,6 @@ public class SkylarkEnvironment extends Environment implements Serializable {
       // This should never happen.
       throw new IllegalStateException(e);
     }
-    childEnv.disabledNameSpaces = callerEnv.disabledNameSpaces;
     return childEnv;
   }
 
@@ -196,24 +193,6 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   public Class<?> getVariableType(String varname) {
     Object variable = env.get(varname);
     return variable != null ? EvalUtils.getSkylarkType(variable.getClass()) : null;
-  }
-
-  /**
-   * Removes the functions and the modules (i.e. the symbol of the module from the top level
-   * Environment and the functions attached to it) from the Environment which should be present
-   * only during the loading phase.
-   */
-  public void disableOnlyLoadingPhaseObjects() {
-    List<Class<?>> modulesToRemove = new ArrayList<>();
-    for (Map.Entry<String, Object> entry : env.entrySet()) {
-      Object object = entry.getValue();
-      if (object.getClass().isAnnotationPresent(SkylarkModule.class)) {
-        if (object.getClass().getAnnotation(SkylarkModule.class).onlyLoadingPhase()) {
-          modulesToRemove.add(entry.getValue().getClass());
-        }
-      }
-    }
-    disabledNameSpaces.addAll(modulesToRemove);
   }
 
   public void handleEvent(Event event) {
