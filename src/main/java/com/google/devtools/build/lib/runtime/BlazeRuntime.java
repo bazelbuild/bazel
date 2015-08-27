@@ -168,6 +168,7 @@ public final class BlazeRuntime {
   private Path workingDirectory;
   private long commandStartTime;
 
+  @Nullable
   private Range<Long> lastExecutionStartFinish = null;
 
   private final SkyframeExecutor skyframeExecutor;
@@ -408,7 +409,10 @@ public final class BlazeRuntime {
   }
 
   public void recordLastExecutionTime() {
-    lastExecutionStartFinish = Range.closed(commandStartTime, clock.currentTimeMillis());
+    long currentTimeMillis = clock.currentTimeMillis();
+    lastExecutionStartFinish = currentTimeMillis >= commandStartTime
+        ? Range.closed(commandStartTime, currentTimeMillis)
+        : null;
   }
 
   /**

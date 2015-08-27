@@ -67,20 +67,21 @@ class FilesystemValueChecker {
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
   private final TimestampGranularityMonitor tsgm;
+  @Nullable
   private final Range<Long> lastExecutionTimeRange;
   private final Supplier<Map<SkyKey, SkyValue>> valuesSupplier;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
 
   FilesystemValueChecker(Supplier<Map<SkyKey, SkyValue>> valuesSupplier,
-      TimestampGranularityMonitor tsgm, Range<Long> lastExecutionTimeRange) {
+      TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
     this.valuesSupplier = valuesSupplier;
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
   }
 
   FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm,
-      Range<Long> lastExecutionTimeRange) {
+      @Nullable Range<Long> lastExecutionTimeRange) {
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
 
