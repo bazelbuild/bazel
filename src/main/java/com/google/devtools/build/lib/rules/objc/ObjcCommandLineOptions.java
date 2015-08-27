@@ -141,7 +141,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableCcDeps;
 
   @Option(name = "experimental_objc_fastbuild_options",
-      defaultValue = "-O0,-DDEBUG",
+      defaultValue = "-O0,-DDEBUG=1",
       category = "undocumented",
       converter = CommaSeparatedOptionListConverter.class,
       help = "Uses these strings as objc fastbuild compiler options.")
