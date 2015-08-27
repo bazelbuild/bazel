@@ -29,9 +29,9 @@ def _groovy_jar_impl(ctx):
 
   # Compile all files in srcs with groovyc
   cmd = "rm -rf %s; mkdir -p %s\n" % (build_output, build_output)
-  cmd += "%s -cp %s -d %s %s\n" % (
+  cmd += "%s %s -d %s %s\n" % (
       ctx.file._groovyc.short_path,
-      ":".join([dep.path for dep in all_deps]),
+      "-cp " + ":".join([dep.path for dep in all_deps]) if len(all_deps) != 0 else "",
       build_output,
       " ".join([src.path for src in ctx.files.srcs]),
   )
@@ -70,7 +70,7 @@ _groovy_jar = rule(
             mandatory=False,
             allow_files=FileType([".jar"])),
         "_groovyc": attr.label(
-            default=Label("//external:groovy/groovyc"),
+            default=Label("@groovy-bin//:groovyc"),
             single_file=True),
         "_jar": attr.label(
             default=Label("//third_party/ijar:zipper"),
@@ -155,3 +155,57 @@ def groovy_binary(name, main_class, srcs=[], deps=[], **kwargs):
       runtime_deps = all_deps,
       **kwargs
   )
+
+def path_to_class(path):
+  if path.startswith("src/test/groovy/"):
+    return path[len("src/test/groovy/") : path.index(".groovy")].replace('/', '.')
+  elif path.startswith("src/test/java/"):
+    return path[len("src/test/java/") : path.index(".groovy")].replace('/', '.')
+  else:
+    fail("groovy_test sources must be under src/test/java or src/test/groovy")
+
+def groovy_test_impl(ctx):
+  # Extract all transitive dependencies
+  all_deps = set(ctx.files.deps + ctx.files._implicit_deps)
+  for this_dep in ctx.attr.deps:
+    if hasattr(this_dep, 'java'):
+      all_deps += this_dep.java.transitive_runtime_deps
+
+  # Infer a class name from each src file
+  classes = [path_to_class(src.path) for src in ctx.files.srcs]
+
+  # Write a file that executes JUnit on the inferred classes
+  cmd = "%s %s -cp %s org.junit.runner.JUnitCore %s\n" % (
+      ctx.executable._java.path,
+    " ".join(ctx.attr.jvm_flags),
+    ":".join([dep.short_path for dep in all_deps]),
+    " ".join(classes),
+  )
+  ctx.file_action(
+    output = ctx.outputs.executable,
+    content = cmd
+  )
+
+  # Return all dependencies needed to run the tests
+  return struct(
+    runfiles=ctx.runfiles(files=list(all_deps) + ctx.files._java),
+  )
+
+groovy_test = rule(
+  implementation = groovy_test_impl,
+  attrs = {
+    "srcs": attr.label_list(mandatory=True, allow_files=FileType([".groovy"])),
+    "deps": attr.label_list(allow_files=FileType([".jar"])),
+    "jvm_flags": attr.string_list(),
+    "_java": attr.label(
+      default=Label("@local-jdk//:java"),
+      executable=True,
+      single_file=True),
+    "_implicit_deps": attr.label_list(default=[
+      Label("@groovy//jar"),
+      Label("@hamcrest//jar"),
+      Label("@junit//jar"),
+    ]),
+  },
+  test = True,
+)

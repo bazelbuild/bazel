@@ -16,10 +16,11 @@ libraries and vice-versa.
 <a name="setup"></a>
 ## Setup
 
-To be able to use the Groovy rules, you must make the Groovy binaries available
-to Bazel. The easiest way to do so is by copying the content of
-`groovy.WORKSPACE` to your workspace file and putting `groovy.BUILD` at the root
-or your workspace.
+To be able to use the Groovy rules, you must make the Groovy libraries and
+binaries available to Bazel. Groovy tests also require JUnit and Hamcrest to be
+available at a known location. The easiest way to do so is by copying the
+content of `groovy.WORKSPACE` to your workspace file and putting `groovy.BUILD`
+at the root of your workspace.
 
 <a name="basic-example"></a>
 ## Basic Example
@@ -30,16 +31,22 @@ application:
 ```
 [workspace]/
     WORKSPACE
-    app/
-        BUILD
-        GroovyApp.groovy
-    lib/
-        BUILD
-        GroovyLib.groovy
-        JavaLib.java
+    src/main/groovy/
+        app/
+            BUILD
+            GroovyApp.groovy
+        lib/
+            BUILD
+            GroovyLib.groovy
+            JavaLib.java
+    src/test/groovy/
+        lib/
+            BUILD
+            LibTest.groovy
 ```
 
-Then, to build the code under lib/, your `lib/BUILD` can look like this:
+Then, to build the code under src/main/groovy/lib/, your
+`src/main/groovy/lib/BUILD` can look like this:
 
 ```python
 load("/tools/build_rules/groovy/groovy", "groovy_library")
@@ -60,8 +67,8 @@ java_library(
 
 For simplicity, you can combine Groovy and Java sources into a single library
 using `groovy_and_java_library`. Note that this allows the Groovy code to
-reference the Java code, but not vice-versa. Your `lib/BUILD` file would then
-look like this:
+reference the Java code, but not vice-versa. Your `src/main/groovy/lib/BUILD`
+file would then look like this:
 
 ```python
 load("/tools/build_rules/groovy/groovy", "groovy_and_java_library")
@@ -72,7 +79,8 @@ groovy_and_java_library(
 )
 ```
 
-Finally, you can define a binary using `groovy_binary` as follows:
+To build the application under src/main/groovy/app, you can define a binary using
+`groovy_binary` as follows:
 
 ```python
 load("/tools/build_rules/groovy/groovy", "groovy_binary")
@@ -82,13 +90,32 @@ groovy_binary(
     srcs = glob(["*.groovy"]),
     main_class = "GroovyApp",
     deps = [
-         "//lib",
+         "//src/main/groovy/lib",
     ],
 )
 ```
 
-You can then build the application with `bazel build //app:GroovyApp` and run it
-with `bazel run //app:GroovyApp`.
+Finally, you can write tests in Groovy using `groovy_test`. The `srcs` of this
+rule will be converted into names of class files that are passed to JUnit. For
+this to work, the test sources must be under src/test/groovy or src/test/java.
+To build the test under src/test/groovy/lib, your BUILD file would look like
+this:
+
+```python
+load("/tools/build_defs/groovy/groovy", "groovy_test", "groovy_library")
+
+
+groovy_library(
+  name = "testlib",
+  srcs = glob(["*.groovy"]),
+)
+
+groovy_test(
+  name = "LibTest",
+  srcs = ["LibTest.groovy"],
+  deps = [":testlib"],
+)
+```
 
 <a name="reference"></a>
 ## Build Rule Reference [reference]
@@ -262,6 +289,63 @@ with `bazel run //app:GroovyApp`.
         <p>
           The other arguments of this rule will be passed to the `java_binary`
           underlying the `groovy_binary`.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<a name="groovy_test"></a>
+### `groovy_test`
+
+`groovy_binary(name, main_class, srcs, deps, **kwargs)`
+
+<table>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        <code>Name, required</code>
+        <p>A unique name for this rule.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>srcs</code></td>
+      <td>
+        <code>List of labels, required</code>
+        <p>
+          List of .groovy source files whose names will be converted to classes
+          passed to JUnitCore.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>deps</code></td>
+      <td>
+        <code>List of labels or .jar files, optional</code>
+        <p>
+          List of libraries to be included on both the compile-time classpath
+          when building this test and on the runtime classpath when executing it.
+        </p>
+        <p>
+          These can be `groovy_library` targets, `java_library` targets,
+          `groovy_and_java_library` targets, or raw .jar files.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>jvm_flags</code></td>
+      <td>
+        <code>List of strings, optional</code>
+        <p>
+          A list of flags to embed in the wrapper script generated for running
+          this binary.
         </p>
       </td>
     </tr>
