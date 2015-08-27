@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
@@ -37,7 +38,7 @@ public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Comment> comments;
 
-  private ImmutableSet<PathFragment> loads;
+  private ImmutableMap<Location, PathFragment> loads;
 
   private ImmutableSet<Label> includes;
 
@@ -105,12 +106,12 @@ public class BuildFileAST extends ASTNode {
   }
 
   /** Collects paths from all load statements */
-  private ImmutableSet<PathFragment> fetchLoads(List<Statement> stmts) {
-    ImmutableSet.Builder<PathFragment> loads = new ImmutableSet.Builder<>();
+  private ImmutableMap<Location, PathFragment> fetchLoads(List<Statement> stmts) {
+    ImmutableMap.Builder<Location, PathFragment> loads = ImmutableMap.builder();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         LoadStatement imp = (LoadStatement) stmt;
-        loads.add(imp.getImportPath());
+        loads.put(imp.getLocation(), imp.getImportPath());
       }
     }
     return loads.build();
@@ -142,7 +143,7 @@ public class BuildFileAST extends ASTNode {
   /**
    * Returns a set of loads in this BUILD file.
    */
-  public synchronized ImmutableSet<PathFragment> getImports() {
+  public synchronized ImmutableMap<Location, PathFragment> getImports() {
     if (loads == null) {
       loads = fetchLoads(stmts);
     }

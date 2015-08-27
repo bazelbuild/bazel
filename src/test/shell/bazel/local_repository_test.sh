@@ -763,4 +763,32 @@ EOF
   expect_log "Target '//:private' is not visible from target '@r//:private'"
 }
 
+function test_load_in_remote_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r
+  cat > $r/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+load("r", "r_filegroup")
+r_filegroup(name="rfg", srcs=["rfgf"])
+EOF
+
+  cat > $r/r.bzl <<EOF
+def r_filegroup(name, srcs):
+    native.filegroup(name=name, srcs=srcs)
+EOF
+
+  touch $r/rfgf
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$r")
+EOF
+
+  cat > BUILD <<EOF
+filegroup(name="fg", srcs=["@r//:rfg"])
+EOF
+
+  bazel build //:fg || fail "failed to build target"
+}
+
 run_suite "local repository tests"

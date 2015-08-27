@@ -21,6 +21,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -175,6 +176,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   public static final String DEFAULT_REPOSITORY = "";
+  public static final RepositoryName DEFAULT_REPOSITORY_NAME;
+
+  static {
+    try {
+      DEFAULT_REPOSITORY_NAME = RepositoryName.create(DEFAULT_REPOSITORY);
+    } catch (Label.SyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * Helper for serializing PackageIdentifiers.

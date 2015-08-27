@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
+import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -89,7 +89,7 @@ public class PackageFunction implements SkyFunction {
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
 
-  private static final PathFragment PRELUDE_FILE_FRAGMENT =
+  static final PathFragment PRELUDE_FILE_FRAGMENT =
       new PathFragment(Constants.PRELUDE_FILE_DEPOT_RELATIVE_PATH);
 
   static final String DEFAULTS_PACKAGE_NAME = "tools/defaults";
@@ -422,7 +422,8 @@ public class PackageFunction implements SkyFunction {
     ASTFileLookupValue astLookupValue = null;
     SkyKey astLookupKey = null;
     try {
-      astLookupKey = ASTFileLookupValue.key(PRELUDE_FILE_FRAGMENT);
+      astLookupKey = ASTFileLookupValue.key(
+          PackageIdentifier.createInDefaultRepo(PRELUDE_FILE_FRAGMENT));
     } catch (ASTLookupInputException e) {
       // There's a static check ensuring that PRELUDE_FILE_FRAGMENT is relative.
       throw new IllegalStateException(e);
@@ -584,13 +585,22 @@ public class PackageFunction implements SkyFunction {
       BuildFileAST buildFileAST,
       Environment env)
       throws PackageFunctionException {
-    ImmutableCollection<PathFragment> imports = buildFileAST.getImports();
+    ImmutableMap<Location, PathFragment> imports = buildFileAST.getImports();
     Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     try {
-      for (PathFragment importFile : imports) {
-        SkyKey importsLookupKey =
-            SkylarkImportLookupValue.key(packageId.getRepository(), buildFileFragment, importFile);
+      for (Map.Entry<Location, PathFragment> entry : imports.entrySet()) {
+        PathFragment importFile = entry.getValue();
+        // HACK: The prelude sometimes contains load() statements, which need to be resolved
+        // relative to the prelude file. However, we don't have a good way to tell "this should come
+        // from the main repository" in a load() statement, and we don't have a good way to tell if
+        // a load() statement comes from the prelude, since we just prepend those statements before
+        // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
+        RepositoryName repository =
+            entry.getKey().getPath().endsWith(PRELUDE_FILE_FRAGMENT)
+                ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : packageId.getRepository();
+        SkyKey importsLookupKey = SkylarkImportLookupValue.key(
+            repository, buildFileFragment, importFile);
         SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
             env.getValueOrThrow(importsLookupKey, SkylarkImportFailedException.class,
                 InconsistentFilesystemException.class, ASTLookupInputException.class,

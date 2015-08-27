@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -49,16 +49,8 @@ public class ASTFileLookupValue implements SkyValue {
     return ast;
   }
 
-  static void checkInputArgument(PathFragment astFilePathFragment) throws ASTLookupInputException {
-    if (astFilePathFragment.isAbsolute()) {
-      throw new ASTLookupInputException(String.format(
-          "Input file '%s' cannot be an absolute path.", astFilePathFragment));
-    }
-  }
-
-  static SkyKey key(PathFragment astFilePathFragment) throws ASTLookupInputException {
-    checkInputArgument(astFilePathFragment);
-    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFilePathFragment);
+  static SkyKey key(PackageIdentifier astFileIdentifier) throws ASTLookupInputException {
+    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFileIdentifier);
   }
 
   static final class ASTLookupInputException extends Exception {

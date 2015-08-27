@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -28,6 +30,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
@@ -84,7 +87,7 @@ public class ASTFileLookupFunction implements SkyFunction {
 
       @Override
       public RootedPath rootedPath() {
-        throw new IllegalStateException("unsucessful lookup");
+        throw new IllegalStateException("unsuccessful lookup");
       }
     }
   }
@@ -104,8 +107,9 @@ public class ASTFileLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
-    PathFragment astFilePathFragment = (PathFragment) skyKey.argument();
-    FileLookupResult lookupResult = getASTFile(env, astFilePathFragment);
+    PackageIdentifier key = (PackageIdentifier) skyKey.argument();
+    PathFragment astFilePathFragment = key.getPackageFragment();
+    FileLookupResult lookupResult = getASTFile(env, key);
     if (lookupResult == null) {
       return null;
     }
@@ -132,15 +136,27 @@ public class ASTFileLookupFunction implements SkyFunction {
     return ASTFileLookupValue.withFile(ast);
   }
 
-  private FileLookupResult getASTFile(Environment env, PathFragment astFilePathFragment)
+  private FileLookupResult getASTFile(Environment env, PackageIdentifier key)
       throws ASTLookupFunctionException {
-    for (Path packagePathEntry : pkgLocator.get().getPathEntries()) {
-      RootedPath rootedPath = RootedPath.toRootedPath(packagePathEntry, astFilePathFragment);
-      SkyKey fileSkyKey = FileValue.key(rootedPath);
-      FileValue fileValue = null;
+    List<Path> candidateRoots;
+    if (!key.getRepository().isDefault()) {
+      RepositoryValue repository =
+          (RepositoryValue) env.getValue(RepositoryValue.key(key.getRepository()));
+      if (repository == null) {
+        return null;
+      }
+
+      candidateRoots = ImmutableList.of(repository.getPath());
+    } else {
+      candidateRoots = pkgLocator.get().getPathEntries();
+    }
+
+    for (Path root : candidateRoots) {
+      RootedPath rootedPath = RootedPath.toRootedPath(root, key.getPackageFragment());
+      FileValue fileValue;
       try {
-        fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-            FileSymlinkException.class, InconsistentFilesystemException.class);
+        fileValue = (FileValue) env.getValueOrThrow(FileValue.key(rootedPath),
+            IOException.class, FileSymlinkException.class, InconsistentFilesystemException.class);
       } catch (IOException | FileSymlinkException e) {
         throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
             e.getMessage()), Transience.PERSISTENT);

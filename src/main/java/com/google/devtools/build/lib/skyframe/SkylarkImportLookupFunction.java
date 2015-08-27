@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -60,7 +61,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     PathFragment file = arg.getPackageFragment();
     ASTFileLookupValue astLookupValue = null;
     try {
-      SkyKey astLookupKey = ASTFileLookupValue.key(file);
+      SkyKey astLookupKey = ASTFileLookupValue.key(arg);
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
@@ -83,10 +84,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     BuildFileAST ast = astLookupValue.getAST();
     // TODO(bazel-team): Refactor this code and PackageFunction to reduce code duplications.
-    for (PathFragment importFile : ast.getImports()) {
+    for (Map.Entry<Location, PathFragment> entry : ast.getImports().entrySet()) {
       try {
-        SkyKey importsLookupKey =
-            SkylarkImportLookupValue.key(arg.getRepository(), file, importFile);
+        PathFragment importFile = entry.getValue();
+        // HACK: The prelude sometimes contains load() statements, which need to be resolved
+        // relative to the prelude file. However, we don't have a good way to tell "this should come
+        // from the main repository" in a load() statement, and we don't have a good way to tell if
+        // a load() statement comes from the prelude, since we just prepend those statements before
+        // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
+        RepositoryName repository =
+            entry.getKey().getPath().endsWith(PackageFunction.PRELUDE_FILE_FRAGMENT)
+                ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : arg.getRepository();
+        SkyKey importsLookupKey = SkylarkImportLookupValue.key(repository, file, importFile);
         SkylarkImportLookupValue importsLookupValue;
         importsLookupValue = (SkylarkImportLookupValue) env.getValueOrThrow(
             importsLookupKey, ASTLookupInputException.class);

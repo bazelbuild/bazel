@@ -58,6 +58,14 @@ public class SkylarkImportLookupValue implements SkyValue {
     return dependency;
   }
 
+  private static void checkInputArgument(PathFragment astFilePathFragment)
+      throws ASTLookupInputException {
+    if (astFilePathFragment.isAbsolute()) {
+      throw new ASTLookupInputException(String.format(
+          "Input file '%s' cannot be an absolute path.", astFilePathFragment));
+    }
+  }
+
   @VisibleForTesting
   static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
     return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
@@ -79,7 +87,7 @@ public class SkylarkImportLookupValue implements SkyValue {
   private static SkyKey key(RepositoryName repo, PathFragment fileToImport)
       throws ASTLookupInputException {
     // Skylark import lookup keys need to be valid AST file lookup keys.
-    ASTFileLookupValue.checkInputArgument(fileToImport);
+    checkInputArgument(fileToImport);
     return new SkyKey(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
         new PackageIdentifier(repo, fileToImport));
