@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.LoggingUtil;
 
@@ -35,6 +37,9 @@ public class EvalException extends Exception {
   private Location location;
   private final String message;
   private final boolean dueToIncompleteAST;
+
+  private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
+  private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
 
   /**
    * @param location the location where evaluation/execution failed.
@@ -65,22 +70,18 @@ public class EvalException extends Exception {
   public EvalException(Location location, String message, Throwable cause) {
     super(cause);
     this.location = location;
-    // This is only used from Skylark, it's useful for debugging. Note that this only happens
-    // when the Precondition below kills the execution anyway.
-    if (message == null) {
-      message = "";
-    }
-    if (cause != null) {
-      String causeMsg = cause.getMessage();
-      if (causeMsg != null && !message.contains(causeMsg)) {
-        message = message + (message.isEmpty() ? "" : ": ") + causeMsg;
+    // This is only used from Skylark, it's useful for debugging.
+    this.message = FIELD_JOINER.join(message, getCauseMessage(message));
+    if (this.message.isEmpty()) {
+      String details;
+      if (cause == null) {
+        details = "Invalid EvalException: no cause given!";
+      } else {
+        details = "Invalid EvalException:\n" + Throwables.getStackTraceAsString(cause);
       }
+      LoggingUtil.logToRemote(Level.SEVERE, details, cause);
+      throw new IllegalArgumentException(details);
     }
-    if (message.isEmpty()) {
-      LoggingUtil.logToRemote(Level.SEVERE, "Invalid EvalException", cause);
-      throw new IllegalArgumentException("Invalid EvalException");
-    }
-    this.message = message;
     this.dueToIncompleteAST = false;
   }
 
@@ -92,19 +93,33 @@ public class EvalException extends Exception {
    * Returns the error message with location info if exists.
    */
   public String print() { // TODO(bazel-team): do we also need a toString() method?
-    return (getLocation() == null ? "" : getLocation()) + ": "
-        + (message == null ? "" : message + "\n")
-        + (dueToIncompleteAST ? "due to incomplete AST\n" : "")
-        + getCauseMessage();
+    return LINE_JOINER.join("\n", FIELD_JOINER.join(getLocation(), message),
+        (dueToIncompleteAST ? "due to incomplete AST" : ""),
+        getCauseMessage(message));
   }
-  
-  private String getCauseMessage() {
+
+  /**
+   * @param message the message of this exception, so far.
+   * @return a message for the cause of the exception, if the main message (passed as argument)
+   * doesn't already contain this cause; return null if no new information is available.
+   */
+  private String getCauseMessage(String message) {
     Throwable cause = getCause();
     if (cause == null) {
-      return "";
+      return null;
     }
     String causeMessage = cause.getMessage();
-    return (causeMessage == null || message.contains(causeMessage)) ? "" : causeMessage;
+    if (causeMessage == null) {
+      return null;
+    }
+    if (message == null) {
+      return causeMessage;
+    }
+    // Skip the cause if it is redundant with the message so far.
+    if (message.contains(causeMessage)) {
+      return null;
+    }
+    return causeMessage;
   }
 
   /**
