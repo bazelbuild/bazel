@@ -23,14 +23,24 @@ import java.util.Deque;
 import java.util.LinkedList;
 
 /**
- * EvalException with a stack trace
+ * EvalException with a stack trace.
  */
 public class EvalExceptionWithStackTrace extends EvalException {
 
   private StackTraceElement mostRecentElement;
 
   public EvalExceptionWithStackTrace(Exception original, Location callLocation) {
-    super(callLocation, getNonEmptyMessage(original), original.getCause());
+    super(callLocation, getNonEmptyMessage(original), getCause(original));
+  }
+
+  /**
+   * Returns the "real" cause of this exception.
+   *
+   * <p>If the original exception is an EvalException, its cause is returned.
+   * Otherwise, the original exception itself is seen as the cause for this exception.
+   */
+  private static Throwable getCause(Exception ex) {
+    return (ex instanceof EvalException) ? ex.getCause() : ex;
   }
 
   /**
