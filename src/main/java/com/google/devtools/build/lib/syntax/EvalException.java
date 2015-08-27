@@ -70,8 +70,11 @@ public class EvalException extends Exception {
     if (message == null) {
       message = "";
     }
-    if (cause != null && !message.contains(cause.getMessage())) {
-      message = message + (message.isEmpty() ? "" : ": ") + cause.getMessage();
+    if (cause != null) {
+      String causeMsg = cause.getMessage();
+      if (causeMsg != null && !message.contains(causeMsg)) {
+        message = message + (message.isEmpty() ? "" : ": ") + causeMsg;
+      }
     }
     if (message.isEmpty()) {
       LoggingUtil.logToRemote(Level.SEVERE, "Invalid EvalException", cause);

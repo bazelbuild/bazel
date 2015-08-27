@@ -30,7 +30,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
   private StackTraceElement mostRecentElement;
 
   public EvalExceptionWithStackTrace(Exception original, Location callLocation) {
-    super(callLocation, original.getMessage(), original.getCause());
+    super(callLocation, getNonEmptyMessage(original), original.getCause());
   }
 
   /**
@@ -214,5 +214,34 @@ public class EvalExceptionWithStackTrace extends EvalException {
       output.addFirst("Traceback (most recent call last):");
       output.addLast(message);
     }
+  }
+
+  /**
+   * Returns a non-empty message for the given exception.
+   *
+   * <p> If the exception itself does not have a message, a new message is constructed from the
+   * exception's class name.
+   * For example, an IllegalArgumentException will lead to "Illegal Argument".
+   */
+  private static String getNonEmptyMessage(Exception original) {
+    Preconditions.checkNotNull(original);
+    String msg = original.getMessage();
+    if (msg != null && !msg.isEmpty()) {
+      return msg;
+    }
+
+    char[] name = original.getClass().getSimpleName().replace("Exception", "").toCharArray();
+    boolean first = true;
+    StringBuilder builder = new StringBuilder();
+
+    for (char current : name) {
+      if (Character.isUpperCase(current) && !first) {
+        builder.append(" ");
+      }
+      builder.append(current);
+      first = false;
+    }
+
+    return builder.toString();
   }
 }
