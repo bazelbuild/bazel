@@ -1364,9 +1364,9 @@ public final class RuleClass {
         continue;
       }
 
-      checkAllowedValues(rule, attribute, value.getValue(), eventHandler);
       rule.setAttributeValue(attribute, value.getValue(), value.getExplicitlySpecified());
       rule.setAttributeLocation(attribute, value.getLocation());
+      checkAllowedValues(rule, attribute, eventHandler);
 
       if (attribute.getName().equals("visibility")) {
         // TODO(bazel-team): Verify that this cast works
@@ -1437,8 +1437,8 @@ public final class RuleClass {
         } else {
           Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
           checkAttrValNonEmpty(rule, eventHandler, defaultValue, attrIndex);
-          checkAllowedValues(rule, attr, defaultValue, eventHandler);
           rule.setAttributeValue(attr, defaultValue, /*explicit=*/false);
+          checkAllowedValues(rule, attr, eventHandler);
         }
       }
     }
@@ -1653,19 +1653,32 @@ public final class RuleClass {
       rule.setVisibility(PackageFactory.getVisibility(attrList));
     }
 
-    checkAllowedValues(rule, attr, converted, eventHandler);
     rule.setAttributeValue(attr, converted, /*explicit=*/true);
+    checkAllowedValues(rule, attr, eventHandler);
     return attrIndex;
   }
 
-  private void checkAllowedValues(Rule rule, Attribute attribute, Object value,
-      EventHandler eventHandler) {
+  /**
+   * Verifies that the rule has a valid value for the attribute according to its allowed values.
+   *
+   * <p>If the value for the given attribute on the given rule is invalid, an error will be recorded
+   * in the given EventHandler.
+   *
+   * <p>If the rule is configurable, all of its potential values are evaluated, and errors for each
+   * of the invalid values are reported.
+   */
+  private void checkAllowedValues(Rule rule, Attribute attribute, EventHandler eventHandler) {
     if (attribute.checkAllowedValues()) {
       PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
-      if (!allowedValues.apply(value)) {
-        rule.reportError(String.format(rule.getLabel() + ": invalid value in '%s' attribute: %s",
-            attribute.getName(),
-            allowedValues.getErrorReason(value)), eventHandler);
+      Iterable<?> values =
+          AggregatingAttributeMapper.of(rule).visitAttribute(
+              attribute.getName(), attribute.getType());
+      for (Object value : values) {
+        if (!allowedValues.apply(value)) {
+          rule.reportError(String.format(rule.getLabel() + ": invalid value in '%s' attribute: %s",
+              attribute.getName(),
+              allowedValues.getErrorReason(value)), eventHandler);
+        }
       }
     }
   }
