@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
@@ -58,10 +60,11 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "on the machine the simulator will be run on.")
   public String iosSimulatorDevice;
 
+  // TODO(bazel-team): Consider using optional for values like these.
   @Option(name = "ios_cpu",
-      defaultValue = DEFAULT_IOS_CPU,
+      defaultValue = "",
       category = "build",
-      help = "Specifies to target CPU of iOS compilation.")
+      help = "The target CPU for iOS compilation.")
   public String iosCpu;
 
   @Option(name = "xcode_options",
@@ -179,13 +182,33 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     }
   }
 
+  /**
+   * Returns the value of the ios_cpu flag, or a default value if none was specified.
+   */
+  public String getIosCpu() {
+    if ("".equals(iosCpu)) {
+      return DEFAULT_IOS_CPU;
+    } else {
+      return iosCpu;
+    }
+  }
+
+  /**
+   * Returns the value of the ios_cpu flag, if it was specified.
+   * This is to distinguish between the default cpu used by the build tools and the cpu explicitly
+   * requested by user configuration.
+   */
+  public Optional<String> getConfiguredIosCpu() {
+    return Strings.isNullOrEmpty(iosCpu) ? Optional.<String>absent() : Optional.of(iosCpu);
+  }
+
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
       if (Platform.forArch(architecture) == Platform.DEVICE) {
         return Platform.DEVICE;
       }
     }
-    return Platform.forArch(iosCpu);
+    return Platform.forArch(getIosCpu());
   }
 
   @Override

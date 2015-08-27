@@ -234,7 +234,11 @@ public final class XcodeSupport {
 
         List<String> multiCpus = objcConfiguration.getIosMultiCpus();
         if (multiCpus.isEmpty()) {
-          builder.addCpuArchitecture(objcConfiguration.getIosCpu());
+          // Only add a CPU architecture if one was explicitly configured.
+          // Otherwise, the XCode generation tools will supply a default for XCode.
+          if (objcConfiguration.getConfiguredIosCpu().isPresent()) {
+            builder.addCpuArchitecture(objcConfiguration.getConfiguredIosCpu().get());
+          }
         } else {
           builder.addAllCpuArchitecture(multiCpus);
         }

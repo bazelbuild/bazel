@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -53,6 +54,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSimulatorVersion;
   private final String iosSimulatorDevice;
   private final String iosCpu;
+  private final Optional<String> configuredIosCpu;
   private final String xcodeOptions;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
@@ -84,7 +86,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
-    this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
+    this.iosCpu = Preconditions.checkNotNull(objcOptions.getIosCpu(), "iosCpu");
+    this.configuredIosCpu =
+        Preconditions.checkNotNull(objcOptions.getConfiguredIosCpu(), "configuredIosCpu");
     this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
     this.generateDebugSymbols = objcOptions.generateDebugSymbols;
     this.runMemleaks = objcOptions.runMemleaks;
@@ -126,8 +130,19 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return iosSimulatorVersion;
   }
 
+  /**
+   * Returns the ios_cpu value to use.
+   */
   public String getIosCpu() {
     return iosCpu;
+  }
+
+  /**
+   * Returns the ios_cpu value set by the configuration (that is, by a command-line flag
+   * or by an ios_multi_cpu split configuration), if it is present.
+   */
+  public Optional<String> getConfiguredIosCpu() {
+    return configuredIosCpu;
   }
 
   /**
