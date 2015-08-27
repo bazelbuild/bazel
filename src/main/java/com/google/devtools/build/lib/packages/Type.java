@@ -20,6 +20,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -927,9 +928,10 @@ public abstract class Type<T> {
       if (!(x instanceof Iterable<?>)) {
         throw new ConversionException(this, x, what);
       }
-      List<ElemT> result = new ArrayList<>();
       int index = 0;
-      for (Object elem : (Iterable<?>) x) {
+      Iterable<?> iterable = (Iterable<?>) x;
+      List<ElemT> result = Lists.newArrayListWithExpectedSize(Iterables.size(iterable));
+      for (Object elem : iterable) {
         ElemT converted = elemType.convert(elem, "element " + index + " of " + what, currentRule);
         if (converted != null) {
           result.add(converted);
