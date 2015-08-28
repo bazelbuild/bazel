@@ -51,11 +51,9 @@ import com.google.devtools.build.lib.vfs.SearchPath;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,15 +203,9 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       Path target = mount.getValue();
       validateAndAddMount(sandboxPath, fixedMounts, source, target);
 
-      // Iteratively resolve symlinks and mount the whole chain. Take care not to run into a cyclic
-      // symlink - when we already processed the source once, we can exit the loop. Skyframe will
-      // catch cyclic symlinks for declared inputs, but this won't help if there is one in the parts
-      // of the host system that we mount.
-      Set<Path> seenSources = new HashSet<>();
-      while (source.isSymbolicLink() && seenSources.add(source)) {
-        source = source.getParentDirectory().getRelative(source.readSymbolicLink());
+      if (source.isSymbolicLink()) {
+        source = source.resolveSymbolicLinks();
         target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-
         validateAndAddMount(sandboxPath, fixedMounts, source, target);
       }
     }

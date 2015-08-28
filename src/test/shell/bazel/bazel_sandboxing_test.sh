@@ -73,6 +73,12 @@ EOF
   ln -sf cyclic2 examples/genrule/cyclic1
   ln -sf cyclic1 examples/genrule/cyclic2
 
+  # Create relative symlinks.
+  mkdir -p examples/genrule/symlinks/{a,ok/sub}
+  echo OK > examples/genrule/symlinks/ok/x.txt
+  ln -s $PWD/examples/genrule/symlinks/ok/sub examples/genrule/symlinks/a/b
+  ln -s ../x.txt examples/genrule/symlinks/a/b/x.txt
+
   cat << 'EOF' > examples/genrule/BUILD
 genrule(
   name = "works",
@@ -100,6 +106,13 @@ genrule(
    srcs = [],
    outs = ["tooldir.txt"],
    cmd = "ls -l tools/genrule | tee $@ >&2; cat tools/genrule/genrule-setup.sh >&2",
+)
+
+genrule(
+  name = "relative_symlinks",
+  srcs = [ "symlinks/a/b/x.txt" ],
+  outs = [ "relative_symlinks.txt" ],
+  cmd = "cat $(location :symlinks/a/b/x.txt) > $@",
 )
 
 genrule(
@@ -167,6 +180,23 @@ function test_sandboxed_genrule_with_tools() {
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/tools.txt" ] \
     || fail "Genrule didn't produce output: examples/genrule:tools_work"
+}
+
+# Test for #400: Linux sandboxing and relative symbolic links.
+#
+# let A = examples/genrule/symlinks/a/b/x.txt -> ../x.txt
+# where   examples/genrule/symlinks/a/b -> examples/genrule/symlinks/ok/sub
+# thus the realpath of A is example/genrule/symlinks/ok/x.txt
+# but if the code doesn't correctly resolve intermediate symlinks and instead
+# uses string operations to handle ".." parts, it will arrive at:
+# examples/genrule/symlinks/a/x.txt, which is wrong.
+#
+function test_sandbox_relative_symlink_in_inputs() {
+  bazel build --genrule_strategy=sandboxed \
+    examples/genrule:relative_symlinks \
+    || fail "Hermetic genrule failed: examples/genrule:relative_symlinks"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/relative_symlinks.txt" ] \
+    || fail "Genrule didn't produce output: examples/genrule:relative_symlinks"
 }
 
 function test_sandbox_undeclared_deps() {
