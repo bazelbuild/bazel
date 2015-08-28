@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -124,10 +123,9 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       @Override
       protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
                              boolean linkShared) {
-        Iterable<? extends TransitiveInfoCollection> deps =
-            ruleContext.getPrerequisites("deps", Mode.TARGET);
-        builder.addTransitiveTargets(deps);
-        builder.addTransitiveLangTargets(deps, PyCcLinkParamsProvider.TO_LINK_PARAMS);
+        builder.addTransitiveTargets(ruleContext.getPrerequisites("deps", Mode.TARGET),
+            PyCcLinkParamsProvider.TO_LINK_PARAMS,
+            CcLinkParamsProvider.TO_LINK_PARAMS);
       }
     };
   }
