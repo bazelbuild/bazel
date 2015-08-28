@@ -43,11 +43,6 @@ public class Constants {
   public static final ImmutableList<String> BASELINE_COVERAGE_OFFLINE_INSTRUMENTATION_SUFFIXES =
       ImmutableList.<String>of();
 
-  /**
-   * Rule classes which specify iOS devices for running tests.
-   */
-  public static final ImmutableSet<String> IOS_DEVICE_RULE_CLASSES = ImmutableSet.of("ios_device");
-
   public static final String ANDROID_DEFAULT_SDK = "//external:android/sdk".toString();
   public static final String ANDROID_DEFAULT_CROSSTOOL = "//external:android/crosstool".toString();
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =

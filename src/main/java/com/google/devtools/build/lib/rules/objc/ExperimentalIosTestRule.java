@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -62,7 +61,7 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
         .override(
             attr(IosTest.TARGET_DEVICE, LABEL)
                 .allowedFileTypes()
-                .allowedRuleClasses(Constants.IOS_DEVICE_RULE_CLASSES)
+                .allowedRuleClasses("ios_device")
                 .value(env.getLabel("//tools/objc/sim_devices:default")))
         /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(ios_test_target_device) -->
          The device against how to run the test. If this attribute is defined, the test will run on
