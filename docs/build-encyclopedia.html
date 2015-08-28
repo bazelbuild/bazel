@@ -818,7 +818,7 @@ specified on the <code>bazel test</code> command line.
         <tr>
         <td id="test.size"><code>size</code></td>
         <td><p><code>String "enormous", "large" "medium" or "small",
-default is "medium"</code></p>
+default is "medium"; optional</code></p>
 
 <p>How "heavy" the test is.</p>
 
@@ -862,6 +862,35 @@ By default this attribute is set to 0 and test is considered to be stable.
 Note, that use of this attribute is generally discouraged - we do prefer
 all tests to be stable.
 </p>
+</td>
+      </tr>
+        <tr>
+        <td id="test.shard_count"><code>shard_count</code></td>
+        <td><p>Non-negative integer less than or equal to 50;
+optional</p>
+
+<p>Specifies the number of parallel shards
+to use to run the test.</p>
+
+<p>This value will override any heuristics used to determine the number of
+parallel shards with which to run the test. Note that for some test
+rules, this parameter may be required to enable sharding
+in the first place. Also see <code>--test_sharding_strategy</code>.</p>
+
+<p>Sharding requires the test runner to support the test sharding protocol.
+If it does not, then it will most likely run every test in every shard, which
+is not what you want.</p>
+</td>
+      </tr>
+        <tr>
+        <td id="test.local"><code>local</code></td>
+        <td><p><code>Boolean; optional</code></p>
+
+<p>Forces the test to be run locally, without sandboxing.</p>
+
+<p>By default this attribute is set to 0 and the default testing strategy is
+used. This is equivalent to providing "local" as a tag
+(<code>tags=["local"]</code>).</p>
 </td>
       </tr>
       </tbody>
@@ -7282,7 +7311,7 @@ sh_library(
       cc_test
     </h3>
 
-    <pre class="rule-signature">cc_test(<a href="#cc_test.name">name</a>, <a href="#cc_test.deps">deps</a>, <a href="#cc_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#cc_test.abi">abi</a>, <a href="#cc_test.abi_deps">abi_deps</a>, <a href="#test.args">args</a>, <a href="#cc_test.copts">copts</a>, <a href="#cc_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#cc_test.hdrs_check">hdrs_check</a>, <a href="#cc_test.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#cc_test.linkopts">linkopts</a>, <a href="#cc_test.linkstatic">linkstatic</a>, <a href="#cc_test.malloc">malloc</a>, <a href="#cc_test.nocopts">nocopts</a>, <a href="#test.size">size</a>, <a href="#cc_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">cc_test(<a href="#cc_test.name">name</a>, <a href="#cc_test.deps">deps</a>, <a href="#cc_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#cc_test.abi">abi</a>, <a href="#cc_test.abi_deps">abi_deps</a>, <a href="#test.args">args</a>, <a href="#cc_test.copts">copts</a>, <a href="#cc_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#cc_test.hdrs_check">hdrs_check</a>, <a href="#cc_test.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#cc_test.linkopts">linkopts</a>, <a href="#cc_test.linkstatic">linkstatic</a>, <a href="#test.local">local</a>, <a href="#cc_test.malloc">malloc</a>, <a href="#cc_test.nocopts">nocopts</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#cc_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -7617,7 +7646,7 @@ sh_library(
 
           </td>
         </tr>
-                              <tr>
+                                            <tr>
           <td id="cc_test.malloc">
             <code>malloc</code>
           </td>
@@ -7653,7 +7682,7 @@ sh_library(
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="cc_test.stamp">
             <code>stamp</code>
           </td>
@@ -7681,7 +7710,7 @@ sh_library(
       experimental_ios_test
     </h3>
 
-    <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.ios_device_arg">ios_device_arg</a>, <a href="#experimental_ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.plugins">plugins</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.ios_device_arg">ios_device_arg</a>, <a href="#experimental_ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.plugins">plugins</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
 
     
 
@@ -8015,7 +8044,7 @@ on both iOS simulator and real devices.
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="experimental_ios_test.non_arc_srcs">
             <code>non_arc_srcs</code>
           </td>
@@ -8131,7 +8160,7 @@ on both iOS simulator and real devices.
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="experimental_ios_test.storyboards">
             <code>storyboards</code>
           </td>
@@ -8260,7 +8289,7 @@ on both iOS simulator and real devices.
       ios_test
     </h3>
 
-    <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
 
     
 
@@ -8569,7 +8598,7 @@ on both iOS simulator and real devices.
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="ios_test.non_arc_srcs">
             <code>non_arc_srcs</code>
           </td>
@@ -8674,7 +8703,7 @@ on both iOS simulator and real devices.
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="ios_test.storyboards">
             <code>storyboards</code>
           </td>
@@ -8803,7 +8832,7 @@ on both iOS simulator and real devices.
       java_test
     </h3>
 
-    <pre class="rule-signature">java_test(<a href="#java_test.name">name</a>, <a href="#java_test.deps">deps</a>, <a href="#java_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#java_test.resources">resources</a>, <a href="#test.args">args</a>, <a href="#java_test.classpath_resources">classpath_resources</a>, <a href="#java_test.create_executable">create_executable</a>, <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#java_test.javacopts">javacopts</a>, <a href="#java_test.jvm_flags">jvm_flags</a>, <a href="#common.licenses">licenses</a>, <a href="#java_test.main_class">main_class</a>, <a href="#java_test.plugins">plugins</a>, <a href="#java_test.runtime_deps">runtime_deps</a>, <a href="#test.size">size</a>, <a href="#java_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">java_test(<a href="#java_test.name">name</a>, <a href="#java_test.deps">deps</a>, <a href="#java_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#java_test.resources">resources</a>, <a href="#test.args">args</a>, <a href="#java_test.classpath_resources">classpath_resources</a>, <a href="#java_test.create_executable">create_executable</a>, <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#java_test.javacopts">javacopts</a>, <a href="#java_test.jvm_flags">jvm_flags</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#java_test.main_class">main_class</a>, <a href="#java_test.plugins">plugins</a>, <a href="#java_test.runtime_deps">runtime_deps</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#java_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -9033,7 +9062,7 @@ java_test(
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="java_test.main_class">
             <code>main_class</code>
           </td>
@@ -9084,7 +9113,7 @@ java_test(
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="java_test.stamp">
             <code>stamp</code>
           </td>
@@ -9111,7 +9140,7 @@ java_test(
       py_test
     </h3>
 
-    <pre class="rule-signature">py_test(<a href="#py_test.name">name</a>, <a href="#py_test.deps">deps</a>, <a href="#py_test.srcs">srcs</a>, <a href="#py_test.data">data</a>, <a href="#test.args">args</a>, <a href="#py_test.default_python_version">default_python_version</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#common.licenses">licenses</a>, <a href="#py_test.main">main</a>, <a href="#test.size">size</a>, <a href="#py_test.srcs_version">srcs_version</a>, <a href="#py_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">py_test(<a href="#py_test.name">name</a>, <a href="#py_test.deps">deps</a>, <a href="#py_test.srcs">srcs</a>, <a href="#py_test.data">data</a>, <a href="#test.args">args</a>, <a href="#py_test.default_python_version">default_python_version</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#py_test.main">main</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#py_test.srcs_version">srcs_version</a>, <a href="#py_test.stamp">stamp</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -9233,7 +9262,7 @@ py_binary(
 
           </td>
         </tr>
-                                                                                                    <tr>
+                                                                                                                  <tr>
           <td id="py_test.main">
             <code>main</code>
           </td>
@@ -9247,7 +9276,7 @@ py_binary(
 
           </td>
         </tr>
-                                            <tr>
+                                                          <tr>
           <td id="py_test.srcs_version">
             <code>srcs_version</code>
           </td>
@@ -9288,7 +9317,7 @@ py_binary(
       sh_test
     </h3>
 
-    <pre class="rule-signature">sh_test(<a href="#sh_test.name">name</a>, <a href="#sh_test.deps">deps</a>, <a href="#sh_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#test.args">args</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#common.licenses">licenses</a>, <a href="#test.size">size</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">sh_test(<a href="#sh_test.name">name</a>, <a href="#sh_test.deps">deps</a>, <a href="#sh_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#test.args">args</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -9369,7 +9398,7 @@ sh_test(
 
           </td>
         </tr>
-                                                                                                                                                                                            </tbody>
+                                                                                                                                                                                                                        </tbody>
     </table>
       
 <!-- ============================================
