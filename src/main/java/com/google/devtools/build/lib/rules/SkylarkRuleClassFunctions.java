@@ -321,11 +321,34 @@ public class SkylarkRuleClassFunctions {
         }
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
-        return RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env.getStackTrace());
+        return RuleFactory.createAndAddRule(pkgContext, ruleClass,
+            addGeneratorAttributesForMacros((Map<String, Object>) args[0], env), ast);
       } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
+    }
+
+    /**
+     * If the current rule was created by a macro, this method sets the appropriate values for the
+     * attributes generator_{name, function, location} and returns a map of all attribute values.
+     *
+     * <p>Otherwise, the specified map of arguments is returned without any changes.
+     */
+    private Map<String, Object> addGeneratorAttributesForMacros(
+        Map<String, Object> args, Environment env) {
+      ImmutableList<BaseFunction> stackTrace = env.getStackTrace();
+      if (stackTrace.isEmpty()) {
+        // If there was a macro, it would be on the stack.
+        return args;
+      }
+
+      BaseFunction generator = stackTrace.get(0); // BaseFunction
+      ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+      builder.putAll(args);
+      builder.put("generator_name", args.get("name"));
+      builder.put("generator_function", generator.getName());
+      builder.put("generator_location", generator.getLocationPathAndLine());
+      return builder.build();
     }
 
     /**

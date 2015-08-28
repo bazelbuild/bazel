@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,7 +61,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction implements StackTraceElement {
+public abstract class BaseFunction {
 
   // The name of the function
   private final String name;
@@ -98,7 +100,6 @@ public abstract class BaseFunction implements StackTraceElement {
 
 
   /** Returns the name of this function. */
-  @Override
   public String getName() {
     return name;
   }
@@ -213,7 +214,7 @@ public abstract class BaseFunction implements StackTraceElement {
 
     // Note that this variable will be adjusted down if there are extra positionals,
     // after these extra positionals are dumped into starParam.
-    int numPositionalArgs = (args == null) ? 0 : args.size();
+    int numPositionalArgs = args.size();
 
     int numMandatoryPositionalParams = shape.getMandatoryPositionals();
     int numOptionalPositionalParams = shape.getOptionalPositionals();
@@ -415,8 +416,8 @@ public abstract class BaseFunction implements StackTraceElement {
       @Nullable Environment parentEnv)
       throws EvalException, InterruptedException {
     Environment env = getOrCreateChildEnvironment(parentEnv);
-
     Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
+
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? location : ast.getLocation();
 
@@ -570,9 +571,26 @@ public abstract class BaseFunction implements StackTraceElement {
     return Objects.hash(name, location);
   }
 
-  @Override
-  @Nullable
-  public Location getLocation() {
-    return location;
+  /**
+   * Returns the location (filename:line) of the BaseFunction's definition.
+   *
+   * <p>If such a location is not defined, this method returns an empty string.
+   */
+  public String getLocationPathAndLine() {
+    if (location == null) {
+      return "";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    PathFragment path = location.getPath();
+    if (path != null) {
+      builder.append(path.getPathString());
+    }
+
+    LineAndColumn position = location.getStartLineAndColumn();
+    if (position != null) {
+      builder.append(":").append(position.getLine());
+    }
+    return builder.toString();
   }
 }

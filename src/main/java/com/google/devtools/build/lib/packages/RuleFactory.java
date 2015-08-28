@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.StackTraceElement;
 
 import java.util.Map;
 import java.util.Set;
@@ -77,8 +75,7 @@ public class RuleFactory {
       Map<String, Object> attributeValues,
       EventHandler eventHandler,
       FuncallExpression ast,
-      Location location,
-      ImmutableList<StackTraceElement> stackTrace)
+      Location location)
       throws InvalidRuleException, NameConflictException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
@@ -108,9 +105,8 @@ public class RuleFactory {
     }
 
     try {
-      Rule rule = ruleClass.createRuleWithLabel(pkgBuilder, label,
-          addGeneratorAttributesForMacros(attributeValues, stackTrace), eventHandler, ast,
-          location);
+      Rule rule = ruleClass.createRuleWithLabel(pkgBuilder, label, attributeValues,
+          eventHandler, ast, location);
       return rule;
     } catch (SyntaxException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
@@ -118,22 +114,7 @@ public class RuleFactory {
   }
 
   /**
-   * Creates and returns a rule instance (without a stack trace).
-   */
-  static Rule createRule(
-      Package.Builder pkgBuilder,
-      RuleClass ruleClass,
-      Map<String, Object> attributeValues,
-      EventHandler eventHandler,
-      FuncallExpression ast,
-      Location location)
-      throws InvalidRuleException, NameConflictException {
-    return createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location,
-        ImmutableList.<StackTraceElement>of());
-  }
-
-  /**
-   * Creates a rule instance, adds it to the package and returns it.
+   * Creates and returns a rule instance.
    *
    * @param pkgBuilder the under-construction package to which the rule belongs
    * @param ruleClass the class of the rule; this must not be null
@@ -145,8 +126,6 @@ public class RuleFactory {
    *        rule creation
    * @param ast the abstract syntax tree of the rule expression (optional)
    * @param location the location at which this rule was declared
-   * @param stackTrace the stack trace containing all functions that led to the creation of
-   *        this rule (optional)
    * @throws InvalidRuleException if the rule could not be constructed for any
    *         reason (e.g. no <code>name</code> attribute is defined)
    * @throws NameConflictException
@@ -156,11 +135,8 @@ public class RuleFactory {
                   Map<String, Object> attributeValues,
                   EventHandler eventHandler,
                   FuncallExpression ast,
-                  Location location,
-                  ImmutableList<StackTraceElement> stackTrace)
-      throws InvalidRuleException, NameConflictException {
-    Rule rule = createRule(
-        pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location, stackTrace);
+                  Location location) throws InvalidRuleException, NameConflictException {
+    Rule rule = createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -168,11 +144,9 @@ public class RuleFactory {
   public static Rule createAndAddRule(PackageContext context,
       RuleClass ruleClass,
       Map<String, Object> attributeValues,
-      FuncallExpression ast,
-      ImmutableList<StackTraceElement> stackTrace)
-      throws InvalidRuleException, NameConflictException {
+      FuncallExpression ast) throws InvalidRuleException, NameConflictException {
     return createAndAddRule(context.pkgBuilder, ruleClass, attributeValues, context.eventHandler,
-        ast, ast.getLocation(), stackTrace);
+        ast, ast.getLocation());
   }
 
   /**
@@ -183,28 +157,5 @@ public class RuleFactory {
     private InvalidRuleException(String message) {
       super(message);
     }
-  }
-
-  /**
-   * If the rule was created by a macro, this method sets the appropriate values for the
-   * attributes generator_{name, function, location} and returns all attributes.
-   *
-   * <p>Otherwise, it returns the given attributes without any changes.
-   */
-  private static Map<String, Object> addGeneratorAttributesForMacros(
-      Map<String, Object> args, ImmutableList<StackTraceElement> stackTrace) {
-    if (stackTrace.size() <= 1) {
-      // It cannot be a macro when the stack trace is empty or when it only contains the rule
-      // itself.
-      return args;
-    }
-
-    StackTraceElement generator = stackTrace.get(0);
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    builder.putAll(args);
-    builder.put("generator_name", args.get("name"));
-    builder.put("generator_function", generator.getName());
-    builder.put("generator_location", Location.printPathAndLine(generator.getLocation()));
-    return builder.build();
   }
 }

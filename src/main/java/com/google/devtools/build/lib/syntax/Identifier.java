@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /**
  *  Syntax node for an identifier.
  */
-public final class Identifier extends Expression implements StackTraceElement {
+public final class Identifier extends Expression {
 
   private final String name;
 
@@ -37,7 +37,6 @@ public final class Identifier extends Expression implements StackTraceElement {
   /**
    *  Returns the name of the Identifier.
    */
-  @Override
   public String getName() {
     return name;
   }

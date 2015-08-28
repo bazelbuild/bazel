@@ -291,30 +291,4 @@ public abstract class Location implements Serializable {
       return null;
     }
   };
-
-  /**
-   * Returns the location in the format "filename:line".
-   *
-   * <p>If such a location is not defined, this method returns an empty string.
-   */
-  public static String printPathAndLine(Location location) {
-    return (location == null) ? "" : location.printPathAndLine();
-  }
-
-  /**
-   * Returns this location in the format "filename:line".
-   */
-  public String printPathAndLine() {
-    StringBuilder builder = new StringBuilder();
-    PathFragment path = getPath();
-    if (path != null) {
-      builder.append(path.getPathString());
-    }
-
-    LineAndColumn position = getStartLineAndColumn();
-    if (position != null) {
-      builder.append(":").append(position.getLine());
-    }
-    return builder.toString();
-  }
 }

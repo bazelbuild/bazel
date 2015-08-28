@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 
@@ -41,6 +42,10 @@ public class UserDefinedFunction extends BaseFunction {
 
   ImmutableList<Statement> getStatements() {
     return statements;
+  }
+
+  Location getLocation() {
+    return location;
   }
 
   @Override
