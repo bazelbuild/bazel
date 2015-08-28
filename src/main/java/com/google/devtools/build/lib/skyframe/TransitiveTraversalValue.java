@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -38,16 +39,16 @@ public class TransitiveTraversalValue implements SkyValue {
   // Note that this value does not guarantee singleton-like reference equality for successful
   // {@link TransitiveTraversalValue}s because we use Java deserialization. Java deserialization can
   // create other instances.
-  static final TransitiveTraversalValue SUCCESSFUL_TRANSITIVE_TRAVERSAL_VALUE =
+  public static final TransitiveTraversalValue SUCCESSFUL_TRANSITIVE_TRAVERSAL_VALUE =
       new TransitiveTraversalValue(null);
+
+  public static TransitiveTraversalValue unsuccessfulTransitiveTraversal(
+      NoSuchTargetException errorLoadingTarget) {
+    return new TransitiveTraversalValue(Preconditions.checkNotNull(errorLoadingTarget));
+  }
 
   private TransitiveTraversalValue(@Nullable NoSuchTargetException errorLoadingTarget) {
     this.errorLoadingTarget = errorLoadingTarget;
-  }
-
-  static TransitiveTraversalValue unsuccessfulTransitiveTraversal(
-      NoSuchTargetException errorLoadingTarget) {
-    return new TransitiveTraversalValue(errorLoadingTarget);
   }
 
   /** Returns the error, if any, from loading the target. */
