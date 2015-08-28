@@ -94,8 +94,9 @@ public final class CommandHelper {
    * @param labelMap adds files to set of known files of label. Used for resolving $(location)
    *     variables.
    */
-  public CommandHelper(RuleContext ruleContext,
-      Iterable<FilesToRunProvider> tools,
+  public CommandHelper(
+      RuleContext ruleContext,
+      Iterable<? extends TransitiveInfoCollection> tools,
       ImmutableMap<Label, Iterable<Artifact>> labelMap) {
     this.ruleContext = ruleContext;
 
@@ -108,8 +109,13 @@ public final class CommandHelper {
       Iterables.addAll(mapGet(tempLabelMap, entry.getKey()), entry.getValue());
     }
 
-    for (FilesToRunProvider tool : tools) { // (Note: host configuration)
-      Label label = tool.getLabel();
+    for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
+      Label label = dep.getLabel();
+      FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
+      if (tool == null) {
+        continue;
+      }
+
       Collection<Artifact> files = tool.getFilesToRun();
       resolvedToolsBuilder.addAll(files);
       Artifact executableArtifact = tool.getExecutable();

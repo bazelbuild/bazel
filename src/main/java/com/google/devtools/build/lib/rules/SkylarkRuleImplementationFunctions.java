@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -490,30 +489,43 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  @SkylarkSignature(name = "command_helper", doc = "Experimental. Creates a command helper class.",
-      objectType = SkylarkRuleContext.class,
-      returnType = CommandHelper.class,
-      mandatoryPositionals = {
-        @Param(name = "self", type = SkylarkRuleContext.class, doc = "this RuleContext"),
-        @Param(name = "tools", type = SkylarkList.class, generic1 = TransitiveInfoCollection.class,
-            doc = "list of tools (list of targets)"),
-        @Param(name = "label_dict", type = Map.class, defaultValue = "{}",
-            doc = "dictionary of resolved labels and the corresponding list of Files "
-            + "(a dict of Label : list of Files)")})
-  private static final BuiltinFunction createCommandHelper = new BuiltinFunction("command_helper") {
-      @SuppressWarnings("unchecked")
-      // TODO(bazel-team): this cast to Map is unchecked and is not safe.
-      // The best way to fix this probably is to convert CommandHelper to Skylark.
-      public CommandHelper invoke(
-          SkylarkRuleContext ctx, SkylarkList tools, Map<Label, Iterable<Artifact>> labelDict)
-          throws ConversionException, EvalException {
-        return new CommandHelper(ctx.getRuleContext(),
-            AnalysisUtils.getProviders(
-                castList(tools, TransitiveInfoCollection.class),
-                FilesToRunProvider.class),
-            ImmutableMap.copyOf(labelDict));
-      }
-    };
+  @SkylarkSignature(
+    name = "command_helper",
+    doc = "Experimental. Creates a command helper class.",
+    objectType = SkylarkRuleContext.class,
+    returnType = CommandHelper.class,
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this RuleContext"),
+      @Param(
+        name = "tools",
+        type = SkylarkList.class,
+        generic1 = TransitiveInfoCollection.class,
+        doc = "list of tools (list of targets)"
+      ),
+      @Param(
+        name = "label_dict",
+        type = Map.class,
+        defaultValue = "{}",
+        doc =
+            "dictionary of resolved labels and the corresponding list of Files "
+                + "(a dict of Label : list of Files)"
+      )
+    }
+  )
+  private static final BuiltinFunction createCommandHelper =
+      new BuiltinFunction("command_helper") {
+        @SuppressWarnings("unchecked")
+        // TODO(bazel-team): this cast to Map is unchecked and is not safe.
+        // The best way to fix this probably is to convert CommandHelper to Skylark.
+        public CommandHelper invoke(
+            SkylarkRuleContext ctx, SkylarkList tools, Map<Label, Iterable<Artifact>> labelDict)
+            throws ConversionException, EvalException {
+          return new CommandHelper(
+              ctx.getRuleContext(),
+              castList(tools, TransitiveInfoCollection.class),
+              ImmutableMap.copyOf(labelDict));
+        }
+      };
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleImplementationFunctions.class);

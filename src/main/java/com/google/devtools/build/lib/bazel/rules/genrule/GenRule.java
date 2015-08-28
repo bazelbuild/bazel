@@ -87,8 +87,9 @@ public class GenRule implements RuleConfiguredTargetFactory {
       labelMap.put(dep.getLabel(), files);
     }
 
-    CommandHelper commandHelper = new CommandHelper(ruleContext, ruleContext
-        .getPrerequisites("tools", Mode.HOST, FilesToRunProvider.class), labelMap.build());
+    CommandHelper commandHelper =
+        new CommandHelper(
+            ruleContext, ruleContext.getPrerequisites("tools", Mode.HOST), labelMap.build());
 
     if (ruleContext.hasErrors()) {
       return null;

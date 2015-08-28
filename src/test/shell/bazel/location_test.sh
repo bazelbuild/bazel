@@ -46,4 +46,32 @@ EOF
   assert_contains "hello" bazel-genfiles/bar/loc
 }
 
+function test_external_location_tool() {
+  cat > WORKSPACE <<EOF
+bind(
+   name = "foo",
+   actual = "//bar:baz"
+)
+EOF
+  mkdir bar
+  cat > bar/BUILD <<EOF
+genrule(
+    name = "baz-rule",
+    outs = ["baz"],
+    cmd = "echo '#!/bin/echo hello' > \"\$@\"",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "use-loc",
+    tools = ["//external:foo"],
+    outs = ["loc"],
+    cmd = "\$(location //external:foo) > \"\$@\"",
+)
+EOF
+
+  bazel build //bar:loc &> $TEST_log || fail "Referencing external genrule in tools didn't build"
+  assert_contains "hello" bazel-genfiles/bar/loc
+}
+
 run_suite "location tests"

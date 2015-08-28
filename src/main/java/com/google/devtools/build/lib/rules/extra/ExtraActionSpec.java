@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -118,9 +118,11 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
     Map<String, String> env = owningRule.getConfiguration().getDefaultShellEnvironment();
 
-    CommandHelper commandHelper = new CommandHelper(owningRule,
-        ImmutableList.<FilesToRunProvider>of(),
-        ImmutableMap.<Label, Iterable<Artifact>>of());
+    CommandHelper commandHelper =
+        new CommandHelper(
+            owningRule,
+            ImmutableList.<TransitiveInfoCollection>of(),
+            ImmutableMap.<Label, Iterable<Artifact>>of());
 
     // Multiple actions in the same configured target need to have different names for the artifact
     // that might be created here, so we append something that should be unique for each action.

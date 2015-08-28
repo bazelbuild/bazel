@@ -19,13 +19,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -44,10 +44,10 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     // this rule instructs the build system to add additional outputs.
     List<Artifact> resolvedData = Lists.newArrayList();
 
-    Iterable<FilesToRunProvider> tools =
-        context.getPrerequisites("tools", Mode.HOST, FilesToRunProvider.class);
-    CommandHelper commandHelper = new CommandHelper(
-        context, tools, ImmutableMap.<Label, Iterable<Artifact>>of());
+    Iterable<? extends TransitiveInfoCollection> tools =
+        context.getPrerequisites("tools", Mode.HOST);
+    CommandHelper commandHelper =
+        new CommandHelper(context, tools, ImmutableMap.<Label, Iterable<Artifact>>of());
 
     resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DATA).list());
     List<String>outputTemplates =
