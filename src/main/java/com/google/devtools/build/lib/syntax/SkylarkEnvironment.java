@@ -42,8 +42,6 @@ public class SkylarkEnvironment extends Environment implements Serializable {
    */
   private final Set<String> readGlobalVariables = new HashSet<>();
 
-  private ImmutableList<BaseFunction> stackTrace;
-
   @Nullable private String fileContentHashCode;
 
   /**
@@ -53,20 +51,17 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   public static SkylarkEnvironment createEnvironmentForFunctionCalling(
       Environment callerEnv, SkylarkEnvironment definitionEnv,
       UserDefinedFunction function) throws EvalException {
-    if (callerEnv.getStackTrace().contains(function)) {
+    if (callerEnv.stackTraceContains(function)) {
       throw new EvalException(
           function.getLocation(),
           "Recursion was detected when calling '" + function.getName() + "' from '"
           + Iterables.getLast(callerEnv.getStackTrace()).getName() + "'");
     }
-    ImmutableList<BaseFunction> stackTrace = new ImmutableList.Builder<BaseFunction>()
-        .addAll(callerEnv.getStackTrace())
-        .add(function)
-        .build();
     SkylarkEnvironment childEnv =
         // Always use the caller Environment's EventHandler. We cannot assume that the
         // definition Environment's EventHandler is still working properly.
-        new SkylarkEnvironment(definitionEnv, stackTrace, callerEnv.eventHandler);
+        new SkylarkEnvironment(
+            definitionEnv, callerEnv.getCopyOfUpdatedStackTrace(function), callerEnv.eventHandler);
     if (callerEnv.isLoadingPhase()) {
       childEnv.setLoadingPhase();
     }
@@ -83,9 +78,8 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   }
 
   private SkylarkEnvironment(SkylarkEnvironment definitionEnv,
-      ImmutableList<BaseFunction> stackTrace, EventHandler eventHandler) {
-    super(definitionEnv.getGlobalEnvironment());
-    this.stackTrace = stackTrace;
+      ImmutableList<StackTraceElement> stackTrace, EventHandler eventHandler) {
+    super(definitionEnv.getGlobalEnvironment(), stackTrace);
     this.eventHandler = Preconditions.checkNotNull(eventHandler,
         "EventHandler cannot be null in an Environment which calls into Skylark");
   }
@@ -93,11 +87,15 @@ public class SkylarkEnvironment extends Environment implements Serializable {
   /**
    * Creates a global SkylarkEnvironment.
    */
-  public SkylarkEnvironment(EventHandler eventHandler, String astFileContentHashCode) {
-    super();
-    stackTrace = ImmutableList.of();
+  public SkylarkEnvironment(EventHandler eventHandler, String astFileContentHashCode,
+      ImmutableList<StackTraceElement> stackTrace) {
+    super(stackTrace);
     this.eventHandler = eventHandler;
     this.fileContentHashCode = astFileContentHashCode;
+  }
+
+  public SkylarkEnvironment(EventHandler eventHandler, String astFileContentHashCode) {
+    this(eventHandler, astFileContentHashCode, ImmutableList.<StackTraceElement>of());
   }
 
   @VisibleForTesting
@@ -107,13 +105,7 @@ public class SkylarkEnvironment extends Environment implements Serializable {
 
   public SkylarkEnvironment(SkylarkEnvironment globalEnv) {
     super(globalEnv);
-    stackTrace = ImmutableList.of();
     this.eventHandler = globalEnv.eventHandler;
-  }
-
-  @Override
-  public ImmutableList<BaseFunction> getStackTrace() {
-    return stackTrace;
   }
 
   /**
@@ -121,7 +113,8 @@ public class SkylarkEnvironment extends Environment implements Serializable {
    */
   public SkylarkEnvironment cloneEnv(EventHandler eventHandler) {
     Preconditions.checkArgument(isGlobal());
-    SkylarkEnvironment newEnv = new SkylarkEnvironment(eventHandler, this.fileContentHashCode);
+    SkylarkEnvironment newEnv =
+        new SkylarkEnvironment(eventHandler, this.fileContentHashCode, getStackTrace());
     for (Entry<String, Object> entry : env.entrySet()) {
       newEnv.env.put(entry.getKey(), entry.getValue());
     }

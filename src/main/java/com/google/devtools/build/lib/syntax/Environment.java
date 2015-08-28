@@ -142,23 +142,35 @@ public class Environment {
    */
   @Nullable protected EventHandler eventHandler;
 
+  private ImmutableList<StackTraceElement> stackTrace;
+
   /**
    * Constructs an empty root non-Skylark environment.
    * The root environment is also the global environment.
    */
-  public Environment() {
+  public Environment(ImmutableList<StackTraceElement> stackTrace) {
     this.parent = null;
     this.importedExtensions = new HashMap<>();
+    this.stackTrace = stackTrace;
     setupGlobal();
+  }
+
+  public Environment() {
+    this(ImmutableList.<StackTraceElement>of());
   }
 
   /**
    * Constructs an empty child environment.
    */
-  public Environment(Environment parent) {
+  public Environment(Environment parent, ImmutableList<StackTraceElement> stackTrace) {
     Preconditions.checkNotNull(parent);
     this.parent = parent;
     this.importedExtensions = new HashMap<>();
+    this.stackTrace = stackTrace;
+  }
+
+  public Environment(Environment parent) {
+    this(parent, ImmutableList.<StackTraceElement>of());
   }
 
   /**
@@ -388,12 +400,53 @@ public class Environment {
     return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.<String>of();
   }
 
+  public ImmutableList<StackTraceElement> getStackTrace() {
+    return stackTrace;
+  }
+
   /**
-   * Return the current stack trace (list of functions).
+   * Adds the given element to the stack trace (iff the stack is empty) and returns whether it was
+   * successful.
    */
-  public ImmutableList<BaseFunction> getStackTrace() {
-    // Empty list, since this environment does not allow function definition
-    // (see SkylarkEnvironment)
-    return ImmutableList.of();
+  public boolean tryAddingStackTraceRoot(StackTraceElement element) {
+    if (stackTrace.isEmpty()) {
+      stackTrace = ImmutableList.of(element);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Removes the only remaining element from the stack trace.
+   *
+   * <p>This particular element describes the outer-most calling function (usually a rule).
+   *
+   * <p> This method is required since {@link FuncallExpression} does not create a new {@link
+   * Environment}, hence it has to add and remove its {@link StackTraceElement} from an existing
+   * one.
+   */
+  public void removeStackTraceRoot() {
+    Preconditions.checkArgument(stackTrace.size() == 1);
+    stackTrace = ImmutableList.of();
+  }
+
+  /**
+   * Returns whether the given {@link BaseFunction} is part of this {@link Environment}'s stack
+   * trace.
+   */
+  public boolean stackTraceContains(BaseFunction function) {
+    for (StackTraceElement element : stackTrace) {
+      if (element.equals(function)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns a copy of this {@link Environment}'s stack trace, including the specified element.
+   */
+  protected ImmutableList<StackTraceElement> getCopyOfUpdatedStackTrace(StackTraceElement toAdd) {
+    return new ImmutableList.Builder<StackTraceElement>().addAll(stackTrace).add(toAdd).build();
   }
 }

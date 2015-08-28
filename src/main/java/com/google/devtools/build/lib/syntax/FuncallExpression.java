@@ -481,7 +481,19 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    // Adds the calling rule to the stack trace of the Environment if it is a BUILD environment.
+    // There are two reasons for this:
+    // a) When using aliases in load(), the rule class name in the BUILD file will differ from
+    //    the implementation name in the bzl file. Consequently, we need to store the calling name.
+    // b) We need the location of the calling rule inside the BUILD file.
+    boolean hasAddedElement = env.isSkylark() ? false : env.tryAddingStackTraceRoot(func);
+    try {
+      return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    } finally {
+      if (hasAddedElement) {
+        env.removeStackTraceRoot();
+      }
+    }
   }
 
   /**
