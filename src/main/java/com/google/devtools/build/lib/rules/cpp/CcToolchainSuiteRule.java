@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
 
 /**
- * Definition of the {@code cc_toolchain_sute} rule.
+ * Definition of the {@code cc_toolchain_suite} rule.
  */
 public final class CcToolchainSuiteRule implements RuleDefinition {
 
