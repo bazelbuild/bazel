@@ -656,10 +656,10 @@ public final class Rule implements Target {
     }
   }
 
-  private void checkForNullLabel(Label labelToCheck, String where) {
+  private void checkForNullLabel(Label labelToCheck, Object context) {
     if (labelToCheck == null) {
       throw new IllegalStateException(String.format(
-          "null label in rule %s, %s", getLabel().toString(), where));
+          "null label in rule %s, %s", getLabel().toString(), context));
     }
   }
 
@@ -672,7 +672,7 @@ public final class Rule implements Target {
         new AttributeMap.AcceptsLabelAttribute() {
           @Override
           public void acceptLabelAttribute(Label labelToCheck, Attribute attribute) {
-            checkForNullLabel(labelToCheck, "attribute " + attribute.getName());
+            checkForNullLabel(labelToCheck, attribute);
           }
         });
     for (OutputFile outputFile : getOutputFiles()) {
