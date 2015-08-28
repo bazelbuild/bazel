@@ -59,7 +59,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     private ConfigurationDistinguisher(String suffix) {
       this.suffix = suffix;
-    };
+    }
   }
 
   /**
