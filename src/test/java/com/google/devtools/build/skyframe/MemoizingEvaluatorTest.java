@@ -435,7 +435,7 @@ public class MemoizingEvaluatorTest {
     assertEquals("z", old.getValue());
     tester.invalidate();
     StringValue current = (StringValue) tester.evalAndGet("a");
-    assertSame(old, current);
+    assertThat(current).isEqualTo(old);
   }
 
   @Test
@@ -2565,7 +2565,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(true);
     tester.invalidateTransientErrors();
     stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
-    assertSame(stringValue, value);
+    assertThat(stringValue).isEqualTo(value);
   }
 
   @Test
