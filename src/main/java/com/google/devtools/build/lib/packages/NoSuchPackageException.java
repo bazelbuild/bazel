@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+
 import javax.annotation.Nullable;
 
 /**
@@ -22,7 +24,7 @@ import javax.annotation.Nullable;
  */
 public abstract class NoSuchPackageException extends NoSuchThingException {
 
-  private final PackageIdentifier packageId;
+  private final com.google.devtools.build.lib.cmdline.PackageIdentifier packageId;
 
   public NoSuchPackageException(PackageIdentifier packageId, String message) {
     this(packageId, "no such package", message);

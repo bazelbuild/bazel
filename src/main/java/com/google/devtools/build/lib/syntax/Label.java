@@ -17,9 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,7 +71,7 @@ public final class Label implements Comparable<Label>, Serializable {
       validate(labelParts.getPackageName(), labelParts.getTargetName());
       return new Label(new PackageIdentifier(repo, new PathFragment(labelParts.getPackageName())),
           labelParts.getTargetName());
-    } catch (BadLabelException e) {
+    } catch (BadLabelException | TargetParsingException e) {
       throw new SyntaxException(e.getMessage());
     }
   }

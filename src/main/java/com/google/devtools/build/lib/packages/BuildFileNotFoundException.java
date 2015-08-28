@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+
 /**
  *  Exception indicating an attempt to access a package which is not found or
  *  does not exist.

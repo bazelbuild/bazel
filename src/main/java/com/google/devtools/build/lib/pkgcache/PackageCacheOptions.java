@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.syntax.CommaSeparatedPackageNameListConverter;
 import com.google.devtools.common.options.Converter;

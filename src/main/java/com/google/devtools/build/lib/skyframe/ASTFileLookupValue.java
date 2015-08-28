@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.packages.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;

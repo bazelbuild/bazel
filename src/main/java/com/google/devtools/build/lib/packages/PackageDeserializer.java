@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -480,7 +482,7 @@ public class PackageDeserializer {
     try {
       builder = new Package.Builder(
           new PackageIdentifier(packagePb.getRepository(), new PathFragment(packagePb.getName())));
-    } catch (SyntaxException e) {
+    } catch (TargetParsingException e) {
       throw new PackageDeserializationException(e);
     }
     StoredEventHandler eventHandler = new StoredEventHandler();

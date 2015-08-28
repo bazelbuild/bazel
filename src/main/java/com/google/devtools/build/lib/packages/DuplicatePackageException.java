@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+
 /**
  * Exception indicating that the same package (i.e. BUILD file) can be loaded
  * via different package paths.

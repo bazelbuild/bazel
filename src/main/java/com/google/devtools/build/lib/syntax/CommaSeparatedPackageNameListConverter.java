@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
@@ -39,7 +40,7 @@ public class CommaSeparatedPackageNameListConverter
     for (String s : SPACE_SPLITTER.split(input)) {
       try {
         list.add(PackageIdentifier.parse(s));
-      } catch (Label.SyntaxException e) {
+      } catch (TargetParsingException e) {
         throw new OptionsParsingException(e.getMessage());
       }
     }

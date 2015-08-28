@@ -16,20 +16,20 @@ package com.google.devtools.build.workspace;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelMain;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ExternalPackage;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.workspace.maven.DefaultModelResolver;
@@ -92,7 +92,7 @@ public class Resolver {
         PackageIdentifier.RepositoryName repositoryName;
         try {
           repositoryName = PackageIdentifier.RepositoryName.create("@" + target.getName());
-        } catch (Label.SyntaxException e) {
+        } catch (TargetParsingException e) {
           handler.handle(Event.error(location, "Invalid repository name for " + target + ": "
               + e.getMessage()));
           return;

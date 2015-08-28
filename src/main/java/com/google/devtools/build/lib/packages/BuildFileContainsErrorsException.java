@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+
 import javax.annotation.Nullable;
 
 /**

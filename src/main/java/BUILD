@@ -37,6 +37,7 @@ java_library(
     ]),
     deps = [
         ":common",
+        ":vfs",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

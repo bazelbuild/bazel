@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -20,9 +20,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
@@ -58,12 +55,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
           .build(
               new CacheLoader<String, RepositoryName> () {
                 @Override
-                public RepositoryName load(String name) throws SyntaxException {
+                public RepositoryName load(String name) throws TargetParsingException {
                   String errorMessage = validate(name);
                   if (errorMessage != null) {
                     errorMessage = "invalid repository name '"
                         + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
-                    throw new SyntaxException(errorMessage);
+                    throw new TargetParsingException(errorMessage);
                   }
                   return new RepositoryName(StringCanonicalizer.intern(name));
                 }
@@ -71,13 +68,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
     /**
      * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
-     * @throws SyntaxException if the name is invalid.
+     * @throws TargetParsingException if the name is invalid.
      */
-    public static RepositoryName create(String name) throws SyntaxException {
+    public static RepositoryName create(String name) throws TargetParsingException {
       try {
         return repositoryNameCache.get(name);
       } catch (ExecutionException e) {
-        Throwables.propagateIfInstanceOf(e.getCause(), SyntaxException.class);
+        Throwables.propagateIfInstanceOf(e.getCause(), TargetParsingException.class);
         throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
       }
     }
@@ -181,7 +178,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   static {
     try {
       DEFAULT_REPOSITORY_NAME = RepositoryName.create(DEFAULT_REPOSITORY);
-    } catch (Label.SyntaxException e) {
+    } catch (TargetParsingException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -208,7 +205,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         throws IOException, ClassNotFoundException {
       try {
         packageId = new PackageIdentifier((String) in.readObject(), (PathFragment) in.readObject());
-      } catch (SyntaxException e) {
+      } catch (TargetParsingException e) {
         throw new IOException("Error serializing package identifier: " + e.getMessage());
       }
     }
@@ -231,7 +228,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   public static PackageIdentifier createInDefaultRepo(PathFragment name) {
     try {
       return new PackageIdentifier(DEFAULT_REPOSITORY, name);
-    } catch (SyntaxException e) {
+    } catch (TargetParsingException e) {
       throw new IllegalArgumentException("could not create package identifier for " + name
           + ": " + e.getMessage());
     }
@@ -246,7 +243,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
   private final PathFragment pkgName;
 
-  public PackageIdentifier(String repository, PathFragment pkgName) throws SyntaxException {
+  public PackageIdentifier(String repository, PathFragment pkgName) throws TargetParsingException {
     this(RepositoryName.create(repository), pkgName);
   }
 
@@ -257,7 +254,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     this.pkgName = Canonicalizer.fragments().intern(pkgName.normalize());
   }
 
-  public static PackageIdentifier parse(String input) throws SyntaxException {
+  public static PackageIdentifier parse(String input) throws TargetParsingException {
     String repo;
     String packageName;
     int packageStartPos = input.indexOf("//");
@@ -274,12 +271,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
     String error = RepositoryName.validate(repo);
     if (error != null) {
-      throw new SyntaxException(error);
+      throw new TargetParsingException(error);
     }
 
     error = LabelValidator.validatePackageName(packageName);
     if (error != null) {
-      throw new SyntaxException(error);
+      throw new TargetParsingException(error);
     }
 
     return new PackageIdentifier(repo, new PathFragment(packageName));
@@ -312,7 +309,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    */
   public PathFragment getPathFragment() {
     return repository.isDefault() ? pkgName
-        : new PathFragment(ExternalPackage.NAME).getRelative(repository.strippedName())
+        : new PathFragment("external").getRelative(repository.strippedName())
             .getRelative(pkgName);
   }
 

@@ -18,9 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
@@ -134,7 +136,11 @@ public class ExternalPackage extends Package {
       Rule tempRule = RuleFactory.createRule(this, ruleClass, kwargs, eventHandler, ast,
           ast.getLocation());
       addEvents(eventHandler.getEvents());
-      repositoryMap.put(RepositoryName.create("@" + tempRule.getName()), tempRule);
+      try {
+        repositoryMap.put(RepositoryName.create("@" + tempRule.getName()), tempRule);
+      } catch (TargetParsingException e) {
+        throw new SyntaxException(e.getMessage());
+      }
       for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(tempRule).entrySet()) {
         Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey());

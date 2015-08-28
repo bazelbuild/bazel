@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules.AndroidHttpToolsRepositoryRule;
-import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
