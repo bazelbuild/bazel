@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.runtime.BugReport;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
@@ -50,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -65,6 +64,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 
 import javax.annotation.Nullable;
 
@@ -260,7 +260,7 @@ public class SkyframeBuilder implements Builder {
     } else if (cause instanceof BuildFileNotFoundException) {
       // Sadly, this can happen because we may load new packages during input discovery. Any
       // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
-      BugReport.sendBugReport(cause, ImmutableList.<String>of());
+      LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
       throw new BuildFailedException(cause.getMessage());
     } else if (cause instanceof RuntimeException) {
       throw (RuntimeException) cause;
