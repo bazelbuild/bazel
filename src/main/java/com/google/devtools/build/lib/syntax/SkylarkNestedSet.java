@@ -34,38 +34,40 @@ import javax.annotation.Nullable;
  * A generic type safe NestedSet wrapper for Skylark.
  */
 @SkylarkModule(name = "set",
-    doc = "A language built-in type that supports (nested) sets. "
+    doc = "A language built-in type that supports sets. "
         + "Sets can be created using the <a href=\"globals.html#set\">set</a> function, and "
-        + "they support the <code>+</code> operator to extend the set with more elements or "
+        + "they support the <code>|</code> operator to extend the set with more elements or "
         + "to nest other sets inside of it. Examples:<br>"
         + "<pre class=language-python>s = set([1, 2])\n"
-        + "s += [3]           # s == {1, 2, 3}\n"
-        + "s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>"
+        + "s = s | [3]           # s == {1, 2, 3}\n"
+        + "s = s | set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>"
         + "Note that in these examples <code>{..}</code> is not a valid literal to create sets. "
         + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
         + "<code>set([1]) + set([\"a\"])</code> results in an error.<br>"
-        + "When aggregating data from providers, nested sets can take significantly less "
-        + "memory than other types as the subsets can be shared.<br>"
-        + "Every set has an <code>order</code> parameter which determines the iteration order." 
-        + "There are four possible values:" 
+        + "Elements in a set can neither be mutable or be of type <code>list</code>, "
+        + "<code>map</code> or <code>dict</code>.<br>"
+        + "When aggregating data from providers, sets can take significantly less memory than "
+        + "other types as they support nesting, that is, their subsets are shared in memory.<br>"
+        + "Every set has an <code>order</code> parameter which determines the iteration order."
+        + "There are four possible values:"
         + "<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child "
         + "elements come after those of nested sets (parent-last). For example, "
         + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order "
-        + "is preserved for both the child elements and the references to nested sets.</li>" 
-        + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>" 
+        + "is preserved for both the child elements and the references to nested sets.</li>"
+        + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>"
         + "<li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. "
-        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. " 
+        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
         + "This ordering enforces that elements of the set always come before elements of "
         + "nested sets (parent-first), which may lead to situations where left-to-right "
-        + "order cannot be preserved (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)." 
+        + "order cannot be preserved (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)."
         + "</li>"
         + "<li><code>naive_link</code>: Defines \"naive\" left-to-right pre-ordering "
-        + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. " 
+        + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
         + "Unlike <code>link</code> ordering, it will sacrifice the parent-first property in "
         + "order to uphold left-to-right order in cases where both properties cannot be "
-        + "guaranteed (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)." 
+        + "guaranteed (<a href=\"https://github.com/google/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)."
         + "</li></ul>"
-        + "Except for <code>stable</code>, the above values are incompatible with each other. " 
+        + "Except for <code>stable</code>, the above values are incompatible with each other. "
         + "Consequently, two sets can only be merged via the <code>+</code> operator or via "
         + "<code>union()</code> if either both sets have the same <code>order</code> or one of "
         + "the sets has <code>stable</code> order. In the latter case the iteration order will be "
@@ -120,8 +122,9 @@ public final class SkylarkNestedSet implements Iterable<Object> {
         items.add(object);
       }
     } else {
-      throw new EvalException(loc,
-          String.format("cannot add '%s'-s to nested sets", EvalUtils.getDataTypeName(item)));
+      throw new EvalException(
+          loc,
+          String.format("cannot add value of type '%s' to a set", EvalUtils.getDataTypeName(item)));
     }
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
 
@@ -179,17 +182,18 @@ public final class SkylarkNestedSet implements Iterable<Object> {
     if (SkylarkType.intersection(
         SkylarkType.Union.of(SkylarkType.MAP, SkylarkType.LIST, SkylarkType.STRUCT),
         itemType) != SkylarkType.BOTTOM) {
-      throw new EvalException(loc, String.format("nested set item is composite (type of %s)",
-              itemType));
+      throw new EvalException(
+          loc, String.format("sets cannot contain items of type '%s'", itemType));
     }
     if (!EvalUtils.isSkylarkImmutable(itemType.getType())) {
-      throw new EvalException(loc, String.format("nested set item is not immutable (type of %s)",
-              itemType));
+      throw new EvalException(
+          loc, String.format("sets cannot contain items of type '%s' (mutable type)", itemType));
     }
     SkylarkType newType = SkylarkType.intersection(builderType, itemType);
     if (newType == SkylarkType.BOTTOM) {
-      throw new EvalException(loc, String.format(
-          "cannot add an item of type %s to a nested %s", itemType, builderType));
+      throw new EvalException(
+          loc,
+          String.format("cannot add an item of type '%s' to a set of '%s'", itemType, builderType));
     }
     return newType;
   }
@@ -205,7 +209,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
       return (NestedSet<T>) set;
     }
     Preconditions.checkArgument(contentType.canBeCastTo(type),
-        String.format("Expected a set of %ss but got a set of %ss",
+        String.format("Expected a set of '%s' but got a set of '%s'",
             EvalUtils.getDataTypeNameFromClass(type),
             contentType));
     return (NestedSet<T>) set;

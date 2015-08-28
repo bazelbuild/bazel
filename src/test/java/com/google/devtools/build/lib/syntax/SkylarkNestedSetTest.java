@@ -148,12 +148,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetBadRightOperand() throws Exception {
-    checkEvalError("cannot add 'string'-s to nested sets", "l = ['a']\n" + "set() + l[0]");
+    checkEvalError("cannot add value of type 'string' to a set", "l = ['a']\n" + "set() + l[0]");
   }
 
   @Test
   public void testNsetBadCompositeItem() throws Exception {
-    checkEvalError("nested set item is composite (type of struct)", "set([struct(a='a')])");
+    checkEvalError("sets cannot contain items of type 'struct'", "set([struct(a='a')])");
   }
 
   @Test
