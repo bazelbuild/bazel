@@ -22,12 +22,11 @@ import com.google.devtools.build.lib.skyframe.LocalDiffAwareness;
  * Provides the {@link DiffAwareness} implementation that uses the Java watch service.
  */
 public class BazelDiffAwarenessModule extends BlazeModule {
-
   @Override
   public Iterable<DiffAwareness.Factory> getDiffAwarenessFactories(boolean watchFS) {
     ImmutableList.Builder<DiffAwareness.Factory> builder = ImmutableList.builder();
     if (watchFS) {
-      builder.add(new LocalDiffAwareness.Factory());
+      builder.add(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
     }
     return builder.build();
   }
