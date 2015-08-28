@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.Constants;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,12 +26,44 @@ import java.util.Map;
 
 /**
  * A class to contain the base definition of common BUILD rule attributes.
- * 
- * <p>See {@link Constants#COMMON_ATTRIBUTES_DOCFILES}, {@link Constants#BINARY_ATTRIBUTES_DOCFILES}
- * and {@link Constants#TEST_ATTRIBUTES_DOCFILES} for the list of files containing the attributes
- * description.
  */
 public class PredefinedAttributes {
+
+  /**
+   * List of documentation for common attributes of *_test rules, relative to
+   * {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES = ImmutableList.of(
+      "templates/attributes/test/args.html",
+      "templates/attributes/test/size.html",
+      "templates/attributes/test/timeout.html",
+      "templates/attributes/test/flaky.html",
+      "templates/attributes/test/shard_count.html",
+      "templates/attributes/test/local.html");
+
+  /**
+   * List of common attributes documentation, relative to {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/common/data.html",
+          "templates/attributes/common/deprecation.html",
+          "templates/attributes/common/deps.html",
+          "templates/attributes/common/distribs.html",
+          "templates/attributes/common/features.html",
+          "templates/attributes/common/licenses.html",
+          "templates/attributes/common/tags.html",
+          "templates/attributes/common/testonly.html",
+          "templates/attributes/common/visibility.html");
+
+  /**
+   * List of documentation for common attributes of *_binary rules, relative to
+   * {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES =
+      ImmutableList.of(
+          "templates/attributes/binary/args.html",
+          "templates/attributes/binary/output_licenses.html");
 
   private static ImmutableMap<String, RuleDocumentationAttribute> generateAttributeMap(
       String commonType, ImmutableList<String> filenames) {
@@ -55,11 +86,11 @@ public class PredefinedAttributes {
   }
 
   public static final Map<String, RuleDocumentationAttribute> COMMON_ATTRIBUTES =
-      generateAttributeMap(DocgenConsts.COMMON_ATTRIBUTES, Constants.COMMON_ATTRIBUTES_DOCFILES);
+      generateAttributeMap(DocgenConsts.COMMON_ATTRIBUTES, COMMON_ATTRIBUTES_DOCFILES);
 
   public static final Map<String, RuleDocumentationAttribute> BINARY_ATTRIBUTES =
-      generateAttributeMap(DocgenConsts.BINARY_ATTRIBUTES, Constants.BINARY_ATTRIBUTES_DOCFILES);
+      generateAttributeMap(DocgenConsts.BINARY_ATTRIBUTES, BINARY_ATTRIBUTES_DOCFILES);
 
   public static final Map<String, RuleDocumentationAttribute> TEST_ATTRIBUTES =
-      generateAttributeMap(DocgenConsts.TEST_ATTRIBUTES, Constants.TEST_ATTRIBUTES_DOCFILES);
+      generateAttributeMap(DocgenConsts.TEST_ATTRIBUTES, TEST_ATTRIBUTES_DOCFILES);
 }
