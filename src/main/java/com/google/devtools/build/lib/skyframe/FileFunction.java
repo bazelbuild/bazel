@@ -99,7 +99,12 @@ public class FileFunction implements SkyFunction {
               pkgLocator.get().getPathEntries());
           realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
         } catch (IOException e) {
-          throw new FileFunctionException(e, Transience.TRANSIENT);
+          RootedPath root = RootedPath.toRootedPath(
+              rootedPath.asPath().getFileSystem().getRootDirectory(),
+              rootedPath.asPath().getFileSystem().getRootDirectory());
+          return FileValue.value(
+              rootedPath, fileStateValue,
+              root, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
         } catch (InconsistentFilesystemException e) {
           throw new FileFunctionException(e, Transience.TRANSIENT);
         }

@@ -21,6 +21,32 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
+function test_glob_local_repository_dangling_symlink() {
+  create_new_workspace
+  r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r
+  touch $r/WORKSPACE
+  cat > $r/BUILD <<EOF
+filegroup(name='fg', srcs=glob(["fg/**"]), visibility=["//visibility:public"])
+EOF
+
+  mkdir -p $r/fg
+  ln -s /doesnotexist $r/fg/symlink
+  touch $r/fg/file
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$r")
+bind(name="e", actual="@r//:fg")
+EOF
+
+  cat > BUILD <<EOF
+filegroup(name="mfg", srcs=["//external:e"])
+EOF
+
+  bazel build //:mfg
+}
+
 # Uses a glob from a different repository for a runfile.
 # This create two repositories and populate them with basic build files:
 #
