@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.util.Pair;
@@ -292,7 +293,7 @@ public class GlobCache {
       getGlobAsync(pattern, excludeDirs);
     }
 
-    Set<String> results = new LinkedHashSet<>();
+    LinkedHashSet<String> results = Sets.newLinkedHashSetWithExpectedSize(includes.size());
     for (String pattern : includes) {
       results.addAll(getGlob(pattern, excludeDirs));
     }
