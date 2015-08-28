@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -126,10 +125,8 @@ public final class PyCommon {
     PythonSourcesProvider sourcesProvider =
         new PythonSourcesProvider(transitivePythonSources, usesSharedLibraries());
     builder
-        .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
-            new InstrumentedFilesCollector(ruleContext,
-                semantics.getCoverageInstrumentationSpec(), METADATA_COLLECTOR,
-                filesToBuild)))
+        .add(InstrumentedFilesProvider.class, InstrumentedFilesCollector.collect(ruleContext,
+            semantics.getCoverageInstrumentationSpec(), METADATA_COLLECTOR, filesToBuild))
         .add(PythonSourcesProvider.class, sourcesProvider)
         .addSkylarkTransitiveInfo(PythonSourcesProvider.SKYLARK_NAME, sourcesProvider)
         // Python targets are not really compilable. The best we can do is make sure that all

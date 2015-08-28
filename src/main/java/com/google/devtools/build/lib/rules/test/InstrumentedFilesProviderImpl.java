@@ -25,20 +25,10 @@ import java.util.Map;
  * An implementation class for the InstrumentedFilesProvider interface.
  */
 public final class InstrumentedFilesProviderImpl implements InstrumentedFilesProvider {
-  public static final InstrumentedFilesProvider EMPTY = new InstrumentedFilesProvider() {
-    @Override
-    public NestedSet<Artifact> getInstrumentedFiles() {
-      return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    }
-    @Override
-    public NestedSet<Artifact> getInstrumentationMetadataFiles() {
-      return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    }
-    @Override
-    public Map<String, String> getExtraEnv() {
-      return ImmutableMap.of();
-    }
-  };
+  public static final InstrumentedFilesProvider EMPTY = new InstrumentedFilesProviderImpl(
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      ImmutableMap.<String, String>of());
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
@@ -49,12 +39,6 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.extraEnv = ImmutableMap.copyOf(extraEnv);
-  }
-
-  public InstrumentedFilesProviderImpl(InstrumentedFilesCollector collector) {
-    this.instrumentedFiles = collector.getInstrumentedFiles();
-    this.instrumentationMetadataFiles = collector.getInstrumentationMetadataFiles();
-    this.extraEnv = ImmutableMap.of();
   }
 
   @Override

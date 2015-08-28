@@ -490,8 +490,8 @@ public final class CcCommon {
   InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files) {
     return cppConfiguration.isLipoContextCollector()
         ? InstrumentedFilesProviderImpl.EMPTY
-        : new InstrumentedFilesProviderImpl(new InstrumentedFilesCollector(
-            ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files));
+        : InstrumentedFilesCollector.collect(
+            ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files);
   }
 
   /**

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -38,6 +39,13 @@ import java.util.List;
  * A helper class for collecting instrumented files and metadata for a target.
  */
 public final class InstrumentedFilesCollector {
+  public static InstrumentedFilesProvider collect(RuleContext ruleContext, InstrumentationSpec spec,
+      LocalMetadataCollector localMetadataCollector, Iterable<Artifact> rootFiles) {
+    InstrumentedFilesCollector collector = new InstrumentedFilesCollector(ruleContext, spec,
+        localMetadataCollector, rootFiles);
+    return new InstrumentedFilesProviderImpl(collector.instrumentedFiles,
+        collector.instrumentationMetadataFiles, ImmutableMap.<String, String>of());
+  }
 
   /**
    * The set of file types and attributes to visit to collect instrumented files for a certain rule
@@ -121,7 +129,7 @@ public final class InstrumentedFilesCollector {
   private final NestedSet<Artifact> instrumentationMetadataFiles;
   private final NestedSet<Artifact> instrumentedFiles;
 
-  public InstrumentedFilesCollector(RuleContext ruleContext, InstrumentationSpec spec,
+  private InstrumentedFilesCollector(RuleContext ruleContext, InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector, Iterable<Artifact> rootFiles) {
     this.ruleContext = ruleContext;
     this.spec = spec;
