@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -98,7 +100,9 @@ public final class Lexer {
     this.locationInfo = new LocationInfo(input.getPath(), lineNumberTable);
 
     indentStack.push(0);
+    long startTime = Profiler.nanoTimeMaybe();
     tokenize();
+    Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_LEXER, getFilename());
   }
 
   public Lexer(ParserInputSource input, EventHandler eventHandler) {

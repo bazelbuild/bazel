@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import com.google.devtools.build.lib.vfs.Path;
@@ -339,7 +341,7 @@ class Parser {
 
   // Keywords that exist in Python and that we don't parse.
   private static final EnumSet<TokenKind> FORBIDDEN_KEYWORDS =
-      EnumSet.of(TokenKind.AS, TokenKind.ASSERT, 
+      EnumSet.of(TokenKind.AS, TokenKind.ASSERT,
           TokenKind.DEL, TokenKind.EXCEPT, TokenKind.FINALLY, TokenKind.FROM, TokenKind.GLOBAL,
           TokenKind.IMPORT, TokenKind.IS, TokenKind.LAMBDA, TokenKind.NONLOCAL, TokenKind.RAISE,
           TokenKind.TRY, TokenKind.WITH, TokenKind.WHILE, TokenKind.YIELD);
@@ -1056,6 +1058,7 @@ class Parser {
 
   // file_input ::= ('\n' | stmt)* EOF
   private List<Statement> parseFileInput() {
+    long startTime = Profiler.nanoTimeMaybe();
     List<Statement> list =  new ArrayList<>();
     while (token.kind != TokenKind.EOF) {
       if (token.kind == TokenKind.NEWLINE) {
@@ -1069,6 +1072,7 @@ class Parser {
         parseTopLevelStatement(list);
       }
     }
+    Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_PARSER, includedFiles);
     return list;
   }
 
@@ -1079,10 +1083,10 @@ class Parser {
       expect(TokenKind.STRING);
       return;
     }
-    
+
     Token pathToken = token;
     String path = (String) token.value;
-    
+
     nextToken();
     expect(TokenKind.COMMA);
 
@@ -1098,7 +1102,7 @@ class Parser {
       parseLoadSymbol(symbols);
     }
     expect(TokenKind.RPAREN);
-    
+
     LoadStatement stmt = new LoadStatement(path, symbols);
 
     // Although validateLoadPath() is invoked as part of validate(ValidationEnvironment),
@@ -1490,7 +1494,7 @@ class Parser {
     int start = token.left;
     int end = token.right;
     expect(TokenKind.RETURN);
-    
+
     Expression expression;
     if (STATEMENT_TERMINATOR_SET.contains(token.kind)) {
         // this None makes the AST not correspond to the source exactly anymore

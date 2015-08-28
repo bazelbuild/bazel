@@ -15,16 +15,16 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -145,6 +145,7 @@ public class BuiltinFunction extends BaseFunction {
       }
     }
 
+    long startTime = Profiler.nanoTimeMaybe();
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try {
       return invokeMethod.invoke(this, args);
@@ -185,6 +186,8 @@ public class BuiltinFunction extends BaseFunction {
       throw badCallException(loc, e, args);
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
+    } finally {
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_BUILTIN_FN, getName());
     }
   }
 

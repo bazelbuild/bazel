@@ -81,6 +81,10 @@ public enum ProfilerTask {
   CONSTRUCT_INCLUDE_PATHS("construct include paths"),
   PARSE_AND_HINTS_RESULTS("parse and hints results"),
   PROCESS_RESULTS_AND_ENQUEUE("process results and enqueue"),
+  SKYLARK_LEXER("Skylark Lexer"),
+  SKYLARK_PARSER("Skylark Parser"),
+  SKYLARK_USER_FN("Skylark user function call", -1, 0xCC0033, 0),
+  SKYLARK_BUILTIN_FN("Skylark builtin function call", -1, 0x990033, 0),
   UNKNOWN("Unknown event", -1, 0x339966, 0);
 
   // Size of the ProfilerTask value space.
