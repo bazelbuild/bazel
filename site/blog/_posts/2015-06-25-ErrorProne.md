@@ -9,9 +9,9 @@ that will not be caught by the compiler.
 
 We turned [Error Prone](http://errorprone.info) on by default but you can
 easily turn it off by using the Javac option `--extra_checks:off`. To do so,
-simply specify `--javacopts='-extra_checks:off'` to the list of Bazel's options.
+simply specify `--javacopt='-extra_checks:off'` to the list of Bazel's options.
 You can also tune the checks error-prone will perform by using the
 [`-Xep:` flags](http://errorprone.info/docs/flags).
 
-See the [documentation of Error Prone](http://errorprone.info/docs) for more
+See the [documentation of Error Prone](http://errorprone.info/docs/installation) for more
 on Error Prone.
