@@ -5,15 +5,16 @@ layout: documentation
 # Working with external dependencies
 
 Bazel is designed to have absolutely everything needed for a build, from source
-code to libraries to compilers, under one directory (the build root). This is
-impractical for some version control systems and goes against how many existing
-projects are structured. Thus, Bazel has a system for pulling in dependencies
-from outside of the build root.
+code to libraries to compilers, under one directory (the workspace directory).
+This is impractical for some version control systems and goes against how many
+existing projects are structured. Thus, Bazel has a system for pulling in
+dependencies from outside of the workspace.
 
-External dependencies can be specified in a `WORKSPACE` file in the build root.
-This `WORKSPACE` file uses the same Python-like syntax of BUILD files, but
-allows a different set of rules. See the full list of rules that are allowed in
-the [Workspace](/docs/build-encyclopedia.html) list of rules in the Build
+External dependencies can be specified in a `WORKSPACE` file in the
+[workspace directory](/docs/build-ref.html#workspaces). This `WORKSPACE` file
+uses the same Python-like syntax of BUILD files, but allows a different set of
+rules. See the full list of rules that are allowed in the
+[Workspace](/docs/build-encyclopedia.html#workspace) list of rules in the Build
 Encyclopedia.
 
 ## Fetching dependencies
@@ -25,7 +26,7 @@ you would like to disable this behavior or prefetch dependencies, use
 <a name="transitive-dependencies"></a>
 ## Transitive dependencies
 
-Bazel only reads dependencies listed in your build root's `WORKSPACE` file. This
+Bazel only reads dependencies listed in your `WORKSPACE` file. This
 means that if your project (`A`) depends on another project (`B`) which list a
 dependency on project `C` in its `WORKSPACE` file, you'll have to add both `B`
 and `C` to your project's `WORKSPACE` file. This can balloon the `WORKSPACE`

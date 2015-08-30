@@ -23,12 +23,13 @@ _**Note:** Bazel may support a binary installation at a later time._
 
 ## Using a workspace
 
-A *workspace* is a directory on your filesystem that contains source code for
-the software you want to build, as well symbolic links to directories that
-contain the build outputs (for example, `bazel-bin` and `bazel-out`). The
-location of the workspace directory is not significant, but it must contain an
-empty file called `WORKSPACE` in the top-level directory. This file marks the
-directory as the workspace root.
+A [workspace](/docs/build-ref.html#workspaces) is a directory on your filesystem
+that contains source code for the software you want to build, as well symbolic
+links to directories that contain the build outputs (for example, `bazel-bin`
+and `bazel-out`). The location of the workspace directory is not significant,
+but it must contain a file called `WORKSPACE` in the top-level directory. The
+`WORKSPACE` file may be an empty file, or it may contain references to
+[external dependencies](/docs/external.html) required to build the outputs.
 
 One workspace can be shared among multiple projects if desired.  To get
 started, we'll focus on a simple example with one project.
@@ -39,8 +40,8 @@ Suppose that you have an existing project in a directory, say,
 
 ## Sanity Check: Building an Example
 
-To make sure everything is set up correctly in your build root, build one of the
-examples from the `examples/` directory.
+To make sure that you have installed Bazel correctly, build one of the examples
+from the `examples/` directory.
 
 {% highlight bash %}
 $ cd ~/gitroot/my-project
@@ -104,7 +105,7 @@ If you have no actual Java project you're using, you can use the following
 commands to make a fake project for this example:
 
 {% highlight bash %}
-$ # If you're not already there, move to your build root directory.
+$ # If you're not already there, move to your workspace directory.
 $ cd ~/gitroot/base_workspace
 $ mkdir -p my-project/java/com/example
 $ cat > my-project/java/com/example/ProjectRunner.java <<EOF
