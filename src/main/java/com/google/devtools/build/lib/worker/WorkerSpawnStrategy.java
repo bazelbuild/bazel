@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -78,6 +79,8 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
           false, "Must have parameter file as last arg, got args: " + spawn.getArguments());
     }
 
+    FileOutErr outErr = actionExecutionContext.getFileOutErr();
+
     ImmutableList<String> args = ImmutableList.<String>builder()
         .addAll(spawn.getArguments().subList(0, spawn.getArguments().size() - 1))
         .add("--persistent_worker")
@@ -98,17 +101,19 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
         WorkResponse response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
 
         if (response == null) {
-          throw new UserExecException("Worker did not return a correct WorkResponse");
+          throw new UserExecException(
+              "Worker process did not return a correct WorkResponse. This is probably caused by a "
+                  + "bug in the worker, writing unexpected other data to stdout.");
         }
 
         String trimmedOutput = response.getOutput().trim();
         if (!trimmedOutput.isEmpty()) {
-          System.err.println(trimmedOutput);
+          outErr.getErrorStream().write(trimmedOutput.getBytes());
         }
 
         if (response.getExitCode() != 0) {
-          throw new UserExecException(String.format("Failed with exit code: %d.",
-              response.getExitCode()));
+          throw new UserExecException(
+              String.format("Worker process failed with exit code: %d.", response.getExitCode()));
         }
       } finally {
         if (worker != null) {
