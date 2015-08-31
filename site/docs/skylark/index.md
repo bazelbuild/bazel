@@ -1,9 +1,8 @@
-# Skylark
+# Custom rules
 
-#### A simple way to write custom build rules
-
-Skylark is a work-in-progress project, which allows extending Bazel with new
-rules or macros (composition of rules and macros).
+Bazel includes an API for writing your own rules, called Skylark. Skylark is a
+work-in-progress project, which allows extending Bazel with new rules or macros
+(composition of rules and macros).
 
 ## Goals
 
