@@ -202,7 +202,7 @@ public class SkylarkSignatureProcessor {
     if (iterator != null) {
       return iterator.next();
     } else if (param.defaultValue().isEmpty()) {
-      return Environment.NONE;
+      return Runtime.NONE;
     } else {
       try {
         return EvaluationContext.SKYLARK_INITIALIZATION.evalExpression(param.defaultValue());
@@ -257,6 +257,12 @@ public class SkylarkSignatureProcessor {
             BaseFunction function = (BaseFunction) value;
             if (!function.isConfigured()) {
               function.configure(annotation);
+            }
+            Class<?> nameSpace = function.getObjectType();
+            if (nameSpace != null) {
+              Preconditions.checkState(!(function instanceof BuiltinFunction.Factory));
+              nameSpace = Runtime.getCanonicalRepresentation(nameSpace);
+              Runtime.registerFunction(nameSpace, function);
             }
           }
         } catch (IllegalAccessException e) {

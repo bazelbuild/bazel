@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
@@ -21,9 +22,9 @@ import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -34,6 +35,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -130,7 +132,7 @@ final class SkylarkDocumentationCollector {
 
   private static Map<String, SkylarkModuleDoc> collectBuiltinModules() {
     Map<String, SkylarkModuleDoc> modules = new HashMap<>();
-    collectBuiltinDoc(modules, Environment.class.getDeclaredFields());
+    collectBuiltinDoc(modules, Runtime.class.getDeclaredFields());
     collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
     for (Class<?> moduleClass : SkylarkModules.MODULES) {
       collectBuiltinDoc(modules, moduleClass.getDeclaredFields());
@@ -145,13 +147,19 @@ final class SkylarkDocumentationCollector {
         Class<?> moduleClass = skylarkSignature.objectType();
         SkylarkModule skylarkModule = moduleClass.equals(Object.class)
             ? getTopLevelModule()
-            : moduleClass.getAnnotation(SkylarkModule.class);
-        if (!modules.containsKey(skylarkModule.name())) {
-          modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
+            : Runtime.getCanonicalRepresentation(moduleClass).getAnnotation(SkylarkModule.class);
+        if (skylarkModule == null) {
+          // TODO(bazel-team): we currently have undocumented methods on undocumented data
+          // structures, namely java.util.List. Remove this case when we are done.
+          Preconditions.checkState(!skylarkSignature.documented());
+          Preconditions.checkState(moduleClass == List.class);
+        } else {
+          if (!modules.containsKey(skylarkModule.name())) {
+            modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
+          }
+          SkylarkModuleDoc module = modules.get(skylarkModule.name());
+          module.addMethod(new SkylarkBuiltinMethodDoc(module, skylarkSignature, field.getType()));
         }
-
-        SkylarkModuleDoc module = modules.get(skylarkModule.name());
-        module.addMethod(new SkylarkBuiltinMethodDoc(module, skylarkSignature, field.getType()));
       }
     }
   }

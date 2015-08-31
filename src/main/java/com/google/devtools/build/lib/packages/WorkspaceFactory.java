@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Environment.NONE;
+import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;

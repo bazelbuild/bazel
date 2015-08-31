@@ -48,15 +48,14 @@ public class EvaluationTest extends EvaluationTestCase {
    */
   protected ModalTestCase newTest() {
     return new BuildTest();
-    
   }
 
   @Test
   public void testExprs() throws Exception {
     newTest()
-        .testStatement("'%sx' % 'foo' + 'bar'", "fooxbar")
-        .testStatement("('%sx' % 'foo') + 'bar'", "fooxbar")
-        .testStatement("'%sx' % ('foo' + 'bar')", "foobarx")
+        .testStatement("'%sx' % 'foo' + 'bar1'", "fooxbar1")
+        .testStatement("('%sx' % 'foo') + 'bar2'", "fooxbar2")
+        .testStatement("'%sx' % ('foo' + 'bar3')", "foobar3x")
         .testStatement("123 + 456", 579)
         .testStatement("456 - 123", 333)
         .testStatement("8 % 3", 2)
@@ -90,10 +89,10 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("0 or 0 and 3", 0)
         .testStatement("1 or 0 and 3", 1)
 
-        .testStatement("None and 1", Environment.NONE)
+        .testStatement("None and 1", Runtime.NONE)
         .testStatement("\"\" or 9", 9)
         .testStatement("\"abc\" or 9", "abc")
-        
+
         // check that 'foo' is not evaluated
         .testStatement("8 or foo", 8)
         .testStatement("0 and foo", 0);

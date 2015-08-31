@@ -69,7 +69,7 @@ public class PrinterTest {
     assertEquals("\"\\\"\"", Printer.repr("\""));
     assertEquals("3", Printer.str(3));
     assertEquals("3", Printer.repr(3));
-    assertEquals("None", Printer.repr(Environment.NONE));
+    assertEquals("None", Printer.repr(Runtime.NONE));
 
     assertEquals("//x:x", Printer.str(Label.parseAbsolute("//x")));
     assertEquals("\"//x:x\"", Printer.repr(Label.parseAbsolute("//x")));

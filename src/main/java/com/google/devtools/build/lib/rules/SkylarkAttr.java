@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -100,7 +101,7 @@ public final class SkylarkAttr {
           + "value is given.";
 
   private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
-    return arguments.containsKey(key) && arguments.get(key) != Environment.NONE;
+    return arguments.containsKey(key) && arguments.get(key) != Runtime.NONE;
   }
 
   private static Attribute.Builder<?> createAttribute(
@@ -160,7 +161,7 @@ public final class SkylarkAttr {
     }
 
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
-    if (ruleClassesObj != null && ruleClassesObj != Environment.NONE) {
+    if (ruleClassesObj != null && ruleClassesObj != Runtime.NONE) {
       builder.allowedRuleClasses(
           castList(ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }

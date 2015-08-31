@@ -44,10 +44,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -159,7 +159,7 @@ public final class SkylarkRuleContext {
         if (artifacts.size() == 1) {
           addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(artifacts));
         } else {
-          addOutput(outputsBuilder, attrName, Environment.NONE);
+          addOutput(outputsBuilder, attrName, Runtime.NONE);
         }
       } else if (type == Type.OUTPUT_LIST) {
         addOutput(outputsBuilder, attrName,
@@ -182,7 +182,7 @@ public final class SkylarkRuleContext {
       Type<?> type = a.getType();
       Object val = ruleContext.attributes().get(a.getName(), type);
       if (type != Type.LABEL && type != Type.LABEL_LIST) {
-        attrBuilder.put(a.getPublicName(), val == null ? Environment.NONE
+        attrBuilder.put(a.getPublicName(), val == null ? Runtime.NONE
             // Attribute values should be type safe
             : SkylarkType.convertToSkylark(val, null));
         continue;
@@ -197,7 +197,7 @@ public final class SkylarkRuleContext {
           executableBuilder.put(skyname, executable);
           executableRunfilesbuilder.put(executable, provider);
         } else {
-          executableBuilder.put(skyname, Environment.NONE);
+          executableBuilder.put(skyname, Runtime.NONE);
         }
       }
       if (a.isSingleArtifact()) {
@@ -206,7 +206,7 @@ public final class SkylarkRuleContext {
         if (artifact != null) {
           fileBuilder.put(skyname, artifact);
         } else {
-          fileBuilder.put(skyname, Environment.NONE);
+          fileBuilder.put(skyname, Runtime.NONE);
         }
       }
       filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode).list());
@@ -214,7 +214,7 @@ public final class SkylarkRuleContext {
       if (type == Type.LABEL) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), mode);
         if (prereq == null) {
-          prereq = Environment.NONE;
+          prereq = Runtime.NONE;
         }
         attrBuilder.put(skyname, prereq);
       } else {

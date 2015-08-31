@@ -317,11 +317,11 @@ public final class FuncallExpression extends Expression {
       method.setAccessible(true);
       Object result = method.invoke(obj, args);
       if (method.getReturnType().equals(Void.TYPE)) {
-        return Environment.NONE;
+        return Runtime.NONE;
       }
       if (result == null) {
         if (methodDescriptor.getAnnotation().allowReturnNones()) {
-          return Environment.NONE;
+          return Runtime.NONE;
         } else {
           throw new EvalException(loc,
               "Method invocation returned None, please contact Skylark developers: " + methodName
@@ -507,7 +507,7 @@ public final class FuncallExpression extends Expression {
     // MethodLibrary.
     // For other classes, we can call the Java methods.
     BaseFunction function =
-        env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
+        Runtime.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
     if (function != null) {
       if (!isNamespace(objValue.getClass())) {
         // Add self as an implicit parameter in front.

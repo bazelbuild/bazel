@@ -90,7 +90,7 @@ public class MethodLibrary {
     return str.substring(start, stop);
   }
 
-  public static int getListIndex(Object key, int listSize, Location loc)
+  private static int getListIndex(Object key, int listSize, Location loc)
       throws ConversionException, EvalException {
     // Get the nth element in the list
     int index = Type.INTEGER.convert(key, "index operand");
@@ -583,7 +583,7 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position at which to stop comparing.")})
   private static BuiltinFunction endswith = new BuiltinFunction(
-      "endswith", SkylarkList.tuple(0, Environment.NONE)) {
+      "endswith", SkylarkList.tuple(0, Runtime.NONE)) {
     public Boolean invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
@@ -658,38 +658,57 @@ public class MethodLibrary {
   };
 
   // slice operator
-  @SkylarkSignature(
-    name = "$slice",
-    documented = false,
-    mandatoryPositionals = {
-      @Param(name = "self", type = Object.class, doc = "This string, list or tuple."),
-      @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
-      @Param(name = "end", type = Integer.class, doc = "end position of the slice.")
-    },
-    doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static BuiltinFunction slice =
-      new BuiltinFunction("$slice") {
-        public Object invoke(
-            Object self, Integer left, Integer right, Location loc, Environment env)
-            throws EvalException, ConversionException {
-          // Substring
-          if (self instanceof String) {
-            return pythonSubstring((String) self, left, right, "");
-          }
+  @SkylarkSignature(name = "$slice", objectType = String.class,
+      documented = false,
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
+      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.")
+  private static BuiltinFunction stringSlice = new BuiltinFunction("$slice") {
+    public Object invoke(String self, Integer left, Integer right)
+        throws EvalException, ConversionException {
+      return pythonSubstring(self, left, right, "");
+    }
+  };
 
-          // List slice
-          List<Object> list = Type.OBJECT_LIST.convert(self, "list operand");
-          left = clampIndex(left, list.size());
-          right = clampIndex(right, list.size());
-          if (left > right) {
-            left = right;
-          }
-          return convert(list.subList(left, right), env, loc);
-        }
-      };
+  @SkylarkSignature(name = "$slice", objectType = List.class,
+      documented = false,
+      mandatoryPositionals = {
+        @Param(name = "self", type = List.class, doc = "This list or tuple."),
+        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
+      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.")
+  private static BuiltinFunction listSlice = new BuiltinFunction("$slice") {
+    public Object invoke(List<Object> self, Integer left, Integer right)
+        throws EvalException, ConversionException {
+      return sliceList(self, left, right);
+    }
+  };
+
+  @SkylarkSignature(name = "$slice", objectType = SkylarkList.class,
+      documented = false,
+      mandatoryPositionals = {
+        @Param(name = "self", type = SkylarkList.class, doc = "This list or tuple."),
+        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
+      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
+      useLocation = true)
+  private static BuiltinFunction skylarkListSlice = new BuiltinFunction("$slice") {
+    public Object invoke(SkylarkList self, Integer left, Integer right,
+        Location loc) throws EvalException, ConversionException {
+      return SkylarkList.list(sliceList(self.toList(), left, right), loc);
+    }
+  };
+
+  private static List<Object> sliceList(List<Object> list, Integer left, Integer right) {
+    left = clampIndex(left, list.size());
+    right = clampIndex(right, list.size());
+    if (left > right) {
+      left = right;
+    }
+    return list.subList(left, right);
+  }
 
   // supported list methods
   @SkylarkSignature(
@@ -720,7 +739,8 @@ public class MethodLibrary {
   // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
   @SkylarkSignature(
     name = "append",
-    returnType = Environment.NoneType.class,
+    objectType = List.class,
+    returnType = Runtime.NoneType.class,
     documented = false,
     doc = "Adds an item to the end of the list.",
     mandatoryPositionals = {
@@ -729,83 +749,123 @@ public class MethodLibrary {
       @Param(name = "item", type = Object.class, doc = "Item to add at the end.")
     },
     useLocation = true,
-    useEnvironment = true
-  )
+    useEnvironment = true)
   private static BuiltinFunction append =
       new BuiltinFunction("append") {
-        public Environment.NoneType invoke(
-            List<Object> self, Object item, Location loc, Environment env)
-            throws EvalException, ConversionException {
+        public Runtime.NoneType invoke(List<Object> self, Object item,
+            Location loc, Environment env) throws EvalException, ConversionException {
+          if (env.isSkylark()) {
+            throw new EvalException(loc,
+                "function 'append' is not available in Skylark");
+          }
+          if (EvalUtils.isTuple(self)) {
+            throw new EvalException(loc,
+                "function 'append' is not defined on object of type 'Tuple'");
+          }
           self.add(item);
-          return Environment.NONE;
+          return Runtime.NONE;
         }
       };
 
   // This function has a SkylarkSignature but is only used by the Build language, not Skylark.
-  @SkylarkSignature(name = "extend", returnType = Environment.NoneType.class, documented = false,
-      doc = "Adds all items to the end of the list.",
-      mandatoryPositionals = {
-        // we use List rather than SkylarkList because this is actually for use *outside* Skylark
-        @Param(name = "self", type = List.class, doc = "This list."),
-        @Param(name = "items", type = List.class, doc = "Items to add at the end.")},
-        useLocation = true, useEnvironment = true)
-  private static BuiltinFunction extend = new BuiltinFunction("extend") {
-    public Environment.NoneType invoke(List<Object> self, List<Object> items,
-        Location loc, Environment env) throws EvalException, ConversionException {
-      self.addAll(items);
-      return Environment.NONE;
-    }
-  };
+  @SkylarkSignature(
+    name = "extend",
+    objectType = List.class,
+    returnType = Runtime.NoneType.class,
+    documented = false,
+    doc = "Adds all items to the end of the list.",
+    mandatoryPositionals = {
+      // we use List rather than SkylarkList because this is actually for use *outside* Skylark
+      @Param(name = "self", type = List.class, doc = "This list."),
+      @Param(name = "items", type = List.class, doc = "Items to add at the end.")},
+    useLocation = true,
+    useEnvironment = true)
+  private static BuiltinFunction extend =
+      new BuiltinFunction("extend") {
+        public Runtime.NoneType invoke(List<Object> self, List<Object> items,
+            Location loc, Environment env) throws EvalException, ConversionException {
+          if (env.isSkylark()) {
+            throw new EvalException(loc,
+                "function 'append' is not available in Skylark");
+          }
+          if (EvalUtils.isTuple(self)) {
+            throw new EvalException(loc,
+                "function 'extend' is not defined on object of type 'Tuple'");
+          }
+          self.addAll(items);
+          return Runtime.NONE;
+        }
+      };
 
   // dictionary access operator
-  @SkylarkSignature(name = "$index", documented = false,
-      doc = "Returns the nth element of a list or string, "
-          + "or looks up a value in a dictionary.",
+  @SkylarkSignature(name = "$index", documented = false, objectType = Map.class,
+      doc = "Looks up a value in a dictionary.",
       mandatoryPositionals = {
-        @Param(name = "self", type = Object.class, doc = "This object."),
+        @Param(name = "self", type = Map.class, doc = "This object."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
       useLocation = true)
   private static BuiltinFunction indexOperator = new BuiltinFunction("$index") {
-    public Object invoke(Object self, Object key,
+    public Object invoke(Map<?, ?> self, Object key,
         Location loc) throws EvalException, ConversionException {
-      if (self instanceof SkylarkList) {
-        SkylarkList list = (SkylarkList) self;
-        if (list.isEmpty()) {
-          throw new EvalException(loc, "List is empty");
-        }
-        int index = getListIndex(key, list.size(), loc);
-        return list.get(index);
-
-      } else if (self instanceof Map<?, ?>) {
-        Map<?, ?> dictionary = (Map<?, ?>) self;
-        if (!dictionary.containsKey(key)) {
-          throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
-        }
-        return dictionary.get(key);
-
-      } else if (self instanceof List<?>) {
-        List<Object> list = Type.OBJECT_LIST.convert(self, "index operand");
-        if (list.isEmpty()) {
-          throw new EvalException(loc, "List is empty");
-        }
-        int index = getListIndex(key, list.size(), loc);
-        return list.get(index);
-
-      } else if (self instanceof String) {
-        String str = (String) self;
-        int index = getListIndex(key, str.length(), loc);
-        return str.substring(index, index + 1);
-
-      } else {
-        // TODO(bazel-team): This is dead code, get rid of it.
-        throw new EvalException(loc, String.format(
-            "Unsupported datatype (%s) for indexing, only works for dict and list",
-            EvalUtils.getDataTypeName(self)));
+      if (!self.containsKey(key)) {
+        throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
       }
+      return self.get(key);
     }
   };
 
-  @SkylarkSignature(name = "values", objectType = DictModule.class,
+  // list access operator
+  @SkylarkSignature(name = "$index", documented = false, objectType = SkylarkList.class,
+      doc = "Returns the nth element of a list.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = SkylarkList.class, doc = "This object."),
+        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
+      useLocation = true)
+  private static BuiltinFunction skylarkListIndexOperator = new BuiltinFunction("$index") {
+    public Object invoke(SkylarkList self, Object key,
+        Location loc) throws EvalException, ConversionException {
+      if (self.isEmpty()) {
+        throw new EvalException(loc, "List is empty");
+      }
+      int index = getListIndex(key, self.size(), loc);
+      return self.get(index);
+    }
+  };
+
+
+  // list access operator
+  @SkylarkSignature(name = "$index", documented = false, objectType = List.class,
+      doc = "Returns the nth element of a list.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = List.class, doc = "This object."),
+        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
+      useLocation = true)
+  private static BuiltinFunction listIndexOperator = new BuiltinFunction("$index") {
+    public Object invoke(List<?> self, Object key,
+        Location loc) throws EvalException, ConversionException {
+      if (self.isEmpty()) {
+        throw new EvalException(loc, "List is empty");
+      }
+      int index = getListIndex(key, self.size(), loc);
+      return self.get(index);
+    }
+  };
+
+  @SkylarkSignature(name = "$index", documented = false, objectType = String.class,
+      doc = "Returns the nth element of a string.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
+      useLocation = true)
+  private static BuiltinFunction stringIndexOperator = new BuiltinFunction("$index") {
+    public Object invoke(String self, Object key,
+        Location loc) throws EvalException, ConversionException {
+      int index = getListIndex(key, self.length(), loc);
+      return self.substring(index, index + 1);
+    }
+  };
+
+  @SkylarkSignature(name = "values", objectType = Map.class,
       returnType = HackHackEitherList.class,
       doc = "Return the list of values. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
@@ -821,7 +881,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "items", objectType = DictModule.class,
+  @SkylarkSignature(name = "items", objectType = Map.class,
       returnType = HackHackEitherList.class,
       doc = "Return the list of key-value tuples. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
@@ -840,11 +900,11 @@ public class MethodLibrary {
         List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
         list.add(env.isSkylark() ? SkylarkList.tuple(item) : item);
       }
-        return convert(list, env, loc);
-      }
-    };
+      return convert(list, env, loc);
+    }
+  };
 
-  @SkylarkSignature(name = "keys", objectType = DictModule.class,
+  @SkylarkSignature(name = "keys", objectType = Map.class,
       returnType = HackHackEitherList.class,
       doc = "Return the list of keys. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [1, 2, 4]"
@@ -861,7 +921,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "get", objectType = DictModule.class,
+  @SkylarkSignature(name = "get", objectType = Map.class,
       doc = "Return the value for <code>key</code> if <code>key</code> is in the dictionary, "
           + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
           + "<code>None</code>, so that this method never throws an error.",
@@ -893,7 +953,8 @@ public class MethodLibrary {
 
   // unary minus
   @SkylarkSignature(name = "-", returnType = Integer.class,
-      documented = false, doc = "Unary minus operator.",
+      documented = false,
+      doc = "Unary minus operator.",
       mandatoryPositionals = {
         @Param(name = "num", type = Integer.class, doc = "The number to negate.")})
   private static BuiltinFunction minus = new BuiltinFunction("-") {
@@ -1089,7 +1150,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "enumerate",  returnType = HackHackEitherList.class,
+  @SkylarkSignature(name = "enumerate", returnType = HackHackEitherList.class,
       doc = "Return a list of pairs (two-element tuples), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
           + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
@@ -1137,7 +1198,7 @@ public class MethodLibrary {
         throws EvalException, ConversionException, InterruptedException {
       int start;
       int stop;
-      if (stopOrNone == Environment.NONE) {
+      if (stopOrNone == Runtime.NONE) {
         start = 0;
         stop = startOrStop;
       } else {
@@ -1194,7 +1255,7 @@ public class MethodLibrary {
       if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
         return true;
       }
-      if (env.getFunctionNames(obj.getClass()).contains(name)) {
+      if (Runtime.getFunctionNames(obj.getClass()).contains(name)) {
         return true;
       }
 
@@ -1226,7 +1287,7 @@ public class MethodLibrary {
         Location loc) throws EvalException, ConversionException {
       Object result = DotExpression.eval(obj, name, loc);
       if (result == null) {
-        if (defaultValue != Environment.NONE) {
+        if (defaultValue != Runtime.NONE) {
           return defaultValue;
         } else {
           throw new EvalException(loc, Printer.format("Object of type '%s' has no attribute %r",
@@ -1250,7 +1311,7 @@ public class MethodLibrary {
       if (object instanceof ClassObject) {
         fields.addAll(((ClassObject) object).getKeys());
       }
-      fields.addAll(env.getFunctionNames(object.getClass()));
+      fields.addAll(Runtime.getFunctionNames(object.getClass()));
       try {
         fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
       } catch (ExecutionException e) {
@@ -1274,7 +1335,7 @@ public class MethodLibrary {
   @SkylarkSignature(name = "fail",
       doc = "Raises an error that cannot be intercepted. It can be used anywhere, "
           + "both in the loading phase and in the analysis phase.",
-      returnType = Environment.NoneType.class,
+      returnType = Runtime.NoneType.class,
       mandatoryPositionals = {
         @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
       optionalPositionals = {
@@ -1284,16 +1345,16 @@ public class MethodLibrary {
                + "error reporting.")},
       useLocation = true)
   private static final BuiltinFunction fail = new BuiltinFunction("fail") {
-    public Environment.NoneType invoke(String msg, Object attr,
+    public Runtime.NoneType invoke(String msg, Object attr,
         Location loc) throws EvalException, ConversionException {
-      if (attr != Environment.NONE) {
+      if (attr != Runtime.NONE) {
         msg = String.format("attribute %s: %s", attr, msg);
       }
       throw new EvalException(loc, msg);
     }
   };
 
-  @SkylarkSignature(name = "print", returnType = Environment.NoneType.class,
+  @SkylarkSignature(name = "print", returnType = Runtime.NoneType.class,
       doc = "Prints <code>msg</code> to the console.",
       optionalNamedOnly = {
         @Param(name = "sep", type = String.class, defaultValue = "' '",
@@ -1302,7 +1363,7 @@ public class MethodLibrary {
       extraPositionals = {@Param(name = "args", doc = "The objects to print.")},
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction print = new BuiltinFunction("print") {
-    public Environment.NoneType invoke(String sep, SkylarkList starargs,
+    public Runtime.NoneType invoke(String sep, SkylarkList starargs,
         Location loc, SkylarkEnvironment env) throws EvalException {
       String msg = Joiner.on(sep).join(Iterables.transform(starargs,
               new com.google.common.base.Function<Object, String>() {
@@ -1311,7 +1372,7 @@ public class MethodLibrary {
                   return Printer.str(input);
                 }}));
       env.handleEvent(Event.warn(loc, msg));
-      return Environment.NONE;
+      return Runtime.NONE;
     }
   };
 
@@ -1373,7 +1434,7 @@ public class MethodLibrary {
       + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
       + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
       + "operator instead.")
-  public static final class StringModule {}
+  static final class StringModule {}
 
   /**
    * Skylark Dict module.
@@ -1397,82 +1458,23 @@ public class MethodLibrary {
       + "Example:<br>"
       + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True"
       + "</pre>")
-  public static final class DictModule {}
+  static final class DictModule {}
 
-  public static final List<BaseFunction> stringFunctions =
-      ImmutableList.<BaseFunction>of(
-          capitalize,
-          count,
-          endswith,
-          find,
-          index,
-          format,
-          join,
-          lower,
-          partition,
-          replace,
-          rfind,
-          rindex,
-          rpartition,
-          rsplit,
-          slice,
-          split,
-          startswith,
-          strip,
-          title,
-          upper);
-
-  public static final List<BaseFunction> listPureFunctions = ImmutableList.<BaseFunction>of(
-      slice);
-
-  public static final List<BaseFunction> listFunctions = ImmutableList.<BaseFunction>of(
-      append, extend);
-
-  public static final List<BaseFunction> setFunctions = ImmutableList.<BaseFunction>of(union);
-
-  public static final List<BaseFunction> dictFunctions = ImmutableList.<BaseFunction>of(
-      items, get, keys, values);
-
-  private static final List<BaseFunction> pureGlobalFunctions = ImmutableList.<BaseFunction>of(
+  static final List<BaseFunction> buildGlobalFunctions = ImmutableList.<BaseFunction>of(
       bool, dict, enumerate, int_, len, list, minus, range, repr, select, sorted, str, zip);
 
-  private static final List<BaseFunction> skylarkGlobalFunctions =
+  static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
-      .addAll(pureGlobalFunctions)
+      .addAll(buildGlobalFunctions)
       .add(dir, fail, getattr, hasattr, print, set, struct, type)
       .build();
+
 
   /**
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    env.registerFunction(Map.class, indexOperator.getName(), indexOperator);
-    setupMethodEnvironment(env, Map.class, dictFunctions);
-    env.registerFunction(String.class, indexOperator.getName(), indexOperator);
-    setupMethodEnvironment(env, String.class, stringFunctions);
-    setupMethodEnvironment(env, List.class, listPureFunctions);
-    setupMethodEnvironment(env, SkylarkList.class, listPureFunctions);
-    setupMethodEnvironment(env, SkylarkNestedSet.class, setFunctions);
-    // TODO(bazel-team): Simplify when list types are unified.
-    env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
-    env.registerFunction(List.class, indexOperator.getName(), indexOperator);
-    env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
-
-    if (env.isSkylark()) {
-      setupMethodEnvironment(env, skylarkGlobalFunctions);
-    } else {
-      // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
-      // It is allowed in BUILD files only for backward-compatibility.
-      setupMethodEnvironment(env, List.class, listFunctions);
-      setupMethodEnvironment(env, pureGlobalFunctions);
-    }
-  }
-
-  private static void setupMethodEnvironment(
-      Environment env, Class<?> nameSpace, Iterable<BaseFunction> functions) {
-    for (BaseFunction function : functions) {
-      env.registerFunction(nameSpace, function.getName(), function);
-    }
+    setupMethodEnvironment(env, env.isSkylark() ? skylarkGlobalFunctions : buildGlobalFunctions);
   }
 
   private static void setupMethodEnvironment(Environment env, Iterable<BaseFunction> functions) {

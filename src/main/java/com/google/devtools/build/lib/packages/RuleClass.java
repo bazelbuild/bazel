@@ -34,12 +34,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1394,7 +1394,7 @@ public final class RuleClass {
     for (Map.Entry<String, Object> entry : attributeValues.entrySet()) {
       String attributeName = entry.getKey();
       Object attributeValue = entry.getValue();
-      if (attributeValue == Environment.NONE) {  // Ignore all None values.
+      if (attributeValue == Runtime.NONE) {  // Ignore all None values.
         continue;
       }
       Integer attrIndex = setRuleAttributeValue(rule, eventHandler, attributeName, attributeValue);

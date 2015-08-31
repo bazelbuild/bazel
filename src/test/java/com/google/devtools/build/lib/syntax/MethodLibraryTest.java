@@ -744,10 +744,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testDictionaryGet() throws Exception {
     new BuildTest()
         .testStatement("{1: 'foo'}.get(1)", "foo")
-        .testStatement("{1: 'foo'}.get(2)", Environment.NONE)
+        .testStatement("{1: 'foo'}.get(2)", Runtime.NONE)
         .testStatement("{1: 'foo'}.get(2, 'a')", "a")
         .testStatement("{1: 'foo'}.get(2, default='a')", "a")
-        .testStatement("{1: 'foo'}.get(2, default=None)", Environment.NONE);
+        .testStatement("{1: 'foo'}.get(2, default=None)", Runtime.NONE);
   }
 
   @Test

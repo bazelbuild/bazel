@@ -27,9 +27,9 @@ import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -91,7 +91,7 @@ public abstract class ImplicitOutputsFunction {
         // since we don't yet have a build configuration.
         if (!map.isConfigurable(attrName, attrType)) {
           Object value = map.get(attrName, attrType);
-          attrValues.put(attrName, value == null ? Environment.NONE : value);
+          attrValues.put(attrName, value == null ? Runtime.NONE : value);
         }
       }
       ClassObject attrs = new SkylarkClassObject(attrValues, "Attribute '%s' either doesn't exist "

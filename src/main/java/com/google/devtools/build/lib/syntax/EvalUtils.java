@@ -274,7 +274,8 @@ public abstract class EvalUtils {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (c.equals(Void.TYPE) || c.equals(Environment.NoneType.class)) {
+    } else if (c.equals(Void.TYPE) || c.equals(Runtime.NoneType.class)) {
+      // TODO(bazel-team): no one should be seeing Void at all.
       return "NoneType";
     } else if (List.class.isAssignableFrom(c)) {
       // NB: the capital here is a subtle way to distinguish java Tuple and java List
@@ -292,6 +293,7 @@ public abstract class EvalUtils {
     } else if (c.equals(SelectorValue.class)) {
       return "select";
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
+      // TODO(bazel-team): no one should be seeing naked NestedSet at all.
       return "set";
     } else if (ClassObject.SkylarkClassObject.class.isAssignableFrom(c)) {
       return "struct";
@@ -332,7 +334,7 @@ public abstract class EvalUtils {
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
   public static boolean toBoolean(Object o) {
-    if (o == null || o == Environment.NONE) {
+    if (o == null || o == Runtime.NONE) {
       return false;
     } else if (o instanceof Boolean) {
       return (Boolean) o;
@@ -415,7 +417,7 @@ public abstract class EvalUtils {
 
   /** @return true if x is Java null or Skylark None */
   public static boolean isNullOrNone(Object x) {
-    return x == null || x == Environment.NONE;
+    return x == null || x == Runtime.NONE;
   }
 
   /**

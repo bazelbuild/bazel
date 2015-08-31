@@ -638,7 +638,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.nullfunc_working()")
-        .testLookup("v", Environment.NONE);
+        .testLookup("v", Runtime.NONE);
   }
 
   @Test
@@ -646,7 +646,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.voidfunc()")
-        .testLookup("v", Environment.NONE);
+        .testLookup("v", Runtime.NONE);
   }
 
   @Test
@@ -848,7 +848,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest().setUp("a = None",
       "b = True",
       "c = False")
-      .testLookup("a", Environment.NONE)
+      .testLookup("a", Runtime.NONE)
       .testLookup("b", Boolean.TRUE)
       .testLookup("c", Boolean.FALSE);
   }

@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -46,12 +44,12 @@ import java.util.Map;
 public class SkylarkImportLookupFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
-  private final ImmutableList<BaseFunction> nativeRuleFunctions;
+  private final PackageFactory packageFactory;
 
   public SkylarkImportLookupFunction(
-      RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
+    RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
     this.ruleClassProvider = ruleClassProvider;
-    this.nativeRuleFunctions = packageFactory.collectNativeRuleFunctions();
+    this.packageFactory = packageFactory;
   }
 
   @Override
@@ -181,12 +179,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // the transitive closure of the accessible AST nodes.
     SkylarkEnvironment extensionEnv = ruleClassProvider
         .createSkylarkRuleClassEnvironment(eventHandler, ast.getContentHashCode());
-    // Adding native rules module for build extensions.
-    // TODO(bazel-team): this might not be the best place to do this.
-    for (BaseFunction function : nativeRuleFunctions) {
-        extensionEnv.registerFunction(
-            SkylarkNativeModule.class, function.getName(), function);
-    }
+    extensionEnv.update("native", packageFactory.getNativeModule());
     extensionEnv.setImportedExtensions(importMap);
     ast.exec(extensionEnv, eventHandler);
     SkylarkRuleClassFunctions.exportRuleFunctions(extensionEnv, file);

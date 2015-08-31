@@ -46,10 +46,10 @@ import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -420,7 +420,7 @@ public final class RuleConfiguredTargetBuilder {
         || type.equals(Boolean.class)
         || Artifact.class.isAssignableFrom(type)
         || type.equals(Label.class)
-        || type.equals(Environment.NoneType.class);
+        || type.equals(Runtime.NoneType.class);
   }
 
   /**

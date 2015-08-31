@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -73,7 +74,7 @@ public class SkylarkNativeModule {
   };
 
   @SkylarkSignature(name = "package_group", objectType = SkylarkNativeModule.class,
-      returnType = Environment.NoneType.class,
+      returnType = Runtime.NoneType.class,
       doc = "This function defines a set of packages and assigns a label to the group. "
           + "The label can be referenced in <code>visibility</code> attributes.",
       mandatoryNamedOnly = {
@@ -88,7 +89,7 @@ public class SkylarkNativeModule {
           doc = "Other package groups that are included in this one.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction packageGroup = new BuiltinFunction("package_group") {
-      public Environment.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
+      public Runtime.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
                 FuncallExpression ast, Environment env) throws EvalException, ConversionException {
         env.checkLoadingPhase("native.package_group", ast.getLocation());
         return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
@@ -96,7 +97,7 @@ public class SkylarkNativeModule {
     };
 
   @SkylarkSignature(name = "exports_files", objectType = SkylarkNativeModule.class,
-      returnType = Environment.NoneType.class,
+      returnType = Runtime.NoneType.class,
       doc = "Specifies a list of files belonging to this package that are exported to other "
           + "packages but not otherwise mentioned.",
       mandatoryPositionals = {
@@ -113,10 +114,10 @@ public class SkylarkNativeModule {
           doc = "Licenses to be specified.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction exportsFiles = new BuiltinFunction("exports_files") {
-      public Environment.NoneType invoke(SkylarkList srcs, Object visibility, Object licenses,
+      public Runtime.NoneType invoke(SkylarkList srcs, Object visibility, Object licenses,
           FuncallExpression ast, Environment env)
           throws EvalException, ConversionException {
-        env.checkLoadingPhase("native.exports_file", ast.getLocation());
+        env.checkLoadingPhase("native.exports_files", ast.getLocation());
         return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
       }
     };

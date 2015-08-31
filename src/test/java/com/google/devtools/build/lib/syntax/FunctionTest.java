@@ -71,7 +71,7 @@ public class FunctionTest extends EvaluationTestCase {
       public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
           Environment env) throws EvalException, InterruptedException {
         params.addAll(args);
-        return Environment.NONE;
+        return Runtime.NONE;
       }
     };
     update("outer_func", outerFunc);

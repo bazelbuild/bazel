@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 
 import java.io.Serializable;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -124,9 +123,6 @@ public class SkylarkEnvironment extends Environment implements Serializable {
     SkylarkEnvironment newEnv = new SkylarkEnvironment(eventHandler, this.fileContentHashCode);
     for (Entry<String, Object> entry : env.entrySet()) {
       newEnv.env.put(entry.getKey(), entry.getValue());
-    }
-    for (Map.Entry<Class<?>, Map<String, BaseFunction>> functionMap : functions.entrySet()) {
-      newEnv.functions.put(functionMap.getKey(), functionMap.getValue());
     }
     return newEnv;
   }

@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -38,44 +36,7 @@ import javax.annotation.Nullable;
  */
 public class Environment {
 
-  @SkylarkSignature(name = "True", returnType = Boolean.class,
-      doc = "Literal for the boolean true.")
-  private static final Boolean TRUE = true;
-
-  @SkylarkSignature(name = "False", returnType = Boolean.class,
-      doc = "Literal for the boolean false.")
-  private static final Boolean FALSE = false;
-
-  @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "The name of the package the rule or build extension is called from. "
-          + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
-          + "will be <code>some/package</code>. "
-          + "This variable is special, because its value comes from outside of the extension "
-          + "module (it comes from the BUILD file), so it can only be accessed in functions "
-          + "(transitively) called from BUILD files. For example:<br>"
-          + "<pre class=language-python>def extension():\n"
-          + "  return PACKAGE_NAME</pre>"
-          + "In this case calling <code>extension()</code> works from the BUILD file (if the "
-          + "function is loaded), but not as a top level function call in the extension module.")
-  public static final String PKG_NAME = "PACKAGE_NAME";
-
-  /**
-   * There should be only one instance of this type to allow "== None" tests.
-   */
-  @Immutable
-  public static final class NoneType {
-    @Override
-    public String toString() { return "None"; }
-    private NoneType() {}
-  }
-
-  @SkylarkSignature(name = "None", returnType = NoneType.class, doc = "Literal for the None value.")
-  public static final NoneType NONE = new NoneType();
-
   protected final Map<String, Object> env = new HashMap<>();
-
-  // BaseFunctions with namespaces. Works only in the global environment.
-  protected final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
 
   /**
    * The parent environment. For Skylark it's the global environment,
@@ -178,9 +139,9 @@ public class Environment {
     // In Python 2.x, True and False are global values and can be redefined by the user.
     // In Python 3.x, they are keywords. We implement them as values, for the sake of
     // simplicity. We define them as Boolean objects.
-    update("False", FALSE);
-    update("True", TRUE);
-    update("None", NONE);
+    update("False", Runtime.FALSE);
+    update("True", Runtime.TRUE);
+    update("None", Runtime.NONE);
   }
 
   public boolean isSkylark() {
@@ -338,54 +299,6 @@ public class Environment {
     }
 
     update(symbol.getName(), value);
-  }
-
-  /**
-   * Registers a function with namespace to this global environment.
-   */
-  public void registerFunction(Class<?> nameSpace, String name, BaseFunction function) {
-    nameSpace = getCanonicalRepresentation(nameSpace);
-    Preconditions.checkArgument(parent == null);
-    if (!functions.containsKey(nameSpace)) {
-      functions.put(nameSpace, new HashMap<String, BaseFunction>());
-    }
-    functions.get(nameSpace).put(name, function);
-  }
-
-  private Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
-    nameSpace = getCanonicalRepresentation(nameSpace);
-    Environment topLevel = this;
-    while (topLevel.parent != null) {
-      topLevel = topLevel.parent;
-    }
-    return topLevel.functions.get(nameSpace);
-  }
-
-  /**
-   * Returns the canonical representation of the given class, i.e. the super class for which any
-   * functions were registered.
-   *
-   * <p>Currently, this is only necessary for mapping the different subclasses of {@link
-   * java.util.Map} to the interface.
-   */
-  private Class<?> getCanonicalRepresentation(Class<?> clazz) {
-    return Map.class.isAssignableFrom(clazz) ? Map.class : clazz;
-  }
-
-  /**
-   * Returns the function of the namespace of the given name or null of it does not exists.
-   */
-  public BaseFunction getFunction(Class<?> nameSpace, String name) {
-    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
-    return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
-  }
-
-  /**
-   * Returns the function names registered with the namespace.
-   */
-  public Set<String> getFunctionNames(Class<?> nameSpace) {
-    Map<String, BaseFunction> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
-    return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.<String>of();
   }
 
   /**

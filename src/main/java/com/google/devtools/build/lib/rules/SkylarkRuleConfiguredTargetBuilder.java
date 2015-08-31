@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -64,7 +64,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (!(target instanceof SkylarkClassObject) && target != Environment.NONE) {
+      } else if (!(target instanceof SkylarkClassObject) && target != Runtime.NONE) {
         ruleContext.ruleError("Rule implementation doesn't return a struct");
         return null;
       } else if (!expectFailure.isEmpty()) {

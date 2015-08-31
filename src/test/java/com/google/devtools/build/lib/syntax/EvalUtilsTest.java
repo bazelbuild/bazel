@@ -68,7 +68,7 @@ public class EvalUtilsTest {
     assertEquals("List",  EvalUtils.getDataTypeName(makeList(1, 2, 3)));
     assertEquals("dict",  EvalUtils.getDataTypeName(makeDict()));
     assertEquals("FilesetEntry",  EvalUtils.getDataTypeName(makeFilesetEntry()));
-    assertEquals("NoneType", EvalUtils.getDataTypeName(Environment.NONE));
+    assertEquals("NoneType", EvalUtils.getDataTypeName(Runtime.NONE));
   }
 
   @Test
@@ -91,7 +91,7 @@ public class EvalUtilsTest {
     map.put(-1, 2);
     map.put("4", 6);
     map.put(2.0, 1);
-    map.put(Environment.NONE, 0);
+    map.put(Runtime.NONE, 0);
 
     int expected = 0;
     // Expected order of keys is NoneType -> Double -> Integers -> Strings

@@ -80,7 +80,7 @@ public class UserDefinedFunction extends BaseFunction {
     } finally {
       Profiler.instance().logSimpleTask(startTimeProfiler, ProfilerTask.SKYLARK_USER_FN, getName());
     }
-    return Environment.NONE;
+    return Runtime.NONE;
   }
 
   /**
