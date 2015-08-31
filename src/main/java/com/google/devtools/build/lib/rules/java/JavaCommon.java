@@ -525,9 +525,7 @@ public class JavaCommon {
     builder
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
-        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
-            instrumentedFilesProvider.getBaselineCoverageArtifacts());
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
   }
 
   /**

@@ -601,9 +601,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
             common.getFilesToCompile(ccCompilationOutputs))
         .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
-            CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext))
-        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
-            instrumentedFilesProvider.getBaselineCoverageArtifacts());
+            CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
   }
 
   private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(

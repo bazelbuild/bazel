@@ -51,11 +51,6 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
   public static final String HIDDEN_OUTPUT_GROUP_PREFIX = "_";
 
   /**
-   * Baseline coverage artifacts.
-   */
-  public static final String BASELINE_COVERAGE = HIDDEN_OUTPUT_GROUP_PREFIX + "baseline_coverage";
-
-  /**
    * Building these artifacts only results in the compilation (and not e.g. linking) of the
    * associated target. Mostly useful for C++, less so for e.g. Java.
    */

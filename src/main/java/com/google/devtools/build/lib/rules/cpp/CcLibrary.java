@@ -267,9 +267,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
-        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
-        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
-            instrumentedFilesProvider.getBaselineCoverageArtifacts());
+        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce);
 
   }
 

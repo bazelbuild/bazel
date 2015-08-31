@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -1478,8 +1479,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
     Artifact baselineCoverage = Iterables.getOnlyElement(target
-        .getProvider(OutputGroupProvider.class)
-        .getOutputGroup(OutputGroupProvider.BASELINE_COVERAGE));
+        .getProvider(InstrumentedFilesProvider.class)
+        .getBaselineCoverageArtifacts());
     BaselineCoverageAction baselineAction =
         (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
 
