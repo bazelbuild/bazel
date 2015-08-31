@@ -38,6 +38,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_S
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -49,6 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -56,6 +58,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -65,6 +68,7 @@ import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -688,21 +692,37 @@ public final class CompilationSupport {
         Iterable<Artifact> sourceArtifacts = j2ObjcSource.getObjcSrcs();
         Iterable<Artifact> prunedSourceArtifacts =
             j2ObjcSource.toPrunedSource(ruleContext).getObjcSrcs();
+        PathFragment paramFilePath = FileSystemUtils.replaceExtension(
+            j2ObjcSource.getTargetLabel().toPathFragment(), ".param.j2objc");
+        Artifact paramFile = ruleContext.getUniqueDirectoryArtifact(
+            "_j2objc_pruned",
+            paramFilePath,
+            ruleContext.getBinOrGenfilesDirectory());
         PathFragment objcFilePath = j2ObjcSource.getObjcFilePath();
+        CustomCommandLine commandLine = CustomCommandLine.builder()
+            .addJoinExecPaths("--input_files", ",", sourceArtifacts)
+            .addJoinExecPaths("--output_files", ",", prunedSourceArtifacts)
+            .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+            .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+            .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
+            .add("--objc_file_path").add(objcFilePath.getPathString())
+            .build();
+
+        ruleContext.registerAction(new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFile,
+            commandLine,
+            ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
         ruleContext.registerAction(new SpawnAction.Builder()
             .setMnemonic("DummyPruner")
             .setExecutable(pruner)
             .addInput(pruner)
+            .addInput(paramFile)
             .addInputs(sourceArtifacts)
             .addTransitiveInputs(j2ObjcDependencyMappingFiles)
             .addTransitiveInputs(j2ObjcHeaderMappingFiles)
             .setCommandLine(CustomCommandLine.builder()
-                .addJoinExecPaths("--input_files", ",", sourceArtifacts)
-                .addJoinExecPaths("--output_files", ",", prunedSourceArtifacts)
-                .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
-                .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
-                .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
-                .add("--objc_file_path").add(objcFilePath.getPathString())
+                .addPaths("@%s", paramFile.getExecPath())
                 .build())
             .addOutputs(prunedSourceArtifacts)
             .build(ruleContext));

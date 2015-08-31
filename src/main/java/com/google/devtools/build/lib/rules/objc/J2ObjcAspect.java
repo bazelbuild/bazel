@@ -17,10 +17,12 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -203,6 +206,13 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
 
     argBuilder.addExecPaths(sources);
 
+    Artifact paramFile = j2ObjcOutputParamFile(ruleContext);
+    ruleContext.registerAction(new ParameterFileWriteAction(
+        ruleContext.getActionOwner(),
+        paramFile,
+        argBuilder.build(),
+        ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
+
     SpawnAction.Builder builder = new SpawnAction.Builder()
         .setMnemonic("TranspilingJ2objc")
         .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", Mode.HOST))
@@ -213,7 +223,10 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
         .addInputs(JavaCompilationHelper.getHostJavabaseInputs(ruleContext))
         .addTransitiveInputs(depsHeaderMappingFiles)
         .addTransitiveInputs(depsClassMappingFiles)
-        .setCommandLine(argBuilder.build())
+        .addInput(paramFile)
+        .setCommandLine(CustomCommandLine.builder()
+            .addPaths("@%s", paramFile.getExecPath())
+            .build())
         .addOutputs(j2ObjcSource.getObjcSrcs())
         .addOutputs(j2ObjcSource.getObjcHdrs())
         .addOutput(outputHeaderMappingFile)
@@ -252,6 +265,10 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
 
   private static Artifact j2ObjcOutputDependencyMappingFile(RuleContext ruleContext) {
     return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".dependency_mapping.j2objc");
+  }
+
+  private static Artifact j2ObjcOutputParamFile(RuleContext ruleContext) {
+    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".param.j2objc");
   }
 
   private J2ObjcSource buildJ2ObjcSource(RuleContext ruleContext,
