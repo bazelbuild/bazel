@@ -126,14 +126,14 @@ genrule(
   name = "breaks2",
   srcs = [ "a.txt" ],
   outs = [ "breaks2.txt" ],
-  # the point of this test is to attempt to read something from filesystem
-  # that resides outside sandbox by using an absolute path to that file
+  # The point of this test is to attempt to read something from the filesystem
+  # that resides outside the sandbox by using an absolute path to that file.
   #
-  # /home is an arbitrary choice of directory (we doesn't mount it in sandbox
-  # and it should exist on every linux) which could be changed in case it turns
-  # out it's necessary to put it in sandbox
+  # /var/log is an arbitrary choice of directory (we don't mount it in the
+  # sandbox and it should exist on every linux) which could be changed in
+  # case it turns out it's necessary to put it in sandbox.
   #
-  cmd = "ls /home > $@",
+  cmd = "ls /var/log > $@",
 )
 
 genrule(
