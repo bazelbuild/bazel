@@ -84,7 +84,7 @@ function bazel_build() {
   # Copy the results to the output directory
   mkdir -p $1/packages
   cp output/bazel $1/bazel
-  cp bazel-bin/scripts/packages/install.sh $1/install.sh
+  cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
   cp bazel-genfiles/scripts/packages/README.md $1/README.md
 }
 
