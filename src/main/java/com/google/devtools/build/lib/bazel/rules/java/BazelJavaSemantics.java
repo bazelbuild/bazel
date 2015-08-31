@@ -46,9 +46,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -66,10 +63,6 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final Template STUB_SCRIPT =
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
-
-  public static final InstrumentationSpec GREEDY_COLLECTION_SPEC = new InstrumentationSpec(
-      FileTypeSet.of(FileType.of(".sh"), JavaSemantics.JAVA_SOURCE),
-      "srcs", "deps", "data");
 
   private static final String JAVABUILDER_CLASS_NAME =
       "com.google.devtools.build.buildjar.BazelJavaBuilder";
@@ -219,11 +212,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public void collectTargetsTreatedAsDeps(
       RuleContext ruleContext, ImmutableList.Builder<TransitiveInfoCollection> builder) {
-  }
-
-  @Override
-  public InstrumentationSpec getCoverageInstrumentationSpec() {
-    return GREEDY_COLLECTION_SPEC.withAttributes("srcs", "deps", "data", "exports", "runtime_deps");
   }
 
   @Override

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -258,11 +257,6 @@ public interface JavaSemantics {
    * Adds extra runfiles for a {@code java_library} rule.
    */
   void addRunfilesForLibrary(RuleContext ruleContext, Runfiles.Builder runfilesBuilder);
-
-  /**
-   * Returns the coverage instrumentation specification to be used in Java rules.
-   */
-  InstrumentationSpec getCoverageInstrumentationSpec();
 
   /**
    * Returns the additional options to be passed to javac.
