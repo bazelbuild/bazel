@@ -365,6 +365,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new GlobFunction(/*alwaysUseDirListing=*/false);
   }
 
+  protected PerBuildSyscallCache newPerBuildSyscallCache() {
+    return PerBuildSyscallCache.newUnboundedCache();
+  }
+
  @ThreadCompatible
   public void setActive(boolean active) {
     this.active = active;
@@ -848,7 +852,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
 
-    syscalls.set(new PerBuildSyscallCache());
+    syscalls.set(newPerBuildSyscallCache());
     this.pkgFactory.setGlobbingThreads(globbingThreads);
     checkPreprocessorFactory();
     emittedEventState.clear();

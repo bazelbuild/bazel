@@ -447,7 +447,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     } else {
       diff = getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
-    syscalls.set(new PerBuildSyscallCache());
+    syscalls.set(newPerBuildSyscallCache());
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.

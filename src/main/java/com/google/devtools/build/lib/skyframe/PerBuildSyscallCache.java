@@ -29,14 +29,28 @@ import java.util.Collection;
 /**
  * A per-build cache of filesystem operations for Skyframe invocations of legacy package loading.
  */
-class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
+public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
-  private final LoadingCache<Pair<Path, Symlinks>, FileStatus> statCache =
-      newStatMap();
+  private final LoadingCache<Pair<Path, Symlinks>, FileStatus> statCache;
   private final LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>>
-      readdirCache = newReaddirMap();
+      readdirCache;
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
+
+  /**
+   * Create a new per-build filesystem cache.
+   *
+   * @param maxStats Max stat results to keep in cache, or -1 for unbounded.
+   * @param maxReaddirs Max readdir results to keep in cache, or -1 for unbounded.
+   */
+  public PerBuildSyscallCache(int maxStats, int maxReaddirs) {
+    statCache = newStatMap(maxStats);
+    readdirCache = newReaddirMap(maxReaddirs);
+  }
+
+  public static PerBuildSyscallCache newUnboundedCache() {
+    return new PerBuildSyscallCache(-1, -1);
+  }
 
   @Override
   public Collection<Dirent> readdir(Path path, Symlinks symlinks) throws IOException {
@@ -98,8 +112,8 @@ class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
    * Input: (path, following_symlinks)
    * Output: FileStatus
    */
-  private static LoadingCache<Pair<Path, Symlinks>, FileStatus> newStatMap() {
-    return CacheBuilder.newBuilder().build(
+  private static LoadingCache<Pair<Path, Symlinks>, FileStatus> newStatMap(int maxStats) {
+    return builderWithOptionalMax(maxStats).build(
         new CacheLoader<Pair<Path, Symlinks>, FileStatus>() {
           @Override
           public FileStatus load(Pair<Path, Symlinks> p) {
@@ -115,17 +129,28 @@ class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
    * Output: A union of (Dirents, IOException).
    */
   private static
-  LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>> newReaddirMap() {
-    return CacheBuilder.newBuilder().build(
+  LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>> newReaddirMap(
+      int maxReaddirs) {
+    return builderWithOptionalMax(maxReaddirs).build(
         new CacheLoader<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>>() {
           @Override
           public Pair<Collection<Dirent>, IOException> load(Pair<Path, Symlinks> p) {
             try {
+              // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly
+              // by reusing DirectoryEntryListingStateValue#CompactSortedDirents.
               return Pair.of(p.first.readdir(p.second), null);
             } catch (IOException e) {
               return Pair.of(null, e);
             }
           }
         });
+  }
+
+  private static CacheBuilder<Object, Object> builderWithOptionalMax(int maxEntries) {
+    CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder();
+    if (maxEntries >= 0) {
+      builder = builder.maximumSize(maxEntries);
+    }
+    return builder;
   }
 }
