@@ -1248,8 +1248,7 @@ public final class ParallelEvaluator implements Evaluator {
         }
       }
       SkyFunctionEnvironment env =
-          new SkyFunctionEnvironment(parent, parentEntry.getTemporaryDirectDeps(),
-              bubbleErrorInfo, visitor);
+          new SkyFunctionEnvironment(parent, ImmutableSet.<SkyKey>of(), bubbleErrorInfo, visitor);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
       try {
         // This build is only to check if the parent node can give us a better error. We don't
