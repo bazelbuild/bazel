@@ -234,7 +234,7 @@ public class Package implements Serializable {
 
   private void writeObject(ObjectOutputStream out) {
     try {
-      PackageSerializer.serializePackage(this, out);
+      PackageSerializer.DEFAULT.serialize(this, out);
     } catch (IOException ioe) {
       throw new IllegalStateException(ioe);
     }

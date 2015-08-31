@@ -136,9 +136,9 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
         if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)) {
           continue;
         }
-        PackageSerializer.addAttributeToProto(rulePb, attr,
+        rulePb.addAttribute(PackageSerializer.getAttributeProto(attr,
             PackageSerializer.getAttributeValues(rule, attr), null,
-            rule.isAttributeValueExplicitlySpecified(attr), false);
+            rule.isAttributeValueExplicitlySpecified(attr), false));
       }
 
       SkylarkEnvironment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
@@ -157,8 +157,8 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
           aspectResolver.computeAspectDependencies(target);
       // Add information about additional attributes from aspects.
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
-        PackageSerializer.addAttributeToProto(rulePb, entry.getKey(),
-            Lists.<Object>newArrayList(entry.getValue()), null, false, false);
+        rulePb.addAttribute(PackageSerializer.getAttributeProto(entry.getKey(),
+            Lists.<Object>newArrayList(entry.getValue()), null, false, false));
       }
       // Add all deps from aspects as rule inputs of current target.
       for (Label label : aspectsDependencies.values()) {

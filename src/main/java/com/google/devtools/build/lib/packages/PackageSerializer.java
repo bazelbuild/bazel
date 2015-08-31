@@ -59,33 +59,22 @@ import java.util.Map;
  */
 public class PackageSerializer {
 
-  public static final PackageSerializer INSTANCE = new PackageSerializer();
-
-  private PackageSerializer() {}
-
-  /**
-   * Same as {@link #serializePackage(Package, OutputStream)} but an instance method, convenient
-   * for alternate implementations or mocking in tests.
-   */
-  public void serialize(Package pkg, OutputStream out) throws IOException {
-    serializePackage(pkg, out);
-  }
+  public static final PackageSerializer DEFAULT =
+      new PackageSerializer(/*serializefullLocations=*/true);
 
   /**
-   * Serialize a package to {@code out}. The inverse of {@link PackageDeserializer#deserialize}.
+   * Get protocol buffer representation of the specified attribute.
    *
-   * <p>Writes pkg as a single
-   * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.Package} protocol buffer
-   * message followed by a series of
-   * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.TargetOrTerminator} messages
-   * encoding the targets.
-   *
-   * @param pkg the {@link Package} to be serialized
-   * @param out the stream to pkg's serialized representation to
-   * @throws IOException on failure writing to {@code out}
+   * @param attr the attribute to add
+   * @param values the possible values of the attribute (can be a multi-value list for
+   *              configurable attributes)
+   * @param location the location of the attribute in the source file
+   * @param explicitlySpecified whether the attribute was explicitly specified or not
+   * @param includeGlobs add glob expression for attributes that contain them
    */
-  public static void serializePackage(Package pkg, OutputStream out) throws IOException {
-    serializePackageInternal(pkg, out);
+  public static Build.Attribute getAttributeProto(Attribute attr, Iterable<Object> values,
+      Location location, Boolean explicitlySpecified, boolean includeGlobs) {
+    return DEFAULT.serializeAttribute(attr, values, location, explicitlySpecified, includeGlobs);
   }
 
   /**
@@ -108,20 +97,102 @@ public class PackageSerializer {
     return values;
   }
 
+  private final boolean serializeFullLocations;
+
   /**
-   * Adds the serialized version of the specified attribute to the specified message.
+   * Initialize with the specified configuration.
    *
-   * @param rulePb the message to amend
-   * @param attr the attribute to add
-   * @param values the possible values of the attribute (can be a multi-value list for
-   *              configurable attributes)
-   * @param location the location of the attribute in the source file
-   * @param explicitlySpecified whether the attribute was explicitly specified or not
-   * @param includeGlobs add glob expression for attributes that contain them
+   * @param serializeFullLocations if true will include start and end offset, line, and column
+   *    in serialized locations, if false will only include start and end offset
    */
+  public PackageSerializer(boolean serializeFullLocations) {
+    this.serializeFullLocations = serializeFullLocations;
+  }
+
+  /**
+   * Serialize a package to {@code out}. The inverse of {@link PackageDeserializer#deserialize}.
+   *
+   * <p>Writes pkg as a single
+   * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.Package} protocol buffer
+   * message followed by a series of
+   * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.TargetOrTerminator} messages
+   * encoding the targets.
+   *
+   * @param pkg the {@link Package} to be serialized
+   * @param out the stream to pkg's serialized representation to
+   * @throws IOException on failure writing to {@code out}
+   */
+  public void serialize(Package pkg, OutputStream out) throws IOException {
+    serializePackageInternal(pkg, out);
+  }
+
+  /** Serializes pkg to out as a series of protocol buffers */
+  private void serializePackageInternal(Package pkg, OutputStream out) throws IOException {
+    Build.Package.Builder builder = Build.Package.newBuilder();
+    builder.setName(pkg.getName());
+    builder.setRepository(pkg.getPackageIdentifier().getRepository().toString());
+    builder.setBuildFilePath(pkg.getFilename().getPathString());
+    // The extra bit is needed to handle the corner case when the default visibility is [], i.e.
+    // zero labels.
+    builder.setDefaultVisibilitySet(pkg.isDefaultVisibilitySet());
+    if (pkg.isDefaultVisibilitySet()) {
+      for (Label visibilityLabel : pkg.getDefaultVisibility().getDeclaredLabels()) {
+        builder.addDefaultVisibilityLabel(visibilityLabel.toString());
+      }
+    }
+
+    builder.setDefaultTestonly(pkg.getDefaultTestOnly());
+    if (pkg.getDefaultDeprecation() != null) {
+      builder.setDefaultDeprecation(pkg.getDefaultDeprecation());
+    }
+
+    for (String defaultCopt : pkg.getDefaultCopts()) {
+      builder.addDefaultCopt(defaultCopt);
+    }
+
+    if (pkg.isDefaultHdrsCheckSet()) {
+      builder.setDefaultHdrsCheck(pkg.getDefaultHdrsCheck());
+    }
+
+    builder.setDefaultLicense(serializeLicense(pkg.getDefaultLicense()));
+
+    for (DistributionType distributionType : pkg.getDefaultDistribs()) {
+      builder.addDefaultDistrib(distributionType.toString());
+    }
+
+    for (String feature : pkg.getFeatures()) {
+      builder.addDefaultSetting(feature);
+    }
+
+    for (Label subincludeLabel : pkg.getSubincludeLabels()) {
+      builder.addSubincludeLabel(subincludeLabel.toString());
+    }
+
+    for (Label skylarkLabel : pkg.getSkylarkFileDependencies()) {
+      builder.addSkylarkLabel(skylarkLabel.toString());
+    }
+
+    for (Build.MakeVar makeVar :
+         serializeMakeEnvironment(pkg.getMakeEnvironment())) {
+      builder.addMakeVariable(makeVar);
+    }
+
+    for (Event event : pkg.getEvents()) {
+      builder.addEvent(serializeEvent(event));
+    }
+
+    builder.setContainsErrors(pkg.containsErrors());
+    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
+
+    builder.build().writeDelimitedTo(out);
+
+    // Targets are emitted separately as individual protocol buffers as to prevent overwhelming
+    // protocol buffer deserialization size limits.
+    emitTargets(pkg.getTargets(), out);
+  }
+
   @SuppressWarnings("unchecked")
-  public static void addAttributeToProto(
-      Build.Rule.Builder rulePb, Attribute attr, Iterable<Object> values,
+  private Build.Attribute serializeAttribute(Attribute attr, Iterable<Object> values,
       Location location, Boolean explicitlySpecified, boolean includeGlobs) {
     // Get the attribute type.  We need to convert and add appropriately
     com.google.devtools.build.lib.packages.Type<?> type = attr.getType();
@@ -341,10 +412,10 @@ public class PackageSerializer {
       }
     }
 
-    rulePb.addAttribute(attrPb);
+    return attrPb.build();
   }
 
-  private static Build.Target serializeInputFile(InputFile inputFile) {
+  private Build.Target serializeInputFile(InputFile inputFile) {
     Build.SourceFile.Builder builder = Build.SourceFile.newBuilder();
     builder.setName(inputFile.getLabel().toString());
     if (inputFile.isVisibilitySpecified()) {
@@ -364,27 +435,30 @@ public class PackageSerializer {
         .build();
   }
 
-  private static Build.Location serializeLocation(Location location) {
+  private Build.Location serializeLocation(Location location) {
     Build.Location.Builder result = Build.Location.newBuilder();
 
     result.setStartOffset(location.getStartOffset());
-    Location.LineAndColumn startLineAndColumn = location.getStartLineAndColumn();
-    if (startLineAndColumn != null) {
-      result.setStartLine(startLineAndColumn.getLine());
-      result.setStartColumn(startLineAndColumn.getColumn());
-    }
-
     result.setEndOffset(location.getEndOffset());
-    Location.LineAndColumn endLineAndColumn = location.getEndLineAndColumn();
-    if (endLineAndColumn != null) {
-      result.setEndLine(endLineAndColumn.getLine());
-      result.setEndColumn(endLineAndColumn.getColumn());
+
+    if (serializeFullLocations) {
+      Location.LineAndColumn startLineAndColumn = location.getStartLineAndColumn();
+      if (startLineAndColumn != null) {
+        result.setStartLine(startLineAndColumn.getLine());
+        result.setStartColumn(startLineAndColumn.getColumn());
+      }
+
+      Location.LineAndColumn endLineAndColumn = location.getEndLineAndColumn();
+      if (endLineAndColumn != null) {
+        result.setEndLine(endLineAndColumn.getLine());
+        result.setEndColumn(endLineAndColumn.getColumn());
+      }
     }
 
     return result.build();
   }
 
-  private static Build.Target serializePackageGroup(PackageGroup packageGroup) {
+  private Build.Target serializePackageGroup(PackageGroup packageGroup) {
     Build.PackageGroup.Builder builder = Build.PackageGroup.newBuilder();
 
     builder.setName(packageGroup.getLabel().toString());
@@ -404,16 +478,16 @@ public class PackageSerializer {
         .build();
   }
 
-  private static Build.Target serializeRule(Rule rule) {
+  private Build.Target serializeRule(Rule rule) {
     Build.Rule.Builder builder = Build.Rule.newBuilder();
     builder.setName(rule.getLabel().toString());
     builder.setRuleClass(rule.getRuleClass());
     builder.setParseableLocation(serializeLocation(rule.getLocation()));
     builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
     for (Attribute attribute : rule.getAttributes()) {
-      PackageSerializer.addAttributeToProto(builder, attribute,
+      builder.addAttribute(serializeAttribute(attribute,
           getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
-          rule.isAttributeValueExplicitlySpecified(attribute), true);
+          rule.isAttributeValueExplicitlySpecified(attribute), true));
     }
 
     return Build.Target.newBuilder()
@@ -454,7 +528,7 @@ public class PackageSerializer {
     return result.build();
   }
 
-  private static Build.Event serializeEvent(Event event) {
+  private Build.Event serializeEvent(Event event) {
     Build.Event.Builder result = Build.Event.newBuilder();
     result.setMessage(event.getMessage());
     if (event.getLocation() != null) {
@@ -483,73 +557,8 @@ public class PackageSerializer {
     return result.build();
   }
 
-  /** Serializes pkg to out as a series of protocol buffers */
-  private static void serializePackageInternal(Package pkg, OutputStream out) throws IOException {
-    Build.Package.Builder builder = Build.Package.newBuilder();
-    builder.setName(pkg.getName());
-    builder.setRepository(pkg.getPackageIdentifier().getRepository().toString());
-    builder.setBuildFilePath(pkg.getFilename().getPathString());
-    // The extra bit is needed to handle the corner case when the default visibility is [], i.e.
-    // zero labels.
-    builder.setDefaultVisibilitySet(pkg.isDefaultVisibilitySet());
-    if (pkg.isDefaultVisibilitySet()) {
-      for (Label visibilityLabel : pkg.getDefaultVisibility().getDeclaredLabels()) {
-        builder.addDefaultVisibilityLabel(visibilityLabel.toString());
-      }
-    }
-
-    builder.setDefaultTestonly(pkg.getDefaultTestOnly());
-    if (pkg.getDefaultDeprecation() != null) {
-      builder.setDefaultDeprecation(pkg.getDefaultDeprecation());
-    }
-
-    for (String defaultCopt : pkg.getDefaultCopts()) {
-      builder.addDefaultCopt(defaultCopt);
-    }
-
-    if (pkg.isDefaultHdrsCheckSet()) {
-      builder.setDefaultHdrsCheck(pkg.getDefaultHdrsCheck());
-    }
-
-    builder.setDefaultLicense(serializeLicense(pkg.getDefaultLicense()));
-
-    for (DistributionType distributionType : pkg.getDefaultDistribs()) {
-      builder.addDefaultDistrib(distributionType.toString());
-    }
-
-    for (String feature : pkg.getFeatures()) {
-      builder.addDefaultSetting(feature);
-    }
-
-    for (Label subincludeLabel : pkg.getSubincludeLabels()) {
-      builder.addSubincludeLabel(subincludeLabel.toString());
-    }
-
-    for (Label skylarkLabel : pkg.getSkylarkFileDependencies()) {
-      builder.addSkylarkLabel(skylarkLabel.toString());
-    }
-
-    for (Build.MakeVar makeVar :
-         serializeMakeEnvironment(pkg.getMakeEnvironment())) {
-      builder.addMakeVariable(makeVar);
-    }
-
-    for (Event event : pkg.getEvents()) {
-      builder.addEvent(serializeEvent(event));
-    }
-
-    builder.setContainsErrors(pkg.containsErrors());
-    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
-
-    builder.build().writeDelimitedTo(out);
-
-    // Targets are emitted separately as individual protocol buffers as to prevent overwhelming
-    // protocol buffer deserialization size limits.
-    emitTargets(pkg.getTargets(), out);
-  }
-
   /** Writes targets as a series of separate TargetOrTerminator messages to out. */
-  private static void emitTargets(Collection<Target> targets, OutputStream out) throws IOException {
+  private void emitTargets(Collection<Target> targets, OutputStream out) throws IOException {
     for (Target target : targets) {
       if (target instanceof InputFile) {
         emitTarget(serializeInputFile((InputFile) target), out);
