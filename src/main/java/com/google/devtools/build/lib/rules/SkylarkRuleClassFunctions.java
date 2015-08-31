@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
@@ -119,11 +120,20 @@ public class SkylarkRuleClassFunctions {
   });
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
-  /** Parent rule class for non-test Skylark rules. */
+  /** Parent rule class for non-executable non-test Skylark rules. */
   public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndSkylarkAttributes(
           new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
           .add(attr("expect_failure", STRING))
+          .build();
+
+  /** Parent rule class for executable non-test Skylark rules. */
+  public static final RuleClass binaryBaseRule =
+      new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+          .add(
+              attr("args", STRING_LIST)
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(attr("output_licenses", LICENSE))
           .build();
 
   /** Parent rule class for test Skylark rules. */
@@ -235,11 +245,10 @@ public class SkylarkRuleClassFunctions {
 
         funcallEnv.checkLoadingPhase("rule", ast.getLocation());
         RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
+        RuleClass parent = test ? testBaseRule : (executable ? binaryBaseRule : baseRule);
 
         // We'll set the name later, pass the empty string for now.
-        RuleClass.Builder builder = test
-            ? new RuleClass.Builder("", type, true, testBaseRule)
-            : new RuleClass.Builder("", type, true, baseRule);
+        RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
 
         if (attrs != Environment.NONE) {
           for (Map.Entry<String, Attribute.Builder> attr : castMap(
