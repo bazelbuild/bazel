@@ -424,10 +424,7 @@ public class FileSystemUtils {
     }
   }
 
-  /**
-   * Return the path as a ByteSource.
-   */
-  public static ByteSource asByteSource(final Path path) {
+  private static ByteSource asByteSource(final Path path) {
     return new ByteSource() {
       @Override public InputStream openStream() throws IOException {
         return path.getInputStream();
