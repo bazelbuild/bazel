@@ -298,7 +298,7 @@ public final class SkyframeBuildView {
         }
         skyframeExecutor.getReporter().handle(
             Event.warn("errors encountered while analyzing target '"
-                + label + "': it will not be built"));
+                + label.getLabel() + "': it will not be built"));
         eventBus.post(new AnalysisFailureEvent(
             LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()), root));
       }
