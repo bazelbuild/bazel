@@ -128,7 +128,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public Label defaultProvisioningProfile;
 
   @Option(name = "objc_per_proto_includes",
-      defaultValue = "true",
+      defaultValue = "false",
       category = "undocumented",
       help = "Whether to add include path entries for every individual proto file.")
   public boolean perProtoIncludes;
