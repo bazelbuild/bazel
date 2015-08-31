@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -40,6 +41,8 @@ import java.util.List;
  * sandbox, handles sandbox output, performs cleanup and changes invocation if necessary.
  */
 public class NamespaceSandboxRunner {
+  private static final String NAMESPACE_SANDBOX =
+      "namespace-sandbox" + OsUtils.executableExtension();
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
@@ -61,7 +64,7 @@ public class NamespaceSandboxRunner {
     BinTools binTools = runtime.getBinTools();
 
     List<String> args = new ArrayList<>();
-    args.add(execRoot.getRelative(binTools.getExecPath("namespace-sandbox")).getPathString());
+    args.add(execRoot.getRelative(binTools.getExecPath(NAMESPACE_SANDBOX)).getPathString());
     args.add("-C");
 
     ImmutableMap<String, String> env = ImmutableMap.of();
