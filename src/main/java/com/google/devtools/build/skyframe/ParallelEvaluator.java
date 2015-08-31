@@ -1505,7 +1505,7 @@ public final class ParallelEvaluator implements Evaluator {
       }
 
       // This node is not yet known to be in a cycle. So process its children.
-      Iterable<? extends SkyKey> children = graph.get(key).getTemporaryDirectDeps();
+      Iterable<? extends SkyKey> children = entry.getTemporaryDirectDeps();
       if (Iterables.isEmpty(children)) {
         continue;
       }
