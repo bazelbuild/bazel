@@ -45,6 +45,12 @@ function assert_zipper_same_after_unzip() {
   (cd $folder && $UNZIP -q ${zipfile} || true)  # ignore CRC32 errors
   diff -r $1 $folder &> $TEST_log \
       || fail "Unzip after zipper output differ"
+  # Retry with compression
+  (cd $1 && $ZIPPER cC ${zipfile} $(find . | sed 's|^./||' | grep -v '^.$'))
+  local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
+  (cd $folder && $UNZIP -q ${zipfile} || true)  # ignore CRC32 errors
+  diff -r $1 $folder &> $TEST_log \
+      || fail "Unzip after zipper output differ"
 }
 
 #### Tests

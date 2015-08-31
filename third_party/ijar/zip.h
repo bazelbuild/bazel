@@ -61,9 +61,10 @@ class ZipBuilder {
   virtual u1* NewFile(const char* filename, const u4 attr) = 0;
 
   // Finish writing a file and specify its length. After calling this method
-  // one should not reuse the pointer given by NewFile.
+  // one should not reuse the pointer given by NewFile. The file can be
+  // compressed using the deflate algorithm by setting `compress` to true.
   // On failure, returns -1 and GetError() will return an non-empty message.
-  virtual int FinishFile(size_t filelength) = 0;
+  virtual int FinishFile(size_t filelength, bool compress = false) = 0;
 
   // Write an empty file, it is equivalent to:
   //   NewFile(filename, 0);

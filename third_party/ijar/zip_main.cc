@@ -177,7 +177,8 @@ int extract(char *zipfile, bool verbose, bool extract) {
 }
 
 // Execute the create operation
-int create(char *zipfile, char **files, bool flatten, bool verbose) {
+int create(char *zipfile, char **files, bool flatten, bool verbose,
+           bool compress) {
   struct stat statst;
   u8 size = ZipBuilder::EstimateSize(files);
   if (size == 0) {
@@ -236,7 +237,7 @@ int create(char *zipfile, char **files, bool flatten, bool verbose) {
       }
       memcpy(buffer, data, statst.st_size);
       munmap(data, statst.st_size);
-      builder->FinishFile(statst.st_size);
+      builder->FinishFile(statst.st_size, compress);
     }
   }
   if (builder->Finish() < 0) {
@@ -252,11 +253,13 @@ int create(char *zipfile, char **files, bool flatten, bool verbose) {
 // main method
 //
 static void usage(char *progname) {
-  fprintf(stderr, "Usage: %s [vxc[f]] x.zip [file1...filen]\n", progname);
+  fprintf(stderr, "Usage: %s [vxc[fC]] x.zip [file1...filen]\n", progname);
   fprintf(stderr, "  v verbose - list all file in x.zip\n");
   fprintf(stderr, "  x extract - extract file in x.zip in current directory\n");
   fprintf(stderr, "  c create  - add files to x.zip\n");
   fprintf(stderr, "  f flatten - flatten files to use with create operation\n");
+  fprintf(stderr,
+          "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
   exit(1);
 }
@@ -265,6 +268,7 @@ int main(int argc, char **argv) {
   bool extract = false;
   bool verbose = false;
   bool create = false;
+  bool compress = false;
   bool flatten = false;
 
   if (argc < 3) {
@@ -285,6 +289,9 @@ int main(int argc, char **argv) {
     case 'f':
       flatten = true;
       break;
+    case 'C':
+      compress = true;
+      break;
     default:
       usage(argv[0]);
     }
@@ -294,7 +301,7 @@ int main(int argc, char **argv) {
       usage(argv[0]);
     }
     // Create a zip
-    return devtools_ijar::create(argv[2], argv+3, flatten, verbose);
+    return devtools_ijar::create(argv[2], argv + 3, flatten, verbose, compress);
   } else {
     if (flatten) {
       usage(argv[0]);
