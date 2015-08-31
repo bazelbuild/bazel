@@ -88,10 +88,44 @@ function test_write() {
   }
 }
 
+# Test for dependencies
+# unzip
+if ! which unzip >/dev/null; then
+  echo >&2
+  echo "unzip not found, please install the corresponding package." >&2
+  echo "See http://bazel.io/docs/install.html for more information on" >&2
+  echo "dependencies of Bazel." >&2
+  exit 1
+fi
+
+# java
+if [ -z "${JAVA_HOME-}" ]; then
+  case "$(uname -s | tr 'A-Z' 'a-z')" in
+    linux)
+      JAVA_HOME="$(readlink -f $(which javac) 2>/dev/null | sed 's_/bin/javac__')" || true
+      ;;
+    freebsd)
+      JAVA_HOME="/usr/local/openjdk8"
+      ;;
+    darwin)
+      JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" || true
+      ;;
+  esac
+fi
+if [ ! -x "${JAVA_HOME}/bin/javac" ]; then
+  echo >&2
+  echo "Java not found, please install the corresponding package" >&2
+  echo "See http://bazel.io/docs/install.html for more information on" >&2
+  echo "dependencies of Bazel." >&2
+  exit 1
+fi
+
+# Test for write access
 test_write "${bin}"
 test_write "${base}"
 test_write "${bazelrc}"
 
+# Do the actual installation
 echo -n "Uncompressing."
 rm -fr "${bin}" "${base}" "${bazelrc}"
 
