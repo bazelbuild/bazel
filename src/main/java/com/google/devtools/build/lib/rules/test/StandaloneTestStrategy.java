@@ -159,6 +159,7 @@ public class StandaloneTestStrategy extends TestStrategy {
      */
     vars.put("TEST_SRCDIR", runfilesDir.getPathString());
     vars.put("TEST_TMPDIR", tmpDir.getPathString());
+    vars.put("TEST_WORKSPACE", action.getRunfilesPrefix());
     vars.put("XML_OUTPUT_FILE", resolvedPaths.getXmlOutputPath().getPathString());
 
     return vars;
