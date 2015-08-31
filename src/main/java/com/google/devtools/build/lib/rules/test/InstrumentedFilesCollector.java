@@ -41,10 +41,26 @@ import java.util.List;
 public final class InstrumentedFilesCollector {
   public static InstrumentedFilesProvider collect(RuleContext ruleContext, InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector, Iterable<Artifact> rootFiles) {
+    return collect(ruleContext, spec, localMetadataCollector, rootFiles, false);
+  }
+
+  public static InstrumentedFilesProvider collect(RuleContext ruleContext,
+      InstrumentationSpec spec, LocalMetadataCollector localMetadataCollector,
+      Iterable<Artifact> rootFiles, boolean withBaselineCoverage) {
     InstrumentedFilesCollector collector = new InstrumentedFilesCollector(ruleContext, spec,
         localMetadataCollector, rootFiles);
+    NestedSet<Artifact> baselineCoverageArtifacts;
+    if (withBaselineCoverage) {
+      baselineCoverageArtifacts =
+          BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext,
+              collector.instrumentedFiles);
+    } else {
+      baselineCoverageArtifacts = NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+    }
     return new InstrumentedFilesProviderImpl(collector.instrumentedFiles,
-        collector.instrumentationMetadataFiles, ImmutableMap.<String, String>of());
+        collector.instrumentationMetadataFiles,
+        baselineCoverageArtifacts,
+        ImmutableMap.<String, String>of());
   }
 
   /**

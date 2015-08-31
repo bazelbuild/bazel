@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.DirectDependencyProvider.Dependency;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
-import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -519,20 +518,16 @@ public class JavaCommon {
 
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       NestedSet<Artifact> filesToBuild, @Nullable Artifact classJar) {
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        InstrumentedFilesCollector.collect(ruleContext, semantics.getCoverageInstrumentationSpec(),
-            JAVA_METADATA_COLLECTOR, filesToBuild);
+    InstrumentedFilesProvider instrumentedFilesProvider = InstrumentedFilesCollector.collect(
+        ruleContext, semantics.getCoverageInstrumentationSpec(), JAVA_METADATA_COLLECTOR,
+        filesToBuild, /*withBaselineCoverage*/!TargetUtils.isTestRule(ruleContext.getTarget()));
 
     builder
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
-
-    if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
-      builder.addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
-          BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext,
-              instrumentedFilesProvider.getInstrumentedFiles()));
-    }
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
+        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
+            instrumentedFilesProvider.getBaselineCoverageArtifacts());
   }
 
   /**

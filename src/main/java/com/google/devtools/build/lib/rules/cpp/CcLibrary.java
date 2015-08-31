@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
@@ -258,7 +257,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     instrumentedObjectFiles.addAll(info.getCcCompilationOutputs().getObjectFiles(false));
     instrumentedObjectFiles.addAll(info.getCcCompilationOutputs().getObjectFiles(true));
     InstrumentedFilesProvider instrumentedFilesProvider =
-        common.getInstrumentedFilesProvider(instrumentedObjectFiles);
+        common.getInstrumentedFilesProvider(instrumentedObjectFiles, /*withBaselineCoverage=*/true);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(info.getProviders())
@@ -269,9 +268,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         // Remove this?
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
-        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE, BaselineCoverageAction
-                .getBaselineCoverageArtifacts(ruleContext,
-                    instrumentedFilesProvider.getInstrumentedFiles()));
+        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
+            instrumentedFilesProvider.getBaselineCoverageArtifacts());
 
   }
 

@@ -28,17 +28,27 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   public static final InstrumentedFilesProvider EMPTY = new InstrumentedFilesProviderImpl(
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
       ImmutableMap.<String, String>of());
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
+  private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final ImmutableMap<String, String> extraEnv;
 
   public InstrumentedFilesProviderImpl(NestedSet<Artifact> instrumentedFiles,
-      NestedSet<Artifact> instrumentationMetadataFiles, Map<String, String> extraEnv) {
+      NestedSet<Artifact> instrumentationMetadataFiles,
+      NestedSet<Artifact> baselineCoverageArtifacts, Map<String, String> extraEnv) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
+    this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.extraEnv = ImmutableMap.copyOf(extraEnv);
+  }
+
+  public InstrumentedFilesProviderImpl(NestedSet<Artifact> instrumentedFiles,
+      NestedSet<Artifact> instrumentationMetadataFiles, Map<String, String> extraEnv) {
+    this(instrumentedFiles, instrumentationMetadataFiles,
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), extraEnv);
   }
 
   @Override
@@ -49,6 +59,11 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Artifact> getInstrumentationMetadataFiles() {
     return instrumentationMetadataFiles;
+  }
+
+  @Override
+  public NestedSet<Artifact> getBaselineCoverageArtifacts() {
+    return baselineCoverageArtifacts;
   }
 
   @Override

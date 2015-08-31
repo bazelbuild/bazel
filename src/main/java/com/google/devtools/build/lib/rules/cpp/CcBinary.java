@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
@@ -301,7 +300,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     addTransitiveInfoProviders(
         ruleContext, cppConfiguration, common, ruleBuilder, filesToBuild, ccCompilationOutputs,
-        cppCompilationContext, linkingOutputs, dwoArtifacts, transitiveLipoInfo);
+        cppCompilationContext, linkingOutputs, dwoArtifacts, transitiveLipoInfo, fake);
 
     Map<Artifact, IncludeScannable> scannableMap = new LinkedHashMap<>();
     if (cppConfiguration.isLipoContextCollector()) {
@@ -325,8 +324,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppCompilationContext, ImmutableMap.copyOf(scannableMap)))
         .addProvider(CppLinkAction.Context.class, linkContext)
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
-        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
-            createBaselineCoverageArtifacts(ruleContext, common, ccCompilationOutputs, fake))
         .build();
   }
 
@@ -569,19 +566,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private static NestedSet<Artifact> createBaselineCoverageArtifacts(
-      RuleContext context, CcCommon common, CcCompilationOutputs compilationOutputs,
-      boolean fake) {
-    if (!TargetUtils.isTestRule(context.getRule()) && !fake) {
-      Iterable<Artifact> objectFiles = compilationOutputs.getObjectFiles(
-          CppHelper.usePic(context, !isLinkShared(context)));
-      return BaselineCoverageAction.getBaselineCoverageArtifacts(context,
-          common.getInstrumentedFilesProvider(objectFiles).getInstrumentedFiles());
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
   private static void addTransitiveInfoProviders(
       RuleContext ruleContext,
       CppConfiguration cppConfiguration,
@@ -592,10 +576,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppCompilationContext cppCompilationContext,
       CcLinkingOutputs linkingOutputs,
       DwoArtifactsCollector dwoArtifacts,
-      TransitiveLipoInfoProvider transitiveLipoInfo) {
+      TransitiveLipoInfoProvider transitiveLipoInfo,
+      boolean fake) {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
+    InstrumentedFilesProvider instrumentedFilesProvider = common.getInstrumentedFilesProvider(
+        instrumentedObjectFiles, !TargetUtils.isTestRule(ruleContext.getRule()) && !fake);
+
     builder
         .setFilesToBuild(filesToBuild)
         .add(CppCompilationContext.class, cppCompilationContext)
@@ -605,8 +593,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
         .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
             collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
-        .add(InstrumentedFilesProvider.class, common.getInstrumentedFilesProvider(
-            instrumentedObjectFiles))
+        .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(CppDebugFileProvider.class, new CppDebugFileProvider(
             dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
         .addOutputGroup(OutputGroupProvider.TEMP_FILES,
@@ -614,7 +601,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
             common.getFilesToCompile(ccCompilationOutputs))
         .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
-            CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
+            CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext))
+        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
+            instrumentedFilesProvider.getBaselineCoverageArtifacts());
   }
 
   private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(

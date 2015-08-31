@@ -35,6 +35,8 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    */
   NestedSet<Artifact> getInstrumentationMetadataFiles();
 
+  NestedSet<Artifact> getBaselineCoverageArtifacts();
+
   /**
    * Returns environment variables which should be set for coverage to function.
    */
