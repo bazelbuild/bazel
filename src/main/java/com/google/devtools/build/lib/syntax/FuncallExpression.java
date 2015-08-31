@@ -355,10 +355,19 @@ public final class FuncallExpression extends Expression {
   // exactly and copy that behaviour.
   // TODO(bazel-team): check if this and SkylarkBuiltInFunctions.createObject can be merged.
   private Object invokeJavaMethod(
-      Object obj, Class<?> objClass, String methodName, List<Object> args) throws EvalException {
+      Object obj, Class<?> objClass, String methodName, List<Object> args, boolean hasKwArgs)
+      throws EvalException {
     MethodDescriptor matchingMethod = null;
     List<MethodDescriptor> methods = getMethods(objClass, methodName, args.size(), getLocation());
     if (methods != null) {
+      if (hasKwArgs) {
+        throw new EvalException(
+            func.getLocation(),
+            String.format(
+                "Keyword arguments are not allowed when calling a java method"
+                + "\nwhile calling method '%s' on object of type %s",
+                func.getName(), EvalUtils.getDataTypeNameFromClass(objClass)));
+      }
       for (MethodDescriptor method : methods) {
         Class<?>[] params = method.getMethod().getParameterTypes();
         int i = 0;
@@ -508,25 +517,34 @@ public final class FuncallExpression extends Expression {
       return convertFromSkylark(
           function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
           env);
+    } else if (objValue instanceof ClassObject) {
+      Object fieldValue = ((ClassObject) objValue).getValue(func.getName());
+      if (fieldValue == null) {
+        throw new EvalException(
+            getLocation(), String.format("struct has no method '%s'", func.getName()));
+      }
+      if (!(fieldValue instanceof BaseFunction)) {
+        throw new EvalException(
+            getLocation(), String.format("struct field '%s' is not a function", func.getName()));
+      }
+      function = (BaseFunction) fieldValue;
+      evalArguments(posargs, kwargs, env, function);
+      return convertFromSkylark(
+          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
+          env);
     } else if (env.isSkylark()) {
       // Only allow native Java calls when using Skylark
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
       evalArguments(posargs, kwargs, env, null);
-      if (!kwargs.isEmpty()) {
-        throw new EvalException(
-            func.getLocation(),
-            String.format(
-                "Keyword arguments are not allowed when calling a java method"
-                + "\nwhile calling method '%s' on object %s of type %s",
-                func.getName(), objValue, EvalUtils.getDataTypeName(objValue)));
-      }
       if (objValue instanceof Class<?>) {
         // Static Java method call. We can return the value from here directly because
         // invokeJavaMethod() has special checks.
-        return invokeJavaMethod(null, (Class<?>) objValue, func.getName(), posargs.build());
+        return invokeJavaMethod(
+            null, (Class<?>) objValue, func.getName(), posargs.build(), !kwargs.isEmpty());
       } else {
-        return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs.build());
+        return invokeJavaMethod(
+            objValue, objValue.getClass(), func.getName(), posargs.build(), !kwargs.isEmpty());
       }
     } else {
       throw new EvalException(

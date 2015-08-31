@@ -51,7 +51,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   protected ModalTestCase newTest() {
     return new SkylarkTest();
   }
-  
+
   @SkylarkModule(name = "Mock", doc = "")
   static class Mock {
     @SkylarkCallable(doc = "")
@@ -93,6 +93,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(name = "string", doc = "")
     public String string() {
       return "a";
+    }
+    @Override
+    public String toString() {
+      return "<mock>";
     }
   }
 
@@ -324,60 +328,60 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testForLoopBreak() throws Exception {
     simpleFlowTest("break", 1);
   }
-  
+
   @Test
   public void testForLoopContinue() throws Exception {
     simpleFlowTest("continue", 10);
   }
-  
+
   @SuppressWarnings("unchecked")
   private void simpleFlowTest(String statement, int expected) throws Exception {
     eval("def foo():",
         "  s = 0",
-        "  hit = 0", 
-        "  for i in range(0, 10):", 
-        "    s = s + 1", 
-        "    " + statement + "", 
-        "    hit = 1", 
-        "  return [s, hit]", 
+        "  hit = 0",
+        "  for i in range(0, 10):",
+        "    s = s + 1",
+        "    " + statement + "",
+        "    hit = 1",
+        "  return [s, hit]",
         "x = foo()");
     assertThat((Iterable<Object>) lookup("x")).containsExactly(expected, 0).inOrder();
   }
-  
-  @Test 
+
+  @Test
   public void testForLoopBreakFromDeeperBlock() throws Exception {
     flowFromDeeperBlock("break", 1);
     flowFromNestedBlocks("break", 29);
   }
-  
-  @Test 
+
+  @Test
   public void testForLoopContinueFromDeeperBlock() throws Exception {
     flowFromDeeperBlock("continue", 5);
     flowFromNestedBlocks("continue", 39);
   }
-  
+
   private void flowFromDeeperBlock(String statement, int expected) throws Exception {
     eval("def foo():",
-        "   s = 0", 
-        "   for i in range(0, 10):", 
-        "       if i % 2 != 0:", 
+        "   s = 0",
+        "   for i in range(0, 10):",
+        "       if i % 2 != 0:",
         "           " + statement + "",
-        "       s = s + 1", 
-        "   return s", 
+        "       s = s + 1",
+        "   return s",
         "x = foo()");
     assertThat(lookup("x")).isEqualTo(expected);
   }
-  
+
   private void flowFromNestedBlocks(String statement, int expected) throws Exception {
     eval("def foo2():",
-        "   s = 0", 
-        "   for i in range(1, 41):", 
-        "       if i % 2 == 0:", 
+        "   s = 0",
+        "   for i in range(1, 41):",
+        "       if i % 2 == 0:",
         "           if i % 3 == 0:",
-        "               if i % 5 == 0:", 
+        "               if i % 5 == 0:",
         "                   " + statement + "",
-        "       s = s + 1", 
-        "   return s", 
+        "       s = s + 1",
+        "   return s",
         "y = foo2()");
     assertThat(lookup("y")).isEqualTo(expected);
   }
@@ -401,11 +405,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "   second = 0",
         "   for i in range(0, 5):",
         "       for j in range(0, 5):",
-        "           if j == 2:", 
+        "           if j == 2:",
         "               " + statement + "",
         "           first = first + 1",
         "       for k in range(0, 5):",
-        "           if k == 2:", 
+        "           if k == 2:",
         "               " + statement + "",
         "           second = second + 1",
         "       if i == 2:",
@@ -416,7 +420,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertThat((Iterable<Object>) lookup("x"))
         .containsExactly(outerExpected, firstExpected, secondExpected).inOrder();
   }
-  
+
   @Test
   public void testForLoopBreakError() throws Exception {
     flowStatementInsideFunction("break");
@@ -430,18 +434,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   private void flowStatementInsideFunction(String statement) throws Exception {
-    checkEvalErrorContains(statement + " statement must be inside a for loop", 
+    checkEvalErrorContains(statement + " statement must be inside a for loop",
         "def foo():",
-        "  " + statement + "", 
+        "  " + statement + "",
         "x = foo()");
   }
-  
+
   private void flowStatementAfterLoop(String statement) throws Exception  {
-    checkEvalErrorContains(statement + " statement must be inside a for loop", 
+    checkEvalErrorContains(statement + " statement must be inside a for loop",
         "def foo2():",
         "   for i in range(0, 3):",
         "      pass",
-        "   " + statement + "", 
+        "   " + statement + "",
         "y = foo2()");
   }
 
@@ -496,7 +500,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
-    new SkylarkTest().testIfExactError("No matching method found for bad() in int", "s = 3.bad()");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfExactError("No matching method found for bad() in Mock", "mock.bad()");
   }
 
   @Test
@@ -517,17 +523,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "Keyword arguments are not allowed when calling a java method"
-        + "\nwhile calling method 'compare_to' on object 3 of type int",
-        "comp = 3.compare_to(x = 4)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfExactError("Keyword arguments are not allowed when calling a java method"
+            + "\nwhile calling method 'string' on object of type Mock",
+            "mock.string(key=True)");
   }
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
     new SkylarkTest().testIfExactError(
         "No matching method found for to_string() in int", "s = 3.to_string()");
-  }
+    }
 
   @Test
   public void testNoJavaCallsIfClassNotAnnotated() throws Exception {
@@ -705,9 +712,22 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testStructAccessingFieldsWithArgs() throws Exception {
+  public void testStructAccessingUnknownFieldWithArgs() throws Exception {
     new SkylarkTest().testIfExactError(
-        "No matching method found for a(int) in struct", "x = struct(a = 1, b = 2)", "x1 = x.a(1)");
+        "struct has no method 'c'", "x = struct(a = 1, b = 2)", "y = x.c()");
+  }
+
+  @Test
+  public void testStructAccessingNonFunctionFieldWithArgs() throws Exception {
+    new SkylarkTest().testIfExactError(
+        "struct field 'a' is not a function", "x = struct(a = 1, b = 2)", "x1 = x.a(1)");
+  }
+
+  @Test
+  public void testStructAccessingFunctionFieldWithArgs() throws Exception {
+    new SkylarkTest()
+        .setUp("def f(x): return x+5", "x = struct(a = f, b = 2)", "x1 = x.a(1)")
+        .testLookup("x1", 6);
   }
 
   @Test
@@ -802,7 +822,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testUserFunctionKeywordArgs() throws Exception {
-    new SkylarkTest().setUp("def foo(a, b, c):", 
+    new SkylarkTest().setUp("def foo(a, b, c):",
         "  return a + b + c", "s = foo(1, c=2, b=3)")
         .testLookup("s", 6);
   }
