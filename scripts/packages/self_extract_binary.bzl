@@ -36,6 +36,10 @@ def _self_extract_binary(ctx):
   """Implementation for the self_extract_binary rule."""
   # This is a bit complex for stripping out timestamps
   zip_artifact = ctx.new_file(ctx.label.name + ".zip")
+  touch_empty_files = [
+      "mkdir -p $(dirname ${tmpdir}/%s); touch ${tmpdir}/%s" % (f, f)
+      for f in ctx.attr.empty_files
+      ]
   cp_resources = [
       ("mkdir -p $(dirname ${tmpdir}/%s)\n" % r.short_path +
        "cp %s ${tmpdir}/%s" % (r.path, r.short_path))
@@ -51,7 +55,7 @@ def _self_extract_binary(ctx):
       command = "\n".join([
           "tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)",
           "trap \"rm -fr ${tmpdir}\" EXIT"
-          ] + cp_resources + cp_flatten_resources + [
+          ] + touch_empty_files + cp_resources + cp_flatten_resources + [
               "find ${tmpdir} -exec touch -t 198001010000.00 '{}' ';'",
               "(d=${PWD}; cd ${tmpdir}; zip -rq ${d}/%s *)" % zip_artifact.path,
               ]),
@@ -77,6 +81,7 @@ self_extract_binary = rule(
             mandatory=True,
             allow_files=True,
             single_file=True),
+        "empty_files": attr.string_list(default=[]),
         "resources": attr.label_list(
             default=[],
             allow_files=True),
