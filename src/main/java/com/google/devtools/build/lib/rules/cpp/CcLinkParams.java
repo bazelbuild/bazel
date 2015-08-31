@@ -211,25 +211,6 @@ public final class CcLinkParams {
     }
 
     /**
-     * Includes link parameters from the given targets. Each target is checked for the given
-     * mappings in the order specified, and the first mapping that returns a non-null result is
-     * added.
-     *
-     * @deprecated don't add any new uses; all existing uses need to be audited and possibly merged
-     *             into a single call - some of them may introduce semantic changes which need to be
-     *             carefully vetted
-     */
-    @Deprecated
-    @SafeVarargs
-    public final Builder addTransitiveLangTargets(
-        Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, CcLinkParamsStore> firstMapping,
-        @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
-        Function<TransitiveInfoCollection, CcLinkParamsStore>... remainingMappings) {
-      return addTransitiveTargets(targets, firstMapping, remainingMappings);
-    }
-
-    /**
      * Merges the other {@link CcLinkParams} object into this one.
      */
     public Builder addTransitiveArgs(CcLinkParams args) {
