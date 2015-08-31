@@ -35,30 +35,81 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * A helper class for collecting instrumented files and metadata for a target.
  */
 public final class InstrumentedFilesCollector {
   public static InstrumentedFilesProvider collect(RuleContext ruleContext, InstrumentationSpec spec,
-      LocalMetadataCollector localMetadataCollector, Iterable<Artifact> rootFiles) {
+      @Nullable LocalMetadataCollector localMetadataCollector,
+      @Nullable Iterable<Artifact> rootFiles) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles, false);
   }
 
+  /**
+   * Collects transitive instrumentation data from dependencies, collects local source files from
+   * dependencies, collects local metadata files by traversing the action graph of the current
+   * configured target, and creates baseline coverage actions for the transitive closure of source
+   * files (if <code>withBaselineCoverage</code> is true).
+   */
   public static InstrumentedFilesProvider collect(RuleContext ruleContext,
-      InstrumentationSpec spec, LocalMetadataCollector localMetadataCollector,
-      Iterable<Artifact> rootFiles, boolean withBaselineCoverage) {
-    InstrumentedFilesCollector collector = new InstrumentedFilesCollector(ruleContext, spec,
-        localMetadataCollector, rootFiles);
+      InstrumentationSpec spec, @Nullable LocalMetadataCollector localMetadataCollector,
+      @Nullable Iterable<Artifact> rootFiles, boolean withBaselineCoverage) {
+    Preconditions.checkNotNull(ruleContext);
+    Preconditions.checkNotNull(spec);
+
+    if (!ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return InstrumentedFilesProviderImpl.EMPTY;
+    }
+
+    NestedSetBuilder<Artifact> instrumentedFilesBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> metadataFilesBuilder = NestedSetBuilder.stableOrder();
+
+    Iterable<TransitiveInfoCollection> prereqs = getAllPrerequisites(ruleContext, spec);
+
+    // Transitive instrumentation data.
+    for (TransitiveInfoCollection dep : prereqs) {
+      InstrumentedFilesProvider provider = dep.getProvider(InstrumentedFilesProvider.class);
+      if (provider != null) {
+        instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
+        metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
+      }
+    }
+
+    // Local sources.
+    NestedSet<Artifact> localSources = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    if (shouldIncludeLocalSources(ruleContext)) {
+      NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
+      for (TransitiveInfoCollection dep : prereqs) {
+        for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
+          if (artifact.isSourceArtifact() &&
+              spec.instrumentedFileTypes.matches(artifact.getFilename())) {
+            localSourcesBuilder.add(artifact);
+          }
+        }
+      }
+      localSources = localSourcesBuilder.build();
+    }
+    instrumentedFilesBuilder.addTransitive(localSources);
+
+    // Local metadata files.
+    if (localMetadataCollector != null) {
+      localMetadataCollector.collectMetadataArtifacts(rootFiles,
+          ruleContext.getAnalysisEnvironment(), metadataFilesBuilder);
+    }
+
+    // Baseline coverage actions.
+    NestedSet<Artifact> instrumentedFiles = instrumentedFilesBuilder.build();
     NestedSet<Artifact> baselineCoverageArtifacts;
     if (withBaselineCoverage) {
       baselineCoverageArtifacts =
-          BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext,
-              collector.instrumentedFiles);
+          BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext, instrumentedFiles);
     } else {
       baselineCoverageArtifacts = NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     }
-    return new InstrumentedFilesProviderImpl(collector.instrumentedFiles,
-        collector.instrumentationMetadataFiles,
+    return new InstrumentedFilesProviderImpl(instrumentedFiles,
+        metadataFilesBuilder.build(),
         baselineCoverageArtifacts,
         ImmutableMap.<String, String>of());
   }
@@ -72,6 +123,11 @@ public final class InstrumentedFilesCollector {
   @Immutable
   public static final class InstrumentationSpec {
     private final FileTypeSet instrumentedFileTypes;
+
+    /**
+     * The list of attributes which should be (transitively) checked for sources and instrumentation
+     * metadata.
+     */
     private final Collection<String> instrumentedAttributes;
 
     public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
@@ -139,91 +195,15 @@ public final class InstrumentedFilesCollector {
    */
   public static final LocalMetadataCollector NO_METADATA_COLLECTOR = null;
 
-  private final RuleContext ruleContext;
-  private final InstrumentationSpec spec;
-  private final LocalMetadataCollector localMetadataCollector;
-  private final NestedSet<Artifact> instrumentationMetadataFiles;
-  private final NestedSet<Artifact> instrumentedFiles;
-
-  private InstrumentedFilesCollector(RuleContext ruleContext, InstrumentationSpec spec,
-      LocalMetadataCollector localMetadataCollector, Iterable<Artifact> rootFiles) {
-    this.ruleContext = ruleContext;
-    this.spec = spec;
-    this.localMetadataCollector = localMetadataCollector;
-    Preconditions.checkNotNull(ruleContext, "RuleContext already cleared. That means that the"
-        + " collector data was already memoized. You do not have to call it again.");
-    if (!ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      instrumentedFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      instrumentationMetadataFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else {
-      NestedSetBuilder<Artifact> instrumentedFilesBuilder =
-          NestedSetBuilder.stableOrder();
-      NestedSetBuilder<Artifact> metadataFilesBuilder = NestedSetBuilder.stableOrder();
-      collect(ruleContext.getAnalysisEnvironment(), instrumentedFilesBuilder, metadataFilesBuilder,
-          rootFiles);
-      instrumentedFiles = instrumentedFilesBuilder.build();
-      instrumentationMetadataFiles = metadataFilesBuilder.build();
-    }
-  }
-
-  /**
-   * Returns instrumented source files for the target provided during construction.
-   */
-  public final NestedSet<Artifact> getInstrumentedFiles() {
-    return instrumentedFiles;
-  }
-
-  /**
-   * Returns instrumentation metadata files for the target provided during construction.
-   */
-  public final NestedSet<Artifact> getInstrumentationMetadataFiles() {
-    return instrumentationMetadataFiles;
-  }
-
-  /**
-   * Collects instrumented files and metadata files.
-   */
-  private void collect(AnalysisEnvironment analysisEnvironment,
-      NestedSetBuilder<Artifact> instrumentedFilesBuilder,
-      NestedSetBuilder<Artifact> metadataFilesBuilder,
-      Iterable<Artifact> rootFiles) {
-    for (TransitiveInfoCollection dep : getAllPrerequisites()) {
-      InstrumentedFilesProvider provider = dep.getProvider(InstrumentedFilesProvider.class);
-      if (provider != null) {
-        instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
-        metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
-      } else if (shouldIncludeLocalSources()) {
-        for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
-          if (artifact.isSourceArtifact() &&
-              spec.instrumentedFileTypes.matches(artifact.getFilename())) {
-            instrumentedFilesBuilder.add(artifact);
-          }
-        }
-      }
-    }
-
-    if (localMetadataCollector != null) {
-      localMetadataCollector.collectMetadataArtifacts(rootFiles,
-          analysisEnvironment, metadataFilesBuilder);
-    }
-  }
-
-  /**
-   * Returns the list of attributes which should be (transitively) checked for sources and
-   * instrumentation metadata.
-   */
-  private Collection<String> getSourceAttributes() {
-    return spec.instrumentedAttributes;
-  }
-
-  private boolean shouldIncludeLocalSources() {
+  private static boolean shouldIncludeLocalSources(RuleContext ruleContext) {
     return ruleContext.getConfiguration().getInstrumentationFilter().isIncluded(
         ruleContext.getLabel().toString());
   }
 
-  private Iterable<TransitiveInfoCollection> getAllPrerequisites() {
+  private static Iterable<TransitiveInfoCollection> getAllPrerequisites(
+      RuleContext ruleContext, InstrumentationSpec spec) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (String attr : getSourceAttributes()) {
+    for (String attr : spec.instrumentedAttributes) {
       if (ruleContext.getRule().isAttrDefined(attr, Type.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, Type.LABEL)) {
         prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
