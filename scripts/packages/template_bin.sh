@@ -138,9 +138,9 @@ chmod 0755 "${base}/bin/bazel"
 unzip -q "${BASH_SOURCE[0]}" -x bazel -d "${base}/base_workspace"
 echo -n .
 cat >"${base}/etc/bazel.bazelrc" <<EO
-build --package_path %workspace%:${base}/base_workspace"
-fetch --package_path %workspace%:${base}/base_workspace"
-query --package_path %workspace%:${base}/base_workspace"
+build --package_path %workspace%:${base}/base_workspace
+fetch --package_path %workspace%:${base}/base_workspace
+query --package_path %workspace%:${base}/base_workspace
 EO
 echo -n .
 chmod -R og-w "${base}"
