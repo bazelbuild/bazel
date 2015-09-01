@@ -79,9 +79,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(name = "xcode_options",
       defaultValue = "Debug",
       category = "undocumented",
+      deprecationWarning = "Use --compilation_mode instead.",
       help = "Specifies the name of the build settings to use.")
-  // TODO(danielwh): Do literally anything with this flag. Ideally, pass it to xcodegen via a
-  // control proto.
   public String xcodeOptions;
 
   @Option(name = "objc_generate_debug_symbols",
