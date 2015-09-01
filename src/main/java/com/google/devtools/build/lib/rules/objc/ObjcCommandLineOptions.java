@@ -35,6 +35,15 @@ import java.util.List;
  * Command-line options for building Objective-C targets.
  */
 public class ObjcCommandLineOptions extends FragmentOptions {
+  // TODO(cparsons): Validate version flag value.
+  @Option(name = "xcode_version",
+      defaultValue = "",
+      category = "undocumented",
+      help = "If specified, uses xcode of the given version for relevant build actions. "
+          + "If unspecified, uses the executor default version of xcode."
+      )
+  public String xcodeVersion;
+
   @Option(name = "ios_sdk_version",
       defaultValue = DEFAULT_SDK_VERSION,
       category = "build",

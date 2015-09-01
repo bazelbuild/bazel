@@ -198,7 +198,7 @@ final class BundleSupport {
       Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder()
+          ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
               .setMnemonic("StoryboardCompile")
               .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
@@ -238,7 +238,7 @@ final class BundleSupport {
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.momczipDeployJar())
+          ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(ruleContext, attributes.momczipDeployJar())
               .setMnemonic("MomCompile")
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
@@ -267,7 +267,7 @@ final class BundleSupport {
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder()
+          ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
               .setMnemonic("XibCompile")
               .setExecutable(attributes.ibtoolwrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
@@ -348,7 +348,7 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(attributes.actoolzipDeployJar())
+        ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(ruleContext, attributes.actoolzipDeployJar())
             .setMnemonic("AssetCatalogCompile")
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)

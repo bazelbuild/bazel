@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -49,6 +51,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
+  private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
+
   private final String iosSdkVersion;
   private final String iosMinimumOs;
   private final String iosSimulatorVersion;
@@ -56,6 +60,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosCpu;
   private final Optional<String> configuredIosCpu;
   private final String xcodeOptions;
+  private final Optional<String> xcodeVersionOverride;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
   private final List<String> copts;
@@ -81,6 +86,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
+    String xcodeVersionFlag = Preconditions.checkNotNull(objcOptions.xcodeVersion, "xcodeVersion");
+    this.xcodeVersionOverride =
+        xcodeVersionFlag.isEmpty() ? Optional.<String>absent() : Optional.of(xcodeVersionFlag);
     this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
@@ -106,8 +114,20 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
   }
 
+  public Map<String, String> getEnvironmentForDarwin() {
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    if (xcodeVersionOverride.isPresent()) {
+      builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
+    }
+    return builder.build();
+  }
+
   public String getIosSdkVersion() {
     return iosSdkVersion;
+  }
+  
+  public Optional<String> getXcodeVersionOverride() {
+    return xcodeVersionOverride;
   }
 
   /**

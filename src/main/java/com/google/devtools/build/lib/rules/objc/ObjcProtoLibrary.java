@@ -133,7 +133,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (!Iterables.isEmpty(protos)) {
-      ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
+      ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
           .setMnemonic("GenObjcProtos")
           .addInput(compileProtos)
           .addInputs(optionsFile.asSet())
