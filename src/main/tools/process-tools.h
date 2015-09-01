@@ -59,9 +59,9 @@ void RedirectStdout(const char *stdout_path);
 void RedirectStderr(const char *stderr_path);
 
 // Make sure the process group "pgrp" and all its subprocesses are killed.
-// If "gracefully" is true, sends SIGKILL first and after a timeout of
-// "graceful_kill_delay" seconds, sends SIGTERM.
-// If not, send SIGTERM immediately.
+// If "gracefully" is true, sends SIGTERM first and after a timeout of
+// "graceful_kill_delay" seconds, sends SIGKILL.
+// If not, send SIGKILL immediately.
 void KillEverything(int pgrp, bool gracefully, double graceful_kill_delay);
 
 // Set up a signal handler for a signal.
