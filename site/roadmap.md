@@ -4,21 +4,10 @@ layout: community
 
 # Bazel Feature Roadmap
 
-Author: [The Bazel Team](https://groups.google.com/forum/#!forum/bazel-discuss)
-
-This document describes the Bazel team's plans for introducing future
-system features. The document is divided into two main sections:
-
-*   *Near-term plans:* Features that the team is committed to supporting
-    for alpha and beta releases.
-*   *Tentative post-beta plans:* Features that the team is considering
-    supporting within one year of the beta release. The availability and
-    sequencing of features on this list will depend technical feasibility
-    and user demand.
-
-Note that this roadmap only includes features that the Bazel team itself
-intends to support. We anticipate that a number of other features will be
-added by code contributors.
+This document describes the Bazel team's plans for introducing features that
+will be incorporated into version 1.0. Note that this roadmap only includes
+features that the Bazel team itself intends to support. We anticipate that a
+number of other features will be added by code contributors.
 
 For the alpha and beta releases, the Bazel team will maintain two code
 repositories:
@@ -35,68 +24,100 @@ the alpha and beta releases, however, the internal repository will be primary.
 Changes to Bazel code will be frequently pushed from the internal to
 the external repository.
 
-## Near-term Plans
+## Feature list
 
-### <a name="alpha"></a>Alpha release (2015-03)
+In the following table, each feature is associated with a corresponding
+milestone. The convention for the priorities are:
 
-This release is intended to
+*   P0 feature will block the milestone; we will delay the milestone date
+    until the feature is shipped.
+*   P1 feature can delay the milestone if the feature can be shipped with a
+    reasonable delay (2 months max).
+*   P2 feature will be dropped and rescheduled for later rather than delaying
+    the milestone.
 
-*   give users access to a basic set of supported features
-*   allow potential code contributors to understand Bazel's capabilities and
-    architecture
-*   enable users to monitor the team's progress toward a beta release
+We will update this list when reaching each milestone; some milestones may also
+be refined if appropriate.
 
-Alpha users will need to build Bazel from source; we will not provide binary
-releases until the beta. We will accept code contributions, but may need to
-reject or defer code contributions related to beta features still under
-development. Some features will be fully supported
-henceforward, others are still experimental or partially supported;
-see our [feature support document](support.html) for details.
-
-The following features/capabilities will be available in the alpha:
-
-*   Bazel runs on Linux and OS X
-*   Bazel builds itself on Linux and OS X
-*   Build rules target executables running on Linux and OS X
-*   Support for building and testing C++
-*   Support for building and testing Java
-*   Support for building Objective C
-*   Support for building Python
-*   Support for building iOS apps
-*   Documentation for supported build rules and features
-*   Online support for bug and feature requests
-*   A basic Bazel test suite in GitHub
-*   Support for referencing Java JAR dependencies from HTTP and Maven endpoints
-*   Support for referencing remote source repositories via HTTP
-*   Support for extensibility via an interpreted Python subset (Skylark)
-
-### <a name="beta"></a>Beta release (target date: 2015-07)
-
-The beta release will add support for additional languages and platform and
-various other fully supported features. In particular, the following
-features/capabilities will be available:
-
-*   Binary versions of Bazel for Linux and OS X
-*   The Bazel test suite runs on externally-visible continuous integration
-    infrastructure
-*   Support for referencing transitive sources via Maven
-*   Support for prefetching and caching remote dependencies
-*   Support for building Android apps
-*   Support for testing iOS apps
-*   Support for building and deploying Docker images
-
-## Tentative post-beta plans
-
-*   Binary releases of Bazel at least monthly
-*   Full support for build action sandboxing
-*   Support for testing Android apps
-*   Support for distributed caching of build artifacts
-*   All Bazel tests currently in Google's repository are ported to GitHub
-*   The external repository is primary
-*   Support for building and deploying AppEngine applications
-*   Support for testing mobile applications with
-    [Cloud Test Lab](https://developers.google.com/cloud-test-lab/).
-*   Support for the Go language
-*   Support for Javascript
-*   Android Studio interoperability
-
+<table class="table table-condensed table-striped table-bordered">
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Milestone</th>
+      <th>Date</th>
+      <th>Features</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="9"><b>Alpha</b></td>
+      <td rowspan="9"><b>Alpha</b></td>
+      <td rowspan="9"><b>2015-03</b></td>
+      <td>Linux &amp; OS X Support</td>
+    </tr>
+    <tr><td>C++ (<a href="http://bazel.io/docs/build-encyclopedia.html#cc_binary">build</a> and <a href="http://bazel.io/docs/build-encyclopedia.html#cc_test">test</a>)</td></tr>
+    <tr><td>Java (<a href="http://bazel.io/docs/build-encyclopedia.html#java_binary">build</a> and <a href="http://bazel.io/docs/build-encyclopedia.html#java_test">test</a>)</td></tr>
+    <tr><td>Objective-C for iOS (<a href="http://bazel.io/docs/build-encyclopedia.html#objc_binary">build</a>)</td></tr>
+    <tr><td>Python (<a href="http://bazel.io/docs/build-encyclopedia.html#py_binary">build</a>)</td></tr>
+    <tr><td>iOS applications (<a href="http://bazel.io/docs/build-encyclopedia.html#ios_application">build</a>)</td></tr>
+    <tr><td>Skylark extension mechanism (<a href="http://bazel.io/docs/skylark/index.html">build</a>)</td></tr>
+    <tr><td>Basic test suite on GitHub</td></tr>
+    <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/build-encyclopedia.html#maven_jar">Maven repositories</a>
+        and <a href="http://bazel.io/docs/build-encyclopedia.html#http_archive">web servers</a></td></tr>
+    <tr>
+      <td rowspan="24"><b>Beta</b></td>
+      <td rowspan="8"><b>0.1</b></td>
+      <td rowspan="8"><b>2015-09</b></td>
+      <td>P0. Binary distribution for Linux & OS X</td<
+    </tr>
+    <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>
+    <tr><td>P0. Support for <a href="http://bazel.io/docs/external.html">fetching transitive dependencies from Maven Central</a></td></tr>
+    <tr><td>P0. Android application (<a href="http://bazel.io/docs/build-encyclopedia.html#android_binary">build</a>
+        and <a href="http://bazel.io/docs/bazel-user-manual.html#mobile-install">install</a>)</td></tr>
+    <tr><td>P1. Support for <a href="http://bazel.io/docs/external.html">prefetching and caching remote dependencies</a></td></tr>
+    <tr><td>P1. Docker (<a href="https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md">build and load</a>)</td></tr>
+    <tr><td>P2. <a href="http://bazel.io/docs/bazel-user-manual.html#sandboxing">Sandboxing of actions for Linux</a></td></tr>
+    <tr><td>P2. AppEngine (<a href="https://github.com/google/bazel/blob/master/tools/build_rules/appengine/README.md">build and load</a>)</td></tr>
+    <tr><td>P2. <a href="http://bazel.io/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
+    <tr>
+      <td rowspan="4"><b>0.2</b></td>
+      <td rowspan="4"><b>2015-10</b></td>
+      <td>P0. Support for fetching remote Skylark rules</td>
+    </tr>
+    <tr><td>P0. Support for testing iOS apps</td></tr>
+    <tr><td>P0. Support for testing Android apps</td></tr>
+    <tr><td>P1. Bazel's extension APIs are listed in a document</td></tr>
+    <tr>
+      <td rowspan="5"><b>0.3</b></td>
+      <td rowspan="5"><b>2015-11</b></td>
+      <td>P0. Significantly increase test coverage</td>
+    </tr>
+    <tr><td>P1. Roadmap to make the Github repository primary</td></tr>
+    <tr><td>P2. Go language support (build and tests)</td></tr>
+    <tr><td>P2. Native protobuf support</td></tr>
+    <tr><td>P2. Bazel can bootstrap itself on Windows without requiring admin priviledge</td></tr>
+    <tr>
+      <td rowspan="7"><b>0.5</b></td>
+      <td rowspan="7"><b>2015-12</b></td>
+      <td>P0. Bazel can build android applications on Windows</td>
+    </tr>
+    <tr><td>P1. <a href="https://docs.google.com/document/d/1jKbNXOVp2T1zJD_iRnVr8k5D0xZKgO8blMVDlXOksJg">Custom remote repositories using Skylark</a></td></tr>
+    <tr><td>P1. Interface for IDE support</td></tr>
+    <tr><td>P1. Distributed caching of build artifacts</td></tr>
+    <tr><td>P2. Debian packages for Bazel</td></tr>
+    <tr><td>P2. OS X homebrew recipe for distributing Bazel</td></tr>
+    <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
+    <tr>
+      <td rowspan="7"><b>Stable</b></td>
+      <td rowspan="7"><b>1.0</b></td>
+      <td rowspan="7"><b>2016-05</b></td>
+      <td>P0. Extension APIs are stable and versioned</td>
+    </tr>
+    <tr><td>P0. Github repository is primary</td></tr>
+    <tr><td>P0. Full Windows support for Android: Android feature set is identical for Windows and Linux/OS X</td></tr>
+    <tr><td>P0. Android Studio interoperability</td></tr>
+    <tr><td>P1. Online repository of Skylark rules</td></tr>
+    <tr><td>P2. Support testing using Google <a href="https://developers.google.com/cloud-test-lab/">Cloud Test Lab</a></td></tr>
+    <tr><td>P2. Sandboxing of action for OS X</td></tr>
+  </tbody>
+</table>
