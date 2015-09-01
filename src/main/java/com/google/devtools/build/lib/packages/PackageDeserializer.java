@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -532,7 +533,8 @@ public class PackageDeserializer {
   }
 
   // TODO(bazel-team): Verify that these put sane values in the attribute
-  private static Object deserializeAttributeValue(Type<?> expectedType,
+  @VisibleForTesting
+  static Object deserializeAttributeValue(Type<?> expectedType,
       Build.Attribute attrPb)
       throws PackageDeserializationException {
     switch (attrPb.getType()) {
@@ -637,6 +639,9 @@ public class PackageDeserializer {
 
       case TRISTATE:
         return attrPb.hasStringValue() ? deserializeTriStateValue(attrPb.getStringValue()) : null;
+
+      case INTEGER_LIST:
+        return ImmutableList.copyOf(attrPb.getIntListValueList());
 
       default:
           throw new PackageDeserializationException("Invalid discriminator: " + attrPb.getType());
