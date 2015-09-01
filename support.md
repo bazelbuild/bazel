@@ -16,7 +16,7 @@ subject to change at any time without prior notice. The Skylark macro and rules 
 you write in a `.bzl` file) is still subject to change.
 
 Bugs can be reported in the
-[GitHub bugtracker](https://github.com/google/bazel/issues). We will make an effort to triage all
+[GitHub bugtracker](https://github.com/bazelbuild/bazel/issues). We will make an effort to triage all
 reported issues within 2 business days.
 
 ## Releases

@@ -28,7 +28,7 @@ command in your shell and see the list of possible completions.
 If you are interested in supporting other shells, the script is made up
 of two parts:
 
-1. [`scripts/bazel-complete-header.bash`](https://github.com/google/bazel/blob/master/scripts/bazel-complete-template.bash)
+1. [`scripts/bazel-complete-header.bash`](https://github.com/bazelbuild/bazel/blob/master/scripts/bazel-complete-template.bash)
   is the completion logic.
 2. `bazel info completion` dumps the list of commands of Bazel, their options
   and for commands and options that expect a value, a description of what is
@@ -48,4 +48,4 @@ of two parts:
 
 Let us know if you have any questions or issues on the
 [mailing list](https://groups.google.com/forum/#!forum/bazel-discuss) or
-[GitHub](https://github.com/google/bazel).
+[GitHub](https://github.com/bazelbuild/bazel).

@@ -58,7 +58,7 @@ $ sudo gcc --version
 
 ## Download Bazel
 
-Download the [Bazel installer](https://github.com/google/bazel/releases) for
+Download the [Bazel installer](https://github.com/bazelbuild/bazel/releases) for
 your operating system.
 
 ## Run the installer

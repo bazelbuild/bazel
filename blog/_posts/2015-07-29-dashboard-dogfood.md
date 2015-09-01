@@ -28,7 +28,7 @@ http://localhost:8080/ (each build will print a unique URL to visit).
 
 <img src="/assets/dash-shell.png"/>
 
-See [the README](https://github.com/google/bazel/blob/master/src/tools/dash/README.md)
+See [the README](https://github.com/bazelbuild/bazel/blob/master/src/tools/dash/README.md)
 for documentation.
 
 This is very much a work in progress. Please let us know if you have any

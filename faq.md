@@ -157,12 +157,12 @@ Can I see examples?
 
 Yes. For a simple example, see:
 
-  <https://github.com/google/bazel/blob/master/examples/cpp/BUILD>
+  <https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD>
 
 The Bazel source code itself provides more complex examples:
 
-  <https://github.com/google/bazel/blob/master/src/main/java/BUILD>\\
-  <https://github.com/google/bazel/blob/master/src/test/java/BUILD>
+  <https://github.com/bazelbuild/bazel/blob/master/src/main/java/BUILD>\\
+  <https://github.com/bazelbuild/bazel/blob/master/src/test/java/BUILD>
 
 What is Bazel best at?
 ----------------------
@@ -286,7 +286,7 @@ Can I build Docker images with Bazel?
 -------------------------------------
 
 Yes, you can use our
-[Docker rules](https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md)
+[Docker rules](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/docker/README.md)
 to build reproducible Docker images.
 
 Will Bazel make my builds reproducible automatically?
@@ -357,14 +357,14 @@ It is possible to write Python rules as extensions (see below). See
 the following files for an example of generating self-contained zip
 files for python:
 
-  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
-  <https://github.com/google/bazel/tree/master/examples/py>
+  <https://github.com/bazelbuild/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
+  <https://github.com/bazelbuild/bazel/tree/master/examples/py>
 
 We are working on opening up a subset of our internal Python rules, so
 they can be used as helper scripts as part of a build.
 
 Simplistic support for PEX-style binaries is at
-[here](https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl).
+[here](https://github.com/bazelbuild/bazel/blob/master/tools/build_rules/py_rules.bzl).
 
 
 What about Go?
@@ -390,8 +390,8 @@ At present, however, the extension mechanism is experimental.
 
 For the following languages, we have experimental rules:
 
-   * [Rust](https://github.com/google/bazel/blob/master/tools/build_rules/rust/README.md)
-   * [Closure](https://github.com/google/bazel/blob/master/tools/build_rules/closure/README.md)
+   * [Rust](https://github.com/bazelbuild/bazel/blob/master/tools/build_rules/rust/README.md)
+   * [Closure](https://github.com/bazelbuild/bazel/blob/master/tools/build_rules/closure/README.md)
 
 I need more functionality. Can I add rules that are compiled into Bazel?
 ------------------------------------------------------------------------
@@ -421,7 +421,7 @@ Where do I report bugs?
 -----------------------
 
 Send an e-mail to <bazel-discuss@googlegroups.com> or file a bug
-[on GitHub](https://github.com/google/bazel/issues).
+[on GitHub](https://github.com/bazelbuild/bazel/issues).
 
 
 
