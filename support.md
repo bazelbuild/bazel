@@ -4,146 +4,64 @@ layout: community
 
 # Support Policy
 
-We generally avoid making backwards-incompatible changes. At Google, we
-run all of the tests in the entire depot before every release and
-check that there are no regressions. It is much more difficult to do
-that outside of Google, because there is no single source repository
-that contains everything.
+We generally avoid making backwards-incompatible changes. We have several years of experience with
+supporting a huge code base that is concurrently worked on by thousands of engineers every day,
+and have successfully made significant changes to the core as well as to the rules without missing
+a beat. We run hundreds of thousands of tests at Google before every single release to ensure that
+it stays that way.
 
-All undocumented features (attributes, rules, "Make" variables, and flags) are subject to change at
-any time without prior notice. Features that are documented but marked *experimental* are also
-subject to change at any time without prior notice. The Skylark macro and rules language (anything
-you write in a `.bzl` file) is still subject to change.
+That said, we occasionally have to make incompatible changes in order to fix bugs, to make further
+improvements to the system, such as improving performance or usability, or to lock down APIs that
+are known to be brittle.
 
-Bugs can be reported in the
+This document gives an overview of features that are widely used and that we consider stable. By
+stable, we mean that the changes we make will be backwards compatible, or that we will provide a
+migration path.
+
+It also covers features that are unstable. Either they are not yet widely used, or we are already
+planning to change them significantly, possibly in ways that are not backwards compatible.
+
+We cannot cover everything that might change, but you can reasonably expect that we provide
+advance notice on the mailing list before a major change happens. We're also happy to provide more
+details, just ask on [bazel-discuss](bazel-discuss@googlegroups.com).
+
+All undocumented features (attributes, rules, "Make" variables, and flags) are subject to change
+at any time without prior notice. Features that are documented but marked *experimental* are also
+subject to change at any time without prior notice.
+
+The Skylark macro and rules language (anything you write in a `.bzl` file) is still subject to
+change. We are in the process of migrating Google to Skylark, and expect the macro language to
+stabilize as part of that process. The rules language is still somewhat experimental.
+
+Help keep us honest: report bugs and regressions in the
 [GitHub bugtracker](https://github.com/bazelbuild/bazel/issues). We will make an effort to triage all
 reported issues within 2 business days.
 
 ## Releases
 
-We try to do [monthly binary releases of
-Bazel](https://github.com/google/bazel/releases). A released version of Bazel
-should be free of regression and extensively tested. The release process is the
-following:
+We regularly publish [binary releases of Bazel](https://github.com/bazelbuild/bazel/releases). To
+that end, we announce release candidates on [bazel-discuss](bazel-discuss@googlegroups.com); these
+are binaries that have passed all of our unit tests. Over the next few days, we regression test
+all applicable build targets at Google. If you have a critical project using Bazel, we recommend
+that you establish an automated testing process that tracks the current release candidate, and
+report any regressions.
 
-  - A baseline is tested extensively inside Google. When considered stable
-  inside Google, a Bazel release candidate is announced in
-  [bazel-discuss](bazel-discuss@googlegroups.com) for testing.
-  - Subsequent cherry-pick will be done to create new release candidate if
-  regression are discovered on the release candidate.
-  - After at least one week since the first candidate and two full business days
-  since the last candidate, if no regression were found, a release will be
-  emitted and announced in [bazel-discuss](bazel-discuss@googlegroups.com).
-
-Thus, all our releases are tested with the extensive test suite we have inside
-Google but also with our public continuous test infrastructure and user tested
-both inside and outside Google.
+If no regressions are discovered, we officially release the candidate after a week. However,
+regressions can delay the release of a release candidate. If regressions are found, we apply
+corresponding cherry-picks to the release candidate to fix those regressions. If no further
+regressions are found for two business days, but not before a week has elapsed since the first
+release candidate, we release it.
 
 ### Release versioning
 
-Version 0.1 is our first release marking the start of our beta phase. Until
-version 1.0, each MINOR version increases will be performed when reaching a
-[new milestone](http://bazel.io/roadmap.html), otherwise only the PATCH
-version will be increased on a new release.
+Version 0.1 is our first release marking the start of our beta phase. Until version 1.0.0, we
+increase the MINOR version every time we reach a [new milestone](http://bazel.io/roadmap.html).
 
-Version 1.0 will be the end of our beta phase and we will label each release
-with a version number according to the [semantic version 2.0.0
-document](http://semver.org). By the time we reach version 1.0, we will define
-clearly what is included in our API.
+Version 1.0.0 marks the end of our beta phase; afterwards, we will label each release with a
+version number of the form MAJOR.MINOR.PATCH according to the
+[semantic version 2.0.0 document](http://semver.org).
 
 ## Current Status
-
-### Fully Supported
-We make no breaking changes to the rules, or provide instructions on how to migrate. We actively fix
-issues that are reported, and also keep up with changes in the underlying tools. We ensure that all
-the tests pass.
-
-<table class="table table-condensed table-striped table-bordered">
-  <colgroup>
-    <col width="30%"/>
-    <col/>
-  </colgroup>
-  <thead>
-    <tr>
-      <th>Rules</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>C/C++ rules except <code>cc_toolchain</code></td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>Java rules</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td><code>genrule</code></td>
-      <td></td>
-    </tr>
-    <tr>
-      <td><code>test_suite</code></td>
-      <td></td>
-    </tr>
-    <tr>
-      <td><code>filegroup</code></td>
-      <td></td>
-    </tr>
-  </tbody>
-</table>
-
-
-### Partially Supported
-We avoid breaking changes when possible. We actively fix issues that are reported, but may fall
-behind the current state of the tools. We ensure that all the tests pass.
-
-<table class="table table-condensed table-striped table-bordered">
-  <colgroup>
-    <col width="30%"/>
-    <col/>
-  </colgroup>
-  <thead>
-    <tr>
-      <th>Rules</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>cc_toolchain</code></td>
-      <td>
-        <ul>
-          <li>We intend to make significant changes to the way C/C++ toolchains are defined; we will
-            keep our published C/C++ toolchain definition(s) up to date, but we make no guarantees for
-            custom ones.</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td>iOS/Objective C rules</td>
-      <td>
-        <ul>
-          <li>We cannot vouch for changes made by Apple &reg; to the underlying tools and
-            infrastructure.</li>
-          <li>The rules are fairly new and still subject to change; we try to avoid breaking changes,
-            but this may not always be possible.</li>
-          <li>No testing support yet.</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td>Extra actions (<code>extra_action</code>, <code>action_listener</code>)</td>
-      <td>
-        <ul>
-          <li>Extra actions expose information about Bazel that we consider to be implementation
-            details, such as the exact interface between Bazel and the tools we provide; as such,
-            users will need to keep up with changes to tools to avoid breakage.</li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
 
 ### Built-In Rules and the Internal API For Rules ###
 We are planning a number of changes to the APIs between the core of Bazel and the built-in rules,
@@ -176,9 +94,57 @@ to be a lengthy process however.
    testing framework. We encourage to write new rules in Skylark rather than in Java.
 
 
-### Best Effort
-We will not break existing tests, but otherwise make no dedicated effort to keep the rules working
-or up-to-date.
+### Stable
+We expect the following rules and features to be stable. They are widely used within Google, so
+our internal testing should ensure that there are no major breakages.
+
+<table class="table table-condensed table-striped table-bordered">
+  <thead>
+    <tr><th>Rules</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>C/C++ rules except <code>cc_toolchain</code> and <code>cc_toolchain_suite</code></td>
+    </tr>
+    <tr>
+      <td>Java rules except <code>java_toolchain</code></td>
+    </tr>
+    <tr>
+      <td>Android rules except <code>android_ndk_repository</code> and
+        <code>android_sdk_repository</code></td>
+    </tr>
+    <tr>
+      <td><code>genrule</code></td>
+    </tr>
+    <tr>
+      <td><code>genquery</code></td>
+    </tr>
+    <tr>
+      <td><code>test_suite</code></td>
+    </tr>
+    <tr>
+      <td><code>filegroup</code></td>
+    </tr>
+    <tr>
+      <td><code>config_setting</code></td>
+      <td>
+        <ul>
+          <li>This rule is used in <code>select()</code> expressions. We have hundreds of uses, so
+            we expect the basic functionality to be stable. That said, there are some common use
+            cases that are not covered yet, or that require workarounds. For example, it's not
+            easily possible to select on information specified in a CROSSTOOL file, such as the
+            target abi. Another example is that it's not possible to OR multiple conditions,
+            leading to duplicated entries in the select.
+          </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+### Unstable
+These rules and features have known limitations that we will likely address in future releases.
 
 <table class="table table-condensed table-striped table-bordered">
   <colgroup>
@@ -187,11 +153,71 @@ or up-to-date.
   </colgroup>
   <thead>
     <tr>
-      <th>Rules</th>
+      <th>Feature</th>
       <th>Notes</th>
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <td><code>cc_toolchain</code> and <code>cc_toolchain_suite</code></td>
+      <td>
+        <ul>
+          <li>We intend to make significant changes to the way C/C++ toolchains are defined; we will
+            keep our published C/C++ toolchain definition(s) up to date, but we make no guarantees for
+            custom ones.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td>iOS/Objective C rules</td>
+      <td>
+        <ul>
+          <li>We cannot vouch for changes made by Apple &reg; to the underlying tools and
+            infrastructure.</li>
+          <li>The rules are fairly new and still subject to change; we try to avoid breaking changes,
+            but this may not always be possible.</li>
+          <li>No testing support yet.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td>Python rules</td>
+      <td>
+        <ul>
+          <li>The rules support neither Python 3, C/C++ extensions, nor packaging.
+          </li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td>Extra actions (<code>extra_action</code>, <code>action_listener</code>)</td>
+      <td>
+        <ul>
+          <li>Extra actions expose information about Bazel that we consider to be implementation
+            details, such as the exact interface between Bazel and the tools we provide; as such,
+            users will need to keep up with changes to tools to avoid breakage.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>environment_group</code></td>
+      <td>
+        <ul>
+          <li>We're planning to use it more extensively, replacing several machine-enforable
+            constraint mechanism, but there's only a handful of uses so far. We fully expect it to
+            work, but there's a small chance that we have to go back to the drawing board.</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>android_ndk_repository</code> and <code>android_sdk_repository</code></td>
+      <td>
+        <ul>
+          <li>We don't support pre-release NDKs or SDKs at this time. Furthermore, we may still
+            make backwards-incompatible changes to the attributes or the semantics.</li>
+        </ul>
+      </td>
+    </tr>
     <tr>
       <td><code>Fileset</code></td>
       <td>
@@ -202,6 +228,6 @@ or up-to-date.
             future.</li>
         </ul>
       </td>
-    </tr>
   </tbody>
 </table>
+

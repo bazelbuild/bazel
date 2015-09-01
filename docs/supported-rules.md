@@ -13,9 +13,4 @@ to build the following:
 *   [Groovy projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/groovy)
 *   [Java App Engine applications](https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/appengine)
 *   [Rust projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/rust)
-
-The source for these rules are located in the
-[tools/build_rules](https://github.com/bazelbuild/bazel/tree/master/tools/build_rules)
-and
-[tools/build_defs](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs)
-directories in the Bazel GitHub repo.
+*   [Scala projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/scala) - experimental
