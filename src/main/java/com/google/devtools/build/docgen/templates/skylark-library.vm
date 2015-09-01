@@ -14,6 +14,7 @@ ${module.documentation}
   </ul>
 </div>
 #end
+
 #foreach ($method in $module.methods)
   #if ($method.documented())
     <h2 id="${method.name}">${method.name}</h2>
