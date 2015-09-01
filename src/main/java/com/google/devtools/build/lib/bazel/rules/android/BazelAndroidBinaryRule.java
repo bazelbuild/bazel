@@ -23,7 +23,10 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -33,6 +36,8 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(
+            AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
         .add(attr(":cc_toolchain_split", Type.LABEL)
             .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
             .value(BazelCppRuleClasses.CC_TOOLCHAIN))
