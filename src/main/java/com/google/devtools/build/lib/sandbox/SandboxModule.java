@@ -43,7 +43,7 @@ public class SandboxModule extends BlazeModule {
   public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
       "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "
           + "be guaranteed. See http://bazel.io/docs/bazel-user-manual.html#sandboxing for more "
-          + "information";
+          + "information. You can turn off this warning via --ignore_unsupported_sandboxing";
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
