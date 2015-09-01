@@ -2973,45 +2973,90 @@ public class MemoizingEvaluatorTest {
     // We only want to force a particular order of operations at some points during evaluation. In
     // particular, we don't want to force anything during error bubbling.
     final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
+    final CountDownLatch shutdownAwaiterStarted = new CountDownLatch(1);
     // Keep track of any exceptions thrown during evaluation.
     final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
         new AtomicReference<>();
-    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
-      private final CountDownLatch cachedSignaled = new CountDownLatch(1);
+    setGraphForTesting(
+        new DeterministicInMemoryGraph(
+            new Listener() {
+              private final CountDownLatch cachedSignaled = new CountDownLatch(1);
 
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {
-        if (!synchronizeThreads.get() || order != Order.BEFORE || type != EventType.SIGNAL) {
-          return;
-        }
-        if (key.equals(uncachedParentKey)) {
-          // When the uncached parent is first signaled by its changed dep, make sure that we wait
-          // until the cached parent is signaled too.
-          try {
-            assertTrue(cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-          } catch (InterruptedException e) {
-            // Before the relevant bug was fixed, this code was not interrupted, and the uncached
-            // parent got to build, yielding an inconsistent state at a later point during
-            // evaluation. With the bugfix, the cached parent is never signaled before the evaluator
-            // shuts down, and so the above code is interrupted.
-            Thread.currentThread().interrupt();
-          }
-        } else if (key.equals(cachedParentKey)) {
-          // This branch should never be reached by a well-behaved evaluator, since when the error
-          // node is reached, the evaluator should shut down. However, we don't test for that
-          // behavior here because that would be brittle and we expect that such an evaluator will
-          // crash hard later on in any case.
-          cachedSignaled.countDown();
-          try {
-            // Sleep until we're interrupted by the evaluator, so we know it's shutting down.
-            Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-            unexpectedException.set(Pair.of(key, new IllegalStateException("uninterrupted")));
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
-        }
-      }
-    }));
+              @Override
+              public void accept(SkyKey key, EventType type, Order order, Object context) {
+                if (!synchronizeThreads.get()
+                    || order != Order.BEFORE
+                    || type != EventType.SIGNAL) {
+                  return;
+                }
+                try {
+                  if (!shutdownAwaiterStarted.await(
+                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    unexpectedException.set(
+                        Pair.of(
+                            key,
+                            new Exception(
+                                "shutdown awaiter not started at " + System.currentTimeMillis())));
+                  }
+                } catch (InterruptedException e) {
+                  unexpectedException.set(
+                      Pair.of(key, new Exception("Interrupted at " + System.currentTimeMillis())));
+                }
+                if (key.equals(uncachedParentKey)) {
+                  // When the uncached parent is first signaled by its changed dep, make sure that
+                  // we wait until the cached parent is signaled too.
+                  try {
+                    if (!cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                      Thread currentThread = Thread.currentThread();
+                      unexpectedException.set(
+                          Pair.of(
+                              key,
+                              new Exception(
+                                  "no interruption or signaling in time for "
+                                      + (currentThread.isInterrupted() ? "" : "un")
+                                      + "interrupted "
+                                      + currentThread
+                                      + " with hash "
+                                      + System.identityHashCode(currentThread)
+                                      + " at "
+                                      + System.currentTimeMillis())));
+                    }
+                  } catch (InterruptedException e) {
+                    // Before the relevant bug was fixed, this code was not interrupted, and the
+                    // uncached parent got to build, yielding an inconsistent state at a later point
+                    // during evaluation. With the bugfix, the cached parent is never signaled
+                    // before the evaluator shuts down, and so the above code is interrupted.
+                    Thread.currentThread().interrupt();
+                  }
+                } else if (key.equals(cachedParentKey)) {
+                  // This branch should never be reached by a well-behaved evaluator, since when the
+                  // error node is reached, the evaluator should shut down. However, we don't test
+                  // for that behavior here because that would be brittle and we expect that such an
+                  // evaluator will crash hard later on in any case.
+                  cachedSignaled.countDown();
+                  try {
+                    // Sleep until we're interrupted by the evaluator, so we know it's shutting
+                    // down.
+                    Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                    Thread currentThread = Thread.currentThread();
+                    unexpectedException.set(
+                        Pair.of(
+                            key,
+                            new Exception(
+                                "no interruption in time for "
+                                    + (currentThread.isInterrupted() ? "" : "un")
+                                    + "interrupted "
+                                    + currentThread
+                                    + " with hash "
+                                    + System.identityHashCode(currentThread)
+                                    + " at "
+                                    + System.currentTimeMillis())));
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                }
+              }
+            }));
     // Initialize graph.
     tester.eval(/*keepGoing=*/true, cachedParentKey, uncachedParentKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
@@ -3019,27 +3064,33 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     synchronizeThreads.set(true);
     SkyKey waitForShutdownKey = GraphTester.skyKey("wait-for-shutdown");
-    tester.getOrCreate(waitForShutdownKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-        try {
-          TrackingAwaiter.waitAndMaybeThrowInterrupt(
-              ((ParallelEvaluator.SkyFunctionEnvironment) env).getExceptionLatchForTesting(), "");
-        } catch (InterruptedException e) {
-          unexpectedException.set(Pair.of(skyKey, e));
-        }
-        // Threadpool is shutting down. Don't try to synchronize anything in the future during
-        // error bubbling.
-        synchronizeThreads.set(false);
-        throw new InterruptedException();
-      }
+    tester
+        .getOrCreate(waitForShutdownKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                try {
+                  shutdownAwaiterStarted.countDown();
+                  TrackingAwaiter.waitAndMaybeThrowInterrupt(
+                      ((ParallelEvaluator.SkyFunctionEnvironment) env)
+                          .getExceptionLatchForTesting(),
+                      "");
+                } catch (InterruptedException e) {
+                  unexpectedException.set(Pair.of(skyKey, e));
+                }
+                // Threadpool is shutting down. Don't try to synchronize anything in the future
+                // during error bubbling.
+                synchronizeThreads.set(false);
+                throw new InterruptedException();
+              }
 
-      @Nullable
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
     tester.eval(/*keepGoing=*/false, cachedParentKey, uncachedParentKey, waitForShutdownKey);
     Pair<SkyKey, ? extends Exception> unexpected = unexpectedException.get();
     if (unexpected != null) {
