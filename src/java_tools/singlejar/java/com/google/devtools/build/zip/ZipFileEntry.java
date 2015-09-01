@@ -149,7 +149,7 @@ public final class ZipFileEntry {
     this.internalAttributes = e.getInternalAttributes();
     this.externalAttributes = e.getExternalAttributes();
     this.localHeaderOffset = e.getLocalHeaderOffset();
-    this.extra = e.getExtra();
+    this.extra = new ExtraDataList(e.getExtra());
     this.comment = e.getComment();
     this.featureSet = EnumSet.copyOf(e.getFeatureSet());
   }
