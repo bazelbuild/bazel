@@ -8,79 +8,39 @@ layout: documentation
 
 Supported platforms:
 
-*   Ubuntu Linux
+*   Ubuntu Linux (Utopic 14.10 and Trusty 14.04 LTS)
 *   Mac OS X
 
 Java:
 
 *   Java JDK 7 or later
 
-## Downloading Bazel
+## Install dependencies
 
-Clone the Bazel repo from GitHub:
+### Ubuntu
 
-```
-$ cd $HOME
-$ git clone https://github.com/google/bazel.git
-```
-
-## Building Bazel
-
-### Building Bazel on Ubuntu
-
-To build Bazel on Ubuntu:
-
-#### 1. Install JDK 7:
-
-**Ubuntu Utopic (14.10) and Trusty (14.04 LTS).** To install OpenJDK 7:
+#### 1. Install OpenJDK 7
 
 ```
 $ sudo apt-get install openjdk-7-jdk openjdk-7-source
 ```
 
-#### 2. Install required packages:
+#### 2. Install required packages
 
 ```
-$ sudo apt-get install pkg-config zip g++ zlib1g-dev
+$ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 ```
 
-#### 3. Build Bazel:
-
-```
-$ cd bazel
-$ ./compile.sh
-```
-
-If this fails to find a correct Java version, then try to
-set the `JAVA_HOME` environment variable.
-
-Find the Java `bin` directory using `readlink -f $(which javac)`
-and use `javac -version` to verify that you have the right JDK version (1.7+).
-Then set the `JAVA_HOME` environment variable to the `bin` directory
-parent.
-
-For example, if the path is `/usr/lib/jvm/jdk1.7.0/bin/javac`, set the
-`JAVA_HOME` variable to `/usr/lib/jvm/jdk1.7.0`:
-
-```
-$ export JAVA_HOME=/usr/lib/jvm/jdk1.7.0
-```
-
-You can also add this line to your `~/.bashrc` file.
-
-
-### Building Bazel on OS X
-
-To build Bazel on Mac OS X:
+### Mac OS X
 
 #### 1. Install JDK 7
 
-JDK7 can be downloaded from
+JDK 7 can be downloaded from
 [Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html).
 Look for "Mac OS X x64" under "Java SE Development Kit". This will download a
 DMG image with an install wizard.
 
-#### 2. Install XCode Command Line Tools
+#### 2. Install XCode command line tools
 
 Xcode can be downloaded from the
 [Apple Developer Site](https://developer.apple.com/xcode/downloads/), which will
@@ -89,41 +49,39 @@ redirect to the App Store.
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with
 iOS SDK 8.1 installed on your system.
 
-Once XCode is installed you can trigger the license signature with the following command:
+Once XCode is installed you can trigger the license signature with the following
+command:
 
 ```
 $ sudo gcc --version
 ```
 
-#### 3. Install MacPorts or Homebrew for installing required packages.
+## Download Bazel
 
-While not required to compile Bazel, a package manager like MacPorts or Homebrew
-is recommended to help install other dependencies like protobuffer support.
+Download the [Bazel installer](https://github.com/google/bazel/releases) for
+your operating system.
 
-Homebrew can be installed via a 1-line script from [brew.sh](http://brew.sh/).
+## Run the installer
 
-Macports is available from [macports.org](https://www.macports.org/install.php).
+Run the installer:
 
-#### 4. Build Bazel
+<pre>
+$ chmod +x install-<em>version</em>-<em>os</em>.sh
+$ ./install-<em>version</em>-<em>os</em>.sh --user
+</pre>
 
-```
-$ cd bazel
-$ ./compile.sh
-```
+The `--user` flag installs Bazel to the `$HOME/bin` directory on your
+system and sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help`
+command to see additional installation options.
 
-Then you can run Bazel:
+## Set up your environment
 
-```
-$ ./output/bazel help
-```
-
-## Running Bazel
-
-The Bazel executable is located at `output/bazel` in the Bazel home directory.
-It's a good idea to add this path to your default paths, as follows:
+If you ran the Bazel installer with the `--user` flag as above, the Bazel
+executable is installed in your `$HOME/bin` directory. It's a good idea to add
+this directory to your default paths, as follows:
 
 ```bash
-$ export PATH="$PATH:$HOME/bazel/output"
+$ export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.
