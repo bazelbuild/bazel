@@ -75,16 +75,6 @@ public class HtmlChartVisitor implements ChartVisitor {
   @Override
   public void visit(Chart chart) {
     maxStop = chart.getMaxStop();
-    out.println("<html><head>");
-    out.printf("<title>%s</title>", chart.getTitle());
-    out.println("<style type=\"text/css\"><!--");
-
-    printCss(chart.getSortedTypes());
-
-    out.println("--></style>");
-    out.println("</head>");
-    out.println("<body>");
-
     heading(chart.getTitle(), 1);
 
     printContentBox();
@@ -106,9 +96,6 @@ public class HtmlChartVisitor implements ChartVisitor {
 
     heading("Statistics", 2);
     printStatistics(chart.getStatistics());
-
-    out.println("</body>");
-    out.println("</html>");
 }
 
   @Override
@@ -198,7 +185,8 @@ public class HtmlChartVisitor implements ChartVisitor {
     }
   }
 
-  private void printCss(List<ChartBarType> types) {
+  public void printCss(List<ChartBarType> types) {
+    out.println("<style type=\"text/css\"><!--");
     out.println("body { font-family: Sans; }");
     out.printf("div.shade-even { position:absolute; border: 0px; background-color:#dddddd }\n");
     out.printf("div.shade-odd { position:absolute; border: 0px; background-color:#eeeeee }\n");
@@ -215,6 +203,7 @@ public class HtmlChartVisitor implements ChartVisitor {
       out.printf("div.%s { position:absolute; border:0px; margin:1px; background-color:%s }\n",
           name, color);
     }
+    out.println("--></style>");
   }
 
   /**
@@ -267,7 +256,7 @@ public class HtmlChartVisitor implements ChartVisitor {
       }
       out.println("<td valign=\"top\">");
       String title = stat.getTitle();
-      if (title != "") {
+      if (!title.isEmpty()) {
         heading(title, 3);
       }
       out.println("<pre>" + stat.getStatistics() + "</pre></td>");

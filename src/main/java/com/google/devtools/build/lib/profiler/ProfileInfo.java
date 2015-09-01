@@ -19,8 +19,10 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.MultimapBuilder.ListMultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,7 +50,7 @@ import java.util.zip.InflaterInputStream;
  * Holds parsed profile file information and provides various ways of
  * accessing it (mostly through different dictionaries or sorted lists).
  *
- * Class should not be instantiated directly but through the use of the
+ * <p>Class should not be instantiated directly but through the use of the
  * ProfileLoader.loadProfile() method.
  */
 public class ProfileInfo {
@@ -352,6 +354,8 @@ public class ProfileInfo {
   public final List<Task> allTasksById;
   public List<Task> rootTasksById;  // Not final due to the late initialization.
   public final List<Task> phaseTasks;
+  private ListMultimap<String, Task> userFunctions;
+  private ListMultimap<String, Task> builtinFunctions;
 
   public final Map<Task, Task[]> actionDependencyMap;
   // Used to create fake Action tasks if ACTIONG_GRAPH task does not have
@@ -426,6 +430,45 @@ public class ProfileInfo {
         phaseTasks.add(task);
       }
     }
+  }
+
+  /**
+   * Collects all Skylark function tasks. Must be called before calling
+   * {@link #getSkylarkUserFunctionTasks} and {@link #getSkylarkBuiltinFunctionTasks}.
+   */
+  private void calculateSkylarkStatistics() {
+    userFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
+    builtinFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
+
+    for (Task task : allTasksById) {
+      if (task.type == ProfilerTask.SKYLARK_BUILTIN_FN) {
+        builtinFunctions.put(task.getDescription(), task);
+      } else if (task.type == ProfilerTask.SKYLARK_USER_FN) {
+        userFunctions.put(task.getDescription(), task);
+      }
+    }
+  }
+
+  /**
+   * {@link #calculateSkylarkStatistics} must have been called before.
+   * @return The {@link Task}s profiled for each user-defined Skylark function name.
+   */
+  public ListMultimap<String, Task> getSkylarkUserFunctionTasks() {
+    if (userFunctions == null) {
+      calculateSkylarkStatistics();
+    }
+    return userFunctions;
+  }
+
+  /**
+   * {@link #calculateSkylarkStatistics} must have been called before.
+   * @return The {@link Task}s profiled for each builtin Skylark function name.
+   */
+  public ListMultimap<String, Task> getSkylarkBuiltinFunctionTasks() {
+    if (builtinFunctions == null) {
+      calculateSkylarkStatistics();
+    }
+    return builtinFunctions;
   }
 
   /**

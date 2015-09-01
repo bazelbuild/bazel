@@ -3277,6 +3277,28 @@ adb -s deadbeef install ...
   the specified format.
 
 </p>
+<p>
+  The following options are supported:
+</p>
+<ul>
+  <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
+  <a href='#dump-text-format'>human-readable format</a></li>
+  <li><code>--dump=raw</code> displays all gathered data in a
+  <a href='#dump-raw-format'>script-friendly format</a></li>
+  <li><code id='flag--html'>--html</code> generates an <a href='#dump-html-format'>HTML file</a> visualizing the
+  actions and rules executed in the build, as well as summary statistics for the build
+    <ul>
+      <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
+      information on actions and rules to the HTML visualization</li>
+    </ul>
+  </li>
+</ul>
+
+<p>
+  See the section on <a href='#profiling'>Troubleshooting performance by profiling</a> for
+  format details and usage help.
+
+</p>
 
 <h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>
 
