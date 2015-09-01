@@ -230,7 +230,7 @@ public abstract class BaseFunction {
     // (1) handle positional arguments
     if (hasStarParam) {
       // Nota Bene: we collect extra positional arguments in a (tuple,) rather than a [list],
-      // so the collection can be heterogeneous; that's a notable difference with Python.
+      // and this is actually the same as in Python.
       int starParamIndex = numNamedParams;
       if (numPositionalArgs > numPositionalParams) {
         arguments[starParamIndex] = SkylarkList.tuple(
@@ -275,6 +275,7 @@ public abstract class BaseFunction {
       }
       // If there's a kwParam, it's empty.
       if (hasKwParam) {
+        // TODO(bazel-team): create a fresh mutable dict, like Python does
         arguments[kwParamIndex] = ImmutableMap.<String, Object>of();
       }
     } else if (hasKwParam && numNamedParams == 0) {
@@ -283,6 +284,7 @@ public abstract class BaseFunction {
       // Note that *starParam and **kwParam themselves don't count as named.
       // Also note that no named parameters means no mandatory parameters that weren't passed,
       // and no missing optional parameters for which to use a default. Thus, no loops.
+      // TODO(bazel-team): create a fresh mutable dict, like Python does
       arguments[kwParamIndex] = kwargs; // NB: not 2a means kwarg isn't null
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
@@ -323,6 +325,7 @@ public abstract class BaseFunction {
         }
       }
       if (hasKwParam) {
+        // TODO(bazel-team): create a fresh mutable dict, like Python does
         arguments[kwParamIndex] = ImmutableMap.copyOf(kwArg);
       }
 
