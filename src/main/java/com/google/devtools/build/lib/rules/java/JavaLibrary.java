@@ -215,6 +215,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, genClassJar, gensrcJar,
         ImmutableMap.<Artifact, Artifact>of(), helper, filesBuilder, builder);
 
+    builder.add(
+        JavaRuleOutputJarsProvider.class,
+        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, gensrcJar));
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
 

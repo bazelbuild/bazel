@@ -9,6 +9,7 @@ FILES = [
     "java_compilation",
     "crosstool_config",
     "extra_actions_base",
+    "android_studio_ide_info",
     "test_status",
     "bundlemerge",
     "xcodegen",

@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.WorkspaceBaseRule;
+import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -352,6 +353,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new AndroidNdkRepositoryRule());
     builder.addRuleDefinition(new AndroidRepositoryRules.AndroidLocalRepositoryRule());
     builder.addRuleDefinition(new AndroidHttpToolsRepositoryRule());
+
+    builder.addAspectFactory(AndroidStudioInfoAspect.NAME, AndroidStudioInfoAspect.class);
 
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
     builder.addConfigurationFragment(new CppConfigurationLoader(

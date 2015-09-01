@@ -184,6 +184,7 @@ java_library(
         [
             "com/google/devtools/build/lib/analysis/**/*.java",
             "com/google/devtools/build/lib/exec/*.java",
+            "com/google/devtools/build/lib/ideinfo/**/*.java",
             "com/google/devtools/build/lib/rules/**/*.java",
             "com/google/devtools/build/lib/skyframe/*.java",
         ],
@@ -206,6 +207,7 @@ java_library(
         ":shell",
         ":skyframe-base",
         ":vfs",
+        "//src/main/protobuf:proto_android_studio_ide_info",
         "//src/main/protobuf:proto_bundlemerge",
         "//src/main/protobuf:proto_crosstool_config",
         "//src/main/protobuf:proto_extra_actions_base",
