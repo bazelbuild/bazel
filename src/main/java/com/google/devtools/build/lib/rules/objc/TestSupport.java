@@ -46,17 +46,17 @@ import javax.annotation.Nullable;
 /**
  * Support for running XcTests.
  */
-class TestSupport {
+public class TestSupport {
   private final RuleContext ruleContext;
 
-  TestSupport(RuleContext ruleContext) {
+  public TestSupport(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }
 
   /**
    * Registers actions to create all files needed in order to actually run the test.
    */
-  TestSupport registerTestRunnerActions() {
+  public TestSupport registerTestRunnerActions() {
     registerTestScriptSubstitutionAction();
     return this;
   }
@@ -64,7 +64,7 @@ class TestSupport {
   /**
    * Returns the script which should be run in order to actually run the tests.
    */
-  Artifact generatedTestScript() {
+  public Artifact generatedTestScript() {
     return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, "_test_script");
   }
 
@@ -193,7 +193,7 @@ class TestSupport {
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
    */
-  TestSupport addRunfiles(Builder runfilesBuilder, ObjcProvider objcProvider) {
+  public TestSupport addRunfiles(Builder runfilesBuilder, ObjcProvider objcProvider) {
     runfilesBuilder
         .addArtifact(testIpa())
         .addArtifacts(xctestIpa().asSet())
@@ -298,7 +298,7 @@ class TestSupport {
   /**
    * Adds files which must be built in order to run this test to builder.
    */
-  TestSupport addFilesToBuild(NestedSetBuilder<Artifact> builder) {
+  public TestSupport addFilesToBuild(NestedSetBuilder<Artifact> builder) {
     builder.add(testIpa()).addAll(xctestIpa().asSet());
     return this;
   }
