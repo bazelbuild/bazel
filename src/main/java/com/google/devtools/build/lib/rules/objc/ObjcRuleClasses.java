@@ -481,7 +481,7 @@ public class ObjcRuleClasses {
           .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:ibtoolwrapper")))
           // TODO(dmaclach): Adding realpath here should not be required once
-          // https://github.com/google/bazel/issues/285 is fixed.
+          // https://github.com/bazelbuild/bazel/issues/285 is fixed.
           .add(attr("$realpath", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:realpath")))
           .add(attr("$swiftstdlibtoolzip_deploy", LABEL).cfg(HOST)

@@ -25,7 +25,7 @@
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source $(dirname ${SCRIPT_DIR})/release/common.sh
 
-: ${GIT_REPOSITORY_URL:=https://github.com/google/bazel}
+: ${GIT_REPOSITORY_URL:=https://github.com/bazelbuild/bazel}
 
 : ${GCS_BASE_URL:=https://storage.googleapis.com}
 : ${GCS_BUCKET:=bucket-o-bazel}
@@ -136,7 +136,7 @@ function generate_email() {
 # Please set GITHUB_TOKEN to talk to the Github API and GITHUB_RELEASE
 # for the path to the https://github.com/c4milo/github-release tool.
 # This method is also affected by GIT_REPOSITORY_URL which should be the
-# URL to the github repository (defaulted to https://github.com/google/bazel).
+# URL to the github repository (defaulted to https://github.com/bazelbuild/bazel).
 function release_to_github() {
   local url="${GIT_REPOSITORY_URL}"
   local release_name=$(get_release_name)

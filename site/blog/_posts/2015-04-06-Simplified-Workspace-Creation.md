@@ -34,4 +34,4 @@ setting up your workspace.
 
 Let us know if you have any questions or issues on the
 [mailing list](https://groups.google.com/forum/#!forum/bazel-discuss) or
-[GitHub](https://github.com/google/bazel).
+[GitHub](https://github.com/bazelbuild/bazel).

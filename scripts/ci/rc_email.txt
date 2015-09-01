@@ -6,7 +6,7 @@ it out.
 You can download it from:
   %url%
 
-Please report regressions to https://github.com/google/bazel/issues as soon
+Please report regressions to https://github.com/bazelbuild/bazel/issues as soon
 as possible.
 
 The release notes for version %release_name% are:

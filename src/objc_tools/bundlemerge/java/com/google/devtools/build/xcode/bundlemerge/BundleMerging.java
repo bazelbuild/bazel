@@ -194,7 +194,7 @@ public final class BundleMerging {
           break;
         }
         // TODO(bazel-dev): Add support for soft links because we will need them for MacOS support
-        // in frameworks at the very least. https://github.com/google/bazel/issues/289
+        // in frameworks at the very least. https://github.com/bazelbuild/bazel/issues/289
         String name = entryNamesPrefix + zipInEntry.getName();
         if (zipInEntry.isDirectory()) {
           // If we already have a directory entry with this name then don't attempt to

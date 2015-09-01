@@ -52,7 +52,7 @@ for i in "${@}"; do
   done <<<"$(cat $i)"
 done
 
-url="${url:-https://github.com/google/bazel/commit/${git_hash}}"
+url="${url:-https://github.com/bazelbuild/bazel/commit/${git_hash}}"
 
 if [ -z "${release_name}" ]; then
   # Not a release

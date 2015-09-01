@@ -4,7 +4,7 @@ Bazel %release_name% is now available for general usage at:
   %url%
 
 If you observe any regression, please report it to
-https://github.com/google/bazel/issues as soon as possible.
+https://github.com/bazelbuild/bazel/issues as soon as possible.
 
 The release notes for version %release_name% are:
 

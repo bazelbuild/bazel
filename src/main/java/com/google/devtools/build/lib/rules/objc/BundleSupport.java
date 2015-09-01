@@ -205,7 +205,7 @@ final class BundleSupport {
               .addOutput(zipOutput)
               .addInput(storyboardInput)
               // TODO(dmaclach): Adding realpath here should not be required once
-              // https://github.com/google/bazel/issues/285 is fixed.
+              // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
               .build(ruleContext));
     }
@@ -274,7 +274,7 @@ final class BundleSupport {
               .addOutput(zipOutput)
               .addInput(original)
               // TODO(dmaclach): Adding realpath here should not be required once
-              // https://github.com/google/bazel/issues/285 is fixed.
+              // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
               .build(ruleContext));
     }
@@ -445,7 +445,7 @@ final class BundleSupport {
 
     /**
      * Returns the location of the realpath tool.
-     * TODO(dmaclach): Should not be required once https://github.com/google/bazel/issues/285
+     * TODO(dmaclach): Should not be required once https://github.com/bazelbuild/bazel/issues/285
      * is fixed.
      */
     Artifact realpath() {

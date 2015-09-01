@@ -149,7 +149,7 @@ EOF
   assert_test_ok //:trivial_test
 }
 
-# Regression test for https://github.com/google/bazel/issues/67
+# Regression test for https://github.com/bazelbuild/bazel/issues/67
 # C++ library depedending on C++ library fails to compile on Darwin
 function test_cpp_libdeps() {
   mkdir -p pkg

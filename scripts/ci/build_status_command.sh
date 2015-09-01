@@ -23,7 +23,7 @@ source "$(dirname ${SCRIPT_DIR})/release/common.sh"
 
 git_hash=$(git rev-parse --short HEAD)
 echo "RELEASE_GIT_HASH ${git_hash}"
-url="${GIT_REPOSITORY_URL:-https://github.com/google/bazel}"
+url="${GIT_REPOSITORY_URL:-https://github.com/bazelbuild/bazel}"
 echo "RELEASE_COMMIT_URL ${url}/commit/${git_hash}"
 if [ -n "${BUILT_BY-}" ]; then
   echo "RELEASE_BUILT_BY ${BUILT_BY}"

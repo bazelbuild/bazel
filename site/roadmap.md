@@ -14,7 +14,7 @@ repositories:
 
 *   A Google-internal repository, containing both Bazel code and
     Google-specific extensions and features
-*   An external [GitHub repository](https://github.com/google/bazel),
+*   An external [GitHub repository](https://github.com/bazelbuild/bazel),
     containing only the Bazel code.
 
 We anticipate making the external repository *primary* in the future, that is,
