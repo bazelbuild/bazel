@@ -44,18 +44,22 @@ public final class EagerInvalidator {
   public static void delete(DirtiableGraph graph, Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
       boolean traverseGraph, DirtyKeyTracker dirtyKeyTracker) throws InterruptedException {
-    InvalidatingNodeVisitor visitor =
-        createDeletingVisitorIfNeeded(graph, diff, invalidationReceiver, state, traverseGraph,
-            dirtyKeyTracker);
+    DeletingNodeVisitor visitor =
+        createDeletingVisitorIfNeeded(
+            graph, diff, invalidationReceiver, state, traverseGraph, dirtyKeyTracker);
     if (visitor != null) {
       visitor.run();
     }
   }
 
   @Nullable
-  static InvalidatingNodeVisitor createDeletingVisitorIfNeeded(DirtiableGraph graph,
-      Iterable<SkyKey> diff, EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state, boolean traverseGraph, DirtyKeyTracker dirtyKeyTracker) {
+  static DeletingNodeVisitor createDeletingVisitorIfNeeded(
+      DirtiableGraph graph,
+      Iterable<SkyKey> diff,
+      EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
+      boolean traverseGraph,
+      DirtyKeyTracker dirtyKeyTracker) {
     state.update(diff);
     return state.isEmpty() ? null
         : new DeletingNodeVisitor(graph, invalidationReceiver, state, traverseGraph,
@@ -63,9 +67,12 @@ public final class EagerInvalidator {
   }
 
   @Nullable
-  static InvalidatingNodeVisitor createInvalidatingVisitorIfNeeded(DirtiableGraph graph,
-      Iterable<SkyKey> diff, EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state, DirtyKeyTracker dirtyKeyTracker,
+  static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
+      ThinNodeQueryableGraph graph,
+      Iterable<SkyKey> diff,
+      EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
+      DirtyKeyTracker dirtyKeyTracker,
       Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
     state.update(diff);
     return state.isEmpty() ? null
@@ -74,9 +81,12 @@ public final class EagerInvalidator {
   }
 
   @Nullable
-  static InvalidatingNodeVisitor createInvalidatingVisitorIfNeeded(DirtiableGraph graph,
-      Iterable<SkyKey> diff, EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state, DirtyKeyTracker dirtyKeyTracker) {
+  static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
+      DirtiableGraph graph,
+      Iterable<SkyKey> diff,
+      EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
+      DirtyKeyTracker dirtyKeyTracker) {
     return createInvalidatingVisitorIfNeeded(graph, diff, invalidationReceiver, state,
         dirtyKeyTracker, AbstractQueueVisitor.EXECUTOR_FACTORY);
   }
@@ -85,18 +95,21 @@ public final class EagerInvalidator {
    * Invalidates given values and their upward transitive closure in the graph, using an executor
    * constructed with the provided factory, if necessary.
    */
-  public static void invalidate(DirtiableGraph graph, Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
+  public static void invalidate(
+      ThinNodeQueryableGraph graph,
+      Iterable<SkyKey> diff,
+      EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory)
-          throws InterruptedException {
+      throws InterruptedException {
     // If we are invalidating, we must be in an incremental build by definition, so we must
     // maintain a consistent graph state by traversing the graph and invalidating transitive
     // dependencies. If edges aren't present, it would be impossible to check the dependencies of
     // a dirty node in any case.
-    InvalidatingNodeVisitor visitor =
-        createInvalidatingVisitorIfNeeded(graph, diff, invalidationReceiver, state,
-            dirtyKeyTracker, executorFactory);
+    DirtyingNodeVisitor visitor =
+        createInvalidatingVisitorIfNeeded(
+            graph, diff, invalidationReceiver, state, dirtyKeyTracker, executorFactory);
     if (visitor != null) {
       visitor.run();
     }

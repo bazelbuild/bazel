@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationType;
 
@@ -62,7 +64,7 @@ public class EagerInvalidatorTest {
   protected InMemoryGraph graph;
   protected GraphTester tester = new GraphTester();
   protected InvalidationState state = newInvalidationState();
-  protected AtomicReference<InvalidatingNodeVisitor> visitor = new AtomicReference<>();
+  protected AtomicReference<InvalidatingNodeVisitor<?>> visitor = new AtomicReference<>();
   protected DirtyKeyTrackerImpl dirtyKeyTracker;
 
   private IntVersion graphVersion = new IntVersion(0);
@@ -534,12 +536,12 @@ public class EagerInvalidatorTest {
     protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
-      InvalidatingNodeVisitor invalidatingVisitor =
-          EagerInvalidator.createDeletingVisitorIfNeeded(graph, diff, invalidationReceiver, state,
-              true, dirtyKeyTracker);
-      if (invalidatingVisitor != null) {
-        visitor.set(invalidatingVisitor);
-        invalidatingVisitor.run();
+      DeletingNodeVisitor deletingNodeVisitor =
+          EagerInvalidator.createDeletingVisitorIfNeeded(
+              graph, diff, invalidationReceiver, state, true, dirtyKeyTracker);
+      if (deletingNodeVisitor != null) {
+        visitor.set(deletingNodeVisitor);
+        deletingNodeVisitor.run();
       }
     }
 
@@ -592,12 +594,12 @@ public class EagerInvalidatorTest {
     protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
-      InvalidatingNodeVisitor invalidatingVisitor =
-          EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff, invalidationReceiver,
-              state, dirtyKeyTracker);
-      if (invalidatingVisitor != null) {
-        visitor.set(invalidatingVisitor);
-        invalidatingVisitor.run();
+      DirtyingNodeVisitor dirtyingNodeVisitor =
+          EagerInvalidator.createInvalidatingVisitorIfNeeded(
+              graph, diff, invalidationReceiver, state, dirtyKeyTracker);
+      if (dirtyingNodeVisitor != null) {
+        visitor.set(dirtyingNodeVisitor);
+        dirtyingNodeVisitor.run();
       }
     }
 

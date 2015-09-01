@@ -20,22 +20,21 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A graph that exposes its entries and structure, for use by classes that must traverse it.
+ * A graph that exposes thin representations of its entries and structure, for use by classes that
+ * must traverse it, but not read its entries' values.
  */
 @ThreadSafe
-public interface QueryableGraph extends ThinNodeQueryableGraph {
+public interface ThinNodeQueryableGraph {
   /**
-   * Returns the node with the given name, or {@code null} if the node does not exist.
+   * Returns the thin node with the given name, or {@code null} if the node does not exist.
    */
   @Nullable
-  @Override
-  NodeEntry get(SkyKey key);
+  ThinNodeEntry get(SkyKey key);
 
   /**
-   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in
+   * Fetches all the given thin nodes. Returns a map {@code m} such that, for all {@code k} in
    * {@code keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and
    * {@code !m.containsKey(k)} iff {@code get(k) == null}.
    */
-  @Override
-  Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys);
+  Map<SkyKey, ? extends ThinNodeEntry> getBatch(Iterable<SkyKey> keys);
 }

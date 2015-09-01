@@ -50,7 +50,8 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
+public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGraph>
+    extends AbstractQueueVisitor {
 
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
@@ -59,21 +60,25 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
 
   private static final boolean MUST_EXIST = true;
 
-  protected final DirtiableGraph graph;
+  protected final TGraph graph;
   @Nullable protected final EvaluationProgressReceiver invalidationReceiver;
   protected final DirtyKeyTracker dirtyKeyTracker;
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
 
   protected InvalidatingNodeVisitor(
-      DirtiableGraph graph, @Nullable EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state, DirtyKeyTracker dirtyKeyTracker) {
+      TGraph graph,
+      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
+      DirtyKeyTracker dirtyKeyTracker) {
     this(graph, invalidationReceiver, state, dirtyKeyTracker, EXECUTOR_FACTORY);
   }
 
   protected InvalidatingNodeVisitor(
-      DirtiableGraph graph, @Nullable EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state, DirtyKeyTracker dirtyKeyTracker,
+      TGraph graph,
+      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      InvalidationState state,
+      DirtyKeyTracker dirtyKeyTracker,
       Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
     super(/*concurrent=*/true,
         /*corePoolSize=*/DEFAULT_THREAD_COUNT,
@@ -189,7 +194,7 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   /**
    * A node-deleting implementation.
    */
-  static class DeletingNodeVisitor extends InvalidatingNodeVisitor {
+  static class DeletingNodeVisitor extends InvalidatingNodeVisitor<DirtiableGraph> {
 
     private final Set<SkyKey> visitedValues = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
@@ -266,12 +271,14 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   /**
    * A node-dirtying implementation.
    */
-  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor {
+  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<ThinNodeQueryableGraph> {
 
     private final Set<Pair<SkyKey, InvalidationType>> visited = Sets.newConcurrentHashSet();
 
-    protected DirtyingNodeVisitor(DirtiableGraph graph,
-        EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
+    protected DirtyingNodeVisitor(
+        ThinNodeQueryableGraph graph,
+        EvaluationProgressReceiver invalidationReceiver,
+        InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
         Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
       super(graph, invalidationReceiver, state, dirtyKeyTracker, executorFactory);
@@ -319,60 +326,68 @@ public abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
         return;
       }
       pendingVisitations.add(invalidationPair);
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          NodeEntry entry = graph.get(key);
+      enqueue(
+          new Runnable() {
+            @Override
+            public void run() {
+              ThinNodeEntry entry = graph.get(key);
 
-          if (entry == null) {
-            Preconditions.checkState(!mustExist,
-                "%s does not exist in the graph but was enqueued for dirtying by another node",
-                key);
-            pendingVisitations.remove(invalidationPair);
-            return;
-          }
+              if (entry == null) {
+                Preconditions.checkState(
+                    !mustExist,
+                    "%s does not exist in the graph but was enqueued for dirtying by another node",
+                    key);
+                pendingVisitations.remove(invalidationPair);
+                return;
+              }
 
-          if (entry.isChanged() || (!isChanged && entry.isDirty())) {
-            // If this node is already marked changed, or we are only marking this node dirty, and
-            // it already is, move along.
-            pendingVisitations.remove(invalidationPair);
-            return;
-          }
+              if (entry.isChanged() || (!isChanged && entry.isDirty())) {
+                // If this node is already marked changed, or we are only marking this node
+                // dirty, and it already is, move along.
+                pendingVisitations.remove(invalidationPair);
+                return;
+              }
 
-          // This entry remains in the graph in this dirty state until it is re-evaluated.
-          Iterable<SkyKey> deps = entry.markDirty(isChanged);
-          // It is not safe to interrupt the logic from this point until the end of the method.
-          // Any exception thrown should be unrecoverable.
-          if (deps == null) {
-            // Another thread has already dirtied this node. Don't do anything in this thread.
-            pendingVisitations.remove(invalidationPair);
-            return;
-          }
-          // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should only
-          // be marked dirty (because only a dependency of theirs has changed).
-          for (SkyKey reverseDep : entry.getReverseDeps()) {
-            visit(reverseDep, InvalidationType.DIRTIED, MUST_EXIST);
-          }
+              // This entry remains in the graph in this dirty state until it is re-evaluated.
+              Iterable<SkyKey> deps = entry.markDirty(isChanged);
+              // It is not safe to interrupt the logic from this point until the end of the method.
+              // Any exception thrown should be unrecoverable.
+              if (deps == null) {
+                // Another thread has already dirtied this node. Don't do anything in this thread.
+                pendingVisitations.remove(invalidationPair);
+                return;
+              }
+              // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps
+              // should only be marked dirty (because only a dependency of theirs has changed).
+              for (SkyKey reverseDep : entry.getReverseDeps()) {
+                visit(reverseDep, InvalidationType.DIRTIED, MUST_EXIST);
+              }
 
-          // Remove this node as a reverse dep from its children, since we have reset it and it no
-          // longer lists its children as direct deps.
-          Map<SkyKey, NodeEntry> children = graph.getBatch(deps);
-          if (children.size() != Iterables.size(deps)) {
-            Set<SkyKey> depsSet = ImmutableSet.copyOf(deps);
-            throw new IllegalStateException("Mismatch in getBatch: " + key + ", " + entry + "\n"
-                + Sets.difference(depsSet, children.keySet()) + "\n"
-                + Sets.difference(children.keySet(), depsSet));
-          }
-          for (NodeEntry child : children.values()) {
-            child.removeReverseDep(key);
-          }
+              // Remove this node as a reverse dep from its children, since we have reset it and
+              // it no longer lists its children as direct deps.
+              Map<SkyKey, ? extends ThinNodeEntry> children = graph.getBatch(deps);
+              if (children.size() != Iterables.size(deps)) {
+                Set<SkyKey> depsSet = ImmutableSet.copyOf(deps);
+                throw new IllegalStateException(
+                    "Mismatch in getBatch: "
+                        + key
+                        + ", "
+                        + entry
+                        + "\n"
+                        + Sets.difference(depsSet, children.keySet())
+                        + "\n"
+                        + Sets.difference(children.keySet(), depsSet));
+              }
+              for (ThinNodeEntry child : children.values()) {
+                child.removeReverseDep(key);
+              }
 
-          informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
-          dirtyKeyTracker.dirty(key);
-          // Remove the node from the set as the last operation.
-          pendingVisitations.remove(invalidationPair);
-        }
-      });
+              informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
+              dirtyKeyTracker.dirty(key);
+              // Remove the node from the set as the last operation.
+              pendingVisitations.remove(invalidationPair);
+            }
+          });
     }
   }
 }

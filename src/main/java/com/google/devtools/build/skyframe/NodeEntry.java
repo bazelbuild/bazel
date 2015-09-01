@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
  * <p>This interface is public only for the benefit of alternative graph implementations outside of
  * the package.
  */
-public interface NodeEntry {
+public interface NodeEntry extends ThinNodeEntry {
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone(SkyKey)}.
    */
@@ -71,10 +71,6 @@ public interface NodeEntry {
 
   boolean keepEdges();
 
-  /** Returns whether the entry has been built and is finished evaluating. */
-  @ThreadSafe
-  boolean isDone();
-
   /**
    * Returns the value stored in this entry. This method may only be called after the evaluation of
    * this node is complete, i.e., after {@link #setValue} has been called.
@@ -98,18 +94,6 @@ public interface NodeEntry {
    */
   @ThreadSafe
   SkyValue toValue();
-
-  /**
-   * Returns an immutable iterable of the direct deps of this node. This method may only be called
-   * after the evaluation of this node is complete, i.e., after {@link #setValue} has been called.
-   *
-   * <p>This method is not very efficient, but is only be called in limited circumstances --
-   * when the node is about to be deleted, or when the node is expected to have no direct deps (in
-   * which case the overhead is not so bad). It should not be called repeatedly for the same node,
-   * since each call takes time proportional to the number of direct deps of the node.
-   */
-  @ThreadSafe
-  Iterable<SkyKey> getDirectDeps();
 
   /**
    * Returns the error, if any, associated to this node. This method may only be called after
@@ -168,19 +152,6 @@ public interface NodeEntry {
   DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep);
 
   /**
-   * Removes a reverse dependency.
-   */
-  @ThreadSafe
-  void removeReverseDep(SkyKey reverseDep);
-
-  /**
-   * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
-   * check-then-act race; {@link #removeReverseDep} may fail for a key that is returned here.
-   */
-  @ThreadSafe
-  Iterable<SkyKey> getReverseDeps();
-
-  /**
    * Tell this node that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation. Equivalent to
    * {@code #signalDep(Long.MAX_VALUE)}. Since this entry's version is less than
@@ -202,39 +173,6 @@ public interface NodeEntry {
    */
   @ThreadSafe
   boolean signalDep(Version childVersion);
-
-  /**
-   * Returns true if the entry is marked dirty, meaning that at least one of its transitive
-   * dependencies is marked changed.
-   */
-  @ThreadSafe
-  boolean isDirty();
-
-  /**
-   * Returns true if the entry is marked changed, meaning that it must be re-evaluated even if its
-   * dependencies' values have not changed.
-   */
-  @ThreadSafe
-  boolean isChanged();
-
-  /**
-   * Marks this node dirty, or changed if {@code isChanged} is true. The node is put in the
-   * just-created state. It will be re-evaluated if necessary during the evaluation phase,
-   * but if it has not changed, it will not force a re-evaluation of its parents.
-   *
-   * <p>{@code markDirty(b)} must not be called on an undone node if {@code isChanged() == b}.
-   * It is the caller's responsibility to ensure that this does not happen.  Calling
-   * {@code markDirty(false)} when {@code isChanged() == true} has no effect. The idea here is that
-   * the caller will only ever want to call {@code markDirty()} a second time if a transition from a
-   * dirty-unchanged state to a dirty-changed state is required.
-   *
-   * @return The direct deps of this entry, or null if the entry has already been marked
-   * dirty. In the latter case, the caller should abort its handling of this node, since another
-   * thread is already dealing with it.
-   */
-  @Nullable
-  @ThreadSafe
-  Iterable<SkyKey> markDirty(boolean isChanged);
 
   /**
    * Marks this entry as up-to-date at this version.
