@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 
@@ -24,6 +25,12 @@ import java.util.Map;
  * The collection of the supported build rules. Provides an Environment for Skylark rule creation.
  */
 public interface RuleClassProvider {
+
+  /**
+   * Workspace relative path to the prelude file.
+   */
+  PathFragment getPreludePath();
+
   /**
    * Returns a map from rule names to rule class objects.
    */

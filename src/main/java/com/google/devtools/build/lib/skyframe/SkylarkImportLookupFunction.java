@@ -91,7 +91,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         // a load() statement comes from the prelude, since we just prepend those statements before
         // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
         RepositoryName repository =
-            entry.getKey().getPath().endsWith(PackageFunction.PRELUDE_FILE_FRAGMENT)
+            entry.getKey().getPath().endsWith(ruleClassProvider.getPreludePath())
                 ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : arg.getRepository();
         SkyKey importsLookupKey = SkylarkImportLookupValue.key(repository, file, importFile);
         SkylarkImportLookupValue importsLookupValue;

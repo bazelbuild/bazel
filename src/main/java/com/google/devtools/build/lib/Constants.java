@@ -35,8 +35,6 @@ public class Constants {
 
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 
-  public static final String PRELUDE_FILE_DEPOT_RELATIVE_PATH = "tools/build_rules/prelude_bazel";
-
   public static final String ANDROID_DEFAULT_SDK = "//external:android/sdk".toString();
   public static final String ANDROID_DEFAULT_CROSSTOOL = "//external:android/crosstool".toString();
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =

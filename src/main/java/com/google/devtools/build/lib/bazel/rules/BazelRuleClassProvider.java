@@ -219,6 +219,7 @@ public class BazelRuleClassProvider {
         .addBuildInfoFactory(new CppBuildInfo())
         .addBuildInfoFactory(new ObjcBuildInfoFactory())
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
+        .setPrelude("tools/build_rules/prelude_bazel")
         .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
     for (Class<? extends FragmentOptions> fragmentOptions : BUILD_OPTIONS) {

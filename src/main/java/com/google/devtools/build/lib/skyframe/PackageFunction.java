@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -89,15 +88,10 @@ public class PackageFunction implements SkyFunction {
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
 
-  static final PathFragment PRELUDE_FILE_FRAGMENT =
-      new PathFragment(Constants.PRELUDE_FILE_DEPOT_RELATIVE_PATH);
+  private final PathFragment preludePath;
 
   static final String DEFAULTS_PACKAGE_NAME = "tools/defaults";
   public static final String EXTERNAL_PACKAGE_NAME = "external";
-
-  static {
-    Preconditions.checkArgument(!PRELUDE_FILE_FRAGMENT.isAbsolute());
-  }
 
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
@@ -105,6 +99,10 @@ public class PackageFunction implements SkyFunction {
       AtomicInteger numPackagesLoaded) {
     this.reporter = reporter;
 
+    // Can be null in tests.
+    this.preludePath = packageFactory == null
+        ? null
+        : packageFactory.getRuleClassProvider().getPreludePath();
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
@@ -423,7 +421,7 @@ public class PackageFunction implements SkyFunction {
     SkyKey astLookupKey = null;
     try {
       astLookupKey = ASTFileLookupValue.key(
-          PackageIdentifier.createInDefaultRepo(PRELUDE_FILE_FRAGMENT));
+          PackageIdentifier.createInDefaultRepo(preludePath));
     } catch (ASTLookupInputException e) {
       // There's a static check ensuring that PRELUDE_FILE_FRAGMENT is relative.
       throw new IllegalStateException(e);
@@ -597,7 +595,7 @@ public class PackageFunction implements SkyFunction {
         // a load() statement comes from the prelude, since we just prepend those statements before
         // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
         RepositoryName repository =
-            entry.getKey().getPath().endsWith(PRELUDE_FILE_FRAGMENT)
+            entry.getKey().getPath().endsWith(preludePath)
                 ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : packageId.getRepository();
         SkyKey importsLookupKey = SkylarkImportLookupValue.key(
             repository, buildFileFragment, importFile);
