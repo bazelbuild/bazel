@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +60,6 @@ public class NamespaceSandboxRunner {
 
   static boolean isSupported(BlazeRuntime runtime) {
     Path execRoot = runtime.getExecRoot();
-    OutErr outErr = runtime.getReporter().getOutErr();
     BinTools binTools = runtime.getBinTools();
 
     List<String> args = new ArrayList<>();
@@ -75,8 +74,8 @@ public class NamespaceSandboxRunner {
       cmd.execute(
           /* stdin */ new byte[] {},
           Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
+          ByteStreams.nullOutputStream(),
+          ByteStreams.nullOutputStream(),
           /* killSubprocessOnInterrupt */ true);
     } catch (CommandException e) {
       return false;
