@@ -332,20 +332,35 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   private ImmutableSetMultimap<Path, Path> mountRunfilesFromManifests(Spawn spawn, Path sandboxPath)
       throws IOException {
     ImmutableSetMultimap.Builder<Path, Path> mounts = ImmutableSetMultimap.builder();
-    FileSystem fs = blazeDirs.getFileSystem();
     for (Entry<PathFragment, Artifact> manifest : spawn.getRunfilesManifests().entrySet()) {
       String manifestFilePath = manifest.getValue().getPath().getPathString();
       Preconditions.checkState(!manifest.getKey().isAbsolute());
       Path targetDirectory = execRoot.getRelative(manifest.getKey());
-      for (String line : Files.readLines(new File(manifestFilePath), Charset.defaultCharset())) {
-        String[] fields = line.split(" ");
-        Preconditions.checkState(
-            fields.length == 2, "'" + line + "' does not split into exactly 2 parts");
-        Path source = fs.getPath(fields[1]);
-        Path targetPath = targetDirectory.getRelative(fields[0]);
-        Path targetInSandbox = sandboxPath.getRelative(targetPath.asFragment().relativeTo("/"));
-        mounts.put(source, targetInSandbox);
+
+      mounts.putAll(parseManifestFile(sandboxPath, targetDirectory, new File(manifestFilePath)));
+    }
+    return mounts.build();
+  }
+
+  static ImmutableSetMultimap<Path, Path> parseManifestFile(
+      Path sandboxPath, Path targetDirectory, File manifestFile) throws IOException {
+    ImmutableSetMultimap.Builder<Path, Path> mounts = ImmutableSetMultimap.builder();
+    for (String line : Files.readLines(manifestFile, Charset.defaultCharset())) {
+      String[] fields = line.trim().split(" ");
+      Path source;
+      Path targetPath = targetDirectory.getRelative(fields[0]);
+      Path targetInSandbox = sandboxPath.getRelative(targetPath.asFragment().relativeTo("/"));
+      switch (fields.length) {
+        case 1:
+          source = sandboxPath.getFileSystem().getPath("/dev/null");
+          break;
+        case 2:
+          source = sandboxPath.getFileSystem().getPath(fields[1]);
+          break;
+        default:
+          throw new IllegalStateException("'" + line + "' splits into more than 2 parts");
       }
+      mounts.put(source, targetInSandbox);
     }
     return mounts.build();
   }

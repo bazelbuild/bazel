@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -36,6 +37,7 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -250,5 +252,33 @@ public class LinuxSandboxedStrategyTest {
           .hasMessage(
               String.format("%s (Not a directory)", workingDir.getRelative("a/c").getPathString()));
     }
+  }
+
+  @Test
+  public void testParseManifestFile() throws IOException {
+    Path targetDir = workingDir.getRelative("runfiles");
+    targetDir.createDirectory();
+
+    Path testFile = workingDir.getRelative("testfile");
+    FileSystemUtils.createEmptyFile(testFile);
+
+    Path manifestFile = workingDir.getRelative("MANIFEST");
+    FileSystemUtils.writeContent(
+        manifestFile,
+        Charset.defaultCharset(),
+        String.format("x/testfile %s\nx/emptyfile \n", testFile.getPathString()));
+
+    ImmutableSetMultimap<Path, Path> mounts =
+        LinuxSandboxedStrategy.parseManifestFile(
+            fakeSandboxDir, targetDir, manifestFile.getPathFile());
+
+    assertThat(userFriendlyMap(mounts))
+        .containsExactly(
+            userFriendlyMap(
+                ImmutableMultimap.of(
+                    testFile,
+                    fakeSandboxDir.getRelative("runfiles/x/testfile"),
+                    testFS.getPath("/dev/null"),
+                    fakeSandboxDir.getRelative("runfiles/x/emptyfile"))));
   }
 }
