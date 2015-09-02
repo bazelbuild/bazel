@@ -765,7 +765,8 @@ public class ObjcRuleClasses {
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(IosTest.IS_XCTEST, BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(xctest_app) -->
-           A <code>objc_binary</code> target that contains the app bundle to test against in XCTest.
+           A <code>objc_binary</code> or <code>ios_application</code> target that contains the
+           app bundle to test against in XCTest.
            This attribute is only valid if <code>xctest</code> is true.
            ${SYNOPSIS}
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
