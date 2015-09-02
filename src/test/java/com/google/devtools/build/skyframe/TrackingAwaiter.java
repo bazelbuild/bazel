@@ -24,8 +24,16 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/** Safely await {@link CountDownLatch}es in tests, storing any exceptions that happen. */
+/**
+ * Safely await {@link CountDownLatch}es in tests, storing any exceptions that happen. Callers
+ * should call {@link #assertNoErrors} at the end of each test method, either manually or using an
+ * {@code @After} hook.
+ */
 public class TrackingAwaiter {
+  public static final TrackingAwaiter INSTANCE = new TrackingAwaiter();
+
+  private TrackingAwaiter() {}
+
   private final ConcurrentLinkedQueue<Pair<String, Throwable>> exceptionsThrown =
       new ConcurrentLinkedQueue<>();
 
@@ -42,7 +50,7 @@ public class TrackingAwaiter {
    * this was not a race condition, but an honest-to-goodness interrupt, and we propagate the
    * exception onward.
    */
-  public static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
+  private static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
       throws InterruptedException {
     if (Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS,
         TimeUnit.SECONDS)) {

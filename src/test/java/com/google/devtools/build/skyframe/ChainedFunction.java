@@ -54,12 +54,12 @@ final class ChainedFunction implements SkyFunction {
         notifyStart.countDown();
       }
       if (waitToFinish != null) {
-        TrackingAwaiter.waitAndMaybeThrowInterrupt(waitToFinish,
-            key + " timed out waiting to finish");
+        TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+            waitToFinish, key + " timed out waiting to finish");
         if (waitForException) {
           SkyFunctionEnvironment skyEnv = (SkyFunctionEnvironment) env;
-          TrackingAwaiter.waitAndMaybeThrowInterrupt(skyEnv.getExceptionLatchForTesting(),
-              key + " timed out waiting for exception");
+          TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+              skyEnv.getExceptionLatchForTesting(), key + " timed out waiting for exception");
         }
       }
       for (SkyKey dep : deps) {

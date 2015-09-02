@@ -40,6 +40,7 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVi
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationType;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -68,6 +69,11 @@ public class EagerInvalidatorTest {
   protected DirtyKeyTrackerImpl dirtyKeyTracker;
 
   private IntVersion graphVersion = new IntVersion(0);
+
+  @After
+  public void assertNoTrackedErrors() {
+    TrackingAwaiter.INSTANCE.assertNoErrors();
+  }
 
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
@@ -466,37 +472,34 @@ public class EagerInvalidatorTest {
       }
       int countDownStart = validValuesToDo > 0 ? random.nextInt(validValuesToDo) : 0;
       final CountDownLatch countDownToInterrupt = new CountDownLatch(countDownStart);
-      final EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
-        @Override
-        public void invalidated(SkyKey skyKey, InvalidationState state) {
-          countDownToInterrupt.countDown();
-          if (countDownToInterrupt.getCount() == 0) {
-            mainThread.interrupt();
-            try {
-              // Wait for the main thread to be interrupted uninterruptibly, because the main thread
-              // is going to interrupt us, and we don't want to get into an interrupt fight. Only
-              // if we get interrupted without the main thread also being interrupted will this
-              // throw an InterruptedException.
-              TrackingAwaiter.waitAndMaybeThrowInterrupt(
-                  visitor.get().getInterruptionLatchForTestingOnly(),
-                  "Main thread was not interrupted");
-            } catch (InterruptedException e) {
-              throw new IllegalStateException(e);
+      final EvaluationProgressReceiver receiver =
+          new EvaluationProgressReceiver() {
+            @Override
+            public void invalidated(SkyKey skyKey, InvalidationState state) {
+              countDownToInterrupt.countDown();
+              if (countDownToInterrupt.getCount() == 0) {
+                mainThread.interrupt();
+                // Wait for the main thread to be interrupted uninterruptibly, because the main
+                // thread is going to interrupt us, and we don't want to get into an interrupt
+                // fight. Only if we get interrupted without the main thread also being interrupted
+                // will this throw an InterruptedException.
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    visitor.get().getInterruptionLatchForTestingOnly(),
+                    "Main thread was not interrupted");
+              }
             }
-          }
-        }
 
-        @Override
-        public void enqueueing(SkyKey skyKey) {
-          throw new UnsupportedOperationException();
-        }
+            @Override
+            public void enqueueing(SkyKey skyKey) {
+              throw new UnsupportedOperationException();
+            }
 
-        @Override
-        public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
-            EvaluationState state) {
-          throw new UnsupportedOperationException();
-        }
-      };
+            @Override
+            public void evaluated(
+                SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+              throw new UnsupportedOperationException();
+            }
+          };
       try {
         invalidate(graph, receiver,
             Sets.newHashSet(

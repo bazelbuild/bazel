@@ -53,6 +53,7 @@ import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,6 +92,11 @@ public class ParallelEvaluatorTest {
   public void initializeReporter() {
     eventCollector = new EventCollector(EventKind.ALL_EVENTS);
     reporter = new Reporter(eventCollector);
+  }
+
+  @After
+  public void assertNoTrackedErrors() {
+    TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
@@ -716,35 +722,38 @@ public class ParallelEvaluatorTest {
     final SkyKey midKey = GraphTester.toSkyKey("mid");
     SkyKey badKey = GraphTester.toSkyKey("bad");
     final AtomicBoolean waitForSecondCall = new AtomicBoolean(false);
-    final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     final CountDownLatch otherThreadWinning = new CountDownLatch(1);
     final AtomicReference<Thread> firstThread = new AtomicReference<>();
-    graph = new NotifyingInMemoryGraph(new Listener() {
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {
-        if (!waitForSecondCall.get()) {
-          return;
-        }
-        if (key.equals(midKey)) {
-          if (type == EventType.CREATE_IF_ABSENT) {
-            // The first thread to create midKey will not be the first thread to add a reverse dep
-            // to it.
-            firstThread.compareAndSet(null, Thread.currentThread());
-            return;
-          }
-          if (type == EventType.ADD_REVERSE_DEP) {
-            if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
-              // If this thread created midKey, block until the other thread adds a dep on it.
-              trackingAwaiter.awaitLatchAndTrackExceptions(otherThreadWinning,
-                  "other thread didn't pass this one");
-            } else if (order == Order.AFTER && !Thread.currentThread().equals(firstThread.get())) {
-              // This thread has added a dep. Allow the other thread to proceed.
-              otherThreadWinning.countDown();
-            }
-          }
-        }
-      }
-    });
+    graph =
+        new NotifyingInMemoryGraph(
+            new Listener() {
+              @Override
+              public void accept(SkyKey key, EventType type, Order order, Object context) {
+                if (!waitForSecondCall.get()) {
+                  return;
+                }
+                if (key.equals(midKey)) {
+                  if (type == EventType.CREATE_IF_ABSENT) {
+                    // The first thread to create midKey will not be the first thread to add a
+                    // reverse dep to it.
+                    firstThread.compareAndSet(null, Thread.currentThread());
+                    return;
+                  }
+                  if (type == EventType.ADD_REVERSE_DEP) {
+                    if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
+                      // If this thread created midKey, block until the other thread adds a dep on
+                      // it.
+                      TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                          otherThreadWinning, "other thread didn't pass this one");
+                    } else if (order == Order.AFTER
+                        && !Thread.currentThread().equals(firstThread.get())) {
+                      // This thread has added a dep. Allow the other thread to proceed.
+                      otherThreadWinning.countDown();
+                    }
+                  }
+                }
+              }
+            });
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
@@ -752,7 +761,6 @@ public class ParallelEvaluatorTest {
     assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
     waitForSecondCall.set(true);
     result = eval(/*keepGoing=*/true, topKey, midKey);
-    trackingAwaiter.assertNoErrors();
     assertNotNull(firstThread.get());
     assertEquals(0, otherThreadWinning.getCount());
     assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
@@ -2042,76 +2050,82 @@ public class ParallelEvaluatorTest {
     final SkyKey otherErrorKey = GraphTester.toSkyKey("otherErrorKey");
 
     final CountDownLatch errorCommitted = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForErrorCommitted = new TrackingAwaiter();
 
     final CountDownLatch otherStarted = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForOtherStarted = new TrackingAwaiter();
 
     final CountDownLatch otherDone = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForOtherDone = new TrackingAwaiter();
 
     final AtomicInteger numOtherInvocations = new AtomicInteger(0);
     final AtomicReference<String> bogusInvocationMessage = new AtomicReference<>(null);
     final AtomicReference<String> nonNullValueMessage = new AtomicReference<>(null);
 
-    tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        // Given that errorKey waits for otherErrorKey to begin evaluation before completing its
-        // evaluation,
-        trackingAwaiterForOtherStarted.awaitLatchAndTrackExceptions(otherStarted,
-            "otherErrorKey's SkyFunction didn't start in time.");
-        // And given that errorKey throws an error,
-        throw new GenericFunctionException(new SomeErrorException("error"), Transience.PERSISTENT);
-      }
+    tester
+        .getOrCreate(errorKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                // Given that errorKey waits for otherErrorKey to begin evaluation before completing
+                // its evaluation,
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    otherStarted, "otherErrorKey's SkyFunction didn't start in time.");
+                // And given that errorKey throws an error,
+                throw new GenericFunctionException(
+                    new SomeErrorException("error"), Transience.PERSISTENT);
+              }
 
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
-    tester.getOrCreate(otherErrorKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        otherStarted.countDown();
-        int invocations = numOtherInvocations.incrementAndGet();
-        // And given that otherErrorKey waits for errorKey's error to be committed before trying
-        // to get errorKey's value,
-        trackingAwaiterForErrorCommitted.awaitLatchAndTrackExceptions(errorCommitted,
-            "errorKey's error didn't get committed to the graph in time");
-        try {
-          SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
-          if (value != null) {
-            nonNullValueMessage.set("bogus non-null value " + value);
-          }
-          if (invocations != 1) {
-            bogusInvocationMessage.set("bogus invocation count: " + invocations);
-          }
-          otherDone.countDown();
-          // And given that otherErrorKey throws an error,
-          throw new GenericFunctionException(new SomeErrorException("other"),
-              Transience.PERSISTENT);
-        } catch (SomeErrorException e) {
-          fail();
-          return null;
-        }
-      }
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    tester
+        .getOrCreate(otherErrorKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                otherStarted.countDown();
+                int invocations = numOtherInvocations.incrementAndGet();
+                // And given that otherErrorKey waits for errorKey's error to be committed before
+                // trying to get errorKey's value,
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    errorCommitted, "errorKey's error didn't get committed to the graph in time");
+                try {
+                  SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
+                  if (value != null) {
+                    nonNullValueMessage.set("bogus non-null value " + value);
+                  }
+                  if (invocations != 1) {
+                    bogusInvocationMessage.set("bogus invocation count: " + invocations);
+                  }
+                  otherDone.countDown();
+                  // And given that otherErrorKey throws an error,
+                  throw new GenericFunctionException(
+                      new SomeErrorException("other"), Transience.PERSISTENT);
+                } catch (SomeErrorException e) {
+                  fail();
+                  return null;
+                }
+              }
 
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
-    graph = new NotifyingInMemoryGraph(new Listener() {
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {
-        if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
-          errorCommitted.countDown();
-          trackingAwaiterForOtherDone.awaitLatchAndTrackExceptions(otherDone,
-              "otherErrorKey's SkyFunction didn't finish in time.");
-        }
-      }
-    });
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    graph =
+        new NotifyingInMemoryGraph(
+            new Listener() {
+              @Override
+              public void accept(SkyKey key, EventType type, Order order, Object context) {
+                if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
+                  errorCommitted.countDown();
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                      otherDone, "otherErrorKey's SkyFunction didn't finish in time.");
+                }
+              }
+            });
 
     // When the graph is evaluated in noKeepGoing mode,
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/false,
@@ -2142,11 +2156,8 @@ public class ParallelEvaluatorTest {
   @Test
   public void raceConditionWithNoKeepGoingErrors_FutureError() throws Exception {
     final CountDownLatch errorCommitted = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForError = new TrackingAwaiter();
     final CountDownLatch otherStarted = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForOther = new TrackingAwaiter();
     final CountDownLatch otherParentSignaled = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForOtherParent = new TrackingAwaiter();
     final SkyKey errorParentKey = GraphTester.toSkyKey("errorParentKey");
     final SkyKey errorKey = GraphTester.toSkyKey("errorKey");
     final SkyKey otherParentKey = GraphTester.toSkyKey("otherParentKey");
@@ -2166,34 +2177,40 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    tester.getOrCreate(otherKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        otherStarted.countDown();
-        trackingAwaiterForError.awaitLatchAndTrackExceptions(errorCommitted,
-            "error didn't get committed to the graph in time");
-        return new StringValue("other");
-      }
+    tester
+        .getOrCreate(otherKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                otherStarted.countDown();
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    errorCommitted, "error didn't get committed to the graph in time");
+                return new StringValue("other");
+              }
 
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
-    tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        trackingAwaiterForOther.awaitLatchAndTrackExceptions(otherStarted,
-            "other didn't start in time");
-        throw new GenericFunctionException(new SomeErrorException("error"),
-            Transience.PERSISTENT);
-      }
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    tester
+        .getOrCreate(errorKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    otherStarted, "other didn't start in time");
+                throw new GenericFunctionException(
+                    new SomeErrorException("error"), Transience.PERSISTENT);
+              }
 
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
     tester.getOrCreate(errorParentKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
@@ -2221,26 +2238,31 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    graph = new NotifyingInMemoryGraph(new Listener() {
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {
-        if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
-          errorCommitted.countDown();
-          trackingAwaiterForOtherParent.awaitLatchAndTrackExceptions(otherParentSignaled,
-              "otherParent didn't get signaled in time");
-          // We try to give some time for ParallelEvaluator to incorrectly re-evaluate
-          // 'otherParentKey'. This test case is testing for a real race condition and the 10ms time
-          // was chosen experimentally to give a true positive rate of 99.8% (without a sleep it
-          // has a 1% true positive rate). There's no good way to do this without sleeping. We
-          // *could* introspect ParallelEvaulator's AbstractQueueVisitor to see if the re-evaluation
-          // has been enqueued, but that's relying on pretty low-level implementation details.
-          Uninterruptibles.sleepUninterruptibly(10, TimeUnit.MILLISECONDS);
-        }
-        if (key.equals(otherParentKey) && type == EventType.SIGNAL && order == Order.AFTER) {
-          otherParentSignaled.countDown();
-        }
-      }
-    });
+    graph =
+        new NotifyingInMemoryGraph(
+            new Listener() {
+              @Override
+              public void accept(SkyKey key, EventType type, Order order, Object context) {
+                if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
+                  errorCommitted.countDown();
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                      otherParentSignaled, "otherParent didn't get signaled in time");
+                  // We try to give some time for ParallelEvaluator to incorrectly re-evaluate
+                  // 'otherParentKey'. This test case is testing for a real race condition and the
+                  // 10ms time was chosen experimentally to give a true positive rate of 99.8%
+                  // (without a sleep it has a 1% true positive rate). There's no good way to do
+                  // this without sleeping. We *could* introspect ParallelEvaulator's
+                  // AbstractQueueVisitor to see if the re-evaluation has been enqueued, but that's
+                  // relying on pretty low-level implementation details.
+                  Uninterruptibles.sleepUninterruptibly(10, TimeUnit.MILLISECONDS);
+                }
+                if (key.equals(otherParentKey)
+                    && type == EventType.SIGNAL
+                    && order == Order.AFTER) {
+                  otherParentSignaled.countDown();
+                }
+              }
+            });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/false,
         ImmutableList.of(otherParentKey, errorParentKey));
     assertTrue(result.hasError());
