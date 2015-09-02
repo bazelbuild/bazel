@@ -38,6 +38,13 @@ A platform-independent GameBoy emulator.
 
 # Corporate users of Bazel
 
+## [Braintree](https://www.braintreepayments.com)
+
+Braintree, a PayPal subsidiary, develops payment solution for website and
+application. They use Bazel for part of their internal build and Paul Gross
+posted a [nice piece about how went the switch to
+Bazel](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
+
 ## [Makani](https://www.google.com/makani)
 
 Makani, now a Google subsidiary, develops energy kites and uses

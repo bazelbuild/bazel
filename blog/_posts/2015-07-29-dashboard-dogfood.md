@@ -8,7 +8,7 @@ results.  It's not ready for an official release yet, but if any adventurous
 people would like to try it out (and please report any issues you find!), feel
 free to give it a try.
 
-<img src="/assets/dash.png" style="width: 800px; border: 1px solid black;"/>
+<img src="/assets/dash.png" class="img-responsive" style="width: 800px; border: 1px solid black;"/>
 
 First, you'll need to update your bazel (`git pull` and rerun `./compile.sh`).
 
