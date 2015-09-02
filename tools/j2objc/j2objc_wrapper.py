@@ -27,12 +27,13 @@ import os
 import Queue
 import re
 import subprocess
+import tempfile
 import threading
 
 INCLUDE_RE = re.compile('#(include|import) "([^"]+)"')
 
 
-def RunJ2ObjC(java, jvm_flags, j2objc, main_class, flags):
+def RunJ2ObjC(java, jvm_flags, j2objc, main_class, j2objc_args):
   """Runs J2ObjC transpiler to translate Java source files to ObjC.
 
   Args:
@@ -40,16 +41,30 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, flags):
     jvm_flags: A comma-separated list of flags to pass to JVM.
     j2objc: The deploy jar of J2ObjC.
     main_class: The J2ObjC main class to invoke.
-    flags: A list of flags to pass to J2ObjC transpiler.
+    j2objc_args: A list of args to pass to J2ObjC transpiler.
   Returns:
     None.
   """
-  j2objc_args = [java]
-  j2objc_args.extend(filter(None, jvm_flags.split(',')))
-  j2objc_args.extend(['-cp', j2objc, main_class])
-  j2objc_args.extend(flags)
-
-  subprocess.check_call(j2objc_args, stderr=subprocess.STDOUT)
+  source_files, flags = _ParseArgs(j2objc_args)
+  source_file_manifest_content = ' '.join(source_files)
+  fd = None
+  param_filename = None
+  try:
+    fd, param_filename = tempfile.mkstemp(text=True)
+    os.write(fd, source_file_manifest_content)
+  finally:
+    if fd:
+      os.close(fd)
+  try:
+    j2objc_cmd = [java]
+    j2objc_cmd.extend(filter(None, jvm_flags.split(',')))
+    j2objc_cmd.extend(['-cp', j2objc, main_class])
+    j2objc_cmd.extend(flags)
+    j2objc_cmd.extend(['@%s' % param_filename])
+    subprocess.check_call(j2objc_cmd, stderr=subprocess.STDOUT)
+  finally:
+    if param_filename:
+      os.remove(param_filename)
 
 
 def WriteDepMappingFile(translated_source_files,
@@ -119,6 +134,30 @@ def _ReadDepMapping(input_file_queue, output_dep_mapping_queue, objc_file_path,
     output_dep_mapping_queue.put((entry, deps))
     input_file_queue.task_done()
 
+
+def _ParseArgs(j2objc_args):
+  """Separate arguments passed to J2ObjC into source files and J2ObjC flags.
+
+  Args:
+    j2objc_args: A list of args to pass to J2ObjC transpiler.
+  Returns:
+    A tuple containing source files and J2ObjC flags
+  """
+  source_files = []
+  flags = []
+  is_next_flag_value = False
+  for j2objc_arg in j2objc_args:
+    if j2objc_arg.startswith('-'):
+      flags.append(j2objc_arg)
+      is_next_flag_value = True
+    elif is_next_flag_value:
+      flags.append(j2objc_arg)
+      is_next_flag_value = False
+    else:
+      source_files.append(j2objc_arg)
+  return (source_files, flags)
+
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
   parser.add_argument(
@@ -151,13 +190,13 @@ if __name__ == '__main__':
       required=True,
       help=('The file path which represents a directory where the generated '
             'ObjC files reside.'))
-  args, pass_through_flags = parser.parse_known_args()
+  args, pass_through_args = parser.parse_known_args()
 
   RunJ2ObjC(args.java,
             args.jvm_flags,
             args.j2objc,
             args.main_class,
-            pass_through_flags)
+            pass_through_args)
   WriteDepMappingFile(args.translated_source_files,
                       args.objc_file_path,
                       args.output_dependency_mapping_file)
