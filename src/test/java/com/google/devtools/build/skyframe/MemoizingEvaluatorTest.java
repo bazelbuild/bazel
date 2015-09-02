@@ -2977,6 +2977,7 @@ public class MemoizingEvaluatorTest {
     // Keep track of any exceptions thrown during evaluation.
     final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
         new AtomicReference<>();
+    final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     setGraphForTesting(
         new DeterministicInMemoryGraph(
             new Listener() {
@@ -2989,19 +2990,8 @@ public class MemoizingEvaluatorTest {
                     || type != EventType.SIGNAL) {
                   return;
                 }
-                try {
-                  if (!shutdownAwaiterStarted.await(
-                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    unexpectedException.set(
-                        Pair.of(
-                            key,
-                            new Exception(
-                                "shutdown awaiter not started at " + System.currentTimeMillis())));
-                  }
-                } catch (InterruptedException e) {
-                  unexpectedException.set(
-                      Pair.of(key, new Exception("Interrupted at " + System.currentTimeMillis())));
-                }
+                trackingAwaiter.awaitLatchAndTrackExceptions(
+                    shutdownAwaiterStarted, "shutdown awaiter not started");
                 if (key.equals(uncachedParentKey)) {
                   // When the uncached parent is first signaled by its changed dep, make sure that
                   // we wait until the cached parent is signaled too.
@@ -3020,6 +3010,7 @@ public class MemoizingEvaluatorTest {
                                       + System.identityHashCode(currentThread)
                                       + " at "
                                       + System.currentTimeMillis())));
+                      return;
                     }
                   } catch (InterruptedException e) {
                     // Before the relevant bug was fixed, this code was not interrupted, and the
@@ -3051,6 +3042,7 @@ public class MemoizingEvaluatorTest {
                                     + System.identityHashCode(currentThread)
                                     + " at "
                                     + System.currentTimeMillis())));
+                    return;
                   } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                   }
@@ -3097,6 +3089,7 @@ public class MemoizingEvaluatorTest {
       throw new AssertionError(unexpected.first + ", " + unexpected.second + ", "
           + Arrays.toString(unexpected.second.getStackTrace()));
     }
+    trackingAwaiter.assertNoErrors();
   }
 
   @Test
