@@ -77,14 +77,14 @@ public class LinuxSandboxedStrategyTest {
    * Strips the working directory (which can be very long) from the file names in the input map, to
    * make assertion failures easier to read.
    */
-  private ImmutableSetMultimap<String, String> getReadableMap(Multimap<Path, Path> input) {
-    ImmutableSetMultimap.Builder<String, String> readableMap = ImmutableSetMultimap.builder();
+  private ImmutableSetMultimap<String, String> userFriendlyMap(Multimap<Path, Path> input) {
+    ImmutableSetMultimap.Builder<String, String> userFriendlyMap = ImmutableSetMultimap.builder();
     for (Entry<Path, Path> entry : input.entries()) {
       String key = entry.getKey().getPathString().replace(workingDir.getPathString(), "");
       String value = entry.getValue().getPathString().replace(workingDir.getPathString(), "");
-      readableMap.put(key, value);
+      userFriendlyMap.put(key, value);
     }
-    return readableMap.build();
+    return userFriendlyMap.build();
   }
 
   private void createTreeStructure(Multimap<String, String> linksAndFiles) throws IOException {
@@ -124,9 +124,9 @@ public class LinuxSandboxedStrategyTest {
             fakeSandboxDir, LinuxSandboxedStrategy.withRecursedDirs(mounts.build())));
   }
 
-  private ImmutableSetMultimap<String, String> readableMounts(
+  private ImmutableSetMultimap<String, String> userFriendlyMounts(
       Multimap<String, String> linksAndFiles, List<String> customMounts) throws IOException {
-    return getReadableMap(mounts(linksAndFiles, customMounts));
+    return userFriendlyMap(mounts(linksAndFiles, customMounts));
   }
 
   /**
@@ -139,9 +139,9 @@ public class LinuxSandboxedStrategyTest {
     return mounts(linksAndFiles, ImmutableList.of(Iterables.getFirst(linksAndFiles.keys(), null)));
   }
 
-  private ImmutableSetMultimap<String, String> readableMounts(
+  private ImmutableSetMultimap<String, String> userFriendlyMounts(
       Multimap<String, String> linksAndFiles) throws IOException {
-    return getReadableMap(mounts(linksAndFiles));
+    return userFriendlyMap(mounts(linksAndFiles));
   }
 
   /**
@@ -157,8 +157,8 @@ public class LinuxSandboxedStrategyTest {
     return pathifiedAsserts.build();
   }
 
-  private ImmutableSetMultimap<String, String> readableAsserts(List<String> asserts) {
-    return getReadableMap(asserts(asserts));
+  private ImmutableSetMultimap<String, String> userFriendlyAsserts(List<String> asserts) {
+    return userFriendlyMap(asserts(asserts));
   }
 
   @Test
@@ -171,7 +171,7 @@ public class LinuxSandboxedStrategyTest {
     assertMounts.add("symlink.txt");
     assertMounts.add("goal.txt");
 
-    assertThat(readableMounts(testFiles)).containsExactly(readableAsserts(assertMounts));
+    assertThat(userFriendlyMounts(testFiles)).containsExactly(userFriendlyAsserts(assertMounts));
   }
 
   @Test
@@ -182,7 +182,7 @@ public class LinuxSandboxedStrategyTest {
             "x/goal.txt", "");
 
     List<String> assertMounts = ImmutableList.of("symlink.txt", "x/goal.txt");
-    assertThat(readableMounts(testFiles)).containsExactly(readableAsserts(assertMounts));
+    assertThat(userFriendlyMounts(testFiles)).containsExactly(userFriendlyAsserts(assertMounts));
   }
 
   @Test
@@ -194,7 +194,7 @@ public class LinuxSandboxedStrategyTest {
 
     List<String> assertMounts = ImmutableList.of("x/symlink.txt", "goal.txt");
 
-    assertThat(readableMounts(testFiles)).containsExactly(readableAsserts(assertMounts));
+    assertThat(userFriendlyMounts(testFiles)).containsExactly(userFriendlyAsserts(assertMounts));
   }
 
   @Test
@@ -209,7 +209,8 @@ public class LinuxSandboxedStrategyTest {
 
     List<String> assertMounts = ImmutableList.of("a/b/x.txt", "a/b/y.txt", "a/b/z.txt");
 
-    assertThat(readableMounts(testFiles, inputFile)).containsExactly(readableAsserts(assertMounts));
+    assertThat(userFriendlyMounts(testFiles, inputFile))
+        .containsExactly(userFriendlyAsserts(assertMounts));
   }
 
   /**
