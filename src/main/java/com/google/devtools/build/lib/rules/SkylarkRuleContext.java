@@ -170,7 +170,10 @@ public final class SkylarkRuleContext {
       }
     }
     artifactLabelMap = artifactLabelMapBuilder.build();
-    outputsObject = new SkylarkClassObject(outputsBuilder, "No such output '%s'");
+    outputsObject =
+        new SkylarkClassObject(
+            outputsBuilder,
+            "No attribute '%s' in outputs. Make sure you declared a rule output with this name.");
 
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> executableBuilder = new ImmutableMap.Builder<>();
@@ -222,13 +225,25 @@ public final class SkylarkRuleContext {
         attrBuilder.put(skyname, SkylarkList.list(allPrereq, TransitiveInfoCollection.class));
       }
     }
-    attrObject = new SkylarkClassObject(attrBuilder.build(), "No such attribute '%s'");
-    executableObject = new SkylarkClassObject(executableBuilder.build(), "No such executable. "
-        + "Make sure there is a '%s' label type attribute marked as 'executable'");
-    fileObject = new SkylarkClassObject(fileBuilder.build(),
-        "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'");
-    filesObject = new SkylarkClassObject(filesBuilder.build(),
-        "No such files. Make sure there is a '%s' label or label_list type attribute");
+    attrObject =
+        new SkylarkClassObject(
+            attrBuilder.build(),
+            "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.");
+    executableObject =
+        new SkylarkClassObject(
+            executableBuilder.build(),
+            "No attribute '%s' in executable. Make sure there is a label type attribute marked "
+                + "as 'executable' with this name");
+    fileObject =
+        new SkylarkClassObject(
+            fileBuilder.build(),
+            "No attribute '%s' in file. Make sure there is a label type attribute marked "
+                + "as 'single_file' with this name");
+    filesObject =
+        new SkylarkClassObject(
+            filesBuilder.build(),
+            "No attribute '%s' in files. Make sure there is a label or label_list type attribute "
+                + "with this name");
     executableRunfilesMap = executableRunfilesbuilder.build();
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
