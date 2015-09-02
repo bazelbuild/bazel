@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * The actual function registered in the environment. This function is defined in the
@@ -73,10 +75,37 @@ public class UserDefinedFunction extends BaseFunction {
       real.registerStatement(lastStatement);
       throw real;
     } finally {
-      Profiler.instance().logSimpleTask(startTimeProfiler, ProfilerTask.SKYLARK_USER_FN, getName());
+      Profiler.instance().logSimpleTask(
+          startTimeProfiler,
+          ProfilerTask.SKYLARK_USER_FN,
+          getLocationPathAndLine() + "#" + getName());
     }
     return Runtime.NONE;
   }
+
+  /**
+   * Returns the location (filename:line) of the BaseFunction's definition.
+   *
+   * <p>If such a location is not defined, this method returns an empty string.
+   */
+  private String getLocationPathAndLine() {
+    if (location == null) {
+      return "";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    PathFragment path = location.getPath();
+    if (path != null) {
+      builder.append(path.getPathString());
+    }
+
+    LineAndColumn position = location.getStartLineAndColumn();
+    if (position != null) {
+      builder.append(":").append(position.getLine());
+    }
+    return builder.toString();
+  }
+
 
   /**
    * Creates a new environment for the execution of this function.

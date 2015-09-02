@@ -49,14 +49,6 @@ public final class SkylarkStatistics {
   }
 
   /**
-   * @param variable
-   * @return An approximation of whether the argument is valid as a JavaScript variable.
-   */
-  private static boolean isValidJsVariable(String variable) {
-    return variable.matches("^[\\w_].*");
-  }
-
-  /**
    * For each Skylark function compute a {@link TasksStatistics} object from the execution times of
    * all corresponding {@link Task}s from either {@link #userFunctionTasks} or
    * {@link #builtinFunctionTasks}. Fills fields {@link #userFunctionStats} and
@@ -124,10 +116,6 @@ public final class SkylarkStatistics {
     out.println("  document.querySelector('#builtin-close').onclick = function() {");
     out.println("    document.querySelector('#builtin-histogram').style.display = 'none';");
     out.println("  };");
-
-    printDrawTableJs(dataVar, tableVar, "user");
-    printDrawTableJs(dataVar, tableVar, "builtin");
-
     out.println("};");
 
     out.println("var options = {");
@@ -144,10 +132,12 @@ public final class SkylarkStatistics {
     out.printf("    var selection = %s[category].getSelection();\n", tableVar);
     out.println("    if (selection.length < 1) return;");
     out.println("    var item = selection[0];");
-    out.printf("    var func = %s[category].getValue(item.row, 0);\n", dataVar);
-    out.println("    var histData = histogramData[category][func];");
+    out.printf("    var loc = %s[category].getValue(item.row, 0);\n", dataVar);
+    out.printf("    var func = %s[category].getValue(item.row, 1);\n", dataVar);
+    out.println("    var key = loc + '#' + func;");
+    out.println("    var histData = histogramData[category][key];");
     out.println("    var fnOptions = JSON.parse(JSON.stringify(options));");
-    out.println("    fnOptions.title = func;");
+    out.println("    fnOptions.title = loc + ' - ' + func;");
     out.println("    var chartDiv = document.getElementById(category+'-chart');");
     out.println("    var chart = new google.visualization.Histogram(chartDiv);");
     out.println("    var histogramDiv = document.getElementById(category+'-histogram');");
@@ -158,15 +148,6 @@ public final class SkylarkStatistics {
     out.println("</script>");
   }
 
-  private void printDrawTableJs(String dataVar, String tableVar, String category) {
-    out.printf(
-        "  %s.%s.draw(%s.%s, {showRowNumber: true, width: '100%%', height: '100%%'});\n",
-        tableVar,
-        category,
-        dataVar,
-        category);
-  }
-
   private void printHistogramData() {
     out.println("  histogramData = {");
     printHistogramData(builtinFunctionTasks, "builtin");
@@ -175,12 +156,9 @@ public final class SkylarkStatistics {
   }
 
   private void printHistogramData(ListMultimap<String, Task> tasks, String category) {
-    out.printf("    \"%s\": {\n", category);
+    out.printf("    '%s': {\n", category);
     for (String function : tasks.keySet()) {
-      if (!isValidJsVariable(function)) {
-        continue;
-      }
-      out.printf("      \"%s\": google.visualization.arrayToDataTable(\n", function);
+      out.printf("      '%s': google.visualization.arrayToDataTable(\n", function);
       out.print("        [['duration']");
       for (Task task : tasks.get(function)) {
         out.printf(",[%f]", task.duration / 1000000.);
@@ -197,44 +175,58 @@ public final class SkylarkStatistics {
       String tableVar,
       long totalNanos) {
     String tmpVar = category + dataVar;
-    out.printf("  var %s = new google.visualization.DataTable();\n", tmpVar);
-    out.printf("  %s.addColumn('string', 'Function');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'count');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'min (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'mean (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'median (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'max (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'standard deviation (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'total (ms)');\n", tmpVar);
-    out.printf("  %s.addColumn('number', 'relative total (%%)');\n", tmpVar);
-    out.printf("  %s.addRows([\n", tmpVar);
-    for (TasksStatistics stats : statsList) {
-      if (!isValidJsVariable(stats.name)) {
-        continue;
-      }
-      double relativeTotal = (double) stats.totalNanos / totalNanos;
-      out.printf(
-          "    ['%s', %d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, {v:%.4f, f:'%.4f %%'}],\n",
-          stats.name,
-          stats.count,
-          stats.minimumMillis(),
-          stats.meanMillis(),
-          stats.medianMillis(),
-          stats.maximumMillis(),
-          stats.standardDeviationMillis,
-          stats.totalMillis(),
-          relativeTotal,
-          relativeTotal * 100);
-    }
-    out.println("  ]);");
-    out.printf("  %s.%s = %s;\n", dataVar, category, tmpVar);
     out.printf("  var statsDiv = document.getElementById('%s_function_stats');\n", category);
-    out.printf("  %s.%s = new google.visualization.Table(statsDiv);\n", tableVar, category);
-    out.printf(
-        "  google.visualization.events.addListener(%s.%s, 'select', selectHandler('%s'));\n",
-        tableVar,
-        category,
-        category);
+    if (statsList.isEmpty()) {
+      out.println("  statsDiv.innerHTML = '<i>No relevant function calls to display. Some minor"
+          + " builtin functions may have been ignored because their names could not be used as"
+          + " variables in JavaScript.</i>'");
+    } else {
+      out.printf("  var %s = new google.visualization.DataTable();\n", tmpVar);
+      out.printf("  %s.addColumn('string', 'Location');\n", tmpVar);
+      out.printf("  %s.addColumn('string', 'Function');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'count');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'min (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'mean (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'median (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'max (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'standard deviation (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'total (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'relative total (%%)');\n", tmpVar);
+      out.printf("  %s.addRows([\n", tmpVar);
+      for (TasksStatistics stats : statsList) {
+        double relativeTotal = (double) stats.totalNanos / totalNanos;
+        String[] split = stats.name.split("#");
+        String location = split[0];
+        String name = split[1];
+        out.printf(
+            "    ['%s', '%s', %d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, {v:%.4f, f:'%.4f %%'}],\n",
+            location,
+            name,
+            stats.count,
+            stats.minimumMillis(),
+            stats.meanMillis(),
+            stats.medianMillis(),
+            stats.maximumMillis(),
+            stats.standardDeviationMillis,
+            stats.totalMillis(),
+            relativeTotal,
+            relativeTotal * 100);
+      }
+      out.println("  ]);");
+      out.printf("  %s.%s = %s;\n", dataVar, category, tmpVar);
+      out.printf("  %s.%s = new google.visualization.Table(statsDiv);\n", tableVar, category);
+      out.printf(
+          "  google.visualization.events.addListener(%s.%s, 'select', selectHandler('%s'));\n",
+          tableVar,
+          category,
+          category);
+      out.printf(
+          "  %s.%s.draw(%s.%s, {showRowNumber: true, width: '100%%', height: '100%%'});\n",
+          tableVar,
+          category,
+          dataVar,
+          category);
+    }
   }
 
   /**

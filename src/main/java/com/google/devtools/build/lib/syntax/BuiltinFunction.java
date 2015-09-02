@@ -19,12 +19,14 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
+
 import javax.annotation.Nullable;
 
 /**
@@ -187,7 +189,10 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     } finally {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_BUILTIN_FN, getName());
+      Profiler.instance().logSimpleTask(
+          startTime,
+          ProfilerTask.SKYLARK_BUILTIN_FN,
+          this.getClass().getName() + "#" + getName());
     }
   }
 
