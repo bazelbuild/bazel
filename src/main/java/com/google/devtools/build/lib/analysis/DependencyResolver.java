@@ -504,7 +504,7 @@ public abstract class DependencyResolver {
       Set<ConfigMatchingProvider> configConditions) {
     try {
       return ImmutableSet.copyOf(dependentNodeMap(node, hostConfig, /*aspect=*/null,
-          /*aspectParameters=*/null, configConditions).values());
+          AspectParameters.EMPTY, configConditions).values());
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
@@ -598,7 +598,7 @@ public abstract class DependencyResolver {
 
   private void visitRule(Rule rule, ListMultimap<Attribute, LabelAndConfiguration> labelMap,
       ListMultimap<Attribute, Dependency> outgoingEdges) {
-    visitRule(rule, /*aspect=*/null, /*aspectParameters=*/null, labelMap, outgoingEdges);
+    visitRule(rule, /*aspect=*/null, AspectParameters.EMPTY, labelMap, outgoingEdges);
   }
 
   private void visitRule(Rule rule, AspectDefinition aspect, AspectParameters aspectParameters,

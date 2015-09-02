@@ -62,16 +62,17 @@ public class AspectValueTest extends AnalysisTestCase {
     Class<? extends ConfiguredAspectFactory> a2 = TestAspects.ExtraAttributeAspect.class;
 
     new EqualsTester()
-        .addEqualityGroup(AspectValue.key(l1, c1, a1, null), AspectValue.key(l1b, c1, a1, null))
+        .addEqualityGroup(AspectValue.key(l1, c1, a1, AspectParameters.EMPTY),
+            AspectValue.key(l1b, c1, a1, AspectParameters.EMPTY))
         .addEqualityGroup(AspectValue.key(l1, c1, a1, i1))
         .addEqualityGroup(AspectValue.key(l1, c1, a1, i2))
-        .addEqualityGroup(AspectValue.key(l2, c1, a1, null))
-        .addEqualityGroup(AspectValue.key(l1, c2, a1, null))
-        .addEqualityGroup(AspectValue.key(l2, c2, a1, null))
-        .addEqualityGroup(AspectValue.key(l1, c1, a2, null))
-        .addEqualityGroup(AspectValue.key(l2, c1, a2, null))
-        .addEqualityGroup(AspectValue.key(l1, c2, a2, null))
-        .addEqualityGroup(AspectValue.key(l2, c2, a2, null))
+        .addEqualityGroup(AspectValue.key(l2, c1, a1, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l1, c2, a1, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l2, c2, a1, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l1, c1, a2, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l2, c1, a2, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l1, c2, a2, AspectParameters.EMPTY))
+        .addEqualityGroup(AspectValue.key(l2, c2, a2, AspectParameters.EMPTY))
         .addEqualityGroup(l1)  // A random object
         .testEquals();
   }

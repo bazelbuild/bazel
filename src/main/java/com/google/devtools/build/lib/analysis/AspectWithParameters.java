@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.AspectParameters;
 
 import java.util.Objects;
@@ -31,6 +32,7 @@ public final class AspectWithParameters {
 
   public AspectWithParameters(
       Class<? extends ConfiguredAspectFactory> aspect, AspectParameters parameters) {
+    Preconditions.checkNotNull(parameters);
     this.aspectFactory = aspect;
     this.parameters = parameters;
   }
