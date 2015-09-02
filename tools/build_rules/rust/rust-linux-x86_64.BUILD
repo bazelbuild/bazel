@@ -7,6 +7,12 @@ filegroup(
 )
 
 filegroup(
+    name = "rustc_lib",
+    srcs = glob([BASE_DIR + "rustc/lib/*.so"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "rustdoc",
     srcs = [BASE_DIR + "rustc/bin/rustdoc"],
     visibility = ["//visibility:public"],

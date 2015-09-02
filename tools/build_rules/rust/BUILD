@@ -19,6 +19,14 @@ filegroup(
 )
 
 filegroup(
+    name = "rustc_lib",
+    srcs = select({
+        ":darwin": ["@rust-darwin-x86_64//:rustc_lib"],
+        ":k8": ["@rust-linux-x86_64//:rustc_lib"],
+    }),
+)
+
+filegroup(
     name = "rustlib",
     srcs = select({
         ":darwin": ["@rust-darwin-x86_64//:rustlib"],
