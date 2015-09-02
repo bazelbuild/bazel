@@ -127,7 +127,7 @@ test_write "${bazelrc}"
 
 # Do the actual installation
 echo -n "Uncompressing."
-rm -fr "${bin}" "${base}" "${bazelrc}"
+rm -fr "${bin}/bazel" "${base}"
 
 mkdir -p ${bin} ${base} ${base}/bin ${base}/etc ${base}/base_workspace
 echo -n .
