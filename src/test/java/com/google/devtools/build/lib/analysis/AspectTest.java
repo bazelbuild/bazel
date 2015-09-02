@@ -137,4 +137,18 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
         .containsExactly("aspect //a:b", "rule //a:a");
   }
+
+  @Test
+  public void informationFromBaseRulePassedToAspect() throws Exception {
+    setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b'], baz='hello')",
+        "honest(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+        .containsExactly("rule //a:a", "aspect //a:b data hello");
+  }
 }

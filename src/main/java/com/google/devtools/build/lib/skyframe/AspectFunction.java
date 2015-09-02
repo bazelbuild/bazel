@@ -118,8 +118,8 @@ public final class AspectFunction implements SkyFunction {
 
       ListMultimap<Attribute, ConfiguredTarget> depValueMap =
           ConfiguredTargetFunction.computeDependencies(env, resolver, ctgValue,
-              aspectFactory.getDefinition(), configConditions, ruleClassProvider,
-              view.getHostConfiguration(ctgValue.getConfiguration()));
+              aspectFactory.getDefinition(), key.getParameters(), configConditions,
+              ruleClassProvider, view.getHostConfiguration(ctgValue.getConfiguration()));
 
       return createAspect(env, key, associatedTarget, configConditions, depValueMap);
     } catch (DependencyEvaluationException e) {
@@ -143,8 +143,9 @@ public final class AspectFunction implements SkyFunction {
 
     ConfiguredAspectFactory aspectFactory =
         (ConfiguredAspectFactory) AspectFactory.Util.create(key.getAspect());
-    Aspect aspect = view.createAspect(analysisEnvironment, associatedTarget, aspectFactory,
-        directDeps, configConditions);
+    Aspect aspect = view.createAspect(
+        analysisEnvironment, associatedTarget, aspectFactory, directDeps, configConditions,
+        key.getParameters());
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {

@@ -26,8 +26,10 @@ public interface AspectFactory<TConfiguredTarget, TRuleContext, TAspect> {
    * @param base the configured target of the associated rule
    * @param context the context of the associated configured target plus all the attributes the
    *     aspect itself has defined
+   * @param parameters information from attributes of the rule that have requested this
+   *     aspect
    */
-  TAspect create(TConfiguredTarget base, TRuleContext context);
+  TAspect create(TConfiguredTarget base, TRuleContext context, AspectParameters parameters);
 
   /**
    * Returns the definition of the aspect.

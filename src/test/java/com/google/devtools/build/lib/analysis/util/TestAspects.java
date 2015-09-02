@@ -22,6 +22,8 @@ import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -39,6 +41,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -131,11 +135,16 @@ public class TestAspects {
    */
   public abstract static class BaseAspect implements ConfiguredAspectFactory {
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
+    public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
+        AspectParameters parameters) {
+      String information = parameters.isEmpty()
+          ? ""
+          : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
       return new Aspect.Builder(getClass().getName())
           .addProvider(
               AspectInfo.class,
-              new AspectInfo(collectAspectData("aspect " + ruleContext.getLabel(), ruleContext)))
+              new AspectInfo(collectAspectData("aspect " + ruleContext.getLabel() + information, 
+                  ruleContext)))
           .build();
     }
   }
@@ -215,7 +224,8 @@ public class TestAspects {
    */
   public static class ErrorAspect implements ConfiguredAspectFactory {
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
+    public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
+        AspectParameters parameters) {
       ruleContext.ruleError("Aspect error");
       return null;
     }
@@ -290,11 +300,25 @@ public class TestAspects {
    * A rule that defines an {@link AspectRequiringProvider} on one of its attributes.
    */
   public static class AspectRequiringProviderRule implements RuleDefinition {
+
+    private static final class TestAspectParametersExtractor implements 
+        Function<Rule, AspectParameters> {
+      @Override
+      public AspectParameters apply(Rule rule) {
+        if (rule.isAttrDefined("baz", STRING)) {
+          return new AspectParameters.Builder().addAttribute("baz",
+              rule.getAttributeContainer().getAttr("baz").toString()).build();
+        }
+        return AspectParameters.EMPTY;
+      }
+    }
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(AspectRequiringProvider.class))
+              .aspect(AspectRequiringProvider.class, new TestAspectParametersExtractor()))
+          .add(attr("baz", STRING))
           .build();
 
     }

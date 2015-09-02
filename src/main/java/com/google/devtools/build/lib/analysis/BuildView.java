@@ -877,8 +877,8 @@ public class BuildView {
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
     ListMultimap<Attribute, Dependency> depNodeNames;
     try {
-      depNodeNames = resolver.dependentNodeMap(ctNode, configurations.getHostConfiguration(), null,
-          getConfigurableAttributeKeys(ctNode));
+      depNodeNames = resolver.dependentNodeMap(ctNode, configurations.getHostConfiguration(),
+          /*aspect=*/null, /*aspectParameters=*/null, getConfigurableAttributeKeys(ctNode));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

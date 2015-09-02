@@ -32,8 +32,8 @@ import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -1397,7 +1397,7 @@ public final class BuildConfiguration {
      * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
      */
     Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects);
+        ImmutableSet<AspectWithParameters> aspects);
   }
 
   /**
@@ -1471,7 +1471,7 @@ public final class BuildConfiguration {
 
     @Override
     public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
+        ImmutableSet<AspectWithParameters> aspects) {
       return ImmutableList.of(
           new DependencyResolver.Dependency(label, currentConfiguration, aspects));
     }
@@ -1572,7 +1572,7 @@ public final class BuildConfiguration {
 
     @Override
     public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
+        ImmutableSet<AspectWithParameters> aspects) {
       return ImmutableList.of(new DependencyResolver.Dependency(label, transition, aspects));
     }
   }
@@ -1639,7 +1639,7 @@ public final class BuildConfiguration {
 
     @Override
     public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
+        ImmutableSet<AspectWithParameters> aspects) {
       ImmutableList.Builder<DependencyResolver.Dependency> builder = ImmutableList.builder();
       for (TransitionApplier applier : appliers) {
         builder.addAll(applier.getDependencies(label, aspects));

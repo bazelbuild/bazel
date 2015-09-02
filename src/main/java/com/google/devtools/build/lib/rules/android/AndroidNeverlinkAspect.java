@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -44,7 +45,8 @@ public class AndroidNeverlinkAspect implements ConfiguredAspectFactory {
           "deps", "exports", "runtime_deps", "binary_under_test", "$instrumentation_test_runner");
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
+  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
+      AspectParameters parameters) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
       return new Aspect.Builder(NAME).build();

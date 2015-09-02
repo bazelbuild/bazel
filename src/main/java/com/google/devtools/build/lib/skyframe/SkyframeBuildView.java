@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -459,9 +460,11 @@ public final class SkyframeBuildView {
       AnalysisEnvironment env, RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions) {
-    return factory.createAspect(env, associatedTarget, aspectFactory, prerequisiteMap,
-        configConditions, getHostConfiguration(associatedTarget.getConfiguration()));
+      Set<ConfigMatchingProvider> configConditions,
+      AspectParameters aspectParameters) {
+    return factory.createAspect(env, associatedTarget, aspectFactory, aspectParameters,
+        prerequisiteMap, configConditions,
+        getHostConfiguration(associatedTarget.getConfiguration()));
   }
 
   @Nullable

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -58,7 +59,8 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   }
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext) {
+  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
+      AspectParameters parameters) {
     NestedSetBuilder<Artifact> ideBuildFilesBuilder = NestedSetBuilder.stableOrder();
     Iterable<AndroidStudioInfoFilesProvider> deps =
         ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidStudioInfoFilesProvider.class);

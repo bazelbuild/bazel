@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -56,6 +58,26 @@ public final class Attribute implements Comparable<Attribute> {
   public static final Predicate<RuleClass> ANY_RULE = Predicates.alwaysTrue();
 
   public static final Predicate<RuleClass> NO_RULE = Predicates.alwaysFalse();
+
+  private static final class RuleAspect {
+    private final Class<? extends AspectFactory<?, ?, ?>> aspectFactory;
+    private final Function<Rule, AspectParameters> parametersExtractor;
+
+    RuleAspect(
+        Class<? extends AspectFactory<?, ?, ?>> aspectFactory,
+        Function<Rule, AspectParameters> parametersExtractor) {
+      this.aspectFactory = aspectFactory;
+      this.parametersExtractor = parametersExtractor;
+    }
+
+    Class<? extends AspectFactory<?, ?, ?>> getAspectFactory() {
+      return aspectFactory;
+    }
+    
+    Function<Rule, AspectParameters> getParametersExtractor() {
+      return parametersExtractor;
+    }
+  }
 
   /**
    * A configuration transition.
@@ -274,7 +296,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
     private ImmutableSet<String> mandatoryProviders = ImmutableSet.<String>of();
-    private Set<Class<? extends AspectFactory<?, ?, ?>>> aspects = new LinkedHashSet<>();
+    private Set<RuleAspect> aspects = new LinkedHashSet<>();
 
     /**
      * Creates an attribute builder with given name and type. This attribute is optional, uses
@@ -641,13 +663,31 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Asserts that a particular aspect needs to be computed for all direct dependencies through
-     * this attribute.
+     * Asserts that a particular aspect probably needs to be computed for all direct dependencies
+     * through this attribute.
      */
     public Builder<TYPE> aspect(Class<? extends AspectFactory<?, ?, ?>> aspect) {
-      this.aspects.add(aspect);
+      Function<Rule, AspectParameters> noParameters = new Function<Rule, AspectParameters>() {
+        @Override
+        public AspectParameters apply(Rule input) {
+          return AspectParameters.EMPTY;
+        }
+      };
+      return this.aspect(aspect, noParameters);
+    }
+
+    /**
+     * Asserts that a particular parameterized aspect probably needs to be computed for all direct
+     * dependencies through this attribute.
+     *
+     * @param evaluator function that extracts aspect parameters from rule.
+     */
+    public Builder<TYPE> aspect(Class<? extends AspectFactory<?, ?, ?>> aspect,
+        Function<Rule, AspectParameters> evaluator) {
+      this.aspects.add(new RuleAspect(aspect, evaluator));
       return this;
     }
+
     /**
      * Sets the predicate-like edge validity checker.
      */
@@ -1001,7 +1041,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final ImmutableSet<String> mandatoryProviders;
 
-  private final ImmutableSet<Class<? extends AspectFactory<?, ?, ?>>> aspects;
+  private final ImmutableSet<RuleAspect> aspects;
 
   /**
    * Constructs a rule attribute with the specified name, type and default
@@ -1028,7 +1068,7 @@ public final class Attribute implements Comparable<Attribute> {
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
       ImmutableSet<String> mandatoryProviders,
-      ImmutableSet<Class<? extends AspectFactory<?, ?, ?>>> aspects) {
+      ImmutableSet<RuleAspect> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
         (configTransition == ConfigurationTransition.NONE && configurator == null)
@@ -1252,7 +1292,24 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the set of aspects required for dependencies through this attribute.
    */
   public ImmutableSet<Class<? extends AspectFactory<?, ?, ?>>> getAspects() {
-    return aspects;
+    ImmutableSet.Builder<Class<? extends AspectFactory<?, ?, ?>>> builder = ImmutableSet.builder();
+    for (RuleAspect aspect : aspects) {
+      builder.add(aspect.getAspectFactory());
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns set of pairs of aspect factories and corresponding aspect parameters.
+   */
+  public ImmutableMap<Class<? extends AspectFactory<?, ?, ?>>, AspectParameters>
+      getAspectsWithParameters(Rule rule) {
+    ImmutableMap.Builder<Class<? extends AspectFactory<?, ?, ?>>, AspectParameters> builder =
+        ImmutableMap.builder();
+    for (RuleAspect aspect : aspects) {
+      builder.put(aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule));
+    }
+    return builder.build();
   }
 
   /**

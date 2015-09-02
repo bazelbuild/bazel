@@ -46,9 +46,9 @@ import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView.Options;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
@@ -1110,8 +1110,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     final List<SkyKey> skyKeys = new ArrayList<>();
     for (Dependency key : keys) {
       skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), configs.get(key)));
-      for (Class<? extends ConfiguredAspectFactory> aspect : key.getAspects()) {
-        skyKeys.add(AspectValue.key(key.getLabel(), configs.get(key), aspect));
+      for (AspectWithParameters aspect : key.getAspects()) {
+        skyKeys.add(
+            ConfiguredTargetFunction.createAspectKey(key.getLabel(), configs.get(key), aspect));
       }
     }
 
@@ -1130,8 +1131,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           ((ConfiguredTargetValue) result.get(configuredTargetKey)).getConfiguredTarget();
       List<Aspect> aspects = new ArrayList<>();
 
-      for (Class<? extends ConfiguredAspectFactory> aspect : key.getAspects()) {
-        SkyKey aspectKey = AspectValue.key(key.getLabel(), configs.get(key), aspect);
+      for (AspectWithParameters aspect : key.getAspects()) {
+        SkyKey aspectKey =
+            ConfiguredTargetFunction.createAspectKey(key.getLabel(), configs.get(key), aspect);
         if (result.get(aspectKey) == null) {
           continue DependentNodeLoop;
         }

@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -46,7 +47,7 @@ public class AspectDefinitionTest {
     }
 
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext context) {
+    public Aspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters) {
       throw new IllegalStateException();
     }
 

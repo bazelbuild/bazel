@@ -116,7 +116,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
         aspectDefinition,
-        ImmutableSet.<ConfigMatchingProvider>of());
+        null, ImmutableSet.<ConfigMatchingProvider>of());
   }
 
   @SafeVarargs
@@ -199,15 +199,15 @@ public class DependencyResolverTest extends AnalysisTestCase {
     BuildConfiguration host = getHostConfiguration();
     BuildConfiguration target = getTargetConfiguration();
 
-    ImmutableSet<Class<? extends ConfiguredAspectFactory>> twoAspects =
-        ImmutableSet.<Class<? extends ConfiguredAspectFactory>>of(
-            TestAspects.SimpleAspect.class, TestAspects.AttributeAspect.class);
-    ImmutableSet<Class<? extends ConfiguredAspectFactory>> inverseAspects =
-        ImmutableSet.<Class<? extends ConfiguredAspectFactory>>of(
-            TestAspects.AttributeAspect.class, TestAspects.SimpleAspect.class);
-    ImmutableSet<Class<? extends ConfiguredAspectFactory>> differentAspects =
-        ImmutableSet.<Class<? extends ConfiguredAspectFactory>>of(
-            TestAspects.AttributeAspect.class, TestAspects.ErrorAspect.class);
+    ImmutableSet<AspectWithParameters> twoAspects = ImmutableSet.of(
+        new AspectWithParameters(TestAspects.SimpleAspect.class), 
+        new AspectWithParameters(TestAspects.AttributeAspect.class));
+    ImmutableSet<AspectWithParameters> inverseAspects = ImmutableSet.of(
+        new AspectWithParameters(TestAspects.AttributeAspect.class), 
+        new AspectWithParameters(TestAspects.SimpleAspect.class));
+    ImmutableSet<AspectWithParameters> differentAspects = ImmutableSet.of(
+        new AspectWithParameters(TestAspects.AttributeAspect.class), 
+        new AspectWithParameters(TestAspects.ErrorAspect.class));
 
     new EqualsTester()
         .addEqualityGroup(

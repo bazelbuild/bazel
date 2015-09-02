@@ -17,6 +17,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -51,18 +52,26 @@ public class AspectValueTest extends AnalysisTestCase {
     Label l1 = Label.parseAbsolute("//a:l1");
     Label l1b = Label.parseAbsolute("//a:l1");
     Label l2 = Label.parseAbsolute("//a:l2");
+    AspectParameters i1 = new AspectParameters.Builder()
+        .addAttribute("foo", "bar")
+        .build();
+    AspectParameters i2 = new AspectParameters.Builder()
+        .addAttribute("foo", "baz")
+        .build();
     Class<? extends ConfiguredAspectFactory> a1 = TestAspects.AttributeAspect.class;
     Class<? extends ConfiguredAspectFactory> a2 = TestAspects.ExtraAttributeAspect.class;
 
     new EqualsTester()
-        .addEqualityGroup(AspectValue.key(l1, c1, a1), AspectValue.key(l1b, c1, a1))
-        .addEqualityGroup(AspectValue.key(l2, c1, a1))
-        .addEqualityGroup(AspectValue.key(l1, c2, a1))
-        .addEqualityGroup(AspectValue.key(l2, c2, a1))
-        .addEqualityGroup(AspectValue.key(l1, c1, a2))
-        .addEqualityGroup(AspectValue.key(l2, c1, a2))
-        .addEqualityGroup(AspectValue.key(l1, c2, a2))
-        .addEqualityGroup(AspectValue.key(l2, c2, a2))
+        .addEqualityGroup(AspectValue.key(l1, c1, a1, null), AspectValue.key(l1b, c1, a1, null))
+        .addEqualityGroup(AspectValue.key(l1, c1, a1, i1))
+        .addEqualityGroup(AspectValue.key(l1, c1, a1, i2))
+        .addEqualityGroup(AspectValue.key(l2, c1, a1, null))
+        .addEqualityGroup(AspectValue.key(l1, c2, a1, null))
+        .addEqualityGroup(AspectValue.key(l2, c2, a1, null))
+        .addEqualityGroup(AspectValue.key(l1, c1, a2, null))
+        .addEqualityGroup(AspectValue.key(l2, c1, a2, null))
+        .addEqualityGroup(AspectValue.key(l1, c2, a2, null))
+        .addEqualityGroup(AspectValue.key(l2, c2, a2, null))
         .addEqualityGroup(l1)  // A random object
         .testEquals();
   }
