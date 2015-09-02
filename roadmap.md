@@ -39,7 +39,13 @@ milestone. The convention for the priorities are:
 We will update this list when reaching each milestone; some milestones may also
 be refined if appropriate.
 
-<table class="table table-condensed table-striped table-bordered">
+<table class="table table-condensed table-bordered">
+  <colgroup>
+    <col class="roadmap-col-phase"/>
+    <col class="roadmap-col-milestone"/>
+    <col class="roadmap-col-date"/>
+    <col class="roadmap-col-features"/>
+  </colgroup>
   <thead>
     <tr>
       <th>Phase</th>
@@ -65,9 +71,9 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/build-encyclopedia.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/build-encyclopedia.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="24"><b>Beta</b></td>
-      <td rowspan="8"><b>0.1</b></td>
-      <td rowspan="8"><b>2015-09</b></td>
+      <td rowspan="25"><b>Beta</b></td>
+      <td rowspan="9"><b>0.1</b></td>
+      <td rowspan="9"><b>2015-09</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
     </tr>
     <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>

@@ -296,6 +296,24 @@ code {
   font-size: 16px;
   font-weight: 400;
 }
+.roadmap-col-phase {
+  width: 10%;
+}
+.roadmap-col-milestone {
+  width: 5%;
+}
+.roadmap-col-date {
+  width: 10%;
+}
+.roadmap-col-features {
+  width: 75%;
+}
+.support-col-rules {
+  width: 30%;
+}
+.support-col-notes {
+  width: 70%;
+}
 .blog-post {
   margin-bottom: 60px;
 }

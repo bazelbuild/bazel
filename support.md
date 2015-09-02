@@ -99,31 +99,45 @@ We expect the following rules and features to be stable. They are widely used wi
 our internal testing should ensure that there are no major breakages.
 
 <table class="table table-condensed table-striped table-bordered">
+  <colgroup>
+    <col class="support-col-rules" />
+    <col class="support-col-notes" />
+  </colgroup>
   <thead>
-    <tr><th>Rules</th></tr>
+    <tr>
+      <th>Rules</th>
+      <th>Notes</th>
+    </tr>
   </thead>
   <tbody>
     <tr>
       <td>C/C++ rules except <code>cc_toolchain</code> and <code>cc_toolchain_suite</code></td>
+      <td></td>
     </tr>
     <tr>
       <td>Java rules except <code>java_toolchain</code></td>
+      <td></td>
     </tr>
     <tr>
       <td>Android rules except <code>android_ndk_repository</code> and
         <code>android_sdk_repository</code></td>
+      <td></td>
     </tr>
     <tr>
       <td><code>genrule</code></td>
+      <td></td>
     </tr>
     <tr>
       <td><code>genquery</code></td>
+      <td></td>
     </tr>
     <tr>
       <td><code>test_suite</code></td>
+      <td></td>
     </tr>
     <tr>
       <td><code>filegroup</code></td>
+      <td></td>
     </tr>
     <tr>
       <td><code>config_setting</code></td>
@@ -148,8 +162,8 @@ These rules and features have known limitations that we will likely address in f
 
 <table class="table table-condensed table-striped table-bordered">
   <colgroup>
-    <col width="30%"/>
-    <col/>
+    <col class="support-col-rules" />
+    <col class="support-col-notes" />
   </colgroup>
   <thead>
     <tr>
