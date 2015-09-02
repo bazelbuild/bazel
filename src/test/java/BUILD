@@ -567,6 +567,21 @@ java_test(
     ],
 )
 
+java_test(
+    name = "sandbox-tests",
+    srcs = glob(["com/google/devtools/build/lib/sandbox/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":analysis_testutil",
+        ":testutil",
+        "//src/main/java:vfs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 TEST_SUITES = [
     "ziputils",
     "rules",

@@ -381,10 +381,9 @@ static void SetupDirectories(struct Options *opt) {
     struct stat sb;
     stat(opt->mount_sources[i], &sb);
 
-    CHECK_CALL(CreateTarget(opt->mount_targets[i], S_ISDIR(sb.st_mode)));
-
     PRINT_DEBUG("mount -o rbind,ro %s %s\n", opt->mount_sources[i],
                 opt->mount_targets[i]);
+    CHECK_CALL(CreateTarget(opt->mount_targets[i], S_ISDIR(sb.st_mode)));
     CHECK_CALL(mount(opt->mount_sources[i], opt->mount_targets[i], NULL,
                      MS_REC | MS_BIND | MS_RDONLY, NULL));
   }
