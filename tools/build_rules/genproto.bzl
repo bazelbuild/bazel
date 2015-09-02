@@ -64,4 +64,7 @@ def proto_java_library(name, src):
   native.java_library(
     name=name,
     srcs=[name + "_srcjar"],
-    deps=["//third_party:protobuf"])
+    deps=["//third_party:protobuf"],
+    # The generated code has lots of 'rawtypes' warnings.
+    javacopts=["-Xlint:-rawtypes"],
+)
