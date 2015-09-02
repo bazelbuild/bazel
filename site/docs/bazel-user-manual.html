@@ -1221,6 +1221,10 @@ $ bazel fetch //...
     <td>Show the output for the specified packages.</td>
   </tr>
   <tr>
+    <td><code class='flag'>--output_filter='^//((?!(first/bad_project|second/bad_project):).)*$'</code></td>
+    <td>Don't show output for the specified packages.</td>
+  </tr>
+  <tr>
     <td><code class='flag'>--output_filter=DONT_MATCH_ANYTHING</code></td>
     <td>Don't show output.</td>
   </tr>
