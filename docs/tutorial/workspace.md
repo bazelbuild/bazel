@@ -20,11 +20,11 @@ source files in your workspace. The sample source files in this tutorial are
 organized according to common conventions for Android apps, iOS apps and App
 Engine applications.
 
-For your convenience, set the `$WORKSPACE` environment variable now to refer to
+For your convenience, set the `WORKSPACE` environment variable now to refer to
 your workspace directory. At the command line, enter:
 
 ```bash
-$ export $WORKSPACE=$HOME/examples/tutorial
+$ export WORKSPACE=$HOME/examples/tutorial
 ```
 
 ## Create a WORKSPACE file
