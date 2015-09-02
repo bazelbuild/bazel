@@ -22,7 +22,7 @@ android_sdk(
     name = "sdk",
     proguard = "tools/proguard/bin/proguard.sh",
     aapt = "build-tools/%build_tools_version%/aapt",
-    dx = "build-tools/%build_tools_version%/dx",
+    dx = "dx_binary",
     main_dex_list_creator = ":main_dex_list_creator",
     adb = "platform-tools/adb",
     framework_aidl = "platforms/android-%api_level%/framework.aidl",
@@ -105,4 +105,4 @@ java_binary(
 
 java_import(
     name = "sdklib",
-    jars = ["tools/lib/sdklib.jar", "tools/lib/common.jar"])
+    jars = ["tools/lib/sdklib.jar", "tools/lib/common.jar", "tools/lib/guava-17.0.jar"])
