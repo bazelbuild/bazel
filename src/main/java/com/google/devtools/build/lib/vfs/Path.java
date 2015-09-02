@@ -218,13 +218,10 @@ public class Path implements Comparable<Path>, Serializable {
   private Path getCachedChildPath(String childName) {
     // We get a canonical instance since 'children' is an IdentityHashMap.
     childName = StringCanonicalizer.intern(childName);
-
-    // We use double double-checked locking so that we only hold the lock when we might need to
-    // mutate the 'children' variable or the map to which it refers.
-
-    // 'children' will never become null if it's already non-null, so we only need to worry about
-    // the case where it's currently null and we race with another thread executing
-    // getCachedChildPath(<doesn't matter>) trying to set 'children' to a non-null value.
+    // We use double-checked locking so that we only hold the lock when we might need to mutate the
+    // 'children' variable. 'children' will never become null if it's already non-null, so we only
+    // need to worry about the case where it's currently null and we race with another thread
+    // executing getCachedChildPath(<doesn't matter>) trying to set 'children' to a non-null value.
     if (children == null) {
       synchronized (this) {
         if (children == null) {
@@ -233,25 +230,15 @@ public class Path implements Comparable<Path>, Serializable {
         }
       }
     }
-    Path child;
-    Reference<Path> childRef = children.get(childName);
-    // If child != null, the target of the childRef WeakReference won't concurrently get GC'd since,
-    // well, we have a reference to it!. So we only need to worry about the case where 'childName'
-    // is not already cached. There are two potential races here: (i) we race with another thread
-    // executing getCachedChildPath(someMissingChildName) and (ii) we race with
-    // PATH_CHILD_CACHE_CLEANUP_THREAD trying to remove an entry from the map for another child that
-    // was GC'd. In both cases there are concurrent modifications to the IdentityHashMap, so we use
-    // conservative synchronization.
-    if (childRef == null || (child = childRef.get()) == null) {
-      synchronized (this) {
-        childRef = children.get(childName);
-        if (childRef == null || (child = childRef.get()) == null) {
-          child = createChildPath(childName);
-          children.put(childName, new PathWeakReferenceForCleanup(child, REFERENCE_QUEUE));
-        }
+    synchronized (this) {
+      Reference<Path> childRef = children.get(childName);
+      Path child;
+      if (childRef == null || (child = childRef.get()) == null) {
+        child = createChildPath(childName);
+        children.put(childName, new PathWeakReferenceForCleanup(child, REFERENCE_QUEUE));
       }
+      return child;
     }
-    return child;
   }
 
   /**
