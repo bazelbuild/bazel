@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,22 +106,40 @@ public class Environment {
   @Nullable protected EventHandler eventHandler;
 
   /**
+   * A stack trace containing the current history of functions and the calling rule.
+   *
+   * <p>For the rule, the stack trace has two elements: one for the call to the rule in the BUILD
+   * file and one for the actual rule implementation.
+   */
+  private Deque<StackTraceElement> stackTrace;
+
+  /**
    * Constructs an empty root non-Skylark environment.
    * The root environment is also the global environment.
    */
-  public Environment() {
+  public Environment(Deque<StackTraceElement> stackTrace) {
     this.parent = null;
     this.importedExtensions = new HashMap<>();
+    this.stackTrace = stackTrace;
     setupGlobal();
+  }
+
+  public Environment() {
+    this(new LinkedList<StackTraceElement>());
   }
 
   /**
    * Constructs an empty child environment.
    */
-  public Environment(Environment parent) {
+  public Environment(Environment parent, Deque<StackTraceElement> stackTrace) {
     Preconditions.checkNotNull(parent);
     this.parent = parent;
     this.importedExtensions = new HashMap<>();
+    this.stackTrace = stackTrace;
+  }
+
+  public Environment(Environment parent) {
+    this(parent, new LinkedList<StackTraceElement>());
   }
 
   /**
@@ -301,12 +321,60 @@ public class Environment {
     update(symbol.getName(), value);
   }
 
+  public ImmutableList<StackTraceElement> getStackTrace() {
+    return ImmutableList.copyOf(stackTrace);
+  }
+
+  protected Deque<StackTraceElement> getCopyOfStackTrace() {
+    return new LinkedList<>(stackTrace);
+  }
+
   /**
-   * Return the current stack trace (list of functions).
+   * Adds the given element to the stack trace (iff the stack is empty) and returns whether it was
+   * successful.
    */
-  public ImmutableList<BaseFunction> getStackTrace() {
-    // Empty list, since this environment does not allow function definition
-    // (see SkylarkEnvironment)
-    return ImmutableList.of();
+  public boolean tryAddingStackTraceRoot(StackTraceElement element) {
+    if (stackTrace.isEmpty()) {
+      stackTrace.add(element);
+      return true;
+    }
+    return false;
+  }
+  
+  public void addToStackTrace(StackTraceElement element)    {
+    stackTrace.add(element);
+  }
+
+  /**
+   * Removes the only remaining element from the stack trace.
+   *
+   * <p>This particular element describes the outer-most calling function (usually a rule).
+   *
+   * <p> This method is required since {@link FuncallExpression} does not create a new {@link
+   * Environment}, hence it has to add and remove its {@link StackTraceElement} from an existing
+   * one.
+   */
+  public void removeStackTraceRoot() {
+    Preconditions.checkArgument(stackTrace.size() == 1);
+    stackTrace.clear();
+  }
+
+  public void removeStackTraceElement() {
+    // TODO(fwe): find out why the precond doesn't work
+    //    Preconditions.checkArgument(stackTrace.size() > 1);
+    stackTrace.removeLast();
+  }
+
+  /**
+   * Returns whether the given {@link BaseFunction} is part of this {@link Environment}'s stack
+   * trace.
+   */
+  public boolean stackTraceContains(BaseFunction function) {
+    for (StackTraceElement element : stackTrace) {
+      if (element.hasFunction(function)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

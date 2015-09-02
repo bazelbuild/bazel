@@ -232,6 +232,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
    * <p> If the exception itself does not have a message, a new message is constructed from the
    * exception's class name.
    * For example, an IllegalArgumentException will lead to "Illegal Argument".
+   * Additionally, the location in the Java code will be added, if applicable,
    */
   private static String getNonEmptyMessage(Exception original) {
     Preconditions.checkNotNull(original);
@@ -252,6 +253,18 @@ public class EvalExceptionWithStackTrace extends EvalException {
       first = false;
     }
 
+    java.lang.StackTraceElement[] trace = original.getStackTrace();
+    if (trace.length > 0) {
+      builder.append(String.format(": %s.%s() in %s:%d", getShortClassName(trace[0]),
+          trace[0].getMethodName(), trace[0].getFileName(), trace[0].getLineNumber()));
+    }
+
     return builder.toString();
+  }
+
+  private static String getShortClassName(java.lang.StackTraceElement element) {
+    String name = element.getClassName();
+    int pos = name.lastIndexOf('.');
+    return (pos < 0) ? name : name.substring(pos + 1);
   }
 }

@@ -31,7 +31,8 @@ public class ExceptionTest {
   public void testEmptyMessage() throws Exception {
     EvalExceptionWithStackTrace ex =
         new EvalExceptionWithStackTrace(new NullPointerException(), Location.BUILTIN);
-    assertThat(ex).hasMessage("Null Pointer");
+    assertThat(ex.getMessage())
+        .contains("Null Pointer: ExceptionTest.testEmptyMessage() in ExceptionTest.java:");
   }
 
   @Test

@@ -906,10 +906,11 @@ public final class PackageFactory {
                               String ruleClassName,
                               PackageContext context,
                               Map<String, Object> kwargs,
-                              FuncallExpression ast)
+                              FuncallExpression ast,
+                              Environment env)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException {
     RuleClass ruleClass = getBuiltInRuleClass(ruleClassName, ruleFactory);
-    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast);
+    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast, env.getStackTrace());
   }
 
   private static RuleClass getBuiltInRuleClass(String ruleClassName, RuleFactory ruleFactory) {
@@ -942,13 +943,13 @@ public final class PackageFactory {
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClass) {
     return new BuiltinFunction(ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
-      @SuppressWarnings("unchecked")
+      @SuppressWarnings({"unchecked", "unused"})
       public Runtime.NoneType invoke(Map<String, Object> kwargs,
           FuncallExpression ast, Environment env)
           throws EvalException {
         env.checkLoadingPhase(ruleClass, ast.getLocation());
         try {
-          addRule(ruleFactory, ruleClass, getContext(env, ast), kwargs, ast);
+          addRule(ruleFactory, ruleClass, getContext(env, ast), kwargs, ast, env);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
