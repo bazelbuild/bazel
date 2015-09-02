@@ -16,11 +16,15 @@ libraries and vice-versa.
 <a name="setup"></a>
 ## Setup
 
-To be able to use the Groovy rules, you must make the Groovy libraries and
-binaries available to Bazel. Groovy tests also require JUnit and Hamcrest to be
-available at a known location. The easiest way to do so is by copying the
-content of `groovy.WORKSPACE` to your workspace file and putting `groovy.BUILD`
-at the root of your workspace.
+To be able to use the Groovy rules, you must provide bindings for the following
+targets:
+
+  * `//external:groovy`, pointing at the core Groovy library
+  * `//external:groovyc`, pointing at the Groovy compiler
+  * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
+
+The easiest way to do so is by copying the content of `groovy.WORKSPACE` to your
+workspace file and putting `groovy.BUILD` at the root of your workspace.
 
 <a name="basic-example"></a>
 ## Basic Example

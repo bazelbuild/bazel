@@ -70,7 +70,7 @@ _groovy_jar = rule(
             mandatory=False,
             allow_files=FileType([".jar"])),
         "_groovyc": attr.label(
-            default=Label("@groovy-bin//:groovyc"),
+            default=Label("//external:groovyc"),
             single_file=True),
         "_jar": attr.label(
             default=Label("//third_party/ijar:zipper"),
@@ -202,9 +202,8 @@ groovy_test = rule(
       executable=True,
       single_file=True),
     "_implicit_deps": attr.label_list(default=[
-      Label("@groovy//jar"),
-      Label("@hamcrest//jar"),
-      Label("@junit//jar"),
+      Label("//external:groovy"),
+      Label("//external:junit"),
     ]),
   },
   test = True,
