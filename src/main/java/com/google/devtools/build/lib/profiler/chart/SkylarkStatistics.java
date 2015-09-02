@@ -151,8 +151,8 @@ public final class SkylarkStatistics {
     out.println("    var chartDiv = document.getElementById(category+'-chart');");
     out.println("    var chart = new google.visualization.Histogram(chartDiv);");
     out.println("    var histogramDiv = document.getElementById(category+'-histogram');");
-    out.println("    chart.draw(histData, fnOptions);");
     out.println("    histogramDiv.style.display = 'block';");
+    out.println("    chart.draw(histData, fnOptions);");
     out.println("  }");
     out.println("};");
     out.println("</script>");
