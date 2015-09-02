@@ -363,7 +363,7 @@ public class BazelCppRuleClasses {
           List of include dirs to be added to the compile line.
           ${SYNOPSIS}
           Subject to <a href="#make_variables">"Make variable"</a> substitution.
-          Each string is prepended with <code>-I</code> and added to <code>COPTS</code>. Unlike
+          Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
           <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
           very careful, since this may have far-reaching effects.  When in doubt, add
