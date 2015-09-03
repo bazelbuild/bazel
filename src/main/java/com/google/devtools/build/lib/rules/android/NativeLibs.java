@@ -146,9 +146,10 @@ public final class NativeLibs {
 
     Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
     ruleContext.registerAction(new SourceManifestAction.Builder(
-        ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(), inputManifest)
-        .addRootSymlinks(symlinks)
-        .build());
+        ruleContext.getWorkspaceName(), ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(),
+        inputManifest)
+            .addRootSymlinks(symlinks)
+            .build());
     Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
     ruleContext.registerAction(new SymlinkTreeAction(
         ruleContext.getActionOwner(), inputManifest, outputManifest, false));
