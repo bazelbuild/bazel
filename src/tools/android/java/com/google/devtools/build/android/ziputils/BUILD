@@ -4,6 +4,11 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 java_library(
     name = "ziputils_lib",
     srcs = glob(

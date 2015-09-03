@@ -25,6 +25,7 @@ genrule(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:namespace-sandbox",
         "//src/main/tools:build_interface_so",
+        ":android_tools_repository_zip",
     ],
     outs = ["install_base_key"],
     cmd = select({
@@ -61,11 +62,36 @@ genrule(
 )
 
 genrule(
+    name = "android_tools_repository_zip",
+    srcs = [
+        "//tools:srcs",
+        "//third_party:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
+        "//src/main/protobuf:srcs",
+        "//src/main/java:options-srcs",
+    ],
+    outs = ["android_tools_repository.zip"],
+    cmd = "\n".join([
+        "mkdir -p $(@D)/android-tools-zip",
+        "for i in $(SRCS); do",
+        "  mkdir -p $$(dirname $(@D)/android-tools-zip/$$i)",
+        "  cp $$i $$(dirname $(@D)/android-tools-zip/$$i)",
+        "done",
+        "touch $(@D)/android-tools-zip/WORKSPACE",
+        "mv $(@D)/android-tools-zip/src/main/java/options.BUILD" +
+        " $(@D)/android-tools-zip/src/main/java/BUILD",
+        "find $(@D)/android-tools-zip -exec touch -t 198001010000.00 '{}' ';'",
+        "P=$$PWD; (cd $(@D)/android-tools-zip && zip -qrD $$P/$@ *)",
+        "rm -fr $(@D)/android-tools-zip",
+    ]),
+)
+
+genrule(
     name = "package-zip",
     srcs = [
         "//src/main/java:bazel-main_deploy.jar",
-        # The jar must the first in the zip file because the client launcher
-        # looks for the first entry in the zip file for the java server.
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -75,14 +101,23 @@ genrule(
         "//src/main/tools:build_interface_so",
         "install_base_key",
         ":java-version",
+        ":android_tools_repository_zip",
     ],
     outs = ["package.zip"],
     # Terrible hack to remove timestamps in the zip file
-    cmd = "mkdir -p $(@D)/package-zip && " +
-          "cp $(SRCS) $(@D)/package-zip && " +
-          "touch -t 198001010000.00 $(@D)/package-zip/* && " +
-          "zip -qj $@ $(@D)/package-zip/* && " +
-          "rm -fr $(@D)/package-zip",
+    cmd = "\n".join([
+        "mkdir -p $(@D)/package-zip",
+        "cp $(SRCS) $(@D)/package-zip",
+        # TODO(dmarting): we should change the client to connect to server.jar
+        # instead of the first binary in the list.
+        "mv $(@D)/package-zip/bazel-main_deploy.jar $(@D)/package-zip/A-server.jar",
+        "touch -t 198001010000.00 $(@D)/package-zip/*",
+        "mkdir $(@D)/package-zip/android_tools",
+        "(cd $(@D)/package-zip/android_tools && unzip -q ../android_tools_repository.zip)",
+        "rm $(@D)/package-zip/android_tools_repository.zip",
+        "P=$$PWD; (cd $(@D)/package-zip && zip -qrD $$P/$@ *)",
+        "rm -fr $(@D)/package-zip",
+    ]),
 )
 
 genrule(

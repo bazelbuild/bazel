@@ -1,3 +1,5 @@
+android_local_tools_repository(name = "default_android_tools", path = __embedded_dir__ + "/android_tools")
+
 # bind(name = "android/proguard_whitelister", actual = "//tools/android:proguard_whitelister")
 # bind(name = "android/merge_manifests", actual = "//tools/android:merge_manifests")
 # bind(name = "android/build_incremental_dexmanifest", actual = "//tools/android:build_incremental_dexmanifest")

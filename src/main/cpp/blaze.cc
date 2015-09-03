@@ -967,7 +967,7 @@ static void ExtractData(const string &self_path) {
       }
       // Check that the timestamp is in the future. A past timestamp would indicate
       // that the file has been tampered with. See ActuallyExtractData().
-      if (buf.st_mtime <= time_now) {
+      if (!S_ISDIR(buf.st_mode) && buf.st_mtime <= time_now) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' "
             "modified.  Please remove '%s' and try again.",

@@ -1,10 +1,6 @@
 In order to build these examples, add the following two rules to the top-level `WORKSPACE` file (two directories above this file):
 
 ```python
-android_local_tools_repository(
-    name="android_tools",
-    path="<full path to the source tree of Bazel>")
-
 android_sdk_repository(
     name="androidsdk",
     path="<full path to your Android SDK>",
