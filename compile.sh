@@ -161,6 +161,11 @@ fi
 if [ $DO_TESTS ]; then
   new_step "Running tests"
   display "."
+
+  if grep -sq '^ *actual = "//:dummy"' WORKSPACE; then
+    display "$WARNING Android SDK or NDK are not set in the WORKSPACE file. Android tests will not be run."
+  fi
+
   [ -n "$JAVAC_VERSION" ] || get_java_version
   if [[ ! "${BAZEL_TEST_FILTERS-}" =~ "-jdk8" ]] \
       && [ "8" -gt ${JAVAC_VERSION#*.} ]; then

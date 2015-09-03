@@ -44,6 +44,13 @@ singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
+# Android tooling
+aargenerator_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/AarGeneratorAction_deploy.jar"
+androidresourceprocessor_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/AndroidResourceProcessingAction_deploy.jar"
+dexmapper_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/ziputils/mapper_deploy.jar"
+dexreducer_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/ziputils/reducer_deploy.jar"
+incrementaldeployment_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"
+
 # iOS and Objective-C tooling
 iossim_path="${TEST_SRCDIR}/third_party/iossim/iossim"
 actoolzip_path="${TEST_SRCDIR}/src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip/actoolzip_deploy.jar"

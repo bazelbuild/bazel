@@ -58,6 +58,9 @@ filegroup(
         "//third_party/java/jdk/langtools:srcs",
         "//tools:srcs",
     ],
+    visibility = [
+        "//src/test/shell/bazel:__subpackages__",
+    ],
 )
 
 sh_test(

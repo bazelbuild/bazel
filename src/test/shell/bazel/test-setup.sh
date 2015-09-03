@@ -46,37 +46,72 @@ function bazel() {
 }
 
 function setup_android_support() {
-  cat > tools/android/BUILD <<EOF
+  ANDROID_TOOLS=$PWD/android_tools
+  mkdir -p ${ANDROID_TOOLS}/tools/android
+
+  ln -s "${aargenerator_path}" ${ANDROID_TOOLS}/tools/android/aargenerator.jar
+  ln -s "${androidresourceprocessor_path}" ${ANDROID_TOOLS}/tools/android/androidresourceprocessor.jar
+  ln -s "${dexmapper_path}" ${ANDROID_TOOLS}/tools/android/dexmapper.jar
+  ln -s "${dexreducer_path}" ${ANDROID_TOOLS}/tools/android/dexreducer.jar
+
+  mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
+  cp -RL "${incrementaldeployment_path}"/* ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
+
+  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
+android_library(
+    name = "incremental_stub_application",
+    srcs = [
+        "IncrementalClassLoader.java",
+        "StubApplication.java",
+    ],
+)
+
+android_library(
+    name = "incremental_split_stub_application",
+    srcs = ["Placeholder.java"],
+)
+EOF
+
+  rm -rf ${ANDROID_TOOLS}/tools/android/BUILD.bazel
+  cat > ${ANDROID_TOOLS}/tools/android/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 
 filegroup(name = "sdk")
 
 android_library(
     name = "incremental_stub_application",
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
 )
 
 android_library(
     name = "incremental_split_stub_application",
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
 )
 
-sh_binary(
+java_binary(
     name = "aar_generator",
-    srcs = ["fail.sh"],
+    srcs = ["aargenerator.jar"],
+    main_class = "com.google.devtools.build.android.AarGeneratorAction",
 )
 
-sh_binary(
+java_binary(
     name = "resources_processor",
-    srcs = ["fail.sh"],
+    srcs = ["androidresourceprocessor.jar"],
+    main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
 )
 
-sh_binary(
+java_binary(
     name = "merge_dexzips",
-    srcs = ["fail.sh"],
+    srcs = ["dexreducer.jar"],
+    main_class = "com.google.devtools.build.android.ziputils.DexReducer",
 )
 
-sh_binary(
+java_binary(
     name = "shuffle_jars",
-    srcs = ["fail.sh"],
+    srcs = ["dexmapper.jar"],
+    main_class = "com.google.devtools.build.android.ziputils.DexMapper",
 )
 
 sh_binary(
@@ -91,6 +126,11 @@ sh_binary(
 
 sh_binary(
     name = "build_incremental_dexmanifest",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "build_split_manifest",
     srcs = ["fail.sh"],
 )
 
@@ -110,13 +150,13 @@ sh_binary(
 )
 EOF
 
-  cat > tools/android/fail.sh <<EOF
+  cat > $ANDROID_TOOLS/tools/android/fail.sh <<EOF
 #!/bin/bash
 
 exit 1
 EOF
 
-  chmod +x tools/android/fail.sh
+  chmod +x $ANDROID_TOOLS/tools/android/fail.sh
 
   mkdir -p third_party/java/jarjar
   cat > third_party/java/jarjar/BUILD <<EOF
@@ -135,6 +175,50 @@ exit 1
 EOF
 
   chmod +x third_party/java/jarjar/fail.sh
+
+  ANDROID_NDK=$PWD/android_ndk
+  ANDROID_SDK=$PWD/android_sdk
+
+  # TODO(bazel-team): This hard-codes the name of the Android repository in
+  # the WORKSPACE file of Bazel. Change this once external repositories have
+  # their own defined names under which they are mounted.
+  NDK_SRCDIR=$TEST_SRCDIR/external/globbed_android_ndk
+  SDK_SRCDIR=$TEST_SRCDIR/external/globbed_android_sdk
+
+  mkdir -p $ANDROID_NDK
+  mkdir -p $ANDROID_SDK
+
+  for i in $NDK_SRCDIR/*; do
+    if [[ "$(basename $i)" != "BUILD" ]]; then
+      ln -s "$i" "$ANDROID_NDK/$(basename $i)"
+    fi
+  done
+
+  for i in $SDK_SRCDIR/*; do
+    if [[ "$(basename $i)" != "BUILD" ]]; then
+      ln -s "$i" "$ANDROID_SDK/$(basename $i)"
+    fi
+  done
+
+  cat >> WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
+    path = "$ANDROID_NDK",
+    api_level = 19
+)
+
+android_sdk_repository(
+    name = "androidsdk",
+    path = "$ANDROID_SDK",
+    build_tools_version = "21.1.1",
+    api_level = 19
+)
+
+android_local_tools_repository(
+    name = "androidtools",
+    path = "$ANDROID_TOOLS"
+)
+EOF
 }
 
 function setup_protoc_support() {
@@ -238,8 +322,6 @@ function create_new_workspace() {
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
   ln -s "${genclass_path}" tools/jdk/GenClass_deploy.jar
   ln -s "${ijar_path}" tools/jdk/ijar
-
-  setup_android_support
 
   touch WORKSPACE
 }

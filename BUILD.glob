@@ -1,0 +1,1 @@
+filegroup(name="all", srcs=["."], visibility=["//visibility:public"])

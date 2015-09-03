@@ -55,3 +55,28 @@ new_http_archive(
     sha256 = "0d471e672fac5a450ae5507b335fda2efc0b22ea9fb7f215c6a9c466dafa2661",
     build_file = "tools/build_rules/rust/rust-darwin-x86_64.BUILD",
 )
+
+# In order to run the Android integration tests, uncomment these rules, point
+# them to the Android NDK and the SDK, and point the bind rules under them
+# to @repository//:all.
+# new_local_repository(
+#     name = "globbed_android_sdk",
+#     path = "/usr/local/google/home/lberki/android/android-sdk-linux",
+#     build_file = "BUILD.glob"
+# )
+#
+# new_local_repository(
+#     name = "globbed_android_ndk",
+#     path = "/usr/local/google/home/lberki/android/android-ndk",
+#     build_file = "BUILD.glob"
+# )
+
+bind(
+    name = "android_sdk_for_testing",
+    actual = "//:dummy",
+)
+
+bind(
+    name = "android_ndk_for_testing",
+    actual = "//:dummy",
+)

@@ -4,3 +4,8 @@ filegroup(
     name = "git",
     srcs = glob([".git/**"]),
 )
+
+filegroup(
+    name = "dummy",
+    visibility = ["//visibility:public"],
+)
