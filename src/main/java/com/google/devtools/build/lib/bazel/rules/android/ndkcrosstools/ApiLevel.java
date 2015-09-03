@@ -136,7 +136,7 @@ class ApiLevel {
 
     // Check that this API level supports the given cpu architecture (eg 64 bit is supported on only
     // 21+).
-    if (!API_LEVEL_TO_ARCHITECTURES.get(correctedApiLevel).contains(targetCpu)) {
+    if (!API_LEVEL_TO_ARCHITECTURES.containsEntry(correctedApiLevel, targetCpu)) {
       // If the given API level does not support the given architecture, find an API level that
       // does support this architecture. A warning isn't printed because the crosstools for
       // architectures that aren't supported by this API level are generated anyway, even if the

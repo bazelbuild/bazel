@@ -184,14 +184,19 @@ public class BazelRuleClassProvider {
         }
       }
 
-      if (prerequisiteTarget instanceof PackageGroup) {
-        if (!attrName.equals("visibility")) {
-          context.reportError(rule.getAttributeLocation(attrName),
-              "in " + attrName + " attribute of " + rule.getRuleClass()
-              + " rule " + rule.getLabel() +  ": package group '"
-              + prerequisiteLabel + "' is misplaced here "
-              + "(they are only allowed in the visibility attribute)");
-        }
+      if (prerequisiteTarget instanceof PackageGroup && !attrName.equals("visibility")) {
+        context.reportError(
+            rule.getAttributeLocation(attrName),
+            "in "
+                + attrName
+                + " attribute of "
+                + rule.getRuleClass()
+                + " rule "
+                + rule.getLabel()
+                + ": package group '"
+                + prerequisiteLabel
+                + "' is misplaced here "
+                + "(they are only allowed in the visibility attribute)");
       }
     }
   }

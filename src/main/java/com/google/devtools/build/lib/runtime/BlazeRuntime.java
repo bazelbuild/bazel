@@ -819,10 +819,8 @@ public final class BlazeRuntime {
     eventBus.post(new CommandPrecompleteEvent(originalExit));
     // If Blaze did not suffer an infrastructure failure, check for errors in modules.
     ExitCode exitCode = originalExit;
-    if (!originalExit.isInfrastructureFailure()) {
-      if (pendingException != null) {
-        exitCode = pendingException.getExitCode();
-      }
+    if (!originalExit.isInfrastructureFailure() && pendingException != null) {
+      exitCode = pendingException.getExitCode();
     }
     pendingException = null;
     return exitCode;

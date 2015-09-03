@@ -31,7 +31,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
    */
   @Override
   public PooledObject<Worker> wrap(Worker worker) {
-    return new DefaultPooledObject<Worker>(worker);
+    return new DefaultPooledObject<>(worker);
   }
 
   /**

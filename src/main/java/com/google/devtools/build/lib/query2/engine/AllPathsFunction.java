@@ -71,10 +71,8 @@ public class AllPathsFunction implements QueryFunction {
       Collection<T> reverseDeps = env.getReverseDeps(worklist);
       worklist = new ArrayList<>();
       for (T np : reverseDeps) {
-        if (reachableFromX.contains(np)) {
-          if (result.add(np)) {
-            worklist.add(np);
-          }
+        if (reachableFromX.contains(np) && result.add(np)) {
+          worklist.add(np);
         }
       }
     }

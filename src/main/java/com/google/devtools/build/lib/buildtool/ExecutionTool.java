@@ -101,7 +101,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -190,7 +189,7 @@ public class ExecutionTool {
     for (BlazeModule module : runtime.getBlazeModules()) {
       builder.addAll(module.getActionContextConsumers());
     }
-    builder.addAll(Arrays.asList(extraConsumers));
+    builder.add(extraConsumers);
     return builder.build();
   }
 
@@ -200,7 +199,7 @@ public class ExecutionTool {
     for (BlazeModule module : runtime.getBlazeModules()) {
       builder.addAll(module.getActionContextProviders());
     }
-    builder.addAll(Arrays.asList(extraProviders));
+    builder.add(extraProviders);
     return builder.build();
   }
 

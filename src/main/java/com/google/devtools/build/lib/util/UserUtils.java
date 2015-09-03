@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.StandardSystemProperty.USER_NAME;
+
 import com.google.common.base.Strings;
 
 import java.util.Map;
@@ -30,7 +32,7 @@ public final class UserUtils {
   }
 
   private static class Holder {
-    static final String userName = System.getProperty("user.name");
+    static final String userName = USER_NAME.value();
   }
 
   /**

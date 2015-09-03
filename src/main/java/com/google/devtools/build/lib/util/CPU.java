@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.StandardSystemProperty.OS_ARCH;
+
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -46,7 +48,7 @@ public enum CPU {
   }
 
   private static CPU determineCurrentCpu() {
-    String currentArch = System.getProperty("os.arch");
+    String currentArch = OS_ARCH.value();
 
     for (CPU cpu : CPU.values()) {
       if (cpu.archs.contains(currentArch)) {

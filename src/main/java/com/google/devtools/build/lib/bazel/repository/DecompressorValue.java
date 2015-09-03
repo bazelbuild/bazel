@@ -42,7 +42,7 @@ public class DecompressorValue implements SkyValue {
       return true;
     }
 
-    if (other == null || !(other instanceof DecompressorValue)) {
+    if (!(other instanceof DecompressorValue)) {
       return false;
     }
 
@@ -126,7 +126,7 @@ public class DecompressorValue implements SkyValue {
         return true;
       }
 
-      if (other == null || !(other instanceof DecompressorDescriptor)) {
+      if (!(other instanceof DecompressorDescriptor)) {
         return false;
       }
 

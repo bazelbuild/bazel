@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.graph;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -102,8 +102,7 @@ public class DFS<T> {
     Collection<Node<T>> edgeTargets = transpose
         ? node.getPredecessors() : node.getSuccessors();
     if (edgeOrder != null) {
-      List<Node<T>> mutableNodeList = Lists.newArrayList(edgeTargets);
-      Collections.sort(mutableNodeList, edgeOrder);
+      List<Node<T>> mutableNodeList = Ordering.from(edgeOrder).sortedCopy(edgeTargets);
       edgeTargets = mutableNodeList;
     }
 

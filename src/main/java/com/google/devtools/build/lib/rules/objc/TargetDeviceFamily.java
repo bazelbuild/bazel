@@ -103,7 +103,7 @@ public enum TargetDeviceFamily {
    */
   public static Set<TargetDeviceFamily> fromBuildSetting(String targetedDevice) {
     ImmutableSet.Builder<TargetDeviceFamily> result = ImmutableSet.builder();
-    for (String numericSetting : Splitter.on(",").split(targetedDevice)) {
+    for (String numericSetting : Splitter.on(',').split(targetedDevice)) {
       numericSetting = numericSetting.trim();
       switch (numericSetting) {
         case "1":

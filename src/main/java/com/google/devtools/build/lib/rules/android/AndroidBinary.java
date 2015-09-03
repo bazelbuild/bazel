@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -664,7 +666,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   private static String getExpandedMakeVarsForAttr(RuleContext context, String attr) {
     final String value = context.attributes().get(attr, Type.STRING);
-    if (value == null || value.isEmpty()) {
+    if (isNullOrEmpty(value)) {
       return null;
     }
     return context.expandMakeVariables(attr, value);

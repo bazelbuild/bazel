@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 
 import java.util.BitSet;
-import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -68,7 +68,7 @@ class RecordingUniqueifier implements Uniqueifier {
     SHARED_SMALL_MEMOS_2 = memos2;
   }
 
-  private final Set<Object> witnessed = new HashSet<>(256);
+  private final Set<Object> witnessed = Sets.newHashSetWithExpectedSize(256);
   private final BitSet memo = new BitSet();
   private int idx = 0;
 

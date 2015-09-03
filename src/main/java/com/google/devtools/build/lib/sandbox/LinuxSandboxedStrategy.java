@@ -108,7 +108,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
     // The execId is a unique ID just for this invocation of "exec".
-    String execId = uuid + "-" + Integer.toString(execCounter.getAndIncrement());
+    String execId = uuid + "-" + execCounter.getAndIncrement();
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath =
@@ -216,7 +216,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       Path target = mount.getValue();
 
       // The source must exist.
-      Preconditions.checkArgument(source.exists(), source.toString() + " does not exist");
+      Preconditions.checkArgument(source.exists(), "%s does not exist", source.toString());
 
       // We cannot mount two different things onto the same target.
       if (!mounts.containsEntry(source, target) && mounts.containsValue(target)) {

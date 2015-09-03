@@ -226,7 +226,7 @@ public final class HelpCommand implements BlazeCommand {
 
     for (String name : commands) {
       BlazeCommand command = commandsByName.get(name);
-      String varName = name.toUpperCase().replace("-", "_");
+      String varName = name.toUpperCase().replace('-', '_');
       Command annotation = command.getClass().getAnnotation(Command.class);
       if (!annotation.completion().isEmpty()) {
         outErr.printOutLn("BAZEL_COMMAND_" + varName + "_ARGUMENT=\""

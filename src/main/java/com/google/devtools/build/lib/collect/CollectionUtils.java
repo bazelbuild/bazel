@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+import static com.google.common.collect.Sets.newEnumSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -189,7 +191,7 @@ public final class CollectionUtils {
       }
     }
 
-    return result.isEmpty() ? EnumSet.noneOf(clazz) : EnumSet.copyOf(result);
+    return newEnumSet(result, clazz);
   }
 
   /**

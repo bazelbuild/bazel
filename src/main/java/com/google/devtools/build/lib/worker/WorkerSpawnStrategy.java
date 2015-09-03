@@ -75,8 +75,8 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
     // persistent mode and then pass it the flagfile via a WorkRequest to make it actually do the
     // work.
     if (!Iterables.getLast(spawn.getArguments()).startsWith("@")) {
-      Preconditions.checkState(
-          false, "Must have parameter file as last arg, got args: " + spawn.getArguments());
+      throw new IllegalStateException(
+          "Must have parameter file as last arg, got args: " + spawn.getArguments());
     }
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();

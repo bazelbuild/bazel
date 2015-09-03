@@ -82,6 +82,6 @@ final class EmptyNestedSet<E> extends NestedSet<E> {
 
   @Override
   public int shallowHashCode() {
-    return Objects.hash(getOrder());
+    return Objects.hashCode(getOrder());
   }
 }

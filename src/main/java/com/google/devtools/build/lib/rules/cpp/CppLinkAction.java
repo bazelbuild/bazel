@@ -783,7 +783,7 @@ public final class CppLinkAction extends AbstractAction {
       } else {
         // TODO(bazel-team): once the LLVM compiler patches have been finalized, this should
         // be converted to a crosstool feature configuration instead.
-        List<String> opts = new ArrayList<String>(linkopts);
+        List<String> opts = new ArrayList<>(linkopts);
         opts.add("-flto");
         opts.add(
             "-Wl,-plugin-opt,thin-lto="

@@ -80,7 +80,7 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     PackageCacheOptions pkgOptions = options.getOptions(PackageCacheOptions.class);
-    if (pkgOptions.fetch == false) {
+    if (!pkgOptions.fetch) {
       runtime.getReporter().handle(Event.error(null, "You cannot run fetch with --fetch=false"));
       return ExitCode.COMMAND_LINE_ERROR;
     }

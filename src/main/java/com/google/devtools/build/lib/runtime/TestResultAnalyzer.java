@@ -263,12 +263,13 @@ public class TestResultAnalyzer {
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
-    if (status == BlazeTestStatus.PASSED) {
-      if (shouldEmitTestSizeWarningInSummary(
-          summaryOptions.testVerboseTimeoutWarnings,
-          warnings, result.getData().getTestProcessTimesList(), target)) {
-        summaryBuilder.setWasUnreportedWrongSize(true);
-      }
+    if (status == BlazeTestStatus.PASSED
+        && shouldEmitTestSizeWarningInSummary(
+            summaryOptions.testVerboseTimeoutWarnings,
+            warnings,
+            result.getData().getTestProcessTimesList(),
+            target)) {
+      summaryBuilder.setWasUnreportedWrongSize(true);
     }
 
     return summaryBuilder

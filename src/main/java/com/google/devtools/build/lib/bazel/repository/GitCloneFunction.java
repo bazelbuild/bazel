@@ -134,13 +134,12 @@ public class GitCloneFunction implements SkyFunction {
       // recursively includes itself as a submodule, which would result in an infinite
       // loop if submodules are cloned recursively. For now, limit submodules to only
       // the first level.
-      if (descriptor.initSubmodules) {
-        if (!git.submoduleInit().call().isEmpty()) {
-          git.submoduleUpdate()
-              .setProgressMonitor(
-                  new GitProgressMonitor("Cloning submodules for " + descriptor.remote, reporter))
-              .call();
-        }
+      if (descriptor.initSubmodules && !git.submoduleInit().call().isEmpty()) {
+        git
+            .submoduleUpdate()
+            .setProgressMonitor(
+                new GitProgressMonitor("Cloning submodules for " + descriptor.remote, reporter))
+            .call();
       }
     } catch (InvalidRemoteException e) {
       throw new RepositoryFunctionException(
@@ -218,7 +217,7 @@ public class GitCloneFunction implements SkyFunction {
       if (obj == this) {
         return true;
       }
-      if (obj == null || !(obj instanceof GitRepositoryDescriptor)) {
+      if (!(obj instanceof GitRepositoryDescriptor)) {
         return false;
       }
       GitRepositoryDescriptor other = (GitRepositoryDescriptor) obj;

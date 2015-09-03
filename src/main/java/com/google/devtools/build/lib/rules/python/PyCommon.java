@@ -270,11 +270,12 @@ public final class PyCommon {
                   + "' need to be converted to Python 2 (not yet implemented)");
       }
     }
-    if (targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3) {
-      if (sourceVersion == PythonVersion.PY2ONLY) {
-        ruleContext.ruleError("Rule '" + source
-                  + "' can only be used with Python 2, and cannot be converted to Python 3");
-      }
+    if ((targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3)
+        && sourceVersion == PythonVersion.PY2ONLY) {
+      ruleContext.ruleError(
+          "Rule '"
+              + source
+              + "' can only be used with Python 2, and cannot be converted to Python 3");
     }
   }
 

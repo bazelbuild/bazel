@@ -874,7 +874,7 @@ public final class LinkCommandLine extends CommandLine {
 
     if (ltoMap != null) {
       Preconditions.checkState(
-          ltoMap.size() == 0, "Still have LTO objects left: " + ltoMap + ", command-line: " + argv);
+          ltoMap.size() == 0, "Still have LTO objects left: %s, command-line: %s", ltoMap, argv);
     }
   }
 

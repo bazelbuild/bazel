@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
@@ -104,7 +106,7 @@ public final class CommandBuilder {
   }
 
   public CommandBuilder useTempDir() {
-    workingDir = new File(System.getProperty("java.io.tmpdir"));
+    workingDir = new File(JAVA_IO_TMPDIR.value());
     return this;
   }
 

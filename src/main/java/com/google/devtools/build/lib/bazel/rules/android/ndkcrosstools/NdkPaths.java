@@ -184,24 +184,21 @@ public class NdkPaths {
 
   ImmutableList<String> createStlportIncludePaths() {
 
-    String prefix = "external/%repositoryName%/ndk/sources/cxx-stl/"
-        .replace("%repositoryName%", repositoryName);
+    String prefix =
+        "external/%repositoryName%/ndk/sources/cxx-stl/"
+            .replace("%repositoryName%", repositoryName);
 
-    return ImmutableList.<String>builder()
-        .add(prefix + "stlport/stlport")
-        .add(prefix + "gabi++/include")
-        .build();
+    return ImmutableList.of(prefix + "stlport/stlport", prefix + "gabi++/include");
   }
 
   ImmutableList<String> createLibcxxIncludePaths() {
 
-    String prefix = "external/%repositoryName%/ndk/sources/"
-        .replace("%repositoryName%", repositoryName);
+    String prefix =
+        "external/%repositoryName%/ndk/sources/".replace("%repositoryName%", repositoryName);
 
-    return ImmutableList.<String>builder()
-        .add(prefix + "cxx-stl/llvm-libc++/libcxx/include")
-        .add(prefix + "cxx-stl/llvm-libc++abi/libcxxabi/include")
-        .add(prefix + "android/support/include")
-        .build();
+    return ImmutableList.of(
+        prefix + "cxx-stl/llvm-libc++/libcxx/include",
+        prefix + "cxx-stl/llvm-libc++abi/libcxxabi/include",
+        prefix + "android/support/include");
   }
 }

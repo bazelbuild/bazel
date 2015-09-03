@@ -365,15 +365,13 @@ public class InfoCommand implements BlazeCommand {
     AllowedRuleClassInfo.Builder info = AllowedRuleClassInfo.newBuilder();
     info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.ANY);
 
-    if (attr.isStrictLabelCheckingEnabled()) {
-      if (attr.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
-        info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
-        Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
-        for (RuleClass otherClass : Iterables.filter(
-            ruleClasses, filter)) {
-          if (otherClass.isDocumented()) {
-            info.addAllowedRuleClass(otherClass.getName());
-          }
+    if (attr.isStrictLabelCheckingEnabled()
+        && attr.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
+      info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
+      Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
+      for (RuleClass otherClass : Iterables.filter(ruleClasses, filter)) {
+        if (otherClass.isDocumented()) {
+          info.addAllowedRuleClass(otherClass.getName());
         }
       }
     }

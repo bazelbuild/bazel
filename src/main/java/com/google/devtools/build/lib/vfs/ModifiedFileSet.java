@@ -63,7 +63,7 @@ public final class ModifiedFileSet {
 
   @Override
   public int hashCode() {
-    return Objects.hash(modified);
+    return Objects.hashCode(modified);
   }
 
   @Override

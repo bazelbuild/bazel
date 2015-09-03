@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.base.StandardSystemProperty.USER_NAME;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -81,7 +83,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.options = Preconditions.checkNotNull(options);
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
-      this.username = System.getProperty("user.name");
+      this.username = USER_NAME.value();
       this.hostname = NetUtil.findShortHostName();
       this.timestamp = System.currentTimeMillis();
       this.getWorkspaceStatusCommand =

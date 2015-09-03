@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.graph;
 
+import com.google.common.collect.Sets;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -173,8 +174,8 @@ public final class Node<T> {
       return true;
   } else if (previousSize == ARRAYLIST_THRESHOLD) {
       // ArrayList -> HashSet
-    Collection<Node<T>> newSet = new HashSet<>(INITIAL_HASHSET_CAPACITY);
-    newSet.addAll(set);
+      Collection<Node<T>> newSet = Sets.newHashSetWithExpectedSize(INITIAL_HASHSET_CAPACITY);
+      newSet.addAll(set);
       newSet.add(value);
       return updateField(predecessorSet, newSet);
     } else {

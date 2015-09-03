@@ -142,11 +142,11 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
         toolchain.getToolPathList().get(0).getPath());
 
     // Create file glob patterns for the various files that the toolchain references.
- 
-    String androidPlatformIncludes = NdkPaths.stripRepositoryPrefix(toolchain.getBuiltinSysroot())
-        + "/**/*";
 
-    List<String> toolchainFileGlobPatterns = new ArrayList<String>();
+    String androidPlatformIncludes =
+        NdkPaths.stripRepositoryPrefix(toolchain.getBuiltinSysroot()) + "/**/*";
+
+    List<String> toolchainFileGlobPatterns = new ArrayList<>();
     toolchainFileGlobPatterns.add(androidPlatformIncludes);
 
     for (String cxxFlag : toolchain.getUnfilteredCxxFlagList()) {
