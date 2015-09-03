@@ -117,6 +117,10 @@ public class SyntaxTreeVisitor {
     visitAll(node.getStatements());
   }
 
+  public void visit(ReturnStatement node) {
+    visit(node.getReturnExpression());
+  }
+
   public void visit(DictionaryLiteral node) {
     visitAll(node.getEntries());
   }
