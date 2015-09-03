@@ -4,12 +4,12 @@ filegroup(name = "sdk")
 
 android_library(
     name = "incremental_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:stub_application"],
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
 )
 
 android_library(
     name = "incremental_split_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:split_stub_application"],
+    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
 )
 
 sh_binary(
