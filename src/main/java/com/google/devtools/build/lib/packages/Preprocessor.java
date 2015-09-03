@@ -90,6 +90,8 @@ public interface Preprocessor {
    * A (result, success) tuple indicating the outcome of preprocessing.
    */
   static class Result {
+    private static final char[] EMPTY_CHARS = new char[0];
+
     public final ParserInputSource result;
     public final boolean preprocessed;
     public final boolean containsErrors;
@@ -103,7 +105,7 @@ public interface Preprocessor {
       this.containsTransientErrors = containsTransientErrors;
     }
 
-    /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */ 
+    /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
       return new Result(buildFileSource, /*preprocessed=*/false, /*containsErrors=*/false,
           /*containsTransientErrors=*/false);
@@ -120,12 +122,12 @@ public interface Preprocessor {
     }
 
     public static Result invalidSyntax(PathFragment buildFile) {
-      return new Result(ParserInputSource.create("", buildFile), /*preprocessed=*/true,
+      return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/true,
           /*containsPersistentErrors=*/true, /*containsTransientErrors=*/false);
     }
 
     public static Result transientError(PathFragment buildFile) {
-      return new Result(ParserInputSource.create("", buildFile), /*preprocessed=*/false,
+      return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/false,
           /*containsPersistentErrors=*/false, /*containsTransientErrors=*/true);
     }
   }

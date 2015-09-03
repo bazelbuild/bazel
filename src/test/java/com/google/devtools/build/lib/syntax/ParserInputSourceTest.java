@@ -26,9 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -67,17 +65,6 @@ public class ParserInputSourceTest {
     assertEquals(pathName, input.getPath().toString());
   }
 
-  @Test
-  public void testCreateFromInputStream() throws IOException {
-    String content = "Content provided as a string.";
-    byte[] bytes = content.getBytes("ISO-8859-1");
-    ByteArrayInputStream in = new ByteArrayInputStream(bytes);
-    String pathName = "/the/name/of/the/content.txt";
-    Path path = scratch.resolve(pathName);
-    ParserInputSource input = ParserInputSource.create(in, path);
-    assertEquals(content, new String(input.getContent()));
-    assertEquals(pathName, input.getPath().toString());
-  }
 
   @Test
   public void testIOExceptionIfInputFileDoesNotExistForSingleArgConstructor() {
@@ -102,28 +89,4 @@ public class ParserInputSourceTest {
     char[] content = "Content provided as char array.".toCharArray();
     ParserInputSource.create(content, new PathFragment("/will/not/try/to/read"));
   }
-
-  @Test
-  public void testWillCloseStreamWhenReadingFromInputStream() {
-    final StringBuilder log = new StringBuilder();
-    InputStream in = new InputStream() {
-      @Override
-      public int read() throws IOException {
-        throw new IOException("Fault injected.");
-      }
-      @Override
-      public void close() {
-        log.append("Stream closed.");
-      }
-    };
-    try {
-      Path path = scratch.resolve("/will/not/try/to/read");
-      ParserInputSource.create(in, path);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage("Fault injected.");
-    }
-    assertEquals("Stream closed.", log.toString());
-  }
-
 }

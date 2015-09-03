@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * An abstraction for reading input from a file or taking it as a pre-cooked
@@ -83,23 +82,5 @@ public abstract class ParserInputSource {
         return path;
       }
     };
-  }
-
-  /**
-   * Create an input source from the given input stream, and associate path
-   * with this source.  'path' will be used in error messages, etc, but will
-   * not (in general) be used to to read the content from path.
-   *
-   * <p>(The exception is the case in which Python pre-processing is required; the
-   * path will be used to provide the input to the Python pre-processor.
-   * Arguably, we should just send the content as input to the subprocess
-   * instead of using the path, but it's not clear it's worth the effort.)
-   */
-  public static ParserInputSource create(InputStream in, Path path) throws IOException {
-    try {
-      return create(new String(FileSystemUtils.readContentAsLatin1(in)), path.asFragment());
-    } finally {
-      in.close();
-    }
   }
 }
