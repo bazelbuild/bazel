@@ -1733,6 +1733,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     @Override
+    public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
+
+    @Override
     public void evaluated(SkyKey skyKey, Supplier<SkyValue> valueSupplier, EvaluationState state) {
       if (ignoreInvalidations) {
         return;

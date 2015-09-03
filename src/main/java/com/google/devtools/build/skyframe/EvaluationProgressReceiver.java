@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
  * Receiver to inform callers which values have been invalidated. Values may be invalidated and then
  * re-validated if they have been found not to be changed.
  */
+@ThreadSafety.ThreadSafe
 public interface EvaluationProgressReceiver {
   /**
    * New state of the value entry after evaluation.
@@ -48,7 +49,6 @@ public interface EvaluationProgressReceiver {
    *
    * <p>May be called concurrently from multiple threads, possibly with the same {@code key}.
    */
-  @ThreadSafety.ThreadSafe
   void invalidated(SkyKey skyKey, InvalidationState state);
 
   /**
@@ -59,8 +59,15 @@ public interface EvaluationProgressReceiver {
    *
    * <p>This guarantee is intentionally vague to encourage writing robust implementations.
    */
-  @ThreadSafety.ThreadSafe
   void enqueueing(SkyKey skyKey);
+
+  /**
+   * Notifies that {@code skyFunction.compute(skyKey, ...)} has just been called, for some
+   * appropriate {@link SkyFunction} {@code skyFunction}.
+   *
+   * <p>Notably, this includes {@link SkyFunction#compute} calls due to Skyframe restarts.
+   */
+  void computed(SkyKey skyKey, long elapsedTimeNanos);
 
   /**
    * Notifies that the node for {@code skyKey} has been evaluated.
@@ -70,6 +77,5 @@ public interface EvaluationProgressReceiver {
    * <p>If the value builder threw an error when building this node, then
    * {@code valueSupplier.get()} evaluates to null.
    */
-  @ThreadSafety.ThreadSafe
   void evaluated(SkyKey skyKey, Supplier<SkyValue> valueSupplier, EvaluationState state);
 }

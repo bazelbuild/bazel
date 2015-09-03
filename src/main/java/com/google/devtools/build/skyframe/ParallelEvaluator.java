@@ -720,9 +720,8 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(factory != null, "%s %s", functionName, state);
 
       SkyValue value = null;
-      Profiler.instance().startTask(ProfilerTask.SKYFUNCTION, skyKey);
+      long startTime = Profiler.nanoTimeMaybe();
       try {
-        // TODO(bazel-team): count how many of these calls returns null vs. non-null
         value = factory.compute(skyKey, env);
       } catch (final SkyFunctionException builderException) {
         ReifiedSkyFunctionException reifiedBuilderException =
@@ -762,7 +761,14 @@ public final class ParallelEvaluator implements Evaluator {
         throw new RuntimeException(msg, re);
       } finally {
         env.doneBuilding();
-        Profiler.instance().completeTask(ProfilerTask.SKYFUNCTION);
+        long elapsedTimeNanos = Profiler.nanoTimeMaybe() - startTime;
+        if (elapsedTimeNanos > 0)  {
+          if (progressReceiver != null) {
+            progressReceiver.computed(skyKey, elapsedTimeNanos);
+          }
+          Profiler.instance().logSimpleTaskDuration(startTime, elapsedTimeNanos,
+              ProfilerTask.SKYFUNCTION, skyKey);
+        }
       }
 
       GroupedListHelper<SkyKey> newDirectDeps = env.newlyRequestedDeps;

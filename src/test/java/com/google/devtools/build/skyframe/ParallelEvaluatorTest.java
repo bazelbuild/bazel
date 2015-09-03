@@ -262,6 +262,9 @@ public class ParallelEvaluatorTest {
       public void enqueueing(SkyKey key) {}
 
       @Override
+      public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
+
+      @Override
       public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
           EvaluationState state) {
         receivedValues.add(skyKey);
@@ -1904,6 +1907,9 @@ public class ParallelEvaluatorTest {
       public void enqueueing(SkyKey skyKey) {
         enqueuedValues.add(skyKey);
       }
+
+      @Override
+      public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
       @Override
       public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,

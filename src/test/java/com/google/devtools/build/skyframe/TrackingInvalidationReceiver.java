@@ -50,6 +50,9 @@ public class TrackingInvalidationReceiver implements EvaluationProgressReceiver 
   }
 
   @Override
+  public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
+
+  @Override
   public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
     evaluated.add(skyKey);
     if (skyValueSupplier.get() != null) {
