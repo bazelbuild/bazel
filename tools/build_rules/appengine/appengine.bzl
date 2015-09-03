@@ -128,6 +128,7 @@ def _war_impl(ctxt):
         cmd += _add_file(run_jar, build_output + "/WEB-INF/lib")
   for jar in ctxt.files._appengine_deps:
     cmd += _add_file(jar, build_output + "/WEB-INF/lib")
+    inputs += [jar]
 
   inputs += ctxt.files.data
   for res in ctxt.files.data:
