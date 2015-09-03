@@ -20,6 +20,12 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
 java_library(
     name = "annotations",
     srcs = ["@bazel-j2objc//:annotations"],

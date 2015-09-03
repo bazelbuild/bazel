@@ -22,6 +22,12 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
 java_library(
     name = "jre_emul",
     exports = ["@bazel-j2objc//:jre_emul_jar"],
