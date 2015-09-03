@@ -1035,4 +1035,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()  // because of set
         .testStatement("str(zip([1], set([2])))", "[(1, 2)]");
   }
+
+  @Test
+  public void testIsAlphaFunction() throws Exception {
+    new BothModesTest()
+        .testStatement("''.isalpha()", false)
+        .testStatement("'abz'.isalpha()", true)
+        .testStatement("'a1'.isalpha()", false)
+        .testStatement("'a '.isalpha()", false)
+        .testStatement("'A'.isalpha()", true)
+        .testStatement("'AbZ'.isalpha()", true);
+  }
 }

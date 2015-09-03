@@ -541,6 +541,28 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkSignature(name = "isalpha", objectType = StringModule.class, returnType = Boolean.class,
+    doc = "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and it "
+        + "contains at least one character.",
+    mandatoryPositionals = {
+        @Param(name = "self", type = String.class, doc = "This string.")})
+  private static BuiltinFunction isalpha = new BuiltinFunction("isalpha") {
+    public Boolean invoke(String self) throws EvalException {
+      int length = self.length();
+      if (length < 1) {
+        return false;
+      }
+      for (int index = 0; index < length; index++) {
+        char character = self.charAt(index);
+        if (!((character >= 'A' && character <= 'Z')
+            || (character >= 'a' && character <= 'z'))) {
+          return false;
+        }
+      }
+      return true;
+    }
+  };
+
   @SkylarkSignature(name = "count", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
           + "string, optionally restricting to [<code>start</code>:<code>end</code>], "
@@ -1091,7 +1113,7 @@ public class MethodLibrary {
       }
     }
   };
-  
+
   @SkylarkSignature(name = "dict", returnType = Map.class,
       doc =
       "Creates a <a href=\"#modules.dict\">dictionary</a> from an optional positional "
