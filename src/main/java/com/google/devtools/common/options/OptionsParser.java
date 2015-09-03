@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -429,6 +430,15 @@ public class OptionsParser implements OptionsProvider {
     for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
       allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
     }
+    // Sort field for deterministic ordering
+    Collections.sort(allFields, new Comparator<Field>() {
+      @Override
+      public int compare(Field f1, Field f2) {
+        String name1 = f1.getAnnotation(Option.class).name();
+        String name2 = f2.getAnnotation(Option.class).name();
+        return name1.compareTo(name2);
+      }
+    });
     for (Field optionField : allFields) {
       String category = optionField.getAnnotation(Option.class).category();
       if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
