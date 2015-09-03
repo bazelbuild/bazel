@@ -40,10 +40,10 @@ A platform-independent GameBoy emulator.
 
 ## [Braintree](https://www.braintreepayments.com)
 
-Braintree, a PayPal subsidiary, develops payment solution for website and
-application. They use Bazel for part of their internal build and Paul Gross
-posted a [nice piece about how went the switch to
-Bazel](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
+Braintree, a PayPal subsidiary, develops payment solutions for websites and
+applications. They use Bazel for parts of their internal build and Paul Gross
+even posted a [nice piece about how their switch to
+Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ## [Makani](https://www.google.com/makani)
 
