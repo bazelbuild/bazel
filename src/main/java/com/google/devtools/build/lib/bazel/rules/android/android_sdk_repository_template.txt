@@ -21,23 +21,51 @@ java_import(
 android_sdk(
     name = "sdk",
     proguard = "tools/proguard/bin/proguard.sh",
-    aapt = "build-tools/%build_tools_version%/aapt",
-    dx = "dx_binary",
+    aapt = ":aapt_binary",
+    dx = ":dx_binary",
     main_dex_list_creator = ":main_dex_list_creator",
     adb = "platform-tools/adb",
     framework_aidl = "platforms/android-%api_level%/framework.aidl",
-    aidl = "build-tools/%build_tools_version%/aidl",
+    aidl = ":aidl_binary",
     android_jar = "platforms/android-%api_level%/android.jar",
     shrinked_android_jar = "platforms/android-%api_level%/android.jar",
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
     apkbuilder = ":apkbuilder",
-    zipalign = "build-tools/%build_tools_version%/zipalign",
+    zipalign = ":zipalign_binary",
     android_jack = ":empty",
     jack = ":fail",
     jill = ":fail",
     resource_extractor = ":fail"
 )
+
+filegroup(
+    name = "build_tools_libs",
+    srcs = glob(["build-tools/%build_tools_version%/lib/**"])
+)
+
+[genrule(
+     name = tool + "_runner",
+     outs = [tool + "_runner.sh"],
+     srcs = [],
+     cmd  = "cat > $@ << 'EOF'\n" +
+         "#!/bin/bash\n" +
+         "BINARY=$${0##*-out/host/bin/}\n" +
+         "DIRNAME=$$(dirname $$BINARY)\n" +
+         "SDK=$${0}.runfiles/$${DIRNAME}\n" +
+         "$${SDK}/build-tools/%build_tools_version%/" + tool + " $$*\n" +
+         "exit $$?\n" +
+         "EOF\n",
+) for tool in ["aapt", "aidl", "zipalign"]]
+
+[sh_binary(
+    name = tool + "_binary",
+    srcs = [tool + "_runner.sh"],
+    data = [
+        ":build_tools_libs",
+        "build-tools/%build_tools_version%/" + tool
+    ],
+) for tool in ["aapt", "aidl", "zipalign"]]
 
 sh_binary(
     name = "fail",
