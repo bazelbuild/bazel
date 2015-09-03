@@ -60,11 +60,6 @@ public class RefCountedMultisetKeyedLocker<K> implements KeyedLocker<K> {
                                        + "AutoUnlocker instance", key);
         throw new IllegalUnlockException(msg);
       }
-      if (!lock.isHeldByCurrentThread()) {
-        String msg = String.format("For key %s, the calling thread to 'close' must be the one "
-            + "that acquired the AutoUnlocker", key);
-        throw new IllegalUnlockException(msg);
-      }
       try {
         Lock waitersLock = waitersLocks.get(key);
         try {

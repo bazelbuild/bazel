@@ -203,7 +203,7 @@ public abstract class KeyedLockerTest {
         try {
           Preconditions.checkNotNull(unlockerRef.get()).close();
           fail();
-        } catch (IllegalUnlockException expected) {
+        } catch (IllegalMonitorStateException expected) {
           runnable2Executed.set(true);
         }
       }
