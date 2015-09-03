@@ -72,8 +72,8 @@ class UnzipProcessor : public ZipExtractorProcessor {
 void concat_path(char* out, const size_t size,
                  const char *path1, const char *path2) {
   int len1 = strlen(path1);
-  int l = len1;
-  strncpy(out, path1, size-1);
+  size_t l = len1;
+  strncpy(out, path1, size - 1);
   out[size-1] = 0;
   if (l < size - 1 && path1[len1] != '/' && path2[0] != '/') {
     out[l] = '/';
