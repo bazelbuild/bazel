@@ -53,6 +53,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .override(attr("deps", LABEL_LIST)
+            // Support for files in deps is for backwards compatibility.
             .allowedRuleClasses("proto_library", "filegroup")
             .legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->

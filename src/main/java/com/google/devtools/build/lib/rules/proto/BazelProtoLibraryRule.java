@@ -33,11 +33,13 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
 
     return builder
+        // This rule works, but does nothing, in open-source Bazel, due to the
+        // lack of protoc support. Users can theoretically write their own Skylark rules,
+        // but these are still 'experimental' according to the documentation.
         .setUndocumented()
         .setOutputToGenfiles()
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
-        The list of other <code>proto_library</code>
-        rules that the target depends upon.
+        The list of other <code>proto_library</code> rules that the target depends upon.
         ${SYNOPSIS}
         A <code>proto_library</code> may only depend on other
         <code>proto_library</code> targets.
