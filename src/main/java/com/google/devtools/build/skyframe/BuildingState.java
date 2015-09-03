@@ -205,6 +205,7 @@ public class BuildingState {
     Preconditions.checkState(!isChanged(), this);
     Preconditions.checkState(evaluating, this);
     Preconditions.checkState(isReady(), this);
+    Preconditions.checkState(!dirtyDirectDepIterator.hasNext(), this);
     dirtyState = DirtyState.REBUILDING;
   }
 
@@ -270,8 +271,8 @@ public class BuildingState {
    * <p>If the node is dirty and checking its deps for changes, this also updates {@link
    * #dirtyState} as needed -- {@link DirtyState#REBUILDING} if the child has changed,
    * and {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the
-   * last child to be checked (as determined by {@link #dirtyDirectDepIterator} == null, isReady(),
-   * and a flag set in {@link #getNextDirtyDirectDeps}).
+   * last child to be checked (as determined by {@link #dirtyDirectDepIterator}.hasNext() and
+   * isReady()).
    *
    * @see NodeEntry#signalDep(Version)
    */
@@ -282,8 +283,9 @@ public class BuildingState {
       // through the synchronized method signalDep(long).
       if (childChanged) {
         dirtyState = DirtyState.REBUILDING;
-      } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES && isReady()
-          && dirtyDirectDepIterator == null) {
+      } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES
+          && isReady()
+          && !dirtyDirectDepIterator.hasNext()) {
         // No other dep already marked this as REBUILDING, no deps outstanding, and this was
         // the last block of deps to be checked.
         dirtyState = DirtyState.VERIFIED_CLEAN;
@@ -328,21 +330,14 @@ public class BuildingState {
   /**
    * Gets the next children to be re-evaluated to see if this dirty node needs to be re-evaluated.
    *
-   * <p>If this is the last group of children to be checked, then sets {@link
-   * #dirtyDirectDepIterator} to null so that the final call to {@link #signalDep(boolean)} will
-   * know to mark this entry as {@link DirtyState#VERIFIED_CLEAN} if no deps have changed.
-   *
    * See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
   Collection<SkyKey> getNextDirtyDirectDeps() {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
+    Preconditions.checkState(dirtyDirectDepIterator.hasNext(), this);
     List<SkyKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
-    if (!dirtyDirectDepIterator.hasNext()) {
-      // Done checking deps. If this last group is clean, the state will become VERIFIED_CLEAN.
-      dirtyDirectDepIterator = null;
-    }
     return nextDeps;
   }
 
@@ -409,6 +404,7 @@ public class BuildingState {
 
   protected ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this)
+        .add("hash", System.identityHashCode(this))
         .add("evaluating", evaluating)
         .add("dirtyState", dirtyState)
         .add("signaledDeps", signaledDeps)
