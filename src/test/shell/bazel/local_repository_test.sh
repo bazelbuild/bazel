@@ -817,4 +817,40 @@ EOF
   bazel build //:fg || fail "failed to build target"
 }
 
+function test_python_in_remote_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/bin
+  cat > $r/bin/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+py_binary(name="bin", srcs=["bin.py"], deps=["//lib:lib"])
+EOF
+
+  cat > $r/bin/bin.py <<EOF
+import lib.lib
+
+print "Hello " + lib.lib.User()
+EOF
+
+  chmod +x $r/bin/bin.py
+
+  mkdir -p $r/lib
+  cat > $r/lib/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+py_library(name="lib", srcs=["lib.py"])
+EOF
+
+  cat > $r/lib/lib.py <<EOF
+def User():
+  return "User"
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$r")
+EOF
+
+  bazel run @r//bin:bin >& $TEST_log || fail "build failed"
+  expect_log "Hello User"
+}
+
 run_suite "local repository tests"

@@ -60,6 +60,21 @@ def Main():
     raise AssertionError('Cannot find .runfiles directory for %s' %
                          sys.argv[0])
 
+  python_path_entries = [module_space]
+
+  external_dir = os.path.join(module_space, 'external')
+  if os.path.isdir(external_dir):
+    external_entries = [os.path.join(external_dir, d) for d in os.listdir(external_dir)]
+    repositories = [d for d in external_entries if os.path.isdir(d)]
+    python_path_entries += repositories
+
+  old_python_path = os.environ.get('PYTHONPATH')
+  python_path = ':'.join(python_path_entries)
+  if old_python_path:
+    python_path += ':' + old_python_path
+
+  new_env['PYTHONPATH'] = python_path
+
   # Now look for my main python source file.
   # The magic string percent-main-percent is replaced with the filename of the
   # main file of the Python binary in BazelPythonSemantics.java.
@@ -68,12 +83,6 @@ def Main():
          'Cannot exec() %r: file not found.' % main_filename
   assert os.access(main_filename, os.R_OK), \
          'Cannot exec() %r: file not readable.' % main_filename
-
-  python_path = os.environ.get('PYTHONPATH')
-  if not python_path:
-    new_env['PYTHONPATH'] = module_space
-  else:
-    new_env['PYTHONPATH'] = '%s:%s' % (module_space, python_path)
 
   program = python_program = FindPythonBinary()
   if python_program is None:
