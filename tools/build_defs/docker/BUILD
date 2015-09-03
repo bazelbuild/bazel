@@ -1,5 +1,11 @@
 licenses(["notice"])  # Apache 2.0
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//tools/build_defs/docker/testdata:srcs"],
+    visibility = ["//tools:__pkg__"],
+)
+
 TEST_TARGETS = [
     "base_with_entrypoint",
     "base_with_volume",

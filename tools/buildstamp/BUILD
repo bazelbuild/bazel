@@ -6,3 +6,8 @@ filegroup(
         "get_workspace_status",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

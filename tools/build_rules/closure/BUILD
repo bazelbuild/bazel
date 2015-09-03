@@ -18,3 +18,9 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = ["@closure_stylesheets//jar"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//tools:__pkg__"],
+)

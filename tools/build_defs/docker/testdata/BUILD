@@ -7,6 +7,11 @@ package(
 load("/tools/build_defs/docker/docker", "docker_build")
 
 filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
+filegroup(
     name = "archive_testdata",
     srcs = glob(["archive/**"]),
 )
