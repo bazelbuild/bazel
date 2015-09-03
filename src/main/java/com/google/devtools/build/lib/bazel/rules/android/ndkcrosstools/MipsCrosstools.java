@@ -40,95 +40,140 @@ class MipsCrosstools {
      * mips64
      */
 
-    builder.add(createMipsToolchain()
-        .setToolchainIdentifier("mips64el-linux-android-4.9")
-        .setTargetSystemName("mips64el-linux-android")
-        .setTargetCpu("mips64")
-        .setCompiler("gcc-4.9")
+    builder.add(
+        createMipsToolchain()
+            .setToolchainIdentifier("mips64el-linux-android-4.9")
+            .setTargetSystemName("mips64el-linux-android")
+            .setTargetCpu("mips64")
+            .setCompiler("gcc-4.9")
 
-        .addAllToolPath(ndkPaths.createToolpaths(
-            "mips64el-linux-android-4.9", "mips64el-linux-android",
-            // mips64 toolchain doesn't have the dwp tool.
-            CppConfiguration.Tool.DWP))
+            .addAllToolPath(
+                ndkPaths.createToolpaths(
+                    "mips64el-linux-android-4.9",
+                    "mips64el-linux-android",
+                    // mips64 toolchain doesn't have the dwp tool.
+                    CppConfiguration.Tool.DWP))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createToolchainIncludePaths(
+                    "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64")));
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64"))
+
+            .setSupportsEmbeddedRuntimes(true)
+            .setStaticRuntimesFilegroup("static-runtime-libs-" + "mips64el-linux-android-4.9")
+            .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + "mips64el-linux-android-4.9"));
 
     // The flags for mips64 clang 3.5 and 3.6 are the same, they differ only in the LLVM version
     // given in their tool paths.
     for (String clangVersion : new String[] { "3.5", "3.6" }) {
-      builder.add(createMipsClangToolchain("mips64", "4.9")
-          .setToolchainIdentifier("mips64el-linux-android-clang" + clangVersion)
-          .setTargetSystemName("mips64el-linux-android")
-          .setTargetCpu("mips64")
-          .setCompiler("gcc-4.9")
+      String toolchainIdentifier = "mips64el-linux-android-clang" + clangVersion;
+      builder.add(
+          createMipsClangToolchain("mips64", "4.9")
+              .setToolchainIdentifier(toolchainIdentifier)
+              .setTargetSystemName("mips64el-linux-android")
+              .setTargetCpu("mips64")
+              .setCompiler("gcc-4.9")
 
-          .addAllToolPath(ndkPaths.createClangToolpaths(
-              "mips64el-linux-android-4.9", "mips64el-linux-android", clangVersion,
-              CppConfiguration.Tool.DWP))
+              .addAllToolPath(
+                  ndkPaths.createClangToolpaths(
+                      "mips64el-linux-android-4.9",
+                      "mips64el-linux-android",
+                      clangVersion,
+                      CppConfiguration.Tool.DWP))
 
-          .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-              "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
+              .addAllCxxBuiltinIncludeDirectory(
+                  ndkPaths.createToolchainIncludePaths(
+                      "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
 
-          .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64")));
+              .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64"))
+
+              .setSupportsEmbeddedRuntimes(true)
+              .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainIdentifier)
+              .setDynamicRuntimesFilegroup("static-runtime-libs-" + toolchainIdentifier));
     }
 
     /**
      * mips
      */
 
-    builder.add(createMipsToolchain()
-        .setToolchainIdentifier("mipsel-linux-android-4.8")
-        .setTargetSystemName("mipsel-linux-android")
-        .setTargetCpu("mips")
-        .setCompiler("gcc-4.8")
+    builder.add(
+        createMipsToolchain()
+            .setToolchainIdentifier("mipsel-linux-android-4.8")
+            .setTargetSystemName("mipsel-linux-android")
+            .setTargetCpu("mips")
+            .setCompiler("gcc-4.8")
 
-        .addAllToolPath(ndkPaths.createToolpaths(
-            "mipsel-linux-android-4.8", "mipsel-linux-android",
-            // gcc-4.8 mips toolchain doesn't have dwp or gcov-tool.
-            CppConfiguration.Tool.DWP,
-            CppConfiguration.Tool.GCOVTOOL))
+            .addAllToolPath(
+                ndkPaths.createToolpaths(
+                    "mipsel-linux-android-4.8",
+                    "mipsel-linux-android",
+                    // gcc-4.8 mips toolchain doesn't have dwp or gcov-tool.
+                    CppConfiguration.Tool.DWP,
+                    CppConfiguration.Tool.GCOVTOOL))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-                "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createToolchainIncludePaths(
+                    "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8"))
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips")));
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"))
 
-    builder.add(createMipsToolchain()
-        .setToolchainIdentifier("mipsel-linux-android-4.9")
-        .setTargetSystemName("mipsel-linux-android")
-        .setTargetCpu("mips")
-        .setCompiler("gcc-4.9")
+            .setSupportsEmbeddedRuntimes(true)
+            .setStaticRuntimesFilegroup("static-runtime-libs-" + "mipsel-linux-android-4.8")
+            .setDynamicRuntimesFilegroup("static-runtime-libs-" + "mipsel-linux-android-4.8"));
 
-        .addAllToolPath(ndkPaths.createToolpaths(
-            "mipsel-linux-android-4.9", "mipsel-linux-android",
-            // gcc-4.9 mips toolchain doesn't have the dwp tool.
-            CppConfiguration.Tool.DWP))
+    builder.add(
+        createMipsToolchain()
+            .setToolchainIdentifier("mipsel-linux-android-4.9")
+            .setTargetSystemName("mipsel-linux-android")
+            .setTargetCpu("mips")
+            .setCompiler("gcc-4.9")
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9"))
+            .addAllToolPath(
+                ndkPaths.createToolpaths(
+                    "mipsel-linux-android-4.9",
+                    "mipsel-linux-android",
+                    // gcc-4.9 mips toolchain doesn't have the dwp tool.
+                    CppConfiguration.Tool.DWP))
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips")));
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createToolchainIncludePaths(
+                    "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9"))
+
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"))
+
+            .setSupportsEmbeddedRuntimes(true)
+            .setStaticRuntimesFilegroup("static-runtime-libs-" + "mipsel-linux-android-4.9")
+            .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + "mipsel-linux-android-4.9"));
 
     // The flags for mips clang 3.5 and 3.6 are the same, they differ only in the LLVM version
     // given in their tool paths.
     for (String clangVersion : new String[] { "3.5", "3.6" }) {
-      builder.add(createMipsClangToolchain("mips", "4.8")
-          .setToolchainIdentifier("mipsel-linux-android-clang" + clangVersion)
-          .setTargetSystemName("mipsel-linux-android")
-          .setTargetCpu("mips")
-          .setCompiler("gcc-4.8")
+      String toolchainIdentifier = "mipsel-linux-android-clang" + clangVersion;
+      builder.add(
+          createMipsClangToolchain("mips", "4.8")
+              .setToolchainIdentifier(toolchainIdentifier)
+              .setTargetSystemName("mipsel-linux-android")
+              .setTargetCpu("mips")
+              .setCompiler("gcc-4.8")
 
-          .addAllToolPath(ndkPaths.createClangToolpaths(
-              "mipsel-linux-android-4.8", "mipsel-linux-android", clangVersion,
-              CppConfiguration.Tool.DWP, CppConfiguration.Tool.GCOVTOOL))
+              .addAllToolPath(
+                  ndkPaths.createClangToolpaths(
+                      "mipsel-linux-android-4.8",
+                      "mipsel-linux-android",
+                      clangVersion,
+                      CppConfiguration.Tool.DWP,
+                      CppConfiguration.Tool.GCOVTOOL))
 
-          .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-              "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8"))
+              .addAllCxxBuiltinIncludeDirectory(
+                  ndkPaths.createToolchainIncludePaths(
+                      "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8"))
 
-          .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips")));
+              .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"))
+
+              .setSupportsEmbeddedRuntimes(true)
+              .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainIdentifier)
+              .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + toolchainIdentifier));
     }
 
     return builder.build();

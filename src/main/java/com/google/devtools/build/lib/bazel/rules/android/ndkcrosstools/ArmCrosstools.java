@@ -90,10 +90,14 @@ class ArmCrosstools {
 
         .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            toolchainName, targetPlatform, "4.9"))
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createToolchainIncludePaths(toolchainName, targetPlatform, "4.9"))
 
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
+
+        .setSupportsEmbeddedRuntimes(true)
+        .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainName)
+        .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + toolchainName)
 
         // Compiler flags
         .addCompilerFlag("-fpic")
@@ -106,23 +110,25 @@ class ArmCrosstools {
         .addLinkerFlag("-no-canonical-prefixes")
 
         // Additional release flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.OPT)
-            .addCompilerFlag("-O2")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-DNDEBUG")
-            .addCompilerFlag("-fomit-frame-pointer")
-            .addCompilerFlag("-fstrict-aliasing")
-            .addCompilerFlag("-funswitch-loops")
-            .addCompilerFlag("-finline-limit=300"))
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.OPT)
+                .addCompilerFlag("-O2")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-DNDEBUG")
+                .addCompilerFlag("-fomit-frame-pointer")
+                .addCompilerFlag("-fstrict-aliasing")
+                .addCompilerFlag("-funswitch-loops")
+                .addCompilerFlag("-finline-limit=300"))
 
         // Additional debug flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.DBG)
-            .addCompilerFlag("-O0")
-            .addCompilerFlag("-UNDEBUG")
-            .addCompilerFlag("-fno-omit-frame-pointer")
-            .addCompilerFlag("-fno-strict-aliasing"));
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.DBG)
+                .addCompilerFlag("-O0")
+                .addCompilerFlag("-UNDEBUG")
+                .addCompilerFlag("-fno-omit-frame-pointer")
+                .addCompilerFlag("-fno-strict-aliasing"));
   }
 
   private CToolchain.Builder createAarch64ClangToolchain(String clangVersion) {
@@ -140,10 +146,14 @@ class ArmCrosstools {
 
         .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, clangVersion))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            toolchainName, targetPlatform, "4.9"))
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createToolchainIncludePaths(toolchainName, targetPlatform, "4.9"))
 
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
+
+        .setSupportsEmbeddedRuntimes(true)
+        .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainName)
+        .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + toolchainName)
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")
@@ -157,7 +167,7 @@ class ArmCrosstools {
         .addCompilerFlag("-Wno-invalid-command-line-argument")
         .addCompilerFlag("-Wno-unused-command-line-argument")
         .addCompilerFlag("-no-canonical-prefixes")
-  
+
         // Linker flags
         .addLinkerFlag("-gcc-toolchain")
         .addLinkerFlag(gccToolchain)
@@ -166,21 +176,23 @@ class ArmCrosstools {
         .addLinkerFlag("-no-canonical-prefixes")
 
         // Additional release flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.OPT)
-            .addCompilerFlag("-O2")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-DNDEBUG")
-            .addCompilerFlag("-fomit-frame-pointer")
-            .addCompilerFlag("-fstrict-aliasing"))
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.OPT)
+                .addCompilerFlag("-O2")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-DNDEBUG")
+                .addCompilerFlag("-fomit-frame-pointer")
+                .addCompilerFlag("-fstrict-aliasing"))
 
         // Additional debug flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.DBG)
-            .addCompilerFlag("-O0")
-            .addCompilerFlag("-UNDEBUG")
-            .addCompilerFlag("-fno-omit-frame-pointer")
-            .addCompilerFlag("-fno-strict-aliasing"));
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.DBG)
+                .addCompilerFlag("-O0")
+                .addCompilerFlag("-UNDEBUG")
+                .addCompilerFlag("-fno-omit-frame-pointer")
+                .addCompilerFlag("-fno-strict-aliasing"));
   }
 
   private void createArmeabiToolchain(ImmutableList.Builder<CToolchain.Builder> builder,
@@ -249,24 +261,29 @@ class ArmCrosstools {
         targetPlatform,
         gccVersion);
 
-    CToolchain.Builder builder = CToolchain.newBuilder()
-        .setTargetSystemName(targetPlatform)
-        .setCompiler("gcc-" + gccVersion)
+    CToolchain.Builder builder =
+        CToolchain.newBuilder()
+            .setTargetSystemName(targetPlatform)
+            .setCompiler("gcc-" + gccVersion)
 
-        .addAllToolPath(toolPaths)
-        .addAllCxxBuiltinIncludeDirectory(toolchainIncludes)
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
+            .addAllToolPath(toolPaths)
+            .addAllCxxBuiltinIncludeDirectory(toolchainIncludes)
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
-        .addCompilerFlag(stackProtectorFlag)
+            .setSupportsEmbeddedRuntimes(true)
+            .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainName)
+            .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + toolchainName)
 
-        // Compiler flags
-        .addCompilerFlag("-fpic")
-        .addCompilerFlag("-ffunction-sections")
-        .addCompilerFlag("-funwind-tables")
-        .addCompilerFlag("-no-canonical-prefixes")
+            .addCompilerFlag(stackProtectorFlag)
 
-        // Linker flags
-        .addLinkerFlag("-no-canonical-prefixes");
+            // Compiler flags
+            .addCompilerFlag("-fpic")
+            .addCompilerFlag("-ffunction-sections")
+            .addCompilerFlag("-funwind-tables")
+            .addCompilerFlag("-no-canonical-prefixes")
+
+            // Linker flags
+            .addLinkerFlag("-no-canonical-prefixes");
 
     if (thumb) {
       builder.addCompilationModeFlags(CompilationModeFlags.newBuilder()
@@ -371,38 +388,44 @@ class ArmCrosstools {
     String targetPlatform = "arm-linux-androideabi";
     String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.8");
 
-    CToolchain.Builder builder = CToolchain.newBuilder()
-        .setTargetSystemName("arm-linux-androideabi")
-        .setCompiler("gcc-4.8")
+    CToolchain.Builder builder =
+        CToolchain.newBuilder()
+            .setTargetSystemName("arm-linux-androideabi")
+            .setCompiler("gcc-4.8")
 
-        .addAllToolPath(ndkPaths.createClangToolpaths(
-            toolchainName,
-            targetPlatform,
-            clangVersion,
-            // gcc-4.8 arm doesn't have gcov-tool
-            CppConfiguration.Tool.GCOVTOOL))
+            .addAllToolPath(
+                ndkPaths.createClangToolpaths(
+                    toolchainName,
+                    targetPlatform,
+                    clangVersion,
+                    // gcc-4.8 arm doesn't have gcov-tool
+                    CppConfiguration.Tool.GCOVTOOL))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            toolchainName, targetPlatform, "4.8"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createToolchainIncludePaths(toolchainName, targetPlatform, "4.8"))
 
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
-        // Compiler flags
-        .addCompilerFlag("-gcc-toolchain")
-        .addCompilerFlag(gccToolchain)
-        .addCompilerFlag("-fpic")
-        .addCompilerFlag("-ffunction-sections")
-        .addCompilerFlag("-funwind-tables")
-        .addCompilerFlag("-fstack-protector-strong")
-        .addCompilerFlag("-Wno-invalid-command-line-argument")
-        .addCompilerFlag("-Wno-unused-command-line-argument")
-        .addCompilerFlag("-no-canonical-prefixes")
-        .addCompilerFlag("-fno-integrated-as")
+            .setSupportsEmbeddedRuntimes(true)
+            .setStaticRuntimesFilegroup("static-runtime-libs-" + toolchainName)
+            .setDynamicRuntimesFilegroup("dynamic-runtime-libs-" + toolchainName)
 
-        // Linker flags
-        .addLinkerFlag("-gcc-toolchain")
-        .addLinkerFlag(gccToolchain)
-        .addLinkerFlag("-no-canonical-prefixes");
+            // Compiler flags
+            .addCompilerFlag("-gcc-toolchain")
+            .addCompilerFlag(gccToolchain)
+            .addCompilerFlag("-fpic")
+            .addCompilerFlag("-ffunction-sections")
+            .addCompilerFlag("-funwind-tables")
+            .addCompilerFlag("-fstack-protector-strong")
+            .addCompilerFlag("-Wno-invalid-command-line-argument")
+            .addCompilerFlag("-Wno-unused-command-line-argument")
+            .addCompilerFlag("-no-canonical-prefixes")
+            .addCompilerFlag("-fno-integrated-as")
+
+            // Linker flags
+            .addLinkerFlag("-gcc-toolchain")
+            .addLinkerFlag(gccToolchain)
+            .addLinkerFlag("-no-canonical-prefixes");
 
     if (thumb) {
       builder.addCompilationModeFlags(CompilationModeFlags.newBuilder()

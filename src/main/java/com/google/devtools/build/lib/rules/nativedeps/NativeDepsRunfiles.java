@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -40,7 +41,7 @@ public class NativeDepsRunfiles {
 
   public NativeDepsRunfiles(@Nullable Artifact library, @Nullable List<Artifact> runtimeSymlinks) {
     this.library = library;
-    this.runtimeSymlinks = runtimeSymlinks;
+    this.runtimeSymlinks = runtimeSymlinks == null ? null : ImmutableList.copyOf(runtimeSymlinks);
   }
 
   /**

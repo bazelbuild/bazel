@@ -139,18 +139,31 @@ public class AndroidNdkCrosstools {
     // Extract the gcc version from the compiler, which should look like "gcc-4.8" or "gcc-4.9".
     String gccVersion = baseToolchain.getCompiler().split("-")[1];
 
-    toolchains.add(CToolchain.newBuilder(baseToolchain)
-        .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-gnu-libstdcpp")
-        .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createGnuLibstdcIncludePaths(
-            gccVersion, baseToolchain.getTargetCpu()))));
+    toolchains.add(
+        CToolchain.newBuilder(baseToolchain)
+            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-gnu-libstdcpp")
+            .addAllUnfilteredCxxFlag(
+                createIncludeFlags(
+                    ndkPaths.createGnuLibstdcIncludePaths(
+                        gccVersion, baseToolchain.getTargetCpu())))
+            .setStaticRuntimesFilegroup(
+                baseToolchain.getStaticRuntimesFilegroup() + "-gnu-libstdcpp")
+            .setDynamicRuntimesFilegroup(
+                baseToolchain.getDynamicRuntimesFilegroup() + "-gnu-libstdcpp"));
 
-    toolchains.add(CToolchain.newBuilder(baseToolchain)
-        .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-libcpp")
-        .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths())));
+    toolchains.add(
+        CToolchain.newBuilder(baseToolchain)
+            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-libcpp")
+            .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()))
+            .setStaticRuntimesFilegroup(baseToolchain.getStaticRuntimesFilegroup() + "-libcpp")
+            .setDynamicRuntimesFilegroup(baseToolchain.getDynamicRuntimesFilegroup() + "-libcpp"));
 
-    toolchains.add(CToolchain.newBuilder(baseToolchain)
-        .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-stlport")
-        .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths())));
+    toolchains.add(
+        CToolchain.newBuilder(baseToolchain)
+            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-stlport")
+            .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths()))
+            .setStaticRuntimesFilegroup(baseToolchain.getStaticRuntimesFilegroup() + "-stlport")
+            .setDynamicRuntimesFilegroup(baseToolchain.getDynamicRuntimesFilegroup() + "-stlport"));
 
     return toolchains.build();
   }
