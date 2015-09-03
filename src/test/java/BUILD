@@ -95,6 +95,7 @@ java_test(
     name = "foundations_test",
     srcs = glob(
         ["%s/%s" % (test_prefix, p) for p in [
+            "cmdline/*.java",
             "concurrent/*.java",
             "collect/*.java",
             "collect/nestedset/*.java",
