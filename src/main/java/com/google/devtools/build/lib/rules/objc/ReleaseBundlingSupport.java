@@ -758,7 +758,7 @@ public final class ReleaseBundlingSupport {
         .add("Frameworks")
         .addPath(ObjcRuleClasses.SWIFT_STDLIB_TOOL)
         .add("--platform").add(IosSdkCommands.swiftPlatform(objcConfiguration))
-        .addExecPath("--scan-executable", intermediateArtifacts.strippedSingleArchitectureBinary());
+        .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnJavaOnDarwinActionBuilder(
@@ -766,7 +766,7 @@ public final class ReleaseBundlingSupport {
             .setMnemonic("SwiftStdlibCopy")
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
-            .addInput(intermediateArtifacts.strippedSingleArchitectureBinary())
+            .addInput(intermediateArtifacts.combinedArchitectureBinary())
             .build(ruleContext));
   }
 
