@@ -53,7 +53,7 @@ function setup_android_support() {
   ln -s "${androidresourceprocessor_path}" ${ANDROID_TOOLS}/tools/android/androidresourceprocessor.jar
   ln -s "${dexmapper_path}" ${ANDROID_TOOLS}/tools/android/dexmapper.jar
   ln -s "${dexreducer_path}" ${ANDROID_TOOLS}/tools/android/dexreducer.jar
-
+  ln -s "${TEST_SRCDIR}/tools/android/bazel_debug.keystore" ${ANDROID_TOOLS}/tools/android/bazel_debug.keystore
   mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
   cp -RL "${incrementaldeployment_path}"/* ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
 
@@ -148,6 +148,12 @@ sh_binary(
     name = "stubify_manifest",
     srcs = ["fail.sh"],
 )
+
+filegroup(
+    name = "debug_keystore",
+    srcs = ["bazel_debug.keystore"],
+)
+
 EOF
 
   cat > $ANDROID_TOOLS/tools/android/fail.sh <<EOF
