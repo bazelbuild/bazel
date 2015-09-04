@@ -84,6 +84,7 @@ public class PackageFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
+  private final Cache<PackageIdentifier, Preprocessor.Result> preprocessCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
@@ -96,6 +97,7 @@ public class PackageFunction implements SkyFunction {
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
       Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache,
+      Cache<PackageIdentifier, Preprocessor.Result> preprocessCache,
       AtomicInteger numPackagesLoaded) {
     this.reporter = reporter;
 
@@ -107,6 +109,7 @@ public class PackageFunction implements SkyFunction {
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
     this.packageFunctionCache = packageFunctionCache;
+    this.preprocessCache = preprocessCache;
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
@@ -795,10 +798,14 @@ public class PackageFunction implements SkyFunction {
         Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
             packageId, packageLocator);
         StoredEventHandler localReporter = new StoredEventHandler();
-        Preprocessor.Result preprocessingResult = replacementSource == null
-            ? packageFactory.preprocess(packageId, buildFilePath, inputSource, globber,
-                localReporter)
-                : Preprocessor.Result.noPreprocessing(replacementSource);
+        Preprocessor.Result preprocessingResult = preprocessCache.getIfPresent(packageId);
+        if (preprocessingResult == null) {
+          preprocessingResult = replacementSource == null
+              ? packageFactory.preprocess(packageId, buildFilePath, inputSource, globber,
+                  localReporter)
+              : Preprocessor.Result.noPreprocessing(replacementSource);
+          preprocessCache.put(packageId, preprocessingResult);
+        }
 
         SkylarkImportResult importResult =
             discoverSkylarkImports(
@@ -811,6 +818,7 @@ public class PackageFunction implements SkyFunction {
         if (importResult == null) {
           return null;
         }
+        preprocessCache.invalidate(packageId);
 
         pkgBuilder = packageFactory.createPackageFromPreprocessingResult(externalPkg, packageId,
             buildFilePath, preprocessingResult, localReporter.getEvents(), preludeStatements,
