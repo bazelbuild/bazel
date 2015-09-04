@@ -1210,7 +1210,7 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(statements).hasSize(1);
     assertThat(statements.get(0)).isInstanceOf(FunctionDefStatement.class);
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
-    FunctionSignature sig = stmt.getArgs().getSignature();
+    FunctionSignature sig = stmt.getSignature().getSignature();
     // Note the reordering of optional named-only at the end.
     assertThat(sig.getNames()).isEqualTo(ImmutableList.<String>of(
         "a", "b1", "b2", "c1", "c2", "d"));

@@ -1329,21 +1329,17 @@ class Parser {
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    FunctionSignature.WithValues<Expression, Expression> args = parseFunctionSignature();
+    List<Parameter<Expression, Expression>> params = parseParameters();
+    FunctionSignature.WithValues<Expression, Expression> signature = functionSignature(params);
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    FunctionDefStatement stmt = new FunctionDefStatement(ident, args, block);
+    FunctionDefStatement stmt = new FunctionDefStatement(ident, params, signature, block);
     list.add(setLocation(stmt, start, token.right));
   }
 
-  private FunctionSignature.WithValues<Expression, Expression> parseFunctionSignature() {
-    List<Parameter<Expression, Expression>> parameters =
-        parseFunctionArguments(new Supplier<Parameter<Expression, Expression>>() {
-              @Override public Parameter<Expression, Expression> get() {
-                return parseFunctionParameter();
-              }
-            });
+  private FunctionSignature.WithValues<Expression, Expression> functionSignature(
+      List<Parameter<Expression, Expression>> parameters) {
     try {
       return FunctionSignature.WithValues.<Expression, Expression>of(parameters);
     } catch (FunctionSignature.SignatureException e) {
@@ -1351,6 +1347,15 @@ class Parser {
       // return bogus empty signature
       return FunctionSignature.WithValues.<Expression, Expression>create(FunctionSignature.of());
     }
+  }
+
+  private List<Parameter<Expression, Expression>> parseParameters() {
+    return parseFunctionArguments(
+        new Supplier<Parameter<Expression, Expression>>() {
+          @Override public Parameter<Expression, Expression> get() {
+            return parseFunctionParameter();
+          }
+        });
   }
 
   /**
