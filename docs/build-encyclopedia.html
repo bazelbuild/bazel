@@ -10607,7 +10607,7 @@ config_setting(
       genrule
     </h3>
 
-    <pre class="rule-signature">genrule(<a href="#genrule.name">name</a>, <a href="#genrule.srcs">srcs</a>, <a href="#genrule.outs">outs</a>, <a href="#genrule.cmd">cmd</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#genrule.executable">executable</a>, <a href="#common.features">features</a>, <a href="#common.licenses">licenses</a>, <a href="#genrule.message">message</a>, <a href="#genrule.output_to_bindir">output_to_bindir</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#genrule.tools">tools</a>, <a href="#common.visibility">visibility</a>)</pre>
+    <pre class="rule-signature">genrule(<a href="#genrule.name">name</a>, <a href="#genrule.srcs">srcs</a>, <a href="#genrule.outs">outs</a>, <a href="#genrule.cmd">cmd</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#genrule.executable">executable</a>, <a href="#common.features">features</a>, <a href="#common.licenses">licenses</a>, <a href="#genrule.local">local</a>, <a href="#genrule.message">message</a>, <a href="#genrule.output_to_bindir">output_to_bindir</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#genrule.tools">tools</a>, <a href="#common.visibility">visibility</a>)</pre>
 
     
 
@@ -10891,6 +10891,20 @@ genrule(
           </td>
         </tr>
                                                           <tr>
+          <td id="genrule.local">
+            <code>local</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                
+        <p>
+          If set to 1, this option force this <code>genrule</code> to run with the
+          <code>standalone</code> strategy, without sandboxing.
+        </p>
+
+          </td>
+        </tr>
+                              <tr>
           <td id="genrule.message">
             <code>message</code>
           </td>
