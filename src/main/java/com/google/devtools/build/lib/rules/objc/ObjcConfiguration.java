@@ -58,7 +58,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSimulatorVersion;
   private final String iosSimulatorDevice;
   private final String iosCpu;
-  private final Optional<String> configuredIosCpu;
   private final String xcodeOptions;
   private final Optional<String> xcodeVersionOverride;
   private final boolean generateDebugSymbols;
@@ -94,9 +93,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
-    this.iosCpu = Preconditions.checkNotNull(objcOptions.getIosCpu(), "iosCpu");
-    this.configuredIosCpu =
-        Preconditions.checkNotNull(objcOptions.getConfiguredIosCpu(), "configuredIosCpu");
+    this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
     this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
     this.generateDebugSymbols = objcOptions.generateDebugSymbols;
     this.runMemleaks = objcOptions.runMemleaks;
@@ -150,19 +147,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return iosSimulatorVersion;
   }
 
-  /**
-   * Returns the ios_cpu value to use.
-   */
   public String getIosCpu() {
     return iosCpu;
-  }
-
-  /**
-   * Returns the ios_cpu value set by the configuration (that is, by a command-line flag
-   * or by an ios_multi_cpu split configuration), if it is present.
-   */
-  public Optional<String> getConfiguredIosCpu() {
-    return configuredIosCpu;
   }
 
   /**
