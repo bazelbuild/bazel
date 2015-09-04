@@ -80,6 +80,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public static class Builder implements RuleDefinitionEnvironment {
     private final StringBuilder defaultWorkspaceFile = new StringBuilder();
     private PathFragment preludePath;
+    private String runfilesPrefix;
     private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
@@ -107,6 +108,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Preconditions.checkArgument(!preludePathFragment.isAbsolute());
       Preconditions.checkArgument(preludePathFragment.isNormalized());
       this.preludePath = preludePathFragment;
+      return this;
+    }
+
+    public Builder setRunfilesPrefix(String runfilesPrefix) {
+      this.runfilesPrefix = runfilesPrefix;
       return this;
     }
 
@@ -219,6 +225,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
       return new ConfiguredRuleClassProvider(
           preludePath,
+          runfilesPrefix,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(aspectFactoryMap),
@@ -265,6 +272,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final PathFragment preludePath;
 
   /**
+   * The default runfiles prefix.
+   */
+  private final String runfilesPrefix;
+
+  /**
    * Maps rule class name to the metaclass instance for that rule.
    */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
@@ -304,6 +316,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public ConfiguredRuleClassProvider(
       PathFragment preludePath,
+      String runfilesPrefix,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
       ImmutableMap<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap,
@@ -315,6 +328,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
     this.preludePath = preludePath;
+    this.runfilesPrefix = runfilesPrefix;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.aspectFactoryMap = aspectFactoryMap;
@@ -337,6 +351,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public PathFragment getPreludePath() {
     return preludePath;
+  }
+
+  @Override
+  public String getRunfilesPrefix() {
+    return runfilesPrefix;
   }
 
   @Override

@@ -482,7 +482,8 @@ public class PackageDeserializer {
     Package.Builder builder;
     try {
       builder = new Package.Builder(
-          new PackageIdentifier(packagePb.getRepository(), new PathFragment(packagePb.getName())));
+          new PackageIdentifier(packagePb.getRepository(), new PathFragment(packagePb.getName())),
+          null);
     } catch (TargetParsingException e) {
       throw new PackageDeserializationException(e);
     }

@@ -32,6 +32,11 @@ public interface RuleClassProvider {
   PathFragment getPreludePath();
 
   /**
+   * The default runfiles prefix (may be overwritten by the WORKSPACE file).
+   */
+  String getRunfilesPrefix();
+
+  /**
    * Returns a map from rule names to rule class objects.
    */
   Map<String, RuleClass> getRuleClassMap();

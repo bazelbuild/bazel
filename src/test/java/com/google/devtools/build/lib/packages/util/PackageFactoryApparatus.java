@@ -129,8 +129,8 @@ public class PackageFactoryApparatus {
     GlobCache globCache = new GlobCache(
         buildFile.getParentDirectory(), packageId, locator, null, TestUtils.getPool());
     LegacyGlobber globber = new LegacyGlobber(globCache);
-    ExternalPackage externalPkg = (new ExternalPackage.Builder(
-        buildFile.getParentDirectory().getRelative("WORKSPACE"))).build();
+    ExternalPackage externalPkg = new ExternalPackage.Builder(
+        buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING").build();
     LegacyBuilder resultBuilder = factory.evaluateBuildFile(
         externalPkg, packageId, buildFileAST, buildFile,
         globber, ImmutableList.<Event>of(), ConstantRuleVisibility.PUBLIC, false, false,

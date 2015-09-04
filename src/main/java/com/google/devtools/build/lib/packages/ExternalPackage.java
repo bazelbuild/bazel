@@ -41,8 +41,8 @@ public class ExternalPackage extends Package {
 
   private Map<RepositoryName, Rule> repositoryMap;
 
-  ExternalPackage() {
-    super(PACKAGE_IDENTIFIER);
+  ExternalPackage(String runfilesPrefix) {
+    super(PACKAGE_IDENTIFIER, runfilesPrefix);
   }
 
   /**
@@ -59,8 +59,8 @@ public class ExternalPackage extends Package {
   public static class Builder extends Package.Builder {
     private Map<RepositoryName, Rule> repositoryMap = Maps.newLinkedHashMap();
 
-    public Builder(Path workspacePath) {
-      super(new ExternalPackage());
+    public Builder(Path workspacePath, String runfilesPrefix) {
+      super(new ExternalPackage(runfilesPrefix));
       setFilename(workspacePath);
       setMakeEnv(new MakeEnvironment.Builder());
     }

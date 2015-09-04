@@ -67,7 +67,8 @@ public class Resolver {
    */
   public ExternalPackage parse(Path workspacePath) {
     resolver.addHeader(workspacePath.getPathString());
-    ExternalPackage.Builder builder = new ExternalPackage.Builder(workspacePath);
+    ExternalPackage.Builder builder = new ExternalPackage.Builder(workspacePath,
+        ruleClassProvider.getRunfilesPrefix());
     WorkspaceFactory parser = new WorkspaceFactory(builder, ruleClassProvider);
     try {
       parser.parse(ParserInputSource.create(workspacePath));
