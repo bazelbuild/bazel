@@ -142,18 +142,19 @@ EOF
 
   cat > java/bazel/jni.cc <<EOF
 #include <jni.h>
+#include <string>
 
 #include "java/bazel/jni_dep.h"
 
-const char* hello = "Hello JNI";
-
 extern "C" JNIEXPORT jstring JNICALL
 Java_bazel_Jni_hello(JNIEnv *env, jclass clazz) {
-  return NewStringLatin1(env, hello);
+  std::string hello = "Hello";
+  std::string jni = "JNI";
+  return NewStringLatin1(env, (hello + " " + jni).c_str());
 }
 EOF
 
-  bazel build //java/bazel:bin || fail "build failed"
+  bazel build -s //java/bazel:bin || fail "build failed"
 }
 
 if [[ ! -r "${TEST_SRCDIR}/external/globbed_android_ndk/RELEASE.TXT" ]]; then
