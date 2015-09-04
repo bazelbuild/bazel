@@ -707,8 +707,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessingUnknownField() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "Object of type 'struct' has no field \"c\"", "x = struct(a = 1, b = 2)", "y = x.c");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "'struct' object has no attribute 'c'\n" + "Available attributes: a, b",
+            "x = struct(a = 1, b = 2)",
+            "y = x.c");
   }
 
   @Test
