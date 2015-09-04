@@ -38,10 +38,10 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkModules;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -312,8 +312,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
 
-  private final ValidationEnvironment skylarkValidationEnvironment;
-
   public ConfiguredRuleClassProvider(
       PathFragment preludePath,
       String runfilesPrefix,
@@ -339,9 +337,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
     this.skylarkAccessibleJavaClasses = skylarkAccessibleJavaClasses;
-    this.skylarkValidationEnvironment = new ValidationEnvironment(
-        // TODO(bazel-team): refactor constructors so we don't have those null-s
-        createSkylarkRuleClassEnvironment(null, null));
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -426,19 +421,23 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode) {
-    SkylarkEnvironment env = SkylarkModules.getNewEnvironment(eventHandler, astFileContentHashCode);
+  public Environment createSkylarkRuleClassEnvironment(
+      Mutability mutability,
+      EventHandler eventHandler,
+      String astFileContentHashCode,
+      Map<PathFragment, Environment> importMap) {
+    Environment env = Environment.builder(mutability)
+        .setSkylark()
+        .setGlobals(SkylarkModules.GLOBALS)
+        .setEventHandler(eventHandler)
+        .setFileContentHashCode(astFileContentHashCode)
+        .setImportedExtensions(importMap)
+        .setLoadingPhase()
+        .build();
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
-      env.update(entry.getKey(), entry.getValue().getType());
+      env.setup(entry.getKey(), entry.getValue().getType());
     }
-    env.setLoadingPhase();
     return env;
-  }
-
-  @Override
-  public ValidationEnvironment getSkylarkValidationEnvironment() {
-    return skylarkValidationEnvironment;
   }
 
   @Override

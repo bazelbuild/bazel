@@ -35,48 +35,76 @@ import java.util.List;
  * Base class for test cases that use parsing and evaluation services.
  */
 public class EvaluationTestCase {
-  
+
   private EventCollectionApparatus eventCollectionApparatus;
   private PackageFactory factory;
   private TestMode testMode = TestMode.SKYLARK;
-  
-  protected EvaluationContext evaluationContext;
+  protected Environment env;
+  protected Mutability mutability = Mutability.create("test");
 
   public EvaluationTestCase()   {
     createNewInfrastructure();
   }
-  
+
   @Before
   public void setUp() throws Exception {
     createNewInfrastructure();
-    evaluationContext = newEvaluationContext();
+    env = newEnvironment();
   }
 
-  public EvaluationContext newEvaluationContext() throws Exception {
+  /**
+   * Creates a standard Environment for tests in the BUILD language.
+   * No PythonPreprocessing, mostly empty mutable Environment.
+   */
+  public Environment newBuildEnvironment() {
+    return Environment.builder(mutability)
+        .setGlobals(Environment.BUILD)
+        .setEventHandler(getEventHandler())
+        .setLoadingPhase()
+        .build();
+  }
+
+  /**
+   * Creates an Environment for Skylark with a mostly empty initial environment.
+   * For internal initialization or tests.
+   */
+  public Environment newSkylarkEnvironment() {
+    return Environment.builder(mutability)
+        .setSkylark()
+        .setGlobals(Environment.SKYLARK)
+        .setEventHandler(getEventHandler())
+        .build();
+  }
+
+  /**
+   * Creates a new Environment suitable for the test case. Subclasses may override it
+   * to fit their purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment;
+   * or they may play with the testMode to run tests in either or both kinds of Environment.
+   * Note that all Environment-s may share the same Mutability, so don't close it.
+   * @return a fresh Environment.
+   */
+  public Environment newEnvironment() throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
-          + "evaluatenContext manually by overriding newEvaluationContext()");
+          + "Environment manually by overriding newEnvironment()");
     }
-
-    return testMode.createContext(getEventHandler(), factory.getEnvironment());
+    return testMode.createEnvironment(getEventHandler(), null);
   }
 
   protected void createNewInfrastructure()  {
     eventCollectionApparatus = new EventCollectionApparatus(EventKind.ALL_EVENTS);
     factory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
   }
-  
+
   /**
-   * Sets the specified {@code TestMode} and tries to create the appropriate {@code
-   * EvaluationContext}
-   * 
+   * Sets the specified {@code TestMode} and tries to create the appropriate {@code Environment}
    * @param testMode
    * @throws Exception
    */
   protected void setMode(TestMode testMode) throws Exception {
     this.testMode = testMode;
-    evaluationContext = newEvaluationContext();
+    env = newEnvironment();
   }
 
   protected void enableSkylarkMode() throws Exception {
@@ -96,32 +124,33 @@ public class EvaluationTestCase {
   }
 
   public Environment getEnvironment() {
-    return evaluationContext.getEnvironment();
+    return env;
   }
-  
+
   public boolean isSkylark() {
-    return evaluationContext.isSkylark();
+    return env.isSkylark();
   }
 
   protected List<Statement> parseFile(String... input) {
-    return evaluationContext.parseFile(input);
+    return env.parseFile(input);
   }
 
+  /** Parses an Expression from string without a supporting file */
   Expression parseExpression(String... input) {
-    return evaluationContext.parseExpression(input);
+    return Parser.parseExpression(env.createLexer(input), getEventHandler());
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    evaluationContext.update(varname, value);
+    env.update(varname, value);
     return this;
   }
 
   public Object lookup(String varname) throws Exception {
-    return evaluationContext.lookup(varname);
+    return env.lookup(varname);
   }
 
   public Object eval(String... input) throws Exception {
-    return evaluationContext.eval(input);
+    return env.eval(input);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
@@ -189,15 +218,14 @@ public class EvaluationTestCase {
 
   /**
    * Base class for test cases that run in specific modes (e.g. Build and/or Skylark)
-   *
-   */  
+   */
   protected abstract class ModalTestCase {
     private final SetupActions setup;
-    
-    protected ModalTestCase()   {
+
+    protected ModalTestCase() {
       setup = new SetupActions();
     }
-    
+
     /**
      * Allows the execution of several statements before each following test
      * @param statements The statement(s) to be executed
@@ -218,7 +246,7 @@ public class EvaluationTestCase {
       setup.registerUpdate(name, value);
       return this;
     }
-    
+
     /**
      * Evaluates two parameters and compares their results.
      * @param statement The statement to be evaluated
@@ -255,7 +283,7 @@ public class EvaluationTestCase {
       runTest(collectionTestable(statement, false, items));
       return this;
     }
-    
+
     /**
      * Evaluates the given statement and compares its result to the collection of expected objects
      * while considering their order
@@ -409,7 +437,7 @@ public class EvaluationTestCase {
   }
 
   /**
-   * A simple decorator that allows the execution of setup actions before running 
+   * A simple decorator that allows the execution of setup actions before running
    * a {@code Testable}
    */
   class TestableDecorator implements Testable {
@@ -480,7 +508,7 @@ public class EvaluationTestCase {
       }
     }
   }
-    
+
   /**
    * A class that executes each separate test in both modes (Build and Skylark)
    */

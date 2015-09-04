@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.syntax.EvaluationContext;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.OutErr;
 
@@ -67,9 +67,9 @@ public class EventCollectionApparatus {
    */
   public void setFailFast(boolean failFast) {
     if (failFast) {
-      reporter.addHandler(EvaluationContext.FAIL_FAST_HANDLER);
+      reporter.addHandler(Environment.FAIL_FAST_HANDLER);
     } else {
-      reporter.removeHandler(EvaluationContext.FAIL_FAST_HANDLER);
+      reporter.removeHandler(Environment.FAIL_FAST_HANDLER);
     }
   }
 

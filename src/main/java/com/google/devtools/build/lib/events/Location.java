@@ -149,6 +149,18 @@ public abstract class Location implements Serializable {
   }
 
   /**
+   * Returns a line corresponding to the position denoted by getStartOffset.
+   * Returns null if this information is not available.
+   */
+  public Integer getStartLine() {
+    LineAndColumn lac = getStartLineAndColumn();
+    if (lac == null) {
+      return null;
+    }
+    return lac.getLine();
+  }
+
+  /**
    * Returns a (line, column) pair corresponding to the position denoted by
    * getEndOffset.  Returns null if this information is not available.
    */

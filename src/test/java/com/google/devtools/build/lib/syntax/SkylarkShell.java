@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.rules.SkylarkModules;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -42,8 +41,9 @@ class SkylarkShell {
 
   private final BufferedReader reader = new BufferedReader(
       new InputStreamReader(System.in, Charset.defaultCharset()));
-  private final EvaluationContext ev =
-      SkylarkModules.newEvaluationContext(PRINT_HANDLER);
+  private final Mutability mutability = Mutability.create("shell");
+  private final Environment env = Environment.builder(mutability)
+      .setSkylark().setGlobals(Environment.SKYLARK).setEventHandler(PRINT_HANDLER).build();
 
   public String read() {
     StringBuilder input = new StringBuilder();
@@ -70,7 +70,7 @@ class SkylarkShell {
     String input;
     while ((input = read()) != null) {
       try {
-        Object result = ev.eval(input);
+        Object result = env.eval(input);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }

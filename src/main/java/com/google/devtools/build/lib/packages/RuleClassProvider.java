@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * The collection of the supported build rules. Provides an Environment for Skylark rule creation.
@@ -47,17 +49,19 @@ public interface RuleClassProvider {
   Map<String, Class<? extends AspectFactory<?, ?, ?>>> getAspectFactoryMap();
 
   /**
-   * Returns a new Skylark Environment instance for rule creation. Implementations need to be
-   * thread safe.
+   * Returns a new Skylark Environment instance for rule creation.
+   * Implementations need to be thread safe.
+   * Be sure to close() the mutability before you return the results of said evaluation.
+   * @param mutability the Mutability for the current evaluation context
+   * @param eventHandler the EventHandler for warnings, errors, etc.
+   * @param astFileContentHashCode the hash code identifying this environment.
+   * @return an Environment, in which to evaluate load time skylark forms.
    */
-  SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode);
-
-  /**
-   * Returns a validation environment for static analysis of skylark files.
-   * The environment has to contain all built-in functions and objects.
-   */
-  ValidationEnvironment getSkylarkValidationEnvironment();
+  Environment createSkylarkRuleClassEnvironment(
+      Mutability mutability,
+      EventHandler eventHandler,
+      @Nullable String astFileContentHashCode,
+      @Nullable Map<PathFragment, Environment> importMap);
 
   /**
    * Returns the default content of the WORKSPACE file.

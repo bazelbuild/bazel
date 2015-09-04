@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.HashMap;
@@ -31,7 +30,7 @@ import java.util.Stack;
  * @see Statement#validate
  * @see Expression#validate
  */
-public class ValidationEnvironment {
+public final class ValidationEnvironment {
 
   private final ValidationEnvironment parent;
 
@@ -45,9 +44,6 @@ public class ValidationEnvironment {
   // branches of if-else statements.
   private Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
 
-  // Whether this validation environment is not modified therefore clonable or not.
-  private boolean clonable;
-
   /**
    * Tracks the number of nested for loops that contain the statement that is currently being
    * validated
@@ -55,38 +51,14 @@ public class ValidationEnvironment {
   private int loopCount = 0;
 
   /**
-   * Create a ValidationEnvironment for a given global Environment
+   * Create a ValidationEnvironment for a given global Environment.
    */
   public ValidationEnvironment(Environment env) {
-    this(env.getVariableNames());
     Preconditions.checkArgument(env.isGlobal());
-  }
-
-  public ValidationEnvironment(Set<String> builtinVariables) {
     parent = null;
+    Set<String> builtinVariables = env.getVariableNames();
     variables.addAll(builtinVariables);
     readOnlyVariables.addAll(builtinVariables);
-    clonable = true;
-  }
-
-  private ValidationEnvironment(Set<String> builtinVariables, Set<String> readOnlyVariables) {
-    parent = null;
-    this.variables = new HashSet<>(builtinVariables);
-    this.readOnlyVariables = new HashSet<>(readOnlyVariables);
-    clonable = false;
-  }
-
-  // ValidationEnvironment for a new Environment()
-  private static ImmutableSet<String> globalTypes = ImmutableSet.of("False", "True", "None");
-
-  public ValidationEnvironment() {
-    this(globalTypes);
-  }
-
-  @Override
-  public ValidationEnvironment clone() {
-    Preconditions.checkState(clonable);
-    return new ValidationEnvironment(variables, readOnlyVariables);
   }
 
   /**
@@ -95,7 +67,6 @@ public class ValidationEnvironment {
   public ValidationEnvironment(ValidationEnvironment parent) {
     // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
-    this.clonable = false;
   }
 
   /**
@@ -120,7 +91,6 @@ public class ValidationEnvironment {
     }
     variables.add(varname);
     variableLocations.put(varname, location);
-    clonable = false;
   }
 
   private void checkReadonly(String varname, Location location) throws EvalException {
@@ -133,7 +103,8 @@ public class ValidationEnvironment {
    * Returns true if the symbol exists in the validation environment.
    */
   public boolean hasSymbolInEnvironment(String varname) {
-    return variables.contains(varname) || topLevel().variables.contains(varname);
+    return variables.contains(varname)
+        || (parent != null && topLevel().variables.contains(varname));
   }
 
   private ValidationEnvironment topLevel() {
@@ -147,7 +118,6 @@ public class ValidationEnvironment {
    */
   public void startTemporarilyDisableReadonlyCheckSession() {
     futureReadOnlyVariables.add(new HashSet<String>());
-    clonable = false;
   }
 
   /**
@@ -159,7 +129,6 @@ public class ValidationEnvironment {
     if (!futureReadOnlyVariables.isEmpty()) {
       futureReadOnlyVariables.peek().addAll(variables);
     }
-    clonable = false;
   }
 
   /**
@@ -167,7 +136,6 @@ public class ValidationEnvironment {
    */
   public void finishTemporarilyDisableReadonlyCheckBranch() {
     readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
-    clonable = false;
   }
 
   /**

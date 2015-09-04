@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 
 import java.io.File;
@@ -44,14 +44,30 @@ public class WorkspaceFactory {
   private final Builder builder;
   private final Environment environment;
 
-  public WorkspaceFactory(Builder builder, RuleClassProvider ruleClassProvider) {
-    this(builder, ruleClassProvider, null);
+  /**
+   * @param builder a builder for the Workspace
+   * @param ruleClassProvider a provider for known rule classes
+   * @param mutability the Mutability for the current evaluation context
+   */
+  public WorkspaceFactory(
+      Builder builder, RuleClassProvider ruleClassProvider, Mutability mutability) {
+    this(builder, ruleClassProvider, mutability, null);
   }
 
+  // TODO(bazel-team): document installDir
+  /**
+   * @param builder a builder for the Workspace
+   * @param ruleClassProvider a provider for known rule classes
+   * @param mutability the Mutability for the current evaluation context
+   * @param installDir an optional directory into which to install software
+   */
   public WorkspaceFactory(
-      Builder builder, RuleClassProvider ruleClassProvider, @Nullable String installDir) {
+      Builder builder,
+      RuleClassProvider ruleClassProvider,
+      Mutability mutability,
+      @Nullable String installDir) {
     this.builder = builder;
-    this.environment = createWorkspaceEnv(builder, ruleClassProvider, installDir);
+    this.environment = createWorkspaceEnv(builder, ruleClassProvider, mutability, installDir);
   }
 
   public void parse(ParserInputSource source)
@@ -122,13 +138,13 @@ public class WorkspaceFactory {
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final Builder builder, final String ruleClassName) {
     return new BuiltinFunction(ruleClassName,
-        FunctionSignature.KWARGS, BuiltinFunction.USE_AST) {
-      public Object invoke(Map<String, Object> kwargs, FuncallExpression ast)
+        FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
+      public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
         try {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-          builder.createAndAddRepositoryRule(ruleClass, bindRuleClass, kwargs, ast);
+          builder.createAndAddRepositoryRule(ruleClass, bindRuleClass, kwargs, ast, env);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
             Label.SyntaxException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
@@ -139,25 +155,30 @@ public class WorkspaceFactory {
   }
 
   private Environment createWorkspaceEnv(
-      Builder builder, RuleClassProvider ruleClassProvider, String installDir) {
-    Environment workspaceEnv = new Environment();
-    MethodLibrary.setupMethodEnvironment(workspaceEnv);
-    workspaceEnv.setLoadingPhase();
-
+      Builder builder,
+      RuleClassProvider ruleClassProvider,
+      Mutability mutability,
+      String installDir) {
+    Environment workspaceEnv = Environment.builder(mutability)
+        .setGlobals(Environment.BUILD)
+        .setLoadingPhase()
+        .build();
     RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      BaseFunction ruleFunction = newRuleFunction(ruleFactory, builder, ruleClass);
-      workspaceEnv.update(ruleClass, ruleFunction);
+    try {
+      for (String ruleClass : ruleFactory.getRuleClassNames()) {
+        BaseFunction ruleFunction = newRuleFunction(ruleFactory, builder, ruleClass);
+        workspaceEnv.update(ruleClass, ruleFunction);
+      }
+      if (installDir != null) {
+        workspaceEnv.update("__embedded_dir__", installDir);
+      }
+      File jreDirectory = new File(System.getProperty("java.home"));
+      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
+      workspaceEnv.update("bind", newBindFunction(ruleFactory, builder));
+      workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));
+      return workspaceEnv;
+    } catch (EvalException e) {
+      throw new AssertionError(e);
     }
-
-    if (installDir != null) {
-      workspaceEnv.update("__embedded_dir__", installDir);
-    }
-    File jreDirectory = new File(System.getProperty("java.home"));
-    workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
-
-    workspaceEnv.update("bind", newBindFunction(ruleFactory, builder));
-    workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));
-    return workspaceEnv;
   }
 }

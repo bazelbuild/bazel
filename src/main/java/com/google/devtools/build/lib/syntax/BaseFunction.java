@@ -407,35 +407,29 @@ public abstract class BaseFunction {
    * @param args a list of all positional arguments (as in *starArg)
    * @param kwargs a map for key arguments (as in **kwArgs)
    * @param ast the expression for this function's definition
-   * @param parentEnv the lexical Environment for the function call
+   * @param env the Environment in the function is called
    * @return the value resulting from evaluating the function with the given arguments
    * @throws construction of EvalException-s containing source information.
    */
   public Object call(List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression ast,
-      @Nullable Environment parentEnv)
+      Environment env)
       throws EvalException, InterruptedException {
-    Environment env = getOrCreateChildEnvironment(parentEnv);
-    env.addToStackTrace(new StackTraceElement(this, kwargs));
+    Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
+
+    // ast is null when called from Java (as there's no Skylark call site).
+    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
+
+    Object[] arguments = processArguments(args, kwargs, loc);
+    canonicalizeArguments(arguments, loc);
+
     try {
-      Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
-
-      // ast is null when called from Java (as there's no Skylark call site).
-      Location loc = ast == null ? location : ast.getLocation();
-
-      Object[] arguments = processArguments(args, kwargs, loc);
-      canonicalizeArguments(arguments, loc);
-
-      try {
-        return call(arguments, ast, env);
-      } catch (EvalExceptionWithStackTrace ex) {
-        throw updateStackTrace(ex, loc);
-      } catch (EvalException | RuntimeException | InterruptedException ex) {
-        throw updateStackTrace(new EvalExceptionWithStackTrace(ex, loc), loc);
-      }
-    } finally {
-      env.removeStackTraceElement();
+      return call(arguments, ast, env);
+    } catch (EvalExceptionWithStackTrace ex) {
+      throw updateStackTrace(ex, loc);
+    } catch (EvalException | RuntimeException | InterruptedException ex) {
+      throw updateStackTrace(new EvalExceptionWithStackTrace(ex, loc), loc);
     }
   }
 
@@ -556,7 +550,7 @@ public abstract class BaseFunction {
       if (pos < howManyArgsToPrint - 1) {
         builder.append(", ");
       }
-    }  
+    }
     builder.append(")");
     return builder.toString();
   }

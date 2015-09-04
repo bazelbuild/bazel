@@ -34,11 +34,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
@@ -54,13 +55,19 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   public static ConfiguredTarget buildRule(RuleContext ruleContext,
       BaseFunction ruleImplementation) {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
-    try {
+    try (Mutability mutability = Mutability.create("configured target")) {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
-      SkylarkEnvironment env = ruleContext.getRule().getRuleClassObject()
-          .getRuleDefinitionEnvironment().cloneEnv(
-              ruleContext.getAnalysisEnvironment().getEventHandler());
-      Object target = ruleImplementation.call(ImmutableList.<Object>of(skylarkRuleContext),
-          ImmutableMap.<String, Object>of(), null, env);
+      Environment env = Environment.builder(mutability)
+          .setSkylark()
+          .setGlobals(
+              ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
+          .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
+          .build(); // NB: we do *not* setLoadingPhase()
+      Object target = ruleImplementation.call(
+          ImmutableList.<Object>of(skylarkRuleContext),
+          ImmutableMap.<String, Object>of(),
+          /*ast=*/null,
+          env);
 
       if (ruleContext.hasErrors()) {
         return null;
