@@ -18,6 +18,7 @@ genrule(
         "//src:bazel",
         "//tools/defaults:jdk",
     ],
+    visibility = ["//scripts/packages:__pkg__"],
 )
 
 sh_test(

@@ -30,7 +30,10 @@ load("self_extract_binary", "self_extract_binary")
 self_extract_binary(
     name = "install.sh",
     empty_files = ["tools/defaults/BUILD"],
-    flatten_resources = ["//src:bazel"],
+    flatten_resources = [
+        "//src:bazel",
+        "//scripts:bash_completion",
+    ],
     launcher = ":launcher_bin.sh",
     resources = [
         "//third_party:srcs",

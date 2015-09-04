@@ -103,12 +103,15 @@ if [ -z "${JAVA_HOME-}" ]; then
   case "$(uname -s | tr 'A-Z' 'a-z')" in
     linux)
       JAVA_HOME="$(readlink -f $(which javac) 2>/dev/null | sed 's_/bin/javac__')" || true
+      BASHRC="~/.bashrc"
       ;;
     freebsd)
       JAVA_HOME="/usr/local/openjdk8"
+      BASHRC="~/.bashrc"
       ;;
     darwin)
       JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" || true
+      BASHRC="~/.bash_profile"
       ;;
   esac
 fi
@@ -139,10 +142,10 @@ fi
 mkdir -p ${bin} ${base} ${base}/bin ${base}/etc ${base}/base_workspace
 echo -n .
 
-unzip -q "${BASH_SOURCE[0]}" bazel -d "${base}/bin"
+unzip -q "${BASH_SOURCE[0]}" bazel bazel-complete.bash -d "${base}/bin"
 echo -n .
 chmod 0755 "${base}/bin/bazel"
-unzip -q "${BASH_SOURCE[0]}" -x bazel -d "${base}/base_workspace"
+unzip -q "${BASH_SOURCE[0]}" -x bazel bazel-complete.bash -d "${base}/base_workspace"
 echo -n .
 cat >"${base}/etc/bazel.bazelrc" <<EO
 build --package_path %workspace%:${base}/base_workspace
@@ -171,4 +174,14 @@ else
   echo .
 fi
 
+cat <<EOF
+
+Bazel is now installed!
+
+Make sure you have "${bin}" in your path. You can also activate bash
+completion by adding the following line to your ${BASHRC}:
+  source ${base}/bin/bazel-complete.bash
+
+See http://bazel.io/docs/getting-started.html to start a new project!
+EOF
 exit 0
