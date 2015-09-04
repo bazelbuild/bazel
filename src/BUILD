@@ -10,8 +10,8 @@ filegroup(
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
-        "//src/main/java/com/google/devtools/build/workspace:__pkg__",
         "//src/test/java:__pkg__",
+        "//src/tools/generate_workspace:__pkg__",
     ],
 )
 

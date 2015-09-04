@@ -37,14 +37,14 @@ Bazel provides a tool to help generate these expansive `WORKSPACE` files, called
 `generate_workspace`. Run the following to build the tool and see usage:
 
 ```
-bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace
+bazel run //src/tools/generate_workspace
 ```
 
 You can either specify directories containing Bazel projects (i.e., `WORKSPACE`
 files) or Maven projects (i.e., `pom.xml` files).  For example:
 
 ```bash
-$ bazel run src/main/java/com/google/devtools/build/workspace:generate_workspace -- \
+$ bazel run //src/tools/generate_workspace -- \
 >    --maven_project=/path/to/my/project \
 >    --bazel_project=/path/to/skunkworks \
 >    --bazel_project=/path/to/teleporter/project

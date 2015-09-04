@@ -174,7 +174,7 @@ sh_test(
     srcs = ["generate_workspace_test.sh"],
     data = [
         ":test-deps",
-        "//src/main/java/com/google/devtools/build/workspace:generate_workspace",
+        "//src/tools/generate_workspace",
     ],
 )
 

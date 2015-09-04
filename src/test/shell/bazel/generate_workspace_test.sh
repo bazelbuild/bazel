@@ -41,7 +41,7 @@ function tear_down() {
 }
 
 function generate_workspace() {
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace $@
+  ${bazel_data}/src/tools/generate_workspace/generate_workspace $@
 }
 
 # Takes: groupId, artifactId, and version.
@@ -123,8 +123,8 @@ function test_pom() {
 </project>
 EOF
 
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
+  generate_workspace --maven_project=$TEST_TMPDIR &> $TEST_log \
+    || fail "generating workspace failed"
 
   cat $(cat $TEST_log | tail -n 2 | head -n 1) > ws
   cat $(cat $TEST_log | tail -n 1) > build
@@ -169,8 +169,8 @@ function test_profile() {
 </project>
 EOF
 
-  ${bazel_data}/src/main/java/com/google/devtools/build/workspace/generate_workspace \
-    --maven_project=$TEST_TMPDIR &> $TEST_log || fail "generating workspace failed"
+  generate_workspace --maven_project=$TEST_TMPDIR &> $TEST_log \
+    || fail "generating workspace failed"
 }
 
 function test_submodules() {

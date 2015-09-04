@@ -419,8 +419,8 @@ java_library(
         "//third_party:jquery",
     ],
     visibility = [
-        "//src/main/java/com/google/devtools/build/workspace:__pkg__",
         "//src/test/java:__subpackages__",
+        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
     ],
     runtime_deps = [
         "//third_party:aether",

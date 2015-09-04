@@ -5,8 +5,8 @@ java_library(
         "Resolver.java",
     ],
     visibility = [
-        "//src/main/java/com/google/devtools/build/workspace:__pkg__",
-        "//src/test/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/tools/generate_workspace/src/test/java/com/google/devtools/build/workspace:__pkg__",
     ],
     runtime_deps = [
         "//third_party:maven_model",
@@ -28,7 +28,7 @@ java_library(
     name = "rule",
     srcs = ["Rule.java"],
     visibility = [
-        "//src/main/java/com/google/devtools/build:__subpackages__",
+        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
     ],
     deps = [
         "//src/main/java:events",
