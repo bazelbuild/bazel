@@ -151,7 +151,13 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("output_to_bindir", BOOLEAN).value(false)
             .nonconfigurable("policy decision: no reason for this to depend on the configuration"))
 
-        // TODO(bazel-team): remove?
+        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(local) -->
+        ${SYNOPSIS}
+        <p>
+          If set to 1, this option force this <code>genrule</code> to run with the
+          <code>standalone</code> strategy, without sandboxing.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("local", BOOLEAN).value(false))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(message) -->
