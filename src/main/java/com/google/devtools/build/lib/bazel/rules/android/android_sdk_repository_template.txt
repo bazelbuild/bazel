@@ -31,7 +31,7 @@ android_sdk(
     shrinked_android_jar = "platforms/android-%api_level%/android.jar",
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
-    apkbuilder = ":apkbuilder",
+    apkbuilder = ":apkbuilder_binary",
     zipalign = ":zipalign_binary",
     android_jack = ":empty",
     jack = ":fail",
@@ -48,14 +48,13 @@ filegroup(
      name = tool + "_runner",
      outs = [tool + "_runner.sh"],
      srcs = [],
-     cmd  = "cat > $@ << 'EOF'\n" +
-         "#!/bin/bash\n" +
-         "BINARY=$${0##*-out/host/bin/}\n" +
-         "DIRNAME=$$(dirname $$BINARY)\n" +
-         "SDK=$${0}.runfiles/$${DIRNAME}\n" +
-         "$${SDK}/build-tools/%build_tools_version%/" + tool + " $$*\n" +
-         "exit $$?\n" +
-         "EOF\n",
+     cmd  = "\n".join(["cat > $@ << 'EOF'",
+         "#!/bin/bash -e",
+         "BINARY=$${0##*-out/host/bin/}",
+         "DIRNAME=$$(dirname $$BINARY)",
+         "SDK=$${0}.runfiles/$${DIRNAME}",
+         "exec $${SDK}/build-tools/%build_tools_version%/" + tool + " $$*",
+         "EOF\n"]),
 ) for tool in ["aapt", "aidl", "zipalign"]]
 
 [sh_binary(
@@ -83,19 +82,19 @@ genrule(
     name = "main_dex_list_creator_source",
     srcs = [],
     outs = ["main_dex_list_creator.sh"],
-    cmd = "cat > $@ <<'EOF'\n" +
-          "#!/bin/bash\n" +
-          "\n" +
-          "MAIN_DEX_LIST=$$1\n" +
-          "STRIPPED_JAR=$$2\n" +
-          "JAR=$$3\n" +
+    cmd = "\n".join(["cat > $@ <<'EOF'",
+          "#!/bin/bash",
+          "",
+          "MAIN_DEX_LIST=$$1",
+          "STRIPPED_JAR=$$2",
+          "JAR=$$3",
           "" +
-          "DIRNAME=$$(dirname $$0)\n" +
-          "JAVA_BINARY=TBD/main_dex_list_creator_java\n" +  # Proper runfiles path comes here
-          "$$JAVA_BINARY $$STRIPPED_JAR $$JAR > $$MAIN_DEX_LIST\n" +
-          "exit $$?\n" +
-          "\n" +
-          "EOF\n",
+          "DIRNAME=$$(dirname $$0)",
+          "JAVA_BINARY=TBD/main_dex_list_creator_java",  # Proper runfiles path comes here
+          "$$JAVA_BINARY $$STRIPPED_JAR $$JAR > $$MAIN_DEX_LIST",
+          "exit $$?",
+          "",
+          "EOF\n"]),
 )
 
 sh_binary(
@@ -124,6 +123,30 @@ filegroup(
 java_import(
     name = "dx_jar_import",
     jars = [":dx_jar"],
+)
+
+genrule(
+    name = "apkbuilder_source",
+    srcs = [],
+    outs = ["apkbuilder_binary.sh"],
+    cmd = "\n".join(["cat > $@ << 'EOF'",
+        "#!/bin/bash -e",
+        "BINARY=$${0##*-out/host/bin/}",
+        "DIRNAME=$$(dirname $$BINARY)",
+        "APKBUILDER=$${0}.runfiles/$${DIRNAME}/apkbuilder",
+        "if [[ \"$$KEYSTORE\" != \"\" ]]; then",
+        "  mkdir -p /tmp/keystore/.android",
+        "  cp $$KEYSTORE /tmp/keystore/.android/debug.keystore",
+        "  export ANDROID_SDK_HOME=/tmp/keystore",
+        "fi",
+        "exec $$APKBUILDER $$*",
+        "EOF"]),
+)
+
+sh_binary(
+    name = "apkbuilder_binary",
+    srcs = ["apkbuilder_binary.sh"],
+    data = [":apkbuilder"],
 )
 
 java_binary(

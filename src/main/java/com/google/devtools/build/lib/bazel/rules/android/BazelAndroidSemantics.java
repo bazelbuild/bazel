@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -73,7 +75,12 @@ public class BazelAndroidSemantics implements AndroidSemantics {
     // file specified on the command line. Currently, it checks $ANDROID_SDK_HOME, $USER_HOME then
     // $HOME which means that we could make it hermetic by setting $ANDROID_SDK_HOME for the
     // ApkBuilder invocation.
-    if (!sign) {
+    if (sign) {
+      Artifact debugKeyStore = ruleContext.getPrerequisiteArtifact("$debug_keystore", Mode.HOST);
+      actionBuilder
+          .addInput(debugKeyStore)
+          .setEnvironment(ImmutableMap.of("KEYSTORE", debugKeyStore.getExecPath().getPathString()));
+    } else {
       actionBuilder.addArgument("-u");
     }
   }

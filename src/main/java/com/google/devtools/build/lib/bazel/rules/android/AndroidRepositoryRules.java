@@ -50,7 +50,8 @@ public class AndroidRepositoryRules {
         "resources_processor",
         "aar_generator",
         "shuffle_jars",
-        "merge_dexzips");
+        "merge_dexzips",
+        "debug_keystore");
 
     private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
         new Function< Rule, Map<String, Label>>() {
