@@ -134,3 +134,9 @@ function get_java_version() {
     fail "Cannot determine JDK version, please set \$JAVA_HOME."
   fi
 }
+
+# Return the target that a bind point to, using Bazel query.
+function get_bind_target() {
+  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
+    query "deps($1, 1) - $1"
+}

@@ -63,6 +63,39 @@ function get_full_release_name() {
   fi
 }
 
+function setup_android_repositories() {
+  if [ ! -f WORKSPACE.bak ] && [ -n "${ANDROID_SDK_PATH-}" ]; then
+    cp WORKSPACE WORKSPACE.bak
+    trap '[ -f WORKSPACE.bak ] && rm WORKSPACE && mv WORKSPACE.bak WORKSPACE' \
+      EXIT
+    cat >>WORKSPACE <<EOF
+new_local_repository(
+    name = "globbed_android_sdk",
+    path = "${ANDROID_SDK_PATH}",
+    build_file = "BUILD.glob",
+)
+
+bind(
+    name = "android_sdk_for_testing",
+    actual = "@globbed_android_sdk//:all",
+)
+EOF
+    if [ -n "${ANDROID_NDK_PATH-}" ]; then
+      cat >>WORKSPACE <<EOF
+new_local_repository(
+    name = "globbed_android_ndk",
+    path = "${ANDROID_NDK_PATH}",
+    build_file = "BUILD.glob",
+)
+
+bind(
+    name = "android_ndk_for_testing",
+    actual = "@globbed_android_ndk//:all",
+)
+EOF
+    fi
+  fi
+}
 # Main entry point for building bazel.
 # It sets the embed label to the release name if any, calls the whole
 # test suite, compile the various packages, then copy the artifacts
@@ -70,6 +103,7 @@ function get_full_release_name() {
 function bazel_build() {
   local release_label="$(get_full_release_name)"
   local embed_label_opts=
+  setup_android_repositories
   if [ -n "${release_label}" ]; then
     export EMBED_LABEL="${release_label}"
   fi

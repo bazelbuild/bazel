@@ -206,23 +206,27 @@ EOF
     fi
   done
 
+
+  local ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
+  local ANDROID_NDK_API_LEVEL=$(ls $NDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
+  local ANDROID_SDK_TOOLS_VERSION=$(ls $SDK_SRCDIR/build-tools | sort -n | tail -1)
   cat >> WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
-    api_level = 19
+    api_level = $ANDROID_NDK_API_LEVEL,
 )
 
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
-    build_tools_version = "21.1.1",
-    api_level = 19
+    build_tools_version = "$ANDROID_SDK_TOOLS_VERSION",
+    api_level = $ANDROID_SDK_API_LEVEL,
 )
 
 android_local_tools_repository(
     name = "androidtools",
-    path = "$ANDROID_TOOLS"
+    path = "$ANDROID_TOOLS",
 )
 EOF
 }

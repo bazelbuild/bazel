@@ -162,7 +162,8 @@ if [ $DO_TESTS ]; then
   new_step "Running tests"
   display "."
 
-  if grep -sq '^ *actual = "//:dummy"' WORKSPACE; then
+  if [ "$(get_bind_target //external:android_ndk_repository)" = "//:dummy"
+      -o "$(get_bind_target //external:android_sdk_repository)" = "//:dummy" ]; then
     display "$WARNING Android SDK or NDK are not set in the WORKSPACE file. Android tests will not be run."
   fi
 
