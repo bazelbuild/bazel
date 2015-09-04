@@ -30,7 +30,6 @@ public class Constants {
   public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
   public static final String MAIN_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
-  public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
 
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 

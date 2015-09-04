@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -232,17 +231,6 @@ public class TestResultAnalyzer {
       }
     }
 
-    List<String> filtered = new ArrayList<>();
-    warningLoop: for (String warning : result.getData().getWarningList()) {
-      for (String ignoredPrefix : Constants.IGNORED_TEST_WARNING_PREFIXES) {
-        if (warning.startsWith(ignoredPrefix)) {
-          continue warningLoop;
-        }
-      }
-
-      filtered.add(warning);
-    }
-
     List<Path> passed = new ArrayList<>();
     if (result.getData().hasPassedLog()) {
       passed.add(result.getTestAction().getTestLog().getPath().getRelative(
@@ -258,7 +246,7 @@ public class TestResultAnalyzer {
         .addTestTimes(result.getData().getTestTimesList())
         .addPassedLogs(passed)
         .addFailedLogs(failed)
-        .addWarnings(filtered)
+        .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
