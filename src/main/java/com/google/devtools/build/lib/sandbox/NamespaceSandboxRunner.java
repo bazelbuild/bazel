@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -46,11 +45,11 @@ public class NamespaceSandboxRunner {
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
-  private final ImmutableMultimap<Path, Path> mounts;
+  private final ImmutableMap<Path, Path> mounts;
   private final boolean debug;
 
   public NamespaceSandboxRunner(
-      Path execRoot, Path sandboxPath, ImmutableMultimap<Path, Path> mounts, boolean debug) {
+      Path execRoot, Path sandboxPath, ImmutableMap<Path, Path> mounts, boolean debug) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxPath.getRelative(execRoot.asFragment().relativeTo("/"));
@@ -126,11 +125,11 @@ public class NamespaceSandboxRunner {
     }
 
     // Mount all the inputs.
-    for (ImmutableMap.Entry<Path, Path> mount : mounts.entries()) {
+    for (ImmutableMap.Entry<Path, Path> mount : mounts.entrySet()) {
       args.add("-M");
-      args.add(mount.getKey().getPathString());
-      args.add("-m");
       args.add(mount.getValue().getPathString());
+      args.add("-m");
+      args.add(mount.getKey().getPathString());
     }
 
     args.add("--");
