@@ -40,6 +40,15 @@ public final class BazelJavaImportRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
+        The list of other libraries to be linked in to the target.
+        ${SYNOPSIS}
+        See <a href="#$java_rule.deps">java_library.deps</a>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("deps", LABEL_LIST)
+            .allowedRuleClasses(ALLOWED_DEPS)
+            .allowedFileTypes()  // none allowed
+            .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
         ${SYNOPSIS}
