@@ -52,8 +52,9 @@ import java.util.Map;
  */
 public abstract class NativeDepsHelper {
   /**
-   * An implementation of {@link CppLinkAction.LinkArtifactFactory} that can create artifacts
-   * anywhere.
+   * An implementation of {@link
+   * com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory} that can create
+   * artifacts anywhere.
    *
    * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
    * be under the package directory.

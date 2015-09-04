@@ -361,7 +361,7 @@ public final class CppModel {
 
     if (ccRelativeName != null) {
       cppConfiguration.getFdoSupport().configureCompilation(builder, buildVariables, ruleContext,
-          ccRelativeName, usePic, featureConfiguration, cppConfiguration);
+          ccRelativeName, usePic, featureConfiguration);
     }
     if (gcnoFile != null) {
       buildVariables.addVariable("gcov_gcno_file", gcnoFile.getExecPathString());

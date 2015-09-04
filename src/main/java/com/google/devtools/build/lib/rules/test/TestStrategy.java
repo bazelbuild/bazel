@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.config.BinTools;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
@@ -285,8 +284,7 @@ public abstract class TestStrategy implements TestActionContext {
    * MUST NOT be used by any rule or action in such a way as to affect the semantics of that
    * build step.
    */
-  public Map<String, String> getAdmissibleShellEnvironment(BuildConfiguration config,
-      Iterable<String> variables) {
+  public Map<String, String> getAdmissibleShellEnvironment(Iterable<String> variables) {
     return getMapping(variables, clientEnv);
   }
 

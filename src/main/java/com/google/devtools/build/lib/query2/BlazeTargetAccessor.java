@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Implementation of {@link TargetAccessor&lt;Target&gt;} that uses an
+ * Implementation of {@link TargetAccessor &lt;Target&gt;} that uses an
  * {@link AbstractBlazeQueryEnvironment &lt;Target&gt;} internally to report issues and resolve
  * targets.
  */

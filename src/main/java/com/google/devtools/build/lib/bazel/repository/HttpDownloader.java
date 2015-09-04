@@ -104,7 +104,10 @@ public class HttpDownloader {
           "Error downloading " + url + " to " + destination + ": " + e.getMessage());
     } finally {
       scheduler.schedule(new Runnable() {
-        public void run() { loggerHandle.cancel(true); }
+        @Override
+        public void run() {
+          loggerHandle.cancel(true);
+        }
       }, 0, TimeUnit.SECONDS);
     }
 
@@ -130,6 +133,7 @@ public class HttpDownloader {
       private static final String UNITS = " KMGTPEY";
       private final double logOfKb = Math.log(1024);
 
+      @Override
       public void run() {
         try {
           reporter.handle(Event.progress(

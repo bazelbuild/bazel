@@ -651,7 +651,7 @@ public final class CppLinkAction extends AbstractAction {
       ImmutableList.Builder<LTOBackendArtifacts> ltoOutputs = ImmutableList.builder();
       for (Artifact a : allBitcode) {
         LTOBackendArtifacts ltoArtifacts = new LTOBackendArtifacts(
-            ltoOutputRootPrefix, a, allBitcode, configuration, ruleContext, linkArtifactFactory);
+            ltoOutputRootPrefix, a, allBitcode, ruleContext, linkArtifactFactory);
         ltoOutputs.add(ltoArtifacts);
       }
       return ltoOutputs.build();

@@ -460,8 +460,7 @@ public class FdoSupport {
   @ThreadSafe
   public void configureCompilation(CppCompileActionBuilder builder,
       CcToolchainFeatures.Variables.Builder buildVariables, RuleContext ruleContext,
-      PathFragment sourceName, boolean usePic, FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration) {
+      PathFragment sourceName, boolean usePic, FeatureConfiguration featureConfiguration) {
     // It is a bug if this method is called with useLipo if lipo is disabled. However, it is legal
     // if is is called with !useLipo, even though lipo is enabled.
     LipoContextProvider lipoInputProvider = CppHelper.getLipoContextProvider(ruleContext);

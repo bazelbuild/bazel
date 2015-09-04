@@ -15,8 +15,6 @@
 
 package com.google.devtools.build.lib.graph;
 
-import java.io.File;
-
 /**
  *  <p> A DotSyntaxException represents a syntax error encountered while
  *  parsing a dot-format fule.  Thrown by createFromDotFile if syntax errors

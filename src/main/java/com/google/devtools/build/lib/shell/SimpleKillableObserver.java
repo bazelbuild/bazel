@@ -33,6 +33,7 @@ public final class SimpleKillableObserver implements KillableObserver {
    *
    * @param killable {@link Killable} to kill
    */
+  @Override
   public synchronized void startObserving(final Killable killable) {
     this.killable = killable;
   }
@@ -41,6 +42,7 @@ public final class SimpleKillableObserver implements KillableObserver {
    * Forgets reference to {@link Killable} provided to
    * {@link #startObserving(Killable)}
    */
+  @Override
   public synchronized void stopObserving(final Killable killable) {
     if (!this.killable.equals(killable)) {
       throw new IllegalStateException("start/stopObservering called with " +

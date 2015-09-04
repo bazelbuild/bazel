@@ -282,12 +282,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return new PackageIdentifier(repo, new PathFragment(packageName));
   }
 
-  private Object writeReplace() throws ObjectStreamException {
+  private Object writeReplace() {
     return new SerializationProxy(this);
   }
 
-  private void readObject(ObjectInputStream in)
-      throws IOException, ClassNotFoundException {
+  private void readObject(ObjectInputStream in) throws IOException {
     throw new IOException("Serialization is allowed only by proxy");
   }
 

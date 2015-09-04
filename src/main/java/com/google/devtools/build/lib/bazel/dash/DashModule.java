@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.dash;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.CommandLine.Option;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.EnvironmentVar;
@@ -178,7 +179,9 @@ public class DashModule extends BlazeModule {
         builder.setTruncated(true);
       }
       byte buffer[] = new byte[(int) fileSize];
-      new FileInputStream(log).read(buffer, 0, (int) fileSize);
+      try (FileInputStream in = new FileInputStream(log)) {
+        ByteStreams.readFully(in, buffer);
+      }
       builder.setContents(ByteString.copyFrom(buffer));
     } catch (IOException e) {
       runtime

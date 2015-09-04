@@ -80,8 +80,8 @@ class GraphOutputFormatter extends OutputFormatter {
       NODE_COMPARATOR.lexicographical();
 
   /**
-   * Given {@param collectionOfUnorderedSets}, a collection of sets of nodes, returns a collection
-   * of sets with the same elements as {@param collectionOfUnorderedSets} but with a stable
+   * Given {@code collectionOfUnorderedSets}, a collection of sets of nodes, returns a collection
+   * of sets with the same elements as {@code collectionOfUnorderedSets} but with a stable
    * iteration order within each set given by the target ordering, and the collection ordered by the
    * same induced order.
    */

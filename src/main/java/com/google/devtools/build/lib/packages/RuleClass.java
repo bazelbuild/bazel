@@ -191,7 +191,7 @@ public final class RuleClass {
         @Override
         public String getCategory() {
           return "core";
-        };
+        }
   };
 
   /**

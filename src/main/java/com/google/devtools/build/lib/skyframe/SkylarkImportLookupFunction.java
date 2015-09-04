@@ -67,8 +67,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           file, e.getMessage()));
     } catch (InconsistentFilesystemException e) {
       throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
-    } catch (ASTLookupInputException e) {
-      throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
     }
     if (astLookupValue == null) {
       return null;

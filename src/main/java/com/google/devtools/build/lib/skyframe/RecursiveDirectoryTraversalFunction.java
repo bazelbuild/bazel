@@ -60,18 +60,18 @@ abstract class RecursiveDirectoryTraversalFunction
 
   /**
    * Called by {@link #visitDirectory} to get the {@link SkyKey}s associated with recursive
-   * computation in subdirectories of {@param subdirectory}, excluding directories in
-   * {@param excludedSubdirectoriesBeneathSubdirectory}, all of which must be proper subdirectories
-   * of {@param subdirectory}.
+   * computation in subdirectories of {@code subdirectory}, excluding directories in
+   * {@code excludedSubdirectoriesBeneathSubdirectory}, all of which must be proper subdirectories
+   * of {@code subdirectory}.
    */
   protected abstract SkyKey getSkyKeyForSubdirectory(RootedPath subdirectory,
       ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory);
 
   /**
    * Called by {@link #visitDirectory} to compute the {@code TReturn} value it returns, as a
-   * function of {@param visitor} and the {@link SkyValue}s computed for subdirectories
+   * function of {@code visitor} and the {@link SkyValue}s computed for subdirectories
    * of the directory specified by {@code recursivePkgKey}, contained in
-   * {@param subdirectorySkyValues}.
+   * {@code subdirectorySkyValues}.
    */
   protected abstract TReturn aggregateWithSubdirectorySkyValues(
       TVisitor visitor, Map<SkyKey, SkyValue> subdirectorySkyValues);
@@ -87,7 +87,7 @@ abstract class RecursiveDirectoryTraversalFunction
   interface Visitor {
 
     /**
-     * Called iff the directory contains a package. Provides an {@link Environment} {@param env}
+     * Called iff the directory contains a package. Provides an {@link Environment} {@code env}
      * so that the visitor may do additional lookups. {@link Environment#valuesMissing} will be
      * checked afterwards.
      */
@@ -95,7 +95,7 @@ abstract class RecursiveDirectoryTraversalFunction
   }
 
   /**
-   * Looks in the directory specified by {@param recursivePkgKey} for a package, does some work
+   * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work
    * as specified by {@link Visitor} if such a package exists, then recursively does work in each
    * non-excluded subdirectory as specified by {@link #getSkyKeyForSubdirectory}, and finally
    * aggregates the {@link Visitor} value along with values from each subdirectory as specified
@@ -103,7 +103,7 @@ abstract class RecursiveDirectoryTraversalFunction
    *
    * <p>Returns null if {@code env.valuesMissing()} is true, checked after each call to one of
    * {@link RecursiveDirectoryTraversalFunction}'s abstract methods except for {@link
-   * #getEmptyReturn}. (And after each of {@code visitDirectory}'s own uses of {@param env}, of
+   * #getEmptyReturn}. (And after each of {@code visitDirectory}'s own uses of {@code env}, of
    * course.)
    */
   TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env) {

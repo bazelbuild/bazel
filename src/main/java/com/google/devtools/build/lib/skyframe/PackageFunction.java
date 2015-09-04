@@ -418,14 +418,8 @@ public class PackageFunction implements SkyFunction {
     }
 
     ASTFileLookupValue astLookupValue = null;
-    SkyKey astLookupKey = null;
-    try {
-      astLookupKey = ASTFileLookupValue.key(
-          PackageIdentifier.createInDefaultRepo(preludePath));
-    } catch (ASTLookupInputException e) {
-      // There's a static check ensuring that PRELUDE_FILE_FRAGMENT is relative.
-      throw new IllegalStateException(e);
-    }
+    SkyKey astLookupKey = ASTFileLookupValue.key(
+        PackageIdentifier.createInDefaultRepo(preludePath));
     try {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);

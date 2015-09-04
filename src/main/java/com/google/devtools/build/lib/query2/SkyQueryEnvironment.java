@@ -525,7 +525,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   /**
-   * Get SkyKeys for the FileValues for the given {@param pathFragments}. To do this, we look for a
+   * Get SkyKeys for the FileValues for the given {@code pathFragments}. To do this, we look for a
    * package lookup node for each path fragment, since package lookup nodes contain the "root" of a
    * package. The returned SkyKeys correspond to FileValues that may not exist in the graph.
    */

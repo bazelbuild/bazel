@@ -37,6 +37,7 @@ class GitProgressMonitor implements ProgressMonitor {
     this.reporter = reporter;
   }
 
+  @Override
   public void start(int totalTasks) {
     this.totalTasks = totalTasks;
     this.currentTask = 0;
@@ -49,6 +50,7 @@ class GitProgressMonitor implements ProgressMonitor {
             + completedWork + " / " + totalWork + ")"));
   }
 
+  @Override
   public void beginTask(String title, int totalWork) {
     ++currentTask;
     // TODO(dzc): Remove this when jgit reports totalTasks correctly in start().
@@ -61,12 +63,15 @@ class GitProgressMonitor implements ProgressMonitor {
     report();
   }
 
+  @Override
   public boolean isCancelled() { return false; }
 
+  @Override
   public void update(int completed) {
     completedWork += completed;
     report();
   }
 
+  @Override
   public void endTask() { }
 }

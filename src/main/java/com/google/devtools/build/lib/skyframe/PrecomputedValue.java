@@ -43,12 +43,12 @@ import javax.annotation.Nullable;
  * "precomputed" from skyframe's perspective and so the graph needs to be prepopulated with them
  * (e.g. via injection).
  */
-public class PrecomputedValue implements SkyValue {
+public final class PrecomputedValue implements SkyValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.
    *
-   * <p>{@see com.google.devtools.build.lib.blaze.BlazeModule#getPrecomputedValues}.
+   * @see com.google.devtools.build.lib.runtime.BlazeModule#getPrecomputedSkyframeValues
    */
   public static final class Injected {
     private final Precomputed<?> precomputed;

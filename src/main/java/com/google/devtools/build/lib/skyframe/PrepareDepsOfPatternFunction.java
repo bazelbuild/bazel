@@ -106,7 +106,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
   }
 
   /**
-   * A {@link TargetPatternResolver} backed by an {@link Environment} whose methods do not actually
+   * A {@link TargetPatternResolver} backed by an {@link
+   * com.google.devtools.build.skyframe.SkyFunction.Environment} whose methods do not actually
    * return resolved targets, but that ensures the graph loads the matching targets <b>and</b> their
    * transitive dependencies. Its methods may throw {@link MissingDepException} if the package
    * values this depends on haven't been calculated and added to its environment.
@@ -159,7 +160,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     @Override
     public ResolvedTargets<Void> getTargetsInPackage(String originalPattern, String packageName,
-        boolean rulesOnly) throws TargetParsingException, InterruptedException {
+        boolean rulesOnly) throws TargetParsingException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       return getTargetsInPackage(originalPattern, new PathFragment(packageName), policy);
@@ -167,7 +168,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     private ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
         PathFragment packageNameFragment, FilteringPolicy policy)
-        throws TargetParsingException, InterruptedException {
+        throws TargetParsingException {
       TargetPatternResolverUtil.validatePatternPackage(originalPattern, packageNameFragment, this);
       try {
         PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(packageNameFragment);

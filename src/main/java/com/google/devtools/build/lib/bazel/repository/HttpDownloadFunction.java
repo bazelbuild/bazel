@@ -72,8 +72,7 @@ public class HttpDownloadFunction implements SkyFunction {
     return null;
   }
 
-  public static SkyKey key(Rule rule, Path outputDirectory)
-      throws RepositoryFunction.RepositoryFunctionException {
+  public static SkyKey key(Rule rule, Path outputDirectory) {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String url = mapper.get("url", Type.STRING);
     String sha256 = mapper.get("sha256", Type.STRING);

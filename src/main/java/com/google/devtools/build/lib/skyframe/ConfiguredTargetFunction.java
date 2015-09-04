@@ -782,7 +782,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     private ConfiguredTargetFunctionException(ConfiguredValueCreationException error) {
       super(error, Transience.PERSISTENT);
-    };
+    }
 
     private ConfiguredTargetFunctionException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);

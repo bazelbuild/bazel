@@ -148,7 +148,7 @@ public abstract class TargetPattern implements Serializable {
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
-   * {@param directory} is contained by or equals this pattern's directory. For example,
+   * {@code directory} is contained by or equals this pattern's directory. For example,
    * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code directory
    * = "foo")}.
    */

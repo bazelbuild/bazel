@@ -49,7 +49,7 @@ public class ASTFileLookupValue implements SkyValue {
     return ast;
   }
 
-  static SkyKey key(PackageIdentifier astFileIdentifier) throws ASTLookupInputException {
+  static SkyKey key(PackageIdentifier astFileIdentifier) {
     return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFileIdentifier);
   }
 

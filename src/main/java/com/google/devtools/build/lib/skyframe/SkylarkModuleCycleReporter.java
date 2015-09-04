@@ -51,7 +51,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
         && IS_PACKAGE_SKY_KEY.apply(lastPathElement)) {
       StringBuilder cycleMessage =
           new StringBuilder()
-              .append(((PackageIdentifier) lastPathElement.argument()) + "/BUILD: ")
+              .append(lastPathElement.argument()).append("/BUILD: ")
               .append("cycle in referenced extension files: ");
 
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage,

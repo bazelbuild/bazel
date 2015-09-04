@@ -55,7 +55,7 @@ public class AllRdepsFunction implements QueryFunction {
   }
 
   /**
-   * Breadth-first search from the argument while sticking to nodes satisfying the {@param universe}
+   * Breadth-first search from the argument while sticking to nodes satisfying the {@code universe}
    * predicate.
    */
   protected <T> Set<T> eval(QueryEnvironment<T> env, List<Argument> args, Predicate<T> universe)

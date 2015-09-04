@@ -143,7 +143,7 @@ public class BazelCppRuleClasses {
     @Override
     public String getCategory() {
       return "lipo";
-    };
+    }
   };
 
   /**

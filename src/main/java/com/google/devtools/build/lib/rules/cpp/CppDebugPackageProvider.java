@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 
 /**
  * Provides the binary artifact and its associated .dwp files, if fission is enabled.
- * If Fission ({@link https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the
+ * If Fission ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the
  * dwp file will be null.
  */
 @Immutable

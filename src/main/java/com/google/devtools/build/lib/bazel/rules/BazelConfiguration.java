@@ -65,6 +65,7 @@ public class BazelConfiguration extends Fragment {
     builder.put("sh", new PathFragment("/bin/bash"));
   }
 
+  @Override
   public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
     String path = System.getenv("PATH");
     builder.put("PATH", path == null ? ":/bin:/usr/bin" : path);

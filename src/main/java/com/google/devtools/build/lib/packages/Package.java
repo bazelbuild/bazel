@@ -768,7 +768,7 @@ public class Package implements Serializable {
     /**
      * The output instance for this builder. Needs to be instantiated and
      * available with name info throughout initialization. All other settings
-     * are applied during {@link #build}. See {@link Package#Package(String)}
+     * are applied during {@link #build}. See {@link Package#Package(PackageIdentifier)}
      * and {@link Package#finishInit} for details.
      */
     protected Package pkg;

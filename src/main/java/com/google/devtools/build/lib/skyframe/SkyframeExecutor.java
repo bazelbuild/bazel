@@ -558,7 +558,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
   }
 
-  public void injectWorkspaceStatusData(BuildConfigurationCollection configurations) {
+  public void injectWorkspaceStatusData() {
     PrecomputedValue.WORKSPACE_STATUS_KEY.set(injectable(),
         workspaceStatusActionFactory.createWorkspaceStatusAction(
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
@@ -1271,7 +1271,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label, BuildConfiguration configuration) {
     if (memoizingEvaluator.getExistingValueForTesting(
         PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
-      injectWorkspaceStatusData(null);
+      injectWorkspaceStatusData();
     }
     return Iterables.getFirst(
         getConfiguredTargets(configuration, ImmutableList.of(new Dependency(label, configuration)),

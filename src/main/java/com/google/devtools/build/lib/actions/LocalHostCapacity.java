@@ -37,7 +37,7 @@ public final class LocalHostCapacity {
    * multiply by 3, and divide by 2^20 because we want megabytes.
    */
   private static final ResourceSet DEFAULT_RESOURCES = ResourceSet.create(
-      3.0 * (double) (Runtime.getRuntime().maxMemory() >> 20),
+      3.0 * (Runtime.getRuntime().maxMemory() >> 20),
       Runtime.getRuntime().availableProcessors(), 1.0,
       Integer.MAX_VALUE);
 

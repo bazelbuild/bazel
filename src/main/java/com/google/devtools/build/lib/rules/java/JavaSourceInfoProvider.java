@@ -81,7 +81,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Gets the source jars containing the sources of the jars contained in {@link getJarFiles()}.
+   * Gets the source jars containing the sources of the jars contained in {@link #getJarFiles}.
    *
    * <p>These should be used in place of {@link #getJarFiles()} if and only if source is required.
    */

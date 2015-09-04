@@ -168,6 +168,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result;
   }
 
+  @Override
   public Target getTarget(Label label) throws TargetNotFoundException, QueryException {
     // Can't use strictScope here because we are expecting a target back.
     validateScope(label, true);
@@ -355,6 +356,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       };
 
+  @Override
   protected Map<String, Set<Target>> preloadOrThrow(
       QueryExpression caller, Collection<String> patterns) throws TargetParsingException {
     try {

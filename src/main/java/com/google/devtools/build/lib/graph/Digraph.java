@@ -1050,9 +1050,9 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Given {@param unordered}, a collection of nodes and a (possibly null) {@param comparator} for
-   * their labels, returns a sorted collection if {@param comparator} is non-null, otherwise returns
-   * {@param unordered}.
+   * Given {@code unordered}, a collection of nodes and a (possibly null) {@code comparator} for
+   * their labels, returns a sorted collection if {@code comparator} is non-null, otherwise returns
+   * {@code unordered}.
    */
   private static <T> Collection<Node<T>> maybeOrderCollection(
       Collection<Node<T>> unordered, @Nullable final Comparator<? super T> comparator) {
@@ -1081,7 +1081,7 @@ public final class Digraph<T> implements Cloneable {
   /**
    * A visitation over the graph that visits all nodes and edges in topological order
    * such that each node is visited before any edge coming out of that node; ties among nodes are
-   * broken using the provided {@param comparator} if not null; edges are visited in order specified
+   * broken using the provided {@code comparator} if not null; edges are visited in order specified
    * by the comparator, <b>not</b> topological order of the target nodes.
    */
   public void visitNodesBeforeEdges(

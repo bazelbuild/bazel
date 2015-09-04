@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -44,9 +43,9 @@ import java.util.Set;
 public interface IncludeScanner {
   /**
    * Processes source files and a list of includes extracted from command line flags. Adds all found
-   * files to the provided set {@param includes}.
+   * files to the provided set {@code includes}.
    *
-   * <p>The resulting set will include {@param mainSource} and {@param sources}. This has no real
+   * <p>The resulting set will include {@code mainSource} and {@code sources}. This has no real
    * impact in the case that we are scanning a single source file, since it is already known to be
    * an input. However, this is necessary when we have more than one source to scan from, for
    * example when building C++ modules. In that case we have one of two possibilities:
@@ -63,7 +62,7 @@ public interface IncludeScanner {
    *     add the entry points to the inputs here.</li></ol>
    * </p>
    * 
-   * <p>{@param mainSource} is the source file relative to which the {@param cmdlineIncludes} are
+   * <p>{@code mainSource} is the source file relative to which the {@code cmdlineIncludes} are
    * interpreted.</p>
    */
   void process(Artifact mainSource, Collection<Artifact> sources,
@@ -102,7 +101,7 @@ public interface IncludeScanner {
         IncludeScannerSupplier includeScannerSupplier,
         ActionExecutionContext actionExecutionContext,
         String profilerTaskName)
-        throws ExecException, InterruptedException, ActionExecutionException {
+        throws ExecException, InterruptedException {
 
       Set<Artifact> includes = Sets.newConcurrentHashSet();
 

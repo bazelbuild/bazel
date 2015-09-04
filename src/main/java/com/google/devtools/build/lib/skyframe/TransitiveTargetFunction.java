@@ -145,7 +145,7 @@ public class TransitiveTargetFunction
       for (Class<?> fragment : configFragments) {
         if (!builder.getConfigFragmentsFromDeps().contains(fragment)) {
           builder.getTransitiveConfigFragments().add(
-              (Class<? extends BuildConfiguration.Fragment>) fragment);
+              fragment.asSubclass(BuildConfiguration.Fragment.class));
         }
       }
     }
