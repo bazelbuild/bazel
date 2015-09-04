@@ -141,6 +141,7 @@ def _build_rustc_command(ctx, crate_type, src, output_dir, depinfo,
   return " ".join([
       "set -e;",
       " ".join(depinfo.setup_cmd),
+      "LD_LIBRARY_PATH=" + rustc_lib_path,
       "DYLD_LIBRARY_PATH=" + rustc_lib_path,
       rustc_path + " " + src,
       "--crate-name " + ctx.label.name,
@@ -191,7 +192,8 @@ def _rust_library_impl(ctx):
 
   # Compile action.
   ctx.action(
-      inputs = srcs + ctx.files.data + depinfo.libs,
+      inputs = srcs + ctx.files.data + depinfo.libs + [ctx.file._rustc] +
+               ctx.files._rustc_lib + ctx.files._rustlib,
       outputs = [rust_lib],
       mnemonic = 'Rustc',
       command = cmd,
@@ -239,7 +241,8 @@ def _rust_binary_impl_common(ctx, extra_flags = []):
 
   # Compile action.
   ctx.action(
-      inputs = srcs + ctx.files.data + depinfo.libs,
+      inputs = srcs + ctx.files.data + depinfo.libs + [ctx.file._rustc] +
+               ctx.files._rustc_lib + ctx.files._rustlib,
       outputs = [rust_binary],
       mnemonic = 'Rustc',
       command = cmd,
