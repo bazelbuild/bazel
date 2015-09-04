@@ -36,7 +36,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.util.Set;
 
 /**
  * A builder for {@link ConfigurationFragmentValue}s.
@@ -44,13 +43,10 @@ import java.util.Set;
 public class ConfigurationFragmentFunction implements SkyFunction {
 
   private final Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments;
-  private final Supplier<Set<Package>> configurationPackages;
 
   public ConfigurationFragmentFunction(
-      Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments,
-      Supplier<Set<Package>> configurationPackages) {
+      Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments) {
     this.configurationFragments = configurationFragments;
-    this.configurationPackages = configurationPackages;
   }
 
   @Override
@@ -62,7 +58,7 @@ public class ConfigurationFragmentFunction implements SkyFunction {
     ConfigurationFragmentFactory factory = getFactory(configurationFragmentKey.getFragmentType());
     try {
       PackageProviderForConfigurations loadedPackageProvider = 
-          new SkyframePackageLoaderWithValueEnvironment(env, configurationPackages.get());
+          new SkyframePackageLoaderWithValueEnvironment(env);
       ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(loadedPackageProvider);
       Fragment fragment = factory.create(confEnv, buildOptions);
       

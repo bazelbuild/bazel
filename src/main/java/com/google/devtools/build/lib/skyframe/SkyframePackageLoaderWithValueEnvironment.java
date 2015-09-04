@@ -32,7 +32,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 
 import java.io.IOException;
-import java.util.Set;
 
 /**
  * Repeats functionality of {@link SkyframePackageLoader} but uses
@@ -42,19 +41,15 @@ import java.util.Set;
 class SkyframePackageLoaderWithValueEnvironment implements
     PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
-  private final Set<Package> packages;
 
-  public SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env,
-      Set<Package> packages) {
+  public SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env) {
     this.env = env;
-    this.packages = packages;
   }
 
   private Package getPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException{
     SkyKey key = PackageValue.key(pkgIdentifier);
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
     if (value != null) {
-      packages.add(value.getPackage());
       return value.getPackage();
     }
     return null;

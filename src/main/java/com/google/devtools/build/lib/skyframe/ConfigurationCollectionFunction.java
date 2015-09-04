@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigura
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -36,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -46,13 +44,9 @@ import javax.annotation.Nullable;
 public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
-  private final Supplier<Set<Package>> configurationPackages;
 
-  public ConfigurationCollectionFunction(
-      Supplier<ConfigurationFactory> configurationFactory,
-      Supplier<Set<Package>> configurationPackages) {
+  public ConfigurationCollectionFunction(Supplier<ConfigurationFactory> configurationFactory) {
     this.configurationFactory = configurationFactory;
-    this.configurationPackages = configurationPackages;
   }
 
   @Override
@@ -61,8 +55,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
       BuildConfigurationCollection result =
-          getConfigurations(env,
-              new SkyframePackageLoaderWithValueEnvironment(env, configurationPackages.get()),
+          getConfigurations(env, new SkyframePackageLoaderWithValueEnvironment(env),
               collectionKey.getBuildOptions(), collectionKey.getMultiCpu());
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
@@ -77,7 +70,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      return new ConfigurationCollectionValue(result, configurationPackages.get());
+      return new ConfigurationCollectionValue(result);
     } catch (InvalidConfigurationException e) {
       throw new ConfigurationCollectionFunctionException(e);
     }

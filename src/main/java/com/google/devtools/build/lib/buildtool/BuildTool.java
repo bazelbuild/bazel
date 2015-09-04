@@ -20,7 +20,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
@@ -204,8 +203,7 @@ public class BuildTool {
         runtime.getSkyframeExecutor().injectTopLevelContext(request.getTopLevelArtifactContext());
         executionTool.executeBuild(request.getId(), analysisResult, result,
             runtime.getSkyframeExecutor(), configurations,
-            mergePackageRoots(loadingResult.getPackageRoots(),
-            runtime.getSkyframeExecutor().getPackageRoots()));
+            transformPackageRoots(loadingResult.getPackageRoots()));
       }
 
       String delayedErrorMsg = analysisResult.getError();
@@ -291,22 +289,13 @@ public class BuildTool {
     }
   }
 
-  private ImmutableMap<PathFragment, Path> mergePackageRoots(
-      ImmutableMap<PackageIdentifier, Path> first,
-      ImmutableMap<PackageIdentifier, Path> second) {
-    Map<PathFragment, Path> builder = Maps.newHashMap();
-    for (Map.Entry<PackageIdentifier, Path> entry : first.entrySet()) {
+  private ImmutableMap<PathFragment, Path> transformPackageRoots(
+      ImmutableMap<PackageIdentifier, Path> packageRoots) {
+    ImmutableMap.Builder<PathFragment, Path> builder = ImmutableMap.builder();
+    for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
       builder.put(entry.getKey().getPathFragment(), entry.getValue());
     }
-    for (Map.Entry<PackageIdentifier, Path> entry : second.entrySet()) {
-      if (first.containsKey(entry.getKey())) {
-        Preconditions.checkState(first.get(entry.getKey()).equals(entry.getValue()));
-      } else {
-        // This could overwrite entries from first in other repositories.
-        builder.put(entry.getKey().getPackageFragment(), entry.getValue());
-      }
-    }
-    return ImmutableMap.copyOf(builder);
+    return builder.build();
   }
 
   private void reportExceptionError(Exception e) {
