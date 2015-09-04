@@ -158,6 +158,9 @@ echo -n .
 ln -s "${base}/bin/bazel" "${bin}/bazel"
 echo -n .
 
+# Uncompress the bazel base install for faster startup time
+"${bin}/bazel" help >/dev/null
+
 if [ -f "${bazelrc}" ]; then
   echo
   echo "${bazelrc} already exists, ignoring. It is either a link to"
