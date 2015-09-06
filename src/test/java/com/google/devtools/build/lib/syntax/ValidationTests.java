@@ -95,7 +95,7 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testBuiltinSymbolsAreReadOnly() throws Exception {
-    checkError("Variable repr is read only", "repr = 1");
+    checkError("Variable rule is read only", "rule = 1");
   }
 
   @Test
@@ -300,8 +300,8 @@ public class ValidationTests extends EvaluationTestCase {
   @Test
   public void testFunctionReturnsFunction() {
     parse(
-        "def rule(*, implementation): return None",
-        "def impl(ctx): return None",
+        "def impl(ctx):",
+        "  return None",
         "",
         "skylark_rule = rule(implementation = impl)",
         "",

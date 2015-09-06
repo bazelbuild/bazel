@@ -526,7 +526,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError("Keyword arguments are not allowed when calling a java method"
-            + "\nwhile calling method 'string' for type Mock",
+            + "\nwhile calling method 'string' on object of type Mock",
             "mock.string(key=True)");
   }
 

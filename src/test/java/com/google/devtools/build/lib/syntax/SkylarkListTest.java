@@ -45,8 +45,8 @@ public class SkylarkListTest extends EvaluationTestCase {
       SkylarkList.lazyList(new CustomIterable(), Integer.class);
 
   @Override
-  public Environment newEnvironment() throws Exception {
-    return newSkylarkEnvironment().update("lazy", list);
+  public EvaluationContext newEvaluationContext() throws Exception {
+    return super.newEvaluationContext().update("lazy", list);
   }
 
   @Test

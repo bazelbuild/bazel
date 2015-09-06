@@ -33,11 +33,11 @@ public final class Runtime {
 
   @SkylarkSignature(name = "True", returnType = Boolean.class,
       doc = "Literal for the boolean true.")
-  private static final Boolean TRUE = true;
+  static final Boolean TRUE = true;
 
   @SkylarkSignature(name = "False", returnType = Boolean.class,
       doc = "Literal for the boolean false.")
-  private static final Boolean FALSE = false;
+  static final Boolean FALSE = false;
 
   /**
    * There should be only one instance of this type to allow "== None" tests.
@@ -70,11 +70,11 @@ public final class Runtime {
   /**
    * Set up a given environment for supported class methods.
    */
-  static Environment setupConstants(Environment env) {
+  static Environment setupConstants(Environment env) throws EvalException {
     // In Python 2.x, True and False are global values and can be redefined by the user.
     // In Python 3.x, they are keywords. We implement them as values, for the sake of
     // simplicity. We define them as Boolean objects.
-    return env.setup("False", FALSE).setup("True", TRUE).setup("None", NONE);
+    return env.update("False", FALSE).update("True", TRUE).update("None", NONE);
   }
 
 
@@ -128,7 +128,7 @@ public final class Runtime {
   public static void registerModuleGlobals(Environment env, Class<?> moduleClass) {
     try {
       if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-        env.setup(
+        env.update(
             moduleClass.getAnnotation(SkylarkModule.class).name(), moduleClass.newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
@@ -142,7 +142,7 @@ public final class Runtime {
           if (!(value instanceof BuiltinFunction.Factory
               || (value instanceof BaseFunction
                   && !annotation.objectType().equals(Object.class)))) {
-            env.setup(annotation.name(), value);
+            env.update(annotation.name(), value);
           }
         }
       }
@@ -168,9 +168,9 @@ public final class Runtime {
   }
 
   static void setupMethodEnvironment(
-      Environment env, Iterable<BaseFunction> functions) {
+      Environment env, Iterable<BaseFunction> functions) throws EvalException {
     for (BaseFunction function : functions) {
-      env.setup(function.getName(), function);
+      env.update(function.getName(), function);
     }
   }
 }

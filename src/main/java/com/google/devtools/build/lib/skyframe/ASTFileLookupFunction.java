@@ -20,9 +20,6 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -116,33 +113,26 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (lookupResult == null) {
       return null;
     }
+
+    BuildFileAST ast = null;
     if (!lookupResult.lookupSuccessful()) {
       return ASTFileLookupValue.noFile();
-    }
-    BuildFileAST ast = null;
-    Path path = lookupResult.rootedPath().asPath();
-    // Skylark files end with bzl.
-    boolean parseAsSkylark = astFilePathFragment.getPathString().endsWith(".bzl");
-    try {
-      if (parseAsSkylark) {
-        try (Mutability mutability = Mutability.create("validate")) {
-            ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
-                packageManager, new ValidationEnvironment(
-                    ruleClassProvider.createSkylarkRuleClassEnvironment(
-                        mutability,
-                        env.getListener(),
-                        // the two below don't matter for extracting the ValidationEnvironment:
-                        /*astFileContentHashCode=*/null,
-                        /*importMap=*/null)
-                    .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)));
-        }
-      } else {
-        ast = BuildFileAST.parseBuildFile(path, env.getListener(), packageManager, false);
-      }
-    } catch (IOException e) {
+    } else {
+      Path path = lookupResult.rootedPath().asPath();
+      // Skylark files end with bzl.
+      boolean parseAsSkylark = astFilePathFragment.getPathString().endsWith(".bzl");
+      try {
+        ast = parseAsSkylark
+            ? BuildFileAST.parseSkylarkFile(path, env.getListener(),
+                packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone())
+            : BuildFileAST.parseBuildFile(path, env.getListener(),
+                packageManager, false);
+      } catch (IOException e) {
         throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
             e.getMessage()), Transience.TRANSIENT);
+      }
     }
+
     return ASTFileLookupValue.withFile(ast);
   }
 

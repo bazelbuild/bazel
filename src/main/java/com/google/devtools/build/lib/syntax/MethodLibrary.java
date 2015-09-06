@@ -776,7 +776,7 @@ public class MethodLibrary {
       new BuiltinFunction("append") {
         public Runtime.NoneType invoke(List<Object> self, Object item,
             Location loc, Environment env) throws EvalException, ConversionException {
-          if (env.isCallerSkylark()) {
+          if (env.isSkylark()) {
             throw new EvalException(loc,
                 "function 'append' is not available in Skylark");
           }
@@ -806,7 +806,7 @@ public class MethodLibrary {
       new BuiltinFunction("extend") {
         public Runtime.NoneType invoke(List<Object> self, List<Object> items,
             Location loc, Environment env) throws EvalException, ConversionException {
-          if (env.isCallerSkylark()) {
+          if (env.isSkylark()) {
             throw new EvalException(loc,
                 "function 'append' is not available in Skylark");
           }
@@ -920,7 +920,7 @@ public class MethodLibrary {
       List<Object> list = Lists.newArrayListWithCapacity(dict.size());
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
         List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
-        list.add(env.isCallerSkylark() ? SkylarkList.tuple(item) : item);
+        list.add(env.isSkylark() ? SkylarkList.tuple(item) : item);
       }
       return convert(list, env, loc);
     }
@@ -966,7 +966,7 @@ public class MethodLibrary {
   @SuppressWarnings("unchecked")
   private static Iterable<Object> convert(Collection<?> list, Environment env, Location loc)
       throws EvalException {
-    if (env.isCallerSkylark()) {
+    if (env.isSkylark()) {
       return SkylarkList.list(list, loc);
     } else {
       return Lists.newArrayList(list);
@@ -1386,7 +1386,7 @@ public class MethodLibrary {
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction print = new BuiltinFunction("print") {
     public Runtime.NoneType invoke(String sep, SkylarkList starargs,
-        Location loc, Environment env) throws EvalException {
+        Location loc, SkylarkEnvironment env) throws EvalException {
       String msg = Joiner.on(sep).join(Iterables.transform(starargs,
               new com.google.common.base.Function<Object, String>() {
                 @Override
@@ -1491,6 +1491,19 @@ public class MethodLibrary {
       .add(dir, fail, getattr, hasattr, print, set, struct, type)
       .build();
 
+
+  /**
+   * Set up a given environment for supported class methods.
+   */
+  public static void setupMethodEnvironment(Environment env) {
+    setupMethodEnvironment(env, env.isSkylark() ? skylarkGlobalFunctions : buildGlobalFunctions);
+  }
+
+  private static void setupMethodEnvironment(Environment env, Iterable<BaseFunction> functions) {
+    for (BaseFunction function : functions) {
+      env.update(function.getName(), function);
+    }
+  }
 
   /**
    * Collect global functions for the validation environment.

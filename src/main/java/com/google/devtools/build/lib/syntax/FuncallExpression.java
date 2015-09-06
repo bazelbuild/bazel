@@ -353,11 +353,21 @@ public final class FuncallExpression extends Expression {
   // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
   // matching methods, it still can be a problem. Figure out how the Java compiler does it
   // exactly and copy that behaviour.
-  private MethodDescriptor findJavaMethod(
-      Class<?> objClass, String methodName, List<Object> args) throws EvalException {
+  // TODO(bazel-team): check if this and SkylarkBuiltInFunctions.createObject can be merged.
+  private Object invokeJavaMethod(
+      Object obj, Class<?> objClass, String methodName, List<Object> args, boolean hasKwArgs)
+      throws EvalException {
     MethodDescriptor matchingMethod = null;
     List<MethodDescriptor> methods = getMethods(objClass, methodName, args.size(), getLocation());
     if (methods != null) {
+      if (hasKwArgs) {
+        throw new EvalException(
+            func.getLocation(),
+            String.format(
+                "Keyword arguments are not allowed when calling a java method"
+                + "\nwhile calling method '%s' on object of type %s",
+                func.getName(), EvalUtils.getDataTypeNameFromClass(objClass)));
+      }
       for (MethodDescriptor method : methods) {
         Class<?>[] params = method.getMethod().getParameterTypes();
         int i = 0;
@@ -381,11 +391,12 @@ public final class FuncallExpression extends Expression {
       }
     }
     if (matchingMethod != null && !matchingMethod.getAnnotation().structField()) {
-      return matchingMethod;
+      return callMethod(matchingMethod, methodName, obj, args.toArray(), getLocation());
+    } else {
+      throw new EvalException(getLocation(), "No matching method found for "
+          + formatMethod(methodName, args) + " in "
+          + EvalUtils.getDataTypeNameFromClass(objClass));
     }
-    throw new EvalException(getLocation(), "No matching method found for "
-        + formatMethod(methodName, args) + " in "
-        + EvalUtils.getDataTypeNameFromClass(objClass));
   }
 
   private String formatMethod(String methodName, List<Object> args) {
@@ -479,7 +490,20 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    // Adds the calling rule to the stack trace of the Environment if it is a BUILD environment.
+    // There are two reasons for this:
+    // a) When using aliases in load(), the rule class name in the BUILD file will differ from
+    //    the implementation name in the bzl file. Consequently, we need to store the calling name.
+    // b) We need the location of the calling rule inside the BUILD file.
+    boolean hasAddedElement =
+        env.isSkylark() ? false : env.tryAddingStackTraceRoot(new StackTraceElement(func, args));
+    try {
+      return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
+    } finally {
+      if (hasAddedElement) {
+        env.removeStackTraceRoot();
+      }
+    }
   }
 
   /**
@@ -526,28 +550,15 @@ public final class FuncallExpression extends Expression {
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
       evalArguments(posargs, kwargs, env, null);
-      Class<?> objClass;
-      Object obj;
       if (objValue instanceof Class<?>) {
-        // Static call
-        obj = null;
-        objClass = (Class<?>) objValue;
+        // Static Java method call. We can return the value from here directly because
+        // invokeJavaMethod() has special checks.
+        return invokeJavaMethod(
+            null, (Class<?>) objValue, func.getName(), posargs.build(), !kwargs.isEmpty());
       } else {
-        obj = objValue;
-        objClass = objValue.getClass();
+        return invokeJavaMethod(
+            objValue, objValue.getClass(), func.getName(), posargs.build(), !kwargs.isEmpty());
       }
-      String name = func.getName();
-      ImmutableList<Object> args = posargs.build();
-      MethodDescriptor method = findJavaMethod(objClass, name, args);
-      if (!kwargs.isEmpty()) {
-        throw new EvalException(
-            func.getLocation(),
-            String.format(
-                "Keyword arguments are not allowed when calling a java method"
-                + "\nwhile calling method '%s' for type %s",
-                name, EvalUtils.getDataTypeNameFromClass(objClass)));
-      }
-      return callMethod(method, name, obj, args.toArray(), getLocation());
     } else {
       throw new EvalException(
           getLocation(),

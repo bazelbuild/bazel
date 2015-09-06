@@ -22,25 +22,21 @@ public class SkylarkCallbackFunction {
 
   private final BaseFunction callback;
   private final FuncallExpression ast;
-  private final Environment funcallEnv;
+  private final SkylarkEnvironment funcallEnv;
 
-  public SkylarkCallbackFunction(
-      BaseFunction callback, FuncallExpression ast, Environment funcallEnv) {
+  public SkylarkCallbackFunction(BaseFunction callback, FuncallExpression ast,
+      SkylarkEnvironment funcallEnv) {
     this.callback = callback;
     this.ast = ast;
     this.funcallEnv = funcallEnv;
   }
 
   public Object call(ClassObject ctx, Object... arguments) throws EvalException {
-    try (Mutability mutability = Mutability.create("callback %s", callback)) {
-      Environment env = Environment.builder(mutability)
-          .setSkylark()
-          .setEventHandler(funcallEnv.getEventHandler())
-          .setGlobals(funcallEnv.getGlobals())
-          .build();
+    try {
       return callback.call(
-          ImmutableList.<Object>builder().add(ctx).add(arguments).build(), null, ast, env);
-    } catch (InterruptedException | ClassCastException | IllegalArgumentException e) {
+          ImmutableList.<Object>builder().add(ctx).add(arguments).build(), null, ast, funcallEnv);
+    } catch (InterruptedException | ClassCastException
+        | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
   }

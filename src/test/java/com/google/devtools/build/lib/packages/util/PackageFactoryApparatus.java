@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -134,7 +134,7 @@ public class PackageFactoryApparatus {
     LegacyBuilder resultBuilder = factory.evaluateBuildFile(
         externalPkg, packageId, buildFileAST, buildFile,
         globber, ImmutableList.<Event>of(), ConstantRuleVisibility.PUBLIC, false, false,
-        new MakeEnvironment.Builder(), ImmutableMap.<PathFragment, Environment>of(),
+        new MakeEnvironment.Builder(), ImmutableMap.<PathFragment, SkylarkEnvironment>of(),
         ImmutableList.<Label>of());
     Package result = resultBuilder.build();
     Event.replayEventsOn(events.reporter(), result.getEvents());

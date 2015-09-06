@@ -50,14 +50,10 @@ public class FunctionDefStatement extends Statement {
         defaultValues.add(expr.eval(env));
       }
     }
-    env.update(
-        ident.getName(),
-        new UserDefinedFunction(
-            ident,
-            FunctionSignature.WithValues.<Object, SkylarkType>create(
-                signature.getSignature(), defaultValues, types),
-            statements,
-            env.getGlobals()));
+    env.update(ident.getName(), new UserDefinedFunction(
+        ident, FunctionSignature.WithValues.<Object, SkylarkType>create(
+            signature.getSignature(), defaultValues, types),
+        statements, (SkylarkEnvironment) env));
   }
 
   @Override

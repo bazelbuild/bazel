@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -271,7 +272,7 @@ public class SkylarkRuleClassFunctions {
           if (implicitOutputs instanceof BaseFunction) {
             BaseFunction func = (BaseFunction) implicitOutputs;
             final SkylarkCallbackFunction callback =
-                new SkylarkCallbackFunction(func, ast, funcallEnv);
+                new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
             builder.setImplicitOutputsFunction(
                 new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
           } else {
@@ -292,7 +293,8 @@ public class SkylarkRuleClassFunctions {
         }
 
         builder.setConfiguredTargetFunction(implementation);
-        builder.setRuleDefinitionEnvironment(funcallEnv);
+        builder.setRuleDefinitionEnvironment(
+            ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
         return new RuleFunction(builder, type);
         }
       };
@@ -330,7 +332,7 @@ public class SkylarkRuleClassFunctions {
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         return RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env);
+            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env.getStackTrace());
       } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
@@ -350,8 +352,8 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  public static void exportRuleFunctions(Environment env, PathFragment skylarkFile) {
-    for (String name : env.getGlobals().getDirectVariableNames()) {
+  public static void exportRuleFunctions(SkylarkEnvironment env, PathFragment skylarkFile) {
+    for (String name : env.getDirectVariableNames()) {
       try {
         Object value = env.lookup(name);
         if (value instanceof RuleFunction) {

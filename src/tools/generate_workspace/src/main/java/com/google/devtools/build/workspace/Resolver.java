@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.workspace.maven.DefaultModelResolver;
@@ -70,9 +69,9 @@ public class Resolver {
     resolver.addHeader(workspacePath.getPathString());
     ExternalPackage.Builder builder = new ExternalPackage.Builder(workspacePath,
         ruleClassProvider.getRunfilesPrefix());
-    try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
-      new WorkspaceFactory(builder, ruleClassProvider, mutability)
-          .parse(ParserInputSource.create(workspacePath));
+    WorkspaceFactory parser = new WorkspaceFactory(builder, ruleClassProvider);
+    try {
+      parser.parse(ParserInputSource.create(workspacePath));
     } catch (IOException | InterruptedException e) {
       handler.handle(Event.error(Location.fromFile(workspacePath), e.getMessage()));
     }

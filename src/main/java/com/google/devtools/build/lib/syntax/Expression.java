@@ -42,8 +42,8 @@ public abstract class Expression extends ASTNode {
   /**
    * Returns the inferred type of the result of the Expression.
    *
-   * <p>Checks the semantics of the Expression using the {@link Environment} according to
-   * the rules of the Skylark language, throws {@link EvalException} in case of a semantical error.
+   * <p>Checks the semantics of the Expression using the SkylarkEnvironment according to
+   * the rules of the Skylark language, throws EvalException in case of a semantical error.
    *
    * @see Statement
    */

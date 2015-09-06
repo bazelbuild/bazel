@@ -32,44 +32,42 @@ import org.junit.runners.JUnit4;
 import java.util.LinkedList;
 import java.util.List;
 
+
 /**
  *  Tests of parser behaviour.
  */
 @RunWith(JUnit4.class)
 public class ParserTest extends EvaluationTestCase {
 
-  Environment buildEnvironment;
+  EvaluationContext buildContext;
+  EvaluationContext buildContextWithPython;
 
   @Before
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    buildEnvironment = newBuildEnvironment();
+    buildContext = EvaluationContext.newBuildContext(getEventHandler());
+    buildContextWithPython = EvaluationContext.newBuildContext(
+        getEventHandler(), new Environment(), /*parsePython*/true);
   }
 
   private Parser.ParseResult parseFileWithComments(String... input) {
-    return buildEnvironment.parseFileWithComments(input);
+    return buildContext.parseFileWithComments(input);
   }
-
-  /** Parses build code (not Skylark) */
   @Override
   protected List<Statement> parseFile(String... input) {
-    return buildEnvironment.parseFile(input);
+    return buildContext.parseFile(input);
   }
-
-  /** Parses a build code (not Skylark) with PythonProcessing enabled */
   private List<Statement> parseFileWithPython(String... input) {
-    return Parser.parseFile(
-        buildEnvironment.createLexer(input),
-        getEventHandler(),
-        Environment.EMPTY_PACKAGE_LOCATOR,
-        /*parsePython=*/true).statements;
+    return buildContextWithPython.parseFile(input);
+  }
+  private List<Statement> parseFileForSkylark(String... input) {
+    return evaluationContext.parseFile(input);
+  }
+  private Statement parseStatement(String... input) {
+    return buildContext.parseStatement(input);
   }
 
-  /** Parses Skylark code */
-  private List<Statement> parseFileForSkylark(String... input) {
-    return env.parseFile(input);
-  }
 
   private static String getText(String text, ASTNode node) {
     return text.substring(node.getLocation().getStartOffset(),
@@ -709,7 +707,7 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testParserContainsErrors() throws Exception {
     setFailFast(false);
-    parseFile("+");
+    parseStatement("+");
     assertContainsEvent("syntax error at '+'");
   }
 

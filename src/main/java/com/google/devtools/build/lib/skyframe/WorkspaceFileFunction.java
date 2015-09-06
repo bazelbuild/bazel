@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,25 +62,18 @@ public class WorkspaceFileFunction implements SkyFunction {
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     Builder builder = new Builder(repoWorkspace,
         packageFactory.getRuleClassProvider().getRunfilesPrefix());
-    try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
-      WorkspaceFactory parser =
-          new WorkspaceFactory(
-              builder,
-              packageFactory.getRuleClassProvider(),
-              mutability,
-              installDir.getPathString());
-      parser.parse(
-          ParserInputSource.create(
-              ruleClassProvider.getDefaultWorkspaceFile(), new PathFragment("DEFAULT.WORKSPACE")));
-      if (!workspaceFileValue.exists()) {
-        return new PackageValue(builder.build());
-      }
+    WorkspaceFactory parser = new WorkspaceFactory(
+        builder, packageFactory.getRuleClassProvider(), installDir.getPathString());
+    parser.parse(ParserInputSource.create(
+        ruleClassProvider.getDefaultWorkspaceFile(), new PathFragment("DEFAULT.WORKSPACE")));
+    if (!workspaceFileValue.exists()) {
+      return new PackageValue(builder.build());
+    }
 
-      try {
-        parser.parse(ParserInputSource.create(repoWorkspace));
-      } catch (IOException e) {
-        throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
-      }
+    try {
+      parser.parse(ParserInputSource.create(repoWorkspace));
+    } catch (IOException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
 
     return new PackageValue(builder.build());

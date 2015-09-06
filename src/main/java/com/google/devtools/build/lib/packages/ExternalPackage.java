@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -121,8 +120,7 @@ public class ExternalPackage extends Package {
         attributes.put("actual", actual);
       }
       StoredEventHandler handler = new StoredEventHandler();
-      Rule rule = RuleFactory.createRule(
-          this, bindRuleClass, attributes, handler, null, location, null);
+      Rule rule = RuleFactory.createRule(this, bindRuleClass, attributes, handler, null, location);
       overwriteRule(rule);
       rule.setVisibility(ConstantRuleVisibility.PUBLIC);
     }
@@ -132,11 +130,11 @@ public class ExternalPackage extends Package {
      * WORKSPACE files to overwrite "earlier" ones.
      */
     public Builder createAndAddRepositoryRule(RuleClass ruleClass, RuleClass bindRuleClass,
-        Map<String, Object> kwargs, FuncallExpression ast, Environment env)
+        Map<String, Object> kwargs, FuncallExpression ast)
         throws InvalidRuleException, NameConflictException, SyntaxException {
       StoredEventHandler eventHandler = new StoredEventHandler();
-      Rule tempRule = RuleFactory.createRule(
-          this, ruleClass, kwargs, eventHandler, ast, ast.getLocation(), env);
+      Rule tempRule = RuleFactory.createRule(this, ruleClass, kwargs, eventHandler, ast,
+          ast.getLocation());
       addEvents(eventHandler.getEvents());
       try {
         repositoryMap.put(RepositoryName.create("@" + tempRule.getName()), tempRule);

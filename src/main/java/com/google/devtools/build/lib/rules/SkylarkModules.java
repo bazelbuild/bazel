@@ -19,8 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.EvaluationContext;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
 /**
  * The basis for a Skylark Environment with all build-related modules registered.
@@ -41,43 +44,41 @@ public final class SkylarkModules {
       SkylarkRuleClassFunctions.class,
       SkylarkRuleImplementationFunctions.class);
 
-  /** Global bindings for all Skylark modules */
-  public static final Environment.Frame GLOBALS = createGlobals();
-
-  private static Environment.Frame createGlobals() {
-    try (Mutability mutability = Mutability.create("SkylarkModules")) {
-      Environment env = Environment.builder(mutability)
-          .setSkylark()
-          .setGlobals(Environment.SKYLARK)
-          .build();
-      for (Class<?> moduleClass : MODULES) {
-        Runtime.registerModuleGlobals(env, moduleClass);
-      }
-      return env.getGlobals();
-    }
-  }
-
-
   /**
-   * Create an {@link Environment} in which to load a Skylark file.
-   * @param eventHandler an EventHandler for warnings, errors, etc.
-   * @param astFileContentHashCode a hash code identifying the file being evaluated
-   * @param mutability the Mutability for the current evaluation context
-   * @return a new Environment with the elements of the Skylark modules.
+   * Returns a new SkylarkEnvironment with the elements of the Skylark modules.
    */
-  public static Environment getNewEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode, Mutability mutability) {
-    return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(GLOBALS)
-        .setEventHandler(eventHandler)
-        .setFileContentHashCode(astFileContentHashCode)
-        .build();
+  public static SkylarkEnvironment getNewEnvironment(
+      EventHandler eventHandler, String astFileContentHashCode) {
+    SkylarkEnvironment env = new SkylarkEnvironment(eventHandler, astFileContentHashCode);
+    setupEnvironment(env);
+    return env;
   }
 
   @VisibleForTesting
-  public static Environment getNewEnvironment(
-      EventHandler eventHandler, Mutability mutability) {
-    return getNewEnvironment(eventHandler, null, mutability);
+  public static SkylarkEnvironment getNewEnvironment(EventHandler eventHandler) {
+    return getNewEnvironment(eventHandler, null);
+  }
+
+  private static void setupEnvironment(Environment env) {
+    MethodLibrary.setupMethodEnvironment(env);
+    for (Class<?> moduleClass : MODULES) {
+      Runtime.registerModuleGlobals(env, moduleClass);
+    }
+    // Even though PACKAGE_NAME has no value _now_ and will be bound later,
+    // it needs to be visible for the ValidationEnvironment to be happy.
+    env.update(Runtime.PKG_NAME, Runtime.NONE);
+  }
+
+  /**
+   * Returns a new ValidationEnvironment with the elements of the Skylark modules.
+   */
+  public static ValidationEnvironment getValidationEnvironment() {
+    // TODO(bazel-team): refactor constructors so we don't have those null-s
+    return new ValidationEnvironment(getNewEnvironment(null));
+  }
+
+  public static EvaluationContext newEvaluationContext(EventHandler eventHandler) {
+    return EvaluationContext.newSkylarkContext(
+        getNewEnvironment(eventHandler), getValidationEnvironment());
   }
 }

@@ -46,9 +46,10 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -325,6 +326,7 @@ public final class PackageFactory {
 
   private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
+  private final Environment globalEnv;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
   private Preprocessor.Factory preprocessorFactory = Preprocessor.Factory.NullFactory.INSTANCE;
@@ -365,6 +367,7 @@ public final class PackageFactory {
     this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
+    globalEnv = newGlobalEnvironment();
     threadPool = new ThreadPoolExecutor(100, 100, 15L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
         new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
@@ -397,6 +400,15 @@ public final class PackageFactory {
     threadPool.setMaximumPoolSize(globbingThreads);
   }
 
+
+  /**
+   * Returns the static environment initialized once and shared by all packages
+   * created by this factory. No updates occur to this environment once created.
+   */
+  @VisibleForTesting
+  public Environment getEnvironment() {
+    return globalEnv;
+  }
 
   /**
    * Returns the immutable, unordered set of names of all the known rule
@@ -619,8 +631,8 @@ public final class PackageFactory {
                   "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
 
               try {
-                context.pkgBuilder.addEnvironmentGroup(
-                    name, environments, defaults, context.eventHandler, loc);
+                context.pkgBuilder.addEnvironmentGroup(name, environments, defaults,
+                    context.eventHandler, loc);
                 return Runtime.NONE;
               } catch (Label.SyntaxException e) {
                 throw new EvalException(loc,
@@ -898,7 +910,7 @@ public final class PackageFactory {
                               Environment env)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException {
     RuleClass ruleClass = getBuiltInRuleClass(ruleClassName, ruleFactory);
-    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast, env);
+    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast, env.getStackTrace());
   }
 
   private static RuleClass getBuiltInRuleClass(String ruleClassName, RuleFactory ruleFactory) {
@@ -946,6 +958,16 @@ public final class PackageFactory {
     };
   }
 
+  /**
+   * Returns a new environment populated with common entries that can be shared
+   * across packages and that don't require the context.
+   */
+  private static Environment newGlobalEnvironment() {
+    Environment env = new Environment();
+    MethodLibrary.setupMethodEnvironment(env);
+    return env;
+  }
+
   /****************************************************************************
    * Package creation.
    */
@@ -973,7 +995,7 @@ public final class PackageFactory {
       Preprocessor.Result preprocessingResult,
       Iterable<Event> preprocessingEvents,
       List<Statement> preludeStatements,
-      Map<PathFragment, Environment> imports,
+      Map<PathFragment, SkylarkEnvironment> imports,
       ImmutableList<Label> skylarkFileDependencies,
       CachingPackageLocator locator,
       RuleVisibility defaultVisibility,
@@ -1042,12 +1064,12 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 preprocessingResult,
-                /*preprocessingEvents=*/localReporter.getEvents(),
-                /*preludeStatements=*/ImmutableList.<Statement>of(),
-                /*imports=*/ImmutableMap.<PathFragment, Environment>of(),
-                /*skylarkFileDependencies=*/ImmutableList.<Label>of(),
+                localReporter.getEvents(), /* preprocessingEvents */
+                ImmutableList.<Statement>of(), /* preludeStatements */
+                ImmutableMap.<PathFragment, SkylarkEnvironment>of(), /* imports */
+                ImmutableList.<Label>of(), /* skylarkFileDependencies */
                 locator,
-                /*defaultVisibility=*/ConstantRuleVisibility.PUBLIC,
+                ConstantRuleVisibility.PUBLIC, /* defaultVisibility */
                 globber)
             .build();
     Event.replayEventsOn(eventHandler, result.getEvents());
@@ -1088,13 +1110,8 @@ public final class PackageFactory {
       return Preprocessor.Result.noPreprocessing(inputSource);
     }
     try {
-      return preprocessor.preprocess(
-          inputSource,
-          packageId.toString(),
-          globber,
-          eventHandler,
-          Environment.BUILD,
-          ruleFactory.getRuleClassNames());
+      return preprocessor.preprocess(inputSource, packageId.toString(), globber, eventHandler,
+          globalEnv, ruleFactory.getRuleClassNames());
     } catch (IOException e) {
       eventHandler.handle(Event.error(Location.fromFile(buildFile),
                      "preprocessing failed: " + e.getMessage()));
@@ -1195,20 +1212,19 @@ public final class PackageFactory {
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common Environment.Frame for these common bindings
     // (that shares a backing ImmutableMap for the bindings?)
-    pkgEnv
-        .setup("native", nativeModule)
-        .setup("distribs", newDistribsFunction.apply(context))
-        .setup("glob", newGlobFunction.apply(context, /*async=*/false))
-        .setup("mocksubinclude", newMockSubincludeFunction.apply(context))
-        .setup("licenses", newLicensesFunction.apply(context))
-        .setup("exports_files", newExportsFilesFunction.apply())
-        .setup("package_group", newPackageGroupFunction.apply())
-        .setup("package", newPackageFunction(packageArguments))
-        .setup("environment_group", newEnvironmentGroupFunction.apply(context));
+    pkgEnv.update("native", nativeModule);
+    pkgEnv.update("distribs", newDistribsFunction.apply(context));
+    pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/false));
+    pkgEnv.update("mocksubinclude", newMockSubincludeFunction.apply(context));
+    pkgEnv.update("licenses", newLicensesFunction.apply(context));
+    pkgEnv.update("exports_files", newExportsFilesFunction.apply());
+    pkgEnv.update("package_group", newPackageGroupFunction.apply());
+    pkgEnv.update("package", newPackageFunction(packageArguments));
+    pkgEnv.update("environment_group", newEnvironmentGroupFunction.apply(context));
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass);
-      pkgEnv.setup(ruleClass, ruleFunction);
+      pkgEnv.update(ruleClass, ruleFunction);
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
@@ -1239,65 +1255,62 @@ public final class PackageFactory {
       PackageIdentifier packageId, BuildFileAST buildFileAST, Path buildFilePath, Globber globber,
       Iterable<Event> pastEvents, RuleVisibility defaultVisibility, boolean containsError,
       boolean containsTransientError, MakeEnvironment.Builder pkgMakeEnv,
-      Map<PathFragment, Environment> imports,
+      Map<PathFragment, SkylarkEnvironment> imports,
       ImmutableList<Label> skylarkFileDependencies) throws InterruptedException {
+    // Important: Environment should be unreachable by the end of this method!
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    Environment pkgEnv = new Environment(globalEnv, eventHandler);
+    pkgEnv.setLoadingPhase();
+
     Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(
         packageId, ruleClassProvider.getRunfilesPrefix());
-    StoredEventHandler eventHandler = new StoredEventHandler();
 
-    try (Mutability mutability = Mutability.create("package %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(eventHandler)
-          .setImportedExtensions(imports)
-          .setLoadingPhase()
-          .build();
+    pkgBuilder.setGlobber(globber)
+        .setFilename(buildFilePath)
+        .setMakeEnv(pkgMakeEnv)
+        .setDefaultVisibility(defaultVisibility)
+        // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
+        // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
+        .setDefaultVisibilitySet(false)
+        .setSkylarkFileDependencies(skylarkFileDependencies)
+        .setWorkspaceName(externalPkg.getWorkspaceName());
 
-      pkgBuilder.setGlobber(globber)
-          .setFilename(buildFilePath)
-          .setMakeEnv(pkgMakeEnv)
-          .setDefaultVisibility(defaultVisibility)
-          // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
-          // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
-          .setDefaultVisibilitySet(false)
-          .setSkylarkFileDependencies(skylarkFileDependencies)
-          .setWorkspaceName(externalPkg.getWorkspaceName());
+    Event.replayEventsOn(eventHandler, pastEvents);
 
-      Event.replayEventsOn(eventHandler, pastEvents);
+    // Stuff that closes over the package context:`
+    PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
+    buildPkgEnv(pkgEnv, context, ruleFactory);
 
-      // Stuff that closes over the package context:
-      PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
-      buildPkgEnv(pkgEnv, context, ruleFactory);
-      pkgEnv.setupDynamic(PKG_CONTEXT, context);
-      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.toString());
+    if (containsError) {
+      pkgBuilder.setContainsErrors();
+    }
 
-      if (containsError) {
-        pkgBuilder.setContainsErrors();
-      }
+    if (containsTransientError) {
+      pkgBuilder.setContainsTemporaryErrors();
+    }
 
-      if (containsTransientError) {
-        pkgBuilder.setContainsTemporaryErrors();
-      }
+    if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
+      pkgBuilder.setContainsErrors();
+    }
 
-      if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
-        pkgBuilder.setContainsErrors();
-      }
+    pkgEnv.setImportedExtensions(imports);
+    pkgEnv.updateAndPropagate(PKG_CONTEXT, context);
+    pkgEnv.updateAndPropagate(Runtime.PKG_NAME, packageId.toString());
 
-      if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
-        pkgBuilder.setContainsErrors();
-      }
+    if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
+      pkgBuilder.setContainsErrors();
+    }
 
-      if (buildFileAST.containsErrors()) {
-        pkgBuilder.setContainsErrors();
-      }
+    if (buildFileAST.containsErrors()) {
+      pkgBuilder.setContainsErrors();
+    }
 
-      // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package
-      // as containing errors" is strewn all over this class.  Refactor to use an
-      // event sensor--and see if we can simplify the calling code in
-      // createPackage().
-      if (!buildFileAST.exec(pkgEnv, eventHandler)) {
-        pkgBuilder.setContainsErrors();
-      }
+    // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package
+    // as containing errors" is strewn all over this class.  Refactor to use an
+    // event sensor--and see if we can simplify the calling code in
+    // createPackage().
+    if (!buildFileAST.exec(pkgEnv, eventHandler)) {
+      pkgBuilder.setContainsErrors();
     }
 
     pkgBuilder.addEvents(eventHandler.getEvents());
@@ -1316,36 +1329,29 @@ public final class PackageFactory {
       // of all globs.
       return;
     }
-    try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(NullEventHandler.INSTANCE)
-          .setLoadingPhase()
-          .build();
+    // Important: Environment should be unreachable by the end of this method!
+    Environment pkgEnv = new Environment();
+    pkgEnv.setLoadingPhase();
 
-      Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId,
-          ruleClassProvider.getRunfilesPrefix());
+    Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId,
+        ruleClassProvider.getRunfilesPrefix());
 
-      pkgBuilder.setFilename(buildFilePath)
-          .setMakeEnv(pkgMakeEnv)
-          .setDefaultVisibility(defaultVisibility)
-          // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
-          // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
-          .setDefaultVisibilitySet(false);
+    pkgBuilder.setFilename(buildFilePath)
+        .setMakeEnv(pkgMakeEnv)
+        .setDefaultVisibility(defaultVisibility)
+        // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
+        // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
+        .setDefaultVisibilitySet(false);
 
-      // Stuff that closes over the package context:
-      PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
-      buildPkgEnv(pkgEnv, context, ruleFactory);
-      try {
-        pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));
-        // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
-        // preloading phase.
-        pkgEnv.update("FilesetEntry", Runtime.NONE);
-      } catch (EvalException e) {
-        throw new AssertionError(e);
-      }
-      buildFileAST.exec(pkgEnv, NullEventHandler.INSTANCE);
-    }
+    // Stuff that closes over the package context:
+    PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
+    buildPkgEnv(pkgEnv, context, ruleFactory);
+    pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));
+    // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
+    // preloading phase.
+    pkgEnv.remove("FilesetEntry");
+
+    buildFileAST.exec(pkgEnv, NullEventHandler.INSTANCE);
   }
 
 

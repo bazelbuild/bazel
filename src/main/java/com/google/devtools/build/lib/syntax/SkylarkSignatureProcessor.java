@@ -204,13 +204,8 @@ public class SkylarkSignatureProcessor {
     } else if (param.defaultValue().isEmpty()) {
       return Runtime.NONE;
     } else {
-      try (Mutability mutability = Mutability.create("initialization")) {
-        return Environment.builder(mutability)
-            .setSkylark()
-            .setGlobals(Environment.CONSTANTS_ONLY)
-            .setEventHandler(Environment.FAIL_FAST_HANDLER)
-            .build()
-            .eval(param.defaultValue());
+      try {
+        return EvaluationContext.SKYLARK_INITIALIZATION.evalExpression(param.defaultValue());
       } catch (Exception e) {
         throw new RuntimeException(String.format(
             "Exception while processing @SkylarkSignature.Param %s, default value %s",

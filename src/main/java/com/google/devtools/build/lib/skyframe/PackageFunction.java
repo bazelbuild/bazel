@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -552,8 +553,7 @@ public class PackageFunction implements SkyFunction {
     if (eventHandler.hasErrors()) {
       importResult =
           new SkylarkImportResult(
-              ImmutableMap.<PathFragment, com.google.devtools.build.lib.syntax.Environment>of(),
-              ImmutableList.<Label>of());
+              ImmutableMap.<PathFragment, SkylarkEnvironment>of(), ImmutableList.<Label>of());
       includeRepositoriesFetched = true;
     } else {
       importResult =
@@ -581,7 +581,7 @@ public class PackageFunction implements SkyFunction {
       Environment env)
       throws PackageFunctionException {
     ImmutableMap<Location, PathFragment> imports = buildFileAST.getImports();
-    Map<PathFragment, com.google.devtools.build.lib.syntax.Environment> importMap = new HashMap<>();
+    Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     try {
       for (Map.Entry<Location, PathFragment> entry : imports.entrySet()) {
@@ -884,11 +884,9 @@ public class PackageFunction implements SkyFunction {
 
   /** A simple value class to store the result of the Skylark imports.*/
   private static final class SkylarkImportResult {
-    private final Map<PathFragment, com.google.devtools.build.lib.syntax.Environment> importMap;
+    private final Map<PathFragment, SkylarkEnvironment> importMap;
     private final ImmutableList<Label> fileDependencies;
-    private SkylarkImportResult(
-        Map<PathFragment,
-        com.google.devtools.build.lib.syntax.Environment> importMap,
+    private SkylarkImportResult(Map<PathFragment, SkylarkEnvironment> importMap,
         ImmutableList<Label> fileDependencies) {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;

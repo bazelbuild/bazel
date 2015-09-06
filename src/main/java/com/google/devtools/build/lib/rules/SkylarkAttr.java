@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -104,7 +105,7 @@ public final class SkylarkAttr {
   }
 
   private static Attribute.Builder<?> createAttribute(
-      Type<?> type, Map<String, Object> arguments, FuncallExpression ast, Environment env)
+      Type<?> type, Map<String, Object> arguments, FuncallExpression ast, SkylarkEnvironment env)
       throws EvalException, ConversionException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
@@ -184,7 +185,7 @@ public final class SkylarkAttr {
       Map<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
       throws EvalException {
     try {
-      return createAttribute(type, kwargs, ast, env);
+      return createAttribute(type, kwargs, ast, (SkylarkEnvironment) env);
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
