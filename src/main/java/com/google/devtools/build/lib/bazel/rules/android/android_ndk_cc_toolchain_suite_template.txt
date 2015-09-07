@@ -17,6 +17,11 @@
 
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "files",
+    srcs = ["ndk"],
+)
+
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = {

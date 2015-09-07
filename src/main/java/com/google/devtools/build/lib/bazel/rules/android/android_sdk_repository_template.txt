@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "files",
+    srcs = ["."],
+)
+
 java_import(
     name = "appcompat_v7_import",
     jars = ["extras/android/support/v7/appcompat/libs/android-support-v7-appcompat.jar"]

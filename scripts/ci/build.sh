@@ -69,28 +69,29 @@ function setup_android_repositories() {
     trap '[ -f WORKSPACE.bak ] && rm WORKSPACE && mv WORKSPACE.bak WORKSPACE' \
       EXIT
     cat >>WORKSPACE <<EOF
-new_local_repository(
-    name = "globbed_android_sdk",
+android_sdk_repository(
+    name = "androidsdk",
     path = "${ANDROID_SDK_PATH}",
-    build_file = "BUILD.glob",
+    build_tools_version = "${ANDROID_SDK_BUILD_TOOLS_VERSION:-22.0.1}",
+    api_level = ${ANDROID_SDK_API_LEVEL:-21},
 )
 
 bind(
     name = "android_sdk_for_testing",
-    actual = "@globbed_android_sdk//:all",
+    actual = "@androidsdk//:files",
 )
 EOF
     if [ -n "${ANDROID_NDK_PATH-}" ]; then
       cat >>WORKSPACE <<EOF
-new_local_repository(
-    name = "globbed_android_ndk",
+android_ndk_repository(
+    name = "androidndk",
     path = "${ANDROID_NDK_PATH}",
-    build_file = "BUILD.glob",
+    api_level = ${ANDROID_NDK_API_LEVEL:-21},
 )
 
 bind(
     name = "android_ndk_for_testing",
-    actual = "@globbed_android_ndk//:all",
+    actual = "@androidndk//:files",
 )
 EOF
     fi
