@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,39 +42,23 @@ import java.util.List;
              + "%{options}")
 public final class CanonicalizeCommand implements BlazeCommand {
 
-  public static class CommandConverter implements Converter<String> {
-
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.equals("build")) {
-        return input;
-      } else if (input.equals("test")) {
-        return input;
-      }
-      throw new OptionsParsingException("Not a valid command: '" + input + "' (should be "
-          + getTypeDescription() + ")");
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "build or test";
-    }
-  }
-
   public static class Options extends OptionsBase {
-
     @Option(name = "for_command",
             defaultValue = "build",
             category = "misc",
-            converter = CommandConverter.class,
             help = "The command for which the options should be canonicalized.")
     public String forCommand;
   }
 
   @Override
   public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
-    BlazeCommand command = runtime.getCommandMap().get(
-        options.getOptions(Options.class).forCommand);
+    String commandName = options.getOptions(Options.class).forCommand;
+    BlazeCommand command = runtime.getCommandMap().get(commandName);
+    if (command == null) {
+      runtime.getReporter().handle(Event.error("Not a valid command: '" + commandName
+          + "' (should be one of " + Joiner.on(", ").join(runtime.getCommandMap().keySet()) + ")"));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
     Collection<Class<? extends OptionsBase>> optionsClasses =
         BlazeCommandUtils.getOptions(
             command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider());
