@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FileTarget;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -90,12 +89,7 @@ final class CompileOneDependencyTransformer {
                                        target.getLabel() + "' must be a file");
     }
 
-    Package pkg;
-    try {
-      pkg = pkgManager.getLoadedPackage(target.getLabel().getPackageIdentifier());
-    } catch (NoSuchPackageException e) {
-      throw new IllegalStateException(e);
-    }
+    Package pkg = target.getPackage();
 
     Iterable<Rule> orderedRuleList = getOrderedRuleList(pkg);
     // Consuming rule to return if no "preferred" rules have been found.

@@ -85,8 +85,6 @@ public class TargetPatternFunction implements SkyFunction {
     return null;
   }
 
-
-
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
    * {@link TargetPatternFunction#compute}.

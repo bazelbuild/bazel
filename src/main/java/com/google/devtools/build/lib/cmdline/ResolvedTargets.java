@@ -65,6 +65,11 @@ public final class ResolvedTargets<T> {
     this.hasError = hasError;
   }
 
+  @Override
+  public String toString() {
+    return "ResolvedTargets(" + targets + ", hasError=" + hasError + ")";
+  }
+
   public boolean hasError() {
     return hasError;
   }

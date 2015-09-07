@@ -23,5 +23,5 @@ public interface EventHandler {
   /**
    * Handles an event.
    */
-  public void handle(Event event);
+  void handle(Event event);
 }
