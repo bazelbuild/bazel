@@ -203,9 +203,10 @@ public class RuleFactory {
     }
 
     StackTraceElement generator = stackTrace.get(0);
+    String name = generator.getNameArg();
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     builder.putAll(args);
-    builder.put("generator_name", args.get("name"));
+    builder.put("generator_name", (name == null) ? args.get("name") : name);
     builder.put("generator_function", generator.getName());
     builder.put("generator_location", Location.printPathAndLine(generator.getLocation()));
 
