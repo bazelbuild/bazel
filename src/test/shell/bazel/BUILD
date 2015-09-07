@@ -139,9 +139,10 @@ sh_test(
 
 sh_test(
     name = "local_repository_test",
-    size = "medium",
+    size = "large",
     srcs = ["local_repository_test.sh"],
     data = [":test-deps"],
+    shard_count = 3,
 )
 
 sh_test(
