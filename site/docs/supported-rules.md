@@ -12,5 +12,6 @@ to build the following:
 *   [Docker images](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/docker)
 *   [Groovy projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/groovy)
 *   [Java App Engine applications](https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/appengine)
+*   [D projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/d)
 *   [Rust projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/rust)
 *   [Scala projects](https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/scala) - experimental
