@@ -259,12 +259,20 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public <T extends Fragment> T getFragment(Class<T> fragment, ConfigurationTransition config) {
+    return getFragment(fragment, fragment.getSimpleName(), "", config);
+  }
+
+  @Nullable
+  protected <T extends Fragment> T getFragment(Class<T> fragment, String name,
+      String additionalErrorMessage, ConfigurationTransition config) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
     Preconditions.checkArgument(isLegalFragment(fragment, config),
-        "%s does not have access to '%s' in %s configuration", rule.getRuleClass(),
-        fragment.getSimpleName(), FragmentCollection.getConfigurationName(config));
-    return getConfiguration(config).getFragment(fragment);
+        "%s has to declare '%s' as a required fragment "
+        + "in %s configuration in order to access it.%s",
+        rule.getRuleClass(), name, FragmentCollection.getConfigurationName(config),
+        additionalErrorMessage);
+    return getConfiguration().getFragment(fragment);
   }
 
   @Nullable
@@ -275,9 +283,16 @@ public final class RuleContext extends TargetContext
 
   @Nullable
   public Fragment getSkylarkFragment(String name, ConfigurationTransition config) {
-    Class<? extends Fragment> fragmentClass =
-        getConfiguration(config).getSkylarkFragmentByName(name);
-    return (fragmentClass == null) ? null : getFragment(fragmentClass, config);
+    Class<? extends Fragment> fragmentClass = getConfiguration().getSkylarkFragmentByName(name);
+    if (fragmentClass == null) {
+      return null;
+    }
+    return getFragment(fragmentClass, name,
+        String.format(
+            " Please update the '%1$sfragments' argument of the rule definition "
+            + "(for example: %1$sfragments = [\"%2$s\"])",
+            (config == ConfigurationTransition.HOST) ? "host_" : "", name),
+        config);
   }
 
   public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition config) {
@@ -293,7 +308,7 @@ public final class RuleContext extends TargetContext
     // NONE means target configuration.
     return isLegalFragment(fragment, ConfigurationTransition.NONE);
   }
-  
+
   protected BuildConfiguration getConfiguration(ConfigurationTransition config) {
     return config.equals(ConfigurationTransition.HOST) ? hostConfiguration : getConfiguration();
   }
