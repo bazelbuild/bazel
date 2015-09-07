@@ -82,17 +82,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .override(builder.copy("deps")
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
             .allowedFileTypes())
-        /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(resources) -->
-        The <code>android_resources</code> target assigned to this library.
-        ${SYNOPSIS}
-        If specified, the resources will be added to any <code>android_binary</code>
-        depending on this library.
-        <p>Only an <code>android_resource</code> rule with the attribute
-        <code>inline_constants</code> set to 0 can be used in this case.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("resources", LABEL)
-            .allowedFileTypes()
-            .allowedRuleClasses("android_resources"))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.

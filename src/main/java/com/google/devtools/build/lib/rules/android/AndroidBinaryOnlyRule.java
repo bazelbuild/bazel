@@ -88,13 +88,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         the specified screen densities, to reduce APK size.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("densities", STRING_LIST))
-        /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resources) -->
-        The <code>android_resources</code> target corresponding to this binary.
-        ${SYNOPSIS}
-        The target describing the manifest, resources and assets used by this
-        binary.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("resources", LABEL).allowedFileTypes().allowedRuleClasses("android_resources"))
         .add(attr("$android_manifest_merge_tool", LABEL)
             .cfg(HOST)
             .exec()
