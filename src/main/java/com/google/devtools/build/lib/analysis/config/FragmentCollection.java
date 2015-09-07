@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 
@@ -30,30 +31,38 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "fragments", documented = false, doc = "")
 public class FragmentCollection implements ClassObject {
   private final RuleContext ruleContext;
+  private final ConfigurationTransition config;
 
-  public FragmentCollection(RuleContext ruleContext) {
+  public FragmentCollection(RuleContext ruleContext, ConfigurationTransition config) {
     this.ruleContext = ruleContext;
+    this.config = config;
   }
 
   @Override
   @Nullable
   public Object getValue(String name) {
-    return ruleContext.getSkylarkFragment(name);
+    return ruleContext.getSkylarkFragment(name, config);
   }
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ruleContext.getSkylarkFragmentNames();
+    return ruleContext.getSkylarkFragmentNames(config);
   }
 
   @Override
   @Nullable
   public String errorMessage(String name) {
-    return String.format("There is no configuration fragment named '%s'. Available fragments: %s",
-        name, printKeys());
+    return String.format(
+        "There is no configuration fragment named '%s' in %s configuration. "
+        + "Available fragments: %s",
+        name, getConfigurationName(config), printKeys());
   }
 
   private String printKeys() {
     return String.format("'%s'", Joiner.on("', '").join(getKeys()));
+  }
+
+  public static String getConfigurationName(ConfigurationTransition config) {
+    return (config == ConfigurationTransition.HOST) ? "host" : "target";
   }
 }

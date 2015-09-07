@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -501,7 +502,8 @@ public final class RuleClass {
     private SkylarkEnvironment ruleDefinitionEnvironment = null;
     private Set<Class<?>> configurationFragments = new LinkedHashSet<>();
     private MissingFragmentPolicy missingFragmentPolicy = MissingFragmentPolicy.FAIL_ANALYSIS;
-    private Set<String> requiredFragmentNames = new LinkedHashSet<>();
+    private Map<ConfigurationTransition, ImmutableSet<String>> requiredFragmentNames =
+        new LinkedHashMap<>();
     private FragmentClassNameResolver fragmentNameResolver;
 
     private boolean supportsConstraintChecking = true;
@@ -590,7 +592,7 @@ public final class RuleClass {
           configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
           externalBindingsFunction, ruleDefinitionEnvironment, configurationFragments,
-          requiredFragmentNames, fragmentNameResolver, missingFragmentPolicy,
+          ImmutableMap.copyOf(requiredFragmentNames), fragmentNameResolver, missingFragmentPolicy,
           supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
     }
 
@@ -615,14 +617,18 @@ public final class RuleClass {
       this.missingFragmentPolicy = missingFragmentPolicy;
       return this;
     }
-    
+
     /**
-     * Does the same as {@link #requiresConfigurationFragments(Class...)}, except for taking names
-     * of fragments instead of classes.
+     * Declares the configuration fragments that are required by this rule.
+     *
+     * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method a) takes the
+     * names of fragments instead of their classes and b) distinguishes whether the fragments can be
+     * accessed in host (HOST) or target (NONE) configuration.
      */
     public Builder requiresConfigurationFragments(
-        FragmentClassNameResolver fragmentNameResolver, String... configurationFragmentNames) {
-      Collections.addAll(requiredFragmentNames, configurationFragmentNames);
+        FragmentClassNameResolver fragmentNameResolver,
+        Map<ConfigurationTransition, ImmutableSet<String>> configurationFragmentNames) {
+      requiredFragmentNames.putAll(configurationFragmentNames);
       this.fragmentNameResolver = fragmentNameResolver;
       return this;
     }
@@ -974,10 +980,12 @@ public final class RuleClass {
   private final ImmutableSet<Class<?>> requiredConfigurationFragments;
 
   /**
-   * Same idea as requiredConfigurationFragments, but stores fragments by name instead of by class
+   * A dictionary that maps configurations (NONE for target configuration, HOST for host
+   * configuration) to lists of names of required configuration fragments.
    */
-  private final ImmutableSet<String> requiredConfigurationFragmentNames;
-  
+  private final ImmutableMap<ConfigurationTransition, ImmutableSet<String>>
+      requiredConfigurationFragmentNames;
+
   /**
    * Used to resolve the names of fragments in order to compare them to values in {@link
    * #requiredConfigurationFragmentNames}
@@ -1037,7 +1045,8 @@ public final class RuleClass {
         externalBindingsFunction,
         ruleDefinitionEnvironment,
         allowedConfigurationFragments,
-        ImmutableSet.<String>of(), null,
+        ImmutableMap.<ConfigurationTransition, ImmutableSet<String>>of(),
+        null, // FragmentClassNameResolver
         missingFragmentPolicy,
         supportsConstraintChecking,
         attributes);
@@ -1078,7 +1087,7 @@ public final class RuleClass {
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
       Set<Class<?>> allowedConfigurationFragments,
-      Set<String> allowedConfigurationFragmentNames,
+      ImmutableMap<ConfigurationTransition, ImmutableSet<String>> allowedConfigurationFragmentNames,
       @Nullable FragmentClassNameResolver fragmentNameResolver,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
@@ -1102,8 +1111,7 @@ public final class RuleClass {
     this.workspaceOnly = workspaceOnly;
     this.outputsDefaultExecutable = outputsDefaultExecutable;
     this.requiredConfigurationFragments = ImmutableSet.copyOf(allowedConfigurationFragments);
-    this.requiredConfigurationFragmentNames =
-        ImmutableSet.copyOf(allowedConfigurationFragmentNames);
+    this.requiredConfigurationFragmentNames = allowedConfigurationFragmentNames;
     this.fragmentNameResolver = fragmentNameResolver;
     this.missingFragmentPolicy = missingFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
@@ -1260,24 +1268,32 @@ public final class RuleClass {
   }
 
   /**
-   * Checks if the configuration fragment may be accessed (i.e., if it's declared). If no fragments
-   * are declared, this allows access to all fragments for backwards compatibility.
+   * Checks if the configuration fragment may be accessed (i.e., if it's declared) in the specified
+   * configuration (target or host).
    */
-  public boolean isLegalConfigurationFragment(Class<?> configurationFragment) {
+  public boolean isLegalConfigurationFragment(
+      Class<?> configurationFragment, ConfigurationTransition config) {
     return requiredConfigurationFragments.contains(configurationFragment)
-        || hasLegalFragmentName(configurationFragment);
+        || hasLegalFragmentName(configurationFragment, config);
+  }
+
+  public boolean isLegalConfigurationFragment(Class<?> configurationFragment) {
+    // NONE means target configuration.
+    return isLegalConfigurationFragment(configurationFragment, ConfigurationTransition.NONE);
   }
 
   /**
-   * Checks whether the name of the given fragment class was declared as required fragment
+   * Checks whether the name of the given fragment class was declared as required fragment in the
+   * specified configuration (target or host).
    */
-  private boolean hasLegalFragmentName(Class<?> configurationFragment) {
+  private boolean hasLegalFragmentName(
+      Class<?> configurationFragment, ConfigurationTransition config) {
     if (fragmentNameResolver == null) {
       return false;
     }
 
     String name = fragmentNameResolver.resolveName(configurationFragment);
-    return (name != null && requiredConfigurationFragmentNames.contains(name));
+    return (name != null && requiredConfigurationFragmentNames.get(config).contains(name));
   }
 
   /**

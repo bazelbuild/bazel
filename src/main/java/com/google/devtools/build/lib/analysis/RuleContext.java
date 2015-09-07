@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -257,26 +258,44 @@ public final class RuleContext extends TargetContext
    * Returns a configuration fragment for this this target.
    */
   @Nullable
-  public <T extends Fragment> T getFragment(Class<T> fragment) {
+  public <T extends Fragment> T getFragment(Class<T> fragment, ConfigurationTransition config) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
-    Preconditions.checkArgument(isLegalFragment(fragment),
-        "%s does not have access to %s", rule.getRuleClass(), fragment);
-    return getConfiguration().getFragment(fragment);
+    Preconditions.checkArgument(isLegalFragment(fragment, config),
+        "%s does not have access to '%s' in %s configuration", rule.getRuleClass(),
+        fragment.getSimpleName(), FragmentCollection.getConfigurationName(config));
+    return getConfiguration(config).getFragment(fragment);
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name) {
-    Class<? extends Fragment> fragmentClass = getConfiguration().getSkylarkFragmentByName(name);
-    return (fragmentClass == null) ? null : getFragment(fragmentClass);
+  public <T extends Fragment> T getFragment(Class<T> fragment) {
+    // NONE means target configuration.
+    return getFragment(fragment, ConfigurationTransition.NONE);
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames() {
-    return getConfiguration().getSkylarkFragmentNames();
+  @Nullable
+  public Fragment getSkylarkFragment(String name, ConfigurationTransition config) {
+    Class<? extends Fragment> fragmentClass =
+        getConfiguration(config).getSkylarkFragmentByName(name);
+    return (fragmentClass == null) ? null : getFragment(fragmentClass, config);
+  }
+
+  public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition config) {
+    return getConfiguration(config).getSkylarkFragmentNames();
+  }
+
+  public <T extends Fragment> boolean isLegalFragment(
+      Class<T> fragment, ConfigurationTransition config) {
+    return rule.getRuleClassObject().isLegalConfigurationFragment(fragment, config);
   }
 
   public <T extends Fragment> boolean isLegalFragment(Class<T> fragment) {
-    return rule.getRuleClassObject().isLegalConfigurationFragment(fragment);
+    // NONE means target configuration.
+    return isLegalFragment(fragment, ConfigurationTransition.NONE);
+  }
+  
+  protected BuildConfiguration getConfiguration(ConfigurationTransition config) {
+    return config.equals(ConfigurationTransition.HOST) ? hostConfiguration : getConfiguration();
   }
 
   @Override

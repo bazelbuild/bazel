@@ -235,10 +235,15 @@ def impl(ctx):
 
 my_rule = rule(
     implementation=impl,
-    fragments = ["java"],
+    fragments = ["java"],      #Required fragments of the target configuration
+    host_fragments = ["java"], #Required fragments of the host configuration
     ...
 )
 ```
+
+`ctx.fragments` only provides configuration fragments for the target
+configuration. If you want to access fragments for the host configuration,
+please use `ctx.host_fragments` instead.
 
 Providers
 ---------

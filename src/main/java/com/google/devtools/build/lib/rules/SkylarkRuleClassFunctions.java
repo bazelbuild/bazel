@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.NONE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
@@ -33,7 +34,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -232,72 +234,91 @@ public class SkylarkRuleClassFunctions {
         @Param(name = "output_to_genfiles", type = Boolean.class, defaultValue = "False",
             doc = "If true, the files will be generated in the genfiles directory instead of the "
             + "bin directory. This is used for compatibility with existing rules."),
-        @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
+       @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
            defaultValue = "[]",
-           doc = "List of names of configuration fragments that the rule requires.")},
+           doc =
+           "List of names of configuration fragments that the rule requires "
+           + "in target configuration."),
+       @Param(name = "host_fragments", type = SkylarkList.class, generic1 = String.class,
+           defaultValue = "[]",
+           doc =
+           "List of names of configuration fragments that the rule requires "
+           + "in host configuration.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
-      @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
-      // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
-      public BaseFunction invoke(BaseFunction implementation, Boolean test, Object attrs,
-          Object implicitOutputs, Boolean executable, Boolean outputToGenfiles,
-          SkylarkList fragments, FuncallExpression ast, Environment funcallEnv)
-          throws EvalException, ConversionException {
+    @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
+    // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
+    public BaseFunction invoke(BaseFunction implementation, Boolean test, Object attrs,
+        Object implicitOutputs, Boolean executable, Boolean outputToGenfiles, SkylarkList fragments,
+        SkylarkList hostFragments, FuncallExpression ast, Environment funcallEnv)
+        throws EvalException, ConversionException {
+      funcallEnv.checkLoadingPhase("rule", ast.getLocation());
+      RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
+      RuleClass parent = test ? testBaseRule : (executable ? binaryBaseRule : baseRule);
 
-        funcallEnv.checkLoadingPhase("rule", ast.getLocation());
-        RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
-        RuleClass parent = test ? testBaseRule : (executable ? binaryBaseRule : baseRule);
+      // We'll set the name later, pass the empty string for now.
+      RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
 
-        // We'll set the name later, pass the empty string for now.
-        RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
-
-        if (attrs != Runtime.NONE) {
-          for (Map.Entry<String, Attribute.Builder> attr : castMap(
-              attrs, String.class, Attribute.Builder.class, "attrs").entrySet()) {
-            Attribute.Builder<?> attrBuilder = (Attribute.Builder<?>) attr.getValue();
-            String attrName = attributeToNative(attr.getKey(), ast.getLocation(),
-                attrBuilder.hasLateBoundValue());
-            builder.addOrOverrideAttribute(attrBuilder.build(attrName));
-          }
+      if (attrs != Runtime.NONE) {
+        for (Map.Entry<String, Attribute.Builder> attr :
+            castMap(attrs, String.class, Attribute.Builder.class, "attrs").entrySet()) {
+          Attribute.Builder<?> attrBuilder = (Attribute.Builder<?>) attr.getValue();
+          String attrName =
+              attributeToNative(attr.getKey(), ast.getLocation(), attrBuilder.hasLateBoundValue());
+          builder.addOrOverrideAttribute(attrBuilder.build(attrName));
         }
-        if (executable || test) {
-          builder.addOrOverrideAttribute(
-              attr("$is_executable", BOOLEAN).value(true)
-              .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
-              .build());
-          builder.setOutputsDefaultExecutable();
-        }
+      }
+      if (executable || test) {
+        builder.addOrOverrideAttribute(
+            attr("$is_executable", BOOLEAN)
+                .value(true)
+                .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
+                .build());
+        builder.setOutputsDefaultExecutable();
+      }
 
-        if (implicitOutputs != Runtime.NONE) {
-          if (implicitOutputs instanceof BaseFunction) {
-            BaseFunction func = (BaseFunction) implicitOutputs;
-            final SkylarkCallbackFunction callback =
-                new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
-            builder.setImplicitOutputsFunction(
-                new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
-          } else {
-            builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunctionWithMap(
-                ImmutableMap.copyOf(castMap(implicitOutputs, String.class, String.class,
-                        "implicit outputs of the rule class"))));
-            }
+      if (implicitOutputs != Runtime.NONE) {
+        if (implicitOutputs instanceof BaseFunction) {
+          BaseFunction func = (BaseFunction) implicitOutputs;
+          final SkylarkCallbackFunction callback =
+              new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
+          builder.setImplicitOutputsFunction(
+              new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
+        } else {
+          builder.setImplicitOutputsFunction(
+              new SkylarkImplicitOutputsFunctionWithMap(ImmutableMap.copyOf(castMap(implicitOutputs,
+                  String.class, String.class, "implicit outputs of the rule class"))));
         }
+      }
 
-        if (outputToGenfiles) {
-          builder.setOutputToGenfiles();
-        }
+      if (outputToGenfiles) {
+        builder.setOutputToGenfiles();
+      }
 
-        if (!fragments.isEmpty()) {
-          builder.requiresConfigurationFragments(
-              new SkylarkModuleNameResolver(),
-              Iterables.toArray(castList(fragments, String.class), String.class));
-        }
+      registerRequiredFragments(fragments, hostFragments, builder);
 
-        builder.setConfiguredTargetFunction(implementation);
-        builder.setRuleDefinitionEnvironment(
-            ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
-        return new RuleFunction(builder, type);
-        }
-      };
+      builder.setConfiguredTargetFunction(implementation);
+      builder.setRuleDefinitionEnvironment(
+          ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
+      return new RuleFunction(builder, type);
+    }
+
+    private void registerRequiredFragments(
+        SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder) {
+      Map<ConfigurationTransition, ImmutableSet<String>> map = new HashMap<>();
+      addFragmentsToMap(map, fragments, NONE); // NONE represents target configuration
+      addFragmentsToMap(map, hostFragments, HOST);
+
+      builder.requiresConfigurationFragments(new SkylarkModuleNameResolver(), map);
+    }
+
+    private void addFragmentsToMap(Map<ConfigurationTransition, ImmutableSet<String>> map,
+        SkylarkList fragments, ConfigurationTransition config) {
+      if (!fragments.isEmpty()) {
+        map.put(config, ImmutableSet.copyOf(castList(fragments, String.class)));
+      }
+    }
+  };
 
   // This class is needed for testing
   static final class RuleFunction extends BaseFunction {
