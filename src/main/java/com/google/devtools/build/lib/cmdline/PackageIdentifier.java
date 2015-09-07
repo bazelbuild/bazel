@@ -102,7 +102,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         return "empty workspace name";
       }
 
-      // Check for any character outside of [/0-9A-Z_a-z-._]. Try to evaluate the
+      // Check for any character outside of [/0-9A-Za-z_.-]. Try to evaluate the
       // conditional quickly (by looking in decreasing order of character class
       // likelihood).
       if (name.startsWith("@/") || name.endsWith("/")) {

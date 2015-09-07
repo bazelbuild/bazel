@@ -36,7 +36,7 @@ public final class LabelValidator {
    * Note that . is also allowed in target names, and doesn't require quoting, but has restrictions
    * on its surrounding characters; see {@link #validateTargetName(String)}.
    */
-  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("_-@");
+  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("_@-");
 
   /**
    * Matches characters allowed in target names regardless of context.
@@ -77,7 +77,7 @@ public final class LabelValidator {
       return PACKAGE_NAME_ERROR;
     }
 
-    // Check for any character outside of [/0-9A-Z_a-z-]. Try to evaluate the
+    // Check for any character outside of [/0-9A-Za-z_-]. Try to evaluate the
     // conditional quickly (by looking in decreasing order of character class
     // likelihood).
     for (int i = len - 1; i >= 0; --i) {
@@ -160,10 +160,12 @@ public final class LabelValidator {
       return "target names may not contain '" + c + "'";
     }
     // Forbidden end chars:
-    if (c == '.' && targetName.endsWith("/..")) {
-      return "target names may not contain up-level references '..'";
-    } else if (c == '.' && targetName.endsWith("/.")) {
-      return null; // See comment above; ideally should be an error.
+    if (c == '.') {
+      if (targetName.endsWith("/..")) {
+        return "target names may not contain up-level references '..'";
+      } else if (targetName.endsWith("/.")) {
+        return null; // See comment above; ideally should be an error.
+      }
     }
     if (c == '/') {
       return "target names may not end with '/'";
