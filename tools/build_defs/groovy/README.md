@@ -19,8 +19,8 @@ libraries and vice-versa.
 To be able to use the Groovy rules, you must provide bindings for the following
 targets:
 
-  * `//external:groovy`, pointing at the core Groovy library
-  * `//external:groovyc`, pointing at the Groovy compiler
+  * `//external:groovy-sdk`, pointing at the
+    [Groovy SDK binaries](http://www.groovy-lang.org/download.html)
   * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
 
 The easiest way to do so is by copying the content of `groovy.WORKSPACE` to your
