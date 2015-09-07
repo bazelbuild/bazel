@@ -58,17 +58,18 @@ new_http_archive(
 
 # In order to run the Android integration tests, uncomment these rules, point
 # them to the Android NDK and the SDK, and point the bind rules under them
-# to @repository//:all.
-# new_local_repository(
-#     name = "globbed_android_sdk",
-#     path = "/usr/local/google/home/lberki/android/android-sdk-linux",
-#     build_file = "BUILD.glob"
+# to @repository//:files .
+# android_sdk_repository(
+#     name = "androidsdk",
+#     path = "/path/to/sdk",
+#     build_tools_version = "21.1.1",
+#     api_level = 19,
 # )
-#
-# new_local_repository(
-#     name = "globbed_android_ndk",
-#     path = "/usr/local/google/home/lberki/android/android-ndk",
-#     build_file = "BUILD.glob"
+
+# android_ndk_repository(
+#     name = "androidndk",
+#     path = "/path/to/ndk",
+#     api_level = 19,
 # )
 
 bind(

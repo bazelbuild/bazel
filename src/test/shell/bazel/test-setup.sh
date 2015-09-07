@@ -188,8 +188,8 @@ EOF
   # TODO(bazel-team): This hard-codes the name of the Android repository in
   # the WORKSPACE file of Bazel. Change this once external repositories have
   # their own defined names under which they are mounted.
-  NDK_SRCDIR=$TEST_SRCDIR/external/globbed_android_ndk
-  SDK_SRCDIR=$TEST_SRCDIR/external/globbed_android_sdk
+  NDK_SRCDIR=$TEST_SRCDIR/external/androidndk/ndk
+  SDK_SRCDIR=$TEST_SRCDIR/external/androidsdk
 
   mkdir -p $ANDROID_NDK
   mkdir -p $ANDROID_SDK
