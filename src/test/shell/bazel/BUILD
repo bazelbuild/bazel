@@ -65,6 +65,7 @@ filegroup(
 
 sh_test(
     name = "bazel_example_test",
+    size = "large",
     srcs = ["bazel_example_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
@@ -112,6 +113,7 @@ genrule(
 
 sh_test(
     name = "bazel_docgen_test",
+    size = "large",
     srcs = ["bazel_docgen_test.sh"],
     data = [
         ":doc-srcs",
@@ -121,7 +123,7 @@ sh_test(
 
 sh_test(
     name = "external_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
     tags = ["manual"],  # flaky
@@ -205,6 +207,7 @@ sh_test(
 
 sh_test(
     name = "bazel_worker_test",
+    size = "large",
     srcs = ["bazel_worker_test.sh"],
     data = [":test-deps"],
 )
