@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 config_setting(
     name = "darwin",
     values = {"host_cpu": "darwin"},
