@@ -79,12 +79,11 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     ImmutableMap.Builder<Path, Path> mounts = ImmutableMap.builder();
     for (String customMount : customMounts) {
       Path customMountPath = workspaceDir.getRelative(customMount);
-      mounts.put(getSandboxPath(customMountPath), customMountPath);
+      mounts.put(customMountPath, customMountPath);
     }
     return LinuxSandboxedStrategy.validateMounts(
-        fakeSandboxDir,
         LinuxSandboxedStrategy.withResolvedSymlinks(
-            fakeSandboxDir, LinuxSandboxedStrategy.withRecursedDirs(mounts.build())));
+            LinuxSandboxedStrategy.withRecursedDirs(mounts.build())));
   }
 
   /**
@@ -114,7 +113,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     ImmutableMap.Builder<Path, Path> pathifiedAsserts = ImmutableMap.builder();
     for (String fileName : asserts) {
       Path inputPath = workspaceDir.getRelative(fileName);
-      pathifiedAsserts.put(getSandboxPath(inputPath), inputPath);
+      pathifiedAsserts.put(inputPath, inputPath);
     }
     return pathifiedAsserts.build();
   }
@@ -244,15 +243,15 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
 
     MountMap<Path, Path> mounts =
         LinuxSandboxedStrategy.parseManifestFile(
-            fakeSandboxDir, targetDir, manifestFile.getPathFile());
+            targetDir, manifestFile.getPathFile());
 
     assertThat(userFriendlyMap(mounts))
         .isEqualTo(
             userFriendlyMap(
                 ImmutableMap.of(
-                    fakeSandboxDir.getRelative("runfiles/x/testfile"),
+                    fileSystem.getPath("/runfiles/x/testfile"),
                     testFile,
-                    fakeSandboxDir.getRelative("runfiles/x/emptyfile"),
+                    fileSystem.getPath("/runfiles/x/emptyfile"),
                     fileSystem.getPath("/dev/null"))));
   }
 
@@ -260,40 +259,40 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
   public void testMountMapWithNormalMounts() throws IOException {
     // Allowed: Just two normal mounts (a -> sandbox/a, b -> sandbox/b)
     MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("a"));
-    mounts.put(fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("b"));
+    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
+    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("b"));
     assertThat(mounts)
         .isEqualTo(
             ImmutableMap.of(
-                fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("a"),
-                fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("b")));
+                fileSystem.getPath("/a"), workspaceDir.getRelative("a"),
+                fileSystem.getPath("/b"), workspaceDir.getRelative("b")));
   }
 
   @Test
   public void testMountMapWithSameMountTwice() throws IOException {
     // Allowed: Mount same thing twice (a -> sandbox/a, a -> sandbox/a, b -> sandbox/b)
     MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("a"));
-    mounts.put(fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("a"));
-    mounts.put(fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("b"));
+    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
+    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
+    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("b"));
     assertThat(mounts)
         .isEqualTo(
             ImmutableMap.of(
-                fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("a"),
-                fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("b")));
+                fileSystem.getPath("/a"), workspaceDir.getRelative("a"),
+                fileSystem.getPath("/b"), workspaceDir.getRelative("b")));
   }
 
   @Test
   public void testMountMapWithOneThingTwoTargets() throws IOException {
     // Allowed: Mount one thing in two targets (x -> sandbox/a, x -> sandbox/b)
     MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("x"));
-    mounts.put(fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("x"));
+    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("x"));
+    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("x"));
     assertThat(mounts)
         .isEqualTo(
             ImmutableMap.of(
-                fakeSandboxDir.getRelative("a"), workspaceDir.getRelative("x"),
-                fakeSandboxDir.getRelative("b"), workspaceDir.getRelative("x")));
+                fileSystem.getPath("/a"), workspaceDir.getRelative("x"),
+                fileSystem.getPath("/b"), workspaceDir.getRelative("x")));
   }
 
   @Test
@@ -301,8 +300,8 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     // Forbidden: Mount two things onto the same target (x -> sandbox/a, y -> sandbox/a)
     try {
       MountMap<Path, Path> mounts = new MountMap<>();
-      mounts.put(fakeSandboxDir.getRelative("x"), workspaceDir.getRelative("a"));
-      mounts.put(fakeSandboxDir.getRelative("x"), workspaceDir.getRelative("b"));
+      mounts.put(fileSystem.getPath("/x"), workspaceDir.getRelative("a"));
+      mounts.put(fileSystem.getPath("/x"), workspaceDir.getRelative("b"));
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e)
@@ -311,7 +310,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
                   "Cannot mount both '%s' and '%s' onto '%s'",
                   workspaceDir.getRelative("a"),
                   workspaceDir.getRelative("b"),
-                  fakeSandboxDir.getRelative("x")));
+                  fileSystem.getPath("/x")));
     }
   }
 

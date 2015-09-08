@@ -29,7 +29,7 @@ readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 
 WRAPPER_DEFAULT_OPTS="-S $SANDBOX_DIR"
 for dir in /bin* /lib* /usr/bin* /usr/lib*; do
-  WRAPPER_DEFAULT_OPTS="$WRAPPER_DEFAULT_OPTS -M $dir -m ${SANDBOX_DIR}${dir}"
+  WRAPPER_DEFAULT_OPTS="$WRAPPER_DEFAULT_OPTS -M $dir"
 done
 
 # namespaces which are used by the sandbox were introduced in 3.8, so
@@ -132,6 +132,13 @@ function test_timeout_kill() {
     'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "before"
+}
+
+function test_debug_logging() {
+  touch ${TEST_TMPDIR}/testfile
+  $WRAPPER $WRAPPER_DEFAULT_OPTS -D -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile -l $OUT -L $ERR -- /bin/true || code=$?
+  assert_contains "mount: /usr/bin\$" "$ERR"
+  assert_contains "mount: ${TEST_TMPDIR}/testfile -> <sandbox>/tmp/sandboxed_testfile\$" "$ERR"
 }
 
 check_kernel_version

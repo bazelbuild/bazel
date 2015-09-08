@@ -64,10 +64,6 @@ public class LinuxSandboxedStrategyTestCase {
     return outErr.errAsLatin1();
   }
 
-  protected Path getSandboxPath(Path entry) {
-    return fakeSandboxDir.getRelative(entry.asFragment().relativeTo("/"));
-  }
-
   @Before
   public void setUp() throws Exception {
     Path testRoot = createTestRoot();

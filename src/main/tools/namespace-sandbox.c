@@ -153,7 +153,14 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
         break;
       case 'S':
         if (opt->sandbox_root == NULL) {
-          opt->sandbox_root = optarg;
+          char *sandbox_root = strdup(optarg);
+
+          // Make sure that the sandbox_root path has no trailing slash.
+          if (sandbox_root[strlen(sandbox_root) - 1] == '/') {
+            sandbox_root[strlen(sandbox_root) - 1] = 0;
+          }
+
+          opt->sandbox_root = sandbox_root;
         } else {
           Usage(argc, argv,
                 "Multiple sandbox roots (-S) specified, expected one.");
@@ -183,25 +190,22 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
         }
         break;
       case 'M':
+        if (optarg[0] != '/') {
+          Usage(argc, argv, "The -M option must be used with absolute paths only.");
+        }
+        // The last -M flag wasn't followed by an -m flag, so assume that the source should be mounted in the sandbox in the same path as outside.
         if (opt->mount_sources[opt->num_mounts] != NULL) {
-          Usage(argc, argv, "The -M option must be followed by an -m option.");
+          opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
+          opt->num_mounts++;
         }
         opt->mount_sources[opt->num_mounts] = optarg;
         break;
       case 'm':
+        if (optarg[0] != '/') {
+          Usage(argc, argv, "The -m option must be used with absolute paths only.");
+        }
         if (opt->mount_sources[opt->num_mounts] == NULL) {
           Usage(argc, argv, "The -m option must be preceded by an -M option.");
-        }
-        if (opt->sandbox_root == NULL) {
-          Usage(argc, argv,
-                "The sandbox root must be set via the -S option before "
-                "specifying an"
-                " -m option.");
-        }
-        if (strstr(optarg, opt->sandbox_root) != optarg) {
-          Usage(argc, argv,
-                "A path passed to the -m option must start with the sandbox "
-                "root.");
         }
         opt->mount_targets[opt->num_mounts++] = optarg;
         break;
@@ -237,9 +241,11 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
     Usage(argc, argv, "Sandbox root (-S) must be specified");
   }
 
+  // The last -M flag wasn't followed by an -m flag, assume that the source should be mounted in the sandbox in the same path as outside.
   if (opt->mount_sources[opt->num_mounts] != NULL &&
-      opt->mount_sources[opt->num_mounts] == NULL) {
-    Usage(argc, argv, "An -m option is missing.");
+      opt->mount_targets[opt->num_mounts] == NULL) {
+    opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
+    opt->num_mounts++;
   }
 
   opt->args = argv + optind;
@@ -381,10 +387,28 @@ static void SetupDirectories(struct Options *opt) {
     struct stat sb;
     stat(opt->mount_sources[i], &sb);
 
-    PRINT_DEBUG("mount -o rbind,ro %s %s\n", opt->mount_sources[i],
-                opt->mount_targets[i]);
-    CHECK_CALL(CreateTarget(opt->mount_targets[i], S_ISDIR(sb.st_mode)));
-    CHECK_CALL(mount(opt->mount_sources[i], opt->mount_targets[i], NULL,
+    if (global_debug) {
+      if (strcmp(opt->mount_sources[i], opt->mount_targets[i]) == 0) {
+        // The file is mounted to the same path inside the sandbox, as outside (e.g. /home/user -> <sandbox>/home/user), so we'll just show a simplified version of the mount command.
+        PRINT_DEBUG("mount: %s\n", opt->mount_sources[i]);
+      } else {
+        // The file is mounted to a custom location inside the sandbox.
+        // Create a user-friendly string for the sandboxed path and show it.
+        char *user_friendly_mount_target =
+            malloc(strlen("<sandbox>") + strlen(opt->mount_targets[i]) + 1);
+        strcpy(user_friendly_mount_target, "<sandbox>");
+        strcat(user_friendly_mount_target, opt->mount_targets[i]);
+        PRINT_DEBUG("mount: %s -> %s\n", opt->mount_sources[i],
+                    user_friendly_mount_target);
+        free(user_friendly_mount_target);
+      }
+    }
+
+    char *full_sandbox_path = malloc(strlen(opt->sandbox_root) + strlen(opt->mount_targets[i]) + 1);
+    strcpy(full_sandbox_path, opt->sandbox_root);
+    strcat(full_sandbox_path, opt->mount_targets[i]);
+    CHECK_CALL(CreateTarget(full_sandbox_path, S_ISDIR(sb.st_mode)));
+    CHECK_CALL(mount(opt->mount_sources[i], full_sandbox_path, NULL,
                      MS_REC | MS_BIND | MS_RDONLY, NULL));
   }
 }

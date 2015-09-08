@@ -138,8 +138,12 @@ public class NamespaceSandboxRunner {
     for (ImmutableMap.Entry<Path, Path> mount : mounts.entrySet()) {
       args.add("-M");
       args.add(mount.getValue().getPathString());
-      args.add("-m");
-      args.add(mount.getKey().getPathString());
+
+      // The file is mounted in a custom location inside the sandbox.
+      if (!mount.getValue().equals(mount.getKey())) {
+        args.add("-m");
+        args.add(mount.getKey().getPathString());
+      }
     }
 
     args.add("--");

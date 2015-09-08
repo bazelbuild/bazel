@@ -152,7 +152,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     ImmutableMap<Path, Path> mounts;
     try {
       // Gather all necessary mounts for the sandbox.
-      mounts = getMounts(spawn, sandboxPath, actionExecutionContext);
+      mounts = getMounts(spawn, actionExecutionContext);
       createTestTmpDir(spawn, sandboxPath);
     } catch (IllegalArgumentException | IOException e) {
       throw new UserExecException("Could not prepare mounts for sandbox execution", e);
@@ -207,7 +207,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       try {
         return Integer.parseInt(timeoutStr);
       } catch (NumberFormatException e) {
-        throw new UserExecException("could not parse timeout: " + e);
+        throw new UserExecException("Could not parse timeout", e);
       }
     }
     return -1;
@@ -227,15 +227,15 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   }
 
   private ImmutableMap<Path, Path> getMounts(
-      Spawn spawn, Path sandboxPath, ActionExecutionContext executionContext) throws IOException {
+      Spawn spawn, ActionExecutionContext executionContext) throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.putAll(mountUsualUnixDirs(sandboxPath));
-    mounts.putAll(withRecursedDirs(setupBlazeUtils(sandboxPath)));
-    mounts.putAll(withRecursedDirs(mountRunfilesFromManifests(spawn, sandboxPath)));
-    mounts.putAll(withRecursedDirs(mountRunfilesFromSuppliers(spawn, sandboxPath)));
-    mounts.putAll(withRecursedDirs(mountInputs(spawn, sandboxPath, executionContext)));
-    mounts.putAll(withRecursedDirs(mountRunUnderCommand(spawn, sandboxPath)));
-    return validateMounts(sandboxPath, withResolvedSymlinks(sandboxPath, mounts));
+    mounts.putAll(mountUsualUnixDirs());
+    mounts.putAll(withRecursedDirs(setupBlazeUtils()));
+    mounts.putAll(withRecursedDirs(mountRunfilesFromManifests(spawn)));
+    mounts.putAll(withRecursedDirs(mountRunfilesFromSuppliers(spawn)));
+    mounts.putAll(withRecursedDirs(mountInputs(spawn, executionContext)));
+    mounts.putAll(withRecursedDirs(mountRunUnderCommand(spawn)));
+    return validateMounts(withResolvedSymlinks(mounts));
   }
 
   /**
@@ -244,7 +244,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    * @return an ImmutableMap of all mounts.
    */
   @VisibleForTesting
-  static ImmutableMap<Path, Path> validateMounts(Path sandboxPath, Map<Path, Path> mounts) {
+  static ImmutableMap<Path, Path> validateMounts(Map<Path, Path> mounts) {
     ImmutableMap.Builder<Path, Path> validatedMounts = ImmutableMap.builder();
     for (Entry<Path, Path> mount : mounts.entrySet()) {
       Path target = mount.getKey();
@@ -252,11 +252,6 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
       // The source must exist.
       Preconditions.checkArgument(source.exists(), "%s does not exist", source.toString());
-
-      // Mounts must always mount into the sandbox, otherwise they might corrupt the host system.
-      Preconditions.checkArgument(
-          target.startsWith(sandboxPath),
-          String.format("(%s -> %s) does not mount into sandbox", source, target));
 
       validatedMounts.put(target, source);
     }
@@ -270,7 +265,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    * @return a new mounts multimap with the added mounts.
    */
   @VisibleForTesting
-  static MountMap<Path, Path> withResolvedSymlinks(Path sandboxPath, Map<Path, Path> mounts)
+  static MountMap<Path, Path> withResolvedSymlinks(Map<Path, Path> mounts)
       throws IOException {
     MountMap<Path, Path> fixedMounts = new MountMap<>();
     for (Entry<Path, Path> mount : mounts.entrySet()) {
@@ -279,9 +274,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       fixedMounts.put(target, source);
 
       if (source.isSymbolicLink()) {
-        source = source.resolveSymbolicLinks();
-        target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-        fixedMounts.put(target, source);
+        Path symlinkTarget = source.resolveSymbolicLinks();
+        fixedMounts.put(symlinkTarget, symlinkTarget);
       }
     }
     return fixedMounts;
@@ -316,21 +310,21 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    * Mount a certain set of unix directories to make the usual tools and libraries available to the
    * spawn that runs.
    */
-  private MountMap<Path, Path> mountUsualUnixDirs(Path sandboxPath) throws IOException {
+  private MountMap<Path, Path> mountUsualUnixDirs() throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
     FileSystem fs = blazeDirs.getFileSystem();
-    mounts.put(sandboxPath.getRelative("bin"), fs.getPath("/bin"));
-    mounts.put(sandboxPath.getRelative("etc"), fs.getPath("/etc"));
+    mounts.put(fs.getPath("/bin"), fs.getPath("/bin"));
+    mounts.put(fs.getPath("/etc"), fs.getPath("/etc"));
     for (String entry : FilesystemUtils.readdir("/")) {
       if (entry.startsWith("lib")) {
-        mounts.put(sandboxPath.getRelative(entry), fs.getRootDirectory().getRelative(entry));
+        Path libDir = fs.getRootDirectory().getRelative(entry);
+        mounts.put(libDir, libDir);
       }
     }
     for (String entry : FilesystemUtils.readdir("/usr")) {
       if (!entry.equals("local")) {
-        mounts.put(
-            sandboxPath.getRelative("usr").getRelative(entry),
-            fs.getPath("/usr").getRelative(entry));
+        Path usrDir = fs.getPath("/usr").getRelative(entry);
+        mounts.put(usrDir, usrDir);
       }
     }
     return mounts;
@@ -339,18 +333,17 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   /**
    * Mount the embedded tools.
    */
-  private MountMap<Path, Path> setupBlazeUtils(Path sandboxPath) throws IOException {
+  private MountMap<Path, Path> setupBlazeUtils() throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
-    Path source = blazeDirs.getEmbeddedBinariesRoot().getRelative("build-runfiles");
-    Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-    mounts.put(target, source);
+    Path mount = blazeDirs.getEmbeddedBinariesRoot().getRelative("build-runfiles");
+    mounts.put(mount, mount);
     return mounts;
   }
 
   /**
    * Mount all runfiles that the spawn needs as specified in its runfiles manifests.
    */
-  private MountMap<Path, Path> mountRunfilesFromManifests(Spawn spawn, Path sandboxPath)
+  private MountMap<Path, Path> mountRunfilesFromManifests(Spawn spawn)
       throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
     for (Entry<PathFragment, Artifact> manifest : spawn.getRunfilesManifests().entrySet()) {
@@ -358,30 +351,29 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       Preconditions.checkState(!manifest.getKey().isAbsolute());
       Path targetDirectory = execRoot.getRelative(manifest.getKey());
 
-      mounts.putAll(parseManifestFile(sandboxPath, targetDirectory, new File(manifestFilePath)));
+      mounts.putAll(parseManifestFile(targetDirectory, new File(manifestFilePath)));
     }
     return mounts;
   }
 
   static MountMap<Path, Path> parseManifestFile(
-      Path sandboxPath, Path targetDirectory, File manifestFile) throws IOException {
+      Path targetDirectory, File manifestFile) throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
     for (String line : Files.readLines(manifestFile, Charset.defaultCharset())) {
       String[] fields = line.trim().split(" ");
       Path source;
       Path targetPath = targetDirectory.getRelative(fields[0]);
-      Path targetInSandbox = sandboxPath.getRelative(targetPath.asFragment().relativeTo("/"));
       switch (fields.length) {
         case 1:
-          source = sandboxPath.getFileSystem().getPath("/dev/null");
+          source = targetDirectory.getFileSystem().getPath("/dev/null");
           break;
         case 2:
-          source = sandboxPath.getFileSystem().getPath(fields[1]);
+          source = targetDirectory.getFileSystem().getPath(fields[1]);
           break;
         default:
           throw new IllegalStateException("'" + line + "' splits into more than 2 parts");
       }
-      mounts.put(targetInSandbox, source);
+      mounts.put(targetPath, source);
     }
     return mounts;
   }
@@ -389,7 +381,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   /**
    * Mount all runfiles that the spawn needs as specified via its runfiles suppliers.
    */
-  private MountMap<Path, Path> mountRunfilesFromSuppliers(Spawn spawn, Path sandboxPath)
+  private MountMap<Path, Path> mountRunfilesFromSuppliers(Spawn spawn)
       throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
     FileSystem fs = blazeDirs.getFileSystem();
@@ -397,16 +389,13 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
         spawn.getRunfilesSupplier().getMappings();
     for (Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
-      if (root.isAbsolute()) {
-        root = root.relativeTo("/");
-      }
+      Path root = fs.getRootDirectory().getRelative(rootAndMappings.getKey());
       for (Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact sourceArtifact = mapping.getValue();
         Path source = (sourceArtifact != null) ? sourceArtifact.getPath() : fs.getPath("/dev/null");
 
         Preconditions.checkArgument(!mapping.getKey().isAbsolute());
-        Path target = sandboxPath.getRelative(root.getRelative(mapping.getKey()));
+        Path target = root.getRelative(mapping.getKey());
         mounts.put(target, source);
       }
     }
@@ -417,7 +406,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    * Mount all inputs of the spawn.
    */
   private MountMap<Path, Path> mountInputs(
-      Spawn spawn, Path sandboxPath, ActionExecutionContext actionExecutionContext)
+      Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws IOException {
     MountMap<Path, Path> mounts = new MountMap<>();
 
@@ -436,9 +425,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       if (input.getExecPathString().contains("internal/_middlemen/")) {
         continue;
       }
-      Path source = execRoot.getRelative(input.getExecPathString());
-      Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-      mounts.put(target, source);
+      Path mount = execRoot.getRelative(input.getExecPathString());
+      mounts.put(mount, mount);
     }
     return mounts;
   }
@@ -451,7 +439,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    * <p>If --run_under= refers to a label, it is automatically provided in the spawn's input files,
    * so mountInputs() will catch that case.
    */
-  private MountMap<Path, Path> mountRunUnderCommand(Spawn spawn, Path sandboxPath) {
+  private MountMap<Path, Path> mountRunUnderCommand(Spawn spawn) {
     MountMap<Path, Path> mounts = new MountMap<>();
 
     if (spawn.getResourceOwner() instanceof TestRunnerAction) {
@@ -459,19 +447,18 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
       if (runUnder != null && runUnder.getCommand() != null) {
         PathFragment sourceFragment = new PathFragment(runUnder.getCommand());
-        Path source;
+        Path mount;
         if (sourceFragment.isAbsolute()) {
-          source = blazeDirs.getFileSystem().getPath(sourceFragment);
+          mount = blazeDirs.getFileSystem().getPath(sourceFragment);
         } else if (blazeDirs.getExecRoot().getRelative(sourceFragment).exists()) {
-          source = blazeDirs.getExecRoot().getRelative(sourceFragment);
+          mount = blazeDirs.getExecRoot().getRelative(sourceFragment);
         } else {
           List<Path> searchPath =
               SearchPath.parse(blazeDirs.getFileSystem(), clientEnv.get("PATH"));
-          source = SearchPath.which(searchPath, runUnder.getCommand());
+          mount = SearchPath.which(searchPath, runUnder.getCommand());
         }
-        if (source != null) {
-          Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-          mounts.put(target, source);
+        if (mount != null) {
+          mounts.put(mount, mount);
         }
       }
     }
