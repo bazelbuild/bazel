@@ -163,8 +163,8 @@ public class NamespaceSandboxRunner {
       Path source = sandboxExecRoot.getRelative(output.getExecPathString());
       Path target = execRoot.getRelative(output.getExecPathString());
       FileSystemUtils.createDirectoryAndParents(target.getParentDirectory());
-      if (source.isFile()) {
-        Files.move(new File(source.getPathString()), new File(target.getPathString()));
+      if (source.isFile() || source.isSymbolicLink()) {
+        Files.move(source.getPathFile(), target.getPathFile());
       }
     }
   }
