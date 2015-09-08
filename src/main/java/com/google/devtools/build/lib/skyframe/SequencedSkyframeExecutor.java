@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
@@ -476,21 +476,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * recreate them if necessary).
    */
   private void discardAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
-    long startTime = Profiler.nanoTimeMaybe();
-    lastAnalysisDiscarded = true;
-    for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getValues().entrySet()) {
-      if (!entry.getKey().functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        continue;
+    try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", LOG)) {
+      lastAnalysisDiscarded = true;
+      for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getValues().entrySet()) {
+        if (!entry.getKey().functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+          continue;
+        }
+        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+        // ctValue may be null if target was not successfully analyzed.
+        if (ctValue != null && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+          ctValue.clear();
+        }
       }
-      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
-      // ctValue may be null if target was not successfully analyzed.
-      if (ctValue != null && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
-        ctValue.clear();
-      }
-    }
-    long duration = Profiler.nanoTimeMaybe() - startTime;
-    if (duration > 0) {
-      LOG.info("Spent " + (duration / 1000 / 1000) + " ms discarding analysis cache");
     }
   }
 

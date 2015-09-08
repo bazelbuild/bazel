@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -137,29 +137,25 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
    */
   public QueryEvalResult<T> evaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
-    long startTime = Profiler.nanoTimeMaybe();
-    resolvedTargetPatterns.clear();
-
-    // In the --nokeep_going case, errors are reported in the order in which the patterns are
-    // specified; using a linked hash set here makes sure that the left-most error is reported.
-    Set<String> targetPatternSet = new LinkedHashSet<>();
-    expr.collectTargetPatterns(targetPatternSet);
-    try {
-      resolvedTargetPatterns.putAll(preloadOrThrow(expr, targetPatternSet));
-    } catch (TargetParsingException e) {
-      // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
-      throw new QueryException(expr, e.getMessage());
-    }
-
     Set<T> resultNodes;
-    try {
-      resultNodes = expr.eval(this);
-    } catch (QueryException e) {
-      throw new QueryException(e, expr);
-    } finally {
-      long duration = Profiler.nanoTimeMaybe() - startTime;
-      if (duration > 0) {
-        LOG.info("Spent " + (duration / 1000 / 1000) + " ms evaluating query");
+    try (AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
+      resolvedTargetPatterns.clear();
+
+      // In the --nokeep_going case, errors are reported in the order in which the patterns are
+      // specified; using a linked hash set here makes sure that the left-most error is reported.
+      Set<String> targetPatternSet = new LinkedHashSet<>();
+      expr.collectTargetPatterns(targetPatternSet);
+      try {
+        resolvedTargetPatterns.putAll(preloadOrThrow(expr, targetPatternSet));
+      } catch (TargetParsingException e) {
+        // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
+        throw new QueryException(expr, e.getMessage());
+      }
+
+      try {
+        resultNodes = expr.eval(this);
+      } catch (QueryException e) {
+        throw new QueryException(e, expr);
       }
     }
 

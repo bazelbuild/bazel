@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.ProcMeminfoParser;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -59,9 +60,9 @@ class IdleServerTasks {
     // Do a GC cycle while the server is idle.
     executor.schedule(new Runnable() {
         @Override public void run() {
-          long before = System.currentTimeMillis();
-          System.gc();
-          LOG.info("Idle GC: " + (System.currentTimeMillis() - before) + "ms");
+          try (AutoProfiler p = AutoProfiler.logged("Idle GC", LOG)) {
+            System.gc();
+          }
         }
       }, 10, TimeUnit.SECONDS);
   }

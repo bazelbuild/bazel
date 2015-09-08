@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 
@@ -178,7 +180,7 @@ public class ResourceManager {
   public void acquireResources(ActionMetadata owner, ResourceSet resources)
       throws InterruptedException {
     Preconditions.checkNotNull(resources);
-    long startTime = Profiler.nanoTimeMaybe();
+    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
       waiting(owner);
@@ -193,7 +195,7 @@ public class ResourceManager {
 
       // Profile acquisition only if it waited for resource to become available.
       if (latch != null) {
-        Profiler.instance().logSimpleTask(startTime, ProfilerTask.ACTION_LOCK, owner);
+        p.complete();
       }
     }
   }
@@ -274,7 +276,7 @@ public class ResourceManager {
    */
   public void releaseResources(ActionMetadata owner, ResourceSet resources) {
     boolean isConflict = false;
-    long startTime = Profiler.nanoTimeMaybe();
+    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_RELEASE);
     try {
       isConflict = release(resources);
     } finally {
@@ -282,7 +284,7 @@ public class ResourceManager {
 
       // Profile resource release only if it resolved at least one allocation request.
       if (isConflict) {
-        Profiler.instance().logSimpleTask(startTime, ProfilerTask.ACTION_RELEASE, owner);
+        p.complete();
       }
     }
   }
