@@ -141,6 +141,25 @@ penalized for an overgenerous timeout, although a warning may be issued: you
 should generally set your timeout as tight as you can without incurring any
 flakiness.</p>
 
+<p>There is also a recommended lower bound for test timeouts as follows: </p>
+
+<table class="table table-bordered table-striped table-condensed">
+  <thead>
+    <tr><th>size</th><th>Time minimum (sec.)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>short</code></td><td>0</td></tr>
+    <tr><td><code>moderate</code></td><td>30</td></tr>
+    <tr><td><code>long</code></td><td>300</td></tr>
+    <tr><td><code>eternal</code></td><td>900</td></tr>
+  </tbody>
+</table>
+
+<p>For example, if a "moderate" test completes in 5.5s, consider setting
+<code>timeout</code>="short" or <code>size</code>="small". Using the bazel
+<code>--test_verbose_timeout_warnings</code> command line option will show the
+tests whose specified size is too big.</p>
+
 <p>Test sizes and timeouts are specified in the BUILD file according to the specification
 <a href="build-encyclopedia.html#test">here</a>.
 Any test that does not specify a recognized size will default to being a medium
