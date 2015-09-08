@@ -41,8 +41,8 @@ public @interface TestSpec {
   String suite() default "";
 
   /**
-   * If the test will pass consistently without outside changes.
-   * This should be fixed as soon as possible.
+   * True, if the test will is not dependable because it has a chance to fail regardless of the
+   * code's correctness. If this is the case, the test should be fixed as soon as possible.
    */
   boolean flaky() default false;
 }
