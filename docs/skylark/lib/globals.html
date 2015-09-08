@@ -652,7 +652,7 @@ range(3, 0, -1) == [3, 2, 1]</pre>
       </table>
         
         <h2 id="rule">rule</h2>
-        <p><pre>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False, fragments=[])
+        <p><pre>function rule(implementation, test=False, attrs=None, outputs=None, executable=False, output_to_genfiles=False, fragments=[], host_fragments=[])
 </pre></p>
     
     Creates a new rule. Store it in a global value, so that it can be loaded and called from BUILD files.
@@ -730,7 +730,16 @@ range(3, 0, -1) == [3, 2, 1]</pre>
             </td>
             <td>
                           <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
-                          <p>List of names of configuration fragments that the rule requires.</p>
+                          <p>List of names of configuration fragments that the rule requires in target configuration.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="rule.host_fragments">
+              <code>host_fragments</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>List of names of configuration fragments that the rule requires in host configuration.</p>
             </td>
           </tr>
                 </tbody>
