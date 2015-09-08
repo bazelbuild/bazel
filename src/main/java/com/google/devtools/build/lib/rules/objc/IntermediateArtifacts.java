@@ -58,6 +58,22 @@ final class IntermediateArtifacts {
   }
 
   /**
+   * Returns a derived artifact in the bin directory obtained by appending some extension to the
+   * main label name; the result artifact is placed in a unique "entitlements" directory.
+   * For example, if this artifact is for a target Foo with extension ".extension", the result
+   * artifact will be located at {target_base_path}/entitlements/Foo.extension.
+   */
+  public Artifact appendExtensionForEntitlementArtifact(String extension) {
+    PathFragment entitlementsDirectory = ruleContext.getUniqueDirectory("entitlements");
+    Artifact artifact =
+        ruleContext.getDerivedArtifact(
+            entitlementsDirectory.replaceName(
+                entitlementsDirectory.getBaseName() + extension),
+            ruleContext.getConfiguration().getBinDirectory());
+    return artifact;
+  }
+  
+  /**
    * Returns a derived artifact in the bin directory obtained by appending some extension to the end
    * of the given {@link PathFragment}.
    */

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
@@ -331,19 +330,21 @@ public final class ReleaseBundlingSupport {
   }
 
   private Artifact registerBundleSigningActions(Artifact ipaOutput) {
-    PathFragment entitlementsDirectory = ruleContext.getUniqueDirectory("entitlements");
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Artifact teamPrefixFile =
-        ruleContext.getRelatedArtifact(entitlementsDirectory, ".team_prefix_file");
+        intermediateArtifacts.appendExtensionForEntitlementArtifact(".team_prefix_file");
     registerExtractTeamPrefixAction(teamPrefixFile);
 
     Artifact entitlementsNeedingSubstitution = attributes.entitlements();
     if (entitlementsNeedingSubstitution == null) {
-      entitlementsNeedingSubstitution = ruleContext.getRelatedArtifact(
-          entitlementsDirectory, ".entitlements_with_variables");
+      entitlementsNeedingSubstitution =
+          intermediateArtifacts.appendExtensionForEntitlementArtifact(
+              ".entitlements_with_variables");
       registerExtractEntitlementsAction(entitlementsNeedingSubstitution);
     }
     Artifact entitlements =
-        ruleContext.getRelatedArtifact(entitlementsDirectory, ".entitlements");
+        intermediateArtifacts.appendExtensionForEntitlementArtifact(".entitlements");
     registerEntitlementsVariableSubstitutionAction(
         entitlementsNeedingSubstitution, entitlements, teamPrefixFile);
     Artifact ipaUnsigned = ruleContext.getImplicitOutputArtifact(IPA_UNSIGNED);
