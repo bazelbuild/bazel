@@ -41,7 +41,6 @@ import java.util.List;
 @ExecutionStrategy(name = { "standalone" }, contextType = SpawnActionContext.class)
 public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
-
   private final Path processWrapper;
 
   public StandaloneSpawnStrategy(Path execRoot, boolean verboseFailures) {
@@ -70,7 +69,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       try {
         timeout = Integer.parseInt(timeoutStr);
       } catch (NumberFormatException e) {
-        throw new UserExecException("could not parse timeout: " + e);
+        throw new UserExecException("could not parse timeout: ", e);
       }
     }
 
@@ -115,7 +114,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     } catch (CommandException e) {
       String message = CommandFailureUtils.describeCommandFailure(
           verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
-      throw new UserExecException(String.format("%s: %s", message, e));
+      throw new UserExecException(message, e);
     }
   }
 

@@ -28,4 +28,14 @@ public class SandboxOptions extends OptionsBase {
     help = "Do not print a warning when sandboxed execution is not supported on this system."
   )
   public boolean ignoreUnsupportedSandboxing;
+
+  @Option(
+    name = "sandbox_debug",
+    defaultValue = "false",
+    category = "strategy",
+    help =
+        "Let the sandbox print debug information on execution. This might help developers of "
+            + "Bazel or Skylark rules with debugging failures due to missing input files, etc."
+  )
+  public boolean sandboxDebug;
 }

@@ -18,11 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -46,15 +50,21 @@ public class NamespaceSandboxRunner {
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final ImmutableMap<Path, Path> mounts;
-  private final boolean debug;
+  private final boolean verboseFailures;
+  private final boolean sandboxDebug;
 
   public NamespaceSandboxRunner(
-      Path execRoot, Path sandboxPath, ImmutableMap<Path, Path> mounts, boolean debug) {
+      Path execRoot,
+      Path sandboxPath,
+      ImmutableMap<Path, Path> mounts,
+      boolean verboseFailures,
+      boolean sandboxDebug) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxPath.getRelative(execRoot.asFragment().relativeTo("/"));
     this.mounts = mounts;
-    this.debug = debug;
+    this.verboseFailures = verboseFailures;
+    this.sandboxDebug = sandboxDebug;
   }
 
   static boolean isSupported(BlazeRuntime runtime) {
@@ -99,14 +109,14 @@ public class NamespaceSandboxRunner {
       FileOutErr outErr,
       Collection<? extends ActionInput> outputs,
       int timeout)
-      throws IOException, CommandException {
+      throws IOException, UserExecException {
     createFileSystem(outputs);
 
     List<String> args = new ArrayList<>();
 
     args.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
 
-    if (debug) {
+    if (sandboxDebug) {
       args.add("-D");
     }
 
@@ -137,12 +147,25 @@ public class NamespaceSandboxRunner {
 
     Command cmd = new Command(args.toArray(new String[0]), env, cwd);
 
-    cmd.execute(
-        /* stdin */ new byte[] {},
-        Command.NO_OBSERVER,
-        outErr.getOutputStream(),
-        outErr.getErrorStream(),
-        /* killSubprocessOnInterrupt */ true);
+    try {
+      cmd.execute(
+          /* stdin */ new byte[] {},
+          Command.NO_OBSERVER,
+          outErr.getOutputStream(),
+          outErr.getErrorStream(),
+          /* killSubprocessOnInterrupt */ true);
+    } catch (CommandException e) {
+      boolean timedOut = false;
+      if (e instanceof AbnormalTerminationException) {
+        TerminationStatus status =
+            ((AbnormalTerminationException) e).getResult().getTerminationStatus();
+        timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
+      }
+      String message =
+          CommandFailureUtils.describeCommandFailure(
+              verboseFailures, spawnArguments, env, cwd.getPath());
+      throw new UserExecException(message, e, timedOut);
+    }
 
     copyOutputs(outputs);
   }

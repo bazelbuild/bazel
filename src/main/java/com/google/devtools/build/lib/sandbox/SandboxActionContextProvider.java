@@ -35,10 +35,17 @@ public class SandboxActionContextProvider extends ActionContextProvider {
   public SandboxActionContextProvider(
       BlazeRuntime runtime, BuildRequest buildRequest, ExecutorService backgroundWorkers) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
+    boolean sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     Builder<ActionContext> strategies = ImmutableList.builder();
 
     if (OS.getCurrent() == OS.LINUX) {
-      strategies.add(new LinuxSandboxedStrategy(runtime, verboseFailures, backgroundWorkers));
+      strategies.add(
+          new LinuxSandboxedStrategy(
+              runtime.getClientEnv(),
+              runtime.getDirectories(),
+              backgroundWorkers,
+              verboseFailures,
+              sandboxDebug));
     }
 
     this.strategies = strategies.build();

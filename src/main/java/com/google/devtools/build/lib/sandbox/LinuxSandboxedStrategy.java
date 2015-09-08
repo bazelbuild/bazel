@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
@@ -33,14 +32,8 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
-import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
@@ -70,10 +63,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final ExecutorService backgroundWorkers;
 
-  private final BlazeRuntime blazeRuntime;
+  private final ImmutableMap<String, String> clientEnv;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
+  private final boolean sandboxDebug;
   private final StandaloneSpawnStrategy standaloneStrategy;
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
@@ -112,12 +106,17 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   }
 
   public LinuxSandboxedStrategy(
-      BlazeRuntime blazeRuntime, boolean verboseFailures, ExecutorService backgroundWorkers) {
-    this.blazeRuntime = blazeRuntime;
-    this.blazeDirs = blazeRuntime.getDirectories();
+      Map<String, String> clientEnv,
+      BlazeDirectories blazeDirs,
+      ExecutorService backgroundWorkers,
+      boolean verboseFailures,
+      boolean sandboxDebug) {
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
+    this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
-    this.verboseFailures = verboseFailures;
     this.backgroundWorkers = backgroundWorkers;
+    this.verboseFailures = verboseFailures;
+    this.sandboxDebug = sandboxDebug;
     this.standaloneStrategy = new StandaloneSpawnStrategy(blazeDirs.getExecRoot(), verboseFailures);
   }
 
@@ -163,7 +162,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
     try {
       final NamespaceSandboxRunner runner =
-          new NamespaceSandboxRunner(execRoot, sandboxPath, mounts, verboseFailures);
+          new NamespaceSandboxRunner(execRoot, sandboxPath, mounts, verboseFailures, sandboxDebug);
       try {
         runner.run(
             spawn.getArguments(),
@@ -197,18 +196,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
               }
             });
       }
-    } catch (AbnormalTerminationException e) {
-      TerminationStatus status = e.getResult().getTerminationStatus();
-      boolean timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
-      throw new UserExecException("Error during execution of spawn", e, timedOut);
-    } catch (CommandException e) {
-      throw new UserExecException("Error during execution of spawn", e);
     } catch (IOException e) {
-      EventHandler handler = actionExecutionContext.getExecutor().getEventHandler();
-      handler.handle(
-          Event.error(
-              "I/O error during sandboxed execution:\n" + Throwables.getStackTraceAsString(e)));
-      throw new UserExecException("Could not execute spawn", e);
+      throw new UserExecException("I/O error during sandboxed execution", e);
     }
   }
 
@@ -477,7 +466,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
           source = blazeDirs.getExecRoot().getRelative(sourceFragment);
         } else {
           List<Path> searchPath =
-              SearchPath.parse(blazeDirs.getFileSystem(), blazeRuntime.getClientEnv().get("PATH"));
+              SearchPath.parse(blazeDirs.getFileSystem(), clientEnv.get("PATH"));
           source = SearchPath.which(searchPath, runUnder.getCommand());
         }
         if (source != null) {
