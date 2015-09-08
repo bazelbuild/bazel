@@ -190,8 +190,9 @@ public class StandaloneTestStrategy extends TestStrategy {
 
         // TODO(bazel-team): set cachable==true for relevant statuses (failure, but not for
         // timeout, etc.)
-        builder.setTestPassed(false)
-            .setStatus(BlazeTestStatus.FAILED);
+        builder
+            .setTestPassed(false)
+            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
       } finally {
         if (streamed != null) {
           streamed.close();

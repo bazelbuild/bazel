@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -103,6 +105,13 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
           outErr.getOutputStream(),
           outErr.getErrorStream(),
           /*killSubprocessOnInterrupt*/ true);
+    } catch (AbnormalTerminationException e) {
+      TerminationStatus status = e.getResult().getTerminationStatus();
+      boolean timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
+      String message =
+          CommandFailureUtils.describeCommandFailure(
+              verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+      throw new UserExecException(String.format("%s: %s", message, e), timedOut);
     } catch (CommandException e) {
       String message = CommandFailureUtils.describeCommandFailure(
           verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);

@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
@@ -195,10 +197,11 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
               }
             });
       }
+    } catch (AbnormalTerminationException e) {
+      TerminationStatus status = e.getResult().getTerminationStatus();
+      boolean timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
+      throw new UserExecException("Error during execution of spawn", e, timedOut);
     } catch (CommandException e) {
-      EventHandler handler = actionExecutionContext.getExecutor().getEventHandler();
-      handler.handle(
-          Event.error("Sandboxed execution failed: " + spawn.getOwner().getLabel() + "."));
       throw new UserExecException("Error during execution of spawn", e);
     } catch (IOException e) {
       EventHandler handler = actionExecutionContext.getExecutor().getEventHandler();

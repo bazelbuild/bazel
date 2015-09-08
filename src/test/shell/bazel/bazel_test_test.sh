@@ -202,7 +202,8 @@ EOF
   )
 EOF
 
-  bazel test --test_timeout=2 //dir:test && fail "should have timed out"
+  bazel test --test_timeout=2 //dir:test &> $TEST_log && fail "should have timed out"
+  expect_log "TIMEOUT"
   bazel test --test_timeout=4 //dir:test || fail "expected success"
 
 }
