@@ -68,6 +68,14 @@ public enum Suite {
   }
 
   /**
+   * Given a class, determine if it can run in a remote execution environment or on the local
+   * machine only.
+   */
+  public static boolean isLocalOnly(Class<?> clazz) {
+    return getAnnotationElementOrDefault(clazz, "localOnly");
+  }
+
+  /**
    * Returns the value of the given element in the {@link TestSpec} annotation of the given class,
    * or the default value of that element if the class doesn't have a {@link TestSpec} annotation.
    */

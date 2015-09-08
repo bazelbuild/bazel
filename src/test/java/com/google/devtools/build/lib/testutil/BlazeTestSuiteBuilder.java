@@ -53,6 +53,15 @@ public class BlazeTestSuiteBuilder {
     }
   };
 
+  /** A predicate that succeeds only for non-local-only tests. */
+  public static final Predicate<Class<?>> TEST_IS_LOCAL_ONLY =
+      new Predicate<Class<?>>() {
+        @Override
+        public boolean apply(Class<?> testClass) {
+          return Suite.isLocalOnly(testClass);
+        }
+      };
+
   private static Predicate<Class<?>> hasSize(final Suite size) {
     return new Predicate<Class<?>>() {
       @Override

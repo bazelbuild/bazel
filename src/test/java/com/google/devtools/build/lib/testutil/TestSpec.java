@@ -45,4 +45,10 @@ public @interface TestSpec {
    * code's correctness. If this is the case, the test should be fixed as soon as possible.
    */
   boolean flaky() default false;
+
+  /**
+   * True, if the test cannot run in a remote execution environment and has to run on the local
+   * machine.
+   */
+  boolean localOnly() default false;
 }
