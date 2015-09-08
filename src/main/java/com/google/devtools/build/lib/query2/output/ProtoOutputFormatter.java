@@ -221,6 +221,8 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
         for (String feature : inputFile.getPackage().getFeatures()) {
           input.addFeature(feature);
         }
+
+        input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
       }
 
       for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {

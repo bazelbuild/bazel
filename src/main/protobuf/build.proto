@@ -283,7 +283,7 @@ message EnvironmentGroup {
 }
 
 // A file that is an input into the build system.
-// Next-Id: 8
+// Next-Id: 10
 message SourceFile {
   // The name of the source file (a label).
   required string name = 1;
@@ -316,6 +316,10 @@ message SourceFile {
 
   // License attribute for the file.
   optional License license = 8;
+
+  // True if the package contains an error. Only present if the SourceFile
+  // represents a BUILD file.
+  optional bool package_contains_errors = 9;
 }
 
 // A file that is the output of a build rule.

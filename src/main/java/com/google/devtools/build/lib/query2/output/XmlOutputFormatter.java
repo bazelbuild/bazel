@@ -178,6 +178,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         addSubincludedFilesToElement(doc, elem, inputFile);
         addSkylarkFilesToElement(doc, elem, inputFile);
         addFeaturesToElement(doc, elem, inputFile);
+        elem.setAttribute("package_contains_errors",
+            String.valueOf(inputFile.getPackage().containsErrors()));
       }
 
       addPackageGroupsToElement(doc, elem, inputFile);
