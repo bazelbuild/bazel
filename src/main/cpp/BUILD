@@ -1,9 +1,11 @@
 # Description:
 #   The Bazel launcher.
 
-filegroup(
-    name = "blaze_util_os",
-    srcs = select({
+cc_library(
+    name = "blaze_util",
+    srcs = [
+        "blaze_util.cc",
+    ] + select({
         "//src:darwin": [
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
@@ -17,6 +19,15 @@ filegroup(
             "blaze_util_posix.cc",
         ],
     }),
+    hdrs = [
+        "blaze_util.h",
+        "blaze_util_platform.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:blaze_exit_code",
+    ],
 )
 
 cc_binary(
@@ -26,12 +37,9 @@ cc_binary(
         "blaze_startup_options.cc",
         "blaze_startup_options.h",
         "blaze_startup_options_common.cc",
-        "blaze_util.cc",
-        "blaze_util.h",
         "blaze_util_platform.h",
         "option_processor.cc",
         "option_processor.h",
-        ":blaze_util_os",
     ],
     copts = [
         "-Wno-sign-compare",
@@ -49,6 +57,7 @@ cc_binary(
     }),
     visibility = ["//src:__pkg__"],
     deps = [
+        ":blaze_util",
         "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
         "//src/main/cpp/util:strings",
