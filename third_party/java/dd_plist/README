@@ -32,3 +32,4 @@ Local Modifications:
   ASCIIPropertyListParser.java.
 - Allow \ escaping of characters that need not be escaped in
   ASCIIPropertyListParser.java.
+- Make PropertyListParser.determineType handle an empty bytes array properly.

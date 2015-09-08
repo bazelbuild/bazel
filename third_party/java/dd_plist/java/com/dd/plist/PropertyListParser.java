@@ -88,7 +88,7 @@ public class PropertyListParser {
     private static int determineType(byte[] bytes) {
         //Skip any possible whitespace at the beginning of the file
         int offset = 0;
-        while(offset < bytes.length && bytes[offset] == ' ' || bytes[offset] == '\t' || bytes[offset] == '\r' || bytes[offset] == '\n' || bytes[offset] == '\f') {
+        while(offset < bytes.length && (bytes[offset] == ' ' || bytes[offset] == '\t' || bytes[offset] == '\r' || bytes[offset] == '\n' || bytes[offset] == '\f')) {
             offset++;
         }
         return determineType(new String(bytes, offset, Math.min(8, bytes.length - offset)));

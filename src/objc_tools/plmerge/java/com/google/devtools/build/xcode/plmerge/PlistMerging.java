@@ -302,7 +302,6 @@ public class PlistMerging extends Value<PlistMerging> {
       byte[] buffer = new byte[UTF8_BOM.length];
       int read = stream.read(buffer);
       stream.reset();
-      buffer = Arrays.copyOf(buffer, read);
 
       if (UTF8_BOM.length == read && Arrays.equals(buffer, UTF8_BOM)) {
         stream.skip(UTF8_BOM.length);
