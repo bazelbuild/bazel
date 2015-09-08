@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -603,33 +601,8 @@ public class LoadingPhaseRunner {
 
     ResolvedTargets.Builder<Target> finalBuilder = ResolvedTargets.builder();
     finalBuilder.merge(testTargetsBuilder);
-    finalBuilder.filter(getTestFilter(eventHandler, options));
+    finalBuilder.filter(TestFilter.forOptions(options, eventHandler, ruleNames));
     return finalBuilder.build();
-
-  }
-
-  /**
-   * Convert the options into a test filter.
-   */
-  private Predicate<Target> getTestFilter(EventHandler eventHandler, Options options) {
-    Predicate<Target> testFilter = Predicates.alwaysTrue();
-    if (!options.testSizeFilterSet.isEmpty()) {
-      testFilter = Predicates.and(testFilter,
-          TestTargetUtils.testSizeFilter(options.testSizeFilterSet));
-    }
-    if (!options.testTimeoutFilterSet.isEmpty()) {
-      testFilter = Predicates.and(testFilter,
-          TestTargetUtils.testTimeoutFilter(options.testTimeoutFilterSet));
-    }
-    if (!options.testTagFilterList.isEmpty()) {
-      testFilter = Predicates.and(testFilter,
-          TestTargetUtils.tagFilter(options.testTagFilterList));
-    }
-    if (!options.testLangFilterList.isEmpty()) {
-      testFilter = Predicates.and(testFilter,
-          TestTargetUtils.testLangFilter(options.testLangFilterList, eventHandler, ruleNames));
-    }
-    return testFilter;
   }
 
   /**
