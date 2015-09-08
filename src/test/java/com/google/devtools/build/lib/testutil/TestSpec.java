@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import com.google.devtools.build.lib.util.OS;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
@@ -51,4 +53,10 @@ public @interface TestSpec {
    * machine.
    */
   boolean localOnly() default false;
+
+  /**
+   * An array of operating systems that the test can run under. If not specified, the test can
+   * run under all operating systems.
+   */
+  OS[] supportedOs() default {};
 }

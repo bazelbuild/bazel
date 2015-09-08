@@ -13,13 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib;
 
-import com.google.devtools.build.lib.testutil.ClasspathSuite;
+import com.google.devtools.build.lib.testutil.BlazeTestSuiteBuilder;
+import com.google.devtools.build.lib.testutil.CustomSuite;
 
 import org.junit.runner.RunWith;
 
+import java.util.Set;
+
 /**
- * Test suite for options parsing framework.
+ * General test suite with defaults suitable for most of our tests.
  */
-@RunWith(ClasspathSuite.class)
-public class AllTests {
+@RunWith(CustomSuite.class)
+public class AllTests extends BlazeTestSuiteBuilder {
+  public static Set<Class<?>> suite() {
+    return new AllTests()
+        .getBuilder()
+        .matchClasses(BlazeTestSuiteBuilder.TEST_SUPPORTS_CURRENT_OS)
+        .create();
+  }
 }
