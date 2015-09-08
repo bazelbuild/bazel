@@ -135,7 +135,7 @@ echo -n "Uncompressing."
 if [ -f "${bin}/bazel" ]; then
   rm -f "${bin}/bazel"
 fi
-if [ -d "${base}" && -x "${base}/bin/bazel" ]; then
+if [ -d "${base}" -a -x "${base}/bin/bazel" ]; then
   rm -fr "${base}"
 fi
 

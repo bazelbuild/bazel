@@ -22,8 +22,7 @@ filegroup(
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]) + [
-        "//tools/android:srcs",
-        "//tools/android/jack:srcs",
+        "//tools/build_defs/d:srcs",
         "//tools/build_defs/docker:srcs",
         "//tools/build_rules/appengine:srcs",
         "//tools/build_rules/closure:srcs",
