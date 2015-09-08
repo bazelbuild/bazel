@@ -90,7 +90,7 @@ public final class NestedSetVisitor<E> {
     }
 
     private boolean add(NestedSet<E> set) {
-      return seenSets.add(set);
+      return !set.isEmpty() && seenSets.add(set);
     }
   }
 }
