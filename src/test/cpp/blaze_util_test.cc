@@ -65,7 +65,11 @@ class BlazeUtilTest : public ::testing::Test {
   static int WriteFileDescriptor2(string input1, string input2) {
     // create a fd for the input string
     int fds[2];
-    if (pipe2(fds, O_NONBLOCK) == -1) {
+    if (pipe(fds) == -1) {
+      return -1;
+    }
+    if (fcntl(fds[0], F_SETFL, O_NONBLOCK) == -1
+        || fcntl(fds[1], F_SETFL, O_NONBLOCK) == -1) {
       return -1;
     }
     if (input2.size() > 0) {
