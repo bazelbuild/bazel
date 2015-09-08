@@ -201,6 +201,11 @@ public final class Attribute implements Comparable<Attribute> {
      * its value based on properties of the build configuration.
      */
     NONCONFIGURABLE,
+
+    /**
+     * Whether we should skip constraints checks for licenses, visibility, etc.
+     */
+    SKIP_CONSTRAINTS_CHECKS,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -518,6 +523,13 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> taggable() {
       return setPropertyFlag(PropertyFlag.TAGGABLE, "taggable");
+    }
+
+    /**
+     * Disables constraints and visibility checks.
+     */
+    public Builder<TYPE> skipConstraintsCheck() {
+      return setPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_CHECKS, "skip_constraints_checks");
     }
 
     /**
@@ -1236,6 +1248,10 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public boolean checkAllowedValues() {
     return getPropertyFlag(PropertyFlag.CHECK_ALLOWED_VALUES);
+  }
+
+  public boolean performConstraintsCheck() {
+    return !getPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_CHECKS);
   }
 
   /**

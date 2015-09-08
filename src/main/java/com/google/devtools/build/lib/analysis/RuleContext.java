@@ -1570,7 +1570,9 @@ public final class RuleContext extends TargetContext
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       validateMandatoryProviders(prerequisite, attribute);
-      prerequisiteValidator.validate(this, prerequisite, attribute);
+      if (attribute.performConstraintsCheck()) {
+        prerequisiteValidator.validate(this, prerequisite, attribute);
+      }
     }
   }
 
