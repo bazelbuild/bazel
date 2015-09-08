@@ -63,7 +63,6 @@ public final class CcCommon {
       CppFileTypes.CPP_SOURCE,
       CppFileTypes.CPP_HEADER,
       CppFileTypes.C_SOURCE,
-      CppFileTypes.ASSEMBLER,
       CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
 
   /**

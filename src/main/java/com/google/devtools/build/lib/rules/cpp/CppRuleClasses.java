@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_HEADER;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_SOURCE;
@@ -55,8 +54,7 @@ public class CppRuleClasses {
    * those.
    */
   static final InstrumentationSpec INSTRUMENTATION_SPEC = new InstrumentationSpec(
-      FileTypeSet.of(CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR,
-          ASSEMBLER),
+      FileTypeSet.of(CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR),
       "srcs", "deps", "data", "hdrs");
 
   public static final LibraryLanguage LANGUAGE = new LibraryLanguage("C++");

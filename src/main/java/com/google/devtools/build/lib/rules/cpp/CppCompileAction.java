@@ -133,9 +133,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public static final String CPP_MODULE_COMPILE = "c++-module-compile";
 
   /**
-   * A string constant for the assembler actions.
+   * A string constant for the preprocessing assembler action.
    */
-  public static final String ASSEMBLE = "assemble";
   public static final String PREPROCESS_ASSEMBLE = "preprocess-assemble";
 
 
@@ -228,8 +227,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       RuleContext ruleContext) {
     super(owner,
           createInputs(mandatoryInputs, context.getCompilationPrerequisites(), optionalSourceFile),
-          CollectionUtils.asListWithoutNulls(outputFile,
-              (dotdFile == null ? null : dotdFile.artifact()),
+          CollectionUtils.asListWithoutNulls(outputFile, dotdFile.artifact(),
               gcnoFile, dwoFile));
     this.configuration = configuration;
     this.sourceLabel = sourceLabel;
@@ -831,14 +829,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private DependencySet processDepset(Path execRoot, CppCompileActionContext.Reply reply)
       throws IOException {
-    DotdFile dotdFile = getDotdFile();
-    Preconditions.checkNotNull(dotdFile);
     DependencySet depSet = new DependencySet(execRoot);
-    // artifact() is null if we are using in-memory .d files. We also want to prepare for the
+
+    // artifact() is null if we are not using in-memory .d files. We also want to prepare for the
     // case where we expected an in-memory .d file, but we did not get an appropriate response.
     // Perhaps we produced the file locally.
-    if (dotdFile.artifact() != null || reply == null) {
-      return depSet.read(dotdFile.getPath());
+    if (getDotdFile().artifact() != null || reply == null) {
+      return depSet.read(getDotdFile().getPath());
     } else {
       // This is an in-memory .d file.
       return depSet.process(reply.getContents());
@@ -857,17 +854,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *
    * @param reply the reply from the compilation.
    * @param inputs the ordered collection of inputs to append to
-   * @throws ActionExecutionException iff the .d is missing (when required),
-   *         malformed, or has unresolvable included artifacts.
+   * @throws ActionExecutionException iff the .d is missing, malformed or has
+   *         unresolvable included artifacts.
    */
   @ThreadCompatible
   private void populateActionInputs(Path execRoot,
       ArtifactResolver artifactResolver, CppCompileActionContext.Reply reply,
       NestedSetBuilder<Artifact> inputs)
       throws ActionExecutionException {
-    if (getDotdFile() == null) {
-      return;
-    }
     try {
       // Read .d file.
       DependencySet depSet = processDepset(execRoot, reply);
@@ -1199,8 +1193,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         CcToolchainFeatures.Variables variables,
         @Nullable String fdoBuildStamp) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
-      this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
-                      ? Preconditions.checkNotNull(dotdFile) : null;
+      this.dotdFile = Preconditions.checkNotNull(dotdFile);
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.pluginOpts = Preconditions.checkNotNull(pluginOpts);
@@ -1250,8 +1243,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return C_COMPILE;
       } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
         return CPP_COMPILE;
-      } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
-        return ASSEMBLE;
       } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {
         return PREPROCESS_ASSEMBLE;
       }

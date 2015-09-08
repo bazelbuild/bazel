@@ -46,11 +46,7 @@ public class LocalGccStrategy implements CppCompileActionContext {
   public static void updateEnv(CppCompileAction action, Map<String, String> env) {
     // We cannot locally execute an action that does not expect to output a .d file, since we would
     // have no way to tell what files that it included were used during compilation.
-    // The exception to this is that if no .d file can be produced (as indicated by
-    // dotdfile == null), then the assumption is that there are truly no depencies,
-    // and therefore we don't care whether the step executes locally or remotely.
-    env.put("INTERCEPT_LOCALLY_EXECUTABLE",
-        (action.getDotdFile() != null && action.getDotdFile().artifact() == null) ? "0" : "1");
+    env.put("INTERCEPT_LOCALLY_EXECUTABLE", action.getDotdFile().artifact() == null ? "0" : "1");
   }
 
   @Override

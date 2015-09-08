@@ -382,17 +382,13 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setDotdFile(PathFragment outputName, String extension) {
-    if (CppFileTypes.mustProduceDotdFile(outputName.toString())) {
-      if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
-        // Just set the path, no artifact is constructed
-        PathFragment file = FileSystemUtils.replaceExtension(outputName, extension);
-        Root root = configuration.getBinDirectory();
-        dotdFile = new DotdFile(root.getExecPath().getRelative(file));
-      } else {
-        dotdFile = new DotdFile(ruleContext.getRelatedArtifact(outputName, extension));
-      }
+    if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
+      // Just set the path, no artifact is constructed
+      PathFragment file = FileSystemUtils.replaceExtension(outputName, extension);
+      Root root = configuration.getBinDirectory();
+      dotdFile = new DotdFile(root.getExecPath().getRelative(file));
     } else {
-      dotdFile = null;
+      dotdFile = new DotdFile(ruleContext.getRelatedArtifact(outputName, extension));
     }
     return this;
   }
