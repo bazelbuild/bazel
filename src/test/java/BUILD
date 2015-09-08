@@ -1,3 +1,15 @@
+# This should correspond to the list of "EMBEDDED_TOOLS" in TestConstants.java.bazel.
+filegroup(
+    name = "embedded_scripts",
+    testonly = 1,
+    data = [
+        "//src/main/tools:build-runfiles",
+        "//src/main/tools:build_interface_so",
+        "//src/main/tools:namespace-sandbox",
+        "//src/main/tools:process-wrapper",
+    ],
+)
+
 java_library(
     name = "testutil",
     srcs = glob(["com/google/devtools/build/lib/testutil/*.java"]),
@@ -572,6 +584,7 @@ java_test(
     name = "sandbox-tests",
     srcs = glob(["com/google/devtools/build/lib/sandbox/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    data = [":embedded_scripts"],
     deps = [
         ":analysis_testutil",
         ":testutil",

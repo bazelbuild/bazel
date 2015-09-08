@@ -27,16 +27,16 @@ public class TestConstants {
    * A list of all embedded binaries that go into the regular Bazel binary.
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
+      "build_interface_so",
       "build-runfiles",
-      "process-wrapper",
       "namespace-sandbox",
-      "build_interface_so");
+      "process-wrapper");
 
   /**
    * Location in the bazel repo where embedded binaries come from.
    */
   public static final ImmutableList<String> EMBEDDED_SCRIPTS_PATHS = ImmutableList.of(
-      "DOES-NOT-WORK-YET");
+      "src/main/tools");
 
   /**
    * Path within runfiles tree for finding everything else.
