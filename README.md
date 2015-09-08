@@ -1,4 +1,4 @@
-# [Bazel](http://bazel.io) ([Alpha](http://bazel.io/roadmap.html#alpha))
+# [Bazel](http://bazel.io) ([Beta](http://bazel.io/roadmap.html#beta))
 
 *{Fast, Correct} - Choose two*
 

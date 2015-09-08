@@ -56,7 +56,7 @@ be refined if appropriate.
   </thead>
   <tbody>
     <tr>
-      <td rowspan="9"><b>Alpha</b></td>
+      <td rowspan="9"><b><a name="alpha"></a>Alpha</b></td>
       <td rowspan="9"><b>Alpha</b></td>
       <td rowspan="9"><b>2015-03</b></td>
       <td>Linux &amp; OS X Support</td>
@@ -71,7 +71,7 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/build-encyclopedia.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/build-encyclopedia.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="25"><b>Beta</b></td>
+      <td rowspan="25"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9"><b>0.1</b></td>
       <td rowspan="9"><b>2015-09</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
@@ -114,7 +114,7 @@ be refined if appropriate.
     <tr><td>P2. OS X homebrew recipe for distributing Bazel</td></tr>
     <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
     <tr>
-      <td rowspan="7"><b>Stable</b></td>
+      <td rowspan="7"><b><a name="stable"></a>Stable</b></td>
       <td rowspan="7"><b>1.0</b></td>
       <td rowspan="7"><b>2016-05</b></td>
       <td>P0. Extension APIs are stable and versioned</td>
