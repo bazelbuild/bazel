@@ -89,12 +89,10 @@ public final class ApplicationManifest {
       return ruleContext.attributes().get("application_id", Type.STRING);
     }
 
-    TransitiveInfoCollection resourcesPrerequisite =
-        ruleContext.getPrerequisite("resources", Mode.TARGET);
-    if (resourcesPrerequisite != null) {
+    AndroidResourcesProvider resourcesProvider = AndroidCommon.getAndroidResources(ruleContext);
+    if (resourcesProvider != null) {
       ResourceContainer resourceContainer = Iterables.getOnlyElement(
-          resourcesPrerequisite.getProvider(AndroidResourcesProvider.class)
-          .getTransitiveAndroidResources());
+          resourcesProvider.getTransitiveAndroidResources());
       return resourceContainer.getRenameManifestPackage();
     } else {
       return null;

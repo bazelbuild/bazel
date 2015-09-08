@@ -68,7 +68,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     checkResourceInlining(ruleContext);
     checkIdlRootImport(ruleContext);
     NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources =
-        collectTransitiveResources(ruleContext);
+        AndroidCommon.getTransitiveResourceContainers(ruleContext, true);
     NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
     NestedSet<LinkerInput> transitiveNativeLibraries =
         AndroidCommon.collectTransitiveNativeLibraries(deps);
@@ -320,7 +320,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         && !hasExplicitlySpecifiedIdlSrcsOrParcelables(ruleContext)) {
       ruleContext.attributeError("idl_import_root",
           "Neither idl_srcs nor idl_parcelables were specified, "
-          + "but 'idl_import_root' attribute was set");
+              + "but 'idl_import_root' attribute was set");
     }
   }
 
@@ -338,17 +338,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       ruleContext.ruleError("This android library has some resources assigned, so the target '"
           + resources.getLabel() + "' should have the attribute inline_constants set to 0");
     }
-  }
-
-  private NestedSet<ResourceContainer> collectTransitiveResources(RuleContext ruleContext) {
-    NestedSetBuilder<ResourceContainer> builder = NestedSetBuilder.naiveLinkOrder();
-    for (AndroidResourcesProvider resource : Iterables.concat(
-        ruleContext.getPrerequisites("resources", Mode.TARGET, AndroidResourcesProvider.class),
-        ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidResourcesProvider.class))) {
-      builder.addTransitive(resource.getTransitiveAndroidResources());
-    }
-
-    return builder.build();
   }
 
   private NestedSetBuilder<Aar> collectTransitiveAars(RuleContext ruleContext) {

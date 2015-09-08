@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -97,7 +96,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     try {
       RuleConfiguredTargetBuilder builder =
           init(ruleContext, filesBuilder,
-              getTransitiveResourceContainers(ruleContext, ImmutableList.of("resources", "deps")),
+              AndroidCommon.getTransitiveResourceContainers(ruleContext, true),
               javaCommon, androidCommon, javaSemantics, androidSemantics,
               ImmutableList.<String>of("deps"));
       if (builder == null) {
@@ -1318,27 +1317,5 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         "proguard",
         Joiner.on("_").join(prefix, ruleContext.getLabel().getName(), "proguard.cfg"),
         ruleContext.getBinOrGenfilesDirectory()));
-  }
-
-  /**
-   * Class that builds the main dex classes list.
-   */
-  @VisibleForTesting
-  public static final String MAIN_DEX_CLASS_BUILDER =
-      "com.android.multidex.ClassReferenceListBuilder";
-
-  public static NestedSet<ResourceContainer> getTransitiveResourceContainers(
-      RuleContext ruleContext, List<String> attributesWithTransitiveResources) {
-    // Traverse through all android_library targets looking for resources
-    NestedSetBuilder<ResourceContainer> resourcesBuilder = NestedSetBuilder.naiveLinkOrder();
-
-    for (String attribute : attributesWithTransitiveResources) {
-      for (AndroidResourcesProvider resources :
-          ruleContext.getPrerequisites(attribute, Mode.TARGET, AndroidResourcesProvider.class)) {
-        resourcesBuilder.addTransitive(resources.getTransitiveAndroidResources());
-      }
-    }
-
-    return resourcesBuilder.build();
   }
 }

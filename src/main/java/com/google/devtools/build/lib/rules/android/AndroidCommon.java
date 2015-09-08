@@ -211,6 +211,31 @@ public class AndroidCommon {
     return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
   }
 
+  public static NestedSet<ResourceContainer> getTransitiveResourceContainers(
+      RuleContext ruleContext, boolean withDeps) {
+    // Traverse through all android_library targets looking for resources
+    NestedSetBuilder<ResourceContainer> resourcesBuilder = NestedSetBuilder.naiveLinkOrder();
+    List<String> attributes = new ArrayList<>();
+    attributes.add("resources");
+    if (withDeps) {
+      attributes.add("deps");
+    }
+
+    for (String attribute : attributes) {
+      if (!ruleContext.attributes().has(attribute, Type.LABEL)
+          && !ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+        continue;
+      }
+
+      for (AndroidResourcesProvider resources :
+          ruleContext.getPrerequisites(attribute, Mode.TARGET, AndroidResourcesProvider.class)) {
+        resourcesBuilder.addTransitive(resources.getTransitiveAndroidResources());
+      }
+    }
+
+    return resourcesBuilder.build();
+  }
+
   private void compileResources(
       JavaSemantics javaSemantics,
       JavaCompilationArtifacts.Builder artifactsBuilder,
@@ -631,10 +656,16 @@ public class AndroidCommon {
   }
 
   public static AndroidResourcesProvider getAndroidResources(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has("resources", Type.LABEL)) {
+      return null;
+    }
+
     TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite("resources", Mode.TARGET);
-    return prerequisite != null
-        ? prerequisite.getProvider(AndroidResourcesProvider.class)
-        : null;
+    if (prerequisite == null) {
+      return null;
+    }
+
+    return prerequisite.getProvider(AndroidResourcesProvider.class);
   }
 
   public static NestedSet<Artifact> getApplicationApks(RuleContext ruleContext) {
