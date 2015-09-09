@@ -33,6 +33,12 @@
 
 GTEST_API_ int main(int argc, char **argv) {
   printf("Running main() from gtest_main.cc\n");
+  // For Bazel, also check the XML_OUTPUT_FILE env variable, and enable the
+  // xml output accordingly; see: http://bazel.io/docs/test-encyclopedia.html
+  const char* xml_output_file = getenv("XML_OUTPUT_FILE");
+  if (xml_output_file != NULL) {
+    testing::FLAGS_gtest_output = (std::string) "xml:" + xml_output_file;
+  }
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
