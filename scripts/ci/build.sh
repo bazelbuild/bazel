@@ -185,7 +185,9 @@ function release_to_github() {
   fi
   local github_repo="$(echo "$url" | sed -E 's|https?://github.com/([^/]*/[^/]*).*$|\1|')"
   if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
-    "${GITHUB_RELEASE}" "${github_repo}" "${release_name}" "" "# $(git_commit_msg)" "${@}"
+    mkdir -p "${tmpdir}/to-github"
+    cp "${@}" "${tmpdir}/to-github"
+    "${GITHUB_RELEASE}" "${github_repo}" "${release_name}" "" "# $(git_commit_msg)" "${tmpdir}/to-github/"'*'
   fi
 }
 
@@ -283,7 +285,7 @@ function deploy_release() {
 #   RELEASE_EMAIL_CONTENT: the content of the email to be sent
 function bazel_release() {
   local README=$2/README.md
-  local tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
+  tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
   trap 'rm -fr ${tmpdir}' EXIT
   while (( $# > 1 )); do
     local platform=$1
