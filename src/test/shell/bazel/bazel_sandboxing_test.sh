@@ -119,7 +119,15 @@ genrule(
   name = "breaks1",
   srcs = [ "a.txt" ],
   outs = [ "breaks1.txt" ],
-  cmd = "wc b.txt a.txt > $@",
+  cmd = "wc $(location :a.txt) `dirname $(location :a.txt)`/b.txt > $@",
+)
+
+genrule(
+  name = "breaks1_works_with_local",
+  srcs = [ "a.txt" ],
+  outs = [ "breaks1_works_with_local.txt" ],
+  cmd = "wc $(location :a.txt) `dirname $(location :a.txt)`/b.txt > $@",
+  local = 1,
 )
 
 genrule(
@@ -207,6 +215,14 @@ function test_sandbox_undeclared_deps() {
     output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1.txt")
     fail "Non-hermetic genrule breaks1 suceeded with following output: $(output)"
   }
+}
+
+function test_sandbox_undeclared_deps_with_local() {
+  bazel build --genrule_strategy=sandboxed \
+    examples/genrule:breaks1_works_with_local \
+    || fail "Non-hermetic genrule failed even though local=1: examples/genrule:breaks1_works_with_local"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1_works_with_local.txt" ] \
+    || fail "Genrule didn't produce output: examples/genrule:breaks1_works_with_local"
 }
 
 function test_sandbox_block_filesystem() {
