@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -105,6 +106,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     Executor executor = actionExecutionContext.getExecutor();
 
     try {
+      if (testTmpDir.exists(Symlinks.NOFOLLOW)) {
+        FileSystemUtils.deleteTree(testTmpDir);
+      }
       FileSystemUtils.createDirectoryAndParents(testTmpDir);
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Could not create TEST_TMPDIR: " + e));
