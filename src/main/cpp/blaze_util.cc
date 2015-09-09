@@ -203,12 +203,19 @@ bool ReadFile(const string &filename, string *content) {
 bool WriteFile(const string &content, const string &filename) {
   unlink(filename.c_str());
   int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
-  if (fd == -1) return false;
+  if (fd == -1) {
+    return false;
+  }
   int r = write(fd, content.data(), content.size());
+  if (r == -1) {
+    return false;
+  }
   int saved_errno = errno;
-  if (close(fd)) return false;  // Can fail on NFS.
+  if (close(fd)) {
+    return false;  // Can fail on NFS.
+  }
   errno = saved_errno;  // Caller should see errno from write().
-  return r == content.size();
+  return static_cast<uint>(r) == content.size();
 }
 
 // Returns true iff both stdout and stderr are connected to a
@@ -329,10 +336,11 @@ string GetJvmVersion(const string &java_exe) {
 bool CheckJavaVersionIsAtLeast(const string &jvm_version,
                                const string &version_spec) {
   vector<string> jvm_version_vect = blaze_util::Split(jvm_version, '.');
+  int jvm_version_size = static_cast<int>(jvm_version_vect.size());
   vector<string> version_spec_vect = blaze_util::Split(version_spec, '.');
+  int version_spec_size = static_cast<int>(version_spec_vect.size());
   int i;
-  for (i = 0; i < jvm_version_vect.size() && i < version_spec_vect.size();
-       i++) {
+  for (i = 0; i < jvm_version_size && i < version_spec_size; i++) {
     int jvm = blaze_util::strto32(jvm_version_vect[i].c_str(), NULL, 10);
     int spec = blaze_util::strto32(version_spec_vect[i].c_str(), NULL, 10);
     if (jvm > spec) {
@@ -341,8 +349,8 @@ bool CheckJavaVersionIsAtLeast(const string &jvm_version,
       return false;
     }
   }
-  if (i < version_spec_vect.size()) {
-    for (; i < version_spec_vect.size(); i++) {
+  if (i < version_spec_size) {
+    for (; i < version_spec_size; i++) {
       if (version_spec_vect[i] != "0") {
         return false;
       }
