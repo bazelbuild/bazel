@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -106,14 +108,17 @@ public final class AspectValue extends ActionLookupValue {
   private final Location location;
   private final AspectKey key;
   private final Aspect aspect;
+  private final NestedSet<Package> transitivePackages;
 
   public AspectValue(
-      AspectKey key, Label label, Location location, Aspect aspect, Iterable<Action> actions) {
+      AspectKey key, Label label, Location location, Aspect aspect, Iterable<Action> actions,
+      NestedSet<Package> transitivePackages) {
     super(actions);
     this.location = location;
     this.label = label;
     this.key = key;
     this.aspect = aspect;
+    this.transitivePackages = transitivePackages;
   }
 
   public Aspect getAspect() {
@@ -130,6 +135,10 @@ public final class AspectValue extends ActionLookupValue {
 
   public AspectKey getKey() {
     return key;
+  }
+
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
   }
 
   public static SkyKey key(Label label, BuildConfiguration configuration,

@@ -95,6 +95,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     Artifact outputArtifact = ruleContext.createOutputArtifact();
 
@@ -176,15 +177,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   // The transitive closure of these targets is an upper estimate on the labels
   // the query will touch
+  @Nullable
   private Set<Target> getScope(RuleContext context) {
     List<Label> scopeLabels = context.attributes().get("scope", Type.LABEL_LIST);
     Set<Target> scope = Sets.newHashSetWithExpectedSize(scopeLabels.size());
     for (Label scopePart : scopeLabels) {
       try {
         SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();
-        PackageValue packageNode = Preconditions.checkNotNull(
-            (PackageValue) env.getValue(PackageValue.key(scopePart.getPackageFragment())));
-
+        PackageValue packageNode =  (PackageValue) env.getValue(
+            PackageValue.key(scopePart.getPackageFragment()));
+        if (packageNode == null) {
+          return null;
+        }
         scope.add(packageNode.getPackage().getTarget(scopePart.getName()));
       } catch (NoSuchTargetException e) {
         throw new IllegalStateException(e);
@@ -202,6 +206,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     return ruleContext.getAnalysisEnvironment().getEventHandler();
   }
 
+  @Nullable
   private Pair<ImmutableMap<PackageIdentifier, Package>, Set<Label>> constructPackageMap(
       SkyFunction.Environment env, Collection<Target> scope) {
     // It is not necessary for correctness to construct intermediate NestedSets; we could iterate
@@ -212,7 +217,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     for (Target target : scope) {
       SkyKey key = TransitiveTargetValue.key(target.getLabel());
       TransitiveTargetValue transNode = (TransitiveTargetValue) env.getValue(key);
-      Preconditions.checkState(transNode != null, "%s not preloaded", key);
+      if (transNode == null) {
+        return null;
+      }
       validTargets.addTransitive(transNode.getTransitiveTargets());
       packageNames.addTransitive(transNode.getTransitiveSuccessfulPackages());
     }
@@ -230,9 +237,15 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   private byte[] executeQuery(RuleContext ruleContext, QueryOptions queryOptions,
       Set<Target> scope, String query) throws InterruptedException {
 
+    if (scope == null) {
+      return null;
+    }
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     Pair<ImmutableMap<PackageIdentifier, Package>, Set<Label>> closureInfo =
         constructPackageMap(env, scope);
+    if (closureInfo == null) {
+      return null;
+    }
     ImmutableMap<PackageIdentifier, Package> packageMap = closureInfo.first;
     Set<Label> validTargets = closureInfo.second;
     PackageProvider packageProvider = new PreloadedMapPackageProvider(packageMap, validTargets);
@@ -242,6 +255,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     return doQuery(queryOptions, packageProvider, labelFilter, evaluator, query, ruleContext);
   }
 
+  @Nullable
   private byte[] doQuery(QueryOptions queryOptions, PackageProvider packageProvider,
                          Predicate<Label> labelFilter, TargetPatternEvaluator evaluator,
                          String query, RuleContext ruleContext)

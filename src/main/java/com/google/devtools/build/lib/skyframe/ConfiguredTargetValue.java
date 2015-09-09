@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -46,11 +48,14 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   // separate variable in order to save memory.
   @Nullable private volatile Iterable<Action> actions;
 
+  private final NestedSet<Package> transitivePackages;
+
   ConfiguredTargetValue(ConfiguredTarget configuredTarget,
-      Map<Artifact, Action> generatingActionMap) {
+      Map<Artifact, Action> generatingActionMap, NestedSet<Package> transitivePackages) {
     super(generatingActionMap);
     this.configuredTarget = configuredTarget;
     this.actions = generatingActionMap.values();
+    this.transitivePackages = transitivePackages;
   }
 
   @VisibleForTesting
@@ -64,6 +69,9 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
     return Preconditions.checkNotNull(actions, configuredTarget);
   }
 
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
+  }
   /**
    * Clears configured target data from this value, leaving only the artifact->generating action
    * map.
