@@ -51,7 +51,7 @@ def _groovy_jar_impl(ctx):
   # class files, pass the result to cut to trim the leading "./", then pass
   # the resulting paths to the zipper.
   cmd += "root=`pwd`\n"
-  cmd += "cd %s; $root/%s c ../%s `find . -name '*.class' | cut -c 3-`\n" % (
+  cmd += "cd %s; $root/%s Cc ../%s `find . -name '*.class' | cut -c 3-`\n" % (
       build_output,
       ctx.executable._zipper.path,
       class_jar.basename,

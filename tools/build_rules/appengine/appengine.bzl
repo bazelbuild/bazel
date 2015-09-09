@@ -81,7 +81,7 @@ def _make_war(zipper, input_dir, output):
   return [
       "(root=$(pwd);" +
       ("cd %s &&" % input_dir) +
-      ("${root}/%s c ${root}/%s $(find .))" % (zipper.path, output.path))
+      ("${root}/%s Cc ${root}/%s $(find .))" % (zipper.path, output.path))
       ]
 
 def _common_substring(str1, str2):
