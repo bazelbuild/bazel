@@ -1,8 +1,6 @@
 Macros
 ======
 
-**Status: Stable**
-
 Macro creation
 --------------
 
@@ -13,7 +11,11 @@ anymore: Bazel sees only the set of rules they created.
 Native rules can be instantiated from the `native` module, e.g.
 
 ```python
-native.cc_library(name = x)
+def my_macro(name):
+  native.cc_library(
+    name = name,
+    srcs = ["main.cc"],
+  )
 ```
 
 If you need to know the package name (i.e. which BUILD file is calling the

@@ -1,11 +1,9 @@
 # Concepts
 
-Skylark is the code name of the extension mechanism. It lets you write custom
-build rules as well as compose existing ones into [macros](macros.md).
+## Loading a Skylark extension
 
-## Loading a Skylark module
-
-Use the `load` statement to import a symbol from a Skylark module.
+Use the `load` statement to import a symbol from a <code>.bzl</code> Skylark
+extension.
 
 ```python
 load("/build_tools/rules/maprule", "maprule")
@@ -30,13 +28,12 @@ list can contain both aliases and regular symbol names. The following example is
 perfectly legal (please note when to use quotation marks).
 
 ```python
-load("/path/to/my_rules", "some_rule", nice_alias = "some_other_rule", additional_alias = "one_more_rule")
+load("/path/to/my_rules", "some_rule", nice_alias = "some_other_rule")
 ```
 
-Visibility doesn't affect loading. You don't need to use `exports_files`
-to make a Skylark file visible.
-
 Symbols starting with `_` are private and cannot be loaded from other files.
+Visibility doesn't affect loading: you don't need to use `exports_files` to make
+a Skylark file visible.
 
 ## Macros and rules
 
@@ -57,7 +54,7 @@ If a macro becomes complex, it is often a good idea to make it a rule.
 
 A build consists of three phases.
 
-* **Loading phase**. First, we load and evaluate all Skylark modules and all BUILD
+* **Loading phase**. First, we load and evaluate all Skylark extensions and all BUILD
   files that are needed for the build. The execution of the BUILD files simply
   instantiates rules. This is where macros are evaluated.
 
