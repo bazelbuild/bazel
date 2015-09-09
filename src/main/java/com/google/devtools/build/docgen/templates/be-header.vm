@@ -134,6 +134,31 @@ ${LEFT_PANEL}
 #summaryTable($otherSummaryFamilies)
 
 </table>
+
+<h4>Rules implemented as Skylark extensions</h4>
+
+The Bazel team provides a set of supported build rules written using the
+<a href="/docs/skylark/index.html">Skylark</a> rules framework. These rules
+should be explicitly <a href="#load">load</a>ed. They allow you to build the
+following:
+
+<ul>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/closure">
+    Closure libraries</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/docker">
+    Docker images</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/groovy">
+    Groovy projects</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/appengine">
+    Java App Engine applications</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/d">
+    D projects</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/rust">
+    Rust projects</a>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/scala">
+    Scala projects</a> - experimental
+</ul>
+
 <h2 id="common-definitions">Common definitions</h2>
 
 <p>This section defines various terms and concepts that are common to
