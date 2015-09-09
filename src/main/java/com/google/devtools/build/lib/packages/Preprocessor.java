@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -96,19 +98,22 @@ public interface Preprocessor {
     public final boolean preprocessed;
     public final boolean containsErrors;
     public final boolean containsTransientErrors;
+    public final List<Event> events;
 
     private Result(ParserInputSource result,
-        boolean preprocessed, boolean containsPersistentErrors, boolean containsTransientErrors) {
+        boolean preprocessed, boolean containsPersistentErrors, boolean containsTransientErrors,
+        List<Event> events) {
       this.result = result;
       this.preprocessed = preprocessed;
       this.containsErrors = containsPersistentErrors || containsTransientErrors;
       this.containsTransientErrors = containsTransientErrors;
+      this.events = ImmutableList.copyOf(events);
     }
 
     /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
       return new Result(buildFileSource, /*preprocessed=*/false, /*containsErrors=*/false,
-          /*containsTransientErrors=*/false);
+          /*containsTransientErrors=*/false, ImmutableList.<Event>of());
     }
 
     /**
@@ -116,19 +121,20 @@ public interface Preprocessor {
      * read and has valid syntax and was preprocessed. But note that there may have been be errors
      * during preprocessing.
      */
-    public static Result success(ParserInputSource result, boolean containsErrors) {
+    public static Result success(ParserInputSource result, boolean containsErrors,
+        List<Event> events) {
       return new Result(result, /*preprocessed=*/true, /*containsPersistentErrors=*/containsErrors,
-          /*containsTransientErrors=*/false);
+          /*containsTransientErrors=*/false, events);
     }
 
-    public static Result invalidSyntax(PathFragment buildFile) {
+    public static Result invalidSyntax(PathFragment buildFile, List<Event> events) {
       return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/true,
-          /*containsPersistentErrors=*/true, /*containsTransientErrors=*/false);
+          /*containsPersistentErrors=*/true, /*containsTransientErrors=*/false, events);
     }
 
-    public static Result transientError(PathFragment buildFile) {
+    public static Result transientError(PathFragment buildFile, List<Event> events) {
       return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/false,
-          /*containsPersistentErrors=*/false, /*containsTransientErrors=*/true);
+          /*containsPersistentErrors=*/false, /*containsTransientErrors=*/true, events);
     }
   }
 
@@ -140,7 +146,6 @@ public interface Preprocessor {
    * @param in the BUILD file to be preprocessed.
    * @param packageName the BUILD file's package.
    * @param globber a globber for evaluating globs.
-   * @param eventHandler a eventHandler on which to report warnings/errors.
    * @param globalEnv the GLOBALS Python environment.
    * @param ruleNames the set of names of all rules in the build language.
    * @throws IOException if there was an I/O problem during preprocessing.
@@ -150,7 +155,6 @@ public interface Preprocessor {
       ParserInputSource in,
       String packageName,
       Globber globber,
-      EventHandler eventHandler,
       Environment globalEnv,
       Set<String> ruleNames)
     throws IOException, InterruptedException;

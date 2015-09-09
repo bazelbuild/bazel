@@ -1050,10 +1050,9 @@ public final class PackageFactory {
       throw new BuildFileContainsErrorsException(packageId, "IOException occured");
     }
 
-    StoredEventHandler localReporter = new StoredEventHandler();
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
     Preprocessor.Result preprocessingResult =
-        preprocess(packageId, buildFile, inputSource, globber, localReporter);
+        preprocess(packageId, buildFile, inputSource, globber);
     ExternalPackage externalPkg =
         new ExternalPackage.Builder(
             buildFile.getRelative("WORKSPACE"), ruleClassProvider.getRunfilesPrefix()).build();
@@ -1064,7 +1063,7 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 preprocessingResult,
-                localReporter.getEvents(), /* preprocessingEvents */
+                preprocessingResult.events,
                 ImmutableList.<Statement>of(), /* preludeStatements */
                 ImmutableMap.<PathFragment, SkylarkEnvironment>of(), /* imports */
                 ImmutableList.<Label>of(), /* skylarkFileDependencies */
@@ -1077,19 +1076,21 @@ public final class PackageFactory {
   }
 
   /** Preprocesses the given BUILD file. */
-  // Used outside of bazel!
   public Preprocessor.Result preprocess(
       PackageIdentifier packageId,
       Path buildFile,
-      CachingPackageLocator locator,
-      EventHandler eventHandler) throws InterruptedException {
-    ParserInputSource inputSource = maybeGetParserInputSource(buildFile, eventHandler);
-    if (inputSource == null) {
-      return Preprocessor.Result.transientError(buildFile.asFragment());
+      CachingPackageLocator locator) throws InterruptedException {
+    ParserInputSource inputSource;
+    try {
+      inputSource = ParserInputSource.create(buildFile);
+    } catch (IOException e) {
+      List<Event> events = ImmutableList.of(
+          Event.error(Location.fromFile(buildFile), e.getMessage()));
+      return Preprocessor.Result.transientError(buildFile.asFragment(), events);
     }
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
     try {
-      return preprocess(packageId, buildFile, inputSource, globber, eventHandler);
+      return preprocess(packageId, buildFile, inputSource, globber);
     } finally {
       globber.onCompletion();
     }
@@ -1103,26 +1104,24 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       Path buildFile,
       ParserInputSource inputSource,
-      Globber globber,
-      EventHandler eventHandler) throws InterruptedException {
+      Globber globber) throws InterruptedException {
     Preprocessor preprocessor = preprocessorFactory.getPreprocessor();
     if (preprocessor == null) {
       return Preprocessor.Result.noPreprocessing(inputSource);
     }
     try {
-      return preprocessor.preprocess(inputSource, packageId.toString(), globber, eventHandler,
+      return preprocessor.preprocess(inputSource, packageId.toString(), globber,
           globalEnv, ruleFactory.getRuleClassNames());
     } catch (IOException e) {
-      eventHandler.handle(Event.error(Location.fromFile(buildFile),
+      List<Event> events = ImmutableList.of(Event.error(Location.fromFile(buildFile),
                      "preprocessing failed: " + e.getMessage()));
-      return Preprocessor.Result.transientError(buildFile.asFragment());
+      return Preprocessor.Result.transientError(buildFile.asFragment(), events);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
     }
   }
 
-  // Used outside of bazel!
   public LegacyGlobber createLegacyGlobber(Path packageDirectory, PackageIdentifier packageId,
       CachingPackageLocator locator) {
     return new LegacyGlobber(new GlobCache(packageDirectory, packageId, locator, syscalls,
