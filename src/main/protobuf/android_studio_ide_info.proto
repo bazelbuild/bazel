@@ -34,6 +34,13 @@ message JavaRuleIdeInfo {
   repeated LibraryArtifact jars = 1;
   repeated LibraryArtifact generated_jars = 2;
   ArtifactLocation package_manifest = 3;
+  repeated ArtifactLocation sources = 4;
+}
+
+message AndroidSdkRuleInfo {
+  string android_sdk_path = 1;
+  string genfiles_path = 2;
+  string bin_path = 3;
 }
 
 message RuleIdeInfo {
@@ -46,6 +53,7 @@ message RuleIdeInfo {
     JAVA_TEST = 5;
     JAVA_IMPORT = 6;
     PROTO_LIBRARY = 7;
+    ANDROID_SDK = 8;
   }
 
   string label = 1;
@@ -53,6 +61,10 @@ message RuleIdeInfo {
   string build_file = 3;
   repeated string dependencies = 4;
   repeated string transitive_dependencies = 5;
-  repeated ArtifactLocation sources = 6;
-  JavaRuleIdeInfo java_rule_ide_info = 7;
+
+  // kind is one of JAVA_LIBRARY, JAVA_TEST, JAVA_IMPORT
+  JavaRuleIdeInfo java_rule_ide_info = 6;
+
+  // kind is ANDROID_SDK
+  AndroidSdkRuleInfo android_sdk_rule_info = 7;
 }
