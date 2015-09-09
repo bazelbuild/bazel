@@ -545,16 +545,16 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       Map<SkyKey, SkyValue> lookupValues = graph.getDoneValues(keys.keySet());
       for (Map.Entry<SkyKey, SkyValue> entry : lookupValues.entrySet()) {
         PackageLookupValue packageLookupValue = (PackageLookupValue) entry.getValue();
-        PathFragment dir = keys.get(entry.getKey());
         if (packageLookupValue.packageExists()) {
+          PathFragment dir = keys.get(entry.getKey());
           Collection<PathFragment> originalFiles = currentToOriginal.get(dir);
           Preconditions.checkState(!originalFiles.isEmpty(), entry);
           for (PathFragment fileName : originalFiles) {
             result.add(
                 FileValue.key(RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
           }
+          currentToOriginal.removeAll(dir);
         }
-        currentToOriginal.removeAll(dir);
       }
       Multimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
       for (PathFragment pathFragment : currentToOriginal.keySet()) {
