@@ -50,7 +50,6 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class, name = { "standalone" })
 public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
-  // TODO(bazel-team) - add support for test timeouts.
 
   private final Path workspace;
 
