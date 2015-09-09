@@ -22,7 +22,7 @@ set -eu
 : ${RELEASE_REPOSITORIES:="https://github.com/bazelbuild/bazel"}
 
 # Repositories to push the master branch
-: ${MASTER_REPOSITORIES:="https://github.com/bazelbuild/bazel https://bazel.googlesource.com/bazel"}
+: ${MASTER_REPOSITORIES:="https://bazel.googlesource.com/bazel"}
 
 # Name of the default editor
 : ${EDITOR=vi}
