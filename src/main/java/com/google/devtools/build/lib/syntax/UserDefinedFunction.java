@@ -56,7 +56,8 @@ public class UserDefinedFunction extends BaseFunction {
       env.update(name, arguments[i++]);
     }
 
-    long startTimeProfiler = Profiler.nanoTimeMaybe();
+    Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN,
+        getLocationPathAndLine() + "#" + getName());
     Statement lastStatement = null;
     try {
       for (Statement stmt : statements) {
@@ -75,10 +76,7 @@ public class UserDefinedFunction extends BaseFunction {
       real.registerStatement(lastStatement);
       throw real;
     } finally {
-      Profiler.instance().logSimpleTask(
-          startTimeProfiler,
-          ProfilerTask.SKYLARK_USER_FN,
-          getLocationPathAndLine() + "#" + getName());
+      Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
     }
     return Runtime.NONE;
   }

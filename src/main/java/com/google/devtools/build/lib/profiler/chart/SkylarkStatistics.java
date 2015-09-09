@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
@@ -21,6 +23,7 @@ import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -30,6 +33,10 @@ import java.util.Map.Entry;
  */
 public final class SkylarkStatistics {
 
+  /**
+   * How many characters from the end of the location of a Skylark function to display.
+   */
+  private static final int NUM_LOCATION_CHARS_UNABBREVIATED = 40;
   private final ListMultimap<String, Task> userFunctionTasks;
   private final ListMultimap<String, Task> builtinFunctionTasks;
   private final List<TasksStatistics> userFunctionStats;
@@ -83,10 +90,10 @@ public final class SkylarkStatistics {
   void printHtmlHead() {
     out.println("<style type=\"text/css\"><!--");
     out.println("div.skylark-histogram {");
-    out.println("  width: 95%; height: 220px; margin: 0 auto; display: none;");
+    out.println("  width: 95%; margin: 0 auto; display: none;");
     out.println("}");
     out.println("div.skylark-chart {");
-    out.println("  width: 95%; height: 200px; margin: 0 auto;");
+    out.println("  width: 100%; height: 200px; margin: 0 auto 2em;");
     out.println("}");
     out.println("div.skylark-table {");
     out.println("  width: 95%; margin: 0 auto;");
@@ -189,9 +196,11 @@ public final class SkylarkStatistics {
       out.printf("  %s.addColumn('number', 'mean (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'median (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'max (ms)');\n", tmpVar);
-      out.printf("  %s.addColumn('number', 'standard deviation (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'std dev (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'mean self (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'self (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'total (ms)');\n", tmpVar);
-      out.printf("  %s.addColumn('number', 'relative total (%%)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'relative (%%)');\n", tmpVar);
       out.printf("  %s.addRows([\n", tmpVar);
       for (TasksStatistics stats : statsList) {
         double relativeTotal = (double) stats.totalNanos / totalNanos;
@@ -199,8 +208,10 @@ public final class SkylarkStatistics {
         String location = split[0];
         String name = split[1];
         out.printf(
-            "    ['%s', '%s', %d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, {v:%.4f, f:'%.4f %%'}],\n",
+            "    [{v:'%s', f:'%s'}, '%s', %d, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f,"
+            + " {v:%.4f, f:'%.3f %%'}],\n",
             location,
+            abbreviatePath(location),
             name,
             stats.count,
             stats.minimumMillis(),
@@ -208,6 +219,8 @@ public final class SkylarkStatistics {
             stats.medianMillis(),
             stats.maximumMillis(),
             stats.standardDeviationMillis,
+            stats.selfMeanMillis(),
+            stats.selfMillis(),
             stats.totalMillis(),
             relativeTotal,
             relativeTotal * 100);
@@ -249,5 +262,60 @@ public final class SkylarkStatistics {
     out.println("  <button id=\"builtin-close\">Hide histogram</button>");
     out.println("</div>");
     out.println("<div class=\"skylark-table\" id=\"builtin_function_stats\"></div>");
+  }
+
+  /**
+   * Computes a string keeping the structure of the input but reducing the amount of characters on
+   * elements at the front if necessary.
+   *
+   * <p>Reduces the length of function location strings by keeping at least the last element fully
+   * intact and at most {@link SkylarkStatistics#NUM_LOCATION_CHARS_UNABBREVIATED} from other
+   * elements from the end. Elements before are abbreviated with their first two characters.
+   *
+   * <p>Example:
+   * "//source/tree/with/very/descriptive/and/long/hierarchy/of/directories/longfilename.bzl:42"
+   * becomes: "//so/tr/wi/ve/de/an/lo/hierarch/of/directories/longfilename.bzl:42"
+   *
+   * <p>There is no fixed length to the result as the last element is kept and the location may
+   * have many elements.
+   *
+   * @param location Either a sequence of path elements separated by
+   *     {@link StandardSystemProperty#FILE_SEPARATOR} and preceded by some root element
+   *     (e.g. "/", "C:\") or path elements separated by "." and having no root element.
+   */
+  private String abbreviatePath(String location) {
+    String[] elements;
+    int lowestAbbreviateIndex;
+    String root;
+    String separator = StandardSystemProperty.FILE_SEPARATOR.value();
+    if (location.contains(separator)) {
+      elements = location.split(separator);
+      // must take care to preserve file system roots (e.g. "/", "C:\"), keep separate
+      lowestAbbreviateIndex = 1;
+      root = location.substring(0, location.indexOf(separator) + 1);
+    } else {
+      // must be java class name for a builtin function
+      elements = location.split("\\.");
+      lowestAbbreviateIndex = 0;
+      root = "";
+      separator = ".";
+    }
+
+    String last = elements[elements.length - 1];
+    int remaining = NUM_LOCATION_CHARS_UNABBREVIATED - last.length();
+    // start from the next to last element of the location and add until "remaining" many
+    // chars added, abbreviate rest with first 2 characters
+    for (int index = elements.length - 2; index >= lowestAbbreviateIndex; index--) {
+      String element = elements[index];
+      if (remaining > 0) {
+        int length = Math.min(remaining, element.length());
+        element = element.substring(0, length);
+        remaining -= length;
+      } else {
+        element = element.substring(0, Math.min(2, element.length()));
+      }
+      elements[index] = element;
+    }
+    return root + Joiner.on(separator).join(Arrays.asList(elements).subList(1, elements.length));
   }
 }

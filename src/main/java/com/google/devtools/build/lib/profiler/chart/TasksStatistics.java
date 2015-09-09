@@ -27,32 +27,31 @@ class TasksStatistics {
   public final int count;
   public final long minNanos;
   public final long maxNanos;
-  public final double meanNanos;
   public final double medianNanos;
   /** Standard deviation of the execution time in milliseconds since computation in nanoseconds can
    * overflow.
    */
   public final double standardDeviationMillis;
-
   public final long totalNanos;
+  public final long selfNanos;
 
   public TasksStatistics(
       String name,
       int count,
-      long min,
-      long max,
-      double mean,
-      double median,
-      double standardDeviation,
-      long total) {
+      long minNanos,
+      long maxNanos,
+      double medianNanos,
+      double standardDeviationMillis,
+      long totalNanos,
+      long selfNanos) {
     this.name = name;
     this.count = count;
-    this.minNanos = min;
-    this.maxNanos = max;
-    this.meanNanos = mean;
-    this.medianNanos = median;
-    this.standardDeviationMillis = standardDeviation;
-    this.totalNanos = total;
+    this.minNanos = minNanos;
+    this.maxNanos = maxNanos;
+    this.medianNanos = medianNanos;
+    this.standardDeviationMillis = standardDeviationMillis;
+    this.totalNanos = totalNanos;
+    this.selfNanos = selfNanos;
   }
 
   public double minimumMillis() {
@@ -63,8 +62,12 @@ class TasksStatistics {
     return toMilliSeconds(maxNanos);
   }
 
+  public double meanNanos() {
+    return totalNanos / count;
+  }
+
   public double meanMillis() {
-    return toMilliSeconds(meanNanos);
+    return toMilliSeconds(meanNanos());
   }
 
   public double medianMillis() {
@@ -73,6 +76,18 @@ class TasksStatistics {
 
   public double totalMillis() {
     return toMilliSeconds(totalNanos);
+  }
+
+  public double selfMillis() {
+    return toMilliSeconds(selfNanos);
+  }
+
+  public double selfMeanNanos() {
+    return selfNanos / count;
+  }
+
+  public double selfMeanMillis() {
+    return toMilliSeconds(selfMeanNanos());
   }
 
   /**
@@ -102,23 +117,23 @@ class TasksStatistics {
     // Compute standard deviation with a shift to avoid catastrophic cancellation
     // and also do it in milliseconds, as in nanoseconds it overflows
     long sum = 0L;
+    long self = 0L;
     double sumOfSquaredShiftedMillis = 0L;
     final long shift = min;
 
     for (Task task : tasks) {
       sum += task.duration;
+      self += task.duration - task.getInheritedDuration();
       double taskDurationShiftMillis = toMilliSeconds(task.duration - shift);
       sumOfSquaredShiftedMillis += taskDurationShiftMillis * taskDurationShiftMillis;
     }
     double sumShiftedMillis = toMilliSeconds(sum - count * shift);
 
-    double mean = (double) sum / count;
-
     double standardDeviation =
         Math.sqrt(
             (sumOfSquaredShiftedMillis - (sumShiftedMillis * sumShiftedMillis) / count) / count);
 
-    return new TasksStatistics(name, count, min, max, mean, median, standardDeviation, sum);
+    return new TasksStatistics(name, count, min, max, median, standardDeviation, sum, self);
   }
 
   static double toMilliSeconds(double nanoseconds) {

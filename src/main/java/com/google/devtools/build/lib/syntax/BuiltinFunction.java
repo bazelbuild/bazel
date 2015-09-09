@@ -147,7 +147,8 @@ public class BuiltinFunction extends BaseFunction {
       }
     }
 
-    long startTime = Profiler.nanoTimeMaybe();
+    Profiler.instance().startTask(ProfilerTask.SKYLARK_BUILTIN_FN,
+        this.getClass().getName() + "#" + getName());
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try {
       return invokeMethod.invoke(this, args);
@@ -189,10 +190,7 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     } finally {
-      Profiler.instance().logSimpleTask(
-          startTime,
-          ProfilerTask.SKYLARK_BUILTIN_FN,
-          this.getClass().getName() + "#" + getName());
+      Profiler.instance().completeTask(ProfilerTask.SKYLARK_BUILTIN_FN);
     }
   }
 
