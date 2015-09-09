@@ -308,10 +308,11 @@ public class InMemoryNodeEntryTest {
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
       entry.addReverseDepAndCheckIfDone(parent);
-      entry.getReverseDeps();
+      assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L))
+          .containsExactly(parent);
       fail("Cannot add same dep twice");
     } catch (IllegalStateException e) {
-      // Expected.
+      assertThat(e.getMessage()).contains("Duplicate reverse deps");
     }
   }
 
@@ -343,21 +344,6 @@ public class InMemoryNodeEntryTest {
       // We only check for duplicates when we request all the reverse deps.
       entry.getReverseDeps();
       fail("Cannot add same dep twice");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-  }
-
-  @Test
-  public void crashOnAddDirtyReverseDep() {
-    NodeEntry entry = new InMemoryNodeEntry();
-    SkyKey parent = key("parent");
-    assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
-    try {
-      entry.addReverseDepAndCheckIfDone(parent);
-      // We only check for duplicates when we request all the reverse deps.
-      entry.getReverseDeps();
-      fail("Cannot add same dep twice in one build, even if dirty");
     } catch (IllegalStateException e) {
       // Expected.
     }

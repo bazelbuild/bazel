@@ -169,8 +169,10 @@ public class InMemoryNodeEntry implements NodeEntry {
       return (buildingState.getLastBuildValue() == null)
               ? null
           : ValueWithMetadata.justValue(buildingState.getLastBuildValue());
+    } else {
+      // Value has not finished evaluating. It's probably about to be cleaned from the graph.
+      return null;
     }
-    throw new AssertionError("Value in bad state: " + this);
   }
 
   @Override
@@ -281,9 +283,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized Collection<SkyKey> getReverseDeps() {
     assertKeepEdges();
-    Preconditions.checkState(isDone() || buildingState.getReverseDepsToSignal().isEmpty(),
-        "Reverse deps should only be queried before the build has begun "
-            + "or after the node is done %s", this);
     return REVERSE_DEPS_UTIL.getReverseDeps(this);
   }
 

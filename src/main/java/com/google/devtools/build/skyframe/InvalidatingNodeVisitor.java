@@ -219,52 +219,42 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       }
       final Pair<SkyKey, InvalidationType> invalidationPair = Pair.of(key, invalidationType);
       pendingVisitations.add(invalidationPair);
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          NodeEntry entry = graph.get(key);
-          if (entry == null) {
-            pendingVisitations.remove(invalidationPair);
-            return;
-          }
+      enqueue(
+          new Runnable() {
+            @Override
+            public void run() {
+              NodeEntry entry = graph.get(key);
+              if (entry == null) {
+                pendingVisitations.remove(invalidationPair);
+                return;
+              }
 
-          if (traverseGraph) {
-            // Propagate deletion upwards.
-            for (SkyKey reverseDep : entry.getReverseDeps()) {
-              visit(reverseDep, InvalidationType.DELETED, !MUST_EXIST);
-            }
-          }
-
-          if (entry.isDone()) {
-            // Only process this node's value and children if it is done, since dirty nodes have
-            // no awareness of either.
-
-            // Unregister this node from direct deps, since reverse dep edges cannot point to
-            // non-existent nodes.
-            if (traverseGraph) {
-              for (SkyKey directDep : entry.getDirectDeps()) {
-                NodeEntry dep = graph.get(directDep);
-                if (dep != null) {
-                  dep.removeReverseDep(key);
+              if (traverseGraph) {
+                // Propagate deletion upwards.
+                for (SkyKey reverseDep : entry.getReverseDeps()) {
+                  visit(reverseDep, InvalidationType.DELETED, !MUST_EXIST);
+                }
+                Iterable<SkyKey> directDeps =
+                    entry.isDone() ? entry.getDirectDeps() : entry.getTemporaryDirectDeps();
+                // Unregister this node from direct deps, since reverse dep edges cannot point to
+                // non-existent nodes.
+                for (SkyKey directDep : directDeps) {
+                  NodeEntry dep = graph.get(directDep);
+                  if (dep != null) {
+                    dep.removeReverseDep(key);
+                  }
                 }
               }
-            }
-            // Allow custom key-specific logic to update dirtiness status.
-            informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DELETED);
-          }
-          if (traverseGraph) {
-            // Force reverseDeps consolidation (validates that attempts to remove reverse deps were
-            // really successful.
-            entry.getReverseDeps();
-          }
-          // Actually remove the node.
-          graph.remove(key);
-          dirtyKeyTracker.notDirty(key);
+              // Allow custom key-specific logic to update dirtiness status.
+              informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DELETED);
+              // Actually remove the node.
+              graph.remove(key);
+              dirtyKeyTracker.notDirty(key);
 
-          // Remove the node from the set as the last operation.
-          pendingVisitations.remove(invalidationPair);
-        }
-      });
+              // Remove the node from the set as the last operation.
+              pendingVisitations.remove(invalidationPair);
+            }
+          });
     }
   }
 
