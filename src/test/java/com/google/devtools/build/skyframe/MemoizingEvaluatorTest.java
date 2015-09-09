@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
@@ -72,7 +71,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -86,6 +84,7 @@ public class MemoizingEvaluatorTest {
   private EventCollector eventCollector;
   private EventHandler reporter;
   protected MemoizingEvaluator.EmittedEventState emittedEventState;
+  @Nullable NotifyingInMemoryGraph graph = null;
 
   // Knobs that control the size / duration of larger tests.
   private static final int TEST_NODE_COUNT = 100;
@@ -100,6 +99,9 @@ public class MemoizingEvaluatorTest {
   @After
   public void assertNoTrackedErrors() {
     TrackingAwaiter.INSTANCE.assertNoErrors();
+    if (graph != null) {
+      graph.assertNoExceptions();
+    }
   }
 
   public void initializeTester(@Nullable TrackingInvalidationReceiver customInvalidationReceiver) {
@@ -2941,50 +2943,45 @@ public class MemoizingEvaluatorTest {
     final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
     // We don't expect slow-set-value to actually be built, but if it is, we wait for it.
     final CountDownLatch slowBuilt = new CountDownLatch(1);
-    // Keep track of any exceptions thrown during evaluation.
-    final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
-        new AtomicReference<>();
-    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {
-        if (!synchronizeThreads.get()) {
-          return;
-        }
-        if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
-          // Wait for the build to abort or for the other node to incorrectly build.
-          try {
-            assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-          } catch (InterruptedException e) {
-            // This is ok, because it indicates the build is shutting down.
-            Thread.currentThread().interrupt();
-          }
-        } else if (type == EventType.SET_VALUE && key.equals(fastToRequestSlowToSetValueKey)
-            && order == Order.AFTER) {
-          // This indicates a problem -- this parent shouldn't be built since it depends on an
-          // error.
-          slowBuilt.countDown();
-          // Before this node actually sets its value (and then throws an exception) we wait for the
-          // other node to throw an exception.
-          try {
-            Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-            unexpectedException.set(Pair.of(key, new IllegalStateException("uninterrupted")));
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
-        }
-      }
-    }));
+    setGraphForTesting(
+        new DeterministicInMemoryGraph(
+            new Listener() {
+              @Override
+              public void accept(SkyKey key, EventType type, Order order, Object context) {
+                if (!synchronizeThreads.get()) {
+                  return;
+                }
+                if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
+                  // Wait for the build to abort or for the other node to incorrectly build.
+                  try {
+                    assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+                  } catch (InterruptedException e) {
+                    // This is ok, because it indicates the build is shutting down.
+                    Thread.currentThread().interrupt();
+                  }
+                } else if (type == EventType.SET_VALUE
+                    && key.equals(fastToRequestSlowToSetValueKey)
+                    && order == Order.AFTER) {
+                  // This indicates a problem -- this parent shouldn't be built since it depends on
+                  // an error.
+                  slowBuilt.countDown();
+                  // Before this node actually sets its value (and then throws an exception) we wait
+                  // for the other node to throw an exception.
+                  try {
+                    Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                    throw new IllegalStateException("uninterrupted in " + key);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                }
+              }
+            }));
     // Initialize graph.
     tester.eval(/*keepGoing=*/true, errorKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
     tester.invalidate();
     synchronizeThreads.set(true);
     tester.eval(/*keepGoing=*/false, fastToRequestSlowToSetValueKey, failingKey);
-    Pair<SkyKey, ? extends Exception> unexpected = unexpectedException.get();
-    if (unexpected != null) {
-      throw new AssertionError(unexpected.first + ", " + unexpected.second + ", "
-          + Arrays.toString(unexpected.second.getStackTrace()));
-    }
   }
 
   /**
@@ -3018,9 +3015,6 @@ public class MemoizingEvaluatorTest {
     // particular, we don't want to force anything during error bubbling.
     final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
     final CountDownLatch shutdownAwaiterStarted = new CountDownLatch(1);
-    // Keep track of any exceptions thrown during evaluation.
-    final AtomicReference<Pair<SkyKey, ? extends Exception>> unexpectedException =
-        new AtomicReference<>();
     setGraphForTesting(
         new DeterministicInMemoryGraph(
             new Listener() {
@@ -3039,22 +3033,8 @@ public class MemoizingEvaluatorTest {
                   // When the uncached parent is first signaled by its changed dep, make sure that
                   // we wait until the cached parent is signaled too.
                   try {
-                    if (!cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                      Thread currentThread = Thread.currentThread();
-                      unexpectedException.set(
-                          Pair.of(
-                              key,
-                              new Exception(
-                                  "no interruption or signaling in time for "
-                                      + (currentThread.isInterrupted() ? "" : "un")
-                                      + "interrupted "
-                                      + currentThread
-                                      + " with hash "
-                                      + System.identityHashCode(currentThread)
-                                      + " at "
-                                      + System.currentTimeMillis())));
-                      return;
-                    }
+                    assertTrue(
+                        cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
                   } catch (InterruptedException e) {
                     // Before the relevant bug was fixed, this code was not interrupted, and the
                     // uncached parent got to build, yielding an inconsistent state at a later point
@@ -3073,19 +3053,17 @@ public class MemoizingEvaluatorTest {
                     // down.
                     Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
                     Thread currentThread = Thread.currentThread();
-                    unexpectedException.set(
-                        Pair.of(
-                            key,
-                            new Exception(
-                                "no interruption in time for "
-                                    + (currentThread.isInterrupted() ? "" : "un")
-                                    + "interrupted "
-                                    + currentThread
-                                    + " with hash "
-                                    + System.identityHashCode(currentThread)
-                                    + " at "
-                                    + System.currentTimeMillis())));
-                    return;
+                    throw new IllegalStateException(
+                        "no interruption in time in "
+                            + key
+                            + " for "
+                            + (currentThread.isInterrupted() ? "" : "un")
+                            + "interrupted "
+                            + currentThread
+                            + " with hash "
+                            + System.identityHashCode(currentThread)
+                            + " at "
+                            + System.currentTimeMillis());
                   } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                   }
@@ -3124,11 +3102,6 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/false, cachedParentKey, uncachedParentKey, waitForShutdownKey);
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
-    Pair<SkyKey, ? extends Exception> unexpected = unexpectedException.get();
-    if (unexpected != null) {
-      throw new AssertionError(unexpected.first + ", " + unexpected.second + ", "
-          + Arrays.toString(unexpected.second.getStackTrace()));
-    }
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, cachedParentKey, uncachedParentKey);
@@ -3170,6 +3143,7 @@ public class MemoizingEvaluatorTest {
   }
 
   private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
+    graph = notifyingInMemoryGraph;
     InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.evaluator;
     memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
   }

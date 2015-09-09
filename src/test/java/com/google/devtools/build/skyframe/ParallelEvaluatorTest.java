@@ -97,6 +97,9 @@ public class ParallelEvaluatorTest {
   @After
   public void assertNoTrackedErrors() {
     TrackingAwaiter.INSTANCE.assertNoErrors();
+    if (graph instanceof NotifyingInMemoryGraph) {
+      ((NotifyingInMemoryGraph) graph).assertNoExceptions();
+    }
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,

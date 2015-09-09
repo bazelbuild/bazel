@@ -13,19 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
+import java.util.ArrayList;
 import java.util.Set;
 
 /**
  * Class that allows clients to be notified on each access of the graph. Clients can simply track
- * accesses, or they can block to achieve desired synchronization.
+ * accesses, or they can block to achieve desired synchronization. Clients should call
+ * {@link #assertNoExceptions} at the end of tests in case exceptions were swallowed in async
+ * threads.
  */
 public class NotifyingInMemoryGraph extends InMemoryGraph {
   private final Listener graphListener;
+  private final ArrayList<Exception> unexpectedExceptions = new ArrayList<>();
 
   public NotifyingInMemoryGraph(Listener graphListener) {
-    this.graphListener = graphListener;
+    this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
 
   @Override
@@ -34,6 +39,14 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     NodeEntry newval = getEntry(key);
     NodeEntry oldval = getNodeMap().putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
+  }
+
+  /**
+   * Should be called at end of test (ideally in an {@code @After} method) to assert that no
+   * exceptions were thrown during calls to the listener.
+   */
+  public void assertNoExceptions() {
+    Truth.assertThat(unexpectedExceptions).isEmpty();
   }
 
   // Subclasses should override if they wish to subclass NotifyingNodeEntry.
@@ -52,6 +65,23 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     };
   }
 
+  private class ErrorRecordingDelegatingListener implements Listener {
+    private final Listener delegate;
+
+    private ErrorRecordingDelegatingListener(Listener delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void accept(SkyKey key, EventType type, Order order, Object context) {
+      try {
+        delegate.accept(key, type, order, context);
+      } catch (Exception e) {
+        unexpectedExceptions.add(e);
+        throw e;
+      }
+    }
+  }
   /**
    * Graph/value entry events that the receiver can be informed of. When writing tests, feel free to
    * add additional events here if needed.
