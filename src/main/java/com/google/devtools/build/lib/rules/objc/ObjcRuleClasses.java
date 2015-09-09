@@ -142,6 +142,14 @@ public class ObjcRuleClasses {
     return ruleContext.getFragment(ObjcConfiguration.class);
   }
 
+  /**
+   * Returns true if the source file can be instrumented for coverage.
+   */
+  public static boolean isInstrumentable(Artifact sourceArtifact) {
+    return !ASSEMBLY_SOURCES.matches(sourceArtifact.getFilename());
+  }
+
+
   @VisibleForTesting
   static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
@@ -318,9 +326,9 @@ public class ObjcRuleClasses {
    */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
-  private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c", ".s", ".asm");
+  private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
-  static final FileType PREPROCESSED_ASSEMBLY_SOURCES = FileType.of(".S");
+  static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
   static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
@@ -333,13 +341,13 @@ public class ObjcRuleClasses {
    * Files allowed in the srcs attribute. This includes private headers.
    */
   static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
-      PREPROCESSED_ASSEMBLY_SOURCES, SWIFT_SOURCES, HEADERS);
+      ASSEMBLY_SOURCES, SWIFT_SOURCES, HEADERS);
 
   /**
    * Files that should actually be compiled.
    */
   static final FileTypeSet COMPILABLE_SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
-      PREPROCESSED_ASSEMBLY_SOURCES, SWIFT_SOURCES);
+      ASSEMBLY_SOURCES, SWIFT_SOURCES);
 
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 

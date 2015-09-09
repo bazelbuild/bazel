@@ -461,8 +461,10 @@ public final class ObjcCommon {
         if (configuration.isCodeCoverageEnabled()
             && filter.isIncluded(context.getLabel().toString())) {
           for (Artifact source : allSources) {
-            objcProvider.add(INSTRUMENTED_SOURCE, source);
-            objcProvider.add(GCNO, intermediateArtifacts.gcnoFile(source));
+            if (ObjcRuleClasses.isInstrumentable(source)) {
+              objcProvider.add(INSTRUMENTED_SOURCE, source);
+              objcProvider.add(GCNO, intermediateArtifacts.gcnoFile(source));
+            }
           }
         }
 

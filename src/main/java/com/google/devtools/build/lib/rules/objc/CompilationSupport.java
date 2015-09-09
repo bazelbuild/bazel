@@ -205,16 +205,13 @@ public final class CompilationSupport {
     ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
     ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
     ImmutableList.Builder<Artifact> additionalInputs = new ImmutableList.Builder<>();
-    if (isCodeCoverageEnabled) {
+    if (isCodeCoverageEnabled && ObjcRuleClasses.isInstrumentable(sourceFile)) {
       coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
       gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
     }
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
     if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
       commandLine.add("-stdlib=libc++");
-    }
-    if (ObjcRuleClasses.PREPROCESSED_ASSEMBLY_SOURCES.matches(sourceFile.getExecPath())) {
-      commandLine.add("-x").add("assembler-with-cpp");
     }
 
     if (compilationArtifacts.hasSwiftSources()) {
