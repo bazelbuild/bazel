@@ -858,42 +858,16 @@ arg ::= IDENTIFIER '=' expr
 </ul>
 
 <p>
-  Many Python features are missing:
+  Many Python features are missing: control-flow constructs (loops,
+  conditionals, exceptions), basic datatypes (floating-point numbers, big
+  integers), <code>import</code> and the module system, support for
+  definition of classes, some Python's built-in functions. Function
+  definitions and <code>for</code> statements are allowed only in
+  extension files (<code>.bzl</code>).
 
-  control-flow constructs (loops, conditionals, exceptions),
+  Available functions are documented in
 
-  basic datatypes (floating-point numbers, big integers, dictionaries),
-
-  <code>import</code> and the module system,
-
-  support for definition of classes and functions (both named and
-  anonymous),
-
-  all of Python's built-in functions (<code>len()</code>, etc),
-
-  and most of the methods supported by the basic datatypes.
-</p>
-
-<p>
-  The initial environment in which BUILD files are evaluated is
-  defined by the Build Encyclopedia.  In addition, the following
-  object methods are available with their usual Python meanings:
-</p>
-<pre>
-string datatype:
-  str.join(sequence) -> str
-  str.lower() -> str
-  str.replace(str old, str new [, int maxreplace]) -> str
-  str.split([str sep [,int maxsplit]]) -> list of str
-  str.rfind(str sub [,int start [,int end]]) -> int
-  str.find(str sub [,int start [,int end]]) -> int
-  str.endswith(str sub [,int start [,int end]]) -> bool
-  str.startswith(str [,int start [,int end]]) -> bool
-list datatype:
-  list.append(object)
-  list.extend(sequence)
-</pre>
-
+    the <a href="skylark/lib/globals.html">library section</a>.
 <h3 id="declaring_build_rules">Declaring build rules</h3>
 
 <p>
