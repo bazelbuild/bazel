@@ -253,7 +253,7 @@ public final class FuncallExpression extends Expression {
     } else if (name.equals("$index")) {
       return "operator []";
     } else {
-      return "function '" + name + "'";
+      return "function " + name;
     }
   }
 
@@ -383,9 +383,12 @@ public final class FuncallExpression extends Expression {
           if (matchingMethod == null) {
             matchingMethod = method;
           } else {
-            throw new EvalException(func.getLocation(),
-                "Multiple matching methods for " + formatMethod(methodName, args)
-                + " in " + EvalUtils.getDataTypeNameFromClass(objClass));
+            throw new EvalException(
+                func.getLocation(),
+                String.format(
+                    "Type %s has multiple matches for %s",
+                    EvalUtils.getDataTypeNameFromClass(objClass),
+                    formatMethod(args)));
           }
         }
       }
@@ -393,15 +396,18 @@ public final class FuncallExpression extends Expression {
     if (matchingMethod != null && !matchingMethod.getAnnotation().structField()) {
       return callMethod(matchingMethod, methodName, obj, args.toArray(), getLocation());
     } else {
-      throw new EvalException(getLocation(), "No matching method found for "
-          + formatMethod(methodName, args) + " in "
-          + EvalUtils.getDataTypeNameFromClass(objClass));
+      throw new EvalException(
+          getLocation(),
+          String.format(
+              "Type %s has no %s",
+              EvalUtils.getDataTypeNameFromClass(objClass),
+              formatMethod(args)));
     }
   }
 
-  private String formatMethod(String methodName, List<Object> args) {
+  private String formatMethod(List<Object> args) {
     StringBuilder sb = new StringBuilder();
-    sb.append(methodName).append("(");
+    sb.append(functionName()).append("(");
     boolean first = true;
     for (Object obj : args) {
       if (!first) {

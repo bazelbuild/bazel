@@ -495,21 +495,28 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallsNotSkylarkCallable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("No matching method found for value() in Mock", "mock.value()");
+        .testIfExactError("Type Mock has no function value()", "mock.value()");
+  }
+
+  @Test
+  public void testNoOperatorIndex() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfExactError("Type Mock has no operator [](int)", "mock[2]");
   }
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("No matching method found for bad() in Mock", "mock.bad()");
+        .testIfExactError("Type Mock has no function bad()", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "No matching method found for bad(string, string, string) in int",
-        "s = 3.bad('a', 'b', 'c')");
+    new SkylarkTest()
+        .testIfExactError(
+            "Type int has no function bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
@@ -517,7 +524,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockMultipleMethodClass())
         .testIfExactError(
-            "Multiple matching methods for method(string) in MockMultipleMethodClass",
+            "Type MockMultipleMethodClass has multiple matches for function method(string)",
             "s = mock.method('string')");
   }
 
@@ -532,16 +539,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "No matching method found for to_string() in int", "s = 3.to_string()");
-    }
+    new SkylarkTest().testIfExactError("Type int has no function to_string()", "s = 3.to_string()");
+  }
 
   @Test
   public void testNoJavaCallsIfClassNotAnnotated() throws Exception {
     new SkylarkTest()
         .update("mock", new MockSubClass())
         .testIfExactError(
-            "No matching method found for is_empty_class_not_annotated(string) in MockSubClass",
+            "Type MockSubClass has no function is_empty_class_not_annotated(string)",
             "b = mock.is_empty_class_not_annotated('a')");
   }
 
@@ -557,8 +563,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessAsFuncall() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError(
-            "No matching method found for struct_field() in Mock", "v = mock.struct_field()");
+        .testIfExactError("Type Mock has no function struct_field()", "v = mock.struct_field()");
   }
 
   @Test
