@@ -1242,6 +1242,16 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testElseWithoutIf() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark(
+        "def func(a):",
+        // no if
+        "  else: return a");
+    assertContainsEvent("syntax error at 'else'");
+  }
+
+  @Test
   public void testIncludeFailureSkylark() throws Exception {
     setFailFast(false);
     parseFileForSkylark("include('//foo:bar')");

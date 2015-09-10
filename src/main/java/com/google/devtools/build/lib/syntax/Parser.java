@@ -91,26 +91,41 @@ class Parser {
       EnumSet.of(TokenKind.EOF, TokenKind.NEWLINE, TokenKind.SEMI);
 
   private static final EnumSet<TokenKind> LIST_TERMINATOR_SET =
-    EnumSet.of(TokenKind.EOF, TokenKind.RBRACKET, TokenKind.SEMI);
+      EnumSet.of(TokenKind.EOF, TokenKind.RBRACKET, TokenKind.SEMI);
 
   private static final EnumSet<TokenKind> DICT_TERMINATOR_SET =
-    EnumSet.of(TokenKind.EOF, TokenKind.RBRACE, TokenKind.SEMI);
+      EnumSet.of(TokenKind.EOF, TokenKind.RBRACE, TokenKind.SEMI);
 
   private static final EnumSet<TokenKind> EXPR_LIST_TERMINATOR_SET =
-      EnumSet.of(TokenKind.EOF, TokenKind.RBRACE, TokenKind.RBRACKET,
-          TokenKind.RPAREN, TokenKind.NEWLINE, TokenKind.SEMI);
+      EnumSet.of(
+          TokenKind.EOF,
+          TokenKind.NEWLINE,
+          TokenKind.RBRACE,
+          TokenKind.RBRACKET,
+          TokenKind.RPAREN,
+          TokenKind.SEMI);
 
-  private static final EnumSet<TokenKind> EXPR_TERMINATOR_SET = EnumSet.of(
-      TokenKind.EOF,
-      TokenKind.COMMA,
-      TokenKind.COLON,
-      TokenKind.FOR,
-      TokenKind.PLUS,
-      TokenKind.MINUS,
-      TokenKind.PERCENT,
-      TokenKind.SLASH,
-      TokenKind.RPAREN,
-      TokenKind.RBRACKET);
+  private static final EnumSet<TokenKind> BLOCK_STARTING_SET =
+      EnumSet.of(
+          TokenKind.CLASS,
+          TokenKind.DEF,
+          TokenKind.ELSE,
+          TokenKind.FOR,
+          TokenKind.IF,
+          TokenKind.TRY);
+
+  private static final EnumSet<TokenKind> EXPR_TERMINATOR_SET =
+      EnumSet.of(
+          TokenKind.COLON,
+          TokenKind.COMMA,
+          TokenKind.EOF,
+          TokenKind.FOR,
+          TokenKind.MINUS,
+          TokenKind.PERCENT,
+          TokenKind.PLUS,
+          TokenKind.RBRACKET,
+          TokenKind.RPAREN,
+          TokenKind.SLASH);
 
   private Token token; // current lookahead token
   private Token pushedToken = null; // used to implement LL(2)
@@ -1476,12 +1491,7 @@ class Parser {
             "for loops are not allowed on top-level. Put it into a function");
       }
       parseForStatement(list);
-    } else if (token.kind == TokenKind.IF
-        || token.kind == TokenKind.ELSE
-        || token.kind == TokenKind.FOR
-        || token.kind == TokenKind.CLASS
-        || token.kind == TokenKind.DEF
-        || token.kind == TokenKind.TRY) {
+    } else if (BLOCK_STARTING_SET.contains(token.kind)) {
       skipBlock();
     } else {
       parseSimpleStatement(list);
@@ -1520,7 +1530,7 @@ class Parser {
     int start = token.left;
     Token blockToken = token;
     syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
-    if (parsingMode == BUILD) {
+    if (parsingMode != PYTHON) {
       reportError(
           lexer.createLocation(start, token.right),
           "syntax error at '"
