@@ -80,7 +80,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
    * Returns the path to the java binary.
    */
   @SkylarkCallable(name = "java_executable", structField = true,
-      doc = "The the java executable, i.e. bin/java relative to the Java home.")
+      doc = "The java executable, i.e. bin/java relative to the Java home.")
   public PathFragment getJavaExecutable() {
     return getJavaHome().getRelative("bin/java");
   }
