@@ -291,7 +291,7 @@ public class StubApplication extends Application {
     }
   }
 
-  private void instantiateRealApplication(String codeCacheDir) {
+  private void instantiateRealApplication(String codeCacheDir, String dataDir) {
     externalResourceFile = getExternalResourceFile();
 
     String nativeLibDir;
@@ -300,7 +300,7 @@ public class StubApplication extends Application {
       // and they are chowned to the user of the app from a root shell, dlopen() returns with
       // "Permission denied". For some reason, copying them over makes them work (at the cost of
       // some execution time and complexity here, of course)
-      nativeLibDir = copyNativeLibs();
+      nativeLibDir = copyNativeLibs(dataDir);
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -323,12 +323,12 @@ public class StubApplication extends Application {
     }
   }
 
-  private String copyNativeLibs() throws IOException {
+  private String copyNativeLibs(String dataDir) throws IOException {
     File nativeLibDir = new File(INCREMENTAL_DEPLOYMENT_DIR + "/" + packageName + "/native");
     File newManifestFile = new File(nativeLibDir, "native_manifest");
-    File incrementalDir = new File("/data/data/" + packageName + "/incrementallib");
+    File incrementalDir = new File(dataDir + "/incrementallib");
     File installedManifestFile = new File(incrementalDir, "manifest");
-    String defaultNativeLibDir = "/data/data/" + packageName + "/lib";
+    String defaultNativeLibDir = dataDir + "/lib";
 
     if (!newManifestFile.exists()) {
       // Native libraries are not installed incrementally. Just use the regular directory.
@@ -454,7 +454,9 @@ public class StubApplication extends Application {
 
   @Override
   protected void attachBaseContext(Context context) {
-    instantiateRealApplication(context.getCacheDir().getPath());
+    instantiateRealApplication(
+        context.getCacheDir().getPath(),
+        context.getApplicationInfo().dataDir);
 
     // This is called from ActivityThread#handleBindApplication() -> LoadedApk#makeApplication().
     // Application#mApplication is changed right after this call, so we cannot do the monkey
