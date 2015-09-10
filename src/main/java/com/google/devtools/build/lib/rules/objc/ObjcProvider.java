@@ -105,6 +105,11 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<PathFragment> INCLUDE = new Key<>(LINK_ORDER);
 
   /**
+   * Include search paths specified with {@code -isystem} on the command line.
+   */
+  public static final Key<PathFragment> INCLUDE_SYSTEM = new Key<>(LINK_ORDER);
+
+  /**
    * Key for values in {@code defines} attributes. These are passed as {@code -D} flags to all
    * invocations of the compiler for this target and all depending targets.
    */

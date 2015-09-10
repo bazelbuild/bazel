@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SW
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -235,6 +236,7 @@ public final class CompilationSupport {
             "-iquote", ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
         .addBeforeEachExecPath("-include", compilationArtifacts.getPchFile().asSet())
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
+        .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
         .add(otherFlags)
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
         .add(coverageFlags.build())

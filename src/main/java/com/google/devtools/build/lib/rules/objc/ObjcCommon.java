@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INSTRUMENTED_SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
@@ -399,8 +400,12 @@ public final class ObjcCommon {
           .addTransitiveWithoutPropagating(directDepObjcProviders);
 
       for (CppCompilationContext headerProvider : depCcHeaderProviders) {
-        // TODO(bazel-team): Also account for custom include settings to go into header search paths
         objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
+        objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
+        // TODO(bazel-team): This pulls in stl via CppHelper.mergeToolchainDependentContext but
+        // probably shouldn't.
+        objcProvider.addAll(INCLUDE_SYSTEM, headerProvider.getSystemIncludeDirs());
+        objcProvider.addAll(DEFINE, headerProvider.getDefines());
       }
       for (CcLinkParamsProvider linkProvider : depCcLinkProviders) {
         objcProvider.addTransitiveAndPropagate(
