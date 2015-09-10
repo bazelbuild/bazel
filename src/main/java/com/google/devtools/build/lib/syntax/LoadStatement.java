@@ -30,7 +30,7 @@ public final class LoadStatement extends Statement {
   private final ImmutableMap<Identifier, String> symbols;
   private final ImmutableList<Identifier> cachedSymbols; // to save time
   private final PathFragment importPath;
-  private final String pathString;
+  private final StringLiteral pathString;
 
   /**
    * Constructs an import statement.
@@ -40,10 +40,10 @@ public final class LoadStatement extends Statement {
    * If aliasing is used, the value differs from it's key's symbol#getName().
    * Otherwise, both values are identical.
    */
-  LoadStatement(String path, Map<Identifier, String> symbols) {
+  LoadStatement(StringLiteral path, Map<Identifier, String> symbols) {
     this.symbols = ImmutableMap.copyOf(symbols);
     this.cachedSymbols = ImmutableList.copyOf(symbols.keySet());
-    this.importPath = new PathFragment(path + ".bzl");
+    this.importPath = new PathFragment(path.getValue() + ".bzl");
     this.pathString = path;
   }
 
@@ -87,13 +87,17 @@ public final class LoadStatement extends Statement {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     validatePath();
-    
+
     if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
       throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
     }
     for (Identifier symbol : cachedSymbols) {
       env.declare(symbol.getName(), getLocation());
     }
+  }
+
+  public StringLiteral getPath() {
+    return pathString;
   }
 
   /**
@@ -103,9 +107,9 @@ public final class LoadStatement extends Statement {
   public void validatePath() throws EvalException {
     String error = null;
 
-    if (pathString.isEmpty()) {
+    if (pathString.getValue().isEmpty()) {
       error = "Path argument to load() must not be empty";
-    } else if (pathString.startsWith("//")) {
+    } else if (pathString.getValue().startsWith("//")) {
       error =
           "First argument of load() is a path, not a label. "
           + "It should start with a single slash if it is an absolute path.";
