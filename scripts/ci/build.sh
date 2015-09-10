@@ -41,11 +41,11 @@ set -eu
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 if [[ ${PLATFORM} == "darwin" ]]; then
   function checksum() {
-    shasum -a 256 $1 | cut -f 1 -d " "
+    (cd "$(dirname "$1")" && shasum -a 256 "$(basename "$1")")
   }
 else
   function checksum() {
-    sha256sum $1 | cut -f 1 -d " "
+    (cd "$(dirname "$1")" && sha256sum "$(basename "$1")")
   }
 fi
 
