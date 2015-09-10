@@ -70,4 +70,48 @@ EOF
     || fail "BUILD_SCM_STATUS not found"
 }
 
+function test_workspace_status_cpp() {
+  create_new_workspace
+
+  local cmd=$TEST_TMPDIR/status.sh
+  cat > $cmd <<EOF
+#!/bin/bash
+
+echo BUILD_SCM_STATUS funky
+EOF
+  chmod +x $cmd
+
+  mkdir -p a
+  cat > a/linkstamped_library.cc <<'EOF'
+#include <string>
+
+::std::string BuildScmStatus() { return BUILD_SCM_STATUS; }
+EOF
+  cat > a/verify_scm_status.cc <<'EOF'
+#include <string>
+#include <iostream>
+
+::std::string BuildScmStatus();
+
+int main() {
+  ::std::cout << "BUILD_SCM_STATUS is: " << BuildScmStatus();
+
+  return ("funky" == BuildScmStatus()) ? 0 : 1;
+}
+EOF
+
+  cat > a/BUILD <<'EOF'
+cc_library(
+    name="linkstamped_library",
+    linkstamp="linkstamped_library.cc")
+cc_test(
+    name="verify_scm_status",
+    stamp=True,
+    srcs=["verify_scm_status.cc"],
+    deps=[":linkstamped_library"])
+EOF
+
+  bazel test --stamp //a:verify_scm_status --workspace_status_command=$cmd || fail "build failed"
+}
+
 run_suite "workspace status tests"
