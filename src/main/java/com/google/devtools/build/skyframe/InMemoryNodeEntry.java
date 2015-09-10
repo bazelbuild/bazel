@@ -271,12 +271,12 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (!keepEdges()) {
       return;
     }
-    REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
-    if (!isDone()) {
-      // This is currently unnecessary -- the only time we remove a reverse dep that was added this
-      // build is during the clean following a build failure. In that case, this node that is not
-      // done will be deleted soon, so clearing the reverse dep is not required.
+    if (REVERSE_DEPS_UTIL.reverseDepsIsEmpty(this)) {
+      // If an entry has no existing reverse deps, all its reverse deps are to signal, and vice
+      // versa.
       buildingState.removeReverseDepToSignal(reverseDep);
+    } else {
+      REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
     }
   }
 
