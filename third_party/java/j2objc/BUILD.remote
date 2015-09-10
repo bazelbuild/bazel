@@ -18,7 +18,7 @@ licenses(["notice"])  # Apache License 2.0
 
 exports_files(["LICENSE"])
 
-J2_DIR = "j2objc-0.9.7/"
+J2_DIR = "j2objc-0.9.8.1/"
 
 package(
     default_visibility = ["//visibility:public"],
@@ -31,10 +31,7 @@ java_import(
 
 java_import(
     name = "j2objc",
-    jars = [J2_DIR + str for str in [
-        "lib/j2objc.jar",
-        "lib/guava-14.0.1.jar",
-    ]] + glob([J2_DIR + "lib/org.eclipse.*.jar"]),
+    jars = [J2_DIR + "lib/j2objc.jar"],
     exports = [":annotations"],
 )
 
