@@ -131,7 +131,7 @@ message Attribute {
   required string name = 1;
 
   // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 12;
+  optional Location DEPRECATED_parseable_location = 12;
 
   // Whether the attribute was explicitly specified
   optional bool explicitly_specified = 13;
@@ -235,7 +235,7 @@ message Rule {
   repeated string default_setting = 7;
 
   // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 8;
+  optional Location DEPRECATED_parseable_location = 8;
 
   // The rule's class's public by default value.
   optional bool public_by_default = 9;
@@ -266,7 +266,7 @@ message PackageGroup {
   repeated string included_package_group = 3;
 
   // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 4;
+  optional Location DEPRECATED_parseable_location = 4;
 }
 
 // An environment group.
@@ -294,7 +294,7 @@ message SourceFile {
 
   // The location of the corresponding label in the BUILD file in a
   // machine-parseable form.
-  optional Location parseable_location = 7;
+  optional Location DEPRECATED_parseable_location = 7;
 
   // Labels of files that are transitively subincluded in this BUILD file. This
   // is present only when the SourceFile represents a BUILD file that
@@ -472,7 +472,7 @@ message Event {
   }
 
   required EventKind kind = 1;
-  optional Location location = 2;
+  optional Location DEPRECATED_location = 2;
   optional string message = 3;
 }
 

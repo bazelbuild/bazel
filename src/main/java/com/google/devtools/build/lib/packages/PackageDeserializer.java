@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -52,7 +51,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
@@ -103,10 +101,8 @@ public class PackageDeserializer {
   /** Class encapsulating state for a single package deserialization. */
   private static class DeserializationContext {
     private final Package.Builder packageBuilder;
-    private final PathFragment buildFilePath;
 
-    public DeserializationContext(Path buildFilePath, Package.Builder packageBuilder) {
-      this.buildFilePath = buildFilePath.asFragment();
+    public DeserializationContext(Package.Builder packageBuilder) {
       this.packageBuilder = packageBuilder;
     }
   }
@@ -125,17 +121,12 @@ public class PackageDeserializer {
         Preconditions.checkNotNull(packageDeserializationEnvironment);
   }
 
-  private static Location deserializeLocation(DeserializationContext context,
-      Build.Location location) {
-    return new ExplicitLocation(context.buildFilePath, location);
-  }
-
-  private static ParsedAttributeValue deserializeAttribute(DeserializationContext context,
+  private static ParsedAttributeValue deserializeAttribute(
       Type<?> expectedType, Build.Attribute attrPb) throws PackageDeserializationException {
     Object value = deserializeAttributeValue(expectedType, attrPb);
     return new ParsedAttributeValue(
         attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value,
-        deserializeLocation(context, attrPb.getParseableLocation()));
+        EmptyLocation.INSTANCE);
   }
 
   private void deserializeInputFile(DeserializationContext context, Build.SourceFile sourceFile)
@@ -143,8 +134,7 @@ public class PackageDeserializer {
     InputFile inputFile;
     try {
       inputFile = context.packageBuilder.createInputFile(
-          deserializeLabel(sourceFile.getName()).getName(),
-          deserializeLocation(context, sourceFile.getParseableLocation()));
+          deserializeLabel(sourceFile.getName()).getName(), EmptyLocation.INSTANCE);
     } catch (GeneratedLabelConflict e) {
       throw new PackageDeserializationException(e);
     }
@@ -169,7 +159,7 @@ public class PackageDeserializer {
           specifications,
           deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
           NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
-          deserializeLocation(context, packageGroupPb.getParseableLocation()));
+          EmptyLocation.INSTANCE);
     } catch (Label.SyntaxException | Package.NameConflictException e) {
       throw new PackageDeserializationException(e);
     }
@@ -177,12 +167,12 @@ public class PackageDeserializer {
 
   private void deserializeRule(DeserializationContext context, Build.Rule rulePb)
       throws PackageDeserializationException {
-    Location ruleLocation = deserializeLocation(context, rulePb.getParseableLocation());
+    Location ruleLocation = EmptyLocation.INSTANCE;
     RuleClass ruleClass = packageDeserializationEnvironment.getRuleClass(rulePb, ruleLocation);
     Map<String, ParsedAttributeValue> attributeValues = new HashMap<>();
     for (Build.Attribute attrPb : rulePb.getAttributeList()) {
       Type<?> type = ruleClass.getAttributeByName(attrPb.getName()).getType();
-      attributeValues.put(attrPb.getName(), deserializeAttribute(context, type, attrPb));
+      attributeValues.put(attrPb.getName(), deserializeAttribute(type, attrPb));
     }
 
     Label ruleLabel = deserializeLabel(rulePb.getName());
@@ -198,66 +188,40 @@ public class PackageDeserializer {
     }
   }
 
-  @Immutable
-  private static final class ExplicitLocation extends Location {
-    private final PathFragment path;
-    private final int startLine;
-    private final int startColumn;
-    private final int endLine;
-    private final int endColumn;
+  /** "Empty" location implementation, all methods should return non-null, but empty, values. */
+  private static class EmptyLocation extends Location {
+    private static final EmptyLocation INSTANCE = new EmptyLocation();
 
-    private ExplicitLocation(PathFragment path, Build.Location location) {
-      super(
-          location.hasStartOffset() && location.hasEndOffset() ? location.getStartOffset() : 0,
-          location.hasStartOffset() && location.hasEndOffset() ? location.getEndOffset() : 0);
-      this.path = path;
-      if (location.hasStartLine() && location.hasStartColumn()
-          && location.hasEndLine() && location.hasEndColumn()) {
-        this.startLine = location.getStartLine();
-        this.startColumn = location.getStartColumn();
-        this.endLine = location.getEndLine();
-        this.endColumn = location.getEndColumn();
-      } else {
-        this.startLine = 0;
-        this.startColumn = 0;
-        this.endLine = 0;
-        this.endColumn = 0;
-      }
+    private static final PathFragment DEV_NULL = new PathFragment("/dev/null");
+    private static final LineAndColumn EMPTY_LINE_AND_COLUMN = new LineAndColumn(0, 0);
+
+    private EmptyLocation() {
+      super(0, 0);
     }
 
     @Override
     public PathFragment getPath() {
-      return path;
+      return DEV_NULL;
     }
 
     @Override
     public LineAndColumn getStartLineAndColumn() {
-      return new LineAndColumn(startLine, startColumn);
+      return EMPTY_LINE_AND_COLUMN;
     }
 
     @Override
     public LineAndColumn getEndLineAndColumn() {
-      return new LineAndColumn(endLine, endColumn);
+      return EMPTY_LINE_AND_COLUMN;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          path.hashCode(), startLine, startColumn, endLine, endColumn, internalHashCode());
+      return 42;
     }
 
     @Override
     public boolean equals(Object other) {
-      if (other == null || !other.getClass().equals(getClass())) {
-        return false;
-      }
-      ExplicitLocation that = (ExplicitLocation) other;
-      return this.startLine == that.startLine
-          && this.startColumn == that.startColumn
-          && this.endLine == that.endLine
-          && this.endColumn == that.endColumn
-          && internalEquals(that)
-          && Objects.equals(this.path, that.path);
+      return other instanceof EmptyLocation;
     }
   }
 
@@ -360,14 +324,14 @@ public class PackageDeserializer {
 
   /**
    * Deserialize a package from its representation as a protocol message. The inverse of
-   * {@link PackageSerializer#serializePackage}.
+   * {@link PackageSerializer#serialize}.
    * @throws IOException
    */
   private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
       Package.Builder builder, InputStream in) throws PackageDeserializationException, IOException {
     Path buildFile = packageDeserializationEnvironment.getPath(packagePb.getBuildFilePath());
     Preconditions.checkNotNull(buildFile);
-    DeserializationContext context = new DeserializationContext(buildFile, builder);
+    DeserializationContext context = new DeserializationContext(builder);
     builder.setFilename(buildFile);
 
     if (packagePb.hasDefaultVisibilitySet() && packagePb.getDefaultVisibilitySet()) {
@@ -416,7 +380,7 @@ public class PackageDeserializer {
     builder.setMakeEnv(makeEnvBuilder);
 
     for (Build.Event event : packagePb.getEventList()) {
-      deserializeEvent(context, eventHandler, event);
+      deserializeEvent(eventHandler, event);
     }
 
     if (packagePb.hasContainsErrors() && packagePb.getContainsErrors()) {
@@ -452,7 +416,7 @@ public class PackageDeserializer {
 
   /**
    * Deserializes a {@link Package} from {@code in}. The inverse of
-   * {@link PackageSerializer#serializePackage}.
+   * {@link PackageSerializer#serialize}.
    *
    * <p>Expects {@code in} to contain a single
    * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.Package} message followed
@@ -493,19 +457,13 @@ public class PackageDeserializer {
     return builder.build();
   }
 
-  private static void deserializeEvent(
-      DeserializationContext context, StoredEventHandler eventHandler, Build.Event event) {
-    Location location = null;
-    if (event.hasLocation()) {
-      location = deserializeLocation(context, event.getLocation());
-    }
-
+  private static void deserializeEvent(StoredEventHandler eventHandler, Build.Event event) {
     String message = event.getMessage();
     switch (event.getKind()) {
-      case ERROR: eventHandler.handle(Event.error(location, message)); break;
-      case WARNING: eventHandler.handle(Event.warn(location, message)); break;
-      case INFO: eventHandler.handle(Event.info(location, message)); break;
-      case PROGRESS: eventHandler.handle(Event.progress(location, message)); break;
+      case ERROR: eventHandler.handle(Event.error(message)); break;
+      case WARNING: eventHandler.handle(Event.warn(message)); break;
+      case INFO: eventHandler.handle(Event.info(message)); break;
+      case PROGRESS: eventHandler.handle(Event.progress(message)); break;
       default: break;  // Ignore
     }
   }
