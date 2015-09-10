@@ -17,12 +17,10 @@ java_import(
 scala_library(
     name = "HelloLib",
     srcs = ["HelloLib.scala"],
-    main_class = "scala.test.HelloLib",
     deps = ["OtherLib"],
 )
 
 scala_library(
     name = "OtherLib",
     srcs = ["OtherLib.scala"],
-    main_class = "scala.test.OtherLib",
 )

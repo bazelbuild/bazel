@@ -44,12 +44,10 @@ jar cmf {manifest} {out} -C {out}_tmp .
 
 
 def _write_manifest(ctx):
-  manifest = """Main-Class: {main_class}
-Class-Path: {cp}
-"""
-  manifest = manifest.format(
-      main_class=ctx.attr.main_class,
-      cp=_scala_library_path)
+  cp = "/usr/share/java/scala-library.jar"
+  manifest = "Class-Path: %s\n" % cp
+  if getattr(ctx.attr, "main_class", ""):
+    manifest += "Main-Class: %s\n" % ctx.attr.main_class
 
   ctx.file_action(
       output = ctx.outputs.manifest,
@@ -85,7 +83,6 @@ def _scala_library_impl(ctx):
 scala_library = rule(
   implementation=_scala_library_impl,
   attrs={
-      "main_class": attr.string(mandatory=True),
       "srcs": attr.label_list(allow_files=_scala_filetype),
       "deps": attr.label_list(),
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
