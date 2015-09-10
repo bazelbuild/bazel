@@ -213,7 +213,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
       return String.format(
           "\tFile \"%s\", line %d, in %s%n\t\t%s",
           printPath(location.getPath()),
-          location.getStartLineAndColumn().getLine(),
+          location.getStartLine(),
           element.getLabel(),
           element.getCause().getLabel());
     }

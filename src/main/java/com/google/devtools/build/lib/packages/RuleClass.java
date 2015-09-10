@@ -35,13 +35,13 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -499,7 +499,7 @@ public final class RuleClass {
     private BaseFunction configuredTargetFunction = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
-    private SkylarkEnvironment ruleDefinitionEnvironment = null;
+    private Environment ruleDefinitionEnvironment = null;
     private Set<Class<?>> configurationFragments = new LinkedHashSet<>();
     private MissingFragmentPolicy missingFragmentPolicy = MissingFragmentPolicy.FAIL_ANALYSIS;
     private Map<ConfigurationTransition, ImmutableSet<String>> requiredFragmentNames =
@@ -798,7 +798,7 @@ public final class RuleClass {
     /**
      *  Sets the rule definition environment. Meant for Skylark usage.
      */
-    public Builder setRuleDefinitionEnvironment(SkylarkEnvironment env) {
+    public Builder setRuleDefinitionEnvironment(Environment env) {
       this.ruleDefinitionEnvironment = env;
       return this;
     }
@@ -970,7 +970,7 @@ public final class RuleClass {
    * The Skylark rule definition environment of this RuleClass.
    * Null for non Skylark executable RuleClasses.
    */
-  @Nullable private final SkylarkEnvironment ruleDefinitionEnvironment;
+  @Nullable private final Environment ruleDefinitionEnvironment;
 
   /**
    * The set of required configuration fragments; this should list all fragments that can be
@@ -1023,7 +1023,7 @@ public final class RuleClass {
       ImmutableSet<Class<?>> advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
+      @Nullable Environment ruleDefinitionEnvironment,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
@@ -1085,7 +1085,7 @@ public final class RuleClass {
       ImmutableSet<Class<?>> advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
+      @Nullable Environment ruleDefinitionEnvironment,
       Set<Class<?>> allowedConfigurationFragments,
       ImmutableMap<ConfigurationTransition, ImmutableSet<String>> allowedConfigurationFragmentNames,
       @Nullable FragmentClassNameResolver fragmentNameResolver,
@@ -1741,7 +1741,7 @@ public final class RuleClass {
   /**
    * Returns this RuleClass's rule definition environment.
    */
-  @Nullable public SkylarkEnvironment getRuleDefinitionEnvironment() {
+  @Nullable public Environment getRuleDefinitionEnvironment() {
     return ruleDefinitionEnvironment;
   }
 

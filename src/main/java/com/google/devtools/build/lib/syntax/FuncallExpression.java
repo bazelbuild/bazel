@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import javax.annotation.Nullable;
+
 /**
  * Syntax node for a function call expression.
  */
@@ -125,6 +127,7 @@ public final class FuncallExpression extends Expression {
     return methodMap.build();
   }
 
+  @Nullable
   private static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
     boolean keepLooking = false;
     try {
@@ -167,7 +170,7 @@ public final class FuncallExpression extends Expression {
     }
   }
 
-  private final Expression obj;
+  @Nullable private final Expression obj;
 
   private final Identifier func;
 
@@ -182,7 +185,7 @@ public final class FuncallExpression extends Expression {
    * arbitrary expressions. In any case, the "func" expression is always
    * evaluated, so functions and variables share a common namespace.
    */
-  public FuncallExpression(Expression obj, Identifier func,
+  public FuncallExpression(@Nullable Expression obj, Identifier func,
                            List<Argument.Passed> args) {
     this.obj = obj;
     this.func = func;
@@ -353,21 +356,11 @@ public final class FuncallExpression extends Expression {
   // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
   // matching methods, it still can be a problem. Figure out how the Java compiler does it
   // exactly and copy that behaviour.
-  // TODO(bazel-team): check if this and SkylarkBuiltInFunctions.createObject can be merged.
-  private Object invokeJavaMethod(
-      Object obj, Class<?> objClass, String methodName, List<Object> args, boolean hasKwArgs)
-      throws EvalException {
+  private MethodDescriptor findJavaMethod(
+      Class<?> objClass, String methodName, List<Object> args) throws EvalException {
     MethodDescriptor matchingMethod = null;
     List<MethodDescriptor> methods = getMethods(objClass, methodName, args.size(), getLocation());
     if (methods != null) {
-      if (hasKwArgs) {
-        throw new EvalException(
-            func.getLocation(),
-            String.format(
-                "Keyword arguments are not allowed when calling a java method"
-                + "\nwhile calling method '%s' on object of type %s",
-                func.getName(), EvalUtils.getDataTypeNameFromClass(objClass)));
-      }
       for (MethodDescriptor method : methods) {
         Class<?>[] params = method.getMethod().getParameterTypes();
         int i = 0;
@@ -384,7 +377,7 @@ public final class FuncallExpression extends Expression {
             matchingMethod = method;
           } else {
             throw new EvalException(
-                func.getLocation(),
+                getLocation(),
                 String.format(
                     "Type %s has multiple matches for %s",
                     EvalUtils.getDataTypeNameFromClass(objClass),
@@ -394,15 +387,14 @@ public final class FuncallExpression extends Expression {
       }
     }
     if (matchingMethod != null && !matchingMethod.getAnnotation().structField()) {
-      return callMethod(matchingMethod, methodName, obj, args.toArray(), getLocation());
-    } else {
-      throw new EvalException(
-          getLocation(),
-          String.format(
-              "Type %s has no %s",
-              EvalUtils.getDataTypeNameFromClass(objClass),
-              formatMethod(args)));
+      return matchingMethod;
     }
+    throw new EvalException(
+        getLocation(),
+        String.format(
+            "Type %s has no %s",
+            EvalUtils.getDataTypeNameFromClass(objClass),
+            formatMethod(args)));
   }
 
   private String formatMethod(List<Object> args) {
@@ -496,20 +488,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    // Adds the calling rule to the stack trace of the Environment if it is a BUILD environment.
-    // There are two reasons for this:
-    // a) When using aliases in load(), the rule class name in the BUILD file will differ from
-    //    the implementation name in the bzl file. Consequently, we need to store the calling name.
-    // b) We need the location of the calling rule inside the BUILD file.
-    boolean hasAddedElement =
-        env.isSkylark() ? false : env.tryAddingStackTraceRoot(new StackTraceElement(func, args));
-    try {
-      return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
-    } finally {
-      if (hasAddedElement) {
-        env.removeStackTraceRoot();
-      }
-    }
+    return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
   }
 
   /**
@@ -556,15 +535,28 @@ public final class FuncallExpression extends Expression {
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
       evalArguments(posargs, kwargs, env, null);
+      Class<?> objClass;
+      Object obj;
       if (objValue instanceof Class<?>) {
-        // Static Java method call. We can return the value from here directly because
-        // invokeJavaMethod() has special checks.
-        return invokeJavaMethod(
-            null, (Class<?>) objValue, func.getName(), posargs.build(), !kwargs.isEmpty());
+        // Static call
+        obj = null;
+        objClass = (Class<?>) objValue;
       } else {
-        return invokeJavaMethod(
-            objValue, objValue.getClass(), func.getName(), posargs.build(), !kwargs.isEmpty());
+        obj = objValue;
+        objClass = objValue.getClass();
       }
+      String name = func.getName();
+      ImmutableList<Object> args = posargs.build();
+      MethodDescriptor method = findJavaMethod(objClass, name, args);
+      if (!kwargs.isEmpty()) {
+        throw new EvalException(
+            func.getLocation(),
+            String.format(
+                "Keyword arguments are not allowed when calling a java method"
+                + "\nwhile calling method '%s' for type %s",
+                name, EvalUtils.getDataTypeNameFromClass(objClass)));
+      }
+      return callMethod(method, name, obj, args.toArray(), getLocation());
     } else {
       throw new EvalException(
           getLocation(),
@@ -614,6 +606,25 @@ public final class FuncallExpression extends Expression {
     // we might need an auto conversion.
     return function instanceof UserDefinedFunction
         ? ArgConversion.TO_SKYLARK : ArgConversion.NO_CONVERSION;
+  }
+
+  /**
+   * Returns the value of the argument 'name' (or null if there is none).
+   * This function is used to associate debugging information to rules created by skylark "macros".
+   */
+  @Nullable
+  public String getNameArg() {
+    for (Argument.Passed arg : args) {
+      if (arg != null) {
+        String name = arg.getName();
+        if (name != null && name.equals("name")) {
+          Expression expr = arg.getValue();
+          return (expr != null && expr instanceof StringLiteral)
+              ? ((StringLiteral) expr).getValue() : null;
+        }
+      }
+    }
+    return null;
   }
 
   @Override

@@ -25,9 +25,10 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -76,7 +77,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.noFile(file));
     }
 
-    Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
+    Map<PathFragment, Extension> importMap = new HashMap<>();
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     BuildFileAST ast = astLookupValue.getAST();
     // TODO(bazel-team): Refactor this code and PackageFunction to reduce code duplications.
@@ -96,7 +97,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         importsLookupValue = (SkylarkImportLookupValue) env.getValueOrThrow(
             importsLookupKey, ASTLookupInputException.class);
         if (importsLookupValue != null) {
-          importMap.put(importFile, importsLookupValue.getImportedEnvironment());
+          importMap.put(importFile, importsLookupValue.getEnvironmentExtension());
           fileDependencies.add(importsLookupValue.getDependency());
         }
       } catch (ASTLookupInputException e) {
@@ -114,12 +115,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           file));
     }
 
-    SkylarkEnvironment extensionEnv = createEnv(ast, file, importMap, env);
-    // Skylark UserDefinedFunctions are sharing function definition Environments, so it's extremely
-    // important not to modify them from this point. Ideally they should be only used to import
-    // symbols and serve as global Environments of UserDefinedFunctions.
+    // Skylark UserDefinedFunction-s in that file will share this function definition Environment,
+    // which will be frozen by the time it is returned by createExtension.
+    Extension extension =
+        createExtension(ast, file, importMap, env);
+
     return new SkylarkImportLookupValue(
-        extensionEnv, new SkylarkFileDependency(label, fileDependencies.build()));
+        extension, new SkylarkFileDependency(label, fileDependencies.build()));
   }
 
   /**
@@ -164,29 +166,33 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   /**
-   * Creates the SkylarkEnvironment to be imported. After it's returned, the Environment
-   * must not be modified.
+   * Creates the Extension to be imported.
    */
-  private SkylarkEnvironment createEnv(BuildFileAST ast, PathFragment file,
-      Map<PathFragment, SkylarkEnvironment> importMap, Environment env)
+  private Extension createExtension(
+      BuildFileAST ast,
+      PathFragment file,
+      Map<PathFragment, Extension> importMap,
+      Environment env)
           throws InterruptedException, SkylarkImportLookupFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     // TODO(bazel-team): this method overestimates the changes which can affect the
     // Skylark RuleClass. For example changes to comments or unused functions can modify the hash.
     // A more accurate - however much more complicated - way would be to calculate a hash based on
     // the transitive closure of the accessible AST nodes.
-    SkylarkEnvironment extensionEnv = ruleClassProvider
-        .createSkylarkRuleClassEnvironment(eventHandler, ast.getContentHashCode());
-    extensionEnv.update("native", packageFactory.getNativeModule());
-    extensionEnv.setImportedExtensions(importMap);
-    ast.exec(extensionEnv, eventHandler);
-    SkylarkRuleClassFunctions.exportRuleFunctions(extensionEnv, file);
+    try (Mutability mutability = Mutability.create("importing %s", file)) {
+      com.google.devtools.build.lib.syntax.Environment extensionEnv =
+          ruleClassProvider.createSkylarkRuleClassEnvironment(
+              mutability, eventHandler, ast.getContentHashCode(), importMap)
+          .setupOverride("native", packageFactory.getNativeModule());
+      ast.exec(extensionEnv, eventHandler);
+      SkylarkRuleClassFunctions.exportRuleFunctions(extensionEnv, file);
 
-    Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
-    if (eventHandler.hasErrors()) {
-      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.errors(file));
+      Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
+      if (eventHandler.hasErrors()) {
+        throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.errors(file));
+      }
+      return new Extension(extensionEnv);
     }
-    return extensionEnv;
   }
 
   @Override

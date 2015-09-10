@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -236,13 +235,11 @@ public class SkylarkRuleClassFunctions {
             + "bin directory. This is used for compatibility with existing rules."),
        @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
            defaultValue = "[]",
-           doc =
-           "List of names of configuration fragments that the rule requires "
+           doc = "List of names of configuration fragments that the rule requires "
            + "in target configuration."),
        @Param(name = "host_fragments", type = SkylarkList.class, generic1 = String.class,
            defaultValue = "[]",
-           doc =
-           "List of names of configuration fragments that the rule requires "
+           doc = "List of names of configuration fragments that the rule requires "
            + "in host configuration.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
@@ -280,14 +277,16 @@ public class SkylarkRuleClassFunctions {
       if (implicitOutputs != Runtime.NONE) {
         if (implicitOutputs instanceof BaseFunction) {
           BaseFunction func = (BaseFunction) implicitOutputs;
-          final SkylarkCallbackFunction callback =
-              new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
+          SkylarkCallbackFunction callback =
+              new SkylarkCallbackFunction(func, ast, funcallEnv);
           builder.setImplicitOutputsFunction(
               new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
         } else {
           builder.setImplicitOutputsFunction(
-              new SkylarkImplicitOutputsFunctionWithMap(ImmutableMap.copyOf(castMap(implicitOutputs,
-                  String.class, String.class, "implicit outputs of the rule class"))));
+              new SkylarkImplicitOutputsFunctionWithMap(
+                  ImmutableMap.copyOf(castMap(
+                      implicitOutputs, String.class, String.class,
+                      "implicit outputs of the rule class"))));
         }
       }
 
@@ -298,8 +297,7 @@ public class SkylarkRuleClassFunctions {
       registerRequiredFragments(fragments, hostFragments, builder);
 
       builder.setConfiguredTargetFunction(implementation);
-      builder.setRuleDefinitionEnvironment(
-          ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
+      builder.setRuleDefinitionEnvironment(funcallEnv);
       return new RuleFunction(builder, type);
     }
 
@@ -353,7 +351,7 @@ public class SkylarkRuleClassFunctions {
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         return RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env.getStackTrace());
+            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env);
       } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
@@ -373,8 +371,8 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  public static void exportRuleFunctions(SkylarkEnvironment env, PathFragment skylarkFile) {
-    for (String name : env.getDirectVariableNames()) {
+  public static void exportRuleFunctions(Environment env, PathFragment skylarkFile) {
+    for (String name : env.getGlobals().getDirectVariableNames()) {
       try {
         Object value = env.lookup(name);
         if (value instanceof RuleFunction) {

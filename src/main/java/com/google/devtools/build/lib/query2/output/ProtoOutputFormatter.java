@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDepen
 import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.io.IOException;
@@ -141,7 +141,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
             rule.isAttributeValueExplicitlySpecified(attr), /*includeGlobs=*/ false));
       }
 
-      SkylarkEnvironment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
+      Environment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
       if (env != null) {
         // The RuleDefinitionEnvironment is always defined for Skylark rules and
         // always null for non Skylark rules.
@@ -150,7 +150,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)
                 .setType(ProtoUtils.getDiscriminatorFromType(
                     com.google.devtools.build.lib.packages.Type.STRING))
-                .setStringValue(env.getTransitiveFileContentHashCode()));
+                .setStringValue(env.getTransitiveContentHashCode()));
       }
 
       ImmutableMultimap<Attribute, Label> aspectsDependencies =

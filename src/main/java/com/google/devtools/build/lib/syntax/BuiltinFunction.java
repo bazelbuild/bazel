@@ -122,9 +122,11 @@ public class BuiltinFunction extends BaseFunction {
   @Override
   @Nullable
   public Object call(Object[] args,
-      @Nullable FuncallExpression ast, @Nullable Environment env)
+      FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    final Location loc = (ast == null) ? location : ast.getLocation();
+    Preconditions.checkNotNull(ast);
+    Preconditions.checkNotNull(env);
+    Location loc = ast.getLocation();
 
     // Add extra arguments, if needed
     if (extraArgs != null) {
@@ -151,6 +153,7 @@ public class BuiltinFunction extends BaseFunction {
         this.getClass().getName() + "#" + getName());
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try {
+      env.enterScope(this, ast, env.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {
       Throwable e = x.getCause();
@@ -191,6 +194,7 @@ public class BuiltinFunction extends BaseFunction {
       throw badCallException(loc, e, args);
     } finally {
       Profiler.instance().completeTask(ProfilerTask.SKYLARK_BUILTIN_FN);
+      env.exitScope();
     }
   }
 

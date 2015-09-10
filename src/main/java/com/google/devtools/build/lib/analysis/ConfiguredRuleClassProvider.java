@@ -38,10 +38,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkModules;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -310,9 +311,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
-
-  private final ValidationEnvironment skylarkValidationEnvironment;
+  private final Environment.Frame globals;
 
   public ConfiguredRuleClassProvider(
       PathFragment preludePath,
@@ -338,10 +337,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationFragments = configurationFragments;
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.skylarkAccessibleJavaClasses = skylarkAccessibleJavaClasses;
-    this.skylarkValidationEnvironment = new ValidationEnvironment(
-        // TODO(bazel-team): refactor constructors so we don't have those null-s
-        createSkylarkRuleClassEnvironment(null, null));
+    this.globals = createGlobals(skylarkAccessibleJavaClasses);
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -425,21 +421,45 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  @Override
-  public SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode) {
-    SkylarkEnvironment env = SkylarkModules.getNewEnvironment(eventHandler, astFileContentHashCode);
-    for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
-      env.update(entry.getKey(), entry.getValue().getType());
+  private Environment.Frame createGlobals(
+      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
+    try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
+      Environment env = createSkylarkRuleClassEnvironment(
+          mutability, SkylarkModules.GLOBALS, null, null, null);
+      for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
+        env.setup(entry.getKey(), entry.getValue().getType());
+      }
+      return env.getGlobals();
     }
-    env.setLoadingPhase();
+  }
+
+  private Environment createSkylarkRuleClassEnvironment(
+      Mutability mutability,
+      Environment.Frame globals,
+      EventHandler eventHandler,
+      String astFileContentHashCode,
+      Map<PathFragment, Extension> importMap) {
+    Environment env = Environment.builder(mutability)
+        .setSkylark()
+        .setGlobals(globals)
+        .setEventHandler(eventHandler)
+        .setFileContentHashCode(astFileContentHashCode)
+        .setImportedExtensions(importMap)
+        .setLoadingPhase()
+        .build();
     return env;
   }
 
   @Override
-  public ValidationEnvironment getSkylarkValidationEnvironment() {
-    return skylarkValidationEnvironment;
+  public Environment createSkylarkRuleClassEnvironment(
+      Mutability mutability,
+      EventHandler eventHandler,
+      String astFileContentHashCode,
+      Map<PathFragment, Extension> importMap) {
+    return createSkylarkRuleClassEnvironment(
+        mutability, globals, eventHandler, astFileContentHashCode, importMap);
   }
+
 
   @Override
   public String getDefaultWorkspaceFile() {

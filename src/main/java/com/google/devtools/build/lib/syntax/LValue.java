@@ -84,8 +84,7 @@ public class LValue implements Serializable {
     if (env.isSkylark()) {
       // The variable may have been referenced successfully if a global variable
       // with the same name exists. In this case an Exception needs to be thrown.
-      SkylarkEnvironment skylarkEnv = (SkylarkEnvironment) env;
-      if (skylarkEnv.hasBeenReadGlobalVariable(ident.getName())) {
+      if (env.isKnownGlobalVariable(ident.getName())) {
         throw new EvalException(
             loc,
             String.format(

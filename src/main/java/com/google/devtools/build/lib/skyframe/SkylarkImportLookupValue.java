@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.LoadStatement;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -30,7 +30,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public class SkylarkImportLookupValue implements SkyValue {
 
-  private final SkylarkEnvironment importedEnvironment;
+  private final Extension environmentExtension;
   /**
    * The immediate Skylark file dependency descriptor class corresponding to this value.
    * Using this reference it's possible to reach the transitive closure of Skylark files
@@ -39,16 +39,16 @@ public class SkylarkImportLookupValue implements SkyValue {
   private final SkylarkFileDependency dependency;
 
   public SkylarkImportLookupValue(
-      SkylarkEnvironment importedEnvironment, SkylarkFileDependency dependency) {
-    this.importedEnvironment = Preconditions.checkNotNull(importedEnvironment);
+      Extension environmentExtension, SkylarkFileDependency dependency) {
+    this.environmentExtension = Preconditions.checkNotNull(environmentExtension);
     this.dependency = Preconditions.checkNotNull(dependency);
   }
 
   /**
-   * Returns the imported SkylarkEnvironment.
+   * Returns the Extension
    */
-  public SkylarkEnvironment getImportedEnvironment() {
-    return importedEnvironment;
+  public Extension getEnvironmentExtension() {
+    return environmentExtension;
   }
 
   /**

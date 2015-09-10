@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +60,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction {
+public abstract class BaseFunction implements Serializable {
 
   // The name of the function
   private final String name;
@@ -407,35 +408,29 @@ public abstract class BaseFunction {
    * @param args a list of all positional arguments (as in *starArg)
    * @param kwargs a map for key arguments (as in **kwArgs)
    * @param ast the expression for this function's definition
-   * @param parentEnv the lexical Environment for the function call
+   * @param env the Environment in the function is called
    * @return the value resulting from evaluating the function with the given arguments
    * @throws construction of EvalException-s containing source information.
    */
   public Object call(List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression ast,
-      @Nullable Environment parentEnv)
+      Environment env)
       throws EvalException, InterruptedException {
-    Environment env = getOrCreateChildEnvironment(parentEnv);
-    env.addToStackTrace(new StackTraceElement(this, kwargs));
+    Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
+
+    // ast is null when called from Java (as there's no Skylark call site).
+    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
+
+    Object[] arguments = processArguments(args, kwargs, loc);
+    canonicalizeArguments(arguments, loc);
+
     try {
-      Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
-
-      // ast is null when called from Java (as there's no Skylark call site).
-      Location loc = ast == null ? location : ast.getLocation();
-
-      Object[] arguments = processArguments(args, kwargs, loc);
-      canonicalizeArguments(arguments, loc);
-
-      try {
-        return call(arguments, ast, env);
-      } catch (EvalExceptionWithStackTrace ex) {
-        throw updateStackTrace(ex, loc);
-      } catch (EvalException | RuntimeException | InterruptedException ex) {
-        throw updateStackTrace(new EvalExceptionWithStackTrace(ex, loc), loc);
-      }
-    } finally {
-      env.removeStackTraceElement();
+      return call(arguments, ast, env);
+    } catch (EvalExceptionWithStackTrace ex) {
+      throw updateStackTrace(ex, loc);
+    } catch (EvalException | RuntimeException | InterruptedException ex) {
+      throw updateStackTrace(new EvalExceptionWithStackTrace(ex, loc), loc);
     }
   }
 
@@ -556,7 +551,7 @@ public abstract class BaseFunction {
       if (pos < howManyArgsToPrint - 1) {
         builder.append(", ");
       }
-    }  
+    }
     builder.append(")");
     return builder.toString();
   }

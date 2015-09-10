@@ -32,42 +32,44 @@ import org.junit.runners.JUnit4;
 import java.util.LinkedList;
 import java.util.List;
 
-
 /**
  *  Tests of parser behaviour.
  */
 @RunWith(JUnit4.class)
 public class ParserTest extends EvaluationTestCase {
 
-  EvaluationContext buildContext;
-  EvaluationContext buildContextWithPython;
+  Environment buildEnvironment;
 
   @Before
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    buildContext = EvaluationContext.newBuildContext(getEventHandler());
-    buildContextWithPython = EvaluationContext.newBuildContext(
-        getEventHandler(), new Environment(), /*parsePython*/true);
+    buildEnvironment = newBuildEnvironment();
   }
 
   private Parser.ParseResult parseFileWithComments(String... input) {
-    return buildContext.parseFileWithComments(input);
-  }
-  @Override
-  protected List<Statement> parseFile(String... input) {
-    return buildContext.parseFile(input);
-  }
-  private List<Statement> parseFileWithPython(String... input) {
-    return buildContextWithPython.parseFile(input);
-  }
-  private List<Statement> parseFileForSkylark(String... input) {
-    return evaluationContext.parseFile(input);
-  }
-  private Statement parseStatement(String... input) {
-    return buildContext.parseStatement(input);
+    return buildEnvironment.parseFileWithComments(input);
   }
 
+  /** Parses build code (not Skylark) */
+  @Override
+  protected List<Statement> parseFile(String... input) {
+    return buildEnvironment.parseFile(input);
+  }
+
+  /** Parses a build code (not Skylark) with PythonProcessing enabled */
+  private List<Statement> parseFileWithPython(String... input) {
+    return Parser.parseFile(
+        buildEnvironment.createLexer(input),
+        getEventHandler(),
+        Environment.EMPTY_PACKAGE_LOCATOR,
+        /*parsePython=*/true).statements;
+  }
+
+  /** Parses Skylark code */
+  private List<Statement> parseFileForSkylark(String... input) {
+    return env.parseFile(input);
+  }
 
   private static String getText(String text, ASTNode node) {
     return text.substring(node.getLocation().getStartOffset(),
@@ -707,7 +709,7 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testParserContainsErrors() throws Exception {
     setFailFast(false);
-    parseStatement("+");
+    parseFile("+");
     assertContainsEvent("syntax error at '+'");
   }
 

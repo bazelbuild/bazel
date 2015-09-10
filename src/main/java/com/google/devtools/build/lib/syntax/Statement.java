@@ -27,8 +27,8 @@ public abstract class Statement extends ASTNode {
   abstract void exec(Environment env) throws EvalException, InterruptedException;
 
   /**
-   * Checks the semantics of the Statement using the SkylarkEnvironment according to
-   * the rules of the Skylark language. The SkylarkEnvironment can be used e.g. to check
+   * Checks the semantics of the Statement using the Environment according to
+   * the rules of the Skylark language. The Environment can be used e.g. to check
    * variable type collision, read only variables, detecting recursion, existence of
    * built-in variables, functions, etc.
    *

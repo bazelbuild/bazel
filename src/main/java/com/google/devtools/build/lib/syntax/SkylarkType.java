@@ -25,6 +25,7 @@ import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 
+import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -80,7 +81,7 @@ import javax.annotation.Nullable;
  */
 // TODO(bazel-team): move the FunctionType side-effect out of the type object
 // and into the validation environment.
-public abstract class SkylarkType {
+public abstract class SkylarkType implements Serializable {
 
   // The main primitives to override in subclasses
 

@@ -14,31 +14,36 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvaluationContext;
+import com.google.devtools.build.lib.syntax.Mutability;
 
 /**
  * Describes a particular testing mode by determining how the
- * appropriate {@code EvaluationContext} has to be created
+ * appropriate {@code Environment} has to be created
  */
 public abstract class TestMode {
-  public static final TestMode BUILD = new TestMode() {
-    @Override
-    public EvaluationContext createContext(EventHandler eventHandler, Environment environment)
-        throws Exception {
-      return EvaluationContext.newBuildContext(eventHandler, environment);
-    }
-  };
+  public static final TestMode BUILD =
+      new TestMode() {
+        @Override
+        public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
+          return Environment.builder(Mutability.create("build test"))
+              .setGlobals(environment == null ? Environment.BUILD : environment.getGlobals())
+              .setEventHandler(eventHandler)
+              .build();
+        }
+      };
 
-  public static final TestMode SKYLARK = new TestMode() {
-    @Override
-    public EvaluationContext createContext(EventHandler eventHandler, Environment environment)
-        throws Exception {
-      return SkylarkModules.newEvaluationContext(eventHandler);
-    }
-  };
+  public static final TestMode SKYLARK =
+      new TestMode() {
+        @Override
+        public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
+          return Environment.builder(Mutability.create("skylark test"))
+              .setSkylark()
+              .setGlobals(environment == null ? Environment.SKYLARK : environment.getGlobals())
+              .setEventHandler(eventHandler)
+              .build();
+        }
+      };
 
-  public abstract EvaluationContext createContext(
-      EventHandler eventHandler, Environment environment) throws Exception;
+  public abstract Environment createEnvironment(EventHandler eventHandler, Environment environment);
 }

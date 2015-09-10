@@ -146,7 +146,7 @@ public interface Preprocessor {
    * @param in the BUILD file to be preprocessed.
    * @param packageName the BUILD file's package.
    * @param globber a globber for evaluating globs.
-   * @param globalEnv the GLOBALS Python environment.
+   * @param globals the global bindings for the Python environment.
    * @param ruleNames the set of names of all rules in the build language.
    * @throws IOException if there was an I/O problem during preprocessing.
    * @return a pair of the ParserInputSource and a map of subincludes seen during the evaluation
@@ -155,7 +155,7 @@ public interface Preprocessor {
       ParserInputSource in,
       String packageName,
       Globber globber,
-      Environment globalEnv,
+      Environment.Frame globals,
       Set<String> ruleNames)
     throws IOException, InterruptedException;
 }

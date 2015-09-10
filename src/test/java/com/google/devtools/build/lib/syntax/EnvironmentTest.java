@@ -31,8 +31,8 @@ import org.junit.runners.JUnit4;
 public class EnvironmentTest extends EvaluationTestCase {
 
   @Override
-  public EvaluationContext newEvaluationContext() {
-    return EvaluationContext.newBuildContext(getEventHandler());
+  public Environment newEnvironment() {
+    return newBuildEnvironment();
   }
 
   // Test the API directly
@@ -104,25 +104,41 @@ public class EnvironmentTest extends EvaluationTestCase {
 
   @Test
   public void testGetVariableNames() throws Exception {
-    update("foo", "bar");
-    update("wiz", 3);
+    Environment outerEnv;
+    Environment innerEnv;
+    try (Mutability mut = Mutability.create("outer")) {
+      outerEnv = Environment.builder(mut)
+          .setGlobals(Environment.BUILD).build()
+          .update("foo", "bar")
+          .update("wiz", 3);
+    }
+    try (Mutability mut = Mutability.create("inner")) {
+      innerEnv = Environment.builder(mut)
+          .setGlobals(outerEnv.getGlobals()).build()
+          .update("foo", "bat")
+          .update("quux", 42);
+    }
 
-    Environment nestedEnv = new Environment(getEnvironment());
-    nestedEnv.update("foo", "bat");
-    nestedEnv.update("quux", 42);
-
-    assertEquals(Sets.newHashSet("True", "False", "None", "foo", "wiz"),
-        getEnvironment().getVariableNames());
-    assertEquals(Sets.newHashSet("True", "False", "None", "foo", "wiz", "quux"),
-        nestedEnv.getVariableNames());
+    assertEquals(Sets.newHashSet("foo", "wiz",
+            "False", "None", "True",
+            "-", "bool", "dict", "enumerate", "int", "len", "list",
+            "range", "repr", "select", "sorted", "str", "zip"),
+        outerEnv.getVariableNames());
+    assertEquals(Sets.newHashSet("foo", "wiz", "quux",
+            "False", "None", "True",
+            "-", "bool", "dict", "enumerate", "int", "len", "list",
+            "range", "repr", "select", "sorted", "str", "zip"),
+        innerEnv.getVariableNames());
   }
 
   @Test
   public void testToString() throws Exception {
     update("subject", new StringLiteral("Hello, 'world'.", '\''));
     update("from", new StringLiteral("Java", '"'));
-    assertEquals("Environment{False -> false, None -> None, True -> true, from -> \"Java\", "
-        + "subject -> 'Hello, \\'world\\'.', }", getEnvironment().toString());
+    assertThat(getEnvironment().toString())
+        .startsWith("Environment(lexicalFrame=null, "
+            + "globalFrame=Frame[test]{\"from\": \"Java\", \"subject\": 'Hello, \\'world\\'.'}=>"
+            + "(BUILD){");
   }
 
   @Test
@@ -132,6 +148,60 @@ public class EnvironmentTest extends EvaluationTestCase {
       fail();
     } catch (NullPointerException e) {
       assertThat(e).hasMessage("update(value == null)");
+    }
+  }
+
+  @Test
+  public void testFrozen() throws Exception {
+    Environment env;
+    try (Mutability mutability = Mutability.create("testFrozen")) {
+      env = Environment.builder(mutability)
+          .setGlobals(Environment.BUILD).setEventHandler(Environment.FAIL_FAST_HANDLER).build();
+      env.update("x", 1);
+      assertEquals(env.lookup("x"), 1);
+      env.update("y", 2);
+      assertEquals(env.lookup("y"), 2);
+      assertEquals(env.lookup("x"), 1);
+      env.update("x", 3);
+      assertEquals(env.lookup("x"), 3);
+    }
+    try {
+      // This update to an existing variable should fail because the environment was frozen.
+      env.update("x", 4);
+      throw new Exception("failed to fail"); // not an AssertionError like fail()
+    } catch (AssertionError e) {
+      assertThat(e).hasMessage("Can't update x to 4 in frozen environment");
+    }
+    try {
+      // This update to a new variable should also fail because the environment was frozen.
+      env.update("newvar", 5);
+      throw new Exception("failed to fail"); // not an AssertionError like fail()
+    } catch (AssertionError e) {
+      assertThat(e).hasMessage("Can't update newvar to 5 in frozen environment");
+    }
+  }
+
+  @Test
+  public void testReadOnly() throws Exception {
+    Environment env = newSkylarkEnvironment()
+        .setup("special_var", 42)
+        .update("global_var", 666);
+
+    // We don't even get a runtime exception trying to modify these,
+    // because we get compile-time exceptions even before we reach runtime!
+    try {
+      env.eval("special_var = 41");
+      throw new AssertionError("failed to fail");
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessage("ERROR 1:1: Variable special_var is read only");
+    }
+
+    try {
+      env.eval("def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
+      throw new AssertionError("failed to fail");
+    } catch (EvalExceptionWithStackTrace e) {
+      assertThat(e.getMessage()).contains("Variable 'global_var' is referenced before assignment. "
+          + "The variable is defined in the global scope.");
     }
   }
 }

@@ -23,6 +23,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 
+import java.io.Serializable;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -60,7 +61,7 @@ public interface ClassObject {
       doc = "A special language element to support structs (i.e. simple value objects). "
           + "See the global <a href=\"globals.html#struct\">struct</a> function "
           + "for more details.")
-  public class SkylarkClassObject implements ClassObject {
+  public class SkylarkClassObject implements ClassObject, Serializable {
     /** Error message to use when errorMessage argument is null. */
     private static final String DEFAULT_ERROR_MESSAGE = "'struct' object has no attribute '%s'";
 
