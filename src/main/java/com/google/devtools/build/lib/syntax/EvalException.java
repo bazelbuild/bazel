@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.LoggingUtil;
 
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /**
  * Exceptions thrown during evaluation of BUILD ASTs or Skylark extensions.
@@ -34,7 +35,7 @@ import java.util.logging.Level;
  */
 public class EvalException extends Exception {
 
-  private Location location;
+  @Nullable private Location location;
   private final String message;
   private final boolean dueToIncompleteAST;
 
@@ -133,6 +134,7 @@ public class EvalException extends Exception {
   /**
    * Returns the location of the evaluation error.
    */
+  @Nullable
   public Location getLocation() {
     return location;
   }

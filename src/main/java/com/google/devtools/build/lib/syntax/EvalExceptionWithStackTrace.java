@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
@@ -30,7 +31,19 @@ public class EvalExceptionWithStackTrace extends EvalException {
   private StackTraceElement mostRecentElement;
 
   public EvalExceptionWithStackTrace(Exception original, Location callLocation) {
-    super(callLocation, getNonEmptyMessage(original), getCause(original));
+    super(
+        originalLocation(original, callLocation), getNonEmptyMessage(original), getCause(original));
+  }
+
+  /**
+   * Returns the location of the {@code original} exception, or {@code callLocation}
+   * if there's none.
+   */
+  private static Location originalLocation(Exception original, Location callLocation) {
+    if (!(original instanceof EvalException)) {
+      return callLocation;
+    }
+    return MoreObjects.firstNonNull(((EvalException) original).getLocation(), callLocation);
   }
 
   /**
