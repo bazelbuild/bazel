@@ -70,7 +70,7 @@ public class DictionaryLiteral extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     // We need LinkedHashMap to maintain the order during iteration (e.g. for loops)
     Map<Object, Object> map = new LinkedHashMap<>();
     for (DictionaryEntryLiteral entry : entries) {

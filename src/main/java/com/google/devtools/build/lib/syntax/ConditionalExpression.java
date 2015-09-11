@@ -48,7 +48,7 @@ public final class ConditionalExpression extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     if (EvalUtils.toBoolean(condition.eval(env))) {
       return thenCase.eval(env);
     } else {

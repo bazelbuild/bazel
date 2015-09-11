@@ -39,7 +39,7 @@ public final class IfStatement extends Statement {
     }
 
     @Override
-    void exec(Environment env) throws EvalException, InterruptedException {
+    void doExec(Environment env) throws EvalException, InterruptedException {
       for (Statement stmt : stmts) {
         stmt.exec(env);
       }
@@ -97,11 +97,12 @@ public final class IfStatement extends Statement {
   public String toString() {
     // TODO(bazel-team): if we want to print the complete statement, the function
     // needs an extra argument to specify indentation level.
-    return "if : ...\n";
+    // As guaranteed by the constructor, there must be at least one element in thenBlocks.
+    return String.format("if %s:\n", thenBlocks.get(0).getCondition());
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     for (ConditionalStatements stmt : thenBlocks) {
       if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
         stmt.exec(env);

@@ -28,6 +28,35 @@ public abstract class ASTNode implements Serializable {
 
   protected ASTNode() {}
 
+  /**
+   * Returns whether this node represents a new scope, e.g. a function call.
+   */
+  protected boolean isNewScope()  {
+    return false;
+  }
+
+  /**
+   * Returns an exception which should be thrown instead of the original one.
+   */
+  protected final EvalException handleException(Exception original) {
+    // If there is already a non-empty stack trace, we only add this node iff it describes a
+    // new scope (e.g. FuncallExpression).
+    if (original instanceof EvalExceptionWithStackTrace && isNewScope()) {
+      EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
+      real.registerNode(this);
+      return real;
+    }
+
+    // If the exception is an instance of a subclass of EvalException (such as
+    // ReturnStatement.ReturnException and FlowStatement.FlowException), we just return it
+    // unchanged.
+    if (original instanceof EvalException && !original.getClass().equals(EvalException.class)) {
+      return (EvalException) original;
+    }
+
+    return new EvalExceptionWithStackTrace(original, this);
+  }
+
   @VisibleForTesting  // productionVisibility = Visibility.PACKAGE_PRIVATE
   public void setLocation(Location location) {
     this.location = location;

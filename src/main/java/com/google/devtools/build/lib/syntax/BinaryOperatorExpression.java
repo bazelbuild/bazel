@@ -98,7 +98,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     Object lval = lhs.eval(env);
 
     // Short-circuit operators

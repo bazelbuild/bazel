@@ -216,7 +216,7 @@ public final class ListComprehension extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     List<Object> result = new ArrayList<>();
     evalStep(env, result, 0);
     return env.isSkylark() ? SkylarkList.list(result, getLocation()) : result;

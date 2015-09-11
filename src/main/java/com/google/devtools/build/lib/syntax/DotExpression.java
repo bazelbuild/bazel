@@ -48,7 +48,7 @@ public final class DotExpression extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
     String name = field.getName();
     Object result = eval(objValue, name, getLocation());

@@ -42,6 +42,39 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testStackTraceLocation() throws Exception {
+    new SkylarkTest().testIfErrorContains(
+        "Traceback (most recent call last):\n\t"
+        + "File \"<unknown>\", line 8\n\t\t"
+        + "foo()\n\t"
+        + "File \"<unknown>\", line 2, in foo\n\t\t"
+        + "bar(1)\n\t"
+        + "File \"<unknown>\", line 7, in bar\n\t\t"
+        + "'test'.index(x)",
+        "def foo():",
+        "  bar(1)",
+        "def bar(x):",
+        "  if x == 1:",
+        "    a = x",
+        "    b = 2",
+        "    'test'.index(x)",
+        "foo()");
+  }
+
+  @Test
+  public void testStackTraceWithIf() throws Exception {
+    new SkylarkTest().testIfErrorContains(
+        "File \"<unknown>\", line 5\n\t\t"
+        + "foo()\n\t"
+        + "File \"<unknown>\", line 3, in foo\n\t\ts[0]",
+        "def foo():",
+        "  s = set()",
+        "  if s[0] == 1:",
+        "    x = 1",
+        "foo()");
+  }
+
+  @Test
   public void testStackTraceSkipBuiltInOnly() throws Exception {
     // The error message should not include the stack trace when there is
     // only one built-in function.
@@ -59,17 +92,20 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .testIfExactError(
             "Traceback (most recent call last):\n"
+                + "\tFile \"<unknown>\", line 6\n"
+                + "\t\tfoo()\n"
                 + "\tFile \"<unknown>\", line 2, in foo\n"
-                + "\t\tbar\n"
-                + "\tFile \"<unknown>\", line 4, in bar\n"
-                + "\t\tstring.index\n"
+                + "\t\tbar(1)\n"
+                + "\tFile \"<unknown>\", line 5, in bar\n"
+                + "\t\t'test'.index(x)\n"
                 + "Method string.index(sub: string, start: int, end: int or NoneType) "
                 + "is not applicable "
                 + "for arguments (int, int, NoneType): 'sub' is int, but should be string",
             "def foo():",
-            "   bar(1)",
+            "  bar(1)",
             "def bar(x):",
-            "   'test'.index(x)",
+            "  if 1 == 1:",
+            "    'test'.index(x)",
             "foo()");
   }
 

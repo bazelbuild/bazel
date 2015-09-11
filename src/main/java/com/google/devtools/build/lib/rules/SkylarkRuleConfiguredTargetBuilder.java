@@ -85,7 +85,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       ruleContext.ruleError(e.getMessage());
       return null;
     } catch (EvalException e) {
-      addRuleToStackTrace(e, ruleContext.getRule());
+      addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
       // If the error was expected, return an empty target.
       if (!expectFailure.isEmpty() && getMessageWithoutStackTrace(e).matches(expectFailure)) {
         return new com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder(ruleContext)
@@ -98,11 +98,11 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds an entry for the given rule to the stack trace of the exception (if there is one).
+   * Adds the given rule to the stack trace of the exception (if there is one).
    */
-  private static void addRuleToStackTrace(EvalException ex, Rule rule) {
+  private static void addRuleToStackTrace(EvalException ex, Rule rule, BaseFunction ruleImpl) {
     if (ex instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) ex).registerRule(rule);
+      ((EvalExceptionWithStackTrace) ex).registerRule(rule, ruleImpl);
     }
   }
 

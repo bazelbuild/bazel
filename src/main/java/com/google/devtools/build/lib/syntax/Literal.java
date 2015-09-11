@@ -38,7 +38,7 @@ public abstract class Literal<T> extends Expression {
   }
 
   @Override
-  Object eval(Environment env) {
+  Object doEval(Environment env) {
     return value;
   }
 }

@@ -61,7 +61,6 @@ public class UserDefinedFunction extends BaseFunction {
 
     Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN,
         getLocationPathAndLine() + "#" + getName());
-    Statement lastStatement = null;
     try {
       env.enterScope(this, ast, definitionGlobals);
       ImmutableList<String> names = signature.getSignature().getNames();
@@ -74,22 +73,12 @@ public class UserDefinedFunction extends BaseFunction {
 
       try {
         for (Statement stmt : statements) {
-          lastStatement = stmt;
           stmt.exec(env);
         }
       } catch (ReturnStatement.ReturnException e) {
         return e.getValue();
       }
       return Runtime.NONE;
-    } catch (EvalExceptionWithStackTrace ex) {
-      // We need this block since the next "catch" must only catch EvalExceptions that don't have a
-      // stack trace yet.
-      throw ex;
-    } catch (EvalException ex) {
-      EvalExceptionWithStackTrace real =
-          new EvalExceptionWithStackTrace(ex, lastStatement.getLocation());
-      real.registerStatement(lastStatement);
-      throw real;
     } finally {
       Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
       env.exitScope();

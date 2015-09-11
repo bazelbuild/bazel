@@ -272,7 +272,16 @@ public final class FuncallExpression extends Expression {
     if (obj != null) {
       sb.append(obj).append(".");
     }
-    Printer.printList(sb.append(func), args, "(", ", ", ")", null);
+    sb.append(func);
+    String backup = sb.toString();
+    try {
+      Printer.printList(sb, args, "(", ", ", ")", /* singletonTerminator */ null);
+    } catch (OutOfMemoryError ex) {
+      // export_files might lead to an OOM error (e.g. in
+      // PackageSerializationTest#testMassivePackageDeserializesFine).
+      // TODO(b/23967033): make the Printer limit its own output.
+      return backup + "(<too long>)";
+    }
     return sb.toString();
   }
 
@@ -487,7 +496,7 @@ public final class FuncallExpression extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     return (obj != null) ? invokeObjectMethod(env) : invokeGlobalFunction(env);
   }
 
@@ -644,5 +653,10 @@ public final class FuncallExpression extends Expression {
       throw new EvalException(getLocation(),
           String.format("function '%s' does not exist", func.getName()));
     }
+  }
+
+  @Override
+  protected boolean isNewScope() {
+    return true;
   }
 }

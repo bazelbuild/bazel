@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
@@ -22,6 +21,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.Objects;
 
 /**
  * EvalException with a stack trace.
@@ -30,20 +30,22 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   private StackTraceElement mostRecentElement;
 
-  public EvalExceptionWithStackTrace(Exception original, Location callLocation) {
-    super(
-        originalLocation(original, callLocation), getNonEmptyMessage(original), getCause(original));
+  public EvalExceptionWithStackTrace(Exception original, ASTNode culprit) {
+    super(extractLocation(original, culprit), getNonEmptyMessage(original), getCause(original));
+    registerNode(culprit);
   }
 
   /**
-   * Returns the location of the {@code original} exception, or {@code callLocation}
-   * if there's none.
+   * Returns the appropriate location for this exception.
+   *
+   * <p>If the {@code ASTNode} has a valid location, this one is used. Otherwise, we try to get the
+   * location of the exception.
    */
-  private static Location originalLocation(Exception original, Location callLocation) {
-    if (!(original instanceof EvalException)) {
-      return callLocation;
+  private static Location extractLocation(Exception original, ASTNode culprit) {
+    if (culprit != null && culprit.getLocation() != null) {
+      return culprit.getLocation();
     }
-    return MoreObjects.firstNonNull(((EvalException) original).getLocation(), callLocation);
+    return (original instanceof EvalException) ? ((EvalException) original).getLocation() : null;
   }
 
   /**
@@ -57,34 +59,78 @@ public class EvalExceptionWithStackTrace extends EvalException {
   }
 
   /**
-   * Adds an entry for the given statement to the stack trace.
+   * Adds an entry for the given {@code ASTNode} to the stack trace.
    */
-  public void registerStatement(Statement statement) {
-    Preconditions.checkState(
-        mostRecentElement == null, "Cannot add a statement to a non-empty stack trace.");
-    addStackFrame(statement.toString().trim(), statement.getLocation());
+  public void registerNode(ASTNode node) {
+    addStackFrame(node.toString().trim(), node.getLocation());
   }
 
   /**
-   * Adds an entry for the given function to the stack trace.
+   * Adds the given {@code Rule} to the stack trace.
    */
-  public void registerFunction(BaseFunction function, Location location) {
-    addStackFrame(function.getFullName(), location);
-  }
-
-  /**
-   * Adds an entry for the given rule to the stack trace.
-   */
-  public void registerRule(Rule rule) {
-    addStackFrame(
-        String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()), rule.getLocation());
+  public void registerRule(Rule rule, BaseFunction ruleImpl) {
+    /* We have to model the transition from BUILD file to bzl file manually since the stack trace
+     * mechanism cannot do that by itself (because, for example, the rule implementation does not
+     * have a corresponding FuncallExpression).
+     *
+     * Consequently, we add two new frames to the stack:
+     * 1. Rule definition
+     * 2. Rule implementation
+     *
+     * Similar to Python, all functions that were entered (except for the top-level ones) appear
+     * twice in the stack trace output. This would lead to the following trace:
+     *
+     * File BUILD, line X, in <module>
+     *     rule_definition()
+     * File BUILD, line X, in rule_definition
+     *     rule_implementation()
+     * File bzl, line Y, in rule_implementation
+     *     ...
+     *
+     * Please note that lines 3 and 4 are quite confusing since a) the transition from
+     * rule_definition to rule_implementation happens internally and b) the locations do not make
+     * any sense.
+     * Consequently, we decided to omit lines 3 and 4 from the output via canPrint = false:
+     *
+     * File BUILD, line X, in <module>
+     *     rule_definition()
+     * File bzl, line Y, in rule_implementation
+     *     ...
+     *
+     * */
+    addStackFrame(ruleImpl.getName(), ruleImpl.getLocation());
+    addStackFrame(String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
+        rule.getLocation(), false);
   }
 
   /**
    * Adds a line for the given frame.
    */
-  private void addStackFrame(String label, Location location) {
-    mostRecentElement = new StackTraceElement(label, location, mostRecentElement);
+  private void addStackFrame(String label, Location location, boolean canPrint) {
+    // We have to watch out for duplicate since ExpressionStatements add themselves twice:
+    // Statement#exec() calls Expression#eval(), both of which call this method.
+    if (mostRecentElement != null && isSameLocation(location, mostRecentElement.getLocation())) {
+      return;
+    }
+    mostRecentElement = new StackTraceElement(label, location, mostRecentElement, canPrint);
+  }
+
+  /**
+   * Checks two locations for equality in paths and start offsets.
+   *
+   * <p> LexerLocation#equals cannot be used since it cares about different end offsets.
+   */
+  private boolean isSameLocation(Location first, Location second) {
+    try {
+      return Objects.equals(first.getPath(), second.getPath())
+          && Objects.equals(first.getStartOffset(), second.getStartOffset());
+    } catch (NullPointerException ex) {
+      return first == second;
+    }
+  }
+
+  private void addStackFrame(String label, Location location)   {
+    addStackFrame(label, location, true);
   }
 
   /**
@@ -101,6 +147,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   @Override
   public String print() {
+    // Currently, we do not limit the text length per line.
     return print(StackTracePrinter.INSTANCE);
   }
 
@@ -124,15 +171,17 @@ public class EvalExceptionWithStackTrace extends EvalException {
    * An element in the stack trace which contains the name of the offending function / rule /
    * statement and its location.
    */
-  protected final class StackTraceElement {
+  protected static final class StackTraceElement {
     private final String label;
     private final Location location;
     private final StackTraceElement cause;
+    private final boolean canPrint;
 
-    StackTraceElement(String label, Location location, StackTraceElement cause) {
+    StackTraceElement(String label, Location location, StackTraceElement cause, boolean canPrint) {
       this.label = label;
       this.location = location;
       this.cause = cause;
+      this.canPrint = canPrint;
     }
 
     String getLabel() {
@@ -145,6 +194,16 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
     StackTraceElement getCause() {
       return cause;
+    }
+
+    boolean canPrint() {
+      return canPrint;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "%s @ %s -> %s", label, location, (cause == null) ? "null" : cause.toString());
     }
   }
 
@@ -160,10 +219,16 @@ public class EvalExceptionWithStackTrace extends EvalException {
     public final String print(String message, StackTraceElement mostRecentElement) {
       Deque<String> output = new LinkedList<>();
 
+      // Adds dummy element for the rule call that uses the location of the top-most function.
+      mostRecentElement = new StackTraceElement("", mostRecentElement.getLocation(),
+          (mostRecentElement.getCause() == null) ? null : mostRecentElement, true);
+
       while (mostRecentElement != null) {
-        String entry = print(mostRecentElement);
-        if (entry != null && entry.length() > 0) {
-          addEntry(output, entry);
+        if (mostRecentElement.canPrint()) {
+          String entry = print(mostRecentElement);
+          if (entry != null && entry.length() > 0) {
+            addEntry(output, entry);
+          }
         }
 
         mostRecentElement = mostRecentElement.getCause();
@@ -171,16 +236,6 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
       addMessage(output, message);
       return Joiner.on("\n").join(output);
-    }
-
-    /**
-     * Returns the location which should be shown on the same line as the label of the given
-     * element.
-     */
-    protected Location getDisplayLocation(StackTraceElement element) {
-      // If there is a rule definition in this element, it should print its own location in
-      // the BUILD file instead of using a location in a bzl file.
-      return describesRule(element) ? element.getLocation() : getLocation(element.getCause());
     }
 
     /**
@@ -209,17 +264,31 @@ public class EvalExceptionWithStackTrace extends EvalException {
       }
 
       // Prints a two-line string, similar to Python.
-      Location location = getDisplayLocation(element);
+      Location location = getLocation(element.getCause());
       return String.format(
-          "\tFile \"%s\", line %d, in %s%n\t\t%s",
-          printPath(location.getPath()),
-          location.getStartLine(),
-          element.getLabel(),
+          "\tFile \"%s\", line %d%s%n\t\t%s",
+          printPath(location),
+          getLine(location),
+          printFunction(element.getLabel()),
           element.getCause().getLabel());
     }
 
-    private String printPath(PathFragment path) {
-      return (path == null) ? "<unknown>" : path.getPathString();
+    private String printFunction(String func) {
+      if (func.isEmpty()) {
+        return "";
+      }
+
+      int pos = func.indexOf('(');
+      return String.format(", in %s", (pos < 0) ? func : func.substring(0, pos));
+    }
+
+    private String printPath(Location loc) {
+      return (loc == null || loc.getPath() == null) ? "<unknown>" : loc.getPath().getPathString();
+    }
+
+    private int getLine(Location loc) {
+      return (loc == null || loc.getStartLineAndColumn() == null)
+          ? 0 : loc.getStartLineAndColumn().getLine();
     }
 
     /**

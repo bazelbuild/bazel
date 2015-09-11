@@ -35,7 +35,7 @@ public final class ExpressionStatement extends Statement {
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     expr.eval(env);
   }
 

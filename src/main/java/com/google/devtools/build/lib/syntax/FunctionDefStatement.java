@@ -39,7 +39,7 @@ public class FunctionDefStatement extends Statement {
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     List<Expression> defaultExpressions = signature.getDefaultValues();
     ArrayList<Object> defaultValues = null;
     ArrayList<SkylarkType> types = null;

@@ -23,8 +23,26 @@ public abstract class Statement extends ASTNode {
    * modified.
    *
    * @throws EvalException if execution of the statement could not be completed.
+   * @throws InterruptedException may be thrown in a sub class.
    */
-  abstract void exec(Environment env) throws EvalException, InterruptedException;
+  final void exec(Environment env) throws EvalException, InterruptedException   {
+    try {
+      doExec(env);
+    } catch (EvalException | RuntimeException ex)  {
+      throw handleException(ex);
+    }
+  }
+
+  /**
+   * Executes the statement.
+   *
+   * <p>This method is only invoked by the super class {@link Statement} when calling {@link
+   * #exec(Environment)}.
+   *
+   * @throws EvalException if execution of the statement could not be completed.
+   * @throws InterruptedException may be thrown in a sub class.
+   */
+  abstract void doExec(Environment env) throws EvalException, InterruptedException;
 
   /**
    * Checks the semantics of the Statement using the Environment according to

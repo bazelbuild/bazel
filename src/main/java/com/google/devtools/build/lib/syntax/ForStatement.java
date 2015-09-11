@@ -57,7 +57,7 @@ public final class ForStatement extends Statement {
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     Object o = collection.eval(env);
     Iterable<?> col = EvalUtils.toIterable(o, getLocation());
 

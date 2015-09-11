@@ -29,7 +29,7 @@ public class NotExpression extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     return !EvalUtils.toBoolean(expression.eval(env));
   }
 

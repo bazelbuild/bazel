@@ -65,7 +65,7 @@ public final class Identifier extends Expression {
   }
   
   @Override
-  Object eval(Environment env) throws EvalException {
+  Object doEval(Environment env) throws EvalException {
     try {
       return env.lookup(name);
     } catch (Environment.NoSuchVariableException e) {

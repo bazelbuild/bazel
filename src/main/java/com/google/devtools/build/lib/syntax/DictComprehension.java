@@ -53,7 +53,7 @@ public class DictComprehension extends Expression {
   }
 
   @Override
-  Object eval(Environment env) throws EvalException, InterruptedException {
+  Object doEval(Environment env) throws EvalException, InterruptedException {
     // We want to keep the iteration order
     LinkedHashMap<Object, Object> map = new LinkedHashMap<>();
     Iterable<?> elements = EvalUtils.toIterable(listExpression.eval(env), getLocation());

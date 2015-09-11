@@ -61,7 +61,7 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     for (Map.Entry<Identifier, String> entry : symbols.entrySet()) {
       try {
         Identifier current = entry.getKey();

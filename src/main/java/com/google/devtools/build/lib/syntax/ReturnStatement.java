@@ -43,7 +43,7 @@ public class ReturnStatement extends Statement {
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
+  void doExec(Environment env) throws EvalException, InterruptedException {
     throw new ReturnException(returnExpression.getLocation(), returnExpression.eval(env));
   }
 
