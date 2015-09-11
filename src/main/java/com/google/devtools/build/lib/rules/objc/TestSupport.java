@@ -113,6 +113,8 @@ public class TestSupport {
   private ImmutableList<Substitution> substitutionsForSimulator() {
     ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
         .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
+        .add(Substitution.of("%(std_redirect_dylib_path)s",
+            stdRedirectDylib().getRootRelativePath().getPathString()))
         .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
 
     Optional<Artifact> testRunner = testRunner();
@@ -151,6 +153,10 @@ public class TestSupport {
 
   private Artifact iossim() {
     return ruleContext.getPrerequisiteArtifact("$iossim", Mode.HOST);
+  }
+
+  private Artifact stdRedirectDylib() {
+    return ruleContext.getPrerequisiteArtifact("$std_redirect_dylib", Mode.HOST);
   }
 
   /**
@@ -202,6 +208,7 @@ public class TestSupport {
     if (!runWithLabDevice()) {
       runfilesBuilder
           .addArtifact(iossim())
+          .addArtifact(stdRedirectDylib())
           .addTransitiveArtifacts(deviceRunfiles())
           .addArtifacts(testRunner().asSet());
     } else {
