@@ -48,7 +48,7 @@ java_library(
 
 java_test(
     name = "zipTests",
-    size = "large",
+    size = "enormous",
     srcs = glob(["javatests/**/zip/**/*.java"]),
     args = ["com.google.devtools.build.zip.ZipTests"],
     tags = ["zip"],

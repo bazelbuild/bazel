@@ -190,6 +190,7 @@ sh_test(
 
 sh_test(
     name = "process_wrapper_test",
+    size = "large",
     srcs = ["process-wrapper_test.sh"],
     data = [":test-deps"],
 )

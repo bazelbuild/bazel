@@ -1,5 +1,6 @@
 sh_test(
     name = "android_integration_test",
+    size = "large",
     srcs = ["android_integration_test.sh"],
     data = [
         "//src/test/shell/bazel:test-deps",
