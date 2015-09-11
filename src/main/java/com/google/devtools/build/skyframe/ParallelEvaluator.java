@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Receiver;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -116,6 +115,17 @@ public final class ParallelEvaluator implements Evaluator {
     public SkyValue get() {
       return state.getValue();
     }
+  }
+  
+  /**
+   * An general interface for ParalleelEvaluator to receive objects of type T.
+   */
+  public interface Receiver<T> {
+    // TODO(dmarting): should we just make it a common object for all Bazel codebase?
+    /**
+     * Consumes the given object.
+     */
+    void accept(T object);
   }
 
   private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;

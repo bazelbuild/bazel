@@ -30,7 +30,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Receivers;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -107,8 +106,7 @@ public class ParallelEvaluatorTest {
       Predicate<Event> storedEventFilter) {
     Version oldGraphVersion = graphVersion;
     graphVersion = graphVersion.next();
-    return new ParallelEvaluator(
-        graph,
+    return new ParallelEvaluator(graph,
         oldGraphVersion,
         builders,
         reporter,
@@ -118,7 +116,12 @@ public class ParallelEvaluatorTest {
         150,
         revalidationReceiver,
         new DirtyKeyTrackerImpl(),
-        Receivers.<Collection<SkyKey>>ignore());
+        new ParallelEvaluator.Receiver<Collection<SkyKey>>() {
+          @Override
+          public void accept(Collection<SkyKey> object) {
+            // ignore
+          }
+        });
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,

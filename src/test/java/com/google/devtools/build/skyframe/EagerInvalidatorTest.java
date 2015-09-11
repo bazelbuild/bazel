@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Receivers;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -148,7 +147,12 @@ public class EagerInvalidatorTest {
             200,
             null,
             new DirtyKeyTrackerImpl(),
-            Receivers.<Collection<SkyKey>>ignore());
+            new ParallelEvaluator.Receiver<Collection<SkyKey>>() {
+              @Override
+              public void accept(Collection<SkyKey> object) {
+                // ignore
+              }
+            });
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
