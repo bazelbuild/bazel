@@ -71,7 +71,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       };
 
   @Override
-  public Map<SkyKey, SkyValue> getDoneValues(Iterable<SkyKey> keys) {
+  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys) {
     return Maps.filterValues(Maps.transformValues(graph.getBatch(keys), GET_SKY_VALUE_FUNCTION),
         Predicates.notNull());
   }
