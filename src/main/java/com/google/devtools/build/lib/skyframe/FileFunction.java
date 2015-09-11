@@ -145,6 +145,9 @@ public class FileFunction implements SkyFunction {
       RootedPath parentRealRootedPath = parentFileValue.realRootedPath();
       realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
           parentRealRootedPath.getRelativePath().getRelative(baseName));
+      if (!parentFileValue.exists()) {
+        return Pair.of(realRootedPath, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
+      }
     }
     FileStateValue realFileStateValue =
         (FileStateValue) env.getValue(FileStateValue.key(realRootedPath));
@@ -155,7 +158,7 @@ public class FileFunction implements SkyFunction {
         && parentFileValue != null && !parentFileValue.isDirectory()) {
       String type = realFileStateValue.getType().toString().toLowerCase();
       String message = type + " " + rootedPath.asPath() + " exists but its parent "
-          + "directory " + parentFileValue.realRootedPath().asPath() + " doesn't exist.";
+          + "path " + parentFileValue.realRootedPath().asPath() + " isn't an existing directory.";
       throw new FileFunctionException(new InconsistentFilesystemException(message),
           Transience.TRANSIENT);
     }

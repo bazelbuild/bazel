@@ -175,8 +175,8 @@ public abstract class FileStateValue implements SkyValue {
         String errorMessage = e.getMessage() != null
             ? "error '" + e.getMessage() + "'" : "an error";
         throw new InconsistentFilesystemException("'stat' said " + path + " is a file but then we "
-            + "later encountered " + errorMessage + " which indicates that " + path + " no longer "
-            + "exists. Did you delete it during the build?");
+            + "later encountered " + errorMessage + " which indicates that " + path + " is no "
+            + "longer a file. Did you delete it during the build?");
       }
     }
 
