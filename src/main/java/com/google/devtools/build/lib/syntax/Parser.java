@@ -791,7 +791,7 @@ class Parser {
     if (token.kind == TokenKind.COLON) {
       startExpr = setLocation(new IntegerLiteral(0), token.left, token.right);
     } else {
-      startExpr = parseNonTupleExpression();
+      startExpr = parseExpression();
     }
     args.add(setLocation(new Argument.Positional(startExpr), loc1, startExpr));
     // This is a dictionary access

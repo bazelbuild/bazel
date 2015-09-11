@@ -436,6 +436,11 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testAccessDictWithATupleKey() throws Exception {
+    newTest().setUp("x = {(1, 2): 3}[1, 2]").testLookup("x", 3);
+  }
+
+  @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     newTest()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")
