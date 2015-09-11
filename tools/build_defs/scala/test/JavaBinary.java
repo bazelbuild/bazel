@@ -15,7 +15,7 @@
 package scala.test;
 
 /** Example class */
-public class Hello {
+public class JavaBinary {
   public static void main(String[] args) {
     HelloLib.printMessage("Hello");
   }

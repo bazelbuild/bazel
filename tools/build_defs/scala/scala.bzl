@@ -23,8 +23,9 @@ _scalac_path = "/usr/bin/scalac"
 
 def _compile(ctx, jars):
   cmd = """
+set -e
 mkdir -p {out}_tmp
-{scalac} -classpath "{jars}" $@ -d {out}_tmp &&
+{scalac} -classpath "{jars}" $@ -d {out}_tmp
 # Make jar file deterministic by setting the timestamp of files
 touch -t 198001010000 $(find .)
 jar cmf {manifest} {out} -C {out}_tmp .
@@ -33,7 +34,7 @@ jar cmf {manifest} {out} -C {out}_tmp .
       scalac=_scalac_path,
       out=ctx.outputs.jar.path,
       manifest=ctx.outputs.manifest.path,
-      jars=':'.join([j.path for j in jars]))
+      jars=":".join([j.path for j in jars]))
 
   ctx.action(
       inputs=list(jars) + ctx.files.srcs + [ctx.outputs.manifest],
@@ -54,6 +55,20 @@ def _write_manifest(ctx):
       content = manifest)
 
 
+def _write_launcher(ctx, jars):
+  content = """#!/bin/bash
+cd $0.runfiles
+java -cp {cp} {name} "$@"
+"""
+  content = content.format(
+      name=ctx.attr.main_class,
+      deploy_jar=ctx.outputs.jar.path,
+      cp=":".join([j.short_path for j in jars]))
+  ctx.file_action(
+      output=ctx.outputs.executable,
+      content=content)
+
+
 def _collect_jars(ctx):
   jars = set()
   for target in ctx.attr.deps:
@@ -69,21 +84,39 @@ def _scala_library_impl(ctx):
   _write_manifest(ctx)
   _compile(ctx, jars)
 
-  all_jars = jars + [ctx.outputs.jar]
-
+  jars += [ctx.outputs.jar]
   runfiles = ctx.runfiles(
-      files = list(all_jars) + [ctx.outputs.jar],
+      files = list(jars),
       collect_data = True)
   return struct(
-      files=all_jars,
-      jar_files=all_jars,
+      files=jars,
+      jar_files=jars,
+      runfiles=runfiles)
+
+
+def _scala_binary_impl(ctx):
+  jars = _collect_jars(ctx)
+  _write_manifest(ctx)
+  _compile(ctx, jars)
+
+  jars += [ctx.outputs.jar]
+  _write_launcher(ctx, jars)
+
+  runfiles = ctx.runfiles(
+      files = list(jars) + [ctx.outputs.executable],
+      collect_data = True)
+  return struct(
+      files=set([ctx.outputs.executable]),
       runfiles=runfiles)
 
 
 scala_library = rule(
   implementation=_scala_library_impl,
   attrs={
-      "srcs": attr.label_list(allow_files=_scala_filetype),
+      "main_class": attr.string(),
+      "srcs": attr.label_list(
+          allow_files=_scala_filetype,
+          non_empty=True),
       "deps": attr.label_list(),
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
       },
@@ -91,4 +124,21 @@ scala_library = rule(
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
       },
+)
+
+scala_binary = rule(
+  implementation=_scala_binary_impl,
+  attrs={
+      "main_class": attr.string(mandatory=True),
+      "srcs": attr.label_list(
+          allow_files=_scala_filetype,
+          non_empty=True),
+      "deps": attr.label_list(),
+      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+      },
+  outputs={
+      "jar": "%{name}_deploy.jar",
+      "manifest": "%{name}_MANIFEST.MF",
+      },
+  executable=True,
 )
