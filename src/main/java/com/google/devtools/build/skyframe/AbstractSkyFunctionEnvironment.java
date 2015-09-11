@@ -35,8 +35,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   protected boolean valuesMissing = false;
   private <E extends Exception> ValueOrException<E> getValueOrException(SkyKey depKey,
       Class<E> exceptionClass) {
-    return ValueOrExceptionUtils.downcovert(getValueOrException(depKey, exceptionClass,
-        BottomException.class), exceptionClass);
+    return ValueOrExceptionUtils.downconvert(
+        getValueOrException(depKey, exceptionClass, BottomException.class), exceptionClass);
   }
 
   private <E1 extends Exception, E2 extends Exception> ValueOrException2<E1, E2>
@@ -206,7 +206,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
       new Function<ValueOrException<BottomException>, SkyValue>() {
         @Override
         public SkyValue apply(ValueOrException<BottomException> voe) {
-          return ValueOrExceptionUtils.downcovert(voe);
+          return ValueOrExceptionUtils.downconvert(voe);
         }
       };
 
@@ -216,7 +216,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     return new Function<ValueOrException2<E, BottomException>, ValueOrException<E>>() {
       @Override
       public ValueOrException<E> apply(ValueOrException2<E, BottomException> voe) {
-        return ValueOrExceptionUtils.downcovert(voe, exceptionClass);
+        return ValueOrExceptionUtils.downconvert(voe, exceptionClass);
       }
     };
   }

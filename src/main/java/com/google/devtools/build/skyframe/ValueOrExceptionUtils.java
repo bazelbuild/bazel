@@ -26,11 +26,11 @@ public class ValueOrExceptionUtils {
   }
 
   @Nullable
-  public static SkyValue downcovert(ValueOrException<BottomException> voe) {
+  public static SkyValue downconvert(ValueOrException<BottomException> voe) {
     return voe.getValue();
   }
 
-  public static <E1 extends Exception> ValueOrException<E1> downcovert(
+  public static <E1 extends Exception> ValueOrException<E1> downconvert(
       ValueOrException2<E1, BottomException> voe, Class<E1> exceptionClass1) {
     Exception e = voe.getException();
     if (e == null) {
