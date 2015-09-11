@@ -138,7 +138,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
         }
         rulePb.addAttribute(PackageSerializer.getAttributeProto(attr,
             PackageSerializer.getAttributeValues(rule, attr),
-            rule.isAttributeValueExplicitlySpecified(attr), /*includeGlobs=*/ false));
+            rule.isAttributeValueExplicitlySpecified(attr)));
       }
 
       Environment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
@@ -159,7 +159,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
         rulePb.addAttribute(PackageSerializer.getAttributeProto(entry.getKey(),
             Lists.<Object>newArrayList(entry.getValue()),
-            /*explicitlySpecified=*/ false, /*includeGlobs=*/ false));
+            /*explicitlySpecified=*/ false));
       }
       // Add all deps from aspects as rule inputs of current target.
       for (Label label : aspectsDependencies.values()) {

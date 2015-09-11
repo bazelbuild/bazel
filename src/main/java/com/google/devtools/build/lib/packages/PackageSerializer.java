@@ -67,11 +67,10 @@ public class PackageSerializer {
    * @param values the possible values of the attribute (can be a multi-value list for
    *              configurable attributes)
    * @param explicitlySpecified whether the attribute was explicitly specified or not
-   * @param includeGlobs add glob expression for attributes that contain them
    */
   public static Build.Attribute getAttributeProto(Attribute attr, Iterable<Object> values,
-      Boolean explicitlySpecified, boolean includeGlobs) {
-    return DEFAULT.serializeAttribute(attr, values, explicitlySpecified, includeGlobs);
+      Boolean explicitlySpecified) {
+    return DEFAULT.serializeAttribute(attr, values, explicitlySpecified, /*includeGlobs=*/ false);
   }
 
   /**
@@ -176,6 +175,10 @@ public class PackageSerializer {
     emitTargets(pkg.getTargets(), out);
   }
 
+  /**
+   * Convert Attribute to proto representation. If {@code includeGlobs} is true then include
+   * globs expressions when present, omit otherwise.
+   */
   @SuppressWarnings("unchecked")
   private Build.Attribute serializeAttribute(Attribute attr, Iterable<Object> values,
       Boolean explicitlySpecified, boolean includeGlobs) {
