@@ -31,14 +31,16 @@ public interface LoadedPackageProvider {
 
   /**
    * Returns a package if it was recently loaded, i.e., since the most recent cache sync. This
-   * throws an exception if the package was not loaded, even if it exists on disk.
+   * throws an exception if the package was not loaded, even if it exists on disk. Returns the
+   * package even if it is in error.
    */
   Package getLoadedPackage(PackageIdentifier packageIdentifier) throws NoSuchPackageException;
 
   /**
    * Returns a target if it was recently loaded, i.e., since the most recent cache sync. This
    * throws an exception if the target was not loaded or not validated, even if it exists in the
-   * surrounding package.
+   * surrounding package. If the surrounding package is in error, still attempts to retrieve the
+   * target.
    */
   Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException;
 

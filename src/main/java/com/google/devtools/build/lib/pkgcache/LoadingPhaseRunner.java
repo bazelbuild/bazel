@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
@@ -509,13 +507,6 @@ public class LoadingPhaseRunner {
     for (Label label : labels) {
       try {
         result.add(packageManager.getLoadedTarget(label));
-      } catch (NoSuchPackageException e) {
-        Package pkg = Preconditions.checkNotNull(e.getPackage());
-        try {
-          result.add(pkg.getTarget(label.getName()));
-        } catch (NoSuchTargetException ex) {
-          throw new IllegalStateException(ex);
-        }
       } catch (NoSuchThingException e) {
         throw new IllegalStateException(e);  // The target should have been loaded
       }
