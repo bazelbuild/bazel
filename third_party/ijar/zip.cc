@@ -213,7 +213,8 @@ class OutputZipFile : public ZipBuilder {
 
   virtual ~OutputZipFile() { Finish(); }
   virtual u1* NewFile(const char* filename, const u4 attr);
-  virtual int FinishFile(size_t filelength, bool compress = false);
+  virtual int FinishFile(size_t filelength, bool compress = false,
+                         bool compute_crc = false);
   virtual int WriteEmptyFile(const char *filename);
   virtual size_t GetSize() {
     return Offset(q);
@@ -234,6 +235,9 @@ class OutputZipFile : public ZipBuilder {
 
     // Compression method
     u2 compression_method;
+
+    // CRC32
+    u4 crc32;
 
     // external attributes field
     u4 external_attr;
@@ -289,8 +293,10 @@ class OutputZipFile : public ZipBuilder {
 
   // Fill in the "compressed size" and "uncompressed size" fields in a local
   // file header previously written by WriteLocalFileHeader().
-  size_t WriteFileSizeInLocalFileHeader(u1 *header_ptr, size_t out_length,
-                                        bool compress = false);
+  size_t WriteFileSizeInLocalFileHeader(u1 *header_ptr,
+                                        size_t out_length,
+                                        bool compress = false,
+                                        const u4 crc = 0);
 };
 
 //
@@ -760,6 +766,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   LocalFileEntry *entry = new LocalFileEntry;
   entry->local_header_offset = Offset(q);
   entry->external_attr = 0;
+  entry->crc32 = 0;
 
   // Output the ZIP local_file_header:
   put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
@@ -768,7 +775,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   put_u2le(q, 0);  // compression_method
   put_u2le(q, 0);  // last_mod_file_time
   put_u2le(q, 0);  // last_mod_file_date
-  put_u4le(q, 0);  // crc32
+  put_u4le(q, entry->crc32);  // crc32
   put_u4le(q, 0);  // compressed_size
   put_u4le(q, 0);  // uncompressed_size
   put_u2le(q, file_name_length);
@@ -800,7 +807,7 @@ void OutputZipFile::WriteCentralDirectory() {
     put_u2le(q, entry->compression_method);  // compression method:
     put_u2le(q, 0);                          // last_mod_file_time
     put_u2le(q, 0);  // last_mod_file_date
-    put_u4le(q, 0);  // crc32 (jar/javac tools don't care)
+    put_u4le(q, entry->crc32);  // crc32
     put_u4le(q, entry->compressed_length);    // compressed_size
     put_u4le(q, entry->uncompressed_length);  // uncompressed_size
     put_u2le(q, entry->file_name_length);
@@ -848,7 +855,7 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method = placeholder
   put_u2le(q, 0);                          // last_mod_file_time
   put_u2le(q, 0);                          // last_mod_file_date
-  put_u4le(q, 0);                          // crc32 (jar/javac tools don't care)
+  put_u4le(q, entry->crc32);               // crc32
   put_u4le(q, 0);  // compressed_size = placeholder
   put_u4le(q, 0);  // uncompressed_size = placeholder
   put_u2le(q, entry->file_name_length);
@@ -901,7 +908,8 @@ size_t TryDeflate(u1 *buf, size_t length) {
 
 size_t OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *header_ptr,
                                                      size_t out_length,
-                                                     bool compress) {
+                                                     bool compress,
+                                                     const u4 crc) {
   size_t compressed_size = out_length;
   if (compress) {
     compressed_size = TryDeflate(q, out_length);
@@ -912,7 +920,8 @@ size_t OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *header_ptr,
   } else {
     put_u2le(header_ptr, COMPRESSION_METHOD_STORED);
   }
-  header_ptr += 8;
+  header_ptr += 4;
+  put_u4le(header_ptr, crc);              // crc32
   put_u4le(header_ptr, compressed_size);  // compressed_size
   put_u4le(header_ptr, out_length);       // uncompressed_size
   return compressed_size;
@@ -937,9 +946,15 @@ u1* OutputZipFile::NewFile(const char* filename, const u4 attr) {
   return q;
 }
 
-int OutputZipFile::FinishFile(size_t filelength, bool compress) {
+int OutputZipFile::FinishFile(size_t filelength, bool compress,
+                              bool compute_crc) {
+  u4 crc = 0;
+  if (compute_crc) {
+    crc = crc32(crc, q, filelength);
+  }
   size_t compressed_size =
-      WriteFileSizeInLocalFileHeader(header_ptr, filelength, compress);
+      WriteFileSizeInLocalFileHeader(header_ptr, filelength, compress, crc);
+  entries_.back()->crc32 = crc;
   entries_.back()->compressed_length = compressed_size;
   entries_.back()->uncompressed_length = filelength;
   if (compressed_size < filelength) {

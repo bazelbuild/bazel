@@ -63,8 +63,12 @@ class ZipBuilder {
   // Finish writing a file and specify its length. After calling this method
   // one should not reuse the pointer given by NewFile. The file can be
   // compressed using the deflate algorithm by setting `compress` to true.
+  // By default, CRC32 are not computed as java tooling doesn't care, but
+  // computing it can be activated by setting `compute_crc` to true.
   // On failure, returns -1 and GetError() will return an non-empty message.
-  virtual int FinishFile(size_t filelength, bool compress = false) = 0;
+  virtual int FinishFile(size_t filelength,
+                         bool compress = false,
+                         bool compute_crc = false) = 0;
 
   // Write an empty file, it is equivalent to:
   //   NewFile(filename, 0);

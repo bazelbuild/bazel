@@ -237,7 +237,7 @@ int create(char *zipfile, char **files, bool flatten, bool verbose,
       }
       memcpy(buffer, data, statst.st_size);
       munmap(data, statst.st_size);
-      builder->FinishFile(statst.st_size, compress);
+      builder->FinishFile(statst.st_size, compress, true);
     }
   }
   if (builder->Finish() < 0) {
