@@ -887,7 +887,9 @@ size_t TryDeflate(u1 *buf, size_t length) {
   stream.next_in = buf;
   stream.next_out = outbuf;
 
-  if (deflateInit(&stream, Z_DEFAULT_COMPRESSION) != Z_OK) {
+  // deflateInit2 negative windows size prevent the zlib wrapper to be used.
+  if (deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+                  -MAX_WBITS, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
     // Failure to compress => return the buffer uncompressed
     free(outbuf);
     return length;
