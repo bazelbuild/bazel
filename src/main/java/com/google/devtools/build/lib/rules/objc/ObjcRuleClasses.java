@@ -593,14 +593,16 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES = ImmutableSet.of(
-        "objc_library",
-        "objc_import",
-        "objc_framework",
-        "objc_proto_library",
-        "j2objc_library",
-        "cc_library",
-        "ios_framework");
+    private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
+        ImmutableSet.of(
+            "objc_library",
+            "objc_import",
+            "objc_framework",
+            "objc_proto_library",
+            "j2objc_library",
+            "cc_library",
+            "cc_inc_library",
+            "ios_framework");
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
