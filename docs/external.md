@@ -107,7 +107,7 @@ For example, suppose you are working on a project, `my-project/`, and you want
 to depend on targets from your coworker's project, `coworkers-project/`. Both
 projects use Bazel, so you can add your coworker's project as an external
 dependency and then use any targets your coworker has defined from your own
-BUILD files. You would add the following to `my\_project/WORKSPACE`:
+BUILD files. You would add the following to `my_project/WORKSPACE`:
 
 ```python
 local_repository(
@@ -124,7 +124,7 @@ If your coworker has a target `//foo:bar`, your project can refer to it as
 Rules prefixed with `new_` (e.g.,
 [`new_local_repository`](http://bazel.io/docs/build-encyclopedia.html#new_local_repository)
 and [`new_http_archive`](http://bazel.io/docs/build-encyclopedia.html#new_http_archive)
-allow you to create targets from projects that do not use Bazel.
+) allow you to create targets from projects that do not use Bazel.
 
 For example, suppose you are working on a project, `my-project/`, and you want
 to depend on your coworker's project, `coworkers-project/`. Your coworker's
