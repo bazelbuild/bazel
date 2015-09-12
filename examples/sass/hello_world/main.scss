@@ -1,0 +1,12 @@
+@import "examples/sass/shared/fonts";
+@import "examples/sass/shared/colors";
+
+html {
+  body {
+    font-family: $default-font-stack;
+    h1 {
+      font-family: $modern-font-stack;
+      color: $example-red;
+    }
+  }
+}
