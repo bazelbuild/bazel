@@ -95,3 +95,10 @@ new_http_archive(
     sha256 = "aa76bb83c38b3f7495516eb08977fc9700c664d7a945ba3ac3c0004a6a8509f2",
     build_file = "tools/build_defs/d/dmd.BUILD",
 )
+
+new_git_repository(
+    name = "jsonnet",
+    remote = "https://github.com/google/jsonnet.git",
+    tag = "v0.8.0",
+    build_file = "tools/build_defs/jsonnet/jsonnet.BUILD",
+)
