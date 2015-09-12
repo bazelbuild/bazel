@@ -302,7 +302,9 @@ public final class SkylarkRuleContext {
           + "to the attribute names. The struct value is always a <code>file</code> or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>single_file=True</code>, no corresponding struct field is generated.")
+          + "marked as <code>single_file=True</code>, no corresponding struct field is generated. "
+          + "It is a shortcut for:"
+          + "<pre class=language-python>list(ctx.attr.<ATTR>.files)[0]</pre>")
   public SkylarkClassObject getFile() {
     return fileObject;
   }
@@ -314,7 +316,9 @@ public final class SkylarkRuleContext {
       doc = "A <code>struct</code> containing files defined in label or label list "
           + "type attributes. The struct fields correspond to the attribute names. The struct "
           + "values are <code>list</code> of <code>file</code>s. If an optional attribute is "
-          + "not specified in the rule, an empty list is generated.")
+          + "not specified in the rule, an empty list is generated."
+          + "It is a shortcut for:"
+          + "<pre class=language-python>[f for t in ctx.attr.<ATTR> for f in t.files]</pre>")
   public SkylarkClassObject getFiles() {
     return filesObject;
   }
