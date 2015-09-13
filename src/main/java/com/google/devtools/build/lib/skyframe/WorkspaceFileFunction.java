@@ -78,7 +78,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       }
 
       try {
-        parser.parse(ParserInputSource.create(repoWorkspace));
+        parser.parse(ParserInputSource.create(repoWorkspace, workspaceFileValue.getSize()));
       } catch (IOException e) {
         throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
       }

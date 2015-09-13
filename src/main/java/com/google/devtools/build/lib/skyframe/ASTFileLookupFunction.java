@@ -52,19 +52,24 @@ public class ASTFileLookupFunction implements SkyFunction {
     /** If {@code lookupSuccessful()}, returns the {@link RootedPath} to the file. */
     public abstract RootedPath rootedPath();
 
+    /** If {@code lookupSuccessful()}, returns the file's size, in bytes. */
+    public abstract long fileSize();
+
     static FileLookupResult noFile() {
       return UnsuccessfulFileResult.INSTANCE;
     }
 
-    static FileLookupResult file(RootedPath rootedPath) {
-      return new SuccessfulFileResult(rootedPath);
+    static FileLookupResult file(RootedPath rootedPath, long fileSize) {
+      return new SuccessfulFileResult(rootedPath, fileSize);
     }
 
     private static class SuccessfulFileResult extends FileLookupResult {
       private final RootedPath rootedPath;
+      private final long fileSize;
 
-      private SuccessfulFileResult(RootedPath rootedPath) {
+      private SuccessfulFileResult(RootedPath rootedPath, long fileSize) {
         this.rootedPath = rootedPath;
+        this.fileSize = fileSize;
       }
 
       @Override
@@ -75,6 +80,11 @@ public class ASTFileLookupFunction implements SkyFunction {
       @Override
       public RootedPath rootedPath() {
         return rootedPath;
+      }
+
+      @Override
+      public long fileSize() {
+        return fileSize;
       }
     }
 
@@ -90,6 +100,11 @@ public class ASTFileLookupFunction implements SkyFunction {
 
       @Override
       public RootedPath rootedPath() {
+        throw new IllegalStateException("unsuccessful lookup");
+      }
+
+      @Override
+      public long fileSize() {
         throw new IllegalStateException("unsuccessful lookup");
       }
     }
@@ -121,12 +136,13 @@ public class ASTFileLookupFunction implements SkyFunction {
     }
     BuildFileAST ast = null;
     Path path = lookupResult.rootedPath().asPath();
+    long fileSize = lookupResult.fileSize();
     // Skylark files end with bzl.
     boolean parseAsSkylark = astFilePathFragment.getPathString().endsWith(".bzl");
     try {
       if (parseAsSkylark) {
         try (Mutability mutability = Mutability.create("validate")) {
-            ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
+            ast = BuildFileAST.parseSkylarkFile(path, fileSize, env.getListener(),
                 packageManager, new ValidationEnvironment(
                     ruleClassProvider.createSkylarkRuleClassEnvironment(
                         mutability,
@@ -137,7 +153,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                     .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)));
         }
       } else {
-        ast = BuildFileAST.parseBuildFile(path, env.getListener(), packageManager, false);
+        ast = BuildFileAST.parseBuildFile(path, fileSize, env.getListener(), packageManager, false);
       }
     } catch (IOException e) {
         throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
@@ -177,7 +193,7 @@ public class ASTFileLookupFunction implements SkyFunction {
         return null;
       }
       if (fileValue.isFile()) {
-        return FileLookupResult.file(rootedPath);
+        return FileLookupResult.file(rootedPath, fileValue.getSize());
       }
     }
     return FileLookupResult.noFile();

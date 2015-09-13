@@ -45,12 +45,19 @@ public abstract class ParserInputSource {
    * all we care about here.
    */
   public static ParserInputSource create(Path path) throws IOException {
+    return create(path, path.getFileSize());
+  }
+
+  public static ParserInputSource create(Path path, long fileSize) throws IOException {
+    if (fileSize > Integer.MAX_VALUE) {
+      throw new IOException("Cannot parse file with size larger than 2GB");
+    }
     char[] content = FileSystemUtils.readContentAsLatin1(path);
-    if (path.getFileSize() > content.length) {
+    if (fileSize > content.length) {
       // This assertion is to help diagnose problems arising from the
       // filesystem;  see bugs and #859334 and #920195.
       throw new IOException("Unexpected short read from file '" + path
-          + "' (expected " + path.getFileSize() + ", got " + content.length + " bytes)");
+          + "' (expected " + fileSize + ", got " + content.length + " bytes)");
     }
     return create(content, path.asFragment());
   }

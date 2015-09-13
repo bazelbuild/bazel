@@ -446,7 +446,7 @@ public class PackageFunction implements SkyFunction {
         // Skylark dependencies.
         reporter.handle(Event.progress("Loading package: " + packageName));
       }
-      inputSource = ParserInputSource.create(buildFilePath);
+      inputSource = ParserInputSource.create(buildFilePath, buildFileValue.getSize());
     } catch (IOException e) {
       env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       // Note that we did this work, so we should conservatively report this error as transient.

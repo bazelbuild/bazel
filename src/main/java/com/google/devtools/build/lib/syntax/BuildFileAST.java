@@ -218,7 +218,14 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseBuildFile(Path buildFile, EventHandler eventHandler,
                                             CachingPackageLocator locator, boolean parsePython)
       throws IOException {
-    ParserInputSource inputSource = ParserInputSource.create(buildFile);
+    return parseBuildFile(buildFile, buildFile.getFileSize(), eventHandler, locator, parsePython);
+  }
+
+  public static BuildFileAST parseBuildFile(Path buildFile, long fileSize,
+                                            EventHandler eventHandler,
+                                            CachingPackageLocator locator, boolean parsePython)
+      throws IOException {
+    ParserInputSource inputSource = ParserInputSource.create(buildFile, fileSize);
     return parseBuildFile(inputSource, eventHandler, locator, parsePython);
   }
 
@@ -261,7 +268,14 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseSkylarkFile(Path file, EventHandler eventHandler,
       CachingPackageLocator locator, ValidationEnvironment validationEnvironment)
           throws IOException {
-    ParserInputSource input = ParserInputSource.create(file);
+    return parseSkylarkFile(file, file.getFileSize(), eventHandler, locator,
+        validationEnvironment);
+  }
+
+  public static BuildFileAST parseSkylarkFile(Path file, long fileSize, EventHandler eventHandler,
+      CachingPackageLocator locator, ValidationEnvironment validationEnvironment)
+          throws IOException {
+    ParserInputSource input = ParserInputSource.create(file, fileSize);
     Lexer lexer = new Lexer(input, eventHandler, false);
     Parser.ParseResult result =
         Parser.parseFileForSkylark(lexer, eventHandler, locator, validationEnvironment);
