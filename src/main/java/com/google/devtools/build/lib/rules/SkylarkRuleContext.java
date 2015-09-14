@@ -426,7 +426,11 @@ public final class SkylarkRuleContext {
     }
   }
 
-  @SkylarkCallable(doc = "Creates a file object with the given filename. " + DOC_NEW_FILE_TAIL)
+  @SkylarkCallable(
+    doc =
+        "Creates a file object with the given filename, in the current package. "
+            + DOC_NEW_FILE_TAIL
+  )
   public Artifact newFile(String filename) {
     return newFile(ruleContext.getBinOrGenfilesDirectory(), filename);
   }
