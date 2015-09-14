@@ -113,6 +113,11 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
         "All dirty nodes should have been processed: %s", pendingVisitations);
   }
 
+  @Override
+  protected boolean isCriticalError(Throwable e) {
+    return e instanceof RuntimeException;
+  }
+
   protected abstract long count();
 
   protected void informInvalidationReceiver(SkyKey key,
