@@ -179,7 +179,7 @@ def path_to_class(path):
   else:
     fail("groovy_test sources must be under src/test/java or src/test/groovy")
 
-def groovy_test_impl(ctx):
+def _groovy_test_impl(ctx):
   # Collect jars from the Groovy sdk
   groovy_sdk_jars = [file
       for file in ctx.files._groovysdk
@@ -208,14 +208,15 @@ def groovy_test_impl(ctx):
 
   # Return all dependencies needed to run the tests
   return struct(
-    runfiles=ctx.runfiles(files=list(all_deps) + ctx.files._jdk),
+    runfiles=ctx.runfiles(files=list(all_deps) + ctx.files.data + ctx.files._jdk),
   )
 
-groovy_test = rule(
-  implementation = groovy_test_impl,
+_groovy_test = rule(
+  implementation = _groovy_test_impl,
   attrs = {
     "srcs": attr.label_list(mandatory=True, allow_files=FileType([".groovy"])),
     "deps": attr.label_list(allow_files=FileType([".jar"])),
+    "data": attr.label_list(allow_files=True),
     "jvm_flags": attr.string_list(),
     "_groovysdk": attr.label(
       default=Label("//external:groovy-sdk")),
@@ -227,3 +228,31 @@ groovy_test = rule(
   },
   test = True,
 )
+
+def groovy_test(
+    name,
+    deps=[],
+    srcs=[],
+    data=[],
+    resources=[],
+    jvm_flags=[],
+    size="medium",
+    tags=[]):
+  # Create an extra jar to hold the resource files if any were specified
+  all_deps = deps
+  if resources:
+    native.java_library(
+      name = name + "-resources",
+      resources = resources,
+    )
+    all_deps += [name + "-resources"]
+
+  _groovy_test(
+    name = name,
+    size = size,
+    tags = tags,
+    srcs = srcs,
+    deps = all_deps,
+    data = data,
+    jvm_flags = jvm_flags,
+  )

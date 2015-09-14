@@ -302,7 +302,7 @@ groovy_test(
 <a name="groovy_test"></a>
 ### `groovy_test`
 
-`groovy_binary(name, main_class, srcs, deps, **kwargs)`
+`groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)`
 
 <table>
   <thead>
@@ -340,6 +340,17 @@ groovy_test(
         <p>
           These can be `groovy_library` targets, `java_library` targets,
           `groovy_and_java_library` targets, or raw .jar files.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>resources</code></td>
+      <td>
+        <code>List of labels, optional</code>
+        <p>
+          A list of data files to include on the test's classpath. This is
+          accomplished by creating a `java_library` containing only the specified
+          resources and including that library in the test's dependencies.
         </p>
       </td>
     </tr>
