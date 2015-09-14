@@ -1,52 +1,55 @@
-Macros
-======
+# Macros
 
-Macro creation
---------------
+## Macro creation
 
 A macro is a function called from the BUILD file. It can instantiate native
-or Skylark rules. By the end of the loading phase, macros don't exist
-anymore: Bazel sees only the set of rules they created.
+or Skylark rules. Macros don't give additional power, they are just used for
+encapsulation and code reuse. By the end of the loading phase, macros don't
+exist anymore, and Bazel sees only the set of rules they created.
 
 Native rules can be instantiated from the `native` module, e.g.
 
 ```python
-def my_macro(name):
+def my_macro(name, visibility=None):
   native.cc_library(
     name = name,
     srcs = ["main.cc"],
+    visibility = visibility,
   )
 ```
 
 If you need to know the package name (i.e. which BUILD file is calling the
-macro), use the constant `PACKAGE_NAME`.
+macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 
-Examples
---------
+## Examples
 
 * [Macro creating native rules](cookbook.md#macro_native).
 
 * [Macro creating Skylark rules](cookbook.md#macro_skylark).
 
-Debugging
----------
+## Debugging
 
 * `bazel query --output=build //my/path:all` will show you how the BUILD
 file looks like after evaluation. All macros, globs, loops are expanded.
 
-* You can also use `print` for debugging. It displays the message as a
-warning during the loading phase. Except in rare cases, remove your `print`
-calls before submitting the code to the depot.
+* You can also use [print](lib/globals.html#print) for debugging. It displays
+the message as a warning during the loading phase. Except in rare cases, remove
+your `print` calls before submitting the code to the depot.
 
-Errors
-------
+## Errors
 
-If you want to throw an error, use the `fail` function. Explain clearly to
-the user what went wrong and how to fix their BUILD file. It is not possible
-to catch an error.
+If you want to throw an error, use the [fail](lib/globals.html#fail) function.
+Explain clearly to the user what went wrong and how to fix their BUILD file. It
+is not possible to catch an error.
 
-Conventions
------------
+```
+def my_macro(name, deps, visibility=None):
+  if len(deps) < 2:
+    fail("Expected at least two values in deps")
+  # ...
+```
+
+## Conventions
 
 * All public functions (functions that don't start with underscore) that
 instantiate rules must have a `name` argument. This argument should not be
@@ -63,4 +66,60 @@ optional (don't give a default value).
   cc_library `foo` and a genrule `foo_gen`.
 
 * Macros should have an optional `visibility` argument.
+
+## Full example
+
+The typical use-case for a macro is when you want to reuse a genrule, e.g.
+
+```
+genrule(
+    name = "file",
+    outs = ["file.txt"],
+    cmd = "$(location generator) some_arg > $@",
+    tools = [":generator"],
+)
+```
+
+If you want to generate another file with different arguments, you may want to
+extract this code to a function.
+
+The BUILD file will become simply:
+
+```
+load("/path/generator", "file_generator")
+
+file_generator(
+    name = "file",
+    arg = "some_arg",
+)
+```
+
+In order to keep BUILD files clean and declarative, you must put the function in
+a separate `.bzl` file. For example, write the definition of the macro in
+`path/generator.bzl`:
+
+```
+def my_macro(name, arg, visibility=None):
+  native.genrule(
+    name = name,
+    outs = [name + ".txt"],
+    cmd = "$(location generator) %s > $@" % arg,
+    tools = ["//test:generator"],
+    visibility = visibility,
+  )
+```
+
+When you want to investigate what a macro does, use the following command to
+see the expanded form:
+
+```
+$ bazel query --output=build :file
+# /absolute/path/test/ext.bzl:42:3
+genrule(
+  name = "file",
+  tools = ["//test:generator"],
+  outs = ["//test:file.txt"],
+  cmd = "$(location generator) some_arg > $@",
+)
+```
 
