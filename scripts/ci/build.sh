@@ -116,11 +116,13 @@ function bazel_build() {
       --workspace_status_command=scripts/ci/build_status_command.sh \
       //scripts/packages/...
 
-  # Copy the results to the output directory
-  mkdir -p $1/packages
-  cp output/bazel $1/bazel
-  cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
-  cp bazel-genfiles/scripts/packages/README.md $1/README.md
+  if [ -n "${1-}" ]; then
+    # Copy the results to the output directory
+    mkdir -p $1/packages
+    cp output/bazel $1/bazel
+    cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
+    cp bazel-genfiles/scripts/packages/README.md $1/README.md
+  fi
 }
 
 # Generate a string from a template and a list of substitutions.
