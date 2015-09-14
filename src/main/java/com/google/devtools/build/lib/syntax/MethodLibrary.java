@@ -390,7 +390,7 @@ public class MethodLibrary {
     objectType = StringModule.class,
     returnType = String.class,
     doc =
-        "Returns a copy of the string with its first character capitalized and the rest"
+        "Returns a copy of the string with its first character capitalized and the rest "
             + "lowercased. This method does not support non-ascii characters.",
     mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")}
   )
