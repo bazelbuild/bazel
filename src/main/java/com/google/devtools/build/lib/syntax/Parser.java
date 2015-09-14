@@ -245,22 +245,6 @@ class Parser {
   }
 
   /**
-   * Entry-point to parser that parses a statement.  All errors encountered
-   * during parsing are reported via "reporter".
-   */
-  @VisibleForTesting
-  public static Statement parseStatement(
-      Lexer lexer, EventHandler eventHandler) {
-    Parser parser = new Parser(lexer, eventHandler, null);
-    Statement result = parser.parseSmallStatement();
-    while (parser.token.kind == TokenKind.NEWLINE) {
-      parser.nextToken();
-    }
-    parser.expect(TokenKind.EOF);
-    return result;
-  }
-
-  /**
    * Entry-point to parser that parses an expression.  All errors encountered
    * during parsing are reported via "reporter".  The expression may be followed
    * by newline tokens.

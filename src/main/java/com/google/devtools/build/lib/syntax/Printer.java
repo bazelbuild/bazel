@@ -263,7 +263,7 @@ public final class Printer {
    * @param quote the quote character to use, '"' or '\''.
    * @return the Appendable, in fluent style.
    */
-  public static Appendable writeString(Appendable buffer, String s, char quote) {
+  private static Appendable writeString(Appendable buffer, String s, char quote) {
     append(buffer, quote);
     int len = s.length();
     for (int i = 0; i < len; i++) {
@@ -271,19 +271,6 @@ public final class Printer {
       escapeCharacter(buffer, c, quote);
     }
     return append(buffer, quote);
-  }
-
-  /**
-   * Write a properly escaped Skylark representation of a string to a buffer.
-   * By default, standard Skylark convention is used, i.e., double-quoted single-line string,
-   * as opposed to standard Python convention, i.e. single-quoted single-line string.
-   *
-   * @param buffer the Appendable we're writing to.
-   * @param s the string a representation of which to write.
-   * @return the buffer, in fluent style.
-   */
-  public static Appendable writeString(Appendable buffer, String s) {
-    return writeString(buffer, s, SKYLARK_QUOTATION_MARK);
   }
 
   /**
@@ -299,8 +286,14 @@ public final class Printer {
    * @param quotationMark The quotation mark to be used (' or ")
    * @return the Appendable, in fluent style.
    */
-  public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
-      String separator, String after, String singletonTerminator, char quotationMark) {
+  private static Appendable printList(
+      Appendable buffer,
+      Iterable<?> list,
+      String before,
+      String separator,
+      String after,
+      String singletonTerminator,
+      char quotationMark) {
     boolean printSeparator = false; // don't print the separator before the first element
     int len = 0;
     append(buffer, before);

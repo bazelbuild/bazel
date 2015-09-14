@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -243,14 +242,6 @@ public class EvalExceptionWithStackTrace extends EvalException {
      */
     private Location getLocation(StackTraceElement element) {
       return (element == null) ? Location.BUILTIN : element.getLocation();
-    }
-
-    /**
-     * Returns whether the given element describes the rule definition in a BUILD file.
-     */
-    protected boolean describesRule(StackTraceElement element) {
-      PathFragment pathFragment = element.getLocation().getPath();
-      return pathFragment != null && pathFragment.getPathString().contains("BUILD");
     }
 
     /**
