@@ -423,26 +423,30 @@ layout: documentation
 
 <h4>Rules implemented as Skylark extensions</h4>
 
+<p>
 The Bazel team provides a set of supported build rules written using the
 <a href="/docs/skylark/index.html">Skylark</a> rules framework. These rules
 should be explicitly <a href="#load">load</a>ed. They allow you to build the
 following:
+</p>
 
 <ul>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/closure">
-    Closure libraries</a>
+    Closure libraries</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/docker">
-    Docker images</a>
+    Docker images</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/groovy">
-    Groovy projects</a>
+    Groovy projects</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/appengine">
-    Java App Engine applications</a>
+    Java App Engine applications</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/d">
-    D projects</a>
+    D projects</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_rules/rust">
-    Rust projects</a>
+    Rust projects</a></li>
+<li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/jsonnet">
+    Jsonnet files</a></li>
 <li> <a href="https://github.com/bazelbuild/bazel/tree/master/tools/build_defs/scala">
-    Scala projects</a> - experimental
+    Scala projects</a> - experimental</li>
 </ul>
 
 <h2 id="common-definitions">Common definitions</h2>
@@ -2592,6 +2596,10 @@ Objective-C libraries.</p>
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -2644,6 +2652,11 @@ Objective-C libraries.</p>
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -3175,6 +3188,10 @@ libraries.</p>
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -3227,6 +3244,11 @@ libraries.</p>
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -3952,6 +3974,10 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -4042,6 +4068,11 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -5489,6 +5520,10 @@ can be found <a href="http://j2objc.org">here</a>.
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -6468,6 +6503,11 @@ attributes supported by <code>objc_library</code>.</p>
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -6780,6 +6820,10 @@ attributes supported by <code>objc_library</code>.</p>
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -6832,6 +6876,11 @@ attributes supported by <code>objc_library</code>.</p>
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -7909,6 +7958,10 @@ on both iOS simulator and real devices.
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -7999,6 +8052,11 @@ on both iOS simulator and real devices.
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -8489,6 +8547,10 @@ on both iOS simulator and real devices.
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
 
           </td>
         </tr>
@@ -8579,6 +8641,11 @@ on both iOS simulator and real devices.
           genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
           and <code>bazel-out/pkg/includedir</code>) are included in addition to the
           actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
 
           </td>
         </tr>
@@ -10813,8 +10880,8 @@ genrule(
                                 A list of files generated by this rule.
         
         <p>
-          All output files must be generated into the same directory and must not cross package
-          boundaries. Output filenames are interpreted as relative to the package.
+          Output files must not cross package boundaries.
+          Output filenames are interpreted as relative to the package.
         </p>
         <p>
           If the <code>executable</code> flag is set, <code>outs</code> must contain exactly one
