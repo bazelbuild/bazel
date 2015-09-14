@@ -177,18 +177,19 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   // The transitive closure of these targets is an upper estimate on the labels
   // the query will touch
-  @Nullable
   private Set<Target> getScope(RuleContext context) {
     List<Label> scopeLabels = context.attributes().get("scope", Type.LABEL_LIST);
     Set<Target> scope = Sets.newHashSetWithExpectedSize(scopeLabels.size());
     for (Label scopePart : scopeLabels) {
+      SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();
+      PackageValue packageNode =
+          (PackageValue) env.getValue(PackageValue.key(scopePart.getPackageFragment()));
+      Preconditions.checkNotNull(
+          packageNode,
+          "Packages in transitive closure of scope '%s'"
+              + "were already loaded during the loading phase",
+          scopePart);
       try {
-        SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();
-        PackageValue packageNode =  (PackageValue) env.getValue(
-            PackageValue.key(scopePart.getPackageFragment()));
-        if (packageNode == null) {
-          return null;
-        }
         scope.add(packageNode.getPackage().getTarget(scopePart.getName()));
       } catch (NoSuchTargetException e) {
         throw new IllegalStateException(e);
@@ -236,10 +237,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   @Nullable
   private byte[] executeQuery(RuleContext ruleContext, QueryOptions queryOptions,
       Set<Target> scope, String query) throws InterruptedException {
-
-    if (scope == null) {
-      return null;
-    }
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     Pair<ImmutableMap<PackageIdentifier, Package>, Set<Label>> closureInfo =
         constructPackageMap(env, scope);
