@@ -40,7 +40,7 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(Parameter node) {
+  public void visit(Parameter<?, ?> node) {
     // leaf node (we need the function for overrides)
   }
 
@@ -55,6 +55,9 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(FuncallExpression node) {
+    if (node.getObject() != null) {
+      visit(node.getObject());
+    }
     visit(node.getFunction());
     visitAll(node.getArguments());
   }
@@ -66,7 +69,7 @@ public class SyntaxTreeVisitor {
     visit(node.getElementExpression());
     for (ListComprehension.Clause clause : node.getClauses()) {
       if (clause.getLValue() != null) {
-        visit(clause.getLValue().getExpression());
+        visit(clause.getLValue());
       }
       visit(clause.getExpression());
     }
@@ -77,6 +80,12 @@ public class SyntaxTreeVisitor {
     visit(node.getValueExpression());
     visit(node.getLoopVar().getExpression());
     visit(node.getListExpression());
+  }
+
+  public void visit(ForStatement node) {
+    visit(node.getVariable().getExpression());
+    visit(node.getCollection());
+    visitAll(node.block());
   }
 
   public void visit(LoadStatement node) {
@@ -93,8 +102,12 @@ public class SyntaxTreeVisitor {
   public void visit(StringLiteral node) {
   }
 
+  public void visit(LValue node) {
+    visit(node.getExpression());
+  }
+
   public void visit(AssignmentStatement node) {
-    visit(node.getLValue().getExpression());
+    visit(node.getLValue());
     visit(node.getExpression());
   }
 
@@ -114,10 +127,7 @@ public class SyntaxTreeVisitor {
 
   public void visit(FunctionDefStatement node) {
     visit(node.getIdent());
-    List<Expression> defaults = node.getSignature().getDefaultValues();
-    if (defaults != null) {
-      visitAll(defaults);
-    }
+    visitAll(node.getParameters());
     visitAll(node.getStatements());
   }
 
@@ -136,6 +146,11 @@ public class SyntaxTreeVisitor {
 
   public void visit(NotExpression node) {
     visit(node.getExpression());
+  }
+
+  public void visit(DotExpression node) {
+    visit(node.getObj());
+    visit(node.getField());
   }
 
   public void visit(Comment node) {
