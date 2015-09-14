@@ -175,7 +175,8 @@ public class BaseRuleClasses {
 
           // The target itself and run_under both run on the same machine. We use the DATA config
           // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
+          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER)
+              .skipConstraintsCheck())
           .build();
     }
 
