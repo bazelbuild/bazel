@@ -126,6 +126,29 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void transitiveAspectInError() throws Exception {
+    setRules(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
+        new TestAspects.SimpleRule());
+
+    pkg("a",
+        "error_aspect(name='a', foo=[':b'])",
+        "error_aspect(name='b', bar=[':c'])",
+        "error_aspect(name='c', bar=[':d'])",
+        "error_aspect(name='d')");
+
+    reporter.removeHandler(failFastHandler);
+    // getConfiguredTarget() uses a separate code path that does not hit
+    // SkyframeBuildView#configureTargets
+    try {
+      update("//a:a");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // expected
+    }
+    assertContainsEvent("Aspect error");
+  }
+
+  @Test
   public void sameTargetInDifferentAttributes() throws Exception {
     setRules(new TestAspects.BaseRule(), new TestAspects.AspectRequiringRule(),
         new TestAspects.SimpleRule());
