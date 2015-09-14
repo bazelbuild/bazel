@@ -739,8 +739,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     eventCollector.clear();
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName,
                                                      lines);
-    assertFalse("Rule '" + "//" + packageName + ":" + ruleName
-        + "' did contain an error",
+    assertFalse(
+        "Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error",
         view.hasErrors(target));
     return assertContainsEvent(expectedWarningMessage);
   }
@@ -1273,6 +1273,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       int loadingPhaseThreads,
       boolean doAnalysis,
       EventBus eventBus) throws Exception {
+    return update(
+        targets, ImmutableList.<String>of(), keepGoing, loadingPhaseThreads, doAnalysis, eventBus);
+  }
+
+  protected AnalysisResult update(
+      List<String> targets,
+      List<String> aspects,
+      boolean keepGoing,
+      int loadingPhaseThreads,
+      boolean doAnalysis,
+      EventBus eventBus)
+      throws Exception {
 
     LoadingPhaseRunner.Options loadingOptions =
         Options.getDefaults(LoadingPhaseRunner.Options.class);
@@ -1293,7 +1305,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.update(
         loadingResult,
         masterConfig,
-        ImmutableList.<String>of(),
+        aspects,
         viewOptions,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
         reporter,
