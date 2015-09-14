@@ -111,14 +111,10 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
+    AttributesAndLocation generator = generatorAttributesForMacros(attributeValues, env, location);
     try {
       return ruleClass.createRuleWithLabel(
-          pkgBuilder,
-          label,
-          addGeneratorAttributesForMacros(attributeValues, env),
-          eventHandler,
-          ast,
-          location);
+          pkgBuilder, label, generator.attributes, eventHandler, ast, generator.location);
     } catch (SyntaxException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -183,28 +179,39 @@ public class RuleFactory {
     }
   }
 
+  /** Pair of attributes and location */
+  private static final class AttributesAndLocation {
+    final Map<String, Object> attributes;
+    final Location location;
+
+    AttributesAndLocation(Map<String, Object> attributes, Location location) {
+      this.attributes = attributes;
+      this.location = location;
+    }
+  }
+
   /**
    * If the rule was created by a macro, this method sets the appropriate values for the
    * attributes generator_{name, function, location} and returns all attributes.
    *
    * <p>Otherwise, it returns the given attributes without any changes.
    */
-  private static Map<String, Object> addGeneratorAttributesForMacros(
-      Map<String, Object> args, @Nullable Environment env) {
+  private static AttributesAndLocation generatorAttributesForMacros(
+      Map<String, Object> args, @Nullable Environment env, Location location) {
     // Returns the original arguments if a) there is only the rule itself on the stack
     // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
     if (env == null) {
-      return args;
+      return new AttributesAndLocation(args, location);
     }
     boolean hasName = args.containsKey("generator_name");
     boolean hasFunc = args.containsKey("generator_function");
     // TODO(bazel-team): resolve cases in our code where hasName && !hasFunc, or hasFunc && !hasName
     if (hasName || hasFunc) {
-      return args;
+      return new AttributesAndLocation(args, location);
     }
     Pair<FuncallExpression, BaseFunction> topCall = env.getTopCall();
     if (topCall == null || !(topCall.second instanceof UserDefinedFunction)) {
-      return args;
+      return new AttributesAndLocation(args, location);
     }
 
     FuncallExpression generator = topCall.first;
@@ -215,12 +222,15 @@ public class RuleFactory {
     builder.put("generator_name", (name == null) ? args.get("name") : name);
     builder.put("generator_function", function.getName());
     builder.put("generator_location", Location.printPathAndLine(generator.getLocation()));
+    if (generator.getLocation() != null) {
+      location = generator.getLocation();
+    }
 
     try {
-      return builder.build();
+      return new AttributesAndLocation(builder.build(), location);
     } catch (IllegalArgumentException ex) {
       // Just to play it safe.
-      return args;
+      return new AttributesAndLocation(args, location);
     }
   }
 }
