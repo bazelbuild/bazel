@@ -22,10 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
@@ -288,21 +285,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       return null;
     }
     return Joiner.on('-').join(components);
-  }
-
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    // TODO(bazel-team): Remove this constraint once getBundlingPlatform can return multiple values.
-    Platform platform = null;
-    for (String architecture : iosMultiCpus) {
-      if (platform == null) {
-        platform = Platform.forArch(architecture);
-      } else if (platform != Platform.forArch(architecture)) {
-        reporter.handle(Event.error(
-            String.format("--ios_multi_cpus does not currently allow values for both simulator and "
-                + "device builds but was %s", iosMultiCpus)));
-      }
-    }
   }
 
   /**

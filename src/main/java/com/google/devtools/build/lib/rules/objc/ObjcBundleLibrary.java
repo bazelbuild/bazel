@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 
-
 /**
  * Implementation for {@code objc_bundle_library}.
  */
@@ -49,7 +48,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
 
     new BundleSupport(ruleContext, bundling)
         .registerActions(common.getObjcProvider())
-        .validateResources(common.getObjcProvider())
+        .validate(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder);
 
     if (ruleContext.hasErrors()) {
