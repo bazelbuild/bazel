@@ -238,6 +238,7 @@ public final class CompilationSupport {
       commandLine.add("-g");
     }
 
+    Artifact dotdFile = intermediateArtifacts.dotdFile(sourceFile);
     commandLine
         .add(IosSdkCommands.compileFlagsForClang(objcConfiguration))
         .add(IosSdkCommands.commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration))
@@ -254,7 +255,9 @@ public final class CompilationSupport {
         .add(attributes.copts())
         .add(attributes.optionsCopts())
         .addExecPath("-c", sourceFile)
-        .addExecPath("-o", objFile);
+        .addExecPath("-o", objFile)
+        .add("-MD")
+        .addExecPath("-MF", dotdFile);
 
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
@@ -265,6 +268,7 @@ public final class CompilationSupport {
         .addInputs(additionalInputs.build())
         .addOutput(objFile)
         .addOutputs(gcnoFiles.build())
+        .addOutput(dotdFile)
         .addTransitiveInputs(objcProvider.get(HEADER))
         .addInputs(compilationArtifacts.getPrivateHdrs())
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))

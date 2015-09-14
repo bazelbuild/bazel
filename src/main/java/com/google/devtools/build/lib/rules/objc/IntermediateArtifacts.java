@@ -72,7 +72,7 @@ final class IntermediateArtifacts {
             ruleContext.getConfiguration().getBinDirectory());
     return artifact;
   }
-  
+
   /**
    * Returns a derived artifact in the bin directory obtained by appending some extension to the end
    * of the given {@link PathFragment}.
@@ -331,5 +331,12 @@ final class IntermediateArtifacts {
    */
   public Artifact runnerScript() {
     return appendExtension("_runner.sh");
+  }
+
+  /**
+   * Dependency file that is generated when compiling the {@code source} artifact.
+   */
+  public Artifact dotdFile(Artifact source) {
+     return inUniqueObjsDir(source, ".d");
   }
 }
