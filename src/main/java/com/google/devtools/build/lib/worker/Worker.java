@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Interface to a worker process running as a child process.
@@ -32,19 +36,29 @@ import java.lang.ProcessBuilder.Redirect;
  * class.
  */
 final class Worker {
+  private static final AtomicInteger pidCounter = new AtomicInteger();
+  private final int workerId;
   private final Process process;
   private final Thread shutdownHook;
 
-  private Worker(Process process, Thread shutdownHook) {
+  private Worker(Process process, Thread shutdownHook, int pid) {
     this.process = process;
     this.shutdownHook = shutdownHook;
+    this.workerId = pid;
   }
 
-  static Worker create(WorkerKey key) throws IOException {
+  static Worker create(WorkerKey key, Path logDir, Reporter reporter, boolean verbose)
+      throws IOException {
     Preconditions.checkNotNull(key);
-    ProcessBuilder processBuilder = new ProcessBuilder(key.getArgs().toArray(new String[0]))
-        .directory(key.getWorkDir().getPathFile())
-        .redirectError(Redirect.INHERIT);
+    Preconditions.checkNotNull(logDir);
+
+    int workerId = pidCounter.getAndIncrement();
+    Path logFile = logDir.getRelative("worker-" + workerId + "-" + key.getMnemonic() + ".log");
+
+    ProcessBuilder processBuilder =
+        new ProcessBuilder(key.getArgs().toArray(new String[0]))
+            .directory(key.getWorkDir().getPathFile())
+            .redirectError(Redirect.appendTo(logFile.getPathFile()));
     processBuilder.environment().putAll(key.getEnv());
 
     final Process process = processBuilder.start();
@@ -57,12 +71,31 @@ final class Worker {
     };
     Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-    return new Worker(process, shutdownHook);
+    if (verbose) {
+      reporter.handle(
+          Event.info(
+              "Created new "
+                  + key.getMnemonic()
+                  + " worker (id "
+                  + workerId
+                  + "), logging to "
+                  + logFile));
+    }
+
+    return new Worker(process, shutdownHook, workerId);
   }
 
   void destroy() {
     Runtime.getRuntime().removeShutdownHook(shutdownHook);
     process.destroy();
+  }
+
+  /**
+   * Returns a unique id for this worker. This is used to distinguish different worker processes in
+   * logs and messages.
+   */
+  int getWorkerId() {
+    return this.workerId;
   }
 
   boolean isAlive() {

@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.vfs.Path;
+
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -21,9 +25,25 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
  * Factory used by the pool to create / destroy / validate worker processes.
  */
 final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
+  private Path logDir;
+  private Reporter reporter;
+  private boolean verbose;
+
+  public void setLogDirectory(Path logDir) {
+    this.logDir = logDir;
+  }
+
+  public void setReporter(Reporter reporter) {
+    this.reporter = reporter;
+  }
+
+  public void setVerbose(boolean verbose) {
+    this.verbose = verbose;
+  }
+
   @Override
   public Worker create(WorkerKey key) throws Exception {
-    return Worker.create(key);
+    return Worker.create(key, logDir, reporter, verbose);
   }
 
   /**
@@ -39,6 +59,15 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
    */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) throws Exception {
+    if (verbose) {
+      reporter.handle(
+          Event.info(
+              "Destroying "
+                  + key.getMnemonic()
+                  + " worker (id "
+                  + p.getObject().getWorkerId()
+                  + ")."));
+    }
     p.getObject().destroy();
   }
 
@@ -47,6 +76,15 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+    if (verbose) {
+      reporter.handle(
+          Event.info(
+              "Validating "
+                  + key.getMnemonic()
+                  + " worker (id "
+                  + p.getObject().getWorkerId()
+                  + ")."));
+    }
     return p.getObject().isAlive();
   }
 }

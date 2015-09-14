@@ -13,9 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import org.apache.commons.pool2.KeyedPooledObjectFactory;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.vfs.Path;
+
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -27,12 +32,28 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
-  public WorkerPool(KeyedPooledObjectFactory<WorkerKey, Worker> factory) {
+  final WorkerFactory workerFactory;
+  final Set<Worker> workers = new HashSet<>();
+
+  public WorkerPool(WorkerFactory factory) {
     super(factory);
+    this.workerFactory = factory;
   }
 
-  public WorkerPool(KeyedPooledObjectFactory<WorkerKey, Worker> factory,
-      GenericKeyedObjectPoolConfig config) {
+  public WorkerPool(WorkerFactory factory, GenericKeyedObjectPoolConfig config) {
     super(factory, config);
+    this.workerFactory = factory;
+  }
+
+  public void setLogDirectory(Path logDir) {
+    this.workerFactory.setLogDirectory(logDir);
+  }
+
+  public void setReporter(Reporter reporter) {
+    this.workerFactory.setReporter(reporter);
+  }
+
+  public void setVerbose(boolean verbose) {
+    this.workerFactory.setVerbose(verbose);
   }
 }

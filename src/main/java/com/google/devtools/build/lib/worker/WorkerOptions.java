@@ -23,19 +23,24 @@ import com.google.devtools.common.options.OptionsBase;
 public class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
-  @Option(name = "worker_max_instances",
-      defaultValue = "4",
-      category = "strategy",
-      help = "How many instances of a worker process (like the persistent Java compiler) may be "
-          + "launched if you use the 'worker' strategy.")
-  public int workerMaxInstances;
-
-  @Option(name = "experimental_persistent_javac",
-      defaultValue = "null",
-      category = "undocumented",
-      help = "Enable the experimental persistent Java compiler.",
-      expansion = {"--strategy=Javac=worker", "--strategy=JavaIjar=local"})
+  @Option(
+    name = "experimental_persistent_javac",
+    defaultValue = "null",
+    category = "strategy",
+    help = "Enable the experimental persistent Java compiler.",
+    expansion = {"--strategy=Javac=worker", "--strategy=JavaIjar=local"}
+  )
   public Void experimentalPersistentJavac;
+
+  @Option(
+    name = "worker_max_instances",
+    defaultValue = "4",
+    category = "strategy",
+    help =
+        "How many instances of a worker process (like the persistent Java compiler) may be "
+            + "launched if you use the 'worker' strategy."
+  )
+  public int workerMaxInstances;
 
   @Option(
     name = "worker_max_changed_files",
@@ -46,4 +51,28 @@ public class WorkerOptions extends OptionsBase {
             + "workers."
   )
   public int workerMaxChangedFiles;
+
+  @Option(
+    name = "worker_max_retries",
+    defaultValue = "3",
+    category = "strategy",
+    help = "If a worker fails during work, retry <worker_max_retries> times before giving up."
+  )
+  public int workerMaxRetries;
+
+  @Option(
+    name = "worker_quit_after_build",
+    defaultValue = "false",
+    category = "strategy",
+    help = "If enabled, all workers quit after a build is done."
+  )
+  public boolean workerQuitAfterBuild;
+
+  @Option(
+    name = "worker_verbose",
+    defaultValue = "true",
+    category = "strategy",
+    help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
+  )
+  public boolean workerVerbose;
 }

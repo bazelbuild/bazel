@@ -30,11 +30,13 @@ final class WorkerKey {
   private final ImmutableList<String> args;
   private final ImmutableMap<String, String> env;
   private final Path workDir;
+  private final String mnemonic;
 
-  WorkerKey(List<String> args, Map<String, String> env, Path workDir) {
+  WorkerKey(List<String> args, Map<String, String> env, Path workDir, String mnemonic) {
     this.args = ImmutableList.copyOf(Preconditions.checkNotNull(args));
     this.env = ImmutableMap.copyOf(Preconditions.checkNotNull(env));
     this.workDir = Preconditions.checkNotNull(workDir);
+    this.mnemonic = Preconditions.checkNotNull(mnemonic);
   }
 
   public ImmutableList<String> getArgs() {
@@ -47,6 +49,10 @@ final class WorkerKey {
 
   public Path getWorkDir() {
     return workDir;
+  }
+
+  public String getMnemonic() {
+    return mnemonic;
   }
 
   @Override
@@ -66,7 +72,11 @@ final class WorkerKey {
     if (!env.equals(workerKey.env)) {
       return false;
     }
-    return workDir.equals(workerKey.workDir);
+    if (!workDir.equals(workerKey.workDir)) {
+      return false;
+    }
+    return mnemonic.equals(workerKey.mnemonic);
+
   }
 
   @Override
@@ -74,6 +84,7 @@ final class WorkerKey {
     int result = args.hashCode();
     result = 31 * result + env.hashCode();
     result = 31 * result + workDir.hashCode();
+    result = 31 * result + mnemonic.hashCode();
     return result;
   }
 
