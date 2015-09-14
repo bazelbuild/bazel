@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -58,16 +59,19 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   static final String NO_PROTOS_ERROR =
       "no protos to compile - a non-empty deps attribute is required";
 
+  @VisibleForTesting
+  static final String FILES_DEPRECATED_WARNING =
+      "Using files and filegroups in objc_proto_library is deprecated";
+
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext) throws InterruptedException {
     Artifact compileProtos = ruleContext.getPrerequisiteArtifact(
         ObjcProtoLibraryRule.COMPILE_PROTOS_ATTR, Mode.HOST);
     Optional<Artifact> optionsFile = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST));
+
     NestedSet<Artifact> protos = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET)
-            .filter(FileType.of(".proto"))
-            .list())
+        .addAll(maybeGetProtoFiles(ruleContext))
         .addTransitive(maybeGetProtoSources(ruleContext))
         .build();
 
@@ -205,6 +209,20 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .build();
+  }
+
+  /**
+   * Get .proto files added to the deps attribute. This is for backwards compatibility,
+   * and emits a warning.
+   */
+  private ImmutableList<Artifact> maybeGetProtoFiles(RuleContext ruleContext) {
+    PrerequisiteArtifacts prerequisiteArtifacts =
+        ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
+    ImmutableList<Artifact> protoFiles = prerequisiteArtifacts.filter(FileType.of(".proto")).list();
+    if (!protoFiles.isEmpty()) {
+      ruleContext.attributeWarning("deps", FILES_DEPRECATED_WARNING);
+    }
+    return protoFiles;
   }
 
   private NestedSet<Artifact> maybeGetProtoSources(RuleContext ruleContext) {
