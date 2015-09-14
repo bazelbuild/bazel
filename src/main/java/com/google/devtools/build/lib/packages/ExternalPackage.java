@@ -111,7 +111,7 @@ public class ExternalPackage extends Package {
 
     public void addBindRule(
         RuleClass bindRuleClass, Label virtual, Label actual, Location location)
-        throws InvalidRuleException, NameConflictException {
+        throws InvalidRuleException, NameConflictException, InterruptedException {
 
       Map<String, Object> attributes = Maps.newHashMap();
       // Bound rules don't have a name field, but this works because we don't want more than one
@@ -133,7 +133,7 @@ public class ExternalPackage extends Package {
      */
     public Builder createAndAddRepositoryRule(RuleClass ruleClass, RuleClass bindRuleClass,
         Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-        throws InvalidRuleException, NameConflictException, SyntaxException {
+        throws InvalidRuleException, NameConflictException, SyntaxException, InterruptedException {
       StoredEventHandler eventHandler = new StoredEventHandler();
       Rule tempRule = RuleFactory.createRule(
           this, ruleClass, kwargs, eventHandler, ast, ast.getLocation(), env);

@@ -166,7 +166,7 @@ public class PackageDeserializer {
   }
 
   private void deserializeRule(DeserializationContext context, Build.Rule rulePb)
-      throws PackageDeserializationException {
+      throws PackageDeserializationException, InterruptedException {
     Location ruleLocation = EmptyLocation.INSTANCE;
     RuleClass ruleClass = packageDeserializationEnvironment.getRuleClass(rulePb, ruleLocation);
     Map<String, ParsedAttributeValue> attributeValues = new HashMap<>();
@@ -326,9 +326,11 @@ public class PackageDeserializer {
    * Deserialize a package from its representation as a protocol message. The inverse of
    * {@link PackageSerializer#serialize}.
    * @throws IOException
+   * @throws InterruptedException 
    */
   private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
-      Package.Builder builder, InputStream in) throws PackageDeserializationException, IOException {
+      Package.Builder builder, InputStream in)
+      throws PackageDeserializationException, IOException, InterruptedException {
     Path buildFile = packageDeserializationEnvironment.getPath(packagePb.getBuildFilePath());
     Preconditions.checkNotNull(buildFile);
     DeserializationContext context = new DeserializationContext(builder);
@@ -394,7 +396,7 @@ public class PackageDeserializer {
   }
 
   private void deserializeTargets(InputStream in, DeserializationContext context)
-      throws IOException, PackageDeserializationException {
+      throws IOException, PackageDeserializationException, InterruptedException {
     Build.TargetOrTerminator tot;
     while (!(tot = Build.TargetOrTerminator.parseDelimitedFrom(in)).getIsTerminator()) {
       Build.Target target = tot.getTarget();
@@ -428,8 +430,10 @@ public class PackageDeserializer {
    * @return a new {@link Package} as read from {@code in}
    * @throws PackageDeserializationException on failures deserializing the input
    * @throws IOException on failures reading from {@code in}
+   * @throws InterruptedException 
    */
-  public Package deserialize(InputStream in) throws PackageDeserializationException, IOException {
+  public Package deserialize(InputStream in)
+      throws PackageDeserializationException, IOException, InterruptedException {
     try {
       return deserializeInternal(in);
     } catch (PackageDeserializationException | RuntimeException e) {
@@ -439,7 +443,7 @@ public class PackageDeserializer {
   }
 
   private Package deserializeInternal(InputStream in)
-      throws PackageDeserializationException, IOException {
+      throws PackageDeserializationException, IOException, InterruptedException {
     // Read the initial Package message so we have the data to initialize the builder. We will read
     // the Targets in individually later.
     Build.Package packagePb = Build.Package.parseDelimitedFrom(in);

@@ -388,7 +388,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used; instead tests should only assert on properties of the exposed provider instances and / or
    * the action graph.
    */
-  protected Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target) {
+  protected Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
+      throws InterruptedException {
     return view.getDirectPrerequisites(target);
   }
 
@@ -400,7 +401,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // This means that getConfiguredTarget("//go:two") returns a different configuration than
   // requesting "//go:two" as a dependency. So the configured targets aren't considered "equal".
   // Once we apply dynamic configs to top-level targets this discrepancy will go away.
-  protected void assertDirectPrerequisitesContain(ConfiguredTarget target, ConfiguredTarget dep) {
+  protected void assertDirectPrerequisitesContain(ConfiguredTarget target, ConfiguredTarget dep)
+      throws InterruptedException {
     Iterable<ConfiguredTarget> prereqs = getDirectPrerequisites(target);
     BuildConfiguration depConfig = dep.getConfiguration();
     for (ConfiguredTarget contained : prereqs) {
@@ -437,7 +439,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates and returns a rule context that is equivalent to the one that was used to create the
    * given configured target.
    */
-  protected RuleContext getRuleContext(ConfiguredTarget target) {
+  protected RuleContext getRuleContext(ConfiguredTarget target) throws InterruptedException {
     return view.getRuleContextForTesting(target, new StubAnalysisEnvironment());
   }
 
@@ -445,7 +447,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates and returns a rule context to use for Skylark tests that is equivalent to the one
    * that was used to create the given configured target.
    */
-  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target) {
+  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target)
+      throws InterruptedException {
     // TODO(bazel-team): we need this horrible workaround because CachingAnalysisEnvironment
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
@@ -467,7 +470,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected List<? extends TransitiveInfoCollection> getPrerequisites(ConfiguredTarget target,
-      String attributeName) {
+      String attributeName) throws InterruptedException {
     return getRuleContext(target).getConfiguredTargetMap().get(attributeName);
   }
 
@@ -477,8 +480,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used; instead tests should only assert on properties of the exposed provider instances and / or
    * the action graph.
    */
-  protected <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(
-      ConfiguredTarget target, String attributeName, Class<C> classType) {
+  protected <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(ConfiguredTarget target,
+      String attributeName, Class<C> classType) throws InterruptedException {
     return AnalysisUtils.getProviders(getPrerequisites(target, attributeName), classType);
   }
 
@@ -489,7 +492,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected ImmutableList<Artifact> getPrerequisiteArtifacts(
-      ConfiguredTarget target, String attributeName) {
+      ConfiguredTarget target, String attributeName) throws InterruptedException {
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider provider : getPrerequisites(target, attributeName, FileProvider.class)) {
       Iterables.addAll(result, provider.getFilesToBuild());

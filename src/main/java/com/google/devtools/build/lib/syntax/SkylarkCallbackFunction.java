@@ -31,7 +31,8 @@ public class SkylarkCallbackFunction {
     this.funcallEnv = funcallEnv;
   }
 
-  public Object call(ClassObject ctx, Object... arguments) throws EvalException {
+  public Object call(ClassObject ctx, Object... arguments)
+      throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
       Environment env = Environment.builder(mutability)
           .setSkylark()
@@ -40,7 +41,7 @@ public class SkylarkCallbackFunction {
           .build();
       return callback.call(
           ImmutableList.<Object>builder().add(ctx).add(arguments).build(), null, ast, env);
-    } catch (InterruptedException | ClassCastException | IllegalArgumentException e) {
+    } catch (ClassCastException | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
   }

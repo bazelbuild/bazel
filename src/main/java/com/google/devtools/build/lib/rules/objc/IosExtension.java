@@ -59,7 +59,7 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
   }
 
   @Override
-  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) {
+  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) throws InterruptedException {
     // Nest this target's bundle under final IPA
     return new ObjcProvider.Builder()
         .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))

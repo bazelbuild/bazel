@@ -63,8 +63,10 @@ public final class XcodeSupport {
    * Adds xcode project files to the given builder.
    *
    * @return this xcode support
+   * @throws InterruptedException 
    */
-  XcodeSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
+  XcodeSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
+      throws InterruptedException {
     filesToBuild.add(ruleContext.getImplicitOutputArtifact(PBXPROJ));
     return this;
   }
@@ -94,8 +96,9 @@ public final class XcodeSupport {
    *
    * @param xcodeProvider information about this rule's xcode settings and that of its dependencies
    * @return this xcode support
+   * @throws InterruptedException 
    */
-  XcodeSupport registerActions(XcodeProvider xcodeProvider) {
+  XcodeSupport registerActions(XcodeProvider xcodeProvider) throws InterruptedException {
     registerXcodegenActions(XcodeProvider.Project.fromTopLevelTarget(xcodeProvider));
     return this;
   }
@@ -105,8 +108,9 @@ public final class XcodeSupport {
    *
    * @param xcodeProviders information about several rules' xcode settings
    * @return this xcode support
+   * @throws InterruptedException 
    */
-  XcodeSupport registerActions(Iterable<XcodeProvider> xcodeProviders) {
+  XcodeSupport registerActions(Iterable<XcodeProvider> xcodeProviders) throws InterruptedException {
     registerXcodegenActions(Project.fromTopLevelTargets(xcodeProviders));
     return this;
   }
@@ -199,7 +203,7 @@ public final class XcodeSupport {
     return this;
   }
 
-  private void registerXcodegenActions(XcodeProvider.Project project) {
+  private void registerXcodegenActions(XcodeProvider.Project project) throws InterruptedException {
     Artifact controlFile =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).pbxprojControlArtifact();
 
@@ -220,7 +224,8 @@ public final class XcodeSupport {
         .build(ruleContext));
   }
 
-  private ByteSource xcodegenControlFileBytes(final XcodeProvider.Project project) {
+  private ByteSource xcodegenControlFileBytes(final XcodeProvider.Project project)
+      throws InterruptedException {
     final Artifact pbxproj = ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ);
     final ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     return new ByteSource() {

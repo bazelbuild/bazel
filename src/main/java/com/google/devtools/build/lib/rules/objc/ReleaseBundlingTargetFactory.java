@@ -112,9 +112,10 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
   /**
    * Performs additional configuration of the target. The default implementation does nothing, but
    * subclasses may override it to add logic.
+   * @throws InterruptedException 
    */
   protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext,
-      ReleaseBundlingSupport releaseBundlingSupport) {}
+      ReleaseBundlingSupport releaseBundlingSupport) throws InterruptedException {}
 
   /**
    * Returns the name of this target's bundle.
@@ -125,9 +126,10 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
 
   /**
    * Returns an exposed {@code ObjcProvider} object.
+   * @throws InterruptedException 
    */
   @Nullable
-  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) {
+  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) throws InterruptedException {
     return null;
   }
 

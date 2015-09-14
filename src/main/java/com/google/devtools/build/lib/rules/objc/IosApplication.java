@@ -49,7 +49,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
 
   @Override
   protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext,
-      ReleaseBundlingSupport releaseBundlingSupport) {
+      ReleaseBundlingSupport releaseBundlingSupport) throws InterruptedException {
     // If this is an application built for the simulator, make it runnable.
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {

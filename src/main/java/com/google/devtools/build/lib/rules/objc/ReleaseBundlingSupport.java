@@ -229,8 +229,9 @@ public final class ReleaseBundlingSupport {
    * multi-architecture binary.
    *
    * @return this application support
+   * @throws InterruptedException 
    */
-  ReleaseBundlingSupport registerActions() {
+  ReleaseBundlingSupport registerActions() throws InterruptedException {
     bundleSupport.registerActions(objcProvider);
 
     registerCombineArchitecturesAction();
@@ -329,7 +330,7 @@ public final class ReleaseBundlingSupport {
         .build(ruleContext));
   }
 
-  private Artifact registerBundleSigningActions(Artifact ipaOutput) {
+  private Artifact registerBundleSigningActions(Artifact ipaOutput) throws InterruptedException {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Artifact teamPrefixFile =
@@ -371,10 +372,13 @@ public final class ReleaseBundlingSupport {
    * top level target in a blaze invocation.
    *
    * @return this application support
+   * @throws InterruptedException 
    */
-  ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
-    NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(objcProvider.get(ObjcProvider.DEBUG_SYMBOLS));
+  ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
+      throws InterruptedException {
+    NestedSetBuilder<Artifact> debugSymbolBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().addTransitive(
+            objcProvider.get(ObjcProvider.DEBUG_SYMBOLS));
 
     for (Artifact breakpadFile : getBreakpadFiles().values()) {
       filesToBuild.add(breakpadFile);
@@ -399,8 +403,9 @@ public final class ReleaseBundlingSupport {
   /**
    * Creates the {@link XcTestAppProvider} that can be used if this application is used as an
    * {@code xctest_app}.
+   * @throws InterruptedException 
    */
-  XcTestAppProvider xcTestAppProvider() {
+  XcTestAppProvider xcTestAppProvider() throws InterruptedException {
     // We want access to #import-able things from our test rig's dependency graph, but we don't
     // want to link anything since that stuff is shared automatically by way of the
     // -bundle_loader linker flag.
@@ -445,8 +450,9 @@ public final class ReleaseBundlingSupport {
 
   /**
    * Returns a {@link RunfilesSupport} that uses the provided runner script as the executable.
+   * @throws InterruptedException 
    */
-  RunfilesSupport runfilesSupport(Artifact runnerScript) {
+  RunfilesSupport runfilesSupport(Artifact runnerScript) throws InterruptedException {
     Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
     Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifact(ipaFile)

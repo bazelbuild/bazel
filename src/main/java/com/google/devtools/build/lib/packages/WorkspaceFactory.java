@@ -140,7 +140,7 @@ public class WorkspaceFactory {
     return new BuiltinFunction(ruleClassName,
         FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
       public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
-          throws EvalException {
+          throws EvalException, InterruptedException {
         try {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");

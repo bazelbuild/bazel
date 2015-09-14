@@ -83,7 +83,7 @@ public class RuleFactory {
       FuncallExpression ast,
       Location location,
       @Nullable Environment env)
-      throws InvalidRuleException {
+      throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
     Object nameObject = attributeValues.get("name");
@@ -149,7 +149,7 @@ public class RuleFactory {
       FuncallExpression ast,
       Location location,
       Environment env)
-      throws InvalidRuleException, NameConflictException {
+      throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule = createRule(
         pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location, env);
     pkgBuilder.addRule(rule);
@@ -162,7 +162,7 @@ public class RuleFactory {
       Map<String, Object> attributeValues,
       FuncallExpression ast,
       Environment env)
-      throws InvalidRuleException, NameConflictException {
+      throws InvalidRuleException, NameConflictException, InterruptedException {
     return createAndAddRule(
         context.pkgBuilder,
         ruleClass,

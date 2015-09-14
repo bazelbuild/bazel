@@ -30,7 +30,7 @@ public abstract class PyTest implements RuleConfiguredTargetFactory {
 protected abstract PythonSemantics createSemantics();
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     PythonSemantics semantics = createSemantics();
     PyCommon common = new PyCommon(ruleContext);
     common.initCommon(getDefaultPythonVersion(ruleContext));

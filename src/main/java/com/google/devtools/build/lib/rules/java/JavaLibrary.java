@@ -51,13 +51,14 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
   }
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     JavaCommon common = new JavaCommon(ruleContext, semantics);
     RuleConfiguredTargetBuilder builder = init(ruleContext, common);
     return builder != null ? builder.build() : null;
   }
 
-  public RuleConfiguredTargetBuilder init(RuleContext ruleContext, final JavaCommon common) {
+  public RuleConfiguredTargetBuilder init(RuleContext ruleContext, final JavaCommon common)
+      throws InterruptedException {
     common.initializeJavacOpts();
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 

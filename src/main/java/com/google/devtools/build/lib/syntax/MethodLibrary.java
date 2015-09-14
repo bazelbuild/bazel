@@ -1082,7 +1082,7 @@ public class MethodLibrary {
   private static BuiltinFunction struct = new BuiltinFunction("struct") {
       @SuppressWarnings("unchecked")
     public SkylarkClassObject invoke(Map<String, Object> kwargs, Location loc)
-        throws EvalException, InterruptedException {
+        throws EvalException {
       return new SkylarkClassObject(kwargs, loc);
     }
   };
@@ -1183,7 +1183,7 @@ public class MethodLibrary {
       useEnvironment = true)
   private static BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
     public Object invoke(Object input, Location loc, Environment env)
-        throws EvalException, ConversionException, InterruptedException {
+        throws EvalException, ConversionException {
       int count = 0;
       List<SkylarkList> result = Lists.newArrayList();
       for (Object obj : Type.OBJECT_LIST.convert(input, "input")) {
@@ -1217,7 +1217,7 @@ public class MethodLibrary {
   private static final BuiltinFunction range = new BuiltinFunction("range") {
       public Object invoke(Integer startOrStop, Object stopOrNone, Integer step, Location loc,
           Environment env)
-        throws EvalException, ConversionException, InterruptedException {
+        throws EvalException, ConversionException {
       int start;
       int stop;
       if (stopOrNone == Runtime.NONE) {
@@ -1255,7 +1255,7 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
   private static final BuiltinFunction select = new BuiltinFunction("select") {
-    public Object invoke(Map<?, ?> dict) throws EvalException, InterruptedException {
+    public Object invoke(Map<?, ?> dict) throws EvalException {
       return SelectorList.of(new SelectorValue(dict));
     }
   };
@@ -1412,7 +1412,7 @@ public class MethodLibrary {
       returnType = SkylarkList.class, useLocation = true)
   private static final BuiltinFunction zip = new BuiltinFunction("zip") {
     public SkylarkList invoke(SkylarkList args, Location loc)
-        throws EvalException, InterruptedException {
+        throws EvalException {
       Iterator<?>[] iterators = new Iterator<?>[args.size()];
       for (int i = 0; i < args.size(); i++) {
         iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();

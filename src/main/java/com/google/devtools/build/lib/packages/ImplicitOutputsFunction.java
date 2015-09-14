@@ -59,10 +59,11 @@ public abstract class ImplicitOutputsFunction {
   public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
     public abstract ImmutableMap<String, String> calculateOutputs(AttributeMap map)
-        throws EvalException;
+        throws EvalException, InterruptedException;
 
     @Override
-    public Iterable<String> getImplicitOutputs(AttributeMap map) throws EvalException {
+    public Iterable<String> getImplicitOutputs(AttributeMap map)
+        throws EvalException, InterruptedException {
       return calculateOutputs(map).values();
     }
   }
@@ -83,7 +84,8 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) throws EvalException {
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map)
+        throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : map.getAttributeNames()) {
         Type<?> attrType = map.getAttributeType(attrName);
@@ -175,7 +177,8 @@ public abstract class ImplicitOutputsFunction {
    * Given a newly-constructed Rule instance (with attributes populated),
    * returns the list of output files that this rule produces implicitly.
    */
-  public abstract Iterable<String> getImplicitOutputs(AttributeMap rule) throws EvalException;
+  public abstract Iterable<String> getImplicitOutputs(AttributeMap rule)
+      throws EvalException, InterruptedException;
 
   /**
    * The implicit output function that returns no files.

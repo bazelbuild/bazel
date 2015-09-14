@@ -219,7 +219,7 @@ public abstract class DependencyResolver {
   public final ListMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node, BuildConfiguration hostConfig, AspectDefinition aspect,
       AspectParameters aspectParameters, Set<ConfigMatchingProvider> configConditions)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
     ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
@@ -250,7 +250,7 @@ public abstract class DependencyResolver {
   private ListMultimap<Attribute, LabelAndConfiguration> resolveAttributes(
       Rule rule, AspectDefinition aspect, BuildConfiguration configuration,
       BuildConfiguration hostConfiguration, Set<ConfigMatchingProvider> configConditions)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
     attributeMap.validateAttributes();
     List<Attribute> attributes;
@@ -431,7 +431,7 @@ public abstract class DependencyResolver {
       AttributeMap attributeMap,
       Iterable<Attribute> attributes,
       ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> builder)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     for (Attribute attribute : attributes) {
       if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
         continue;
@@ -501,7 +501,7 @@ public abstract class DependencyResolver {
    */
   public final Collection<Dependency> dependentNodes(
       TargetAndConfiguration node, BuildConfiguration hostConfig,
-      Set<ConfigMatchingProvider> configConditions) {
+      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     try {
       return ImmutableSet.copyOf(dependentNodeMap(node, hostConfig, /*aspect=*/null,
           AspectParameters.EMPTY, configConditions).values());

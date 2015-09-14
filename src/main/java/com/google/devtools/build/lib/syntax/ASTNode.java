@@ -41,16 +41,16 @@ public abstract class ASTNode implements Serializable {
   protected final EvalException handleException(Exception original) {
     // If there is already a non-empty stack trace, we only add this node iff it describes a
     // new scope (e.g. FuncallExpression).
-    if (original instanceof EvalExceptionWithStackTrace && isNewScope()) {
+    if (original instanceof EvalExceptionWithStackTrace) {
       EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      real.registerNode(this);
+      if (isNewScope()) {
+        real.registerNode(this);
+      }
       return real;
     }
 
-    // If the exception is an instance of a subclass of EvalException (such as
-    // ReturnStatement.ReturnException and FlowStatement.FlowException), we just return it
-    // unchanged.
-    if (original instanceof EvalException && !original.getClass().equals(EvalException.class)) {
+    // Returns the original exception if it cannot be attached to a stack trace.
+    if (original instanceof EvalException && !((EvalException) original).canBeAddedToStackTrace()) {
       return (EvalException) original;
     }
 

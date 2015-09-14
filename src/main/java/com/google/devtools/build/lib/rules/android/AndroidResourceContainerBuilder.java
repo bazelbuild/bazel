@@ -53,8 +53,10 @@ public final class AndroidResourceContainerBuilder {
     return this;
   }
 
-  /** Creates a {@link ResourceContainer} from a {@link RuleContext}. */
-  public ResourceContainer buildFromRule(RuleContext ruleContext, Artifact apk) {
+  /** Creates a {@link ResourceContainer} from a {@link RuleContext}. 
+   * @throws InterruptedException */
+  public ResourceContainer buildFromRule(RuleContext ruleContext, Artifact apk)
+      throws InterruptedException {
     Preconditions.checkNotNull(this.manifest);
     Preconditions.checkNotNull(this.data);
     return new AndroidResourcesProvider.ResourceContainer(

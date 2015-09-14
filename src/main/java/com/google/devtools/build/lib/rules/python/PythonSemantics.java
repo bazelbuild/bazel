@@ -65,7 +65,8 @@ public interface PythonSemantics {
 
   /**
    * Called at the end of the analysis of {@code py_binary} rules.
+   * @throws InterruptedException 
    */
   void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      PyCommon common);
+      PyCommon common) throws InterruptedException;
 }

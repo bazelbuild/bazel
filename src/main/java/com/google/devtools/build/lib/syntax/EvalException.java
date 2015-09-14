@@ -159,6 +159,14 @@ public class EvalException extends Exception {
   }
 
   /**
+   * Returns whether this exception can be added to a stack trace created by {@link
+   * EvalExceptionWithStackTrace}.
+   */
+  public boolean canBeAddedToStackTrace() {
+    return true;
+  }
+
+  /**
    * A class to support a special case of EvalException when the cause of the error is an
    * Exception during a direct Java call. Allow the throwing code to provide context in a message.
    */

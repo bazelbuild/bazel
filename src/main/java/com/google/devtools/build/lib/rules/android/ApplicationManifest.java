@@ -99,7 +99,8 @@ public final class ApplicationManifest {
     }
   }
 
-  public ApplicationManifest addStubApplication(RuleContext ruleContext) {
+  public ApplicationManifest addStubApplication(RuleContext ruleContext)
+      throws InterruptedException {
 
     Artifact stubManifest =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.STUB_APPLICATON_MANIFEST);
@@ -199,14 +200,15 @@ public final class ApplicationManifest {
     return builder.build();
   }
 
-  /** Packages up the manifest with assets from the rule and dependent resources. */
+  /** Packages up the manifest with assets from the rule and dependent resources. 
+   * @throws InterruptedException */
   public ResourceApk packWithAssets(
       Artifact resourceApk,
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
       Artifact rTxt,
       boolean incremental,
-      Artifact proguardCfg) {
+      Artifact proguardCfg) throws InterruptedException {
     try {
       LocalResourceContainer data = new LocalResourceContainer.Builder()
           .withAssets(
@@ -237,7 +239,8 @@ public final class ApplicationManifest {
     }
   }
 
-  /** Packages up the manifest with resource and assets from the rule and dependent resources. */
+  /** Packages up the manifest with resource and assets from the rule and dependent resources. 
+   * @throws InterruptedException */
   public ResourceApk packWithDataAndResources(
       Artifact resourceApk,
       RuleContext ruleContext,
@@ -250,7 +253,7 @@ public final class ApplicationManifest {
       String applicationId,
       String versionCode,
       String versionName,
-      boolean incremental, Artifact proguardCfg) {
+      boolean incremental, Artifact proguardCfg) throws InterruptedException {
     try {
       LocalResourceContainer data = new LocalResourceContainer.Builder()
           .withAssets(
@@ -301,7 +304,7 @@ public final class ApplicationManifest {
       String versionCode,
       String versionName,
       boolean incremental,
-      LocalResourceContainer data, Artifact proguardCfg) {
+      LocalResourceContainer data, Artifact proguardCfg) throws InterruptedException {
     ResourceContainer resourceContainer = checkForInlinedResources(
         new AndroidResourceContainerBuilder()
             .withData(data)
@@ -395,6 +398,7 @@ public final class ApplicationManifest {
 
   /**
    * Packages up the manifest with resources, and generates the R.java.
+   * @throws InterruptedException 
    *
    * @deprecated in favor of {@link ApplicationManifest#packWithDataAndResources}.
    */
@@ -404,7 +408,7 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       NestedSet<ResourceContainer> resourceContainers,
       boolean createSource,
-      Artifact proguardCfg) {
+      Artifact proguardCfg) throws InterruptedException {
 
     TransitiveInfoCollection resourcesPrerequisite =
         ruleContext.getPrerequisite("resources", Mode.TARGET);

@@ -227,8 +227,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       AspectDefinition aspectDefinition, AspectParameters aspectParameters, 
       Set<ConfigMatchingProvider> configConditions, RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration, NestedSetBuilder<Package> transitivePackages)
-      throws DependencyEvaluationException, AspectCreationException {
-
+      throws DependencyEvaluationException, AspectCreationException, InterruptedException {
     // Create the map from attributes to list of (target, configuration) pairs.
     ListMultimap<Attribute, Dependency> depValueNames;
     try {

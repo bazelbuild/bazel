@@ -57,7 +57,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
   protected abstract AndroidSemantics createAndroidSemantics();
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
     if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
@@ -261,8 +261,10 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
   }
 
-  private static Artifact mergeJarsFromSrcs(RuleContext ruleContext, Artifact inputJar) {
-    ImmutableList<Artifact> jarSources = ruleContext
+  private static Artifact mergeJarsFromSrcs(RuleContext ruleContext, Artifact inputJar)
+      throws InterruptedException {
+    ImmutableList<Artifact> jarSources =
+        ruleContext
         .getPrerequisiteArtifacts("srcs", Mode.TARGET).filter(JavaSemantics.JAR).list();
     if (jarSources.isEmpty()) {
       return inputJar;

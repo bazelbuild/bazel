@@ -34,6 +34,13 @@ public class EvalExceptionWithStackTrace extends EvalException {
     registerNode(culprit);
   }
 
+  @Override
+  public boolean canBeAddedToStackTrace() {
+    // Doesn't make any sense to add this exception to another instance of
+    // EvalExceptionWithStackTrace.
+    return false;
+  }
+
   /**
    * Returns the appropriate location for this exception.
    *

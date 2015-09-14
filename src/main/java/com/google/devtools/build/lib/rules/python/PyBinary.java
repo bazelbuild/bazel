@@ -40,7 +40,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
   protected abstract PythonSemantics createSemantics();
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     PyCommon common = new PyCommon(ruleContext);
     common.initCommon(common.getDefaultPythonVersion());
 
@@ -51,8 +51,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  static RuleConfiguredTargetBuilder init(
-      RuleContext ruleContext, PythonSemantics semantics, PyCommon common) {
+  static RuleConfiguredTargetBuilder init(RuleContext ruleContext, PythonSemantics semantics,
+      PyCommon common) throws InterruptedException {
     CcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
 
     List<Artifact> srcs = common.validateSrcs();

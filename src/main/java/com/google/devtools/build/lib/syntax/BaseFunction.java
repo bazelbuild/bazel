@@ -410,7 +410,7 @@ public abstract class BaseFunction implements Serializable {
    * @param ast the expression for this function's definition
    * @param env the Environment in the function is called
    * @return the value resulting from evaluating the function with the given arguments
-   * @throws construction of EvalException-s containing source information.
+   * @throws EvalException-s containing source information.
    */
   public Object call(List<Object> args,
       @Nullable Map<String, Object> kwargs,
@@ -435,6 +435,7 @@ public abstract class BaseFunction implements Serializable {
    * @param args an array of argument values sorted as per the signature.
    * @param ast the source code for the function if user-defined
    * @param env the lexical environment of the function call
+   * @throws InterruptedException may be thrown in the function implementations.
    */
   // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
   protected Object call(Object[] args,
