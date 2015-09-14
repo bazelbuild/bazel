@@ -133,6 +133,15 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     }
 
     /**
+     * Adds non-propagated header search paths for this target. Each relative path is interpreted
+     * relative to the given root, such as {@code "$(WORKSPACE_ROOT)"}.
+     */
+    public Builder addNonPropagatedHeaderSearchPaths(String root, Iterable<PathFragment> paths) {
+      this.nonPropagatedHeaderSearchPaths.addAll(rootEach(root, paths));
+      return this;
+    }
+
+    /**
      * Sets the Info.plist for the bundle represented by this provider.
      */
     public Builder setBundleInfoplist(Artifact bundleInfoplist) {
@@ -656,7 +665,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
   /**
    * Prepends the given path to each path in {@code paths}. Empty paths are
-   * transformed to the value of {@code variable} rather than {@code variable + "/."}
+   * transformed to the value of {@code variable} rather than {@code variable + "/."}. Absolute
+   * paths are returned without modifications.
    */
   @VisibleForTesting
   static Iterable<String> rootEach(final String prefix, Iterable<PathFragment> paths) {
@@ -669,6 +679,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       public String apply(PathFragment input) {
         if (input.getSafePathString().equals(".")) {
           return prefix;
+        } else if (input.isAbsolute()) {
+          return input.getSafePathString();
         } else {
           return prefix + "/" + input.getSafePathString();
         }
