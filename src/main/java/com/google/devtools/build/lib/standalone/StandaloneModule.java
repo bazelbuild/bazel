@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
  * StandaloneModule provides pluggable functionality for blaze.
@@ -36,9 +37,9 @@ public class StandaloneModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime runtime, Command command) {
-    this.runtime = runtime;
-    runtime.getEventBus().register(this);
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    this.runtime = env.getRuntime();
+    env.getEventBus().register(this);
   }
 
   @Subscribe

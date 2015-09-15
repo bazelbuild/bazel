@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.Environment
 import com.google.devtools.build.lib.bazel.dash.DashProtos.BuildData.Target.TestData;
 import com.google.devtools.build.lib.bazel.dash.DashProtos.Log;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -77,9 +79,9 @@ public class DashModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime runtime, Command command) {
-    this.runtime = runtime;
-    runtime.getEventBus().register(this);
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    this.runtime = env.getRuntime();
+    env.getEventBus().register(this);
   }
 
   @Override
@@ -93,7 +95,7 @@ public class DashModule extends BlazeModule {
   public void handleOptions(OptionsProvider optionsProvider) {
     DashOptions options = optionsProvider.getOptions(DashOptions.class);
     sender = (options == null || !options.useDash)
-      ? new NoOpSender() : new Sender(options.url, runtime, executorService);
+      ? new NoOpSender() : new Sender(options.url, runtime, runtime.getReporter(), executorService);
     if (optionsBuildData != null) {
       sender.send("options", optionsBuildData);
     }
@@ -229,13 +231,13 @@ public class DashModule extends BlazeModule {
     private final OutErr outErr;
     private final ExecutorService executorService;
 
-    public Sender(String url, BlazeRuntime runtime, ExecutorService executorService) {
+    public Sender(String url, BlazeRuntime runtime, Reporter reporter,
+        ExecutorService executorService) {
       this.url = url;
       this.buildId = runtime.getCommandId().toString();
-      this.outErr = runtime.getReporter().getOutErr();
+      this.outErr = reporter.getOutErr();
       this.executorService = executorService;
-      runtime
-          .getReporter()
+      reporter
           .handle(Event.info("Results are being streamed to " + url + "/result/" + buildId));
     }
 

@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.common.options.OptionsBase;
@@ -91,12 +91,13 @@ public class WebStatusServerModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) throws AbruptExitException {
+  public void beforeCommand(Command command, CommandEnvironment env)
+      throws AbruptExitException {
     if (!running) {
       return;
     }
     collector =
-        new WebStatusEventCollector(blazeRuntime.getEventBus(), blazeRuntime.getReporter(), this);
+        new WebStatusEventCollector(env.getEventBus(), env.getReporter(), this);
   }
 
   public void commandStarted() {

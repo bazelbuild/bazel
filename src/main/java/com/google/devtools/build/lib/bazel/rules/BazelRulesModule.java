@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
@@ -131,9 +132,9 @@ public class BazelRulesModule extends BlazeModule {
   private OptionsProvider optionsProvider;
 
   @Override
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
-    this.runtime = blazeRuntime;
-    runtime.getEventBus().register(this);
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    this.runtime = env.getRuntime();
+    env.getEventBus().register(this);
   }
 
   @Override

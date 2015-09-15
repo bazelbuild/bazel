@@ -39,7 +39,7 @@ public interface BlazeCommand {
    * shut down and the exit status will be 0 (in case the shutdown succeeds
    * without error).
    *
-   * @param runtime The Blaze runtime requesting the execution of the command
+   * @param env The environment for the current command invocation
    * @param options A parsed options instance initialized with the values for
    *     the options specified in {@link Command#options()}.
    *
@@ -47,7 +47,7 @@ public interface BlazeCommand {
    * @throws BlazeCommandDispatcher.ShutdownBlazeServerException Indicates
    *     that the command wants to shutdown the Blaze server.
    */
-  ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
+  ExitCode exec(CommandEnvironment env, OptionsProvider options)
       throws BlazeCommandDispatcher.ShutdownBlazeServerException;
 
   /**
@@ -55,9 +55,10 @@ public interface BlazeCommand {
    * requirements. This method is called after all command-line and rc file options have been
    * parsed.
    *
-   * @param runtime The Blaze runtime requesting the execution of the command
+   * @param env the command environment of the currently running command
+   * @param optionsParser the options parser for the current command
    *
    * @throws AbruptExitException if something went wrong
    */
-  void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) throws AbruptExitException;
+  void editOptions(CommandEnvironment env, OptionsParser optionsParser) throws AbruptExitException;
 }

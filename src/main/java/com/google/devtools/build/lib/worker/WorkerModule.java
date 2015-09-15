@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 
@@ -37,9 +37,10 @@ import java.io.IOException;
  * A module that adds the WorkerActionContextProvider to the available action context providers.
  */
 public class WorkerModule extends BlazeModule {
-  private BlazeRuntime blazeRuntime;
-  private BuildRequest buildRequest;
   private WorkerPool workers;
+
+  private CommandEnvironment env;
+  private BuildRequest buildRequest;
   private boolean verbose;
 
   @Override
@@ -50,16 +51,16 @@ public class WorkerModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
-    this.blazeRuntime = Preconditions.checkNotNull(blazeRuntime);
-    blazeRuntime.getEventBus().register(this);
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    this.env = env;
+    env.getEventBus().register(this);
 
     if (workers == null) {
-      Path logDir = blazeRuntime.getOutputBase().getRelative("worker-logs");
+      Path logDir = env.getRuntime().getOutputBase().getRelative("worker-logs");
       try {
         logDir.createDirectory();
       } catch (IOException e) {
-        blazeRuntime
+        env
             .getReporter()
             .handle(Event.error("Could not create directory for worker logs: " + logDir));
       }
@@ -68,7 +69,7 @@ public class WorkerModule extends BlazeModule {
       config.setTimeBetweenEvictionRunsMillis(10 * 1000);
 
       workers = new WorkerPool(new WorkerFactory(), config);
-      workers.setReporter(blazeRuntime.getReporter());
+      workers.setReporter(env.getReporter());
       workers.setLogDirectory(logDir);
     }
   }
@@ -89,13 +90,13 @@ public class WorkerModule extends BlazeModule {
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
-    Preconditions.checkNotNull(blazeRuntime);
+    Preconditions.checkNotNull(env);
     Preconditions.checkNotNull(buildRequest);
     Preconditions.checkNotNull(workers);
 
     return ImmutableList.<ActionContextProvider>of(
         new WorkerActionContextProvider(
-            blazeRuntime, buildRequest, workers, blazeRuntime.getEventBus()));
+            env.getRuntime(), buildRequest, workers, env.getEventBus()));
   }
 
   @Override
@@ -107,7 +108,7 @@ public class WorkerModule extends BlazeModule {
   public void buildComplete(BuildCompleteEvent event) {
     if (workers != null && buildRequest.getOptions(WorkerOptions.class).workerQuitAfterBuild) {
       if (verbose) {
-        blazeRuntime
+        env
             .getReporter()
             .handle(Event.info("Build completed, shutting down worker pool..."));
       }
@@ -123,7 +124,7 @@ public class WorkerModule extends BlazeModule {
   public void buildInterrupted(BuildInterruptedEvent event) {
     if (workers != null) {
       if (verbose) {
-        blazeRuntime
+        env
             .getReporter()
             .handle(Event.info("Build interrupted, shutting down worker pool..."));
       }
@@ -134,7 +135,8 @@ public class WorkerModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
-    this.blazeRuntime = null;
+    this.env = null;
     this.buildRequest = null;
+    this.verbose = false;
   }
 }

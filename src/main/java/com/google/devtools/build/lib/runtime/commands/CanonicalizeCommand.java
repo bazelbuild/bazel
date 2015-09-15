@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -51,11 +52,12 @@ public final class CanonicalizeCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    BlazeRuntime runtime = env.getRuntime();
     String commandName = options.getOptions(Options.class).forCommand;
     BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
-      runtime.getReporter().handle(Event.error("Not a valid command: '" + commandName
+      env.getReporter().handle(Event.error("Not a valid command: '" + commandName
           + "' (should be one of " + Joiner.on(", ").join(runtime.getCommandMap().keySet()) + ")"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
@@ -65,15 +67,15 @@ public final class CanonicalizeCommand implements BlazeCommand {
     try {
       List<String> result = OptionsParser.canonicalize(optionsClasses, options.getResidue());
       for (String piece : result) {
-        runtime.getReporter().getOutErr().printOutLn(piece);
+        env.getReporter().getOutErr().printOutLn(piece);
       }
     } catch (OptionsParsingException e) {
-      runtime.getReporter().handle(Event.error(e.getMessage()));
+      env.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     return ExitCode.SUCCESS;
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
 }

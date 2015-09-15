@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsBase;
 
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 public class SandboxModule extends BlazeModule {
   private final ExecutorService backgroundWorkers = Executors.newCachedThreadPool();
   private BuildRequest buildRequest;
+  private CommandEnvironment env;
   private BlazeRuntime runtime;
   private Boolean sandboxingSupported = null;
 
@@ -48,7 +50,7 @@ public class SandboxModule extends BlazeModule {
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
     Preconditions.checkNotNull(buildRequest);
-    Preconditions.checkNotNull(runtime);
+    Preconditions.checkNotNull(env);
 
     // Cache
     if (sandboxingSupported == null) {
@@ -64,7 +66,7 @@ public class SandboxModule extends BlazeModule {
     // warning to the user if they can't do anything about it.
     if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing
         && OS.getCurrent() == OS.LINUX) {
-      runtime.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
+      env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
     }
 
     return ImmutableList.of();
@@ -72,7 +74,7 @@ public class SandboxModule extends BlazeModule {
 
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    Preconditions.checkNotNull(runtime);
+    Preconditions.checkNotNull(env);
 
     if (sandboxingSupported == null) {
       sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
@@ -93,14 +95,10 @@ public class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime runtime, Command command) {
-    if (this.runtime == null) {
-      this.runtime = runtime;
-    } else {
-      // The BlazeRuntime is guaranteed to never change.
-      Preconditions.checkArgument(runtime == this.runtime);
-    }
-    runtime.getEventBus().register(this);
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    this.env = env;
+    this.runtime = env.getRuntime();
+    env.getEventBus().register(this);
   }
 
   @Subscribe

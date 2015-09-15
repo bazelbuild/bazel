@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -85,6 +84,7 @@ import com.google.devtools.build.lib.rules.fileset.FilesetActionContextImpl;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -114,8 +114,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * This class manages the execution phase. The entry point is {@link #executeBuild}.
@@ -174,6 +172,7 @@ public class ExecutionTool {
 
   static final Logger LOG = Logger.getLogger(ExecutionTool.class.getName());
 
+  private final CommandEnvironment env;
   private final BlazeRuntime runtime;
   private final BuildRequest request;
   private BlazeExecutor executor;
@@ -184,28 +183,9 @@ public class ExecutionTool {
       new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
   private List<ActionContext> strategies = new ArrayList<>();
 
-  private ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
-      ActionContextConsumer... extraConsumers) {
-    ImmutableList.Builder<ActionContextConsumer> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextConsumers());
-    }
-    builder.add(extraConsumers);
-    return builder.build();
-  }
-
-  private ImmutableList<ActionContextProvider> getActionContextProvidersFromModules(
-      ActionContextProvider... extraProviders) {
-    ImmutableList.Builder<ActionContextProvider> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextProviders());
-    }
-    builder.add(extraProviders);
-    return builder.build();
-  }
-
-  ExecutionTool(final BlazeRuntime runtime, BuildRequest request) throws ExecutorInitException {
-    this.runtime = runtime;
+  ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
+    this.env = env;
+    this.runtime = env.getRuntime();
     this.request = request;
 
     // Create tools before getting the strategies from the modules as some of them need tools to
@@ -214,14 +194,16 @@ public class ExecutionTool {
 
     this.actionContextProviders =
         getActionContextProvidersFromModules(
+            runtime,
             new FilesetActionContextImpl.Provider(
-                runtime.getReporter(), runtime.getWorkspaceName()),
+                env.getReporter(), runtime.getWorkspaceName()),
             new SimpleActionContextProvider(
                 new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools())));
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
     ImmutableList<ActionContextConsumer> actionContextConsumers =
         getActionContextConsumersFromModules(
+            runtime,
             // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own,
             // instead these dependencies should be added to the ActionContextConsumer of the module
             // that actually depends on them.
@@ -284,6 +266,26 @@ public class ExecutionTool {
     }
   }
 
+  private static ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
+      BlazeRuntime runtime, ActionContextConsumer... extraConsumers) {
+    ImmutableList.Builder<ActionContextConsumer> builder = ImmutableList.builder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      builder.addAll(module.getActionContextConsumers());
+    }
+    builder.add(extraConsumers);
+    return builder.build();
+  }
+
+  private static ImmutableList<ActionContextProvider> getActionContextProvidersFromModules(
+      BlazeRuntime runtime, ActionContextProvider... extraProviders) {
+    ImmutableList.Builder<ActionContextProvider> builder = ImmutableList.builder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      builder.addAll(module.getActionContextProviders());
+    }
+    builder.add(extraProviders);
+    return builder.build();
+  }
+
   private static ExecutorInitException makeExceptionForInvalidStrategyValue(String value,
       String strategy, String validValues) {
     return new ExecutorInitException(String.format(
@@ -307,7 +309,7 @@ public class ExecutionTool {
         runtime.getDirectories().getExecRoot(),
         runtime.getDirectories().getOutputPath(),
         getReporter(),
-        getEventBus(),
+        env.getEventBus(),
         runtime.getClock(),
         request,
         request.getOptions(ExecutionOptions.class).verboseFailures,
@@ -339,7 +341,7 @@ public class ExecutionTool {
    * creation
    */
   void executeBuild(UUID buildId, AnalysisResult analysisResult,
-      BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
+      BuildResult buildResult,
       BuildConfigurationCollection configurations,
       ImmutableMap<PathFragment, Path> packageRoots)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
@@ -375,6 +377,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = getActionCache();
+    SkyframeExecutor skyframeExecutor = runtime.getSkyframeExecutor();
     Builder builder = createBuilder(request, executor, actionCache, skyframeExecutor);
 
     //
@@ -383,7 +386,7 @@ public class ExecutionTool {
     //
 
     Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
-    getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+    env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
 
     getReporter().handle(Event.progress("Building..."));
 
@@ -457,7 +460,7 @@ public class ExecutionTool {
         getReporter().handle(Event.progress("Building complete."));
       }
 
-      runtime.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0L,
+      env.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0L,
           skyframeExecutor.getOutputDirtyFilesAndClear(),
           skyframeExecutor.getModifiedFilesDuringPreviousBuildAndClear()));
 
@@ -638,7 +641,7 @@ public class ExecutionTool {
         successfulTargets.add(target);
       }
     }
-    getEventBus().post(
+    env.getEventBus().post(
         new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
     result.setSuccessfulTargets(successfulTargets);
   }
@@ -882,7 +885,7 @@ public class ExecutionTool {
     } finally {
       actionCacheSaveTime = p.completeAndGetElapsedTimeNanos();
     }
-    runtime.getEventBus().post(new CachesSavedEvent(
+    env.getEventBus().post(new CachesSavedEvent(
         actionCacheSaveTime, actionCacheSizeInBytes));
   }
 
@@ -906,11 +909,7 @@ public class ExecutionTool {
   }
 
   private Reporter getReporter() {
-    return runtime.getReporter();
-  }
-
-  private EventBus getEventBus() {
-    return runtime.getEventBus();
+    return env.getReporter();
   }
 
   private BuildView getView() {

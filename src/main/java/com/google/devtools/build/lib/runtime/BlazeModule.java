@@ -221,8 +221,16 @@ public abstract class BlazeModule {
    * Called before each command.
    */
   @SuppressWarnings("unused")
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command)
+  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+  }
+
+  /**
+   * Called before each command.
+   */
+  @SuppressWarnings("unused")
+  public void beforeCommand(BlazeRuntime blazeRuntime, Command command, CommandEnvironment env)
       throws AbruptExitException {
+    beforeCommand(command, env);
   }
 
   /**

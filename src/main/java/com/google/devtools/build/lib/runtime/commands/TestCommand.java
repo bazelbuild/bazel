@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.rules.test.TestStrategy;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
@@ -63,15 +65,15 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
       throws AbruptExitException {
-    ProjectFileSupport.handleProjectFiles(runtime, optionsParser, commandName());
+    ProjectFileSupport.handleProjectFiles(env, optionsParser, commandName());
 
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-        runtime.getReporter().handle(Event.warn(
+        env.getReporter().handle(Event.warn(
             "Streamed test output requested so all tests will be run locally, without sharding, " +
              "one at a time"));
         optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
@@ -84,36 +86,37 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
-        runtime.getExecRoot(),
+        env.getDirectories().getExecRoot(),
         options.getOptions(TestSummaryOptions.class),
         options.getOptions(ExecutionOptions.class),
-        runtime.getEventBus());
+        env.getEventBus());
 
-    printer = new AnsiTerminalPrinter(runtime.getReporter().getOutErr().getOutputStream(),
+    printer = new AnsiTerminalPrinter(env.getReporter().getOutErr().getOutputStream(),
         options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
 
     // Initialize test handler.
     AggregatingTestListener testListener = new AggregatingTestListener(
-        resultAnalyzer, runtime.getEventBus(), runtime.getReporter());
+        resultAnalyzer, env.getEventBus(), env.getReporter());
 
-    runtime.getEventBus().register(testListener);
-    return doTest(runtime, options, testListener);
+    env.getEventBus().register(testListener);
+    return doTest(env, options, testListener);
   }
 
-  private ExitCode doTest(BlazeRuntime runtime,
+  private ExitCode doTest(CommandEnvironment env,
       OptionsProvider options,
       AggregatingTestListener testListener) {
+    BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
     List<String> targets = ProjectFileSupport.getTargets(runtime, options);
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
-        runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
     request.setRunTests();
 
-    BuildResult buildResult = runtime.getBuildTool().processRequest(request, null);
+    BuildResult buildResult = new BuildTool(env).processRequest(request, null);
 
     Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
     // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
@@ -121,13 +124,13 @@ public class TestCommand implements BlazeCommand {
       // This can happen if there were errors in the target parsing or loading phase
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
-      runtime.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
+      env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
       return buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
-      runtime.getReporter().handle(Event.error(
+      env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
       return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
     }

@@ -27,7 +27,6 @@ import java.util.logging.Logger;
  * Shutdown log output when Bazel runs in batch mode
  */
 public class BazelShutdownLoggerModule extends BlazeModule {
-
   private Logger globalLogger;
 
   @Override

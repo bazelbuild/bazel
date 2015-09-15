@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.profiler.chart.HtmlCreator;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.TimeUtilities;
@@ -138,10 +139,11 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(final BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(final CommandEnvironment env, OptionsProvider options) {
+    final BlazeRuntime runtime = env.getRuntime();
     ProfileOptions opts =
         options.getOptions(ProfileOptions.class);
 
@@ -160,9 +162,9 @@ public final class ProfileCommand implements BlazeCommand {
       }
     };
 
-    PrintStream out = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
+    PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
     try {
-      runtime.getReporter().handle(Event.warn(
+      env.getReporter().handle(Event.warn(
           null, "This information is intended for consumption by Blaze developers"
               + " only, and may change at any time.  Script against it at your own risk"));
 
@@ -177,7 +179,7 @@ public final class ProfileCommand implements BlazeCommand {
             Path htmlFile =
                 profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
 
-            runtime.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
+            env.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
 
             HtmlCreator.createHtml(
                 info,
@@ -189,7 +191,7 @@ public final class ProfileCommand implements BlazeCommand {
             createText(runtime, info, out, opts);
           }
         } catch (IOException e) {
-          runtime.getReporter().handle(Event.error(
+          env.getReporter().handle(Event.error(
               null, "Failed to process file " + name + ": " + e.getMessage()));
         }
       }

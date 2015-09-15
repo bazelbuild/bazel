@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -47,12 +47,11 @@ public final class ShutdownCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
+  public ExitCode exec(CommandEnvironment env, OptionsProvider options)
       throws ShutdownBlazeServerException {
-
     int limit = options.getOptions(Options.class).heapSizeLimit;
 
     // Iff limit is non-zero, shut down the server if total memory exceeds the

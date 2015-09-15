@@ -64,8 +64,8 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRul
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.Clock;
@@ -119,9 +119,9 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(BlazeRuntime runtime, Command command) {
-    downloadFunction.setReporter(runtime.getReporter());
-    gitCloneFunction.setReporter(runtime.getReporter());
+  public void beforeCommand(Command command, CommandEnvironment env) {
+    downloadFunction.setReporter(env.getReporter());
+    gitCloneFunction.setReporter(env.getReporter());
   }
 
   @Override

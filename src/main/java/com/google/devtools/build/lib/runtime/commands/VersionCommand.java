@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -34,16 +34,16 @@ import com.google.devtools.common.options.OptionsProvider;
          shortDescription = "Prints version information for %{product}.")
 public final class VersionCommand implements BlazeCommand {
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     BlazeVersionInfo info = BlazeVersionInfo.instance();
     if (info.getSummary() == null) {
-      runtime.getReporter().handle(Event.error("Version information not available"));
+      env.getReporter().handle(Event.error("Version information not available"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
-    runtime.getReporter().getOutErr().printOutLn(info.getSummary());
+    env.getReporter().getOutErr().printOutLn(info.getSummary());
     return ExitCode.SUCCESS;
   }
 }

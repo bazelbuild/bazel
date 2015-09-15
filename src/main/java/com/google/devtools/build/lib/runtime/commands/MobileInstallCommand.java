@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
@@ -65,11 +67,12 @@ public class MobileInstallCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    BlazeRuntime runtime = env.getRuntime();
     Options mobileInstallOptions = options.getOptions(Options.class);
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
     if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
-      runtime.getReporter().handle(Event.warn(
+      env.getReporter().handle(Event.warn(
          "Warm start is enabled, but will have no effect on a non-incremental build"));
     }
 
@@ -77,12 +80,12 @@ public class MobileInstallCommand implements BlazeCommand {
     BuildRequest request = BuildRequest.create(
         this.getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
-        runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
-    return runtime.getBuildTool().processRequest(request, null).getExitCondition();
+        env.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+    return new BuildTool(env).processRequest(request, null).getExitCondition();
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
       throws AbruptExitException {
     try {
       String outputGroup =
