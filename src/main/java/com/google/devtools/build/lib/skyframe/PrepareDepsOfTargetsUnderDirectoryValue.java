@@ -119,7 +119,7 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
     private final RecursivePkgKey recursivePkgKey;
     private final FilteringPolicy filteringPolicy;
 
-    private PrepareDepsOfTargetsUnderDirectoryKey(RecursivePkgKey recursivePkgKey,
+    public PrepareDepsOfTargetsUnderDirectoryKey(RecursivePkgKey recursivePkgKey,
         FilteringPolicy filteringPolicy) {
       this.recursivePkgKey = Preconditions.checkNotNull(recursivePkgKey);
       this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);

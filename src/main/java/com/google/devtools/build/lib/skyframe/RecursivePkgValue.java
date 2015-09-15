@@ -34,7 +34,7 @@ import java.util.Objects;
  */
 @Immutable
 @ThreadSafe
-class RecursivePkgValue implements SkyValue {
+public class RecursivePkgValue implements SkyValue {
   static final RecursivePkgValue EMPTY =
       new RecursivePkgValue(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER));
 
