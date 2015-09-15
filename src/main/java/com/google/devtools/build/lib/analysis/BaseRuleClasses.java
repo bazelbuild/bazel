@@ -206,7 +206,6 @@ public class BaseRuleClasses {
             .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
         .add(attr("generator_name", STRING).undocumented("internal"))
         .add(attr("generator_function", STRING).undocumented("internal"))
-        .add(attr("generator_location", STRING).undocumented("internal"))
         .add(attr("testonly", BOOLEAN).value(testonlyDefault)
             .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())
