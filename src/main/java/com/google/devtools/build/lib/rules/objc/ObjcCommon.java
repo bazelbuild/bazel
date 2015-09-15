@@ -37,11 +37,13 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYST
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INSTRUMENTED_SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -63,10 +65,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -188,6 +192,46 @@ public final class ObjcCommon {
       }
       return optionsProvider.getCopts();
     }
+
+    /**
+     * The clang module maps of direct dependencies of this rule. These are needed to generate
+     * this rule's module map.
+     */
+    public List<CppModuleMap> moduleMapsForDirectDeps() {
+      // Make sure all dependencies that have headers are included here. If a module map is missing,
+      // its private headers will be treated as public!
+      ArrayList<CppModuleMap> moduleMaps = new ArrayList<>();
+      collectModuleMapsFromAttributeIfExists(moduleMaps, "deps");
+      collectModuleMapsFromAttributeIfExists(moduleMaps, "non_propagated_deps");
+      return moduleMaps;
+    }
+
+    /**
+     * Collects all module maps from the targets in a certain attribute and adds them into
+     * {@code moduleMaps}.
+     *
+     * @param moduleMaps an {@link ArrayList} to collect the module maps into
+     * @param attribute the name of a label list attribute to collect module maps from
+     */
+    private void collectModuleMapsFromAttributeIfExists(
+        ArrayList<CppModuleMap> moduleMaps, String attribute) {
+      if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+        Iterable<ObjcProvider> providers =
+            ruleContext.getPrerequisites(attribute, Mode.TARGET, ObjcProvider.class);
+        for (ObjcProvider provider : providers) {
+          moduleMaps.addAll(provider.get(TOP_LEVEL_MODULE_MAP).toCollection());
+        }
+      }
+    }
+
+    /**
+     * Returns whether this target uses language features that require clang modules, such as
+     * @import.
+     */
+    public boolean enableModules() {
+      return ruleContext.attributes().has("enable_modules", Type.BOOLEAN)
+          && ruleContext.attributes().get("enable_modules", Type.BOOLEAN);
+    }
   }
 
   /**
@@ -248,6 +292,7 @@ public final class ObjcCommon {
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
+    private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> breakpadFile = Optional.absent();
@@ -337,6 +382,17 @@ public final class ObjcCommon {
 
     Builder setAlwayslink(boolean alwayslink) {
       this.alwayslink = alwayslink;
+      return this;
+    }
+
+    /**
+     * Specifies that this target has a clang module map. This should be called if this target
+     * compiles sources or exposes headers for other targets to use. Note that this does not add
+     * the action to generate the module map. It simply indicates that it should be added to the
+     * provider.
+     */
+    Builder setHasModuleMap() {
+      this.hasModuleMap = true;
       return this;
     }
 
@@ -504,6 +560,12 @@ public final class ObjcCommon {
           objcProvider.add(FORCE_LOAD_FOR_XCODEGEN,
               "$(WORKSPACE_ROOT)/" + archive.getExecPath().getSafePathString());
         }
+      }
+
+      if (hasModuleMap && ObjcRuleClasses.objcConfiguration(context).moduleMapsEnabled()) {
+        CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
+        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet())

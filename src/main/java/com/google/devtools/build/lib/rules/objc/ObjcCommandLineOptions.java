@@ -152,12 +152,23 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Uses these strings as objc fastbuild compiler options.")
   public List<String> fastbuildOptions;
 
-  @Option(name = "objc_enable_binary_stripping",
-      defaultValue = "false",
-      category = "flags",
-      help = "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-          + "strippings will be performed if both this flag and --compilationMode=opt are "
-          + "specified.")
+  @Option(
+    name = "experimental_objc_enable_module_maps",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Enables module map generation and interpretation."
+  )
+  public boolean enableModuleMaps;
+
+  @Option(
+    name = "objc_enable_binary_stripping",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+            + "strippings will be performed if both this flag and --compilationMode=opt are "
+            + "specified."
+  )
   public boolean enableBinaryStripping;
 
   // This option exists because two configurations are not allowed to have the same cache key

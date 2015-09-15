@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
@@ -66,6 +67,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
@@ -108,6 +111,17 @@ public final class CompilationSupport {
         @Override
         public boolean apply(String copt) {
           return copt.startsWith("-I") && copt.length() > 2;
+        }
+      };
+
+  /**
+   * Predicate to remove '.inc' files from an iterable.
+   */
+  private static final Predicate<Artifact> NON_INC_FILES =
+      new Predicate<Artifact>() {
+        @Override
+        public boolean apply(Artifact artifact) {
+          return !artifact.getFilename().endsWith(".inc");
         }
       };
 
@@ -161,10 +175,20 @@ public final class CompilationSupport {
    */
   CompilationSupport registerCompileAndArchiveActions(ObjcCommon common) {
     if (common.getCompilationArtifacts().isPresent()) {
+      registerGenerateModuleMapAction(common.getCompilationArtifacts());
+      IntermediateArtifacts intermediateArtifacts =
+          ObjcRuleClasses.intermediateArtifacts(ruleContext);
+      Optional<CppModuleMap> moduleMap;
+      if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+        moduleMap = Optional.of(intermediateArtifacts.moduleMap());
+      } else {
+        moduleMap = Optional.<CppModuleMap>absent();
+      }
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
-          ObjcRuleClasses.intermediateArtifacts(ruleContext),
+          intermediateArtifacts,
           common.getObjcProvider(),
+          moduleMap,
           ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
     return this;
@@ -174,25 +198,42 @@ public final class CompilationSupport {
    * Creates actions to compile each source file individually, and link all the compiled object
    * files into a single archive library.
    */
-  private void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
-      IntermediateArtifacts intermediateArtifacts, ObjcProvider objcProvider,
+  private void registerCompileAndArchiveActions(
+      CompilationArtifacts compilationArtifacts,
+      IntermediateArtifacts intermediateArtifacts,
+      ObjcProvider objcProvider,
+      Optional<CppModuleMap> moduleMap,
       boolean isCodeCoverageEnabled) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
       if (ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
-        registerSwiftCompileAction(sourceFile, objFile, intermediateArtifacts);
+        registerSwiftCompileAction(sourceFile, objFile, intermediateArtifacts, objcProvider);
       } else {
-        registerCompileAction(sourceFile, objFile, objcProvider, intermediateArtifacts,
-            compilationArtifacts, ImmutableList.of("-fobjc-arc"), isCodeCoverageEnabled);
+        registerCompileAction(
+            sourceFile,
+            objFile,
+            objcProvider,
+            moduleMap,
+            intermediateArtifacts,
+            compilationArtifacts,
+            ImmutableList.of("-fobjc-arc"),
+            isCodeCoverageEnabled);
       }
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
-      registerCompileAction(nonArcSourceFile, objFile, objcProvider, intermediateArtifacts,
-          compilationArtifacts, ImmutableList.of("-fno-objc-arc"), isCodeCoverageEnabled);
+      registerCompileAction(
+          nonArcSourceFile,
+          objFile,
+          objcProvider,
+          moduleMap,
+          intermediateArtifacts,
+          compilationArtifacts,
+          ImmutableList.of("-fno-objc-arc"),
+          isCodeCoverageEnabled);
     }
 
     if (compilationArtifacts.hasSwiftSources()) {
@@ -208,6 +249,7 @@ public final class CompilationSupport {
       Artifact sourceFile,
       Artifact objFile,
       ObjcProvider objcProvider,
+      Optional<CppModuleMap> moduleMap,
       IntermediateArtifacts intermediateArtifacts,
       CompilationArtifacts compilationArtifacts,
       Iterable<String> otherFlags,
@@ -259,6 +301,28 @@ public final class CompilationSupport {
         .add("-MD")
         .addExecPath("-MF", dotdFile);
 
+    if (moduleMap.isPresent()) {
+      // -fmodule-map-file only loads the module in Xcode 7, so we add the module maps's directory
+      // to the include path instead.
+      // TODO(bazel-team): Use -fmodule-map-file when Xcode 6 support is dropped.
+      commandLine
+          .add(attributes.enableModules() ? "-fmodules" : "-fmodule-maps")
+          .add("-iquote")
+          .add(
+              moduleMap
+                  .get()
+                  .getArtifact()
+                  .getExecPath()
+                  .getParentDirectory()
+                  .toString())
+          .add("-fmodule-name=" + moduleMap.get().getName());
+      if (attributes.enableModules()) {
+        String cachePath =
+            ruleContext.getConfiguration().getGenfilesFragment() + "/_objc_module_cache";
+        commandLine.add("-fmodules-cache-path=" + cachePath);
+      }
+    }
+
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("ObjcCompile")
@@ -270,6 +334,7 @@ public final class CompilationSupport {
         .addOutputs(gcnoFiles.build())
         .addOutput(dotdFile)
         .addTransitiveInputs(objcProvider.get(HEADER))
+        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
         .addInputs(compilationArtifacts.getPrivateHdrs())
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .addInputs(compilationArtifacts.getPchFile().asSet())
@@ -285,7 +350,8 @@ public final class CompilationSupport {
   private void registerSwiftCompileAction(
       Artifact sourceFile,
       Artifact objFile,
-      IntermediateArtifacts intermediateArtifacts) {
+      IntermediateArtifacts intermediateArtifacts,
+      ObjcProvider objcProvider) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     // Compiling a single swift file requires knowledge of all of the other
@@ -331,16 +397,27 @@ public final class CompilationSupport {
       inputHeaders.add(bridgingHeader.get());
     }
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
-        .setMnemonic("SwiftCompile")
-        .setExecutable(SWIFT)
-        .setCommandLine(commandLine.build())
-        .addInput(sourceFile)
-        .addInputs(otherSwiftSources)
-        .addInputs(inputHeaders.build())
-        .addOutput(objFile)
-        .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
-        .build(ruleContext));
+    // Import the Objective-C module map.
+    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
+    // directory?
+    if (objcConfiguration.moduleMapsEnabled()) {
+      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
+      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+    }
+
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+            .setMnemonic("SwiftCompile")
+            .setExecutable(SWIFT)
+            .setCommandLine(commandLine.build())
+            .addInput(sourceFile)
+            .addInputs(otherSwiftSources)
+            .addInputs(inputHeaders.build())
+            .addTransitiveInputs(objcProvider.get(HEADER))
+            .addTransitiveInputs(objcProvider.get(MODULE_MAP))
+            .addOutput(objFile)
+            .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
+            .build(ruleContext));
   }
 
   /**
@@ -457,6 +534,53 @@ public final class CompilationSupport {
 
     registerLinkAction(objcProvider, extraLinkArgs, extraLinkInputs, dsymBundle);
     return this;
+  }
+
+  /**
+   * Registers an action that will generate a clang module map for this target, using the hdrs
+   * attribute of this rule.
+   */
+  public CompilationSupport registerGenerateModuleMapAction(
+      Optional<CompilationArtifacts> compilationArtifacts) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+      Iterable<Artifact> publicHeaders = attributes.hdrs();
+      Iterable<Artifact> privateHeaders = ImmutableList.<Artifact>of();
+      if (compilationArtifacts.isPresent()) {
+        CompilationArtifacts artifacts = compilationArtifacts.get();
+        publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
+        privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
+      }
+      CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
+      registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+    }
+    return this;
+  }
+
+  /**
+   * Registers an action that will generate a clang module map.
+   *
+   * @param moduleMap the module map to generate
+   * @param publicHeaders the headers that should be directly accessible by dependers
+   * @param privateHeaders the headers that should only be directly accessible by this module
+   */
+  private void registerGenerateModuleMapAction(
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders) {
+    // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't have
+    // '.inc' files in the module map (since they're implictly textual).
+    // TODO(bazel-team): Remove filtering once clang-700 is the base clang we support.
+    publicHeaders = Iterables.filter(publicHeaders, NON_INC_FILES);
+    privateHeaders = Iterables.filter(privateHeaders, NON_INC_FILES);
+    ruleContext.registerAction(
+        new CppModuleMapAction(
+            ruleContext.getActionOwner(),
+            moduleMap,
+            privateHeaders,
+            publicHeaders,
+            attributes.moduleMapsForDirectDeps(),
+            ImmutableList.<PathFragment>of(),
+            /*compiledModule=*/ true,
+            /*moduleMapHomeIsCwd=*/ false,
+            /*generateSubModules=*/ true));
   }
 
   private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
@@ -688,11 +812,44 @@ public final class CompilationSupport {
             .setIntermediateArtifacts(intermediateArtifacts)
             .setPchFile(Optional.<Artifact>absent())
             .build();
-        registerCompileAndArchiveActions(compilationArtifact, intermediateArtifacts, objcProvider,
+        // The module map that the above intermediateArtifacts would point to is a combination of
+        // the current target and the java target. Instead, we want the one generated for that
+        // source, but there is no easy way to get that. So for now, compile the source with the
+        // module map (and therefore module name) for this rule.
+        // TODO(bazel-team): Generate module maps along with the J2Objc sources, and use that here.
+        Optional<CppModuleMap> moduleMap;
+        if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+          moduleMap = Optional.of(ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap());
+        } else {
+          moduleMap = Optional.<CppModuleMap>absent();
+        }
+        registerCompileAndArchiveActions(
+            compilationArtifact,
+            intermediateArtifacts,
+            objcProvider,
+            moduleMap,
             ruleContext.getConfiguration().isCodeCoverageEnabled());
       }
     }
 
+    return this;
+  }
+
+  /**
+   * Registers actions that generates a module map for all {@link J2ObjcSource}s in
+   * {@link J2ObjcSrcsProvider}.
+   *
+   * @return this compilation support
+   */
+  public CompilationSupport registerJ2ObjcGenerateModuleMapAction(J2ObjcSrcsProvider provider) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+      CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
+      ImmutableSet.Builder<Artifact> headers = ImmutableSet.builder();
+      for (J2ObjcSource j2ObjcSource : provider.getSrcs()) {
+        headers.addAll(j2ObjcSource.getObjcHdrs());
+      }
+      registerGenerateModuleMapAction(moduleMap, headers.build(), ImmutableList.<Artifact>of());
+    }
     return this;
   }
 

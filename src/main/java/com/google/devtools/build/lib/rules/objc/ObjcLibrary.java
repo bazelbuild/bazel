@@ -68,14 +68,15 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-        .addNonPropagatedDepObjcProviders(ruleContext.getPrerequisites("non_propagated_deps",
-            Mode.TARGET, ObjcProvider.class))
+        .addNonPropagatedDepObjcProviders(
+            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .addDepCcHeaderProviders(
             ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
         .addDepCcLinkProviders(
             ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
+        .setHasModuleMap()
         .addExtraImportLibraries(extraImportLibraries)
         .addDepObjcProviders(extraDepObjcProviders)
         .build();

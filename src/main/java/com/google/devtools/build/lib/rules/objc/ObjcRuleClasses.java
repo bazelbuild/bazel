@@ -74,8 +74,8 @@ public class ObjcRuleClasses {
     throw new UnsupportedOperationException("static-only");
   }
 
-  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
-    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix=*/"");
+  public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
+    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix=*/ "");
   }
 
   /**
@@ -617,68 +617,75 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
-          The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          ${SYNOPSIS}
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(SRCS_TYPE))
+           The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           ${SYNOPSIS}
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_arc_srcs) -->
-          The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          ${SYNOPSIS}
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("non_arc_srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(NON_ARC_SRCS_TYPE))
+           The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           ${SYNOPSIS}
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("non_arc_srcs", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(NON_ARC_SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(pch) -->
-          Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          ${SYNOPSIS}
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("pch", LABEL)
-              .direct_compile_time_input()
-              .allowedFileTypes(FileType.of(".pch")))
+           Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           ${SYNOPSIS}
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("pch", LABEL).direct_compile_time_input().allowedFileTypes(FileType.of(".pch")))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(deps) -->
-          The list of targets that are linked together to form the final bundle.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .override(attr("deps", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-              .allowedFileTypes())
+           The list of targets that are linked together to form the final bundle.
+           ${SYNOPSIS}
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .override(
+              attr("deps", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
-          The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          ${SYNOPSIS}
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("non_propagated_deps", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-              .allowedFileTypes())
+           The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           ${SYNOPSIS}
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           ${SYNOPSIS}
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("non_propagated_deps", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
-          Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+           Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           ${SYNOPSIS}
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(enable_modules) -->
+           Enables clang module support (via -fmodules).
+           ${SYNOPSIS}
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("enable_modules", BOOLEAN))
           .build();
     }
     @Override

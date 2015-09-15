@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -97,6 +98,10 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
           ImmutableList.of(j2objcSource.getObjcFilePath(), genDirHeaderSearchPath));
     }
 
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+      configureModuleMap(ruleContext, objcProviderBuilder, j2ObjcSrcsProvider);
+    }
+
     ObjcProvider objcProvider = objcProviderBuilder.build();
     xcodeSupport.addXcodeSettings(xcodeProviderBuilder, objcProvider, LIBRARY_STATIC);
 
@@ -109,6 +114,21 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(ObjcProvider.class, objcProvider)
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
+  }
+
+  /**
+   * Configures a module map for all the sources in {@code j2ObjcSrcsProvider}, registering
+   * an action to generate the module map and exposing that module map through {@code objcProvider}.
+   */
+  private void configureModuleMap(
+      RuleContext ruleContext,
+      ObjcProvider.Builder objcProvider,
+      J2ObjcSrcsProvider j2ObjcSrcsProvider) {
+    new CompilationSupport(ruleContext).registerJ2ObjcGenerateModuleMapAction(j2ObjcSrcsProvider);
+
+    CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
+    objcProvider.add(ObjcProvider.MODULE_MAP, moduleMap.getArtifact());
+    objcProvider.add(ObjcProvider.TOP_LEVEL_MODULE_MAP, moduleMap);
   }
 
   private static void checkAttributes(RuleContext ruleContext) {

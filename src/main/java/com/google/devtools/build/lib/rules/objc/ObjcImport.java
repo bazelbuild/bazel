@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -32,21 +33,24 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 public class ObjcImport implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = new ObjcCommon.Builder(ruleContext)
-        .setCompilationAttributes(new CompilationAttributes(ruleContext))
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
-        .addExtraImportLibraries(
-            ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-        .build();
+    ObjcCommon common =
+        new ObjcCommon.Builder(ruleContext)
+            .setCompilationAttributes(new CompilationAttributes(ruleContext))
+            .setResourceAttributes(new ResourceAttributes(ruleContext))
+            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+            .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
+            .setHasModuleMap()
+            .addExtraImportLibraries(
+                ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
+            .addDepObjcProviders(
+                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            .build();
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     new CompilationSupport(ruleContext)
+        .registerGenerateModuleMapAction(Optional.<CompilationArtifacts>absent())
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 

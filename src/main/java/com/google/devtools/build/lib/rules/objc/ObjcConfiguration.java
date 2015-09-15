@@ -66,6 +66,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean perProtoIncludes;
   private final List<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
+  private final boolean moduleMapsEnabled;
   private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final Path clientWorkspaceRoot;
 
@@ -104,6 +105,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.perProtoIncludes = objcOptions.perProtoIncludes;
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
+    this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
   }
@@ -258,6 +260,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       return getIosMultiCpus().get(0);
     }
     return getIosCpu();
+  }
+
+  /**
+   * Whether module map generation and interpretation is enabled.
+   */
+  public boolean moduleMapsEnabled() {
+    return moduleMapsEnabled;
   }
 
   /**

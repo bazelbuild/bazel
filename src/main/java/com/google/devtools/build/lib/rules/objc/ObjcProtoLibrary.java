@@ -175,13 +175,16 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
     ImmutableSet<PathFragment> searchPathEntries = searchPathEntriesBuilder.build();
 
-    ObjcCommon common = new ObjcCommon.Builder(ruleContext)
-        .setCompilationArtifacts(compilationArtifacts)
-        .addUserHeaderSearchPaths(searchPathEntries)
-        .addDepObjcProviders(ruleContext.getPrerequisites(
-            ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET, ObjcProvider.class))
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .build();
+    ObjcCommon common =
+        new ObjcCommon.Builder(ruleContext)
+            .setCompilationArtifacts(compilationArtifacts)
+            .addUserHeaderSearchPaths(searchPathEntries)
+            .addDepObjcProviders(
+                ruleContext.getPrerequisites(
+                    ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET, ObjcProvider.class))
+            .setIntermediateArtifacts(intermediateArtifacts)
+            .setHasModuleMap()
+            .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet())
