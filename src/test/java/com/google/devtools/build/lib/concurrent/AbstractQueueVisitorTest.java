@@ -372,6 +372,53 @@ public class AbstractQueueVisitorTest {
     assertTrue(executor.isShutdown());
   }
 
+  @Test
+  public void javaErrorConsideredCriticalNoMatterWhat() throws Exception {
+    ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<Runnable>());
+    QueueVisitorWithoutCriticalError visitor = new QueueVisitorWithoutCriticalError(executor);
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicBoolean sleepFinished = new AtomicBoolean(false);
+    final AtomicBoolean sleepInterrupted = new AtomicBoolean(false);
+    final Error error = new Error("bad!");
+    Runnable errorRunnable = new Runnable() {
+      @Override
+      public void run() {
+        try {
+          latch.await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException expected) {
+          // Should only happen if the test itself is interrupted.
+        }
+        throw error;
+      }
+    };
+    Runnable sleepRunnable = new Runnable() {
+      @Override
+      public void run() {
+        latch.countDown();
+        try {
+          Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+          sleepFinished.set(true);
+        } catch (InterruptedException unexpected) {
+          sleepInterrupted.set(true);
+        }
+      }
+    };
+    visitor.enqueue(errorRunnable);
+    visitor.enqueue(sleepRunnable);
+    Error thrownError = null;
+    // Interrupt workers on a critical error. That way we can test that visitor.work doesn't wait
+    // for all workers to finish if one of them already had a critical error.
+    try {
+      visitor.work(/*interruptWorkers=*/true);
+    } catch (Error e) {
+      thrownError = e;
+    }
+    assertTrue(sleepInterrupted.get());
+    assertFalse(sleepFinished.get());
+    assertEquals(error, thrownError);
+  }
+
   private Runnable throwingRunnable() {
     return new Runnable() {
       @Override
@@ -488,6 +535,18 @@ public class AbstractQueueVisitorTest {
     @Override
     protected boolean isCriticalError(Throwable e) {
       return true;
+    }
+  }
+
+  private static class QueueVisitorWithoutCriticalError extends AbstractQueueVisitor {
+
+    public QueueVisitorWithoutCriticalError(ThreadPoolExecutor executor) {
+      super(executor, false);
+    }
+
+    @Override
+    protected boolean isCriticalError(Throwable e) {
+      return false;
     }
   }
 }
