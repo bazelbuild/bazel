@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.Constants;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.vfs.SearchPath;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,39 +69,6 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final StandaloneSpawnStrategy standaloneStrategy;
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
-
-  /**
-   * A map that throws an exception when trying to replace a key (i.e. once a key gets a value,
-   * any additional attempt of putting a value on the same key will throw an exception).
-   */
-  static class MountMap<K, V> extends ForwardingMap<K, V> {
-    final LinkedHashMap<K, V> delegate = new LinkedHashMap<>();
-
-    @Override
-    protected Map<K, V> delegate() {
-      return delegate;
-    }
-
-    @Override
-    public V put(K key, V value) {
-      V previousValue = get(key);
-      if (previousValue == null) {
-        return super.put(key, value);
-      } else if (previousValue.equals(value)) {
-        return value;
-      } else {
-        throw new IllegalArgumentException(
-            String.format("Cannot mount both '%s' and '%s' onto '%s'", previousValue, value, key));
-      }
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map) {
-      for (Entry<? extends K, ? extends V> entry : map.entrySet()) {
-        put(entry.getKey(), entry.getValue());
-      }
-    }
-  }
 
   public LinuxSandboxedStrategy(
       Map<String, String> clientEnv,
