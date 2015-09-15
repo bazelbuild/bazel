@@ -70,9 +70,14 @@ ${ATTRIBUTE_SIGNATURE}
   the compilation class path.
 </p>
 
+<p>If you need to depend on the appcompat library, put
+<code>//external:android/appcompat_v4</code> or <code>//external:android/appcompat_v7</code>
+in the <code>deps</code> attribute.
+</p>
 ${IMPLICIT_OUTPUTS}
 
 ${ATTRIBUTE_DEFINITION}
+
 
 <h4 id="android_library_examples">Examples</h4>
 <p>Examples of Android rules can be found in the <code>examples/android</code> directory of the
