@@ -199,31 +199,29 @@ public final class SkylarkStatistics {
       out.printf("  %s.addColumn('number', 'std dev (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'mean self (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'self (ms)');\n", tmpVar);
+      out.printf("  %s.addColumn('number', 'self (%%)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'total (ms)');\n", tmpVar);
       out.printf("  %s.addColumn('number', 'relative (%%)');\n", tmpVar);
       out.printf("  %s.addRows([\n", tmpVar);
       for (TasksStatistics stats : statsList) {
         double relativeTotal = (double) stats.totalNanos / totalNanos;
+        double relativeSelf = (double) stats.selfNanos / stats.totalNanos;
         String[] split = stats.name.split("#");
         String location = split[0];
         String name = split[1];
-        out.printf(
-            "    [{v:'%s', f:'%s'}, '%s', %d, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f,"
-            + " {v:%.4f, f:'%.3f %%'}],\n",
-            location,
-            abbreviatePath(location),
-            name,
-            stats.count,
-            stats.minimumMillis(),
-            stats.meanMillis(),
-            stats.medianMillis(),
-            stats.maximumMillis(),
-            stats.standardDeviationMillis,
-            stats.selfMeanMillis(),
-            stats.selfMillis(),
-            stats.totalMillis(),
-            relativeTotal,
-            relativeTotal * 100);
+        out.printf("    [{v:'%s', f:'%s'}, ", location, abbreviatePath(location));
+        out.printf("'%s', ", name);
+        out.printf("%d, ", stats.count);
+        out.printf("%.3f, ", stats.minimumMillis());
+        out.printf("%.3f, ", stats.meanMillis());
+        out.printf("%.3f, ", stats.medianMillis());
+        out.printf("%.3f, ", stats.maximumMillis());
+        out.printf("%.3f, ", stats.standardDeviationMillis);
+        out.printf("%.3f, ", stats.selfMeanMillis());
+        out.printf("%.3f, ", stats.selfMillis());
+        out.printf("{v:%.4f, f:'%.3f %%'}, ", relativeSelf, relativeSelf * 100);
+        out.printf("%.3f, ", stats.totalMillis());
+        out.printf("{v:%.4f, f:'%.3f %%'}],\n", relativeTotal, relativeTotal * 100);
       }
       out.println("  ]);");
       out.printf("  %s.%s = %s;\n", dataVar, category, tmpVar);
