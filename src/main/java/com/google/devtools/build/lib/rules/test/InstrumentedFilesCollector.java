@@ -84,6 +84,9 @@ public final class InstrumentedFilesCollector {
     if (shouldIncludeLocalSources(ruleContext)) {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep : prereqs) {
+        if (dep.getProvider(InstrumentedFilesProvider.class) != null) {
+          continue;
+        }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
           if (artifact.isSourceArtifact() &&
               spec.instrumentedFileTypes.matches(artifact.getFilename())) {
