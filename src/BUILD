@@ -52,7 +52,7 @@ genrule(
           VERSION_LINE=$$(cat $< | grep target_version);
           JAVA_VERSION=$$(echo $${VERSION_LINE} | sed -E 's/.*value="([^"])".*/\\1/');
           if [ -z "$${JAVA_VERSION}" ]; then
-            echo "1.7" >$@  # Java 7 is the default
+            echo "1.8" >$@  # Java 8 is the default
           elif [[ "$${JAVA_VERSION}" =~ ^[0-9]+$$ ]]; then
             echo "1.$${JAVA_VERSION}" >$@  # Add 1. before 7 or 8
           else

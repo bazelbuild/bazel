@@ -97,6 +97,23 @@ EOF
     fi
   fi
 }
+
+# Set the various arguments when JDK 7 is required (deprecated).
+# This method is here to continue to build binary release of Bazel
+# for JDK 7. We will drop this method and JDK 7 support when our
+# ci system turn red on this one.
+function setup_jdk7() {
+  # This is a JDK 7 JavaBuilder from release 0.1.0.
+  local javabuilder_url="https://storage.googleapis.com/bazel/0.1.0/JavaBuilder_deploy.jar"
+  sed -i.bak 's/_version = "8"/_version = "7"/' tools/jdk/BUILD
+  rm -f tools/jdk/BUILD.bak
+  curl -s -o tools/jdk/JavaBuilder_deploy.jar "${javabuilder_url}"
+  export BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
+      --ijar_top=//third_party/ijar"
+  export BAZEL_SKIP_TOOL_COMPILATION=tools/jdk/JavaBuilder_deploy.jar
+}
+
 # Main entry point for building bazel.
 # It sets the embed label to the release name if any, calls the whole
 # test suite, compile the various packages, then copy the artifacts
@@ -104,10 +121,17 @@ EOF
 function bazel_build() {
   local release_label="$(get_full_release_name)"
   local embed_label_opts=
-  setup_android_repositories
+
   if [ -n "${release_label}" ]; then
     export EMBED_LABEL="${release_label}"
   fi
+
+  if [[ "${JAVA_VERSION-}" =~ ^(1\.)?7$ ]]; then
+    setup_jdk7
+    release_label="${release_label}-jdk7"
+  fi
+
+  setup_android_repositories
   ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || exit $?
 
   # Build the packages

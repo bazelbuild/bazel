@@ -13,16 +13,28 @@ Supported platforms:
 
 Java:
 
-*   Java JDK 7 or later
+*   Java JDK 8 or later ([JDK 7](#jdk7) is still supported
+    but deprecated).
 
 ## Install dependencies
 
 ### Ubuntu
 
-#### 1. Install OpenJDK 7
+#### 1. Install JDK 8
+
+**Ubuntu Trusty (14.04 LTS).** OpenJDK 8 is not available on Trusty. To
+install Oracle JDK 8:
 
 ```
-$ sudo apt-get install openjdk-7-jdk openjdk-7-source
+$ sudo add-apt-repository ppa:webupd8team/java
+$ sudo apt-get update
+$ sudo apt-get install oracle-java8-installer
+```
+
+**Ubuntu Utopic (14.10).** To install OpenJDK 8:
+
+```
+$ sudo apt-get install openjdk-8-jdk openjdk-8-source
 ```
 
 #### 2. Install required packages
@@ -33,10 +45,10 @@ $ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 
 ### Mac OS X
 
-#### 1. Install JDK 7
+#### 1. Install JDK 8
 
-JDK 7 can be downloaded from
-[Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html).
+JDK 8 can be downloaded from
+[Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
 Look for "Mac OS X x64" under "Java SE Development Kit". This will download a
 DMG image with an install wizard.
 
@@ -85,6 +97,14 @@ $ export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.
+
+## <a name="jdk7"></a>Using Bazel with JDK 7 (deprecated)
+
+Bazel version _0.1.0_ runs without any change with JDK 7. However, future
+version will stop supporting JDK 7 when our CI cannot build for it anymore.
+The installer for JDK 7 for Bazel versions after _0.1.0_ is labeled
+`./install-<em>version</em>-<em>os</em>-<b>jdk7</b>.sh`. If you wish to use JDK
+7, follow the same steps as for JDK 8 but with the _jdk7_ installer.
 
 ### Getting bash completion
 
