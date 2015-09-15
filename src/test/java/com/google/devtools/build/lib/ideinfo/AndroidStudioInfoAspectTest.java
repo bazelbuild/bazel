@@ -338,6 +338,84 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
             "<jar:com/google/example/b.jar><source:com/google/example/impsrc.jar>");
   }
 
+  public void testJavaImportWithExports() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = \"foobar\",",
+        "   srcs = [\"FooBar.java\"],",
+        ")",
+        "java_import(",
+        "   name = \"imp\",",
+        "   jars = [\"a.jar\", \"b.jar\"],",
+        "   deps = [\":foobar\"],",
+        "   exports = [\":foobar\"],",
+        ")",
+        "java_library(",
+        "   name = \"lib\",",
+        "   srcs = [\"Lib.java\"],",
+        "   deps = [\":imp\"],",
+        ")");
+
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
+    assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
+    assertThat(impInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
+    assertThat(libInfo.getDependenciesList())
+        .containsExactly("//com/google/example:imp", "//com/google/example:foobar");
+  }
+
+  public void testJavaTest() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = \"foobar\",",
+        "   srcs = [\"FooBar.java\"],",
+        ")",
+        "java_test(",
+        "   name = \"foobar-test\",",
+        "   test_class = \"MyTestClass\",",
+        "   srcs = [\"FooBarTest.java\"],",
+        "   deps = [\":foobar\"],",
+        ")");
+    String target = "//com/google/example:foobar-test";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo testInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(testInfo.getKind()).isEqualTo(Kind.JAVA_TEST);
+    assertThat(relativePathsForSourcesOf(testInfo))
+        .containsExactly("com/google/example/FooBarTest.java");
+    assertThat(testInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
+    assertThat(transform(testInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:com/google/example/foobar-test.jar><source:com/google/example/foobar-test-src.jar>");
+  }
+
+  public void testJavaBinary() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = \"foobar\",",
+        "   srcs = [\"FooBar.java\"],",
+        ")",
+        "java_binary(",
+        "   name = \"foobar-exe\",",
+        "   main_class = \"MyMainClass\",",
+        "   srcs = [\"FooBarMain.java\"],",
+        "   deps = [\":foobar\"],",
+        ")");
+    String target = "//com/google/example:foobar-exe";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo binaryInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(binaryInfo.getKind()).isEqualTo(Kind.JAVA_BINARY);
+    assertThat(relativePathsForSourcesOf(binaryInfo))
+        .containsExactly("com/google/example/FooBarMain.java");
+    assertThat(binaryInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
+    assertThat(transform(binaryInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:com/google/example/foobar-exe.jar><source:com/google/example/foobar-exe-src.jar>");
+  }
+
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
         update(

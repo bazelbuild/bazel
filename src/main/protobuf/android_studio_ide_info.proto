@@ -52,8 +52,9 @@ message RuleIdeInfo {
     JAVA_LIBRARY = 4;
     JAVA_TEST = 5;
     JAVA_IMPORT = 6;
-    PROTO_LIBRARY = 7;
-    ANDROID_SDK = 8;
+    JAVA_BINARY = 7;
+    PROTO_LIBRARY = 8;
+    ANDROID_SDK = 9;
   }
 
   string label = 1;

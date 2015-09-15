@@ -210,6 +210,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar, genClassJar, gensrcJar,
         ImmutableMap.<Artifact, Artifact>of(), helper, filesBuilder, builder);
 
+    builder.add(
+        JavaRuleOutputJarsProvider.class,
+        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, gensrcJar));
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     collectDefaultRunfiles(runfilesBuilder, ruleContext, common, filesToBuild, launcher,
@@ -276,10 +280,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, executable)
-        .add(JavaRuntimeClasspathProvider.class,
+        .add(
+            JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
-        .add(JavaSourceJarsProvider.class,
-            new JavaSourceJarsProvider(transitiveSourceJars, srcJars))
+        .add(
+            JavaSourceInfoProvider.class,
+            JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
+        .add(
+            JavaSourceJarsProvider.class, new JavaSourceJarsProvider(transitiveSourceJars, srcJars))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genClassJar)
         .build();

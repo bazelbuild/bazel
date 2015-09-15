@@ -189,7 +189,10 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
     outputBuilder.addAllTransitiveDependencies(transform(transitiveDependencies, LABEL_TO_STRING));
 
-    if (ruleKind == Kind.JAVA_LIBRARY || ruleKind == Kind.JAVA_IMPORT) {
+    if (ruleKind == Kind.JAVA_LIBRARY
+        || ruleKind == Kind.JAVA_IMPORT
+        || ruleKind == Kind.JAVA_TEST
+        || ruleKind == Kind.JAVA_BINARY) {
       outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base));
     } else if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
@@ -323,10 +326,15 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
   private RuleIdeInfo.Kind getRuleKind(Rule rule, ConfiguredTarget base) {
     RuleIdeInfo.Kind kind;
-    if ("java_library".equals(rule.getRuleClassObject().getName())) {
+    String ruleClassName = rule.getRuleClassObject().getName();
+    if ("java_library".equals(ruleClassName)) {
       kind = RuleIdeInfo.Kind.JAVA_LIBRARY;
-    } else if ("java_import".equals(rule.getRuleClassObject().getName())) {
+    } else if ("java_import".equals(ruleClassName)) {
       kind = Kind.JAVA_IMPORT;
+    } else if ("java_test".equals(ruleClassName)) {
+      kind = Kind.JAVA_TEST;
+    } else if ("java_binary".equals(ruleClassName)) {
+      kind = Kind.JAVA_BINARY;
     } else if (base.getProvider(AndroidSdkProvider.class) != null) {
       kind = RuleIdeInfo.Kind.ANDROID_SDK;
     } else {
