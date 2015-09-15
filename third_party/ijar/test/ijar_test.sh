@@ -43,6 +43,11 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 ## Tools
 # Ensure that javac is absolute
 [[ "$JAVAC" =~ ^/ ]] || JAVAC="$PWD/$JAVAC"
+[[ "$JAR" =~ ^/ ]] || JAR="$PWD/$JAR"
+[[ "$IJAR" =~ ^/ ]] || IJAR="$PWD/$IJAR"
+[[ "$UNZIP" =~ ^/ ]] || UNZIP="$PWD/$UNZIP"
+[[ "$ZIP" =~ ^/ ]] || ZIP="$PWD/$ZIP"
+[[ "$JAVAP" =~ ^/ ]] || JAVAP="$PWD/$JAVAP"
 
 IJAR_SRCDIR=$(dirname ${IJAR})
 A_JAR=$TEST_TMPDIR/A.jar
@@ -165,6 +170,7 @@ function test_ijar_output() {
 
   # Check that no private class members are found:
   lines=$($JAVAP -private -classpath $A_JAR A | grep priv | wc -l)
+  cp $A_JAR /tmp/ajar.jar
   check_eq 2 $lines "Input jar should have 2 private members!"
   lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep priv | wc -l)
   check_eq 0 $lines "Interface jar should have no private members!"
@@ -372,6 +378,121 @@ function test_corrupted_end_of_centraldir() {
   $IJAR $CORRUPTED_JAR 2> $TEST_log && fail "ijar should have failed" || status=$?
   check_ne 0 $status
   expect_log "missing end of central directory record"
+}
+
+function test_inner_class_argument() {
+  cd $TEST_TMPDIR
+
+  mkdir -p a b c
+  cat > a/A.java <<EOF
+package a;
+
+public class A {
+  public static class A2 {
+    public int n;
+  }
+}
+EOF
+
+  cat > b/B.java <<EOF
+package b;
+import a.A;
+
+public class B {
+  public static void b(A.A2 arg) {
+    System.out.println(arg.n);
+  }
+}
+EOF
+
+  cat > c/C.java <<EOF
+package c;
+import b.B;
+
+public class C {
+  public static void c() {
+    B.b(null);
+  }
+}
+EOF
+
+  $JAVAC a/A.java b/B.java
+  $JAR cf lib.jar {a,b}/*.class
+  $JAVAC -cp lib.jar c/C.java
+
+}
+
+function test_inner_class_pruning() {
+  cd $TEST_TMPDIR
+
+  mkdir -p lib/l {one,two,three}/a
+
+  cat > lib/l/L.java <<EOF
+package l;
+
+public class L {
+  public static class I {
+    public static class J {
+      public static int number() {
+        return 3;
+      }
+    }
+    public static int number() {
+      return 2;
+    }
+  }
+}
+EOF
+
+  cat > one/a/A.java <<EOF
+package a;
+
+public class A {
+  public static void message() {
+    System.out.println("hello " + 1);
+  }
+}
+EOF
+
+  cat > two/a/A.java <<EOF
+package a;
+
+import l.L;
+
+public class A {
+  public static void message() {
+    System.out.println("hello " + L.I.number());
+  }
+}
+EOF
+
+  cat > three/a/A.java <<EOF
+package a;
+
+import l.L;
+
+public class A {
+  public static void message() {
+    System.out.println("hello " + L.I.J.number());
+  }
+}
+EOF
+
+  $JAVAC lib/l/L.java
+  (cd lib; $JAR cf lib.jar l/*.class)
+  $JAVAC one/a/A.java
+  (cd one; $JAR cf one.jar a/*.class)
+  $JAVAC two/a/A.java -classpath lib/lib.jar
+  (cd two; $JAR cf two.jar a/*.class)
+  $JAVAC three/a/A.java -classpath lib/lib.jar
+  (cd three; $JAR cf three.jar a/*.class)
+
+  $IJAR one/one.jar one/one-ijar.jar
+  $IJAR one/one.jar two/two-ijar.jar
+  $IJAR one/one.jar three/three-ijar.jar
+
+  cmp one/one-ijar.jar two/two-ijar.jar
+  cmp one/one-ijar.jar three/three-ijar.jar
 }
 
 run_suite "ijar tests"

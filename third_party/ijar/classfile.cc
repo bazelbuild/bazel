@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -99,6 +100,8 @@ struct Constant;
 // TODO(adonovan) these globals are unfortunate
 static std::vector<Constant*>        const_pool_in; // input constant pool
 static std::vector<Constant*>        const_pool_out; // output constant_pool
+static std::set<std::string>         used_class_names;
+static Constant *                    class_name;
 
 // Returns the Constant object, given an index into the input constant pool.
 // Note: constant(0) == NULL; this invariant is exploited by the
@@ -138,6 +141,10 @@ struct Constant {
   // calling slot() on them in turn.
   virtual void Keep() {}
 
+  bool Kept() {
+    return slot_ != 0;
+  }
+
   // Returns the index of this constant in the output class's constant
   // pool, assigning a slot if not already done.
   u2 slot() {
@@ -162,6 +169,13 @@ struct Constant {
   u2 slot_; // zero => "this constant is unreachable garbage"
   u1 tag_;
 };
+
+// Extracts class names from a signature and puts them into the global
+// variable used_class_names.
+//
+// desc: the descriptor class names should be extracted from.
+// p: the position where the extraction should tart.
+void ExtractClassNames(const std::string& desc, size_t* p);
 
 // See sec.4.4.1 of JVM spec.
 struct Constant_Class : Constant
@@ -397,6 +411,7 @@ struct Attribute {
 
   virtual ~Attribute() {}
   virtual void Write(u1 *&p) = 0;
+  virtual void ExtractClassNames() {}
 
   void WriteProlog(u1 *&p, u2 length) {
     put_u2be(p, attribute_name_->slot());
@@ -464,10 +479,49 @@ struct InnerClassesAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    WriteProlog(p, 2 + entries_.size() * 8);
-    put_u2be(p, entries_.size());
-    for (size_t ii = 0; ii < entries_.size(); ++ii) {
-      Entry *entry = entries_[ii];
+    std::set<int> kept_entries;
+    // We keep an entry if the constant referring to the inner class is already
+    // kept. Then we mark its outer class and its class name as kept, too, then
+    // iterate until a fixed point is reached.
+    int entry_count;
+    int iteration = 0;
+
+    do {
+      entry_count = kept_entries.size();
+      for (int i_entry = 0; i_entry < entries_.size(); ++i_entry) {
+        Entry* entry = entries_[i_entry];
+        if (entry->inner_class_info->Kept() ||
+            used_class_names.find(entry->inner_class_info->Display())
+                != used_class_names.end() ||
+            entry->outer_class_info == class_name ||
+            entry->outer_class_info == NULL ||
+            entry->inner_name == NULL) {
+          kept_entries.insert(i_entry);
+
+          // These are zero for anonymous inner classes
+          if (entry->outer_class_info != NULL) {
+            entry->outer_class_info->slot();
+          }
+
+          if (entry->inner_name != NULL) {
+            entry->inner_name->slot();
+          }
+        }
+      }
+      iteration += 1;
+    } while (entry_count != kept_entries.size());
+
+    if (kept_entries.size() == 0) {
+      return;
+    }
+
+    WriteProlog(p, 2 + kept_entries.size() * 8);
+    put_u2be(p, kept_entries.size());
+
+    for (std::set<int>::iterator it = kept_entries.begin();
+         it != kept_entries.end();
+         ++it) {
+      Entry *entry = entries_[*it];
       put_u2be(p, entry->inner_class_info == NULL
                ? 0
                : entry->inner_class_info->slot());
@@ -516,6 +570,7 @@ struct EnclosingMethodAttribute : Attribute {
 struct ElementValue {
   virtual ~ElementValue() {}
   virtual void Write(u1 *&p) = 0;
+  virtual void ExtractClassNames() {}
   static ElementValue* Read(const u1 *&p);
   u1 tag_;
   u4 length_;
@@ -555,6 +610,12 @@ struct ClassTypeElementValue : ElementValue {
     put_u1(p, tag_);
     put_u2be(p, class_info_->slot());
   }
+
+  virtual void ExtractClassNames() {
+    size_t idx = 0;
+    devtools_ijar::ExtractClassNames(class_info_->Display(), &idx);
+  }
+
   static ClassTypeElementValue *Read(const u1 *&p) {
     ClassTypeElementValue *value = new ClassTypeElementValue;
     value->class_info_ = constant(get_u2be(p));
@@ -567,6 +628,12 @@ struct ArrayTypeElementValue : ElementValue {
   virtual ~ArrayTypeElementValue() {
     for (size_t i = 0; i < values_.size(); i++) {
       delete values_[i];
+    }
+  }
+
+  virtual void ExtractClassNames() {
+    for (int i = 0; i < values_.size(); i++) {
+      values_[i]->ExtractClassNames();
     }
   }
 
@@ -594,6 +661,12 @@ struct Annotation {
     for (size_t i = 0; i < element_value_pairs_.size(); i++) {
       delete element_value_pairs_[i]->element_value_;
       delete element_value_pairs_[i];
+    }
+  }
+
+  void ExtractClassNames() {
+    for (size_t i = 0; i < element_value_pairs_.size(); i++) {
+      element_value_pairs_[i]->element_value_->ExtractClassNames();
     }
   }
 
@@ -660,6 +733,10 @@ struct TypeAnnotation {
     delete target_info_;
     delete type_path_;
     delete annotation_;
+  }
+
+  void ExtractClassNames() {
+    annotation_->ExtractClassNames();
   }
 
   void Write(u1 *&p) {
@@ -873,6 +950,10 @@ struct AnnotationDefaultAttribute : Attribute {
     default_value_->Write(p);
   }
 
+  virtual void ExtractClassNames() {
+    default_value_->ExtractClassNames();
+  }
+
   ElementValue *default_value_;
 };
 
@@ -911,6 +992,11 @@ struct SignatureAttribute : Attribute {
   void Write(u1 *&p) {
     WriteProlog(p, 2);
     put_u2be(p, signature_->slot());
+  }
+
+  virtual void ExtractClassNames() {
+    size_t signature_idx = 0;
+    devtools_ijar::ExtractClassNames(signature_->Display(), &signature_idx);
   }
 
   Constant *signature_;
@@ -954,6 +1040,12 @@ struct AnnotationsAttribute : Attribute {
     return attr;
   }
 
+  virtual void ExtractClassNames() {
+    for (int i = 0; i < annotations_.size(); i++) {
+      annotations_[i]->ExtractClassNames();
+    }
+  }
+
   void Write(u1 *&p) {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
@@ -990,6 +1082,15 @@ struct ParameterAnnotationsAttribute : Attribute {
     return attr;
   }
 
+  virtual void ExtractClassNames() {
+    for (size_t i = 0; i < parameter_annotations_.size(); i++) {
+      const std::vector<Annotation*>& annotations = parameter_annotations_[i];
+      for (size_t j = 0; j < annotations.size(); j++) {
+        annotations[j]->ExtractClassNames();
+      }
+    }
+  }
+
   void Write(u1 *&p) {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
@@ -1020,6 +1121,12 @@ struct TypeAnnotationsAttribute : Attribute {
       attr->type_annotations_.push_back(annotation);
     }
     return attr;
+  }
+
+  virtual void ExtractClassNames() {
+    for (int i = 0; i < type_annotations_.size(); i++) {
+      type_annotations_[i]->ExtractClassNames();
+    }
   }
 
   void Write(u1 *&p) {
@@ -1070,6 +1177,12 @@ struct HasAttrs {
   virtual ~HasAttrs() {
     for (size_t i = 0; i < attributes.size(); i++) {
       delete attributes[i];
+    }
+  }
+
+  void ExtractClassNames() {
+    for (int i = 0; i < attributes.size(); i++) {
+      attributes[i]->ExtractClassNames();
     }
   }
 };
@@ -1163,6 +1276,23 @@ struct ClassFile : HasAttrs {
     for (size_t ii = 0; ii < methods.size(); ++ii) {
       methods[ii]->Write(p);
     }
+
+    Attribute* inner_classes = NULL;
+
+    // Make the inner classes attribute the last, so that it can know which
+    // constants were needed
+    for (size_t ii = 0; ii < attributes.size(); ii++) {
+      if (attributes[ii]->attribute_name_->Display() == "InnerClasses") {
+        inner_classes = attributes[ii];
+        attributes.erase(attributes.begin() + ii);
+        break;
+      }
+    }
+
+    if (inner_classes != NULL) {
+      attributes.push_back(inner_classes);
+    }
+
     WriteAttrs(p);
   }
 
@@ -1229,10 +1359,19 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
 }
 
 void HasAttrs::WriteAttrs(u1 *&p) {
-  put_u2be(p, attributes.size());
+  u1* p_size = p;
+
+  put_u2be(p, 0);
+  int n_written_attrs = 0;
   for (size_t ii = 0; ii < attributes.size(); ii++) {
+    u1* before = p;
     attributes[ii]->Write(p);
+    if (p != before) {
+      n_written_attrs++;
+    }
   }
+
+  put_u2be(p_size, n_written_attrs);
 }
 
 // See sec.4.4 of JVM spec.
@@ -1406,6 +1545,8 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
 
   clazz->access_flags = get_u2be(p);
   clazz->this_class = constant(get_u2be(p));
+  class_name = clazz->this_class;
+
   u2 super_class_id = get_u2be(p);
   clazz->super_class = super_class_id == 0 ? NULL : constant(super_class_id);
 
@@ -1441,7 +1582,170 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   return clazz;
 }
 
+// In theory, '/' is also reserved, but it's okay if we just parse package
+// identifiers as part of the class name. Note that signatures are UTF-8, but
+// this works just as well as in plain ASCII.
+static const char *SIGNATURE_NON_IDENTIFIER_CHARS = ".;[<>:";
+
+void Expect(const std::string& desc, size_t* p, char expected) {
+  if (desc[*p] != expected) {
+    fprintf(stderr, "Expected '%c' in '%s' at %zd in signature\n",
+            expected, desc.substr(*p).c_str(), *p);
+    exit(1);
+  }
+
+  *p += 1;
+}
+
+// These functions form a crude recursive descent parser for descriptors and
+// signatures in class files (see JVM spec 4.3).
+//
+// This parser is a bit more liberal than the spec, but this should be fine,
+// because it accepts all valid class files and croaks only on invalid ones.
+void ParseFromClassTypeSignature(const std::string& desc, size_t* p);
+void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p);
+void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p);
+void ParseIdentifier(const std::string& desc, size_t* p);
+void ParseTypeArgumentsOpt(const std::string& desc, size_t* p);
+void ParseMethodDescriptor(const std::string& desc, size_t* p);
+
+void ParseClassTypeSignature(const std::string& desc, size_t* p) {
+  Expect(desc, p, 'L');
+  ParseSimpleClassTypeSignature(desc, p);
+  ParseClassTypeSignatureSuffix(desc, p);
+  Expect(desc, p, ';');
+}
+
+void ParseSimpleClassTypeSignature(const std::string& desc, size_t* p) {
+  ParseIdentifier(desc, p);
+  ParseTypeArgumentsOpt(desc, p);
+}
+
+void ParseClassTypeSignatureSuffix(const std::string& desc, size_t* p) {
+  while (desc[*p] == '.') {
+    *p += 1;
+    ParseSimpleClassTypeSignature(desc, p);
+  }
+}
+
+void ParseIdentifier(const std::string& desc, size_t* p) {
+  size_t next = desc.find_first_of(SIGNATURE_NON_IDENTIFIER_CHARS, *p);
+  std::string id = desc.substr(*p, next - *p);
+  used_class_names.insert(id);
+  *p = next;
+}
+
+void ParseTypeArgumentsOpt(const std::string& desc, size_t* p) {
+  if (desc[*p] != '<') {
+    return;
+  }
+
+  *p += 1;
+  while (desc[*p] != '>') {
+    switch (desc[*p]) {
+      case '*':
+        *p += 1;
+        break;
+
+      case '+':
+      case '-':
+        *p += 1;
+        ExtractClassNames(desc, p);
+        break;
+
+      default:
+        ExtractClassNames(desc, p);
+        break;
+    }
+  }
+
+  *p += 1;
+}
+
+void ParseMethodDescriptor(const std::string& desc, size_t* p) {
+  Expect(desc, p, '(');
+  while (desc[*p] != ')') {
+    ExtractClassNames(desc, p);
+  }
+
+  Expect(desc, p, ')');
+  ExtractClassNames(desc, p);
+}
+
+void ParseFormalTypeParameters(const std::string& desc, size_t* p) {
+  Expect(desc, p, '<');
+  while (desc[*p] != '>') {
+    ParseIdentifier(desc, p);
+    Expect(desc, p, ':');
+    if (desc[*p] != ':' && desc[*p] != '>') {
+      ExtractClassNames(desc, p);
+    }
+
+    while (desc[*p] == ':') {
+      Expect(desc, p, ':');
+      ExtractClassNames(desc, p);
+    }
+  }
+
+  Expect(desc, p, '>');
+}
+
+void ExtractClassNames(const std::string& desc, size_t* p) {
+  switch (desc[*p]) {
+    case '<':
+      ParseFormalTypeParameters(desc, p);
+      ExtractClassNames(desc, p);
+      break;
+
+    case 'L':
+      ParseClassTypeSignature(desc, p);
+      break;
+
+    case '[':
+      *p += 1;
+      ExtractClassNames(desc, p);
+      break;
+
+    case 'T':
+      *p += 1;
+      ParseIdentifier(desc, p);
+      Expect(desc, p, ';');
+      break;
+
+    case '(':
+      ParseMethodDescriptor(desc, p);
+      break;
+
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'F':
+    case 'I':
+    case 'J':
+    case 'S':
+    case 'Z':
+    case 'V':
+      *p += 1;
+      break;
+
+    default:
+      fprintf(stderr, "Invalid signature %s\n", desc.substr(*p).c_str());
+  }
+}
+
 void ClassFile::WriteClass(u1 *&p) {
+  used_class_names.clear();
+  std::vector<Member *> members;
+  members.insert(members.end(), fields.begin(), fields.end());
+  members.insert(members.end(), methods.begin(), methods.end());
+  ExtractClassNames();
+  for (int i = 0; i < members.size(); i++) {
+    Member *member = members[i];
+    size_t idx = 0;
+    devtools_ijar::ExtractClassNames(member->descriptor->Display(), &idx);
+    member->ExtractClassNames();
+  }
+
   // We have to write the body out before the header in order to reference
   // the essential constants and populate the output constant pool:
   u1 *body = new u1[length];
@@ -1466,11 +1770,6 @@ void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
     // beginning of the output phase; calls to Constant::slot() will
     // fail if called prior to this.
     const_pool_out.push_back(NULL);
-
-    // TODO(bazel-team): We should only keep classes in the InnerClass attributes
-    // if they're used in the output. The entries can then be cleaned out of the
-    // constant pool in the normal way.
-
     clazz->WriteClass(classdata_out);
 
     delete clazz;
