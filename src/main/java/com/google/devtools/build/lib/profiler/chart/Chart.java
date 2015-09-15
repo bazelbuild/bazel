@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.profiler.chart;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,9 +31,6 @@ public class Chart {
 
   /** The title of the chart. */
   private final String title;
-
-  /** Statistics of the profiled build. */
-  private final List<ProfilePhaseStatistics> statistics;
 
   /** The rows of the chart. */
   private final Map<Long, ChartRow> rows = new HashMap<>();
@@ -59,14 +54,10 @@ public class Chart {
    * Creates a chart.
    *
    * @param title the title of the chart
-   * @param statistics Statistics of the profiled build. This is expected to be
-   *        a formatted string, ready to be printed out.
    */
-  public Chart(String title, List<ProfilePhaseStatistics> statistics) {
+  public Chart(String title) {
     Preconditions.checkNotNull(title);
-    Preconditions.checkNotNull(statistics);
     this.title = title;
-    this.statistics = statistics;
   }
 
   /**
@@ -217,10 +208,6 @@ public class Chart {
 
   public String getTitle() {
     return title;
-  }
-
-  public List<ProfilePhaseStatistics> getStatistics() {
-    return statistics;
   }
 
   public int getRowCount() {

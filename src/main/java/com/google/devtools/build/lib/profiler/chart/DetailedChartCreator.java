@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.profiler.chart;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
-import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 
 import java.util.EnumSet;
-import java.util.List;
 
 /**
  * Implementation of {@link ChartCreator} that creates Gantt Charts that contain
@@ -33,26 +31,17 @@ public class DetailedChartCreator implements ChartCreator {
   private final ProfileInfo info;
 
   /**
-   * Statistics of the profiled build. This is expected to be a formatted
-   * string, ready to be printed out.
-   */
-  private final List<ProfilePhaseStatistics> statistics;
-
-  /**
    * Creates the chart creator.
    *
    * @param info the data of the profiled build
-   * @param statistics Statistics of the profiled build. This is expected to be
-   *        a formatted string, ready to be printed out.
    */
-  public DetailedChartCreator(ProfileInfo info, List<ProfilePhaseStatistics> statistics) {
+  public DetailedChartCreator(ProfileInfo info) {
     this.info = info;
-    this.statistics = statistics;
   }
 
   @Override
   public Chart create() {
-    Chart chart = new Chart(info.comment, statistics);
+    Chart chart = new Chart(info.comment);
     CommonChartCreator.createCommonChartItems(chart, info);
     createTypes(chart);
 

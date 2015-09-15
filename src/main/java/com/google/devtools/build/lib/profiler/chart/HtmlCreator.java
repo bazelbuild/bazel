@@ -35,20 +35,31 @@ public final class HtmlCreator {
   private final HtmlChartVisitor chartVisitor;
   private final Optional<SkylarkStatistics> skylarkStats;
 
+  /**
+   * Pre-formatted statistics for each phase of the profiled build.
+   */
+  private final List<ProfilePhaseStatistics> statistics;
+
   private HtmlCreator(
       PrintStream out,
       Chart chart,
       Optional<SkylarkStatistics> skylarkStats,
-      int htmlPixelsPerSecond) {
+      int htmlPixelsPerSecond,
+      List<ProfilePhaseStatistics> statistics) {
     this.out = out;
     this.chart = chart;
     chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
     this.skylarkStats = skylarkStats;
+    this.statistics = statistics;
   }
 
   private void print() {
     htmlFrontMatter();
     chart.accept(chartVisitor);
+
+    out.println("<h2>Statistics</h2>");
+    printPhaseStatistics();
+
     if (skylarkStats.isPresent()) {
       skylarkStats.get().printHtmlBody();
     }
@@ -58,7 +69,6 @@ public final class HtmlCreator {
   private void htmlFrontMatter() {
     out.println("<html><head>");
     out.printf("<title>%s</title>", chart.getTitle());
-
     chartVisitor.printCss(chart.getSortedTypes());
 
     if (skylarkStats.isPresent()) {
@@ -72,6 +82,25 @@ public final class HtmlCreator {
   private void htmlBackMatter() {
     out.println("</body>");
     out.println("</html>");
+  }
+
+  /**
+   * Print a table from {@link #statistics} arranging the phases side by side.
+   */
+  private void printPhaseStatistics() {
+    out.println("<table border=\"0\" width=\"100%\"><tr>");
+    String statsSeparator = "";
+    for (ProfilePhaseStatistics stat : statistics) {
+      out.println(statsSeparator);
+      out.println("<td valign=\"top\" style=\"margin: 0 10 0;\">");
+      String title = stat.getTitle();
+      if (!title.isEmpty()) {
+        out.println(String.format("<h3>%s</h3>", title));
+      }
+      out.println("<pre>" + stat.getStatistics() + "</pre></td>");
+      statsSeparator = "<td><div style=\"width:20px;\">&#160;</div></td>";
+    }
+    out.println("</tr></table>");
   }
 
   /**
@@ -94,14 +123,14 @@ public final class HtmlCreator {
       ChartCreator chartCreator;
       Optional<SkylarkStatistics> skylarkStats;
       if (detailed) {
-        chartCreator = new DetailedChartCreator(info, statistics);
+        chartCreator = new DetailedChartCreator(info);
         skylarkStats = Optional.of(new SkylarkStatistics(out, info));
       } else {
-        chartCreator = new AggregatingChartCreator(info, statistics);
+        chartCreator = new AggregatingChartCreator(info);
         skylarkStats = Optional.absent();
       }
       Chart chart = chartCreator.create();
-      new HtmlCreator(out, chart, skylarkStats, htmlPixelsPerSecond).print();
+      new HtmlCreator(out, chart, skylarkStats, htmlPixelsPerSecond, statistics).print();
     }
   }
 }
