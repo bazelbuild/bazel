@@ -131,11 +131,19 @@ public class PackageFactoryApparatus {
     LegacyGlobber globber = new LegacyGlobber(globCache);
     ExternalPackage externalPkg = new ExternalPackage.Builder(
         buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING").build();
-    LegacyBuilder resultBuilder = factory.evaluateBuildFile(
-        externalPkg, packageId, buildFileAST, buildFile,
-        globber, ImmutableList.<Event>of(), ConstantRuleVisibility.PUBLIC, false, false,
-        new MakeEnvironment.Builder(), ImmutableMap.<PathFragment, Extension>of(),
-        ImmutableList.<Label>of());
+    LegacyBuilder resultBuilder =
+        factory.evaluateBuildFile(
+            externalPkg,
+            packageId,
+            buildFileAST,
+            buildFile,
+            globber,
+            ImmutableList.<Event>of(),
+            ConstantRuleVisibility.PUBLIC,
+            false,
+            new MakeEnvironment.Builder(),
+            ImmutableMap.<PathFragment, Extension>of(),
+            ImmutableList.<Label>of());
     Package result = resultBuilder.build();
     Event.replayEventsOn(events.reporter(), result.getEvents());
     return Pair.of(result, globCache);

@@ -1002,10 +1002,17 @@ public final class PackageFactory {
       prefetchGlobs(packageId, buildFileAST, preprocessingResult.preprocessed,
           buildFile, globber, defaultVisibility, makeEnv);
       return evaluateBuildFile(
-          externalPkg, packageId, buildFileAST, buildFile, globber,
+          externalPkg,
+          packageId,
+          buildFileAST,
+          buildFile,
+          globber,
           Iterables.concat(preprocessingEvents, localReporter.getEvents()),
-          defaultVisibility, preprocessingResult.containsErrors,
-          preprocessingResult.containsTransientErrors, makeEnv, imports, skylarkFileDependencies);
+          defaultVisibility,
+          preprocessingResult.containsErrors,
+          makeEnv,
+          imports,
+          skylarkFileDependencies);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -1034,8 +1041,14 @@ public final class PackageFactory {
     }
 
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
-    Preprocessor.Result preprocessingResult =
-        preprocess(packageId, buildFile, inputSource, globber);
+    Preprocessor.Result preprocessingResult;
+    try {
+      preprocessingResult = preprocess(packageId, inputSource, globber);
+    } catch (IOException e) {
+      eventHandler.handle(
+          Event.error(Location.fromFile(buildFile), "preprocessing failed: " + e.getMessage()));
+      throw new BuildFileContainsErrorsException(packageId, "preprocessing failed", e);
+    }
     ExternalPackage externalPkg =
         new ExternalPackage.Builder(
             buildFile.getRelative("WORKSPACE"), ruleClassProvider.getRunfilesPrefix()).build();
@@ -1060,20 +1073,13 @@ public final class PackageFactory {
 
   /** Preprocesses the given BUILD file. */
   public Preprocessor.Result preprocess(
-      PackageIdentifier packageId,
-      Path buildFile,
-      CachingPackageLocator locator) throws InterruptedException {
+      PackageIdentifier packageId, Path buildFile, CachingPackageLocator locator)
+      throws InterruptedException, IOException {
     ParserInputSource inputSource;
-    try {
-      inputSource = ParserInputSource.create(buildFile);
-    } catch (IOException e) {
-      List<Event> events = ImmutableList.of(
-          Event.error(Location.fromFile(buildFile), e.getMessage()));
-      return Preprocessor.Result.transientError(buildFile.asFragment(), events);
-    }
+    inputSource = ParserInputSource.create(buildFile);
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
     try {
-      return preprocess(packageId, buildFile, inputSource, globber);
+      return preprocess(packageId, inputSource, globber);
     } finally {
       globber.onCompletion();
     }
@@ -1084,10 +1090,8 @@ public final class PackageFactory {
    * {@link InterruptedException}.
    */
   public Preprocessor.Result preprocess(
-      PackageIdentifier packageId,
-      Path buildFile,
-      ParserInputSource inputSource,
-      Globber globber) throws InterruptedException {
+      PackageIdentifier packageId, ParserInputSource inputSource, Globber globber)
+      throws InterruptedException, IOException {
     Preprocessor preprocessor = preprocessorFactory.getPreprocessor();
     if (preprocessor == null) {
       return Preprocessor.Result.noPreprocessing(inputSource);
@@ -1099,10 +1103,6 @@ public final class PackageFactory {
           globber,
           Environment.BUILD,
           ruleFactory.getRuleClassNames());
-    } catch (IOException e) {
-      List<Event> events = ImmutableList.of(Event.error(Location.fromFile(buildFile),
-                     "preprocessing failed: " + e.getMessage()));
-      return Preprocessor.Result.transientError(buildFile.asFragment(), events);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -1238,12 +1238,19 @@ public final class PackageFactory {
    * @see PackageFactory#PackageFactory
    */
   @VisibleForTesting // used by PackageFactoryApparatus
-  public Package.LegacyBuilder evaluateBuildFile(Package externalPkg,
-      PackageIdentifier packageId, BuildFileAST buildFileAST, Path buildFilePath, Globber globber,
-      Iterable<Event> pastEvents, RuleVisibility defaultVisibility, boolean containsError,
-      boolean containsTransientError, MakeEnvironment.Builder pkgMakeEnv,
+  public Package.LegacyBuilder evaluateBuildFile(
+      Package externalPkg,
+      PackageIdentifier packageId,
+      BuildFileAST buildFileAST,
+      Path buildFilePath,
+      Globber globber,
+      Iterable<Event> pastEvents,
+      RuleVisibility defaultVisibility,
+      boolean containsError,
+      MakeEnvironment.Builder pkgMakeEnv,
       Map<PathFragment, Extension> imports,
-      ImmutableList<Label> skylarkFileDependencies) throws InterruptedException {
+      ImmutableList<Label> skylarkFileDependencies)
+      throws InterruptedException {
     Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(
         packageId, ruleClassProvider.getRunfilesPrefix());
     StoredEventHandler eventHandler = new StoredEventHandler();
@@ -1276,10 +1283,6 @@ public final class PackageFactory {
 
       if (containsError) {
         pkgBuilder.setContainsErrors();
-      }
-
-      if (containsTransientError) {
-        pkgBuilder.setContainsTemporaryErrors();
       }
 
       if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {

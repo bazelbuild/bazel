@@ -97,23 +97,26 @@ public interface Preprocessor {
     public final ParserInputSource result;
     public final boolean preprocessed;
     public final boolean containsErrors;
-    public final boolean containsTransientErrors;
     public final List<Event> events;
 
-    private Result(ParserInputSource result,
-        boolean preprocessed, boolean containsPersistentErrors, boolean containsTransientErrors,
+    private Result(
+        ParserInputSource result,
+        boolean preprocessed,
+        boolean containsErrors,
         List<Event> events) {
       this.result = result;
       this.preprocessed = preprocessed;
-      this.containsErrors = containsPersistentErrors || containsTransientErrors;
-      this.containsTransientErrors = containsTransientErrors;
+      this.containsErrors = containsErrors;
       this.events = ImmutableList.copyOf(events);
     }
 
     /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
-      return new Result(buildFileSource, /*preprocessed=*/false, /*containsErrors=*/false,
-          /*containsTransientErrors=*/false, ImmutableList.<Event>of());
+      return new Result(
+          buildFileSource,
+          /*preprocessed=*/false,
+          /*containsErrors=*/false,
+          ImmutableList.<Event>of());
     }
 
     /**
@@ -123,32 +126,31 @@ public interface Preprocessor {
      */
     public static Result success(ParserInputSource result, boolean containsErrors,
         List<Event> events) {
-      return new Result(result, /*preprocessed=*/true, /*containsPersistentErrors=*/containsErrors,
-          /*containsTransientErrors=*/false, events);
+      return new Result(result, /*preprocessed=*/true, containsErrors, events);
     }
 
     public static Result invalidSyntax(PathFragment buildFile, List<Event> events) {
-      return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/true,
-          /*containsPersistentErrors=*/true, /*containsTransientErrors=*/false, events);
-    }
-
-    public static Result transientError(PathFragment buildFile, List<Event> events) {
-      return new Result(ParserInputSource.create(EMPTY_CHARS, buildFile), /*preprocessed=*/false,
-          /*containsPersistentErrors=*/false, /*containsTransientErrors=*/true, events);
+      return new Result(
+          ParserInputSource.create(EMPTY_CHARS, buildFile),
+          /*preprocessed=*/true,
+          /*containsErrors=*/true,
+          events);
     }
   }
 
   /**
    * Returns a Result resulting from applying Python preprocessing to the contents of "in". If
    * errors happen, they must be reported both as an event on eventHandler and in the function
-   * return value.
+   * return value. An IOException is only thrown when preparing for preprocessing. Once
+   * preprocessing actually begins, any I/O problems encountered will be reflected in the return
+   * value, not manifested as exceptions.
    *
    * @param in the BUILD file to be preprocessed.
    * @param packageName the BUILD file's package.
    * @param globber a globber for evaluating globs.
    * @param globals the global bindings for the Python environment.
    * @param ruleNames the set of names of all rules in the build language.
-   * @throws IOException if there was an I/O problem during preprocessing.
+   * @throws IOException if there was an I/O problem preparing for preprocessing.
    * @return a pair of the ParserInputSource and a map of subincludes seen during the evaluation
    */
   Result preprocess(
