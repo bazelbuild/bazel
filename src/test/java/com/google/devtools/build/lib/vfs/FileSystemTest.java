@@ -54,6 +54,7 @@ public abstract class FileSystemTest {
 
   // Some useful examples of various kinds of files (mnemonic: "x" = "eXample")
   protected Path xNothing;
+  protected Path xLink;
   protected Path xFile;
   protected Path xNonEmptyDirectory;
   protected Path xNonEmptyDirectoryFoo;
@@ -73,6 +74,7 @@ public abstract class FileSystemTest {
     // drwxrwxr-x xEmptyDirectory
 
     xNothing = absolutize("xNothing");
+    xLink = absolutize("xLink");
     xFile = absolutize("xFile");
     xNonEmptyDirectory = absolutize("xNonEmptyDirectory");
     xNonEmptyDirectoryFoo = xNonEmptyDirectory.getChild("foo");
@@ -1331,10 +1333,23 @@ public abstract class FileSystemTest {
   @Test
   public void testResolveSymlinks() throws Exception {
     if (supportsSymlinks) {
-      createSymbolicLink(xNothing, xFile);
+      createSymbolicLink(xLink, xFile);
       FileSystemUtils.createEmptyFile(xFile);
-      assertEquals(xFile.asFragment(), testFS.resolveOneLink(xNothing));
-      assertEquals(xFile, xNothing.resolveSymbolicLinks());
+      assertEquals(xFile.asFragment(), testFS.resolveOneLink(xLink));
+      assertEquals(xFile, xLink.resolveSymbolicLinks());
+    }
+  }
+
+  @Test
+  public void testResolveDanglingSymlinks() throws Exception {
+    if (supportsSymlinks) {
+      createSymbolicLink(xLink, xNothing);
+      assertEquals(xNothing.asFragment(), testFS.resolveOneLink(xLink));
+      try {
+        xLink.resolveSymbolicLinks();
+        fail();
+      } catch (IOException expected) {
+      }
     }
   }
 
