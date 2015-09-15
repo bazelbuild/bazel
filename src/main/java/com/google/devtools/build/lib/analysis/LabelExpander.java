@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -154,7 +155,7 @@ public final class LabelExpander {
   private static Label resolveLabelText(String labelText, Label labelResolver) {
     try {
       return labelResolver.getRelative(labelText);
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       // It's a heuristic, so quietly ignore "errors". Because Label.getRelative never
       // returns null, we can use null to indicate an error.
       return null;

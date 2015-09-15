@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -119,11 +120,11 @@ public class WorkspaceFactory {
             builder.addBindRule(ruleClass, nameLabel,
                 actual == null ? null : Label.parseAbsolute(actual), loc);
           } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
-            Label.SyntaxException e) {
+              LabelSyntaxException e) {
             throw new EvalException(loc, e.getMessage());
           }
 
-        } catch (Label.SyntaxException e) {
+        } catch (LabelSyntaxException e) {
           throw new EvalException(loc, e.getMessage());
         }
         return NONE;
@@ -146,7 +147,7 @@ public class WorkspaceFactory {
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           builder.createAndAddRepositoryRule(ruleClass, bindRuleClass, kwargs, ast, env);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
-            Label.SyntaxException e) {
+            LabelSyntaxException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
         return NONE;

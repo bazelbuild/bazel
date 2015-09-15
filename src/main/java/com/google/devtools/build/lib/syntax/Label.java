@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -42,15 +42,6 @@ import java.io.Serializable;
 public final class Label implements Comparable<Label>, Serializable {
 
   /**
-   * Thrown by the parsing methods to indicate a bad label.
-   */
-  public static class SyntaxException extends Exception {
-    public SyntaxException(String message) {
-      super(message);
-    }
-  }
-
-  /**
    * Factory for Labels from absolute string form. e.g.
    * <pre>
    * //foo/bar
@@ -59,7 +50,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * {@literal @}foo//bar:baz
    * </pre>
    */
-  public static Label parseAbsolute(String absName) throws SyntaxException {
+  public static Label parseAbsolute(String absName) throws LabelSyntaxException {
     String repo = PackageIdentifier.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
     if (packageStartPos > 0) {
@@ -71,8 +62,8 @@ public final class Label implements Comparable<Label>, Serializable {
       validate(labelParts.getPackageName(), labelParts.getTargetName());
       return new Label(new PackageIdentifier(repo, new PathFragment(labelParts.getPackageName())),
           labelParts.getTargetName());
-    } catch (BadLabelException | TargetParsingException e) {
-      throw new SyntaxException(e.getMessage());
+    } catch (BadLabelException e) {
+      throw new LabelSyntaxException(e.getMessage());
     }
   }
 
@@ -86,7 +77,7 @@ public final class Label implements Comparable<Label>, Serializable {
   public static Label parseAbsoluteUnchecked(String absName) {
     try {
       return parseAbsolute(absName);
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
     }
   }
@@ -99,9 +90,9 @@ public final class Label implements Comparable<Label>, Serializable {
    *   {@link LabelValidator#validatePackageName}.
    * @param targetName The name of the target within the package.  Must be
    *   valid according to {@link LabelValidator#validateTargetName}.
-   * @throws SyntaxException if either of the arguments was invalid.
+   * @throws LabelSyntaxException if either of the arguments was invalid.
    */
-  public static Label create(String packageName, String targetName) throws SyntaxException {
+  public static Label create(String packageName, String targetName) throws LabelSyntaxException {
     return new Label(packageName, targetName);
   }
 
@@ -110,7 +101,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * to be created.
    */
   public static Label create(PackageIdentifier packageId, String targetName)
-      throws SyntaxException {
+      throws LabelSyntaxException {
     return new Label(packageId, targetName);
   }
 
@@ -131,10 +122,10 @@ public final class Label implements Comparable<Label>, Serializable {
    * possible, because it is sometimes necessary to resolve a relative label before the package path
    * is setup; in particular, before the tools/defaults package is created.
    *
-   * @throws SyntaxException if the resulting label is not valid
+   * @throws LabelSyntaxException if the resulting label is not valid
    */
   public static Label parseCommandLineLabel(String label, PathFragment workspaceRelativePath)
-      throws SyntaxException {
+      throws LabelSyntaxException {
     Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
     if (LabelValidator.isAbsolute(label)) {
       return parseAbsolute(label);
@@ -154,11 +145,11 @@ public final class Label implements Comparable<Label>, Serializable {
    * Validates the given target name and returns a canonical String instance if it is valid.
    * Otherwise it throws a SyntaxException.
    */
-  private static String canonicalizeTargetName(String name) throws SyntaxException {
+  private static String canonicalizeTargetName(String name) throws LabelSyntaxException {
     String error = LabelValidator.validateTargetName(name);
     if (error != null) {
       error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
-      throw new SyntaxException(error);
+      throw new LabelSyntaxException(error);
     }
 
     // TODO(bazel-team): This should be an error, but we can't make it one for legacy reasons.
@@ -173,19 +164,22 @@ public final class Label implements Comparable<Label>, Serializable {
    * Validates the given package name and returns a canonical PathFragment instance if it is valid.
    * Otherwise it throws a SyntaxException.
    */
-  private static PathFragment validate(String packageName, String name) throws SyntaxException {
-    String error = LabelValidator.validatePackageName(packageName);
-    if (error != null) {
-      error = "invalid package name '" + packageName + "': " + error;
+  private static PackageIdentifier validate(String packageIdentifier, String name)
+      throws LabelSyntaxException {
+    String error = null;
+    try {
+      return PackageIdentifier.parse(packageIdentifier);
+    } catch (LabelSyntaxException e) {
+      error = e.getMessage();
+      error = "invalid package name '" + packageIdentifier + "': " + error;
       // This check is just for a more helpful error message
       // i.e. valid target name, invalid package name, colon-free label form
       // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
-      if (packageName.endsWith("/" + name)) {
+      if (packageIdentifier.endsWith("/" + name)) {
         error += " (perhaps you meant \":" + name + "\"?)";
       }
-      throw new SyntaxException(error);
+      throw new LabelSyntaxException(error);
     }
-    return new PathFragment(packageName);
   }
 
   /** The name and repository of the package. */
@@ -201,32 +195,24 @@ public final class Label implements Comparable<Label>, Serializable {
    * bazillion tests that use invalid package names (taking advantage of the fact that calling
    * Label(PathFragment, String) doesn't validate the package name).
    */
-  private Label(String packageName, String name) throws SyntaxException {
-    this(validate(packageName, name), name);
-  }
-
-  /**
-   * Constructor from canonical valid package name and a target name. The target
-   * name is checked for validity and a SyntaxException is throw if it isn't.
-   */
-  private Label(PathFragment packageName, String name) throws SyntaxException {
-    this(PackageIdentifier.createInDefaultRepo(packageName), name);
+  private Label(String packageIdentifier, String name) throws LabelSyntaxException {
+    this(validate(packageIdentifier, name), name);
   }
 
   private Label(PackageIdentifier packageIdentifier, String name)
-      throws SyntaxException {
+      throws LabelSyntaxException {
     Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
     try {
       this.packageIdentifier = packageIdentifier;
       this.name = canonicalizeTargetName(name);
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       // This check is just for a more helpful error message
       // i.e. valid target name, invalid package name, colon-free label form
       // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
       if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
-        throw new SyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
+        throw new LabelSyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
       }
       throw e;
     }
@@ -317,9 +303,9 @@ public final class Label implements Comparable<Label>, Serializable {
   /**
    * Returns a label in the same package as this label with the given target name.
    *
-   * @throws SyntaxException if {@code targetName} is not a valid target name
+   * @throws LabelSyntaxException if {@code targetName} is not a valid target name
    */
-  public Label getLocalTargetLabel(String targetName) throws SyntaxException {
+  public Label getLocalTargetLabel(String targetName) throws LabelSyntaxException {
     return new Label(packageIdentifier, targetName);
   }
 
@@ -341,14 +327,14 @@ public final class Label implements Comparable<Label>, Serializable {
       + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
       + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
       + "</pre>")
-  public Label getRelative(String relName) throws SyntaxException {
+  public Label getRelative(String relName) throws LabelSyntaxException {
     if (relName.length() == 0) {
-      throw new SyntaxException("empty package-relative label");
+      throw new LabelSyntaxException("empty package-relative label");
     }
     if (LabelValidator.isAbsolute(relName)) {
       return parseAbsolute(relName);
     } else if (relName.equals(":")) {
-      throw new SyntaxException("':' is not a valid package-relative label");
+      throw new LabelSyntaxException("':' is not a valid package-relative label");
     } else if (relName.charAt(0) == ':') {
       return getLocalTargetLabel(relName.substring(1));
     } else {
@@ -372,7 +358,7 @@ public final class Label implements Comparable<Label>, Serializable {
         return new Label(
             new PackageIdentifier(packageIdentifier.getRepository(), relative.getPackageFragment()),
             relative.getName());
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         // We are creating the new label from an existing one which is guaranteed to be valid, so
         // this can't happen
         throw new IllegalStateException(e);

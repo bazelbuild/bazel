@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -118,7 +118,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return getTarget(Label.parseAbsolute(label));
   }
 
@@ -187,9 +187,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
    * Utility method for tests. Converts an array of strings into a set of labels.
    *
    * @param strings the set of strings to be converted to labels.
-   * @throws SyntaxException if there are any syntax errors in the strings.
+   * @throws LabelSyntaxException if there are any syntax errors in the strings.
    */
-  public static Set<Label> asLabelSet(String... strings) throws SyntaxException {
+  public static Set<Label> asLabelSet(String... strings) throws LabelSyntaxException {
     return asLabelSet(ImmutableList.copyOf(strings));
   }
 
@@ -197,9 +197,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
    * Utility method for tests. Converts an array of strings into a set of labels.
    *
    * @param strings the set of strings to be converted to labels.
-   * @throws SyntaxException if there are any syntax errors in the strings.
+   * @throws LabelSyntaxException if there are any syntax errors in the strings.
    */
-  public static Set<Label> asLabelSet(Iterable<String> strings) throws SyntaxException {
+  public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
       result.add(Label.parseAbsolute(s));
@@ -208,12 +208,12 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected final Set<Target> asTargetSet(String... strLabels)
-      throws SyntaxException, NoSuchThingException, InterruptedException {
+      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
     return asTargetSet(Arrays.asList(strLabels));
   }
 
   protected Set<Target> asTargetSet(Iterable<String> strLabels)
-      throws SyntaxException, NoSuchThingException, InterruptedException {
+      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
     Set<Target> targets = new HashSet<>();
     for (String strLabel : strLabels) {
       targets.add(getTarget(strLabel));

@@ -378,11 +378,11 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageName.equals(EXTERNAL_PACKAGE_NAME)) {
+    if (packageId.equals(ExternalPackage.PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
     PackageValue externalPackage = (PackageValue) env.getValue(
-        PackageValue.key(PackageIdentifier.createInDefaultRepo(EXTERNAL_PACKAGE_NAME)));
+        PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER));
     if (externalPackage == null) {
       return null;
     }

@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -43,11 +42,6 @@ public class PackageValue implements SkyValue {
   @Override
   public String toString() {
     return "<PackageValue name=" + pkg.getName() + ">";
-  }
-
-  @ThreadSafe
-  public static SkyKey key(PathFragment pkgName) {
-    return key(PackageIdentifier.createInDefaultRepo(pkgName));
   }
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {

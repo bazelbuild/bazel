@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -646,7 +647,7 @@ class Parser {
       Parser parser = new Parser(lexer, eventHandler, locator, parsingMode);
       parser.addIncludedFiles(this.includedFiles);
       list.addAll(parser.parseFileInput());
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       reportError(location, "Invalid label '" + labelName + "'");
     } catch (IOException e) {
       reportError(location, "Include of '" + labelName + "' failed: " + e.getMessage());

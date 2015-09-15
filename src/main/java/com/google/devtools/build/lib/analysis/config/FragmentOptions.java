@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 
@@ -115,7 +115,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
     if ((value != null) && value.startsWith("//")) {
       try {
         return Label.parseAbsolute(value);
-      } catch (SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         // We ignore this exception here - it will cause an error message at a later time.
         // TODO(bazel-team): We can use a Converter to check the validity of the crosstoolTop
         // earlier.

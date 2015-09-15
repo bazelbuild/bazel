@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -670,7 +671,7 @@ public abstract class Type<T> {
       try {
         return currentRule.getRelative(
             STRING.convert(x, what, currentRule));
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
             + what + ": " + e.getMessage());
       }
@@ -796,7 +797,7 @@ public abstract class Type<T> {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         throw new ConversionException(
             "illegal output file name '" + value + "' in rule " + currentRule + ": "
             + e.getMessage());
@@ -1043,7 +1044,7 @@ public abstract class Type<T> {
 
       try {
         defaultConditionLabel = Label.parseAbsolute(DEFAULT_CONDITION_KEY);
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         throw new IllegalStateException(DEFAULT_CONDITION_KEY + " is not a valid label");
       }
 

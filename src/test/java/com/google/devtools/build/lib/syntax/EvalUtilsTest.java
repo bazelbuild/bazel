@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +56,7 @@ public class EvalUtilsTest {
       return new FilesetEntry(Label.parseAbsolute("//foo:bar"),
                               Lists.<Label>newArrayList(), Lists.newArrayList("xyz"), "",
                               FilesetEntry.SymlinkBehavior.COPY, ".");
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       throw new RuntimeException("Bad label: ", e);
     }
   }

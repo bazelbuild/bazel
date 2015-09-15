@@ -19,7 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -60,7 +60,7 @@ public class LabelTest {
     }
   }
 
-  private static String parseCommandLine(String label, String prefix) throws SyntaxException {
+  private static String parseCommandLine(String label, String prefix) throws LabelSyntaxException {
     return Label.parseCommandLineLabel(label, new PathFragment(prefix)).toString();
   }
 
@@ -91,7 +91,7 @@ public class LabelTest {
     try {
       parseCommandLine("//absolute:A+bad%syntax", "");
       fail();
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       // Expected exception
     }
   }
@@ -112,25 +112,25 @@ public class LabelTest {
     try {
       base.getRelative("/p1/p2:target");
       fail();
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
       base.getRelative("quux:");
       fail();
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
       base.getRelative(":");
       fail();
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       /* ok */
     }
     try {
       base.getRelative("::");
       fail();
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       /* ok */
     }
   }
@@ -186,7 +186,7 @@ public class LabelTest {
     try {
       Label.parseAbsolute(label);
       fail("Label '" + label + "' did not contain a syntax error");
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       assertContainsRegex(Pattern.quote(expectedError), e.getMessage());
     }
   }
@@ -358,7 +358,7 @@ public class LabelTest {
     try {
       Label.parseAbsolute("foo//bar/baz:bat/boo");
       fail();
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       assertThat(e).hasMessage("invalid repository name 'foo': workspace name must start with '@'");
     }
   }

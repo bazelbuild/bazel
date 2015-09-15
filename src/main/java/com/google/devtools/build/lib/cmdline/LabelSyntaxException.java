@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
-
-import com.google.devtools.build.lib.syntax.Label;
+package com.google.devtools.build.lib.cmdline;
 
 /**
- * Encapsulates the services available for implementors of the {@link RuleDefinition}
- * interface.
+ * Thrown by the parsing methods to indicate a bad label.
  */
-public interface RuleDefinitionEnvironment {
-  /**
-   * Parses the given string as a label and returns the label, by calling {@link
-   * Label#parseAbsolute}. Throws a {@link IllegalArgumentException} if the parsing fails.
-   */
-  Label getLabel(String labelValue);
+public class LabelSyntaxException extends Exception {
+  public LabelSyntaxException(String message) {
+    super(message);
+  }
 }

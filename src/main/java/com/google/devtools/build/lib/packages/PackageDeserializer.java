@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -92,7 +91,7 @@ public class PackageDeserializer {
               public Label load(String labelString) throws PackageDeserializationException {
                 try {
                   return Label.parseAbsolute(labelString);
-                } catch (SyntaxException e) {
+                } catch (LabelSyntaxException e) {
                   throw new PackageDeserializationException("Invalid label: " + e.getMessage(), e);
                 }
               }
@@ -160,7 +159,7 @@ public class PackageDeserializer {
           deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
           NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
           EmptyLocation.INSTANCE);
-    } catch (Label.SyntaxException | Package.NameConflictException e) {
+    } catch (LabelSyntaxException | Package.NameConflictException e) {
       throw new PackageDeserializationException(e);
     }
   }
@@ -183,7 +182,7 @@ public class PackageDeserializer {
       context.packageBuilder.addRule(rule);
 
       Preconditions.checkState(!rule.containsErrors());
-    } catch (NameConflictException | SyntaxException e) {
+    } catch (NameConflictException | LabelSyntaxException e) {
       throw new PackageDeserializationException(e);
     }
   }
@@ -452,7 +451,7 @@ public class PackageDeserializer {
       builder = new Package.Builder(
           new PackageIdentifier(packagePb.getRepository(), new PathFragment(packagePb.getName())),
           null);
-    } catch (TargetParsingException e) {
+    } catch (LabelSyntaxException e) {
       throw new PackageDeserializationException(e);
     }
     StoredEventHandler eventHandler = new StoredEventHandler();

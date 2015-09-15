@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.packages.PackageDeserializer.PackageDeseria
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
@@ -586,7 +586,7 @@ public class Package implements Serializable {
       throw new NoSuchTargetException(createLabel(targetName), "target '" + targetName
           + "' not declared in package '" + name + "'" + suffix + " defined by "
           + this.filename);
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName);
     }
   }
@@ -594,9 +594,9 @@ public class Package implements Serializable {
   /**
    * Creates a label for a target inside this package.
    *
-   * @throws SyntaxException if the {@code targetName} is invalid
+   * @throws LabelSyntaxException if the {@code targetName} is invalid
    */
-  public Label createLabel(String targetName) throws SyntaxException {
+  public Label createLabel(String targetName) throws LabelSyntaxException {
     return Label.create(packageIdentifier, targetName);
   }
 
@@ -841,7 +841,7 @@ public class Package implements Serializable {
       try {
         buildFileLabel = createLabel(filename.getBaseName());
         addInputFile(buildFileLabel, Location.fromFile(filename));
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
       }
@@ -1105,7 +1105,7 @@ public class Package implements Serializable {
       if (existing == null) {
         try {
           return addInputFile(createLabel(targetName), location);
-        } catch (Label.SyntaxException e) {
+        } catch (LabelSyntaxException e) {
           throw new IllegalArgumentException("FileTarget in package " + pkg.getName()
                                              + " has illegal name: " + targetName);
         }
@@ -1142,9 +1142,9 @@ public class Package implements Serializable {
     /**
      * Creates a label for a target inside this package.
      *
-     * @throws SyntaxException if the {@code targetName} is invalid
+     * @throws LabelSyntaxException if the {@code targetName} is invalid
      */
-    Label createLabel(String targetName) throws SyntaxException {
+    Label createLabel(String targetName) throws LabelSyntaxException {
       return Label.create(pkg.getPackageIdentifier(), targetName);
     }
 
@@ -1153,7 +1153,7 @@ public class Package implements Serializable {
      */
     void addPackageGroup(String name, Collection<String> packages, Collection<Label> includes,
         EventHandler eventHandler, Location location)
-        throws NameConflictException, Label.SyntaxException {
+        throws NameConflictException, LabelSyntaxException {
       PackageGroup group =
           new PackageGroup(createLabel(name), pkg, packages, includes, eventHandler, location);
       Target existing = targets.get(group.getName());
@@ -1190,7 +1190,7 @@ public class Package implements Serializable {
      */
     void addEnvironmentGroup(String name, List<Label> environments, List<Label> defaults,
         EventHandler eventHandler, Location location)
-        throws NameConflictException, SyntaxException {
+        throws NameConflictException, LabelSyntaxException {
 
       if (!checkForDuplicateLabels(environments, name, "environments", location, eventHandler)
           || !checkForDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {

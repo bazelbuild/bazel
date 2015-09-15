@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -255,8 +254,7 @@ public abstract class RepositoryFunction implements SkyFunction {
   public static Rule getRule(
       RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
       throws RepositoryFunctionException {
-    SkyKey packageKey = PackageValue.key(
-        PackageIdentifier.createInDefaultRepo(ExternalPackage.NAME));
+    SkyKey packageKey = PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER);
     PackageValue packageValue;
     try {
       packageValue = (PackageValue) env.getValueOrThrow(packageKey,
@@ -327,7 +325,8 @@ public abstract class RepositoryFunction implements SkyFunction {
   }
 
   public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(ExternalPackage.NAME);
+    return directories.getOutputBase().getRelative(
+        ExternalPackage.PACKAGE_IDENTIFIER.getPackageFragment());
   }
 
   /**

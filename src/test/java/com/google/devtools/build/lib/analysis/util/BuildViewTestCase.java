@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -113,7 +114,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -273,7 +273,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return getTarget(Label.parseAbsolute(label));
   }
 
@@ -569,7 +569,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected boolean ensureTargetsVisited(String... labels)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException, SyntaxException {
+      throws InterruptedException, NoSuchTargetException, NoSuchPackageException,
+          LabelSyntaxException {
     List<Label> actualLabels = new ArrayList<>();
     for (String label : labels) {
       actualLabels.add(Label.parseAbsolute(label));
@@ -583,7 +584,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -593,7 +594,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     ensureTargetsVisited(label);
     return view.getConfiguredTargetForTesting(getTarget(label), config);
   }
@@ -614,7 +615,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected FileConfiguredTarget getFileConfiguredTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
@@ -624,7 +625,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getHostConfiguredTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
@@ -634,7 +635,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
-             Label.SyntaxException, InterruptedException {
+      LabelSyntaxException, InterruptedException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 
@@ -1070,7 +1071,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private static Label makeLabel(String label) {
     try {
       return Label.parseAbsolute(label);
-    } catch (SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -1328,9 +1329,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Utility method for tests. Converts an array of strings into a set of labels.
    *
    * @param strings the set of strings to be converted to labels.
-   * @throws SyntaxException if there are any syntax errors in the strings.
+   * @throws LabelSyntaxException if there are any syntax errors in the strings.
    */
-  public static Set<Label> asLabelSet(String... strings) throws SyntaxException {
+  public static Set<Label> asLabelSet(String... strings) throws LabelSyntaxException {
     return asLabelSet(ImmutableList.copyOf(strings));
   }
 
@@ -1338,9 +1339,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Utility method for tests. Converts an array of strings into a set of labels.
    *
    * @param strings the set of strings to be converted to labels.
-   * @throws SyntaxException if there are any syntax errors in the strings.
+   * @throws LabelSyntaxException if there are any syntax errors in the strings.
    */
-  public static Set<Label> asLabelSet(Iterable<String> strings) throws SyntaxException {
+  public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
       result.add(Label.parseAbsolute(s));

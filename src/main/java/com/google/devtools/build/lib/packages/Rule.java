@@ -27,6 +27,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
@@ -484,7 +484,7 @@ public final class Rule implements Target {
    * will retain the relative order in which they were declared.
    */
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
-      throws SyntaxException, InterruptedException {
+      throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
     outputFiles = Lists.newArrayList();
@@ -496,7 +496,7 @@ public final class Rule implements Target {
   }
 
   // Explicit output files are user-specified attributes of type OUTPUT.
-  private void populateExplicitOutputFiles(EventHandler eventHandler) throws SyntaxException {
+  private void populateExplicitOutputFiles(EventHandler eventHandler) throws LabelSyntaxException {
     NonconfigurableAttributeMapper nonConfigurableAttributes =
         NonconfigurableAttributeMapper.of(this);
     for (Attribute attribute : ruleClass.getAttributes()) {
@@ -525,7 +525,7 @@ public final class Rule implements Target {
       for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(attributeMap)) {
         try {
           addOutputFile(pkgBuilder.createLabel(out), eventHandler);
-        } catch (SyntaxException e) {
+        } catch (LabelSyntaxException e) {
           reportError("illegal output file name '" + out + "' in rule "
                       + getLabel(), eventHandler);
         }
@@ -536,7 +536,7 @@ public final class Rule implements Target {
   }
 
   private void addLabelOutput(Attribute attribute, Label label, EventHandler eventHandler)
-      throws SyntaxException {
+      throws LabelSyntaxException {
     if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
       throw new IllegalStateException("Label for attribute " + attribute
           + " should refer to '" + pkg.getName()
@@ -544,7 +544,7 @@ public final class Rule implements Target {
           + "' (label '" + label.getName() + "')");
     }
     if (label.getName().equals(".")) {
-      throw new SyntaxException("output file name can't be equal '.'");
+      throw new LabelSyntaxException("output file name can't be equal '.'");
     }
     OutputFile outputFile = addOutputFile(label, eventHandler);
     outputFileMap.put(attribute.getName(), outputFile);

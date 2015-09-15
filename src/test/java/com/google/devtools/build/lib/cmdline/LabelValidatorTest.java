@@ -98,6 +98,8 @@ public class LabelValidatorTest extends TestCase {
     assertEquals(emptyPackage, LabelValidator.validateAbsoluteLabel("@repo//:bar"));
     assertEquals(new PackageAndTarget("foo", "bar"),
         LabelValidator.validateAbsoluteLabel("@repo//foo:bar"));
+    assertEquals(new PackageAndTarget("foo", "bar"),
+        LabelValidator.validateAbsoluteLabel("@//foo:bar"));
 
     try {
       LabelValidator.validateAbsoluteLabel("@foo");

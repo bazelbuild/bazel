@@ -183,7 +183,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     for (Label scopePart : scopeLabels) {
       SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();
       PackageValue packageNode =
-          (PackageValue) env.getValue(PackageValue.key(scopePart.getPackageFragment()));
+          (PackageValue) env.getValue(PackageValue.key(scopePart.getPackageIdentifier()));
       Preconditions.checkNotNull(
           packageNode,
           "Packages in transitive closure of scope '%s'"

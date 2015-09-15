@@ -20,7 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,7 +52,7 @@ public class PrinterTest {
       return new FilesetEntry(Label.parseAbsolute("//foo:bar"),
                               Lists.<Label>newArrayList(), Lists.newArrayList("xyz"), "",
                               FilesetEntry.SymlinkBehavior.COPY, ".");
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       throw new RuntimeException("Bad label: ", e);
     }
   }
@@ -245,13 +245,13 @@ public class PrinterTest {
   }
 
   private FilesetEntry createTestFilesetEntry(FilesetEntry.SymlinkBehavior symlinkBehavior)
-      throws SyntaxException {
+      throws LabelSyntaxException {
     Label label = Label.parseAbsolute("//x");
     return new FilesetEntry(
         label, Arrays.asList(label), Arrays.<String>asList(), "", symlinkBehavior, ".");
   }
 
-  private FilesetEntry createTestFilesetEntry() throws SyntaxException {
+  private FilesetEntry createTestFilesetEntry() throws LabelSyntaxException {
     return createTestFilesetEntry(FilesetEntry.SymlinkBehavior.COPY);
   }
 }

@@ -20,13 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -209,7 +209,7 @@ public final class License {
         try {
           Label label = Label.parseAbsolute(str.substring("exception=".length()));
           exceptions.add(label);
-        } catch (SyntaxException e) {
+        } catch (LabelSyntaxException e) {
           throw new LicenseParsingException(e.getMessage());
         }
       } else {

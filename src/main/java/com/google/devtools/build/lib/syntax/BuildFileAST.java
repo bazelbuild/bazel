@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -97,7 +98,7 @@ public class BuildFileAST extends ASTNode {
       try {
         Label label = Label.parseAbsolute(((StringLiteral) arg).getValue());
         result.add(label);
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         // Ignore. This will be reported when the BUILD file is actually evaluated.
       }
     }

@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.testutil.Scratch;
 
 import org.junit.Before;
@@ -56,7 +56,7 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testLabelArgs() throws SyntaxException {
+  public void testLabelArgs() throws LabelSyntaxException {
     CustomCommandLine cl = CustomCommandLine.builder().add(Label.parseAbsolute("//a:b")).build();
     assertEquals(ImmutableList.of("//a:b"), cl.arguments());
   }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -87,7 +88,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         return null;
       }
       return recursivePackageProvider.getTarget(eventHandler, label);
-    } catch (Label.SyntaxException | NoSuchThingException e) {
+    } catch (LabelSyntaxException | NoSuchThingException e) {
       return null;
     }
   }

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -255,7 +256,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public Label load(String from) {
       try {
         return Label.parseAbsolute(from);
-      } catch (Label.SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         throw new IllegalArgumentException(from);
       }
     }

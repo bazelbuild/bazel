@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
@@ -212,7 +213,7 @@ public class LocationExpander {
   private Label parseLabel(String labelText, String message, ErrorReporter reporter) {
     try {
       return ruleContext.getLabel().getRelative(labelText);
-    } catch (Label.SyntaxException e) {
+    } catch (LabelSyntaxException e) {
       reporter.report(ruleContext, String.format("invalid label%s: %s", message, e.getMessage()));
       return null;
     }

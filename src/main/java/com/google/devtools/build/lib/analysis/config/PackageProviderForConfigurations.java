@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 
 import java.io.IOException;
 
@@ -29,7 +29,7 @@ public interface PackageProviderForConfigurations extends LoadedPackageProvider 
    * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies
    * for {@link com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue}.
    */
-  void addDependency(Package pkg, String fileName) throws SyntaxException, IOException;
+  void addDependency(Package pkg, String fileName) throws LabelSyntaxException, IOException;
   
   /**
    * Returns fragment based on fragment type and build options.

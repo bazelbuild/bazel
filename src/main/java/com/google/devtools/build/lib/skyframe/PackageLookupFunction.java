@@ -51,9 +51,10 @@ public class PackageLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws PackageLookupFunctionException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
-    if (!packageKey.getRepository().isDefault()) {
+    if (!packageKey.getRepository().equals(PackageIdentifier.MAIN_REPOSITORY_NAME)
+        && !packageKey.getRepository().isDefault()) {
       return computeExternalPackageLookupValue(skyKey, env, packageKey);
-    } else if (packageKey.getPackageFragment().equals(new PathFragment(ExternalPackage.NAME))) {
+    } else if (packageKey.equals(ExternalPackage.PACKAGE_IDENTIFIER)) {
       return computeWorkspaceLookupValue(env, packageKey);
     }
 

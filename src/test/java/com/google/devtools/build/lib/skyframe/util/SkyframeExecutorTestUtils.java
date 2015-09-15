@@ -131,7 +131,7 @@ public class SkyframeExecutorTestUtils {
   public static Target getExistingTarget(SkyframeExecutor skyframeExecutor,
       Label label) {
     PackageValue value = (PackageValue) getExistingValue(skyframeExecutor,
-        PackageValue.key(label.getPackageFragment()));
+        PackageValue.key(label.getPackageIdentifier()));
     if (value == null) {
       return null;
     }

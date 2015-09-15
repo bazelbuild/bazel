@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -339,7 +340,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           try {
             addIfUniqueLabel(getSubincludeTarget(
                 subinclude.getLocalTargetLabel("BUILD"), pkg), seenLabels, dependentFiles);
-          } catch (Label.SyntaxException e) {
+          } catch (LabelSyntaxException e) {
             throw new AssertionError("BUILD should always parse as a target name", e);
           }
         }

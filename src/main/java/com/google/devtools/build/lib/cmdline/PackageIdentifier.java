@@ -55,12 +55,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
           .build(
               new CacheLoader<String, RepositoryName> () {
                 @Override
-                public RepositoryName load(String name) throws TargetParsingException {
+                public RepositoryName load(String name) throws LabelSyntaxException {
                   String errorMessage = validate(name);
                   if (errorMessage != null) {
                     errorMessage = "invalid repository name '"
                         + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
-                    throw new TargetParsingException(errorMessage);
+                    throw new LabelSyntaxException(errorMessage);
                   }
                   return new RepositoryName(StringCanonicalizer.intern(name));
                 }
@@ -70,11 +70,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
      * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
      * @throws TargetParsingException if the name is invalid.
      */
-    public static RepositoryName create(String name) throws TargetParsingException {
+    public static RepositoryName create(String name) throws LabelSyntaxException {
       try {
         return repositoryNameCache.get(name);
       } catch (ExecutionException e) {
-        Throwables.propagateIfInstanceOf(e.getCause(), TargetParsingException.class);
+        Throwables.propagateIfInstanceOf(e.getCause(), LabelSyntaxException.class);
         throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
       }
     }
@@ -95,11 +95,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
       if (!name.startsWith("@")) {
         return "workspace name must start with '@'";
-      }
-
-      // "@" isn't a valid workspace name.
-      if (name.length() == 1) {
-        return "empty workspace name";
       }
 
       // Check for any character outside of [/0-9A-Za-z_.-]. Try to evaluate the
@@ -174,11 +169,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   public static final String DEFAULT_REPOSITORY = "";
   public static final RepositoryName DEFAULT_REPOSITORY_NAME;
+  public static final RepositoryName MAIN_REPOSITORY_NAME;
 
   static {
     try {
       DEFAULT_REPOSITORY_NAME = RepositoryName.create(DEFAULT_REPOSITORY);
-    } catch (TargetParsingException e) {
+      MAIN_REPOSITORY_NAME = RepositoryName.create("@");
+    } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -205,7 +202,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         throws IOException, ClassNotFoundException {
       try {
         packageId = new PackageIdentifier((String) in.readObject(), (PathFragment) in.readObject());
-      } catch (TargetParsingException e) {
+      } catch (LabelSyntaxException e) {
         throw new IOException("Error serializing package identifier: " + e.getMessage());
       }
     }
@@ -228,7 +225,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   public static PackageIdentifier createInDefaultRepo(PathFragment name) {
     try {
       return new PackageIdentifier(DEFAULT_REPOSITORY, name);
-    } catch (TargetParsingException e) {
+    } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("could not create package identifier for " + name
           + ": " + e.getMessage());
     }
@@ -243,7 +240,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
   private final PathFragment pkgName;
 
-  public PackageIdentifier(String repository, PathFragment pkgName) throws TargetParsingException {
+  public PackageIdentifier(String repository, PathFragment pkgName) throws LabelSyntaxException {
     this(RepositoryName.create(repository), pkgName);
   }
 
@@ -254,13 +251,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     this.pkgName = Canonicalizer.fragments().intern(pkgName.normalize());
   }
 
-  public static PackageIdentifier parse(String input) throws TargetParsingException {
+  public static PackageIdentifier parse(String input) throws LabelSyntaxException {
     String repo;
     String packageName;
     int packageStartPos = input.indexOf("//");
-    if (packageStartPos > 0) {
+    if (input.startsWith("@") && packageStartPos > 0) {
       repo = input.substring(0, packageStartPos);
       packageName = input.substring(packageStartPos + 2);
+    } else if (input.startsWith("@")) {
+      throw new LabelSyntaxException("invalid package name '" + input + "'");
     } else if (packageStartPos == 0) {
       repo = PackageIdentifier.DEFAULT_REPOSITORY;
       packageName = input.substring(2);
@@ -271,12 +270,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
     String error = RepositoryName.validate(repo);
     if (error != null) {
-      throw new TargetParsingException(error);
+      throw new LabelSyntaxException(error);
     }
 
     error = LabelValidator.validatePackageName(packageName);
     if (error != null) {
-      throw new TargetParsingException(error);
+      throw new LabelSyntaxException(error);
     }
 
     return new PackageIdentifier(repo, new PathFragment(packageName));

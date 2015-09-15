@@ -49,6 +49,9 @@ public class PackageIdentifierTest {
     PackageIdentifier plainA = PackageIdentifier.parse("a");
     assertThat(plainA.getRepository().strippedName()).isEqualTo("");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
+
+    PackageIdentifier mainA = PackageIdentifier.parse("@//a");
+    assertThat(mainA.getRepository()).isEqualTo(PackageIdentifier.MAIN_REPOSITORY_NAME);
   }
 
   @Test
@@ -59,45 +62,38 @@ public class PackageIdentifierTest {
     assertEquals("@foo/bar", RepositoryName.create("@foo/bar").toString());
     assertEquals("@foo.bar", RepositoryName.create("@foo.bar").toString());
 
-    // Bad:
-    try {
-      RepositoryName.create("@");
-      fail();
-    } catch (TargetParsingException expected) {
-      assertThat(expected.getMessage()).contains("empty workspace name");
-    }
     try {
       RepositoryName.create("@abc/");
       fail();
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains(
           "workspace names cannot start nor end with '/'");
     }
     try {
       RepositoryName.create("@/abc");
       fail();
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains(
           "workspace names cannot start nor end with '/'");
     }
     try {
       RepositoryName.create("@a//////b");
       fail();
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains(
           "workspace names cannot contain multiple '/'s in a row");
     }
     try {
       RepositoryName.create("@foo@");
       fail();
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains(
           "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
     }
     try {
       RepositoryName.create("x");
       fail();
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains("workspace name must start with '@'");
     }
   }
@@ -132,7 +128,7 @@ public class PackageIdentifierTest {
     try {
       new PackageIdentifier("foo", new PathFragment("bar/baz"));
       fail("'foo' is not a legal repository name");
-    } catch (TargetParsingException expected) {
+    } catch (LabelSyntaxException expected) {
       assertThat(expected.getMessage()).contains("workspace name must start with '@'");
     }
   }

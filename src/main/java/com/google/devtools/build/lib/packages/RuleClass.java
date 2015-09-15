@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1315,7 +1315,7 @@ public final class RuleClass {
    */
   Rule createRuleWithLabel(Package.Builder pkgBuilder, Label ruleLabel,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
-      Location location) throws SyntaxException, InterruptedException {
+      Location location) throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, null, location);
     createRuleCommon(rule, pkgBuilder, attributeValues, eventHandler, ast);
     return rule;
@@ -1323,7 +1323,7 @@ public final class RuleClass {
 
   private void createRuleCommon(Rule rule, Package.Builder pkgBuilder,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast)
-      throws SyntaxException, InterruptedException {
+      throws LabelSyntaxException, InterruptedException {
     populateRuleAttributeValues(
         rule, pkgBuilder, attributeValues, eventHandler, ast);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -1365,7 +1365,7 @@ public final class RuleClass {
   Rule createRuleWithParsedAttributeValues(Label label,
       Package.Builder pkgBuilder, Location ruleLocation,
       Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler)
-          throws SyntaxException, InterruptedException {
+          throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.newRuleWithLabel(label, this, null, ruleLocation);
     rule.checkValidityPredicate(eventHandler);
 

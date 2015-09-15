@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
@@ -44,7 +44,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
       try {
         final Label runUnderLabel = Label.parseAbsolute(runUnderCommand);
         return new RunUnderLabel(input, runUnderLabel, runUnderList);
-      } catch (SyntaxException e) {
+      } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {
