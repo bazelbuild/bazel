@@ -1,5 +1,6 @@
 # Description:
 #   C++ utility tests for Bazel
+package(default_visibility = ["//visibility:public"])
 
 cc_test(
     name = "blaze_util_test",
@@ -11,6 +12,4 @@ cc_test(
     ],
 )
 
-test_suite(
-    name = "all_tests",
-)
+test_suite(name = "all_tests")

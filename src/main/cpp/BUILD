@@ -1,5 +1,8 @@
 # Description:
 #   The Bazel launcher.
+package(
+    default_visibility = ["//visibility:public"],
+)
 
 cc_library(
     name = "blaze_util",
