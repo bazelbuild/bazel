@@ -29,10 +29,10 @@ if [[ "$PLATFORM" = "linux" ]]; then
   function statfmt() {
     stat -c "%s" $1
   }
-  MD5SUM=/sbin/md5
+  MD5SUM=md5sum
 else
   function statfmt() {
     stat -f "%z" $1
   }
-  MD5SUM=md5sum
+  MD5SUM=/sbin/md5
 fi

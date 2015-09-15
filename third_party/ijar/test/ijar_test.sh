@@ -41,13 +41,13 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 
 ## Tools
-# Ensure that javac is absolute
-[[ "$JAVAC" =~ ^/ ]] || JAVAC="$PWD/$JAVAC"
-[[ "$JAR" =~ ^/ ]] || JAR="$PWD/$JAR"
-[[ "$IJAR" =~ ^/ ]] || IJAR="$PWD/$IJAR"
-[[ "$UNZIP" =~ ^/ ]] || UNZIP="$PWD/$UNZIP"
-[[ "$ZIP" =~ ^/ ]] || ZIP="$PWD/$ZIP"
-[[ "$JAVAP" =~ ^/ ]] || JAVAP="$PWD/$JAVAP"
+# Ensure that tooling path is absolute if not in PATH.
+[[ "$JAVAC" =~ ^(/|[^/]+$) ]] || JAVAC="$PWD/$JAVAC"
+[[ "$JAR" =~ ^(/|[^/]+$) ]] || JAR="$PWD/$JAR"
+[[ "$IJAR" =~ ^(/|[^/]+$) ]] || IJAR="$PWD/$IJAR"
+[[ "$UNZIP" =~ ^(/|[^/]+$) ]] || UNZIP="$PWD/$UNZIP"
+[[ "$ZIP" =~ ^(/|[^/]+$) ]] || ZIP="$PWD/$ZIP"
+[[ "$JAVAP" =~ ^(/|[^/]+$) ]] || JAVAP="$PWD/$JAVAP"
 
 IJAR_SRCDIR=$(dirname ${IJAR})
 A_JAR=$TEST_TMPDIR/A.jar
