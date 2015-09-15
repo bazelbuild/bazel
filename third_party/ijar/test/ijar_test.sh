@@ -170,7 +170,6 @@ function test_ijar_output() {
 
   # Check that no private class members are found:
   lines=$($JAVAP -private -classpath $A_JAR A | grep priv | wc -l)
-  cp $A_JAR /tmp/ajar.jar
   check_eq 2 $lines "Input jar should have 2 private members!"
   lines=$($JAVAP -private -classpath $A_INTERFACE_JAR A | grep priv | wc -l)
   check_eq 0 $lines "Interface jar should have no private members!"
