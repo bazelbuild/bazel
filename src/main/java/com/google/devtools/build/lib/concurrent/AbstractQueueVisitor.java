@@ -121,7 +121,7 @@ public class AbstractQueueVisitor {
    * important to save the first one as it may be more informative than a
    * subsequent one, and this is not a performance-critical path.
    */
-  private Throwable unhandled = null;
+  private volatile Throwable unhandled = null;
 
   /**
    * An uncaught exception when submitting a job to the ThreadPool is catastrophic, and usually
@@ -186,7 +186,9 @@ public class AbstractQueueVisitor {
   private final boolean ownThreadPool;
 
   /**
-   * Flag used to record when all threads were killed by failed action execution
+   * Flag used to record when all threads were killed by failed action execution.
+   *
+   * <p>May only be accessed in a synchronized block.
    */
   private boolean jobsMustBeStopped = false;
 
