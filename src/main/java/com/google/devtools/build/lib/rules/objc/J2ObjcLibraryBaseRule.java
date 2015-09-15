@@ -45,8 +45,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           Unused classes will then be removed from the final ObjC app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
-        .add(attr("$jre_emul_jar", LABEL)
-            .value(env.getLabel("//third_party/java_src/j2objc/jre_emul:libjre_emul.jar")))
         .add(attr("$jre_emul_lib", LABEL)
             .value(env.getLabel("//third_party/java_src/j2objc/jre_emul:jre_emul_lib")))
         .build();
@@ -62,7 +60,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
   }
 }
 
-// TODO(mthvedt): Add support and examples for open-source users.
 /*<!-- #BLAZE_RULE (NAME = j2objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
 ${ATTRIBUTE_SIGNATURE}

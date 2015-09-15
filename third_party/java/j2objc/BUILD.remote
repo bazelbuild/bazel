@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO move to j2objc dir
-
 licenses(["notice"])  # Apache License 2.0
 
 exports_files(["LICENSE"])
@@ -33,11 +31,6 @@ java_import(
     name = "j2objc",
     jars = [J2_DIR + "lib/j2objc.jar"],
     exports = [":annotations"],
-)
-
-java_import(
-    name = "jre_emul_jar",
-    jars = [J2_DIR + "lib/jre_emul.jar"],
 )
 
 filegroup(

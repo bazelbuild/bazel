@@ -14,8 +14,7 @@
 
 licenses(["notice"])  # Apache License 2.0
 
-# TODO export file
-# TODO move jre_emul to java/
+# TODO(bazel-team): Move jre_emul Bazel targets to java, not java_src.
 exports_files(["LICENSE"])
 
 package(
@@ -26,11 +25,6 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//third_party:__pkg__"],
-)
-
-java_library(
-    name = "jre_emul",
-    exports = ["@bazel-j2objc//:jre_emul_jar"],
 )
 
 objc_library(
