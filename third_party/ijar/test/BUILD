@@ -6,7 +6,7 @@ exports_files(["LICENSE"])
 
 sh_test(
     name = "ijar_test",
-    size = "large",
+    size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
         "$(JAVAC)",
