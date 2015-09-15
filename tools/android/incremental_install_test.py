@@ -86,10 +86,11 @@ class MockAdb(object):
       if shell_cmdln.startswith(("mkdir", "am", "monkey", "input")):
         pass
       elif shell_cmdln.startswith("dumpsys package "):
-        return self._CreatePopenMock(
-            0,
-            "firstInstallTime=%s" % self.package_timestamp,
-            "")
+        if self.package_timestamp is not None:
+          timestamp = "firstInstallTime=%s" % self.package_timestamp
+        else:
+          timestamp = ""
+        return self._CreatePopenMock(0, timestamp, "")
       elif shell_cmdln.startswith("rm"):
         file_path = shell_cmdln.split()[2]
         self.files.pop(file_path, None)

@@ -178,10 +178,7 @@ class Adb(object):
     if match:
       return match.group(1)
     else:
-      raise TimestampException(
-          "Package '%s' is not installed on the device. At least one "
-          "non-incremental 'mobile-install' must precede incremental "
-          "installs." % package)
+      return None
 
   def GetAbi(self):
     """Returns the ABI the device supports."""
@@ -586,6 +583,12 @@ def VerifyInstallTimestamp(adb, app_package):
         "'mobile-install' must precede incremental installs")
 
   actual_timestamp = adb.GetInstallTime(app_package)
+  if actual_timestamp is None:
+    raise TimestampException(
+        "Package '%s' is not installed on the device. At least one "
+        "non-incremental 'mobile-install' must precede incremental "
+        "installs." % app_package)
+
   if actual_timestamp != expected_timestamp:
     raise TimestampException("Installed app '%s' has an unexpected timestamp. "
                              "Did you last install the app in a way other than "
