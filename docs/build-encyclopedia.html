@@ -2446,7 +2446,7 @@ between how each thing is processed:
       ios_extension_binary
     </h3>
 
-    <pre class="rule-signature">ios_extension_binary(<a href="#ios_extension_binary.name">name</a>, <a href="#ios_extension_binary.deps">deps</a>, <a href="#ios_extension_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_extension_binary.resources">resources</a>, <a href="#ios_extension_binary.hdrs">hdrs</a>, <a href="#ios_extension_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension_binary.bridging_header">bridging_header</a>, <a href="#ios_extension_binary.bundles">bundles</a>, <a href="#ios_extension_binary.copts">copts</a>, <a href="#ios_extension_binary.datamodels">datamodels</a>, <a href="#ios_extension_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#ios_extension_binary.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#ios_extension_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_extension_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_extension_binary.pch">pch</a>, <a href="#ios_extension_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_extension_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_extension_binary.sdk_includes">sdk_includes</a>, <a href="#ios_extension_binary.storyboards">storyboards</a>, <a href="#ios_extension_binary.strings">strings</a>, <a href="#ios_extension_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_extension_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_extension_binary.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">ios_extension_binary(<a href="#ios_extension_binary.name">name</a>, <a href="#ios_extension_binary.deps">deps</a>, <a href="#ios_extension_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_extension_binary.resources">resources</a>, <a href="#ios_extension_binary.hdrs">hdrs</a>, <a href="#ios_extension_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension_binary.bridging_header">bridging_header</a>, <a href="#ios_extension_binary.bundles">bundles</a>, <a href="#ios_extension_binary.copts">copts</a>, <a href="#ios_extension_binary.datamodels">datamodels</a>, <a href="#ios_extension_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_extension_binary.enable_modules">enable_modules</a>, <a href="#common.features">features</a>, <a href="#ios_extension_binary.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#ios_extension_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_extension_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_extension_binary.pch">pch</a>, <a href="#ios_extension_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_extension_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_extension_binary.sdk_includes">sdk_includes</a>, <a href="#ios_extension_binary.storyboards">storyboards</a>, <a href="#ios_extension_binary.strings">strings</a>, <a href="#ios_extension_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_extension_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_extension_binary.xibs">xibs</a>)</pre>
 
     
 
@@ -2492,8 +2492,8 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -2503,14 +2503,14 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -2624,17 +2624,31 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
-                                                                        <tr>
+                                                          <tr>
+          <td id="ios_extension_binary.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                                            <tr>
           <td id="ios_extension_binary.includes">
             <code>includes</code>
           </td>
@@ -2666,11 +2680,11 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -2680,12 +2694,12 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -2695,11 +2709,11 @@ Objective-C libraries.</p>
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>
@@ -3038,7 +3052,7 @@ final app bundle and only used during compilation stage.
       ios_framework_binary
     </h3>
 
-    <pre class="rule-signature">ios_framework_binary(<a href="#ios_framework_binary.name">name</a>, <a href="#ios_framework_binary.deps">deps</a>, <a href="#ios_framework_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_framework_binary.resources">resources</a>, <a href="#ios_framework_binary.hdrs">hdrs</a>, <a href="#ios_framework_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework_binary.bridging_header">bridging_header</a>, <a href="#ios_framework_binary.bundles">bundles</a>, <a href="#ios_framework_binary.copts">copts</a>, <a href="#ios_framework_binary.datamodels">datamodels</a>, <a href="#ios_framework_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#ios_framework_binary.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#ios_framework_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_framework_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_framework_binary.pch">pch</a>, <a href="#ios_framework_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_framework_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_framework_binary.sdk_includes">sdk_includes</a>, <a href="#ios_framework_binary.storyboards">storyboards</a>, <a href="#ios_framework_binary.strings">strings</a>, <a href="#ios_framework_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_framework_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_framework_binary.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">ios_framework_binary(<a href="#ios_framework_binary.name">name</a>, <a href="#ios_framework_binary.deps">deps</a>, <a href="#ios_framework_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_framework_binary.resources">resources</a>, <a href="#ios_framework_binary.hdrs">hdrs</a>, <a href="#ios_framework_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework_binary.bridging_header">bridging_header</a>, <a href="#ios_framework_binary.bundles">bundles</a>, <a href="#ios_framework_binary.copts">copts</a>, <a href="#ios_framework_binary.datamodels">datamodels</a>, <a href="#ios_framework_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_framework_binary.enable_modules">enable_modules</a>, <a href="#common.features">features</a>, <a href="#ios_framework_binary.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#ios_framework_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_framework_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_framework_binary.pch">pch</a>, <a href="#ios_framework_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_framework_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_framework_binary.sdk_includes">sdk_includes</a>, <a href="#ios_framework_binary.storyboards">storyboards</a>, <a href="#ios_framework_binary.strings">strings</a>, <a href="#ios_framework_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_framework_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_framework_binary.xibs">xibs</a>)</pre>
 
     
 
@@ -3084,8 +3098,8 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -3095,14 +3109,14 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -3216,17 +3230,31 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
-                                                                        <tr>
+                                                          <tr>
+          <td id="ios_framework_binary.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                                            <tr>
           <td id="ios_framework_binary.includes">
             <code>includes</code>
           </td>
@@ -3258,11 +3286,11 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -3272,12 +3300,12 @@ libraries.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -3287,11 +3315,11 @@ libraries.</p>
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>
@@ -3782,7 +3810,7 @@ java_binary(
       objc_binary
     </h3>
 
-    <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#objc_binary.enable_modules">enable_modules</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
 
     
 
@@ -3837,8 +3865,8 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -3848,14 +3876,14 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -4002,17 +4030,31 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
                                                           <tr>
+          <td id="objc_binary.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                              <tr>
           <td id="objc_binary.entitlements">
             <code>entitlements</code>
           </td>
@@ -4121,11 +4163,11 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -4135,12 +4177,12 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -4150,11 +4192,11 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>
@@ -4635,6 +4677,10 @@ sh_binary(
   the compilation class path.
 </p>
 
+<p>If you need to depend on the appcompat library, put
+<code>//external:android/appcompat_v4</code> or <code>//external:android/appcompat_v7</code>
+in the <code>deps</code> attribute.
+</p>
 <h4 id="android_library_implicit_outputs">Implicit output targets</h4>
         <ul>
           <li><code>lib<var>name</var>.jar</code>: A Java archive.</li>
@@ -4644,6 +4690,7 @@ sh_binary(
             class files for source files generated by annotation processors
             ("gen jar").</li>
         </ul>
+
 
 
 
@@ -6654,7 +6701,7 @@ attributes supported by <code>objc_library</code>.</p>
       objc_library
     </h3>
 
-    <pre class="rule-signature">objc_library(<a href="#objc_library.name">name</a>, <a href="#objc_library.deps">deps</a>, <a href="#objc_library.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#objc_library.resources">resources</a>, <a href="#objc_library.hdrs">hdrs</a>, <a href="#objc_library.alwayslink">alwayslink</a>, <a href="#objc_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_library.bridging_header">bridging_header</a>, <a href="#objc_library.bundles">bundles</a>, <a href="#objc_library.copts">copts</a>, <a href="#objc_library.datamodels">datamodels</a>, <a href="#objc_library.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#common.features">features</a>, <a href="#objc_library.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#objc_library.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_library.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_library.pch">pch</a>, <a href="#objc_library.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_library.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_library.sdk_includes">sdk_includes</a>, <a href="#objc_library.storyboards">storyboards</a>, <a href="#objc_library.strings">strings</a>, <a href="#objc_library.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#objc_library.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_library.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">objc_library(<a href="#objc_library.name">name</a>, <a href="#objc_library.deps">deps</a>, <a href="#objc_library.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#objc_library.resources">resources</a>, <a href="#objc_library.hdrs">hdrs</a>, <a href="#objc_library.alwayslink">alwayslink</a>, <a href="#objc_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_library.bridging_header">bridging_header</a>, <a href="#objc_library.bundles">bundles</a>, <a href="#objc_library.copts">copts</a>, <a href="#objc_library.datamodels">datamodels</a>, <a href="#objc_library.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#objc_library.enable_modules">enable_modules</a>, <a href="#common.features">features</a>, <a href="#objc_library.includes">includes</a>, <a href="#common.licenses">licenses</a>, <a href="#objc_library.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_library.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_library.pch">pch</a>, <a href="#objc_library.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_library.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_library.sdk_includes">sdk_includes</a>, <a href="#objc_library.storyboards">storyboards</a>, <a href="#objc_library.strings">strings</a>, <a href="#objc_library.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#objc_library.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_library.xibs">xibs</a>)</pre>
 
     
 
@@ -6699,8 +6746,8 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -6710,14 +6757,14 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -6848,17 +6895,31 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
-                                                                        <tr>
+                                                          <tr>
+          <td id="objc_library.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                                            <tr>
           <td id="objc_library.includes">
             <code>includes</code>
           </td>
@@ -6890,11 +6951,11 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -6904,12 +6965,12 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -6919,11 +6980,11 @@ attributes supported by <code>objc_library</code>.</p>
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>
@@ -7781,7 +7842,7 @@ sh_library(
       experimental_ios_test
     </h3>
 
-    <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.ios_device_arg">ios_device_arg</a>, <a href="#experimental_ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.plugins">plugins</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#experimental_ios_test.enable_modules">enable_modules</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.ios_device_arg">ios_device_arg</a>, <a href="#experimental_ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.plugins">plugins</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
 
     
 
@@ -7821,8 +7882,8 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -7832,14 +7893,14 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -7986,17 +8047,31 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
                                                           <tr>
+          <td id="experimental_ios_test.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                              <tr>
           <td id="experimental_ios_test.entitlements">
             <code>entitlements</code>
           </td>
@@ -8130,11 +8205,11 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -8144,12 +8219,12 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -8159,11 +8234,11 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>
@@ -8370,7 +8445,7 @@ on both iOS simulator and real devices.
       ios_test
     </h3>
 
-    <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
+    <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="#common.features">features</a>, <a href="#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#common.licenses">licenses</a>, <a href="#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="#test.shard_count">shard_count</a>, <a href="#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="#common.testonly">testonly</a>, <a href="#test.timeout">timeout</a>, <a href="#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
 
     
 
@@ -8410,8 +8485,8 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are linked together to form the final bundle.
-          
+                                   The list of targets that are linked together to form the final bundle.
+           
 
           </td>
         </tr>
@@ -8421,14 +8496,14 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
-          
-          These are your checked-in files, plus any generated files.
-          Source files are compiled into .o files with Clang. Header files
-          may be included/imported by any source or header in the srcs attribute
-          of this target, but not by headers in hdrs or any targets that depend
-          on this rule.
+                                   The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
 
           </td>
         </tr>
@@ -8575,17 +8650,31 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of strings; optional</code></p>
-                                  Extra <code>-D</code> flags to pass to the compiler. They should be in
-          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-          passed not only the compiler for this target (as <code>copts</code>
-          are) but also to all <code>objc_</code> dependers of this target.
-          
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+                                   Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           
+           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           <a href="#sh-tokenization">Bourne shell tokenization</a>.
 
           </td>
         </tr>
                                                           <tr>
+          <td id="ios_test.enable_modules">
+            <code>enable_modules</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                   Enables clang module support (via -fmodules).
+           
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+          </td>
+        </tr>
+                              <tr>
           <td id="ios_test.entitlements">
             <code>entitlements</code>
           </td>
@@ -8719,11 +8808,11 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
+                                   The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
 
           </td>
         </tr>
@@ -8733,12 +8822,12 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
-                                  The list of targets that are required in order to build this target,
-          but which are not included in the final bundle.
-          
-          This attribute should only rarely be used, and probably only for proto
-          dependencies.
-          
+                                   The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+           
 
           </td>
         </tr>
@@ -8748,11 +8837,11 @@ on both iOS simulator and real devices.
           </td>
           <td>
                         <p><code><a href="build-ref.html#labels">Label</a>; optional</code></p>
-                                  Header file to prepend to every source file being compiled (both arc
-          and non-arc).
-          
-          Note that the file will not be precompiled - this is simply a
-          convenience, not a build-speed enhancement.
+                                   Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           
+           Note that the file will not be precompiled - this is simply a
+           convenience, not a build-speed enhancement.
 
           </td>
         </tr>

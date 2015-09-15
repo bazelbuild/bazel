@@ -49,8 +49,6 @@ a lot of time in a patch.
 
 ## Setting up your coding environment
 
-_Note that some of our tests target Java 8 so you must test using a JDK 8._
-
 For now we have partial support for the Eclipse and IntelliJ IDEs for Java. We
 don't have IDE support for other languages in Bazel right now.
 
