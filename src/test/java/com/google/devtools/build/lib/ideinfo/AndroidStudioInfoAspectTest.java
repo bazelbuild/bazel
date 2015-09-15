@@ -25,8 +25,12 @@ import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Collection;
 import java.util.Map;
@@ -46,26 +50,57 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
           return artifactLocation.getRelativePath();
         }
       };
+  public static final Function<LibraryArtifact, String> LIBRARY_ARTIFACT_TO_STRING =
+      new Function<LibraryArtifact, String>() {
+        @Override
+        public String apply(LibraryArtifact libraryArtifact) {
+          StringBuilder stringBuilder = new StringBuilder();
+          if (libraryArtifact.hasJar()) {
+            stringBuilder.append("<jar:");
+            stringBuilder.append(libraryArtifact.getJar().getRelativePath());
+            stringBuilder.append(">");
+          }
+          if (libraryArtifact.hasInterfaceJar()) {
+            stringBuilder.append("<ijar:");
+            stringBuilder.append(libraryArtifact.getInterfaceJar().getRelativePath());
+            stringBuilder.append(">");
+          }
+          if (libraryArtifact.hasSourceJar()) {
+            stringBuilder.append("<source:");
+            stringBuilder.append(libraryArtifact.getSourceJar().getRelativePath());
+            stringBuilder.append(">");
+          }
+
+          return stringBuilder.toString();
+        }
+      };
 
   public void testSimpleJavaLibrary() throws Exception {
-    scratch.file(
-        "com/google/example/BUILD",
-        "java_library(",
-        "    name = \"simple\",",
-        "    srcs = [\"simple/Simple.java\"]",
-        ")",
-        "java_library(",
-        "    name = \"complex\",",
-        "    srcs = [\"complex/Complex.java\"],",
-        "    deps = [\":simple\"]",
-        ")");
+    Path buildFilePath =
+        scratch.file(
+            "com/google/example/BUILD",
+            "java_library(",
+            "    name = \"simple\",",
+            "    srcs = [\"simple/Simple.java\"]",
+            ")",
+            "java_library(",
+            "    name = \"complex\",",
+            "    srcs = [\"complex/Complex.java\"],",
+            "    deps = [\":simple\"]",
+            ")");
     String target = "//com/google/example:simple";
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
     assertThat(ruleIdeInfos.size()).isEqualTo(1);
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
+    assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
     assertThat(relativePathsForSourcesOf(ruleIdeInfo))
         .containsExactly("com/google/example/simple/Simple.java");
+    assertThat(
+            transform(ruleIdeInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:com/google/example/libsimple.jar><source:com/google/example/libsimple-src.jar>");
   }
 
   private static Iterable<String> relativePathsForSourcesOf(RuleIdeInfo ruleIdeInfo) {
@@ -273,6 +308,34 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
             "//com/google/example:extracomplex",
             "//com/google/example:complex",
             "//com/google/example:simple");
+  }
+
+  public void testJavaImport() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_import(",
+        "   name = \"imp\",",
+        "   jars = [\"a.jar\", \"b.jar\"],",
+        "   srcjar = \"impsrc.jar\",",
+        ")",
+        "java_library(",
+        "   name = \"lib\",",
+        "   srcs = [\"Lib.java\"],",
+        "   deps = [\":imp\"],",
+        ")");
+
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    final RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
+    assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
+    assertThat(libInfo.getDependenciesList()).containsExactly("//com/google/example:imp");
+
+    JavaRuleIdeInfo javaRuleIdeInfo = impInfo.getJavaRuleIdeInfo();
+    assertThat(javaRuleIdeInfo).isNotNull();
+    assertThat(transform(javaRuleIdeInfo.getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:com/google/example/a.jar><source:com/google/example/impsrc.jar>",
+            "<jar:com/google/example/b.jar><source:com/google/example/impsrc.jar>");
   }
 
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
