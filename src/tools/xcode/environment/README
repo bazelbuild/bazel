@@ -1,0 +1,5 @@
+environment_plist generates a plist file that contains some
+environment variables of the host machine (like DTPlatformBuild
+or BuildMachineOSBuild) given a target platform.
+
+environment_plist only runs on Darwin.

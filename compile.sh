@@ -127,6 +127,8 @@ if [ $DO_TOOLS_COMPILATION ]; then
             tools/objc/StdRedirect.dylib 0755
     fi
     bazel_bootstrap //src/tools/xcode/realpath:realpath tools/objc/realpath 0755
+    bazel_bootstrap //src/tools/xcode/environment:environment_plist \
+        tools/objc/environment_plist.sh 0755
   fi
 fi
 

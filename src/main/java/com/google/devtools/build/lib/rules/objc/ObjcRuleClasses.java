@@ -981,6 +981,8 @@ public class ObjcRuleClasses {
               }))
           .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:bundlemerge")))
+          .add(attr("$environment_plist_sh", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:environment_plist.sh")))
           .build();
     }
     @Override

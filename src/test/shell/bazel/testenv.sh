@@ -62,6 +62,7 @@ plmerge_path="${TEST_SRCDIR}/src/objc_tools/plmerge/plmerge_deploy.jar"
 xcodegen_path="${TEST_SRCDIR}/src/objc_tools/xcodegen/xcodegen_deploy.jar"
 stdredirect_path="${TEST_SRCDIR}/src/tools/xcode/stdredirect/StdRedirect.dylib"
 realpath_path="${TEST_SRCDIR}/src/tools/xcode/realpath/realpath"
+environment_plist_path="${TEST_SRCDIR}/src/tools/xcode/environment/environment_plist.sh"
 
 # Test data
 testdata_path=${TEST_SRCDIR}/src/test/shell/bazel/testdata

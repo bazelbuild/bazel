@@ -299,6 +299,7 @@ function setup_objc_test_support() {
   [ -e tools/objc/precomp_xcodegen_deploy.jar ] || ln -sv ${xcodegen_path} tools/objc/precomp_xcodegen_deploy.jar
   [ -e tools/objc/StdRedirect.dylib ] || ln -sv ${stdredirect_path} tools/objc/StdRedirect.dylib
   [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
+  [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
 
   mkdir -p third_party/iossim
   [ -e third_party/iossim/iossim ] || ln -sv ${iossim_path} third_party/iossim/iossim

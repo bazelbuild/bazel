@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEV
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -302,32 +303,22 @@ public final class ReleaseBundlingSupport {
   private void registerEnvironmentPlistAction() {
     ObjcConfiguration configuration = ObjcRuleClasses.objcConfiguration(ruleContext);
     // Generates a .plist that contains environment values (such as the SDK used to build, the Xcode
-    // version, etc), which are parsed from various .plist files of the OS, namely XCodes' and
+    // version, etc), which are parsed from various .plist files of the OS, namely Xcodes' and
     // Platforms' plists.
     // The resulting file is meant to be merged with the final bundle.
-    String command = Joiner.on(" && ").join(
-        "PLATFORM_PLIST=" + IosSdkCommands.platformDir(configuration) + "/Info.plist",
-        "PLIST=$(mktemp -d -t bazel_environment)/env.plist",
-        "os_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" BuildMachineOSBuild)",
-        "compiler=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTCompiler)",
-        "platform_version=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" Version)",
-        "sdk_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTSDKBuild)",
-        "platform_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTPlatformBuild)",
-        "xcode_build=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTXcodeBuild)",
-        "xcode_version=$(/usr/bin/defaults read \"${PLATFORM_PLIST}\" DTXcode)",
-        "/usr/bin/defaults write \"${PLIST}\" DTPlatformBuild -string ${platform_build}",
-        "/usr/bin/defaults write \"${PLIST}\" DTSDKBuild -string ${sdk_build}",
-        "/usr/bin/defaults write \"${PLIST}\" DTPlatformVersion -string ${platform_version}",
-        "/usr/bin/defaults write \"${PLIST}\" DTXcode -string ${xcode_version}",
-        "/usr/bin/defaults write \"${PLIST}\" DTXCodeBuild -string ${xcode_build}",
-        "/usr/bin/defaults write \"${PLIST}\" DTCompiler -string ${compiler}",
-        "/usr/bin/defaults write \"${PLIST}\" BuildMachineOSBuild -string ${os_build}",
-        "cat \"${PLIST}\" > " + getGeneratedEnvironmentPlist().getShellEscapedExecPathString(),
-        "rm -rf \"${PLIST}\"");
-    ruleContext.registerAction(ObjcRuleClasses.spawnBashOnDarwinActionBuilder(ruleContext, command)
-        .setMnemonic("EnvironmentPlist")
-        .addOutput(getGeneratedEnvironmentPlist())
-        .build(ruleContext));
+    String platformWithVersion =
+        String.format("%s%s", configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
+            Strings.nullToEmpty(configuration.getIosSdkVersion()));
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+            .setMnemonic("EnvironmentPlist")
+            .addInput(attributes.environmentPlistScript())
+            .setExecutable(attributes.environmentPlistScript())
+            .addArguments("--platform", platformWithVersion)
+            .addArguments(
+                "--output", getGeneratedEnvironmentPlist().getShellEscapedExecPathString())
+            .addOutput(getGeneratedEnvironmentPlist())
+            .build(ruleContext));
   }
 
   private Artifact registerBundleSigningActions(Artifact ipaOutput) throws InterruptedException {
@@ -875,6 +866,14 @@ public final class ReleaseBundlingSupport {
      */
     Artifact swiftStdlibToolDeployJar() {
       return ruleContext.getPrerequisiteArtifact("$swiftstdlibtoolzip_deploy", Mode.HOST);
+    }
+
+    /**
+     * Returns the location of the environment_plist.sh.
+     */
+    public Artifact environmentPlistScript() {
+      return checkNotNull(
+          ruleContext.getPrerequisiteArtifact("$environment_plist_sh", Mode.HOST));
     }
 
     String bundleId() {

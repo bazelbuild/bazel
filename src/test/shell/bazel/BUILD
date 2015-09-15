@@ -24,6 +24,7 @@ filegroup(
             "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
             "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar",
             "//src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar",
+            "//src/tools/xcode/environment:environment_plist",
             "//src/tools/xcode/ibtoolwrapper",
             "//src/tools/xcode/realpath",
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",
