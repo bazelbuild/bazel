@@ -59,11 +59,12 @@ public final class CppFileTypes {
       final String ext = ".s";
       @Override
       public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_ASSEMBLER.matches(filename);
+        return (filename.endsWith(ext) && !PIC_ASSEMBLER.matches(filename))
+               || filename.endsWith(".asm");
       }
       @Override
       public List<String> getExtensions() {
-        return ImmutableList.of(ext);
+        return ImmutableList.of(ext, ".asm");
       }
     };
 
@@ -139,4 +140,8 @@ public final class CppFileTypes {
 
   // Output of the dwp tool
   public static final FileType DEBUG_INFO_PACKAGE = FileType.of(".dwp");
+
+  public static final boolean mustProduceDotdFile(String source) {
+    return !(ASSEMBLER.matches(source) || PIC_ASSEMBLER.matches(source));
+  }
 }

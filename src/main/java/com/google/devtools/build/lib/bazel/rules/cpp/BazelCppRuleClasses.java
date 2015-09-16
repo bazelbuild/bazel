@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
+import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_HEADER;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_SOURCE;
@@ -78,6 +79,7 @@ public class BazelCppRuleClasses {
       C_SOURCE,
       CPP_HEADER,
       ASSEMBLER_WITH_C_PREPROCESSOR,
+      ASSEMBLER,
       ARCHIVE,
       PIC_ARCHIVE,
       ALWAYS_LINK_LIBRARY,
