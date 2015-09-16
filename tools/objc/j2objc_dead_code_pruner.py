@@ -97,20 +97,30 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping):
     Exception: If there is an entry class that is not being transpiled in this
         j2objc_library.
   """
-  reachable_files = set()
+  transpiled_entry_files = []
   for entry_class in entry_classes.split(','):
     if entry_class not in header_mapping:
       raise Exception(entry_class +
                       'is not in the transitive Java deps of included ' +
                       'j2objc_library rules.')
-    transpiled_file_name = header_mapping[entry_class]
-    reachable_files.add(transpiled_file_name)
+    transpiled_entry_files.append(header_mapping[entry_class])
+
+  # Translated files from package-info.java are also added to the entry files
+  # because they are needed to resolve ObjC class names with prefixes and these
+  # files may also have dependencies.
+  for transpiled_file in reachability_tree:
+    if transpiled_file.endswith('package-info'):
+      transpiled_entry_files.append(transpiled_file)
+
+  reachable_files = set()
+  for transpiled_entry_file in transpiled_entry_files:
+    reachable_files.add(transpiled_entry_file)
     current_level_deps = []
     # We need to check if the transpiled file is in the reachability tree
     # because J2ObjC protos are not analyzed for dead code stripping and
     # therefore are not in the reachability tree at all.
-    if transpiled_file_name in reachability_tree:
-      current_level_deps = reachability_tree[transpiled_file_name]
+    if transpiled_entry_file in reachability_tree:
+      current_level_deps = reachability_tree[transpiled_entry_file]
     while current_level_deps:
       next_level_deps = []
       for dep in current_level_deps:
@@ -167,9 +177,7 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
       return
     file_name = os.path.relpath(os.path.splitext(input_file)[0],
                                 objc_file_path)
-    # Translated files from package-info.java are also preserved because
-    # they are needed to resolve ObjC class names with prefixes.
-    if file_name in reachable_files or file_name.endswith('package-info'):
+    if file_name in reachable_files:
       file_shutil.copy(input_file, output_file)
     else:
       f = file_open(output_file, 'w')
