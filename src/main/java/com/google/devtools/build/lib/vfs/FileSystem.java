@@ -206,7 +206,7 @@ public abstract class FileSystem {
 
   /**
    * Returns value of the given extended attribute name or null if attribute
-   * does not exist or file system does not support extended attributes.
+   * does not exist or file system does not support extended attributes. Follows symlinks.
    * <p>Default implementation assumes that file system does not support
    * extended attributes and always returns null. Specific file system
    * implementations should override this method if they do provide support
@@ -219,7 +219,7 @@ public abstract class FileSystem {
    *   system does not support extended attributes at all.
    * @throws IOException if the call failed for any other reason.
    */
-  protected byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
+  protected byte[] getxattr(Path path, String name) throws IOException {
     return null;
   }
 

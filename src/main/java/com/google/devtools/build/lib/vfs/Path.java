@@ -898,7 +898,7 @@ public class Path implements Comparable<Path>, Serializable {
    * file system does not support extended attributes. Follows symlinks.
    */
   public byte[] getxattr(String name) throws IOException {
-    return fileSystem.getxattr(this, name, true);
+    return fileSystem.getxattr(this, name);
   }
 
   /**
