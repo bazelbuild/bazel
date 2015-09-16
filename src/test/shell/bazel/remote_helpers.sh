@@ -49,11 +49,14 @@ EOF
 
 # Creates a jar carnivore.Mongoose and serves it using serve_file.
 function serve_jar() {
-  pkg_dir=$TEST_TMPDIR/carnivore
-  if [ -e "$pkg_dir" ]; then
-    rm -fr $pkg_dir
-  fi
+  make_test_jar
+  serve_file $test_jar
+  cd ${WORKSPACE_DIR}
+}
 
+function make_test_jar() {
+  pkg_dir=$TEST_TMPDIR/carnivore
+  rm -fr $pkg_dir
   mkdir $pkg_dir
   cat > $pkg_dir/Mongoose.java <<EOF
 package carnivore;
@@ -67,12 +70,10 @@ EOF
   test_jar=$TEST_TMPDIR/libcarnivore.jar
   cd ${TEST_TMPDIR}
   ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
-
   sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
   # OS X doesn't have sha1sum, so use openssl.
   sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
-  serve_file $test_jar
-  cd ${WORKSPACE_DIR}
+  cd -
 }
 
 # Serves a redirection from localhost:$redirect_port to $1. Sets the following variables:
@@ -91,6 +92,45 @@ EOF
 )
   nc_l $redirect_port >& $redirect_log <<<"$response" &
   redirect_pid=$!
+}
+
+# Waits for the SimpleHTTPServer to actually start up before the test is run.
+# Otherwise the entire test can run before the server starts listening for
+# connections, which causes flakes.
+function wait_for_server_startup() {
+  touch some-file
+  while ! curl localhost:$fileserver_port/some-file; do
+    echo "waiting for server, exit code: $?"
+    sleep 1
+  done
+  echo "done waiting for server, exit code: $?"
+  rm some-file
+}
+
+
+function serve_artifact() {
+  local group_id=$1
+  local artifact_id=$2
+  local version=$3
+  make_test_jar
+  maven_path=$fileserver_root/$(echo $group_id | sed 's/\./\//g')/$artifact_id/$version
+  mkdir -p $maven_path
+  openssl sha1 $test_jar > $maven_path/$artifact_id-$version.jar.sha1
+  mv $test_jar $maven_path/$artifact_id-$version.jar
+}
+
+function startup_server() {
+  fileserver_root=$1
+  cd $fileserver_root
+  fileserver_port=$(pick_random_unused_tcp_port) || exit 1
+  python -m SimpleHTTPServer $fileserver_port &
+  fileserver_pid=$!
+  wait_for_server_startup
+  cd -
+}
+
+function shutdown_server() {
+  kill $fileserver_pid
 }
 
 function kill_nc() {

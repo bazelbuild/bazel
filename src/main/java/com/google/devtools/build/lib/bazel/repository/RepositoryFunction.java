@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -243,16 +244,8 @@ public abstract class RepositoryFunction implements SkyFunction {
     }
   }
 
-
-  /**
-   * Uses a remote repository name to fetch the corresponding Rule describing how to get it.
-   * This should be called from {@link SkyFunction#compute} functions, which should return null if
-   * this returns null. If {@code ruleClassName} is set, the rule found must have a matching rule
-   * class name.
-   */
   @Nullable
-  public static Rule getRule(
-      RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
+  public static ExternalPackage getExternalPackage(Environment env)
       throws RepositoryFunctionException {
     SkyKey packageKey = PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER);
     PackageValue packageValue;
@@ -268,7 +261,35 @@ public abstract class RepositoryFunction implements SkyFunction {
     if (packageValue == null) {
       return null;
     }
-    ExternalPackage externalPackage = (ExternalPackage) packageValue.getPackage();
+    return (ExternalPackage) packageValue.getPackage();
+  }
+
+  @Nullable
+  public static Rule getRule(
+      String ruleName, @Nullable String ruleClassName, Environment env)
+      throws RepositoryFunctionException {
+    try {
+      return getRule(RepositoryName.create("@" + ruleName), ruleClassName, env);
+    } catch (LabelSyntaxException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Invalid rule name " + ruleName), Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Uses a remote repository name to fetch the corresponding Rule describing how to get it.
+   * This should be called from {@link SkyFunction#compute} functions, which should return null if
+   * this returns null. If {@code ruleClassName} is set, the rule found must have a matching rule
+   * class name.
+   */
+  @Nullable
+  public static Rule getRule(
+      RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
+      throws RepositoryFunctionException {
+    ExternalPackage externalPackage = getExternalPackage(env);
+    if (externalPackage == null) {
+      return null;
+    }
     Rule rule = externalPackage.getRepositoryInfo(repositoryName);
     if (rule == null) {
       throw new RepositoryFunctionException(

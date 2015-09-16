@@ -202,7 +202,13 @@ a minimal set of extra dependencies.
 * License: MIT license
 
 
-[maven_model](http://maven.apache.org/ref/3.2.5/maven-model/)
+[maven](http://mvnrepository.com/artifact/org.apache.maven)
+-------------
+* Version: 3.3.3
+* License: Apache License 2.0
+
+
+[maven_model](http://maven.apache.org/ref/3.2.3/maven-model/)
 -------------
 * Version: 3.2.3
 * License: Apache License 2.0

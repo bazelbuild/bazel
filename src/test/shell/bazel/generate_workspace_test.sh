@@ -18,25 +18,24 @@
 #
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
+src_dir=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
+source $src_dir/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
+source $src_dir/remote_helpers.sh \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 export JAVA_RUNFILES=$TEST_SRCDIR
 
 function set_up() {
   # Set up custom repository directory.
   m2=$TEST_TMPDIR/my-m2
+  rm -rf $m2
   mkdir -p $m2
-  cd $m2
-  m2_port=$(pick_random_unused_tcp_port) || exit 1
-  python -m SimpleHTTPServer $m2_port &
-  m2_pid=$!
-  wait_for_server_startup
-  cd -
+  startup_server $m2
 }
 
 function tear_down() {
-  kill $m2_pid
+  shutdown_server
   rm -rf $m2
 }
 
@@ -74,18 +73,6 @@ EOF
   ${bazel_javabase}/bin/jar cf $pkg_dir/$artifactId-$version.jar $TEST_TMPDIR/$groupId.class
 }
 
-# Waits for the SimpleHTTPServer to actually start up before the test is run.
-# Otherwise the entire test can run before the server starts listening for
-# connections, which causes flakes.
-function wait_for_server_startup() {
-  touch some-file
-  while ! curl localhost:$m2_port/some-file; do
-    echo "waiting for server, exit code: $?"
-  done
-  echo "done waiting for server, exit code: $?"
-  rm some-file
-}
-
 function get_workspace_file() {
   cat $TEST_log | tail -n 2 | head -n 1
 }
@@ -109,7 +96,7 @@ function test_pom() {
     <repository>
       <id>my-repo1</id>
       <name>a custom repo</name>
-      <url>http://localhost:$m2_port/</url>
+      <url>http://localhost:$fileserver_port/</url>
     </repository>
   </repositories>
 
@@ -130,7 +117,7 @@ EOF
   cat $(cat $TEST_log | tail -n 1) > build
 
   assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
-  assert_contains "repository = \"http://localhost:$m2_port/\"," ws
+  assert_contains "repository = \"http://localhost:$fileserver_port/\"," ws
   assert_contains "\"@blorp/glorp//jar\"," build
 }
 

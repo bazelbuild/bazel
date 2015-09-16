@@ -18,18 +18,19 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -46,7 +47,6 @@ import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 
 import java.io.IOException;
-import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +55,8 @@ import javax.annotation.Nullable;
  */
 public class MavenJarFunction extends HttpArchiveFunction {
 
+  private static final String DEFAULT_SERVER = "default";
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
@@ -62,16 +64,43 @@ public class MavenJarFunction extends HttpArchiveFunction {
     if (rule == null) {
       return null;
     }
+
+    String url;
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    MavenDownloader downloader = createMavenDownloader(mapper);
+    boolean hasRepository = mapper.has("repository", Type.STRING)
+        && !mapper.get("repository", Type.STRING).isEmpty();
+    boolean hasServer = mapper.has("server", Type.STRING)
+        && !mapper.get("server", Type.STRING).isEmpty();
+    if (hasRepository && hasServer) {
+      throw new RepositoryFunctionException(new EvalException(
+          Location.fromFile(getWorkspace().getRelative("WORKSPACE")), rule + " specifies both "
+              + "'repository' and 'server', which are mutually exclusive options"),
+          Transience.PERSISTENT);
+    } else if (hasRepository) {
+      url = mapper.get("repository", Type.STRING);
+    } else {
+      String serverName = DEFAULT_SERVER;
+      if (mapper.has("server", Type.STRING) && !mapper.get("server", Type.STRING).isEmpty()) {
+        serverName = mapper.get("server", Type.STRING);
+      }
+
+      MavenServerValue mavenServerValue = (MavenServerValue) env.getValue(
+          MavenServerValue.key(serverName));
+      if (mavenServerValue == null) {
+        return null;
+      }
+      url = mavenServerValue.getUrl();
+    }
+
+    MavenDownloader downloader = createMavenDownloader(mapper, url);
     return createOutputTree(downloader, env);
   }
 
   @VisibleForTesting
-  MavenDownloader createMavenDownloader(AttributeMap mapper) {
+  MavenDownloader createMavenDownloader(AttributeMap mapper, String url) {
     String name = mapper.getName();
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(name);
-    return new MavenDownloader(name, mapper, outputDirectory);
+    return new MavenDownloader(name, mapper, outputDirectory, url);
   }
 
   SkyValue createOutputTree(MavenDownloader downloader, Environment env)
@@ -129,10 +158,10 @@ public class MavenJarFunction extends HttpArchiveFunction {
     private final Path outputDirectory;
     @Nullable
     private final String sha1;
-    // TODO(kchodorow): change this to a single repository on 9/15.
-    private final List<RemoteRepository> repositories;
+    private final String url;
 
-    public MavenDownloader(String name, AttributeMap mapper, Path outputDirectory) {
+    public MavenDownloader(
+        String name, AttributeMap mapper, Path outputDirectory, String url) {
       this.name = name;
       this.outputDirectory = outputDirectory;
 
@@ -144,22 +173,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
             + mapper.get("version", Type.STRING);
       }
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
-
-      if (mapper.has("repository", Type.STRING)
-          && !mapper.get("repository", Type.STRING).isEmpty()) {
-        this.repositories = ImmutableList.of(new RemoteRepository.Builder(
-            "user-defined repository", "default", mapper.get("repository", Type.STRING)).build());
-      } else if (mapper.has("repositories", Type.STRING_LIST)
-          && !mapper.get("repositories", Type.STRING_LIST).isEmpty()) {
-        // TODO(kchodorow): remove after 9/15, uses deprecated list of repositories attribute.
-        this.repositories = Lists.newArrayList();
-        for (String repositoryUrl : mapper.get("repositories", Type.STRING_LIST)) {
-          this.repositories.add(new RemoteRepository.Builder(
-              "user-defined repository " + repositories.size(), "default", repositoryUrl).build());
-        }
-      } else {
-        this.repositories = ImmutableList.of(MavenConnector.getMavenCentralRemote());
-      }
+      this.url = url;
     }
 
     /**
@@ -184,6 +198,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       RepositorySystem system = connector.newRepositorySystem();
       RepositorySystemSession session = connector.newRepositorySystemSession(system);
 
+      RemoteRepository repository = new RemoteRepository.Builder(name, "default", url).build();
       ArtifactRequest artifactRequest = new ArtifactRequest();
       Artifact artifact;
       try {
@@ -192,7 +207,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
         throw new IOException(e.getMessage());
       }
       artifactRequest.setArtifact(artifact);
-      artifactRequest.setRepositories(repositories);
+      artifactRequest.setRepositories(ImmutableList.of(repository));
 
       try {
         ArtifactResult artifactResult = system.resolveArtifact(session, artifactRequest);

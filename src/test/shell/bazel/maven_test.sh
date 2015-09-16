@@ -18,13 +18,14 @@
 #
 
 # Load test environment
-src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+src=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
 source $src/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 source $src/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  startup_server $PWD
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
 java_binary(
@@ -44,6 +45,10 @@ public class BallPit {
     }
 }
 EOF
+}
+
+function tear_down() {
+  shutdown_server
 }
 
 function test_maven_jar() {
@@ -68,21 +73,18 @@ EOF
 
 # Same as test_maven_jar, except omit sha1 implying "we don't care".
 function test_maven_jar_no_sha1() {
-  serve_jar
+  serve_artifact com.example.carnivore carnivore 1.23
 
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://localhost:$fileserver_port/',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
-  kill_nc
-  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
   expect_log "Tra-la!"
 }
 
@@ -104,7 +106,8 @@ maven_jar(
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
+  bazel clean --expunge
+  bazel build //zoo:ball-pit >& $TEST_log && echo "Expected build to fail"
   kill_nc
   expect_log "Failed to fetch Maven dependency: Could not find artifact"
 }
@@ -126,3 +129,93 @@ EOF
   kill_nc
   expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($sha256)"
 }
+
+function test_default_repository() {
+  serve_artifact thing amabop 1.9
+  cat > WORKSPACE <<EOF
+maven_server(
+    name = "default",
+    url = "http://localhost:$fileserver_port/",
+)
+
+maven_jar(
+    name = "thing-a-ma-bop",
+    artifact = "thing:amabop:1.9",
+)
+EOF
+
+  bazel build @thing-a-ma-bop//jar &> $TEST_log || fail "Building thing failed"
+  expect_log "Target @thing-a-ma-bop//jar:jar up-to-date"
+}
+
+function test_settings() {
+  serve_artifact thing amabop 1.9
+  cat > WORKSPACE <<EOF
+maven_server(
+    name = "x",
+    url = "http://localhost:$fileserver_port/",
+    settings_file = "settings.xml",
+)
+maven_jar(
+    name = "thing-a-ma-bop",
+    artifact = "thing:amabop:1.9",
+    server = "x",
+)
+EOF
+
+  cat > settings.xml <<EOF
+<settings>
+  <servers>
+    <server>
+      <id>default</id>
+    </server>
+  </servers>
+</settings>
+EOF
+
+  bazel build @thing-a-ma-bop//jar &> $TEST_log \
+    || fail "Building thing failed"
+  expect_log "Target @thing-a-ma-bop//jar:jar up-to-date"
+
+  # Create an invalid settings.xml (by using a tag that isn't allowed in
+  # settings).
+  cat > settings.xml <<EOF
+<settings>
+  <repositories>
+    <repository>
+      <id>default</id>
+    </repository>
+  </repositories>
+</settings>
+EOF
+  bazel clean --expunge
+  bazel build @thing-a-ma-bop//jar &> $TEST_log \
+    && fail "Building thing succeeded"
+  expect_log "Unrecognised tag: 'repositories'"
+}
+
+function test_maven_server_dep() {
+  cat > WORKSPACE <<EOF
+maven_server(
+    name = "x",
+    url = "http://localhost:12345/",
+)
+EOF
+
+  cat > BUILD <<EOF
+sh_binary(
+    name = "y",
+    srcs = ["y.sh"],
+    deps = ["@x//:bar"],
+)
+EOF
+
+  touch y.sh
+  chmod +x y.sh
+
+  bazel build //:y &> $TEST_log && fail "Building thing failed"
+  expect_log "no such package '@x//'"
+}
+
+
+run_suite "maven tests"

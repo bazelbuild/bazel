@@ -121,7 +121,6 @@ public class DefaultModelResolver implements ModelResolver {
     return false;
   }
 
-  @Override
   public ModelSource resolveModel(Parent parent) throws UnresolvableModelException {
     return resolveModel(parent.getGroupId(), parent.getArtifactId(), parent.getVersion());
   }
@@ -131,7 +130,6 @@ public class DefaultModelResolver implements ModelResolver {
     repositories.add(repository);
   }
 
-  @Override
   public void addRepository(Repository repository, boolean replace) {
     addRepository(repository);
   }

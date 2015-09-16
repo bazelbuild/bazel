@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
 import com.google.devtools.build.lib.bazel.repository.JarFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
+import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.NewLocalRepositoryFunction;
@@ -220,6 +221,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.put(ZipFunction.NAME, new ZipFunction());
     builder.put(TarGzFunction.NAME, new TarGzFunction());
     builder.put(FileFunction.NAME, new FileFunction());
+    builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
   }
 }

@@ -258,6 +258,11 @@ java_import(
 )
 
 java_import(
+    name = "maven",
+    jars = glob(["maven/*.jar"]),
+)
+
+java_import(
     name = "maven_model",
     jars = [
         "maven_model/maven-aether-provider-3.2.3.jar",
