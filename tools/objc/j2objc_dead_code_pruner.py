@@ -105,7 +105,12 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping):
                       'j2objc_library rules.')
     transpiled_file_name = header_mapping[entry_class]
     reachable_files.add(transpiled_file_name)
-    current_level_deps = reachability_tree[transpiled_file_name]
+    current_level_deps = []
+    # We need to check if the transpiled file is in the reachability tree
+    # because J2ObjC protos are not analyzed for dead code stripping and
+    # therefore are not in the reachability tree at all.
+    if transpiled_file_name in reachability_tree:
+      current_level_deps = reachability_tree[transpiled_file_name]
     while current_level_deps:
       next_level_deps = []
       for dep in current_level_deps:

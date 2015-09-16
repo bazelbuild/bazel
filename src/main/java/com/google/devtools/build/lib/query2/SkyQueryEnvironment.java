@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -88,12 +89,6 @@ import javax.annotation.Nullable;
  */
 public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
-  private static final Predicate<Exception> NON_NULL_EXCEPTION = new Predicate<Exception>() {
-    @Override
-    public boolean apply(@Nullable Exception e) {
-      return e != null;
-    }
-  };
   private WalkableGraph graph;
 
   private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
@@ -177,9 +172,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
     ImmutableMap.Builder<Target, Collection<Target>> result = ImmutableMap.builder();
+    
+    Map<SkyKey, Target> allTargets = makeTargetsWithAssociations(
+        Sets.newHashSet(Iterables.concat(input.values())));
 
     for (Map.Entry<SkyKey, Target> entry : makeTargetsWithAssociations(input.keySet()).entrySet()) {
-      result.put(entry.getValue(), makeTargets(input.get(entry.getKey())));
+      Iterable<SkyKey> skyKeys = input.get(entry.getKey());
+      Set<Target> targets = CompactHashSet.createWithExpectedSize(Iterables.size(skyKeys));
+      for (SkyKey key : skyKeys) {
+        Target target = allTargets.get(key);
+        if (target != null) {
+          targets.add(target);
+        }
+      }
+      result.put(entry.getValue(), targets);
     }
     return result.build();
   }
@@ -458,10 +464,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       }
     }
     return result;
-  }
-
-  private Collection<Target> makeTargets(Iterable<SkyKey> keys) {
-    return makeTargetsWithAssociations(keys).values();
   }
 
   private static final Function<SkyKey, Label> SKYKEY_TO_LABEL = new Function<SkyKey, Label>() {
