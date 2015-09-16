@@ -148,7 +148,7 @@ public class DumpCommand implements BlazeCommand {
       boolean success = true;
 
       if (dumpOptions.dumpPackages) {
-        runtime.getPackageManager().dump(out);
+        env.getPackageManager().dump(out);
         out.println();
       }
 
@@ -165,7 +165,7 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpActionCache) {
-        success &= dumpActionCache(runtime, out);
+        success &= dumpActionCache(env, out);
         out.println();
       }
 
@@ -187,11 +187,11 @@ public class DumpCommand implements BlazeCommand {
     }
   }
 
-  private boolean dumpActionCache(BlazeRuntime runtime, PrintStream out) {
+  private boolean dumpActionCache(CommandEnvironment env, PrintStream out) {
     try {
-      runtime.getPersistentActionCache().dump(out);
+      env.getPersistentActionCache().dump(out);
     } catch (IOException e) {
-      runtime.getReporter().handle(Event.error("Cannot dump action cache: " + e.getMessage()));
+      env.getReporter().handle(Event.error("Cannot dump action cache: " + e.getMessage()));
       return false;
     }
     return true;

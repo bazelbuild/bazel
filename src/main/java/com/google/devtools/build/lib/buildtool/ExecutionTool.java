@@ -377,7 +377,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = getActionCache();
-    SkyframeExecutor skyframeExecutor = runtime.getSkyframeExecutor();
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder = createBuilder(request, executor, actionCache, skyframeExecutor);
 
     //
@@ -810,7 +810,7 @@ public class ExecutionTool {
 
   private ActionCache getActionCache() throws LocalEnvironmentException {
     try {
-      return runtime.getPersistentActionCache();
+      return env.getPersistentActionCache();
     } catch (IOException e) {
       // TODO(bazel-team): (2010) Ideally we should just remove all cache data and reinitialize
       // caches.

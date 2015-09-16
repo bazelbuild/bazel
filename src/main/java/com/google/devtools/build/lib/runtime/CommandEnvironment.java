@@ -15,10 +15,17 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
@@ -54,5 +61,29 @@ public final class CommandEnvironment {
 
   public Map<String, String> getClientEnv() {
     return runtime.getClientEnv();
+  }
+
+  public PackageManager getPackageManager() {
+    return runtime.getPackageManager();
+  }
+
+  public BuildView getView() {
+    return runtime.getView();
+  }
+
+  public UUID getCommandId() {
+    return runtime.getCommandId();
+  }
+
+  public SkyframeExecutor getSkyframeExecutor() {
+    return runtime.getSkyframeExecutor();
+  }
+
+  public Path getWorkingDirectory() {
+    return runtime.getWorkingDirectory();
+  }
+
+  public ActionCache getPersistentActionCache() throws IOException {
+    return runtime.getPersistentActionCache(getReporter());
   }
 }

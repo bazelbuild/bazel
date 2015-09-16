@@ -605,7 +605,7 @@ public final class BlazeRuntime {
    * instance. Note, that method may recreate instance between different build
    * requests, so return value should not be cached.
    */
-  public ActionCache getPersistentActionCache() throws IOException {
+  public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
       if (OS.getCurrent() == OS.WINDOWS) {
         // TODO(bazel-team): Add support for a persistent action cache on Windows.
@@ -619,7 +619,7 @@ public final class BlazeRuntime {
           LOG.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           LoggingUtil.logToRemote(Level.WARNING, "Failed to load action cache: "
               + e.getMessage(), e);
-          getReporter().handle(
+          reporter.handle(
               Event.error("Error during action cache initialization: " + e.getMessage()
               + ". Corrupted files were renamed to '" + getCacheDirectory() + "/*.bad'. "
               + "Blaze will now reset action cache data, causing a full rebuild"));
@@ -718,8 +718,9 @@ public final class BlazeRuntime {
       workspace = FileSystemUtils.getWorkingDirectory(directories.getFileSystem());
       workingDirectory = workspace;
     }
-    updateClientEnv(options.clientEnv, options.ignoreClientEnv);
     loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
+
+    updateClientEnv(options.clientEnv, options.ignoreClientEnv);
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);

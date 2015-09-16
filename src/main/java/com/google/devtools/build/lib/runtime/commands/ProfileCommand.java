@@ -122,9 +122,9 @@ public final class ProfileCommand implements BlazeCommand {
 
   private Function<String, String> currentPathMapping = Functions.<String>identity();
 
-  private InfoListener getInfoListener(final BlazeRuntime runtime) {
+  private InfoListener getInfoListener(final CommandEnvironment env) {
     return new InfoListener() {
-      private final EventHandler reporter = runtime.getReporter();
+      private final EventHandler reporter = env.getReporter();
 
       @Override
       public void info(String text) {
@@ -172,9 +172,9 @@ public final class ProfileCommand implements BlazeCommand {
         Path profileFile = runtime.getWorkingDirectory().getRelative(name);
         try {
           ProfileInfo info = ProfileInfo.loadProfileVerbosely(
-              profileFile, getInfoListener(runtime));
+              profileFile, getInfoListener(env));
           if (opts.dumpMode != null) {
-            dumpProfile(runtime, info, out, opts.dumpMode);
+            dumpProfile(env, info, out, opts.dumpMode);
           } else if (opts.html) {
             Path htmlFile =
                 profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
@@ -184,11 +184,11 @@ public final class ProfileCommand implements BlazeCommand {
             HtmlCreator.createHtml(
                 info,
                 htmlFile,
-                getStatistics(runtime, info, opts),
+                getStatistics(env, info, opts),
                 opts.htmlDetails,
                 opts.htmlPixelsPerSecond);
           } else {
-            createText(runtime, info, out, opts);
+            createText(env, info, out, opts);
           }
         } catch (IOException e) {
           env.getReporter().handle(Event.error(
@@ -201,9 +201,9 @@ public final class ProfileCommand implements BlazeCommand {
     return ExitCode.SUCCESS;
   }
 
-  private void createText(BlazeRuntime runtime, ProfileInfo info, PrintStream out,
+  private void createText(CommandEnvironment env, ProfileInfo info, PrintStream out,
       ProfileOptions opts) {
-    List<ProfilePhaseStatistics> statistics = getStatistics(runtime, info, opts);
+    List<ProfilePhaseStatistics> statistics = getStatistics(env, info, opts);
 
     for (ProfilePhaseStatistics stat : statistics) {
       String title = stat.getTitle();
@@ -216,10 +216,10 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   private List<ProfilePhaseStatistics> getStatistics(
-      BlazeRuntime runtime, ProfileInfo info, ProfileOptions opts) {
+      CommandEnvironment env, ProfileInfo info, ProfileOptions opts) {
     try {
-      ProfileInfo.aggregateProfile(info, getInfoListener(runtime));
-      runtime.getReporter().handle(Event.info("Analyzing relationships"));
+      ProfileInfo.aggregateProfile(info, getInfoListener(env));
+      env.getReporter().handle(Event.info("Analyzing relationships"));
 
       info.analyzeRelationships();
 
@@ -266,9 +266,9 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   private void dumpProfile(
-      BlazeRuntime runtime, ProfileInfo info, PrintStream out, String dumpMode) {
+      CommandEnvironment env, ProfileInfo info, PrintStream out, String dumpMode) {
     if (!dumpMode.contains("unsorted")) {
-      ProfileInfo.aggregateProfile(info, getInfoListener(runtime));
+      ProfileInfo.aggregateProfile(info, getInfoListener(env));
     }
     if (dumpMode.contains("raw")) {
       for (ProfileInfo.Task task : info.allTasksById) {

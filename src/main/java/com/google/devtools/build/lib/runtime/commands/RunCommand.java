@@ -177,7 +177,7 @@ public class RunCommand implements BlazeCommand  {
         return ExitCode.COMMAND_LINE_ERROR;
       }
       for (ConfiguredTarget target : targetsBuilt) {
-        ExitCode targetValidation = fullyValidateTarget(runtime, target);
+        ExitCode targetValidation = fullyValidateTarget(env, target);
         if (targetValidation != ExitCode.SUCCESS) {
           return targetValidation;
         }
@@ -294,7 +294,7 @@ public class RunCommand implements BlazeCommand  {
       String unisolatedCommand = CommandFailureUtils.describeCommand(
           CommandDescriptionForm.COMPLETE_UNISOLATED,
           cmdLine, null, workingDir.getPathString());
-      if (writeScript(runtime, runOptions.scriptPath, unisolatedCommand)) {
+      if (writeScript(env, runOptions.scriptPath, unisolatedCommand)) {
         return ExitCode.SUCCESS;
       } else {
         return ExitCode.RUN_FAILURE;
@@ -375,15 +375,15 @@ public class RunCommand implements BlazeCommand  {
     return workingDir;
   }
 
-  private boolean writeScript(BlazeRuntime runtime, PathFragment scriptPathFrag, String cmd) {
+  private boolean writeScript(CommandEnvironment env, PathFragment scriptPathFrag, String cmd) {
     final String SH_SHEBANG = "#!/bin/sh";
-    Path scriptPath = runtime.getWorkingDirectory().getRelative(scriptPathFrag);
+    Path scriptPath = env.getWorkingDirectory().getRelative(scriptPathFrag);
     try {
       FileSystemUtils.writeContent(scriptPath, StandardCharsets.ISO_8859_1,
           SH_SHEBANG + "\n" + cmd + " \"$@\"");
       scriptPath.setExecutable(true);
     } catch (IOException e) {
-      runtime.getReporter().handle(Event.error("Error writing run script:" + e.getMessage()));
+      env.getReporter().handle(Event.error("Error writing run script:" + e.getMessage()));
       return false;
     }
     return true;
@@ -458,17 +458,17 @@ public class RunCommand implements BlazeCommand  {
    * @param target ConfiguredTarget to validate
    * @return ExitCode.SUCCESS if all checks succeeded, otherwise a different error code.
    */
-  private ExitCode fullyValidateTarget(BlazeRuntime runtime, ConfiguredTarget target) {
+  private ExitCode fullyValidateTarget(CommandEnvironment env, ConfiguredTarget target) {
     String targetError = validateTarget(target.getTarget());
 
     if (targetError != null) {
-      runtime.getReporter().handle(Event.error(targetError));
+      env.getReporter().handle(Event.error(targetError));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
     Artifact executable = target.getProvider(FilesToRunProvider.class).getExecutable();
     if (executable == null) {
-      runtime.getReporter().handle(Event.error(notExecutableError(target.getTarget())));
+      env.getReporter().handle(Event.error(notExecutableError(target.getTarget())));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -478,12 +478,12 @@ public class RunCommand implements BlazeCommand  {
     Path executablePath = executable.getPath();
     try {
       if (!executablePath.exists() || !executablePath.isExecutable()) {
-        runtime.getReporter().handle(Event.error(
+        env.getReporter().handle(Event.error(
             null, "Non-existent or non-executable " + executablePath));
         return ExitCode.BLAZE_INTERNAL_ERROR;
       }
     } catch (IOException e) {
-      runtime.getReporter().handle(Event.error(
+      env.getReporter().handle(Event.error(
           "Error checking " + executablePath.getPathString() + ": " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }

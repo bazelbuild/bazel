@@ -60,7 +60,7 @@ public class DashModule extends BlazeModule {
   private static final int ONE_MB = 1024 * 1024;
 
   private Sendable sender;
-  private BlazeRuntime runtime;
+  private CommandEnvironment env;
   private final ExecutorService executorService;
   private BuildData optionsBuildData;
 
@@ -80,7 +80,7 @@ public class DashModule extends BlazeModule {
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
-    this.runtime = env.getRuntime();
+    this.env = env;
     env.getEventBus().register(this);
   }
 
@@ -95,7 +95,8 @@ public class DashModule extends BlazeModule {
   public void handleOptions(OptionsProvider optionsProvider) {
     DashOptions options = optionsProvider.getOptions(DashOptions.class);
     sender = (options == null || !options.useDash)
-      ? new NoOpSender() : new Sender(options.url, runtime, runtime.getReporter(), executorService);
+        ? new NoOpSender()
+        : new Sender(options.url, env.getRuntime(), env.getReporter(), executorService);
     if (optionsBuildData != null) {
       sender.send("options", optionsBuildData);
     }
@@ -186,7 +187,7 @@ public class DashModule extends BlazeModule {
       }
       builder.setContents(ByteString.copyFrom(buffer));
     } catch (IOException e) {
-      runtime
+      env
           .getReporter()
           .getOutErr()
           .printOutLn("Error reading log file " + logPath + ": " + e.getMessage());

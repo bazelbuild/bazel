@@ -105,7 +105,7 @@ public final class FetchCommand implements BlazeCommand {
     query = "deps(" + query + ")";
 
     AbstractBlazeQueryEnvironment<Target> queryEnv = QueryCommand.newQueryEnvironment(
-        runtime, options.getOptions(FetchOptions.class).keepGoing, false,
+        env, options.getOptions(FetchOptions.class).keepGoing, false,
         Lists.<String>newArrayList(), 200, Sets.<Setting>newHashSet());
 
     // 1. Parse query:

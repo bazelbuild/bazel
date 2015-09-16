@@ -173,7 +173,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-        runtime.getWorkspaceName(), runtime.getWorkspace(), runtime.getReporter(), symlinkPrefix);
+        runtime.getWorkspaceName(), runtime.getWorkspace(), env.getReporter(), symlinkPrefix);
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
       throw new ShutdownBlazeServerException(0);
