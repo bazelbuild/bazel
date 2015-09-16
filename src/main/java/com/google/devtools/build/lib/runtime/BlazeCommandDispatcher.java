@@ -361,7 +361,7 @@ public class BlazeCommandDispatcher {
       System.setErr(new PrintStream(reporterOutErr.getErrorStream(), /*autoflush=*/true));
 
       for (BlazeModule module : runtime.getBlazeModules()) {
-        module.checkRuntime(runtime);
+        module.checkEnvironment(env);
       }
 
       if (commonOptions.announceRcOptions) {
