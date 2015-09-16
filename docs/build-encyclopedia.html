@@ -403,6 +403,10 @@ layout: documentation
           maven_jar
         </a>
         <br />
+            <a href="#maven_server">
+          maven_server
+        </a>
+        <br />
             <a href="#new_git_repository">
           new_git_repository
         </a>
@@ -11924,10 +11928,8 @@ maven_jar(
                                 A URL for a Maven repository to fetch the jar from.
         
 
-        <p>Defaults to Maven Central ("central.maven.org").</p>
-
-        <p><b>To be implemented: add a maven_repository rule that allows a default repository
-        to be specified once.</b></p>
+        <p>Either this or <code>server</code> can be specified. Defaults to Maven Central
+         ("central.maven.org").</p>
 
           </td>
         </tr>
@@ -11941,6 +11943,72 @@ maven_jar(
          
 
          <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
+
+          </td>
+        </tr>
+                    </tbody>
+    </table>
+          <h3 id="maven_server">
+      maven_server
+    </h3>
+
+    <pre class="rule-signature">maven_server(<a href="#maven_server.name">name</a>, <a href="#maven_server.settings_file">settings_file</a>, <a href="#maven_server.url">url</a>)</pre>
+
+    
+
+
+<p>How to access a Maven repository.</p>
+
+
+
+<p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
+&lt;server&lt; definition from a settings.xml file.</p>
+
+
+
+    <h4 id="maven_server_args">Arguments</h4>
+    <table class="table table-condensed table-bordered table-params">
+      <colgroup>
+        <col class="col-param" />
+        <col class="param-description" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="maven_server.name"><code>name</code></td>
+          <td>
+            <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
+            <p>A unique name for this rule.</p>
+            
+          </td>
+        </tr>
+                      <tr>
+          <td id="maven_server.settings_file">
+            <code>settings_file</code>
+          </td>
+          <td>
+                        <p><code>String; optional</code></p>
+                                A path to a settings.xml file.
+        
+
+          </td>
+        </tr>
+                              <tr>
+          <td id="maven_server.url">
+            <code>url</code>
+          </td>
+          <td>
+                        <p><code>String; optional</code></p>
+                                A URL for accessing the server.
+        
+
+        <p>For example, Maven Central (which is the default and does not need to be defined) would
+        be specified as <code>url = "http://central.maven.org/maven2/"</code>.</p>
 
           </td>
         </tr>
