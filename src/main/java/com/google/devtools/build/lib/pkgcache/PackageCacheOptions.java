@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.syntax.CommaSeparatedPackageNameListConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -152,4 +155,35 @@ public class PackageCacheOptions extends OptionsBase {
       category = "undocumented",
       help = "Allows the command to fetch external dependencies")
   public boolean fetch;
+
+  /**
+   * A converter from strings containing comma-separated names of packages to lists of strings.
+   */
+  public static class CommaSeparatedPackageNameListConverter
+      implements Converter<List<PackageIdentifier>> {
+
+    private static final Splitter COMMA_SPLITTER = Splitter.on(',');
+
+    @Override
+    public List<PackageIdentifier> convert(String input) throws OptionsParsingException {
+      if (Strings.isNullOrEmpty(input)) {
+        return ImmutableList.of();
+      }
+      ImmutableList.Builder<PackageIdentifier> list = ImmutableList.builder();
+      for (String s : COMMA_SPLITTER.split(input)) {
+        try {
+          list.add(PackageIdentifier.parse(s));
+        } catch (LabelSyntaxException e) {
+          throw new OptionsParsingException(e.getMessage());
+        }
+      }
+      return list.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "comma-separated list of package names";
+    }
+
+  }
 }

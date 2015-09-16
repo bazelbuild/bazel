@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Rule;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -74,7 +73,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
   /**
    * Adds the given {@code Rule} to the stack trace.
    */
-  public void registerRule(Rule rule, BaseFunction ruleImpl) {
+  public void registerRule(String rule, Location location, BaseFunction ruleImpl) {
     /* We have to model the transition from BUILD file to bzl file manually since the stack trace
      * mechanism cannot do that by itself (because, for example, the rule implementation does not
      * have a corresponding FuncallExpression).
@@ -105,8 +104,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
      *
      * */
     addStackFrame(ruleImpl.getName(), ruleImpl.getLocation());
-    addStackFrame(String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
-        rule.getLocation(), false);
+    addStackFrame(rule, location, false);
   }
 
   /**

@@ -99,7 +99,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
    */
   private static void addRuleToStackTrace(EvalException ex, Rule rule, BaseFunction ruleImpl) {
     if (ex instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) ex).registerRule(rule, ruleImpl);
+      ((EvalExceptionWithStackTrace) ex).registerRule(
+          String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
+          rule.getLocation(), ruleImpl);
     }
   }
 
