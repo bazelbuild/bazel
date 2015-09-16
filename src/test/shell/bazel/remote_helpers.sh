@@ -109,6 +109,7 @@ function wait_for_server_startup() {
 
 
 function serve_artifact() {
+  startup_server $PWD
   local group_id=$1
   local artifact_id=$2
   local version=$3
@@ -130,14 +131,14 @@ function startup_server() {
 }
 
 function shutdown_server() {
-  kill $fileserver_pid
-}
-
-function kill_nc() {
   # Try to kill nc, otherwise the test will time out if Bazel has a bug and
   # didn't make a request to it.
-  kill $nc_pid || true  # kill can fails if the process already finished
+  [ -z "${fileserver_pid:-}" ] || kill $fileserver_pid || true
   [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
   [ -z "${nc_log:-}" ] || cat $nc_log
   [ -z "${redirect_log:-}" ] || cat $redirect_log
+}
+
+function kill_nc() {
+  shutdown_server
 }

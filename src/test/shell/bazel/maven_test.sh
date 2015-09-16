@@ -24,8 +24,7 @@ source $src/test-setup.sh \
 source $src/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-function set_up() {
-  startup_server $PWD
+function setup_zoo() {
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
 java_binary(
@@ -52,6 +51,7 @@ function tear_down() {
 }
 
 function test_maven_jar() {
+  setup_zoo
   serve_jar
 
   cat > WORKSPACE <<EOF
@@ -89,6 +89,7 @@ EOF
 }
 
 function test_maven_jar_404() {
+  setup_zoo
   http_response=$TEST_TMPDIR/http_response
   cat > $http_response <<EOF
 HTTP/1.0 404 Not Found
@@ -113,6 +114,7 @@ EOF
 }
 
 function test_maven_jar_mismatched_sha1() {
+  setup_zoo
   serve_jar
 
   cat > WORKSPACE <<EOF
@@ -216,6 +218,5 @@ EOF
   bazel build //:y &> $TEST_log && fail "Building thing failed"
   expect_log "no such package '@x//'"
 }
-
 
 run_suite "maven tests"
