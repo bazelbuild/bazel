@@ -174,4 +174,14 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
         .containsExactly("rule //a:a", "aspect //a:b data hello");
   }
+
+  @RunWith(JUnit4.class)
+  public static class AspectTestWithoutLoading extends AspectTest {
+    @Override
+    @Before
+    public void setUp() throws Exception {
+      disableLoading();
+      super.setUp();
+    }
+  }
 }

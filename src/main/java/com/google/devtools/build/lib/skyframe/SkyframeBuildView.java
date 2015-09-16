@@ -46,12 +46,15 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
@@ -205,6 +208,7 @@ public final class SkyframeBuildView {
     ImmutableMap<Action, ConflictException> badActions = skyframeExecutor.findArtifactConflicts();
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
+    NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
     for (AspectKey aspectKey : aspectKeys) {
       AspectValue value = (AspectValue) result.get(AspectValue.key(aspectKey));
       if (value == null) {
@@ -212,6 +216,7 @@ public final class SkyframeBuildView {
         continue;
       }
       goodAspects.add(value);
+      packages.addTransitive(value.getTransitivePackages());
     }
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
@@ -225,15 +230,16 @@ public final class SkyframeBuildView {
         continue;
       }
       goodCts.add(ctValue.getConfiguredTarget());
+      packages.addTransitive(ctValue.getTransitivePackages());
     }
-
 
     if (!result.hasError() && badActions.isEmpty()) {
       setDeserializedArtifactOwners();
       return new SkyframeAnalysisResult(
           ImmutableList.copyOf(goodCts),
           result.getWalkableGraph(),
-          ImmutableList.copyOf(goodAspects));
+          ImmutableList.copyOf(goodAspects),
+          LoadingPhaseRunner.collectPackageRoots(packages.build().toCollection()));
     }
 
     // --nokeep_going so we fail with an exception for the first error.
@@ -341,7 +347,8 @@ public final class SkyframeBuildView {
     return new SkyframeAnalysisResult(
         ImmutableList.copyOf(goodCts),
         result.getWalkableGraph(),
-        ImmutableList.copyOf(goodAspects));
+        ImmutableList.copyOf(goodAspects),
+        LoadingPhaseRunner.collectPackageRoots(packages.build().toCollection()));
   }
 
   @Nullable

@@ -1287,17 +1287,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Configures a given set of configured targets. */
   public EvaluationResult<ActionLookupValue> configureTargets(
       List<ConfiguredTargetKey> values, List<AspectKey> aspectKeys, boolean keepGoing)
-      throws InterruptedException {
+          throws InterruptedException {
     checkActive();
 
     List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
     for (AspectKey aspectKey : aspectKeys) {
       keys.add(AspectValue.key(aspectKey));
     }
-
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return buildDriver.evaluate(
-        keys, keepGoing, ResourceUsage.getAvailableProcessors(), errorEventListener);
+    return buildDriver.evaluate(keys, keepGoing, ResourceUsage.getAvailableProcessors(),
+        errorEventListener);
   }
 
   /**

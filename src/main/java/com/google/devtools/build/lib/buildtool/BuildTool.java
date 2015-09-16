@@ -399,7 +399,7 @@ public final class BuildTool {
     LoadingResult result = runtime.getLoadingPhaseRunner().execute(getReporter(),
         env.getEventBus(), request.getTargets(), request.getLoadingOptions(),
         runtime.createBuildOptions(request).getAllLabels(), keepGoing,
-        request.shouldRunTests(), callback);
+        isLoadingEnabled(request), request.shouldRunTests(), callback);
     runtime.throwPendingException();
     return result;
   }
@@ -448,7 +448,8 @@ public final class BuildTool {
                 request.getViewOptions(),
                 request.getTopLevelArtifactContext(),
                 env.getReporter(),
-                env.getEventBus());
+                env.getEventBus(),
+                isLoadingEnabled(request));
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus().post(new AnalysisPhaseCompleteEvent(analysisResult.getTargetsToBuild(),
@@ -583,12 +584,19 @@ public final class BuildTool {
           if (!keepGoing) {
             throw new ViewCreationFailedException("Build aborted due to licensing error");
           }
-       }
+        }
       }
     }
   }
 
   private Reporter getReporter() {
     return env.getReporter();
+  }
+
+  private static boolean isLoadingEnabled(BuildRequest request) {
+    boolean enableLoadingFlag = !request.getViewOptions().interleaveLoadingAndAnalysis;
+    // TODO(bazel-team): should return false when fdo optimization is enabled, because in that case,
+    // we would require packages to be set before analysis phase. See FdoSupport#prepareToBuild.
+    return enableLoadingFlag;
   }
 }

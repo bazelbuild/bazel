@@ -126,6 +126,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory;
   private PathPackageLocator pkgLocator;
+  protected boolean enableLoading = true;
 
   @Override
   protected void setUp() throws Exception {
@@ -256,8 +257,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     LoadingResult loadingResult = loadingPhaseRunner
         .execute(reporter, eventBus, ImmutableList.copyOf(labels), loadingOptions,
-            buildOptions.getAllLabels(), viewOptions.keepGoing, /*determineTests=*/false,
-            /*callback=*/null);
+            buildOptions.getAllLabels(), viewOptions.keepGoing, enableLoading,
+            /*determineTests=*/false, /*callback=*/null);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
@@ -271,7 +272,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             viewOptions,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
-            eventBus);
+            eventBus,
+            enableLoading);
   }
 
   protected void update(FlagBuilder config, String... labels) throws Exception {
@@ -362,5 +364,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected void clearAnalysisResult() {
     analysisResult = null;
+  }
+
+  protected void disableLoading() {
+    enableLoading = false;
   }
 }
