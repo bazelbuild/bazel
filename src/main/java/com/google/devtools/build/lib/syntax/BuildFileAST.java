@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -41,7 +40,7 @@ public class BuildFileAST extends ASTNode {
 
   private ImmutableMap<Location, PathFragment> loads;
 
-  private ImmutableSet<Label> includes;
+  private ImmutableSet<String> includes;
 
   /**
    * Whether any errors were encountered during scanning or parsing.
@@ -72,8 +71,8 @@ public class BuildFileAST extends ASTNode {
     }
   }
 
-  private ImmutableSet<Label> fetchIncludes(List<Statement> stmts) {
-    ImmutableSet.Builder<Label> result = new ImmutableSet.Builder<>();
+  private ImmutableSet<String> fetchIncludes(List<Statement> stmts) {
+    ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
     for (Statement stmt : stmts) {
       if (!(stmt instanceof ExpressionStatement)) {
         continue;
@@ -95,12 +94,7 @@ public class BuildFileAST extends ASTNode {
         continue;
       }
 
-      try {
-        Label label = Label.parseAbsolute(((StringLiteral) arg).getValue());
-        result.add(label);
-      } catch (LabelSyntaxException e) {
-        // Ignore. This will be reported when the BUILD file is actually evaluated.
-      }
+      result.add(((StringLiteral) arg).getValue());
     }
 
     return result.build();
@@ -151,7 +145,7 @@ public class BuildFileAST extends ASTNode {
     return loads;
   }
 
-  public synchronized ImmutableSet<Label> getIncludes() {
+  public synchronized ImmutableSet<String> getIncludes() {
     if (includes == null) {
       includes = fetchIncludes(stmts);
     }
