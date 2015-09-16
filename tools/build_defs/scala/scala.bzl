@@ -25,13 +25,15 @@ def _compile(ctx, jars):
   cmd = """
 set -e
 mkdir -p {out}_tmp
-{scalac} -classpath "{jars}" $@ -d {out}_tmp
+{scalac} {scala_opts} {jvm_flags} -classpath "{jars}" $@ -d {out}_tmp
 # Make jar file deterministic by setting the timestamp of files
 touch -t 198001010000 $(find .)
 jar cmf {manifest} {out} -C {out}_tmp .
 """
   cmd = cmd.format(
       scalac=_scalac_path,
+      scala_opts=" ".join(ctx.attr.scalacopts),
+      jvm_flags=" ".join(["-J" + flag for flag in ctx.attr.jvm_flags]),
       out=ctx.outputs.jar.path,
       manifest=ctx.outputs.manifest.path,
       jars=":".join([j.path for j in jars]))
@@ -119,6 +121,8 @@ scala_library = rule(
           non_empty=True),
       "deps": attr.label_list(),
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+      "scalacopts": attr.string_list(),
+      "jvm_flags": attr.string_list(),
       },
   outputs={
       "jar": "%{name}_deploy.jar",
@@ -135,6 +139,8 @@ scala_binary = rule(
           non_empty=True),
       "deps": attr.label_list(),
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+      "scalacopts":attr.string_list(),
+      "jvm_flags": attr.string_list(),
       },
   outputs={
       "jar": "%{name}_deploy.jar",
