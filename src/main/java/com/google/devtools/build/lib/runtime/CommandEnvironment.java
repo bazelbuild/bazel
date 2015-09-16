@@ -14,14 +14,26 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
 import java.util.Map;
@@ -33,11 +45,34 @@ import java.util.UUID;
  */
 public final class CommandEnvironment {
   private final BlazeRuntime runtime;
+  private final Reporter reporter;
   private final EventBus eventBus;
+  private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
 
-  public CommandEnvironment(BlazeRuntime runtime, EventBus eventBus) {
+  private AbruptExitException pendingException;
+
+  private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
+    @Override
+    public Path getFileFromDepot(Label label)
+        throws NoSuchThingException, InterruptedException, IOException {
+      Target target = getPackageManager().getTarget(reporter, label);
+      return (runtime.getOutputService() != null)
+          ? runtime.getOutputService().stageTool(target)
+          : target.getPackage().getPackageDirectory().getRelative(target.getName());
+    }
+
+    @Override
+    public void exit(AbruptExitException exception) {
+      Preconditions.checkState(pendingException == null);
+      pendingException = exception;
+    }
+  }
+
+  public CommandEnvironment(BlazeRuntime runtime, Reporter reporter, EventBus eventBus) {
     this.runtime = runtime;
+    this.reporter = reporter;
     this.eventBus = eventBus;
+    this.blazeModuleEnvironment = new BlazeModuleEnvironment();
   }
 
   public BlazeRuntime getRuntime() {
@@ -52,11 +87,15 @@ public final class CommandEnvironment {
    * Returns the reporter for events.
    */
   public Reporter getReporter() {
-    return runtime.getReporter();
+    return reporter;
   }
 
   public EventBus getEventBus() {
     return eventBus;
+  }
+
+  public BlazeModule.ModuleEnvironment getBlazeModuleEnvironment() {
+    return blazeModuleEnvironment;
   }
 
   public Map<String, String> getClientEnv() {
@@ -84,6 +123,53 @@ public final class CommandEnvironment {
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
-    return runtime.getPersistentActionCache(getReporter());
+    return runtime.getPersistentActionCache(reporter);
+  }
+
+  /**
+   * This method only exists for the benefit of InfoCommand, which needs to construct a {@link
+   * BuildConfigurationCollection} without running a full loading phase. Don't add any more clients;
+   * instead, we should change info so that it doesn't need the configuration.
+   */
+  public BuildConfigurationCollection getConfigurations(OptionsProvider optionsProvider)
+      throws InvalidConfigurationException, InterruptedException {
+    BuildOptions buildOptions = runtime.createBuildOptions(optionsProvider);
+    boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
+    LoadedPackageProvider loadedPackageProvider =
+        runtime.getLoadingPhaseRunner().loadForConfigurations(reporter,
+            ImmutableSet.copyOf(buildOptions.getAllLabels().values()),
+            keepGoing);
+    if (loadedPackageProvider == null) {
+      throw new InvalidConfigurationException("Configuration creation failed");
+    }
+    return getSkyframeExecutor().createConfigurations(runtime.getConfigurationFactory(),
+        buildOptions, runtime.getDirectories(), ImmutableSet.<String>of(), keepGoing);
+  }
+
+  /**
+   * Hook method called by the BlazeCommandDispatcher right before the dispatch
+   * of each command ends (while its outcome can still be modified).
+   */
+  ExitCode precompleteCommand(ExitCode originalExit) {
+    eventBus.post(new CommandPrecompleteEvent(originalExit));
+    // If Blaze did not suffer an infrastructure failure, check for errors in modules.
+    ExitCode exitCode = originalExit;
+    if (!originalExit.isInfrastructureFailure() && pendingException != null) {
+      exitCode = pendingException.getExitCode();
+    }
+    return exitCode;
+  }
+
+  /**
+   * Throws the exception currently queued by a Blaze module.
+   *
+   * <p>This should be called as often as is practical so that errors are reported as soon as
+   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise
+   * the exception this way.
+   */
+  public void throwPendingException() throws AbruptExitException {
+    if (pendingException != null) {
+      throw pendingException;
+    }
   }
 }

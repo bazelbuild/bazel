@@ -203,7 +203,7 @@ public class InfoCommand implements BlazeCommand {
               optionsProvider.getOptions(PackageCacheOptions.class),
               runtime.getDefaultsPackageContent(optionsProvider));
           // TODO(bazel-team): What if there are multiple configurations? [multi-config]
-          configuration = runtime
+          configuration = env
               .getConfigurations(optionsProvider)
               .getTargetConfigurations().get(0);
           return configuration;

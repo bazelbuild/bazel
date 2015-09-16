@@ -387,7 +387,7 @@ public class BlazeCommandDispatcher {
       }
 
       ExitCode outcome = command.exec(env, optionsParser);
-      outcome = runtime.precompleteCommand(env, outcome);
+      outcome = env.precompleteCommand(outcome);
       numericExitCode = outcome.getNumericExitCode();
       return numericExitCode;
     } catch (ShutdownBlazeServerException e) {

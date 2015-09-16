@@ -181,7 +181,7 @@ public final class BuildTool {
             request.getMultiCpus(), request.getViewOptions().keepGoing);
 
       env.getEventBus().post(new ConfigurationsCreatedEvent(configurations));
-      runtime.throwPendingException();
+      env.throwPendingException();
       if (configurations.getTargetConfigurations().size() == 1) {
         // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case
         // where there's only a single configuration, but we don't send an event in the multi-config
@@ -376,7 +376,7 @@ public final class BuildTool {
           throws LoadingFailedException, TargetParsingException, InterruptedException,
           AbruptExitException {
     Profiler.instance().markPhase(ProfilePhase.LOAD);
-    runtime.throwPendingException();
+    env.throwPendingException();
 
     initializeOutputFilter(request);
 
@@ -400,7 +400,7 @@ public final class BuildTool {
         env.getEventBus(), request.getTargets(), request.getLoadingOptions(),
         runtime.createBuildOptions(request).getAllLabels(), keepGoing,
         isLoadingEnabled(request), request.shouldRunTests(), callback);
-    runtime.throwPendingException();
+    env.throwPendingException();
     return result;
   }
 

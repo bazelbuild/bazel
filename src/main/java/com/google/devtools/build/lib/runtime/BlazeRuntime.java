@@ -46,21 +46,16 @@ import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -95,7 +90,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
@@ -176,6 +170,7 @@ public final class BlazeRuntime {
 
   private final SkyframeExecutor skyframeExecutor;
 
+  // Always null in production! Only non-null when tests inject a custom reporter.
   private final Reporter reporter;
   private final LoadingPhaseRunner loadingPhaseRunner;
   private final PackageFactory packageFactory;
@@ -190,7 +185,6 @@ public final class BlazeRuntime {
   private OutputService outputService;
 
   private final Iterable<BlazeModule> blazeModules;
-  private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
 
   private UUID commandId;  // Unique identifier for the command being run
 
@@ -204,8 +198,6 @@ public final class BlazeRuntime {
   private String outputFileSystem;
   private Map<String, BlazeCommand> commandMap;
 
-  private AbruptExitException pendingException;
-
   private final SubscriberExceptionHandler eventBusExceptionHandler;
 
   private final BinTools binTools;
@@ -213,23 +205,6 @@ public final class BlazeRuntime {
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
 
   private final ProjectFile.Provider projectFileProvider;
-
-  private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
-    @Override
-    public Path getFileFromDepot(Label label)
-        throws NoSuchThingException, InterruptedException, IOException {
-      Target target = getPackageManager().getTarget(reporter, label);
-      return (outputService != null)
-          ? outputService.stageTool(target)
-          : target.getPackage().getPackageDirectory().getRelative(target.getName());
-    }
-
-    @Override
-    public void exit(AbruptExitException exception) {
-      Preconditions.checkState(pendingException == null);
-      pendingException = exception;
-    }
-  }
 
   private BlazeRuntime(BlazeDirectories directories, Reporter reporter,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
@@ -267,7 +242,6 @@ public final class BlazeRuntime {
     this.startupOptionsProvider = startupOptionsProvider;
 
     this.eventBusExceptionHandler = eventBusExceptionHandler;
-    this.blazeModuleEnvironment = new BlazeModuleEnvironment();
 
     if (inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -310,7 +284,7 @@ public final class BlazeRuntime {
   public CommandEnvironment initCommand() {
     EventBus eventBus = new EventBus(eventBusExceptionHandler);
     skyframeExecutor.setEventBus(eventBus);
-    return new CommandEnvironment(this, eventBus);
+    return new CommandEnvironment(this, reporter, eventBus);
   }
 
   private void clearEventBus() {
@@ -502,13 +476,6 @@ public final class BlazeRuntime {
     return directories.getExecRoot();
   }
 
-  /**
-   * Returns the reporter for events.
-   */
-  public Reporter getReporter() {
-    return reporter;
-  }
-
   public BinTools getBinTools() {
     return binTools;
   }
@@ -550,10 +517,6 @@ public final class BlazeRuntime {
 
   public WorkspaceStatusAction.Factory getworkspaceStatusActionFactory() {
     return workspaceStatusActionFactory;
-  }
-
-  public BlazeModule.ModuleEnvironment getBlazeModuleEnvironment() {
-    return blazeModuleEnvironment;
   }
 
   /**
@@ -687,7 +650,7 @@ public final class BlazeRuntime {
 
     env.getEventBus().post(new GotOptionsEvent(startupOptionsProvider,
         optionsParser));
-    throwPendingException();
+    env.throwPendingException();
 
     outputService = null;
     BlazeModule outputModule = null;
@@ -785,21 +748,6 @@ public final class BlazeRuntime {
         new CommandStartEvent(command.name(), commandId, clientEnv, workingDirectory));
     // Initialize exit code to dummy value for afterCommand.
     storedExitCode.set(ExitCode.RESERVED.getNumericExitCode());
-  }
-
-  /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch
-   * of each command ends (while its outcome can still be modified).
-   */
-  ExitCode precompleteCommand(CommandEnvironment env, ExitCode originalExit) {
-    env.getEventBus().post(new CommandPrecompleteEvent(originalExit));
-    // If Blaze did not suffer an infrastructure failure, check for errors in modules.
-    ExitCode exitCode = originalExit;
-    if (!originalExit.isInfrastructureFailure() && pendingException != null) {
-      exitCode = pendingException.getExitCode();
-    }
-    pendingException = null;
-    return exitCode;
   }
 
   /**
@@ -954,26 +902,6 @@ public final class BlazeRuntime {
   }
 
   /**
-   * This method only exists for the benefit of InfoCommand, which needs to construct a {@link
-   * BuildConfigurationCollection} without running a full loading phase. Don't add any more clients;
-   * instead, we should change info so that it doesn't need the configuration.
-   */
-  public BuildConfigurationCollection getConfigurations(OptionsProvider optionsProvider)
-      throws InvalidConfigurationException, InterruptedException {
-    BuildOptions buildOptions = createBuildOptions(optionsProvider);
-    boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
-    LoadedPackageProvider loadedPackageProvider =
-        loadingPhaseRunner.loadForConfigurations(reporter,
-            ImmutableSet.copyOf(buildOptions.getAllLabels().values()),
-            keepGoing);
-    if (loadedPackageProvider == null) {
-      throw new InvalidConfigurationException("Configuration creation failed");
-    }
-    return skyframeExecutor.createConfigurations(configurationFactory,
-        buildOptions, directories, ImmutableSet.<String>of(), keepGoing);
-  }
-
-  /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
    * injects a defaults package using the options for the {@link BuildConfiguration}.
    *
@@ -991,21 +919,6 @@ public final class BlazeRuntime {
   public void shutdown() {
     for (BlazeModule module : blazeModules) {
       module.blazeShutdown();
-    }
-  }
-
-  /**
-   * Throws the exception currently queued by a Blaze module.
-   *
-   * <p>This should be called as often as is practical so that errors are reported as soon as
-   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise
-   * the exception this way.
-   */
-  public void throwPendingException() throws AbruptExitException {
-    if (pendingException != null) {
-      AbruptExitException exception = pendingException;
-      pendingException = null;
-      throw exception;
     }
   }
 
