@@ -88,7 +88,7 @@ public abstract class FileStateValue implements SkyValue {
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
-      return new SymlinkFileStateValue(path.readSymbolicLink());
+      return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
     }
     throw new InconsistentFilesystemException("according to stat, existing path " + path + " is "
         + "neither a file nor directory nor symlink.");

@@ -608,7 +608,7 @@ public class FileSystemUtils {
         copyTreesBelow(entry, subDir);
       } else if (entry.isSymbolicLink()) {
         Path newLink = to.getChild(entry.getBaseName());
-        newLink.createSymbolicLink(entry.readSymbolicLink());
+        newLink.createSymbolicLink(entry.readSymbolicLinkUnchecked());
       } else {
         Path newEntry = to.getChild(entry.getBaseName());
         copyFile(entry, newEntry);

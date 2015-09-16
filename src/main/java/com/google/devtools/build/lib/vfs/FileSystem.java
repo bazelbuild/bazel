@@ -478,6 +478,17 @@ public abstract class FileSystem {
   protected abstract PathFragment readSymbolicLink(Path path) throws IOException;
 
   /**
+   * Returns the target of a symbolic link, under the assumption that the given path is indeed a
+   * symbolic link (this assumption permits efficient implementations). See
+   * {@link Path#readSymbolicLinkUnchecked} for specification.
+   *
+   * @throws IOException if the contents of the link could not be read for any reason.
+   */
+  protected PathFragment readSymbolicLinkUnchecked(Path path) throws IOException {
+    return readSymbolicLink(path);
+  }
+
+  /**
    * Returns true iff {@code path} denotes an existing file of any kind. See
    * {@link Path#exists(Symlinks)} for specification.
    */

@@ -329,6 +329,8 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
+    // Note that the default implementation of readSymbolicLinkUnchecked calls this method and thus
+    // is optimal since we only make one system call in here.
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {

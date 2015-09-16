@@ -758,7 +758,7 @@ public class Path implements Comparable<Path>, Serializable {
   public void createSymbolicLink(PathFragment target) throws IOException {
     fileSystem.createSymbolicLink(this, target);
   }
-
+  
   /**
    * Returns the target of the current path, which must be a symbolic link. The
    * link contents are returned exactly, and may contain an absolute or relative
@@ -770,6 +770,18 @@ public class Path implements Comparable<Path>, Serializable {
    */
   public PathFragment readSymbolicLink() throws IOException {
     return fileSystem.readSymbolicLink(this);
+  }
+
+  /**
+   * If the current path is a symbolic link, returns the target of this symbolic link. The
+   * semantics are intentionally left underspecified otherwise to permit efficient implementations.
+   *
+   * @return the content (i.e. target) of the symbolic link
+   * @throws IOException if the current path is not a symbolic link, or the
+   *         contents of the link could not be read for any reason
+   */
+  public PathFragment readSymbolicLinkUnchecked() throws IOException {
+    return fileSystem.readSymbolicLinkUnchecked(this);
   }
 
   /**
