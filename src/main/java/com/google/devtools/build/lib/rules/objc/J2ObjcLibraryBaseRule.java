@@ -46,7 +46,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
         .add(attr("$jre_emul_lib", LABEL)
-            .value(env.getLabel("//third_party/java_src/j2objc/jre_emul:jre_emul_lib")))
+            .value(env.getLabel("//third_party/java/j2objc:jre_emul_lib")))
         .build();
   }
 

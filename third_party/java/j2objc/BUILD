@@ -30,3 +30,15 @@ java_library(
     name = "annotations",
     srcs = ["@bazel-j2objc//:annotations"],
 )
+
+objc_library(
+    name = "jre_emul_lib",
+    sdk_dylibs = [
+        "libicucore",
+        "libz",
+    ],
+    sdk_frameworks = [
+        "Security",
+    ],
+    deps = ["@bazel-j2objc//:jre_emul_archive"],
+)
