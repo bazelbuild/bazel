@@ -95,7 +95,7 @@ public final class CollectionUtils {
    * @param input some collection.
    * @return the set of repeated elements.  May return an empty set, but never null.
    */
-  public static <T> Set<T> duplicatedElementsOf(Collection<T> input) {
+  public static <T> Set<T> duplicatedElementsOf(Iterable<T> input) {
     Set<T> duplicates = new HashSet<>();
     Set<T> elementSet = new HashSet<>();
     for (T el : input) {

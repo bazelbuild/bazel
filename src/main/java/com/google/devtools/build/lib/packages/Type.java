@@ -81,17 +81,17 @@ public abstract class Type<T> {
    * @param what a string description of what x is for; should be included in
    *    any exception thrown.  Grammatically, must describe a syntactic
    *    construct, e.g. "attribute 'srcs' of rule foo".
-   * @param currentRule the label of the current BUILD rule; must be non-null if resolution of
+   * @param context the label of the current BUILD rule; must be non-null if resolution of
    *    package-relative label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    */
-  public abstract T convert(Object x, String what, @Nullable Label currentRule)
+  public abstract T convert(Object x, String what, @Nullable Object context)
       throws ConversionException;
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, String, Label)} where the label is {@code null}.
+   * Equivalent to {@link #convert(Object, String, Object)} where the label is {@code null}.
    * Useful for converting values to types that do not involve the type {@code LABEL}
    * and hence do not require the label of the current package.
    */
@@ -100,25 +100,25 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, String, Label)}, but converts skylark {@code None}
+   * Like {@link #convert(Object, String, Object)}, but converts skylark {@code None}
    * to given {@code defaultValue}.
    */
   @Nullable public final T convertOptional(Object x,
-      String what, @Nullable Label currentRule, T defaultValue)
+      String what, @Nullable Object context, T defaultValue)
       throws ConversionException {
     if (EvalUtils.isNullOrNone(x)) {
       return defaultValue;
     }
-    return convert(x, what, currentRule);
+    return convert(x, what, context);
   }
 
   /**
-   * Like {@link #convert(Object, String, Label)}, but converts skylark {@code None}
+   * Like {@link #convert(Object, String, Object)}, but converts skylark {@code None}
    * to java {@code null}.
    */
-  @Nullable public final T convertOptional(Object x, String what, @Nullable Label currentRule)
+  @Nullable public final T convertOptional(Object x, String what, @Nullable Object context)
       throws ConversionException {
-    return convertOptional(x, what, currentRule, null);
+    return convertOptional(x, what, context, null);
   }
 
   /**
@@ -136,14 +136,14 @@ public abstract class Type<T> {
    *
    * <p>The caller is responsible for casting the returned value appropriately.
    */
-  public Object selectableConvert(Object x, String what, @Nullable Label currentRule)
+  public Object selectableConvert(Object x, String what, @Nullable Label context)
       throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
       return new SelectorList<T>(
           ((com.google.devtools.build.lib.syntax.SelectorList) x).getElements(),
-          what, currentRule, this);
+          what, context, this);
     } else {
-      return convert(x, what, currentRule);
+      return convert(x, what, context);
     }
   }
 
@@ -159,9 +159,7 @@ public abstract class Type<T> {
   public abstract T getDefaultValue();
 
   /**
-   * If this type contains labels (e.g. it *is* a label or it's a collection of labels),
-   * returns a list of those labels for a value of that type. If this type doesn't
-   * contain labels, returns an empty list.
+   * Flatten the an instance of the type if the type is a composite one.
    *
    * <p>This is used to support reliable label visitation in
    * {@link AbstractAttributeMapper#visitLabels}. To preserve that reliability, every
@@ -169,12 +167,12 @@ public abstract class Type<T> {
    * be careful about defining default instances in base types that get auto-inherited
    * by their children. Keep all definitions as explicit as possible.
    */
-  public abstract Collection<Label> getLabels(Object value);
+  public abstract Collection<? extends Object> flatten(Object value);
 
   /**
-   * {@link #getLabels} return value for types that don't contain labels.
+   * {@link #flatten} return value for types that don't contain labels.
    */
-  private static final Collection<Label> NO_LABELS_HERE = ImmutableList.of();
+  private static final Collection<Object> NOT_COMPOSITE_TYPE = ImmutableList.of();
 
   /**
    * Implementation of concatenation for this type (e.g. "val1 + val2"). Returns null to
@@ -250,7 +248,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public DistributionType convert(Object x, String what, Label currentRule) {
+    public DistributionType convert(Object x, String what, Object context) {
       throw new UnsupportedOperationException();
     }
 
@@ -260,8 +258,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -405,8 +403,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -415,7 +413,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Object convert(Object x, String what, Label currentRule) {
+    public Object convert(Object x, String what, Object context) {
       return x;
     }
   }
@@ -432,8 +430,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -442,7 +440,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Integer convert(Object x, String what, Label currentRule)
+    public Integer convert(Object x, String what, Object context)
         throws ConversionException {
       if (!(x instanceof Integer)) {
         throw new ConversionException(this, x, what);
@@ -472,8 +470,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -483,12 +481,12 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, String what, Label currentRule)
+    public Boolean convert(Object x, String what, Object context)
         throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      Integer xAsInteger = INTEGER.convert(x, what, currentRule);
+      Integer xAsInteger = INTEGER.convert(x, what, context);
       if (xAsInteger == 0) {
         return false;
       } else if (xAsInteger == 1) {
@@ -531,8 +529,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -542,7 +540,7 @@ public abstract class Type<T> {
 
     // Like BooleanType, this must handle integers as well.
     @Override
-    public TriState convert(Object x, String what, Label currentRule)
+    public TriState convert(Object x, String what, Object context)
         throws ConversionException {
       if (x instanceof TriState) {
         return (TriState) x;
@@ -550,7 +548,7 @@ public abstract class Type<T> {
       if (x instanceof Boolean) {
         return ((Boolean) x) ? TriState.YES : TriState.NO;
       }
-      Integer xAsInteger = INTEGER.convert(x, what, currentRule);
+      Integer xAsInteger = INTEGER.convert(x, what, context);
       if (xAsInteger == -1) {
         return TriState.AUTO;
       } else if (xAsInteger == 1) {
@@ -574,8 +572,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -584,7 +582,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, String what, Label currentRule)
+    public String convert(Object x, String what, Object context)
         throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
@@ -617,7 +615,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public FilesetEntry convert(Object x, String what, Label currentRule)
+    public FilesetEntry convert(Object x, String what, Object context)
         throws ConversionException {
       if (!(x instanceof FilesetEntry)) {
         throw new ConversionException(this, x, what);
@@ -636,7 +634,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
+    public Collection<? extends Object> flatten(Object value) {
       return cast(value).getLabels();
     }
   }
@@ -653,7 +651,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
+    public Collection<Label> flatten(Object value) {
       return ImmutableList.of(cast(value));
     }
 
@@ -663,14 +661,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Label convert(Object x, String what, Label currentRule)
+    public Label convert(Object x, String what, Object context)
         throws ConversionException {
       if (x instanceof Label) {
         return (Label) x;
       }
       try {
-        return currentRule.getRelative(
-            STRING.convert(x, what, currentRule));
+        return ((Label) context).getRelative(STRING.convert(x, what, context));
       } catch (LabelSyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
             + what + ": " + e.getMessage());
@@ -690,7 +687,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public License convert(Object x, String what, Label currentRule) throws ConversionException {
+    public License convert(Object x, String what, Object context) throws ConversionException {
       try {
         List<String> licenseStrings = STRING_LIST.convert(x, what);
         return License.parseLicense(licenseStrings);
@@ -705,8 +702,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object value) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -728,7 +725,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Set<DistributionType> convert(Object x, String what, Label currentRule)
+    public Set<DistributionType> convert(Object x, String what, Object context)
         throws ConversionException {
       try {
         List<String> distribStrings = STRING_LIST.convert(x, what);
@@ -744,8 +741,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object what) {
-      return NO_LABELS_HERE;
+    public Collection<Object> flatten(Object what) {
+      return NOT_COMPOSITE_TYPE;
     }
 
     @Override
@@ -771,7 +768,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
+    public Collection<Label> flatten(Object value) {
       return ImmutableList.of(cast(value));
     }
 
@@ -781,25 +778,26 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Label convert(Object x, String what, Label currentRule)
+    public Label convert(Object x, String what, Object context)
         throws ConversionException {
 
       String value;
       try {
-        value = STRING.convert(x, what, currentRule);
+        value = STRING.convert(x, what, context);
       } catch (ConversionException e) {
         throw new ConversionException(this, x, what);
       }
       try {
-        // Enforce value is relative to the currentRule.
+        // Enforce value is relative to the context.
+        Label currentRule = (Label) context;
         Label result = currentRule.getRelative(value);
-        if (!result.getPackageName().equals(currentRule.getPackageName())) {
+        if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
-            "illegal output file name '" + value + "' in rule " + currentRule + ": "
+            "illegal output file name '" + value + "' in rule " + context + ": "
             + e.getMessage());
       }
     }
@@ -845,7 +843,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> convert(Object x, String what, Label currentRule)
+    public Map<KeyT, ValueT> convert(Object x, String what, Object context)
         throws ConversionException {
       if (!(x instanceof Map<?, ?>)) {
         throw new ConversionException(String.format(
@@ -856,8 +854,8 @@ public abstract class Type<T> {
       Map<?, ?> o = (Map<?, ?>) x;
       for (Entry<?, ?> elem : o.entrySet()) {
         result.put(
-            keyType.convert(elem.getKey(), "dict key element", currentRule),
-            valueType.convert(elem.getValue(), "dict value element", currentRule));
+            keyType.convert(elem.getKey(), "dict key element", context),
+            valueType.convert(elem.getValue(), "dict value element", context));
       }
       return ImmutableMap.copyOf(result);
     }
@@ -868,13 +866,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      ImmutableList.Builder<Label> labels = ImmutableList.builder();
+    public Collection<Object> flatten(Object value) {
+      ImmutableList.Builder<Object> result = ImmutableList.builder();
       for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
-        labels.addAll(keyType.getLabels(entry.getKey()));
-        labels.addAll(valueType.getLabels(entry.getValue()));
+        result.addAll(keyType.flatten(entry.getKey()));
+        result.addAll(valueType.flatten(entry.getValue()));
       }
-      return labels.build();
+      return result.build();
     }
   }
 
@@ -910,10 +908,10 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Label> getLabels(Object value) {
-      ImmutableList.Builder<Label> labels = ImmutableList.builder();
+    public Collection<Object> flatten(Object value) {
+      ImmutableList.Builder<Object> labels = ImmutableList.builder();
       for (ElemT entry : cast(value)) {
-        labels.addAll(elemType.getLabels(entry));
+        labels.addAll(elemType.flatten(entry));
       }
       return labels.build();
     }
@@ -924,7 +922,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, String what, Label currentRule)
+    public List<ElemT> convert(Object x, String what, Object context)
         throws ConversionException {
       if (!(x instanceof Iterable<?>)) {
         throw new ConversionException(this, x, what);
@@ -933,13 +931,13 @@ public abstract class Type<T> {
       Iterable<?> iterable = (Iterable<?>) x;
       List<ElemT> result = Lists.newArrayListWithExpectedSize(Iterables.size(iterable));
       for (Object elem : iterable) {
-        ElemT converted = elemType.convert(elem, "element " + index + " of " + what, currentRule);
+        ElemT converted = elemType.convert(elem, "element " + index + " of " + what, context);
         if (converted != null) {
           result.add(converted);
         } else {
           // shouldn't happen but it does, rarely
           String message = "Converting a list with a null element: "
-              + "element " + index + " of " + what + " in " + currentRule;
+              + "element " + index + " of " + what + " in " + context;
           LoggingUtil.logToRemote(Level.WARNING, message,
               new ConversionException(message));
         }
@@ -992,7 +990,7 @@ public abstract class Type<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, String what, Label currentRule)
+    public List<Object> convert(Object x, String what, Object context)
         throws ConversionException {
       if (x instanceof SkylarkList) {
         return ((SkylarkList) x).toList();
@@ -1038,7 +1036,7 @@ public abstract class Type<T> {
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
     @VisibleForTesting
-    Selector(Object x, String what, @Nullable Label currentRule, Type<T> originalType)
+    Selector(Object x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
       Preconditions.checkState(x instanceof Map<?, ?>);
 
@@ -1052,11 +1050,11 @@ public abstract class Type<T> {
       Map<Label, T> result = Maps.newLinkedHashMap();
       boolean foundDefaultCondition = false;
       for (Entry<?, ?> entry : ((Map<?, ?>) x).entrySet()) {
-        Label key = LABEL.convert(entry.getKey(), what, currentRule);
+        Label key = LABEL.convert(entry.getKey(), what, context);
         if (key.equals(defaultConditionLabel)) {
           foundDefaultCondition = true;
         }
-        result.put(key, originalType.convert(entry.getValue(), what, currentRule));
+        result.put(key, originalType.convert(entry.getValue(), what, context));
       }
       map = ImmutableMap.copyOf(result);
       hasDefaultCondition = foundDefaultCondition;
@@ -1110,7 +1108,7 @@ public abstract class Type<T> {
     private final List<Selector<T>> elements;
 
     @VisibleForTesting
-    SelectorList(List<Object> x, String what, @Nullable Label currentRule,
+    SelectorList(List<Object> x, String what, @Nullable Label context,
         Type<T> originalType) throws ConversionException {
       if (x.size() > 1 && originalType.concat(ImmutableList.<T>of()) == null) {
         throw new ConversionException(
@@ -1121,11 +1119,11 @@ public abstract class Type<T> {
       for (Object elem : x) {
         if (elem instanceof SelectorValue) {
           builder.add(new Selector<T>(((SelectorValue) elem).getDictionary(), what,
-              currentRule, originalType));
+              context, originalType));
         } else {
-          T directValue = originalType.convert(elem, what, currentRule);
+          T directValue = originalType.convert(elem, what, context);
           builder.add(new Selector<T>(ImmutableMap.of(Selector.DEFAULT_CONDITION_KEY, directValue),
-              what, currentRule, originalType));
+              what, context, originalType));
         }
       }
       this.originalType = originalType;

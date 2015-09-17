@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -157,7 +158,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Type<?> type = attribute.getType();
     Object value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.
-      for (Label label : type.getLabels(value)) {
+      for (Label label : extractLabels(type, value)) {
         Label absoluteLabel;
         if (attribute.isImplicit() || attribute.isLateBound()
           || !attributes.isAttributeValueExplicitlySpecified(attribute)) {
@@ -239,5 +240,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   public boolean has(String attrName, Type<?> type) {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attrName);
     return attribute != null && attribute.getType() == type;
+  }
+
+  protected static Iterable<Label> extractLabels(Type type, Object value) {
+    return Iterables.filter(type.flatten(value), Label.class);
   }
 }
