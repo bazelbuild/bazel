@@ -74,7 +74,7 @@ import javax.annotation.Nullable;
         + "determined by the outer set, thus ignoring the <code>order</code> parameter of "
         + "nested sets.")
 @Immutable
-public final class SkylarkNestedSet implements Iterable<Object> {
+public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue {
 
   private final SkylarkType contentType;
   @Nullable private final List<Object> items;
@@ -185,7 +185,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
       throw new EvalException(
           loc, String.format("sets cannot contain items of type '%s'", itemType));
     }
-    if (!EvalUtils.isSkylarkImmutable(itemType.getType())) {
+    if (!EvalUtils.isImmutable(itemType.getType())) {
       throw new EvalException(
           loc, String.format("sets cannot contain items of type '%s' (mutable type)", itemType));
     }
@@ -246,5 +246,21 @@ public final class SkylarkNestedSet implements Iterable<Object> {
 
   public Order getOrder() {
     return set.getOrder();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.append(buffer, "set(");
+    Printer.printList(buffer, this, "[", ", ", "]", null, quotationMark);
+    Order order = getOrder();
+    if (order != Order.STABLE_ORDER) {
+      Printer.append(buffer, ", order = \"" + order.getName() + "\"");
+    }
+    Printer.append(buffer, ")");
   }
 }

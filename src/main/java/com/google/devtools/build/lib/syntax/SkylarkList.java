@@ -41,7 +41,7 @@ import java.util.List;
         + "error. Lists - just like everything - are immutable, therefore <code>x[1] = \"a\""
         + "</code> is not supported.")
 // TODO(bazel-team): should we instead have it implement List<Object> like ImmutableList does?
-public abstract class SkylarkList implements Iterable<Object> {
+public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
 
   private final boolean tuple;
   private final SkylarkType contentType;
@@ -411,5 +411,23 @@ public abstract class SkylarkList implements Iterable<Object> {
    */
   public static SkylarkList tuple(Object... elements) {
     return new SimpleSkylarkList(ImmutableList.copyOf(elements), true, SkylarkType.TOP);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    if (!isTuple()) {
+      return false;
+    }
+    for (Object item : this) {
+      if (!EvalUtils.isImmutable(item)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.printList(buffer, toList(), isTuple(), quotationMark);
   }
 }

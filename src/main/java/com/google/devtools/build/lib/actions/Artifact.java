@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,7 +72,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "File",
     doc = "This type represents a file used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.")
-public class Artifact implements FileType.HasFilename, ActionInput {
+public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue {
 
   /**
    * Compares artifact according to their exec paths. Sorts null values first.
@@ -694,4 +696,14 @@ public class Artifact implements FileType.HasFilename, ActionInput {
     public Label getLabel() {
       return null;
     }};
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.append(buffer, toString()); // TODO(bazel-team): implement a readable representation
+  }
 }

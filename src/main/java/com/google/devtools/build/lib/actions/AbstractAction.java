@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,7 +46,7 @@ import javax.annotation.Nullable;
  * immutable.
  */
 @Immutable @ThreadSafe
-public abstract class AbstractAction implements Action {
+public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
    * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
@@ -241,6 +243,16 @@ public abstract class AbstractAction implements Action {
   @Override
   public String prettyPrint() {
     return "action '" + describe() + "'";
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.append(buffer, prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
   /**

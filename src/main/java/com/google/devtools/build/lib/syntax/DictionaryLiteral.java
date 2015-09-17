@@ -77,7 +77,10 @@ public class DictionaryLiteral extends Expression {
       if (entry == null) {
         throw new EvalException(getLocation(), "null expression in " + this);
       }
-      map.put(entry.key.eval(env), entry.value.eval(env));
+      Object key = entry.key.eval(env);
+      EvalUtils.checkValidDictKey(key);
+      Object val = entry.value.eval(env);
+      map.put(key, val);
     }
     return ImmutableMap.copyOf(map);
   }

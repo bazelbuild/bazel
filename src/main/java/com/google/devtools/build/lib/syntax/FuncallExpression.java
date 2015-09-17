@@ -341,9 +341,9 @@ public final class FuncallExpression extends Expression {
         }
       }
       result = SkylarkType.convertToSkylark(result, method);
-      if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
-        throw new EvalException(loc, "Method '" + methodName
-            + "' returns a mutable object (type of " + EvalUtils.getDataTypeName(result) + ")");
+      if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
+        throw new EvalException(loc, Printer.format(
+            "Method '%s' returns an object of invalid type %r", methodName, result.getClass()));
       }
       return result;
     } catch (IllegalAccessException e) {

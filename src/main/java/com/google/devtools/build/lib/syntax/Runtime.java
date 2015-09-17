@@ -43,10 +43,23 @@ public final class Runtime {
    * There should be only one instance of this type to allow "== None" tests.
    */
   @Immutable
-  public static final class NoneType {
-    @Override
-    public String toString() { return "None"; }
+  public static final class NoneType implements SkylarkValue {
     private NoneType() {}
+
+    @Override
+    public String toString() {
+      return "None";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "None");
+    }
   }
 
   @SkylarkSignature(name = "None", returnType = NoneType.class,

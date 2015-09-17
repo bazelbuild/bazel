@@ -52,6 +52,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     return new SkylarkTest();
   }
 
+  static class Bad {
+    Bad () {
+    }
+  }
+
   @SkylarkModule(name = "Mock", doc = "")
   static class Mock {
     @SkylarkCallable(doc = "")
@@ -64,8 +69,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
     public void value() {}
     @SkylarkCallable(doc = "")
-    public Mock returnMutable() {
-      return new Mock();
+    public Bad returnBad() {
+      return new Bad();
     }
     @SkylarkCallable(name = "struct_field", doc = "", structField = true)
     public String structField() {
@@ -302,6 +307,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  for i in d: s = s + d[i]",
         "  return s",
         "s = foo()").testLookup("s", "abc");
+  }
+
+  @Test
+  public void testBadDictKey() throws Exception {
+    new SkylarkTest().testIfErrorContains(
+        "unhashable type: 'list'",
+        "{ [1, 2]: [3, 4] }");
   }
 
   @Test
@@ -594,8 +606,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "Method 'return_mutable' returns a mutable object (type of Mock)",
-            "mock.return_mutable()");
+            "Method 'return_bad' returns an object of invalid type Bad",
+            "mock.return_bad()");
   }
 
   @Test
@@ -944,7 +956,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "is_empty",
         "nullfunc_failing",
         "nullfunc_working",
-        "return_mutable",
+        "return_bad",
         "string",
         "string_list",
         "struct_field",

@@ -17,12 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -33,7 +33,9 @@ import java.util.Set;
 /**
  * Utilities used by the evaluator.
  */
-public abstract class EvalUtils {
+public final class EvalUtils {
+
+  private EvalUtils() {}
 
   /**
    * The exception that SKYLARK_COMPARATOR might throw. This is an unchecked exception
@@ -91,26 +93,6 @@ public abstract class EvalUtils {
     }
   };
 
-  // TODO(bazel-team): Yet an other hack committed in the name of Skylark. One problem is that the
-  // syntax package cannot depend on actions so we have to have this until Actions are immutable.
-  // The other is that BuildConfigurations are technically not immutable but they cannot be modified
-  // from Skylark.
-  private static final ImmutableSet<Class<?>> quasiImmutableClasses;
-  static {
-    try {
-      ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
-      builder.add(Class.forName("com.google.devtools.build.lib.actions.Action"));
-      builder.add(Class.forName("com.google.devtools.build.lib.analysis.config.BuildConfiguration"));
-      builder.add(Class.forName("com.google.devtools.build.lib.actions.Root"));
-      quasiImmutableClasses = builder.build();
-    } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private EvalUtils() {
-  }
-
   /**
    * @return true if the specified sequence is a tuple; false if it's a modifiable list.
    */
@@ -123,40 +105,80 @@ public abstract class EvalUtils {
     return ImmutableList.class.isAssignableFrom(c);
   }
 
-  /**
-   * @return true if the specified value is immutable (suitable for use as a
-   *         dictionary key) according to the rules of the Build language.
-   */
-  public static boolean isImmutable(Object o) {
-    if (o instanceof Map<?, ?> || o instanceof BaseFunction) {
-      return false;
-    } else if (o instanceof List<?>) {
-      return isTuple((List<?>) o); // tuples are immutable, lists are not.
-    } else if (o instanceof SkylarkValue) {
-      return ((SkylarkValue) o).isImmutable();
-    } else {
-      return true; // string/int
+  public static boolean isTuple(Object o) {
+    if (o instanceof SkylarkList) {
+      return ((SkylarkList) o).isTuple(); // tuples are immutable, lists are not.
     }
+    if (o instanceof List<?>) {
+      return isTuple(o.getClass());
+    }
+    return false;
   }
 
   /**
-   * Returns true if the type is immutable in the skylark language.
+   * Checks that an Object is a valid key for a Skylark dict.
+   * @param o an Object to validate
+   * @throws an EvalException if o is not a valid key
    */
-  public static boolean isSkylarkImmutable(Class<?> c) {
-    if (c.isAnnotationPresent(Immutable.class)) {
-      return true;
-    } else if (c.equals(String.class) || c.equals(Integer.class) || c.equals(Boolean.class)
-        || SkylarkList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)
-        || NestedSet.class.isAssignableFrom(c)) {
-      return true;
-    } else {
-      for (Class<?> classObject : quasiImmutableClasses) {
-        if (classObject.isAssignableFrom(c)) {
-          return true;
-        }
+  static void checkValidDictKey(Object o) throws EvalException {
+    // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.
+    if (isImmutable(o)) {
+      return;
+    }
+    // Same error message as Python (that makes it a TypeError).
+    throw new EvalException(null, Printer.format("unhashable type: '%r'", o.getClass()));
+  }
+
+  /**
+   * Is this object known or assumed to be recursively immutable by Skylark?
+   * @param o an Object
+   * @return true if the object is known to be an immutable value.
+   */
+  public static boolean isImmutable(Object o) {
+    if (o instanceof SkylarkValue) {
+      return ((SkylarkValue) o).isImmutable();
+    }
+    if (!(o instanceof List<?>)) {
+      return isImmutable(o.getClass());
+    }
+    if (!isTuple((List<?>) o)) {
+      return false;
+    }
+    for (Object item : (List<?>) o) {
+      if (!isImmutable(item)) {
+        return false;
       }
     }
-    return false;
+    return true;
+  }
+
+  /**
+   * Is this class known to be *recursively* immutable by Skylark?
+   * For instance, class Tuple is not it, because it can contain mutable values.
+   * @param c a Class
+   * @return true if the class is known to represent only recursively immutable values.
+   */
+  // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s,
+  // as well as for accepting objects as keys for Skylark dict-s.
+  static boolean isImmutable(Class<?> c) {
+    return c.isAnnotationPresent(Immutable.class) // TODO(bazel-team): beware of containers!
+        || c.equals(String.class)
+        || c.equals(Integer.class)
+        || c.equals(Boolean.class);
+  }
+
+  /**
+   * Returns true if the type is acceptable to be returned to the Skylark language.
+   */
+  public static boolean isSkylarkAcceptable(Class<?> c) {
+    return SkylarkValue.class.isAssignableFrom(c) // implements SkylarkValue
+        || c.equals(String.class) // basic values
+        || c.equals(Integer.class)
+        || c.equals(Boolean.class)
+        || c.isAnnotationPresent(SkylarkModule.class) // registered Skylark class
+        || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
+        || NestedSet.class.isAssignableFrom(c) // will be converted to SkylarkNestedSet
+        || c.equals(PathFragment.class); // other known class
   }
 
   /**

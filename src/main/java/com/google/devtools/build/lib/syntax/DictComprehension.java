@@ -60,6 +60,7 @@ public class DictComprehension extends Expression {
     for (Object element : elements) {
       loopVar.assign(env, getLocation(), element);
       Object key = keyExpression.eval(env);
+      EvalUtils.checkValidDictKey(key);
       map.put(key, valueExpression.eval(env));
     }
     return ImmutableMap.copyOf(map);

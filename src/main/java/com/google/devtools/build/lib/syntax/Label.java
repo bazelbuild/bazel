@@ -39,7 +39,7 @@ import java.io.Serializable;
  */
 @SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable {
+public final class Label implements Comparable<Label>, Serializable, SkylarkValue {
 
   /**
    * Factory for Labels from absolute string form. e.g.
@@ -405,5 +405,17 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   public static String print(Label label) {
     return label == null ? "(unknown)" : label.toString();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    // TODO(bazel-team): make the representation readable Label(//foo),
+    // and isolate the legacy functions that want the unreadable variant.
+    Printer.write(buffer, toString(), quotationMark);
   }
 }

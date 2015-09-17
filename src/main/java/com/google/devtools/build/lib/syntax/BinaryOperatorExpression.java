@@ -262,7 +262,7 @@ public final class BinaryOperatorExpression extends Expression {
     if (lval instanceof List<?> && rval instanceof List<?>) {
       List<?> llist = (List<?>) lval;
       List<?> rlist = (List<?>) rval;
-      if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
+      if (EvalUtils.isTuple(llist) != EvalUtils.isTuple(rlist)) {
         throw new EvalException(getLocation(), "can only concatenate "
             + EvalUtils.getDataTypeName(rlist) + " (not \"" + EvalUtils.getDataTypeName(llist)
             + "\") to " + EvalUtils.getDataTypeName(rlist));
@@ -273,7 +273,7 @@ public final class BinaryOperatorExpression extends Expression {
         List<Object> result = Lists.newArrayListWithCapacity(llist.size() + rlist.size());
         result.addAll(llist);
         result.addAll(rlist);
-        return EvalUtils.makeSequence(result, EvalUtils.isImmutable(llist));
+        return EvalUtils.makeSequence(result, EvalUtils.isTuple(llist));
       }
     }
 
