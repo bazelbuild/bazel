@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
@@ -60,9 +61,8 @@ public class ParserTest extends EvaluationTestCase {
   /** Parses a build code (not Skylark) with PythonProcessing enabled */
   private List<Statement> parseFileWithPython(String... input) {
     return Parser.parseFile(
-        buildEnvironment.createLexer(input),
+        ParserInputSource.create(Joiner.on("\n").join(input), null),
         getEventHandler(),
-        Environment.EMPTY_PACKAGE_LOCATOR,
         /*parsePython=*/true).statements;
   }
 
@@ -1251,19 +1251,5 @@ public class ParserTest extends EvaluationTestCase {
         // no if
         "  else: return a");
     assertContainsEvent("syntax error at 'else'");
-  }
-
-  @Test
-  public void testIncludeFailureSkylark() throws Exception {
-    setFailFast(false);
-    parseFileForSkylark("include('//foo:bar')");
-    assertContainsEvent("function 'include' does not exist");
-  }
-
-  @Test
-  public void testIncludeFailure() throws Exception {
-    setFailFast(false);
-    parseFile("include('nonexistent')\n");
-    assertContainsEvent("Invalid label 'nonexistent'");
   }
 }

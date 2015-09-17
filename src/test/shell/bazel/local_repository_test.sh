@@ -605,35 +605,6 @@ EOF
   bazel build @r//:fg || fail "build failed"
 }
 
-function test_include_from_local_repository() {
-  local r=$TEST_TMPDIR/r
-  rm -fr $r
-  mkdir $r
-  touch $r/WORKSPACE
-  mkdir -p $r/b
-  cat > $r/b/BUILD <<EOF
-exports_files(["include"])
-EOF
-
-  cat > $r/b/include <<EOF
-filegroup(name = "foo")
-EOF
-
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-EOF
-
-  mkdir -p a
-  cat > a/BUILD <<EOF
-include("@r//b:include")
-EOF
-
-  bazel query '//a:foo' || fail "query failed"
-}
-
 function test_cc_binary_in_local_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r

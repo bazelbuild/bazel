@@ -19,17 +19,14 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
@@ -911,45 +908,16 @@ public final class Environment implements Freezable {
       }
     };
 
-  /** Mock package locator class */
-  private static final class EmptyPackageLocator implements CachingPackageLocator {
-    @Override
-    public Path getBuildFileForPackage(PackageIdentifier packageName) {
-      return null;
-    }
-  }
-
-  /** A mock package locator */
-  @VisibleForTesting
-  static final CachingPackageLocator EMPTY_PACKAGE_LOCATOR = new EmptyPackageLocator();
-
-  /**
-   * Creates a Lexer without a supporting file.
-   * @param input a list of lines of code
-   */
-  @VisibleForTesting
-  Lexer createLexer(String... input) {
-    return new Lexer(ParserInputSource.create(Joiner.on("\n").join(input), null),
-        eventHandler);
-  }
-
   /**
    * Parses some String input without a supporting file, returning statements and comments.
    * @param input a list of lines of code
    */
   @VisibleForTesting
-  Parser.ParseResult parseFileWithComments(String... input) {
+  Parser.ParseResult parseFileWithComments(String... inputLines) {
+    ParserInputSource input = ParserInputSource.create(Joiner.on("\n").join(inputLines), null);
     return isSkylark
-        ? Parser.parseFileForSkylark(
-            createLexer(input),
-            eventHandler,
-            EMPTY_PACKAGE_LOCATOR,
-            new ValidationEnvironment(this))
-        : Parser.parseFile(
-              createLexer(input),
-              eventHandler,
-              EMPTY_PACKAGE_LOCATOR,
-              /*parsePython=*/false);
+        ? Parser.parseFileForSkylark(input, eventHandler, new ValidationEnvironment(this))
+        : Parser.parseFile(input, eventHandler, /*parsePython=*/false);
   }
 
   /**

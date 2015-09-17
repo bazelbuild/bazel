@@ -989,7 +989,7 @@ public final class PackageFactory {
     // Logged messages are used as a testability hook tracing the parsing progress
     LOG.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
-        preprocessingResult.result, preludeStatements, localReporter, locator, false);
+        preprocessingResult.result, preludeStatements, localReporter, false);
     LOG.fine("Finished parsing of " + packageId);
 
     MakeEnvironment.Builder makeEnv = new MakeEnvironment.Builder();
