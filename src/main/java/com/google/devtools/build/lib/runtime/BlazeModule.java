@@ -225,15 +225,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Called before each command.
-   */
-  @SuppressWarnings("unused")
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command, CommandEnvironment env)
-      throws AbruptExitException {
-    beforeCommand(command, env);
-  }
-
-  /**
    * Returns the output service to be used. It is an error if more than one module returns an
    * output service.
    *

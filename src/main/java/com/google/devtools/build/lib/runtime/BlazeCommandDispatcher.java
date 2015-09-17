@@ -262,7 +262,7 @@ public class BlazeCommandDispatcher {
     AbruptExitException exitCausingException = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
       try {
-        module.beforeCommand(runtime, commandAnnotation, env);
+        module.beforeCommand(commandAnnotation, env);
       } catch (AbruptExitException e) {
         // Don't let one module's complaints prevent the other modules from doing necessary
         // setup. We promised to call beforeCommand exactly once per-module before each command
