@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -126,6 +128,12 @@ public final class CompilationSupport {
       };
 
   /**
+   * Defines a library that contains the transitive closure of dependencies.
+   */
+  public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
+      fromTemplates("%{name}_fully_linked.a");
+
+  /**
    * Iterable wrapper providing strong type safety for arguments to binary linking.
    */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -173,7 +181,8 @@ public final class CompilationSupport {
    * @param common common information about this rule and its dependencies
    * @return this compilation support
    */
-  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common) {
+  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common)
+      throws InterruptedException {
     if (common.getCompilationArtifacts().isPresent()) {
       registerGenerateModuleMapAction(common.getCompilationArtifacts());
       IntermediateArtifacts intermediateArtifacts =
@@ -189,7 +198,8 @@ public final class CompilationSupport {
           intermediateArtifacts,
           common.getObjcProvider(),
           moduleMap,
-          ruleContext.getConfiguration().isCodeCoverageEnabled());
+          ruleContext.getConfiguration().isCodeCoverageEnabled(),
+          true);
     }
     return this;
   }
@@ -203,7 +213,8 @@ public final class CompilationSupport {
       IntermediateArtifacts intermediateArtifacts,
       ObjcProvider objcProvider,
       Optional<CppModuleMap> moduleMap,
-      boolean isCodeCoverageEnabled) {
+      boolean isCodeCoverageEnabled,
+      boolean isFullyLinkEnabled) throws InterruptedException {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
@@ -242,6 +253,10 @@ public final class CompilationSupport {
 
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerArchiveActions(intermediateArtifacts, objFiles, archive);
+    }
+
+    if (isFullyLinkEnabled) {
+      registerFullyLinkAction(objcProvider);
     }
   }
 
@@ -501,6 +516,30 @@ public final class CompilationSupport {
         .build(context));
 
     return actions.build();
+  }
+
+  private void registerFullyLinkAction(ObjcProvider objcProvider) throws InterruptedException {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    Artifact archive = ruleContext.getImplicitOutputArtifact(FULLY_LINKED_LIB);
+
+    ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
+    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+        .setMnemonic("ObjcLink")
+        .setExecutable(ObjcRuleClasses.LIBTOOL)
+        .setCommandLine(new CustomCommandLine.Builder()
+            .add("-static")
+            .add("-arch_only").add(objcConfiguration.getIosCpu())
+            .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
+            .add("-o").add(archive.getExecPathString())
+            .addExecPaths(objcProvider.get(LIBRARY))
+            .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+            .addExecPaths(ccLibraries)
+            .build())
+        .addInputs(ccLibraries)
+        .addTransitiveInputs(objcProvider.get(LIBRARY))
+        .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
+        .addOutput(archive)
+        .build(ruleContext));
   }
 
   /**
@@ -785,7 +824,8 @@ public final class CompilationSupport {
    *
    * @return this compilation support
    */
-  CompilationSupport registerJ2ObjcCompileAndArchiveActions(ObjcProvider objcProvider) {
+  CompilationSupport registerJ2ObjcCompileAndArchiveActions(ObjcProvider objcProvider)
+      throws InterruptedException {
     J2ObjcSrcsProvider provider = J2ObjcSrcsProvider.buildFrom(ruleContext);
     Iterable<J2ObjcSource> j2ObjcSources = provider.getSrcs();
     J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
@@ -828,7 +868,8 @@ public final class CompilationSupport {
             intermediateArtifacts,
             objcProvider,
             moduleMap,
-            ruleContext.getConfiguration().isCodeCoverageEnabled());
+            ruleContext.getConfiguration().isCodeCoverageEnabled(),
+            false);
       }
     }
 

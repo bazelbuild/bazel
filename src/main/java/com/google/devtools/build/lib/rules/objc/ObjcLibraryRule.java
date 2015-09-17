@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
@@ -33,9 +34,12 @@ public class ObjcLibraryRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
              can be used to develop or build on a Mac.</li>
+         <li><code>lib<var>name</var>_fully_linked.a</code>: A fully linked static library that
+             contains the full transitive closure of library dependencies.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
+        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(
+            CompilationSupport.FULLY_LINKED_LIB, XcodeSupport.PBXPROJ))
         .build();
   }
 
