@@ -128,11 +128,12 @@ public abstract class EvalUtils {
    *         dictionary key) according to the rules of the Build language.
    */
   public static boolean isImmutable(Object o) {
-    if (o instanceof Map<?, ?> || o instanceof BaseFunction
-        || o instanceof FilesetEntry || o instanceof GlobList<?>) {
+    if (o instanceof Map<?, ?> || o instanceof BaseFunction) {
       return false;
     } else if (o instanceof List<?>) {
       return isTuple((List<?>) o); // tuples are immutable, lists are not.
+    } else if (o instanceof SkylarkValue) {
+      return ((SkylarkValue) o).isImmutable();
     } else {
       return true; // string/int
     }
@@ -282,14 +283,10 @@ public abstract class EvalUtils {
       // from native SkylarkList tuple and list.
       // TODO(bazel-team): refactor SkylarkList and use it everywhere.
       return isTuple(c) ? "Tuple" : "List";
-    } else if (GlobList.class.isAssignableFrom(c)) {
-      return "glob list";
     } else if (Map.class.isAssignableFrom(c)) {
       return "dict";
     } else if (BaseFunction.class.isAssignableFrom(c)) {
       return "function";
-    } else if (c.equals(FilesetEntry.class)) {
-      return "FilesetEntry";
     } else if (c.equals(SelectorValue.class)) {
       return "select";
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {

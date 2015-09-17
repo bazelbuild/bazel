@@ -30,7 +30,36 @@ import javax.annotation.Nullable;
 /**
  * FilesetEntry is a value object used to represent a "FilesetEntry" inside a "Fileset" BUILD rule.
  */
-public final class FilesetEntry {
+@SkylarkModule(
+    name = "FilesetEntry",
+    doc = "",
+    documented = false)
+public final class FilesetEntry implements SkylarkValue {
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "FilesetEntry(srcdir = ");
+      Printer.write(buffer, getSrcLabel().toString(), quotationMark);
+      Printer.append(buffer, ", files = ");
+      Printer.write(buffer, Printer.makeStringList(getFiles()), quotationMark);
+      Printer.append(buffer, ", excludes = ");
+      Printer.write(buffer, Printer.makeList(getExcludes()), quotationMark);
+      Printer.append(buffer, ", destdir = ");
+      Printer.write(buffer, getDestDir().getPathString(), quotationMark);
+      Printer.append(buffer, ", strip_prefix = ");
+      Printer.write(buffer, getStripPrefix(), quotationMark);
+      Printer.append(buffer, ", symlinks = ");
+      Printer.append(buffer, quotationMark);
+      Printer.append(buffer, getSymlinkBehavior().toString());
+      Printer.append(buffer, quotationMark);
+      Printer.append(buffer, ")");
+  }
+
   /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */
   public enum SymlinkBehavior {
     /** Just copies the symlink as-is. May result in dangling links. */

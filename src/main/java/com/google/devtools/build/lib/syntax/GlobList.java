@@ -33,7 +33,11 @@ import java.util.List;
  *
  * @param <E> the element this List contains (generally either String or Label)
  */
-public class GlobList<E> extends ForwardingList<E> {
+@SkylarkModule(
+    name = "glob list",
+    doc = "",
+    documented = false)
+public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue {
 
   /** Include/exclude criteria. */
   private final ImmutableList<GlobCriteria> criteria;
@@ -118,5 +122,15 @@ public class GlobList<E> extends ForwardingList<E> {
   @Override
   protected ImmutableList<E> delegate() {
     return matches;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.printList(buffer, this, false, quotationMark);
   }
 }
