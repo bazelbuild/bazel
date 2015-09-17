@@ -43,7 +43,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the target.
         ${SYNOPSIS}
-        See <a href="#$java_rule.deps">java_library.deps</a>.
+        See <a href="#java_library.deps">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("deps", LABEL_LIST)
             .allowedRuleClasses(ALLOWED_DEPS)
@@ -61,7 +61,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
         ${SYNOPSIS}
-        See <a href="#$java_rule.runtime_deps">java_library.runtime_deps</a>.
+        See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime_deps", LABEL_LIST)
             .allowedFileTypes(JavaSemantics.JAR)
