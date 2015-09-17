@@ -276,10 +276,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           ValueOrException2<NoSuchPackageException, InconsistentFilesystemException>> values =
               env.getValuesOrThrow(depKeys.values(), NoSuchPackageException.class,
                   InconsistentFilesystemException.class);
-      if (env.valuesMissing()) {
-        // Some values are not computed yet.
-        return null;
-      }
+      // Check values even if some are missing so that we can throw an appropriate exception if
+      // needed.
 
       Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
@@ -291,6 +289,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               + path, e);
         }
 
+        if (value == null) {
+          Preconditions.checkState(env.valuesMissing(), path);
+          continue;
+        }
         if (value.hasContainingPackage()) {
           // We have found corresponding root for current execPath.
           result.put(path, Root.asSourceRoot(value.getContainingPackageRoot()));
@@ -299,7 +301,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           result.put(path, null);
         }
       }
-      return result;
+
+      // If some values are missing, return null.
+      return env.valuesMissing() ? null : result;
     }
   }
 

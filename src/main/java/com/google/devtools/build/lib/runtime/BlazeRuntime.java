@@ -1384,14 +1384,18 @@ public final class BlazeRuntime {
         new Handler() {
           @Override
           public void publish(LogRecord record) {
-            throw new IllegalStateException(
+            Throwable e = record.getThrown();
+            String message =
                 record.getSourceClassName()
                     + "#"
                     + record.getSourceMethodName()
                     + ": "
-                    + record.getMessage()
-                    + "\n"
-                    + record.getThrown());
+                    + record.getMessage();
+            if (e == null) {
+              throw new IllegalStateException(message);
+            } else {
+              throw new IllegalStateException(message, e);
+            }
           }
 
           @Override
