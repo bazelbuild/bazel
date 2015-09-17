@@ -73,13 +73,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Specifies to target CPU of iOS compilation.")
   public String iosCpu;
 
-  @Option(name = "xcode_options",
-      defaultValue = "Debug",
-      category = "undocumented",
-      deprecationWarning = "Use --compilation_mode instead.",
-      help = "Specifies the name of the build settings to use.")
-  public String xcodeOptions;
-
   @Option(name = "objc_generate_debug_symbols",
       defaultValue = "false",
       category = "undocumented",

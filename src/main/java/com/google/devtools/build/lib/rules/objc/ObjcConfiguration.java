@@ -55,7 +55,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSimulatorVersion;
   private final String iosSimulatorDevice;
   private final String iosCpu;
-  private final String xcodeOptions;
   private final Optional<String> xcodeVersionOverride;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
@@ -92,7 +91,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
     this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
-    this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
     this.generateDebugSymbols = objcOptions.generateDebugSymbols;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
@@ -169,10 +167,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       }
     }
     return Platform.forArch(getIosCpu());
-  }
-
-  public String getXcodeOptions() {
-    return xcodeOptions;
   }
 
   public boolean generateDebugSymbols() {
