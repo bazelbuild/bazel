@@ -53,7 +53,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     }
 
     J2ObjcSrcsProvider j2ObjcSrcsProvider = new J2ObjcSrcsProvider.Builder()
-        .addTransitiveFromDeps(ruleContext)
+        .addTransitiveJ2ObjcSrcs(ruleContext)
         .addEntryClasses(ruleContext.attributes().get("entry_classes", Type.STRING_LIST))
         .build();
 
