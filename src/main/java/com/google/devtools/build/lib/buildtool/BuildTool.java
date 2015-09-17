@@ -193,6 +193,7 @@ public final class BuildTool {
 
       // Analysis phase.
       AnalysisResult analysisResult = runAnalysisPhase(request, loadingResult, configurations);
+      result.setBuildConfigurationCollection(configurations);
       result.setActualTargets(analysisResult.getTargetsToBuild());
       result.setTestTargets(analysisResult.getTargetsToTest());
 

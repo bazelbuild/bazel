@@ -211,6 +211,7 @@ public class BuildView {
   private final SkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
 
+  // Same as skyframeExecutor.getPackageManager().
   private final PackageManager packageManager;
 
   private final BinTools binTools;
@@ -230,13 +231,13 @@ public class BuildView {
    * Used only for testing that we clear Skyframe caches correctly.
    * TODO(bazel-team): Remove this once we get rid of legacy Skyframe synchronization.
    */
-  private boolean skyframeCacheWasInvalidated = false;
+  private boolean skyframeCacheWasInvalidated;
 
   /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
    * running Skyframe full, we should clear the legacy data since it is out-of-sync.
    */
-  private boolean skyframeAnalysisWasDiscarded = false;
+  private boolean skyframeAnalysisWasDiscarded;
 
   @VisibleForTesting
   public Set<SkyKey> getSkyframeEvaluatedTargetKeysForTesting() {
@@ -257,12 +258,12 @@ public class BuildView {
     return skyframeCacheWasInvalidated;
   }
 
-  public BuildView(BlazeDirectories directories, PackageManager packageManager,
+  public BuildView(BlazeDirectories directories,
       ConfiguredRuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
       BinTools binTools, CoverageReportActionFactory coverageReportActionFactory) {
     this.directories = directories;
-    this.packageManager = packageManager;
+    this.packageManager = skyframeExecutor.getPackageManager();
     this.binTools = binTools;
     this.coverageReportActionFactory = coverageReportActionFactory;
     this.artifactFactory = new ArtifactFactory(directories.getExecRoot());
@@ -586,7 +587,8 @@ public class BuildView {
         });
   }
 
-  private void prepareToBuild(PackageRootResolver resolver) throws ViewCreationFailedException {
+  private void prepareToBuild(BuildConfigurationCollection configurations,
+      PackageRootResolver resolver) throws ViewCreationFailedException {
     for (BuildConfiguration config : configurations.getAllConfigurations()) {
       config.prepareToBuild(directories.getExecRoot(), getArtifactFactory(), resolver);
     }
@@ -633,7 +635,7 @@ public class BuildView {
     skyframeBuildView.setTopLevelHostConfiguration(this.configurations.getHostConfiguration());
 
     // Determine the configurations.
-    List<TargetAndConfiguration> nodes = nodesForTargets(targets);
+    List<TargetAndConfiguration> nodes = nodesForTargets(configurations, targets);
 
     List<ConfiguredTargetKey> targetSpecs =
         Lists.transform(nodes, new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
@@ -664,16 +666,16 @@ public class BuildView {
     // artifactRoots, so we need to set them before calling prepareToBuild. In that case loading
     // phase has to be enabled.
     if (loadingEnabled) {
-      setArtifactRoots(loadingResult.getPackageRoots());
+      setArtifactRoots(loadingResult.getPackageRoots(), configurations);
     }
-    prepareToBuild(new SkyframePackageRootResolver(skyframeExecutor));
+    prepareToBuild(configurations, new SkyframePackageRootResolver(skyframeExecutor));
     skyframeExecutor.injectWorkspaceStatusData();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
               targetSpecs, aspectKeys, eventBus, viewOptions.keepGoing);
-      setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
+      setArtifactRoots(skyframeAnalysisResult.getPackageRoots(), configurations);
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
@@ -854,7 +856,8 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  List<TargetAndConfiguration> nodesForTargets(Collection<Target> targets) {
+  List<TargetAndConfiguration> nodesForTargets(BuildConfigurationCollection configurations,
+      Collection<Target> targets) {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
@@ -937,7 +940,8 @@ public class BuildView {
    * </em>
    */
   @VisibleForTesting // for BuildViewTestCase
-  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
+  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots,
+      BuildConfigurationCollection configurations) {
     Map<Path, Root> rootMap = new HashMap<>();
     Map<PackageIdentifier, Root> realPackageRoots = new HashMap<>();
     for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {

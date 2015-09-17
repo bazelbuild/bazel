@@ -368,12 +368,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.dropConfiguredTargets();
 
-    view = new BuildView(directories, getPackageManager(), ruleClassProvider, skyframeExecutor,
-        binTools, null);
+    view = new BuildView(directories, ruleClassProvider, skyframeExecutor, binTools, null);
     view.setConfigurationsForTesting(masterConfig);
 
     view.setArtifactRoots(
-        ImmutableMap.of(PackageIdentifier.createInDefaultRepo(""), rootDirectory));
+        ImmutableMap.of(PackageIdentifier.createInDefaultRepo(""), rootDirectory), masterConfig);
     simulateLoadingPhase();
   }
 

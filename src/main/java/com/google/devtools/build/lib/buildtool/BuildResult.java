@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.util.ExitCode;
 
 import java.util.Collection;
@@ -35,6 +36,8 @@ public final class BuildResult {
   private Throwable crash = null;
   private boolean catastrophe = false;
   private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
+
+  private BuildConfigurationCollection configurations;
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
@@ -116,6 +119,17 @@ public final class BuildResult {
    */
   public Throwable getUnhandledThrowable() {
     return crash;
+  }
+
+  public void setBuildConfigurationCollection(BuildConfigurationCollection configurations) {
+    this.configurations = configurations;
+  }
+
+  /**
+   * Returns the build configuration collection used for the build.
+   */
+  public BuildConfigurationCollection getBuildConfigurationCollection() {
+    return configurations;
   }
 
   /**

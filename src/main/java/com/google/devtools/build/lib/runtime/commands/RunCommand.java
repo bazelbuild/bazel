@@ -211,8 +211,7 @@ public class RunCommand implements BlazeCommand  {
     if (configuration == null) {
       // The target may be an input file, which doesn't have a configuration. In that case, we
       // choose any target configuration.
-      configuration = runtime.getView().getConfigurationCollection()
-          .getTargetConfigurations().get(0);
+      configuration = result.getBuildConfigurationCollection().getTargetConfigurations().get(0);
     }
     Path workingDir;
     try {
