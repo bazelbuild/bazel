@@ -64,10 +64,22 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
 
 ${ATTRIBUTE_SIGNATURE}
 
-<p>This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a>
-to translate Java source files to Objective-C, which then can be used used as dependencies of
-<code>objc_library</code> and <code>objc_binary</code> rules. More information about J2ObjC
-can be found <a href="http://j2objc.org">here</a>.
+<p> This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a> to translate Java source
+files to Objective-C, which then can be used used as dependencies of objc_library and objc_binary
+rules. Detailed information about J2ObjC itself can be found at  <a href="http://j2objc.org">the
+J2ObjC site</a>
+</p>
+<p>Custom J2ObjC transpilation flags can be specified using the build flag
+<code>--j2objc_translation_flags</code> in the command line.
+</p>
+<p>Please note that currently the translated files included in a j2objc_library target will be
+compiled using the same compilation configuration as the top level objc_binary target that depends
+on the j2objc_library target.
+</p>
+<p>Plus, generated code is de-duplicated at target level, not source level. If you have two
+different Java targets that include the same Java source files, you may see a duplicate symbol error
+at link time. The correct way to resolve this issue is to move the shared Java source files into a
+separate common target that can be depended upon.
 </p>
 
 
