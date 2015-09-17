@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Iterator;
 
 /**
  * Tests for SkylarkList.
@@ -30,53 +29,36 @@ import java.util.Iterator;
 @RunWith(JUnit4.class)
 public class SkylarkListTest extends EvaluationTestCase {
 
-  @Immutable
-  private static final class CustomIterable implements Iterable<Object> {
-
-    @Override
-    public Iterator<Object> iterator() {
-      // Throw an exception whenever we request the iterator, to test that lazy lists
-      // are truly lazy.
-      throw new IllegalArgumentException("Iterator requested");
-    }
-  }
-
-  private static final SkylarkList list =
-      SkylarkList.lazyList(new CustomIterable(), Integer.class);
-
-  @Override
-  public Environment newEnvironment() throws Exception {
-    return newSkylarkEnvironment().update("lazy", list);
+  @Test
+  public void testListIndex() throws Exception {
+    eval("l = [1, '2', 3]");
+    assertThat(eval("l[0]")).isEqualTo(1);
+    assertThat(eval("l[1]")).isEqualTo("2");
+    assertThat(eval("l[2]")).isEqualTo(3);
   }
 
   @Test
-  public void testLazyListIndex() throws Exception {
-    checkEvalError("Illegal argument in call to $index: Iterator requested", "a = lazy[0]");
+  public void testListSize() throws Exception {
+    assertThat(eval("len([42, 'hello, world', []])")).isEqualTo(3);
   }
 
   @Test
-  public void testLazyListSize() throws Exception {
-    checkEvalError("Illegal argument in call to len: Iterator requested", "a = len(lazy)");
+  public void testListEmpty() throws Exception {
+    assertThat(eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
   }
 
   @Test
-  public void testLazyListEmpty() throws Exception {
-    checkEvalError("Iterator requested", "if lazy:\n  a = 1");
-  }
-
-  @Test
-  public void testLazyListConcat() throws Exception {
-    eval("v = [1, 2] + lazy");
-    assertThat(lookup("v")).isInstanceOf(SkylarkList.class);
+  public void testListConcat() throws Exception {
+    assertThat(eval("[1, 2] + [3, 4]")).isEqualTo(new MutableList(Tuple.of(1, 2, 3, 4)));
   }
 
   @Test
   public void testConcatListIndex() throws Exception {
     eval("l = [1, 2] + [3, 4]",
-         "e0 = l[0]",
-         "e1 = l[1]",
-         "e2 = l[2]",
-         "e3 = l[3]");
+        "e0 = l[0]",
+        "e1 = l[1]",
+        "e2 = l[2]",
+        "e3 = l[3]");
     assertEquals(1, lookup("e0"));
     assertEquals(2, lookup("e1"));
     assertEquals(3, lookup("e2"));
@@ -100,9 +82,21 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testConcatListSize() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
-         "s = len(l)");
-    assertEquals(4, lookup("s"));
+    assertEquals(4, eval("len([1, 2] + [3, 4])"));
+  }
+
+  @Test
+  public void testAppend() throws Exception {
+    eval("l = [1, 2]");
+    assertEquals(eval("l.append([3, 4])"), Runtime.NONE);
+    assertEquals(lookup("l"), eval("[1, 2, [3, 4]]"));
+  }
+
+  @Test
+  public void testExtend() throws Exception {
+    eval("l = [1, 2]");
+    assertEquals(eval("l.extend([3, 4])"), Runtime.NONE);
+    assertEquals(lookup("l"), eval("[1, 2, 3, 4]"));
   }
 
   @Test

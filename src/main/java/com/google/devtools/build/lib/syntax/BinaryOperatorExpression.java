@@ -15,8 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -122,7 +125,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     switch (operator) {
       case PLUS:
-        return plus(lval, rval);
+        return plus(lval, rval, env);
 
       case PIPE:
         if (lval instanceof SkylarkNestedSet) {
@@ -197,11 +200,8 @@ public final class BinaryOperatorExpression extends Expression {
               }
               /* string % list: fall thru */
             }
-            if (rval instanceof SkylarkList) {
-              SkylarkList rlist = (SkylarkList) rval;
-              if (rlist.isTuple()) {
-                return Printer.formatToString(pattern, rlist.toList());
-              }
+            if (rval instanceof Tuple) {
+              return Printer.formatToString(pattern, ((Tuple) rval).getList());
             }
 
             return Printer.formatToString(pattern, Collections.singletonList(rval));
@@ -247,7 +247,7 @@ public final class BinaryOperatorExpression extends Expression {
             operator, EvalUtils.getDataTypeName(lval), EvalUtils.getDataTypeName(rval)));
   }
 
-  private Object plus(Object lval, Object rval) throws EvalException {
+  private Object plus(Object lval, Object rval, Environment env) throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
       return ((Integer) lval).intValue() + ((Integer) rval).intValue();
@@ -264,8 +264,8 @@ public final class BinaryOperatorExpression extends Expression {
       List<?> rlist = (List<?>) rval;
       if (EvalUtils.isTuple(llist) != EvalUtils.isTuple(rlist)) {
         throw new EvalException(getLocation(), "can only concatenate "
-            + EvalUtils.getDataTypeName(rlist) + " (not \"" + EvalUtils.getDataTypeName(llist)
-            + "\") to " + EvalUtils.getDataTypeName(rlist));
+            + EvalUtils.getDataTypeName(llist) + " (not \"" + EvalUtils.getDataTypeName(rlist)
+            + "\") to " + EvalUtils.getDataTypeName(llist));
       }
       if (llist instanceof GlobList<?> || rlist instanceof GlobList<?>) {
         return GlobList.concat(llist, rlist);
@@ -283,10 +283,21 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof SkylarkList || lval instanceof List<?>)
-        && (rval instanceof SkylarkList || rval instanceof List<?>)) {
-      SkylarkList left = (SkylarkList) SkylarkType.convertToSkylark(lval, getLocation());
-      SkylarkList right = (SkylarkList) SkylarkType.convertToSkylark(rval, getLocation());
-      return SkylarkList.concat(left, right, getLocation());
+        && ((rval instanceof SkylarkList || rval instanceof List<?>))) {
+      SkylarkList left = (SkylarkList) SkylarkType.convertToSkylark(lval, env);
+      SkylarkList right = (SkylarkList) SkylarkType.convertToSkylark(rval, env);
+      boolean isImmutable = left.isTuple();
+      if (isImmutable != right.isTuple()) {
+        throw new EvalException(getLocation(), "can only concatenate "
+            + EvalUtils.getDataTypeName(left) + " (not \"" + EvalUtils.getDataTypeName(right)
+            + "\") to " + EvalUtils.getDataTypeName(left));
+      }
+      Iterable<Object> concatenated = Iterables.concat(left, right);
+      if (isImmutable) {
+        return Tuple.copyOf(concatenated);
+      } else {
+        return new MutableList(concatenated, env);
+      }
     }
 
     if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {

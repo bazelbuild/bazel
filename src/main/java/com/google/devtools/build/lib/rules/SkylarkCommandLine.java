@@ -19,7 +19,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
@@ -53,17 +54,19 @@ public class SkylarkCommandLine {
   @SkylarkSignature(name = "template",
       doc = "Transforms a set of files to a list of strings using the template string.",
       objectType = SkylarkCommandLine.class,
-      returnType = SkylarkList.class,
+      returnType = MutableList.class,
       mandatoryPositionals = {
       @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
           doc = "The set of structs to transform."),
       @Param(name = "template", type = String.class,
           doc = "The template to use for the transformation, <code>%{path}</code> and "
               + "<code>%{short_path}</code> being substituted with the corresponding fields of each"
-              + " file.")})
+              + " file.")},
+      useEnvironment = true)
   private static BuiltinFunction template = new BuiltinFunction("template") {
-    public SkylarkList invoke(final SkylarkNestedSet items, final String template) {
-      return SkylarkList.lazyList(Iterables.transform(items, new Function<Object, String>() {
+    public MutableList invoke(final SkylarkNestedSet items, final String template,
+        Environment env) {
+      return new MutableList(Iterables.transform(items, new Function<Object, String>() {
         @Override
         public String apply(Object input) {
           Artifact artifact = (Artifact) input;
@@ -71,7 +74,7 @@ public class SkylarkCommandLine {
               .replace("%{path}", artifact.getExecPathString())
               .replace("%{short_path}", artifact.getRootRelativePathString());
         }
-      }), String.class);
+      }), env);
     }
   };
 

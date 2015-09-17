@@ -24,6 +24,8 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
@@ -174,16 +176,26 @@ public abstract class SkylarkType implements Serializable {
   /** The MAP type, that contains all Map's, and the generic combinator for maps */
   public static final Simple MAP = Simple.of(Map.class);
 
-  /** The LIST type, that contains all SkylarkList's, and the generic combinator for them */
-  public static final Simple LIST = Simple.of(SkylarkList.class);
+  /** The SEQUENCE type, that contains lists and tuples */
+  // TODO(bazel-team): this was added for backward compatibility with the BUILD language,
+  // that doesn't make a difference between list and tuple, so that functions can be declared
+  // that keep not making the difference. Going forward, though, we should investigate whether
+  // we ever want to use this type, and if not, make sure no existing client code uses it.
+  public static final Simple SEQUENCE = Simple.of(SkylarkList.class);
 
-  /** The STRING_LIST type, a SkylarkList of strings */
+  /** The LIST type, that contains all MutableList-s */
+  public static final Simple LIST = Simple.of(MutableList.class);
+
+  /** The TUPLE type, that contains all Tuple-s */
+  public static final Simple TUPLE = Simple.of(Tuple.class);
+
+  /** The STRING_LIST type, a MutableList of strings */
   public static final SkylarkType STRING_LIST = Combination.of(LIST, STRING);
 
-  /** The INT_LIST type, a SkylarkList of integers */
+  /** The INT_LIST type, a MutableList of integers */
   public static final SkylarkType INT_LIST = Combination.of(LIST, INT);
 
-  /** The SET type, that contains all SkylarkList's, and the generic combinator for them */
+  /** The SET type, that contains all SkylarkNestedSet-s, and the generic combinator for them */
   public static final Simple SET = Simple.of(SkylarkNestedSet.class);
 
 
@@ -314,15 +326,26 @@ public abstract class SkylarkType implements Serializable {
       // For now, we only accept generics with a single covariant parameter
       if (genericType.equals(other)) {
         return this;
-      } else if (other instanceof Combination
-          && genericType.equals(((Combination) other).getGenericType())
-          && argType.includes(((Combination) other).getArgType())) {
-        return other;
-      } else if ((LIST.equals(other) || SET.equals(other)) && genericType.equals(other)) {
-        return this;
-      } else {
-        return BOTTOM;
       }
+      if (other instanceof Combination) {
+        SkylarkType generic = genericType.intersectWith(((Combination) other).getGenericType());
+        if (generic == BOTTOM) {
+          return BOTTOM;
+        }
+        SkylarkType arg = intersection(argType, ((Combination) other).getArgType());
+        if (arg == BOTTOM) {
+          return BOTTOM;
+        }
+        return Combination.of(generic, arg);
+      }
+      if (other instanceof Simple) {
+        SkylarkType generic = genericType.intersectWith(other);
+        if (generic == BOTTOM) {
+          return BOTTOM;
+        }
+        return SkylarkType.of(generic, getArgType());
+      }
+      return BOTTOM;
     }
 
     @Override public boolean equals(Object other) {
@@ -477,9 +500,7 @@ public abstract class SkylarkType implements Serializable {
   }
 
   public static SkylarkType of(Class<?> type) {
-    if (SkylarkList.class.isAssignableFrom(type)) {
-      return LIST;
-    } else if (SkylarkNestedSet.class.isAssignableFrom(type)) {
+    if (SkylarkNestedSet.class.isAssignableFrom(type)) {
       return SET;
     } else if (BaseFunction.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
@@ -550,8 +571,6 @@ public abstract class SkylarkType implements Serializable {
   public static SkylarkType typeOf(Object value) {
     if (value == null) {
       return BOTTOM;
-    } else if (value instanceof SkylarkList) {
-      return of(LIST, ((SkylarkList) value).getContentType());
     } else if (value instanceof SkylarkNestedSet) {
       return of(SET, ((SkylarkNestedSet) value).getContentType());
     } else {
@@ -560,9 +579,7 @@ public abstract class SkylarkType implements Serializable {
   }
 
   public static SkylarkType getGenericArgType(Object value) {
-    if (value instanceof SkylarkList) {
-      return ((SkylarkList) value).getContentType();
-    } else if (value instanceof SkylarkNestedSet) {
+    if (value instanceof SkylarkNestedSet) {
       return ((SkylarkNestedSet) value).getContentType();
     } else {
       return TOP;
@@ -584,7 +601,7 @@ public abstract class SkylarkType implements Serializable {
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
     if (!isTypeAllowedInSkylark(object)) {
       throw new EvalException(loc,
-          "Type is not allowed in Skylark: "
+                    "Type is not allowed in Skylark: "
           + object.getClass().getSimpleName());
     }
   }
@@ -713,21 +730,22 @@ public abstract class SkylarkType implements Serializable {
   /**
    * Converts an object retrieved from a Java method to a Skylark-compatible type.
    */
-  static Object convertToSkylark(Object object, Method method) {
+  static Object convertToSkylark(Object object, Method method, @Nullable Environment env) {
     if (object instanceof NestedSet<?>) {
       return new SkylarkNestedSet(getGenericTypeFromMethod(method), (NestedSet<?>) object);
-    } else if (object instanceof List<?>) {
-      return SkylarkList.list((List<?>) object, getGenericTypeFromMethod(method));
     }
-    return object;
+    return convertToSkylark(object, env);
   }
 
   /**
    * Converts an object to a Skylark-compatible type if possible.
    */
-  public static Object convertToSkylark(Object object, Location loc) throws EvalException {
+  public static Object convertToSkylark(Object object, @Nullable Environment env) {
     if (object instanceof List<?>) {
-      return SkylarkList.list((List<?>) object, loc);
+      List<?> list = (List<?>) object;
+      // TODO(bazel-team): shouldn't we convert an ImmutableList into a Tuple?
+      // problem: we treat them sometimes as a tuple, sometimes as a list.
+      return new MutableList(list, env);
     }
     return object;
   }
@@ -737,7 +755,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertFromSkylark(Object value) {
     if (value instanceof SkylarkList) {
-      return ((SkylarkList) value).toList();
+      return ((SkylarkList) value).getList();
     }
     return value;
   }

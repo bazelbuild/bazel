@@ -68,15 +68,11 @@ public final class EvalUtils {
     @Override
     @SuppressWarnings("unchecked")
     public int compare(Object o1, Object o2) {
-      Location loc = null;
-      try {
-        o1 = SkylarkType.convertToSkylark(o1, loc);
-        o2 = SkylarkType.convertToSkylark(o2, loc);
-      } catch (EvalException e) {
-        throw new ComparisonException(e.getMessage());
-      }
+      o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
+      o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
-      if (o1 instanceof SkylarkList && o2 instanceof SkylarkList) {
+      if (o1 instanceof SkylarkList && o2 instanceof SkylarkList
+          && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
         return compareLists((SkylarkList) o1, (SkylarkList) o2);
       }
       try {
@@ -225,8 +221,6 @@ public final class EvalUtils {
       return ImmutableList.class;
     } else if (List.class.isAssignableFrom(c)) {
       return List.class;
-    } else if (SkylarkList.class.isAssignableFrom(c)) {
-      return SkylarkList.class;
     } else if (Map.class.isAssignableFrom(c)) {
       return Map.class;
     } else if (NestedSet.class.isAssignableFrom(c)) {
@@ -266,7 +260,7 @@ public final class EvalUtils {
       if (list.isTuple()) {
         return "tuple";
       } else {
-        return "list" + (full ? " of " + list.getContentType() + "s" : "");
+        return "list";
       }
     } else if (object instanceof SkylarkNestedSet) {
       SkylarkNestedSet set = (SkylarkNestedSet) object;
@@ -289,7 +283,11 @@ public final class EvalUtils {
    * when the given class identifies a Skylark name space.
    */
   public static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
-    if (c.equals(Object.class)) {
+    if (c.isAnnotationPresent(SkylarkModule.class)) {
+      SkylarkModule module = c.getAnnotation(SkylarkModule.class);
+      return c.getAnnotation(SkylarkModule.class).name()
+          + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
+    } else if (c.equals(Object.class)) {
       return "unknown";
     } else if (c.equals(String.class)) {
       return "string";
@@ -297,13 +295,10 @@ public final class EvalUtils {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (c.equals(Void.TYPE) || c.equals(Runtime.NoneType.class)) {
-      // TODO(bazel-team): no one should be seeing Void at all.
-      return "NoneType";
     } else if (List.class.isAssignableFrom(c)) {
-      // NB: the capital here is a subtle way to distinguish java Tuple and java List
-      // from native SkylarkList tuple and list.
-      // TODO(bazel-team): refactor SkylarkList and use it everywhere.
+      // NB: the capital here is a subtle way to distinguish java List and Tuple (ImmutableList)
+      // from native SkylarkList list and tuple.
+      // TODO(bazel-team): use SkylarkList everywhere instead of java List.
       return isTuple(c) ? "Tuple" : "List";
     } else if (Map.class.isAssignableFrom(c)) {
       return "dict";
@@ -316,13 +311,6 @@ public final class EvalUtils {
       return "set";
     } else if (ClassObject.SkylarkClassObject.class.isAssignableFrom(c)) {
       return "struct";
-    } else if (SkylarkList.class.isAssignableFrom(c)) {
-      // TODO(bazel-team): Refactor the class hierarchy so we can distinguish list and tuple types.
-      return "list";
-    } else if (c.isAnnotationPresent(SkylarkModule.class)) {
-      SkylarkModule module = c.getAnnotation(SkylarkModule.class);
-      return c.getAnnotation(SkylarkModule.class).name()
-          + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -381,7 +369,7 @@ public final class EvalUtils {
     if (o instanceof Collection) {
       return (Collection<Object>) o;
     } else if (o instanceof SkylarkList) {
-      return ((SkylarkList) o).toList();
+      return ((SkylarkList) o).getList();
     } else if (o instanceof Map<?, ?>) {
       Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) o;
       // For dictionaries we iterate through the keys only

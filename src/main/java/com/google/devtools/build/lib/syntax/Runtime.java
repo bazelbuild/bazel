@@ -42,6 +42,8 @@ public final class Runtime {
   /**
    * There should be only one instance of this type to allow "== None" tests.
    */
+  @SkylarkModule(name = "NoneType", documented = false,
+    doc = "Unit type, containing the unique value None")
   @Immutable
   public static final class NoneType implements SkylarkValue {
     private NoneType() {}

@@ -93,6 +93,15 @@ public final class Mutability implements AutoCloseable, Serializable {
   }
 
   /**
+   * Freezes this Mutability
+   * @return it in fluent style.
+   */
+  public Mutability freeze() {
+    close();
+    return this;
+  }
+
+  /**
    * A MutabilityException will be thrown when the user attempts to mutate an object he shouldn't.
    */
   static class MutabilityException extends Exception {
@@ -137,4 +146,6 @@ public final class Mutability implements AutoCloseable, Serializable {
       throw new AssertionError("trying to mutate an object from a different context");
     }
   }
+
+  public static final Mutability IMMUTABLE = create("IMMUTABLE").freeze();
 }

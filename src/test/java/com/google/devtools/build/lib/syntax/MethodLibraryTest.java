@@ -901,8 +901,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerateBadArg() throws Exception {
+    // TODO(bazel-team): unify BUILD List and Skylark list, and get rid of this ugly message.
     new BothModesTest().testIfErrorContains(
-        "expected List or list for 'list' while calling enumerate but got string instead: a",
+        "expected List or sequence for 'list' while calling enumerate but got string instead: a",
         "enumerate('a')");
   }
 

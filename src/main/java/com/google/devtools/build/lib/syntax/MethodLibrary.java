@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
@@ -190,7 +192,7 @@ public class MethodLibrary {
           maxSplitO, "'split' argument of 'split'", /*label*/null, -2);
       // + 1 because the last result is the remainder, and default of -2 so that after +1 it's -1
       String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(self, maxSplit + 1);
-      return convert(Arrays.<String>asList(ss), env, loc);
+      return convert(Arrays.<String>asList(ss), env);
     }
   };
 
@@ -221,7 +223,7 @@ public class MethodLibrary {
         throw new EvalException(loc, ex);
       }
 
-      return convert(result, env, loc);
+      return convert(result, env);
     }
   };
 
@@ -327,7 +329,7 @@ public class MethodLibrary {
   private static Object partitionWrapper(String self, String separator, boolean forward,
       Environment env, Location loc) throws EvalException {
     try {
-      return convert(stringPartition(self, separator, forward), env, loc);
+      return convert(stringPartition(self, separator, forward), env);
     } catch (IllegalArgumentException ex) {
       throw new EvalException(loc, ex);
     }
@@ -604,8 +606,7 @@ public class MethodLibrary {
             doc = "Test beginning at this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position at which to stop comparing.")})
-  private static BuiltinFunction endswith = new BuiltinFunction(
-      "endswith", SkylarkList.tuple(0, Runtime.NONE)) {
+  private static BuiltinFunction endswith = new BuiltinFunction("endswith") {
     public Boolean invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
@@ -708,20 +709,35 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "$slice", objectType = SkylarkList.class,
+  @SkylarkSignature(name = "$slice", objectType = MutableList.class, returnType = MutableList.class,
       documented = false,
       mandatoryPositionals = {
-        @Param(name = "self", type = SkylarkList.class, doc = "This list or tuple."),
+        @Param(name = "self", type = MutableList.class, doc = "This list."),
         @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
         @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
       doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
-      useLocation = true)
-  private static BuiltinFunction skylarkListSlice = new BuiltinFunction("$slice") {
-    public Object invoke(SkylarkList self, Integer left, Integer right,
-        Location loc) throws EvalException, ConversionException {
-      return SkylarkList.list(sliceList(self.toList(), left, right), loc);
-    }
-  };
+      useEnvironment = true)
+  private static BuiltinFunction mutableListSlice = new BuiltinFunction("$slice") {
+      public MutableList invoke(MutableList self, Integer left, Integer right,
+          Environment env) throws EvalException, ConversionException {
+        return new MutableList(sliceList(self.getList(), left, right), env);
+      }
+    };
+
+  @SkylarkSignature(name = "$slice", objectType = Tuple.class, returnType = Tuple.class,
+      documented = false,
+      mandatoryPositionals = {
+        @Param(name = "self", type = Tuple.class, doc = "This tuple."),
+        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
+        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
+      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
+      useEnvironment = true)
+  private static BuiltinFunction tupleSlice = new BuiltinFunction("$slice") {
+      public Tuple invoke(Tuple self, Integer left, Integer right,
+          Environment env) throws EvalException, ConversionException {
+        return Tuple.copyOf(sliceList(self.getList(), left, right));
+      }
+    };
 
   private static List<Object> sliceList(List<Object> list, Integer left, Integer right) {
     left = clampIndex(left, list.size());
@@ -751,7 +767,7 @@ public class MethodLibrary {
             Collection<?> col =
                 Ordering.from(EvalUtils.SKYLARK_COMPARATOR)
                     .sortedCopy(EvalUtils.toCollection(self, loc));
-            return convert(col, env, loc);
+            return convert(col, env);
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -776,15 +792,32 @@ public class MethodLibrary {
       new BuiltinFunction("append") {
         public Runtime.NoneType invoke(List<Object> self, Object item,
             Location loc, Environment env) throws EvalException, ConversionException {
-          if (env.isCallerSkylark()) {
-            throw new EvalException(loc,
-                "function 'append' is not available in Skylark");
-          }
           if (EvalUtils.isTuple(self)) {
             throw new EvalException(loc,
                 "function 'append' is not defined on object of type 'Tuple'");
           }
           self.add(item);
+          return Runtime.NONE;
+        }
+      };
+
+  @SkylarkSignature(
+    name = "append",
+    objectType = MutableList.class,
+    returnType = Runtime.NoneType.class,
+    documented = false,
+    doc = "Adds an item to the end of the list.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "item", type = Object.class, doc = "Item to add at the end.")
+    },
+    useLocation = true,
+    useEnvironment = true)
+  private static BuiltinFunction skylarkAppend =
+      new BuiltinFunction("append") {
+        public Runtime.NoneType invoke(MutableList self, Object item,
+            Location loc, Environment env) throws EvalException, ConversionException {
+          self.add(item, loc, env);
           return Runtime.NONE;
         }
       };
@@ -802,19 +835,35 @@ public class MethodLibrary {
       @Param(name = "items", type = List.class, doc = "Items to add at the end.")},
     useLocation = true,
     useEnvironment = true)
-  private static BuiltinFunction extend =
+  private static BuiltinFunction skylarkExtend =
       new BuiltinFunction("extend") {
         public Runtime.NoneType invoke(List<Object> self, List<Object> items,
             Location loc, Environment env) throws EvalException, ConversionException {
-          if (env.isCallerSkylark()) {
-            throw new EvalException(loc,
-                "function 'append' is not available in Skylark");
-          }
           if (EvalUtils.isTuple(self)) {
             throw new EvalException(loc,
                 "function 'extend' is not defined on object of type 'Tuple'");
           }
           self.addAll(items);
+          return Runtime.NONE;
+        }
+      };
+
+  @SkylarkSignature(
+    name = "extend",
+    objectType = MutableList.class,
+    returnType = Runtime.NoneType.class,
+    documented = false,
+    doc = "Adds all items to the end of the list.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")},
+    useLocation = true,
+    useEnvironment = true)
+  private static BuiltinFunction extend =
+      new BuiltinFunction("extend") {
+        public Runtime.NoneType invoke(MutableList self, SkylarkList items,
+            Location loc, Environment env) throws EvalException, ConversionException {
+          self.addAll(items, loc, env);
           return Runtime.NONE;
         }
       };
@@ -837,23 +886,40 @@ public class MethodLibrary {
   };
 
   // list access operator
-  @SkylarkSignature(name = "$index", documented = false, objectType = SkylarkList.class,
+  @SkylarkSignature(name = "$index", documented = false, objectType = MutableList.class,
       doc = "Returns the nth element of a list.",
       mandatoryPositionals = {
-        @Param(name = "self", type = SkylarkList.class, doc = "This object."),
+        @Param(name = "self", type = MutableList.class, doc = "This list."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
       useLocation = true)
-  private static BuiltinFunction skylarkListIndexOperator = new BuiltinFunction("$index") {
-    public Object invoke(SkylarkList self, Object key,
-        Location loc) throws EvalException, ConversionException {
-      if (self.isEmpty()) {
-        throw new EvalException(loc, "List is empty");
+  private static BuiltinFunction mutableListIndexOperator = new BuiltinFunction("$index") {
+      public Object invoke(MutableList self, Object key,
+          Location loc) throws EvalException, ConversionException {
+        if (self.isEmpty()) {
+          throw new EvalException(loc, "List is empty");
+        }
+        int index = getListIndex(key, self.size(), loc);
+        return self.getList().get(index);
       }
-      int index = getListIndex(key, self.size(), loc);
-      return self.get(index);
-    }
-  };
+    };
 
+  // tuple access operator
+  @SkylarkSignature(name = "$index", documented = false, objectType = Tuple.class,
+      doc = "Returns the nth element of a list.",
+      mandatoryPositionals = {
+        @Param(name = "self", type = Tuple.class, doc = "This tuple."),
+        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
+      useLocation = true)
+  private static BuiltinFunction tupleIndexOperator = new BuiltinFunction("$index") {
+      public Object invoke(Tuple self, Object key,
+          Location loc) throws EvalException, ConversionException {
+        if (self.isEmpty()) {
+          throw new EvalException(loc, "Tuple is empty");
+        }
+        int index = getListIndex(key, self.size(), loc);
+        return self.getList().get(index);
+      }
+    };
 
   // list access operator
   @SkylarkSignature(name = "$index", documented = false, objectType = List.class,
@@ -899,7 +965,7 @@ public class MethodLibrary {
         Location loc, Environment env) throws EvalException, ConversionException {
       // Use a TreeMap to ensure consistent ordering.
       Map<?, ?> dict = new TreeMap<>(self);
-      return convert(dict.values(), env, loc);
+      return convert(dict.values(), env);
     }
   };
 
@@ -920,9 +986,9 @@ public class MethodLibrary {
       List<Object> list = Lists.newArrayListWithCapacity(dict.size());
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
         List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
-        list.add(env.isCallerSkylark() ? SkylarkList.tuple(item) : item);
+        list.add(env.isCallerSkylark() ? Tuple.copyOf(item) : item);
       }
-      return convert(list, env, loc);
+      return convert(list, env);
     }
   };
 
@@ -939,7 +1005,7 @@ public class MethodLibrary {
   private static BuiltinFunction keys = new BuiltinFunction("keys") {
     public Object invoke(Map<Comparable<?>, ?> dict,
         Location loc, Environment env) throws EvalException {
-      return convert(Ordering.natural().sortedCopy(dict.keySet()), env, loc);
+      return convert(Ordering.natural().sortedCopy(dict.keySet()), env);
     }
   };
 
@@ -964,10 +1030,10 @@ public class MethodLibrary {
 
   // TODO(bazel-team): Use the same type for both Skylark and BUILD files.
   @SuppressWarnings("unchecked")
-  private static Iterable<Object> convert(Collection<?> list, Environment env, Location loc)
+  private static Iterable<Object> convert(Collection<?> list, Environment env)
       throws EvalException {
     if (env.isCallerSkylark()) {
-      return SkylarkList.list(list, loc);
+      return new MutableList(list, env);
     } else {
       return Lists.newArrayList(list);
     }
@@ -985,16 +1051,16 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "list", returnType = SkylarkList.class,
+  @SkylarkSignature(name = "list", returnType = MutableList.class,
       doc = "Converts a collection (e.g. set or dictionary) to a list."
         + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
         + "list(set([2, 3, 2])) == [2, 3]\n"
         + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")},
-      useLocation = true)
+      useLocation = true, useEnvironment = true)
   private static BuiltinFunction list = new BuiltinFunction("list") {
-    public SkylarkList invoke(Object x, Location loc) throws EvalException {
-      return SkylarkList.list(EvalUtils.toCollection(x, loc), loc);
+    public MutableList invoke(Object x, Location loc, Environment env) throws EvalException {
+      return new MutableList(EvalUtils.toCollection(x, loc), env);
     }
   };
 
@@ -1187,10 +1253,10 @@ public class MethodLibrary {
       int count = 0;
       List<SkylarkList> result = Lists.newArrayList();
       for (Object obj : Type.OBJECT_LIST.convert(input, "input")) {
-        result.add(SkylarkList.tuple(count, obj));
+        result.add(Tuple.of(count, obj));
         count++;
       }
-      return convert(result, env, loc);
+      return convert(result, env);
     }
   };
 
@@ -1242,7 +1308,7 @@ public class MethodLibrary {
           start += step;
         }
       }
-      return convert(result, env, loc);
+      return convert(result, env);
     }
   };
 
@@ -1303,11 +1369,11 @@ public class MethodLibrary {
         @Param(name = "default", defaultValue = "None",
             doc = "The default value to return in case the struct "
             + "doesn't have an attribute of the given name.")},
-      useLocation = true)
+      useLocation = true, useEnvironment = true)
   private static final BuiltinFunction getattr = new BuiltinFunction("getattr") {
     public Object invoke(Object obj, String name, Object defaultValue,
-        Location loc) throws EvalException, ConversionException {
-      Object result = DotExpression.eval(obj, name, loc);
+        Location loc, Environment env) throws EvalException, ConversionException {
+      Object result = DotExpression.eval(obj, name, loc, env);
       if (result == null) {
         if (defaultValue != Runtime.NONE) {
           return defaultValue;
@@ -1340,7 +1406,7 @@ public class MethodLibrary {
         // This shouldn't happen
         throw new EvalException(loc, e.getMessage());
       }
-      return SkylarkList.list(fields, String.class);
+      return new MutableList(fields, env);
     }
   };
 
@@ -1409,15 +1475,15 @@ public class MethodLibrary {
           + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
           + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
       extraPositionals = {@Param(name = "args", doc = "lists to zip")},
-      returnType = SkylarkList.class, useLocation = true)
+      returnType = MutableList.class, useLocation = true, useEnvironment = true)
   private static final BuiltinFunction zip = new BuiltinFunction("zip") {
-    public SkylarkList invoke(SkylarkList args, Location loc)
+    public MutableList invoke(SkylarkList args, Location loc, Environment env)
         throws EvalException {
       Iterator<?>[] iterators = new Iterator<?>[args.size()];
       for (int i = 0; i < args.size(); i++) {
         iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
       }
-      List<SkylarkList> result = new ArrayList<SkylarkList>();
+      List<Tuple> result = new ArrayList<>();
       boolean allHasNext;
       do {
         allHasNext = !args.isEmpty();
@@ -1430,10 +1496,10 @@ public class MethodLibrary {
           }
         }
         if (allHasNext) {
-          result.add(SkylarkList.tuple(elem));
+          result.add(Tuple.copyOf(elem));
         }
       } while (allHasNext);
-      return SkylarkList.list(result, loc);
+      return new MutableList(result, env);
     }
   };
 

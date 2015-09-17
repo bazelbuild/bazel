@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionEx
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -50,7 +49,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -167,8 +166,7 @@ public final class SkylarkRuleContext {
           addOutput(outputsBuilder, attrName, Runtime.NONE);
         }
       } else if (type == Type.OUTPUT_LIST) {
-        addOutput(outputsBuilder, attrName,
-            SkylarkList.list(artifacts, Artifact.class));
+        addOutput(outputsBuilder, attrName, new MutableList(artifacts));
       } else {
         throw new IllegalArgumentException(
             "Type of " + attrName + "(" + type + ") is not output type ");
@@ -227,7 +225,7 @@ public final class SkylarkRuleContext {
         attrBuilder.put(skyname, prereq);
       } else {
         // Type.LABEL_LIST
-        attrBuilder.put(skyname, SkylarkList.list(allPrereq, TransitiveInfoCollection.class));
+        attrBuilder.put(skyname, new MutableList(allPrereq));
       }
     }
     attrObject =

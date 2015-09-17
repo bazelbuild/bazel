@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
@@ -54,6 +55,8 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"string.html\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {
       return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
+    } else if (Tuple.class.isAssignableFrom(type)) {
+      return "<a class=\"anchor\" href=\"list.html\">tuple</a>";
     } else if (List.class.isAssignableFrom(type) || SkylarkList.class.isAssignableFrom(type)
         || type == HackHackEitherList.class) {
       // Annotated Java methods can return simple java.util.Lists (which get auto-converted).

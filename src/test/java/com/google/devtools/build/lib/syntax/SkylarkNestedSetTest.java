@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -195,12 +196,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
       Order innerOrder = orders[1 - i];
 
       SkylarkNestedSet inner1 =
-          new SkylarkNestedSet(innerOrder, SkylarkList.tuple("1", "11"), null);
+          new SkylarkNestedSet(innerOrder, Tuple.of("1", "11"), null);
       SkylarkNestedSet inner2 =
-          new SkylarkNestedSet(innerOrder, SkylarkList.tuple("2", "22"), null);
+          new SkylarkNestedSet(innerOrder, Tuple.of("2", "22"), null);
       SkylarkNestedSet innerUnion = new SkylarkNestedSet(inner1, inner2, null);
       SkylarkNestedSet result =
-          new SkylarkNestedSet(outerOrder, SkylarkList.tuple("4", "44"), null);
+          new SkylarkNestedSet(outerOrder, Tuple.of("4", "44"), null);
       result = new SkylarkNestedSet(result, innerUnion, null);
 
       assertThat(result.toString()).isEqualTo(expected[i]);
@@ -214,10 +215,10 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     //  (b) at least one order is "stable"
 
     for (Order first : Order.values()) {
-      SkylarkNestedSet s1 = new SkylarkNestedSet(first, SkylarkList.tuple("1", "11"), null);
+      SkylarkNestedSet s1 = new SkylarkNestedSet(first, Tuple.of("1", "11"), null);
 
       for (Order second : Order.values()) {
-        SkylarkNestedSet s2 = new SkylarkNestedSet(second, SkylarkList.tuple("2", "22"), null);
+        SkylarkNestedSet s2 = new SkylarkNestedSet(second, Tuple.of("2", "22"), null);
 
         boolean compatible = true;
 
@@ -326,9 +327,9 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   private SkylarkNestedSet[] makeFourSets(Order order) throws Exception {
     return new SkylarkNestedSet[] {
-        new SkylarkNestedSet(order, SkylarkList.tuple("1", "11"), null),
-        new SkylarkNestedSet(order, SkylarkList.tuple("2", "22"), null),
-        new SkylarkNestedSet(order, SkylarkList.tuple("3", "33"), null),
-        new SkylarkNestedSet(order, SkylarkList.tuple("4", "44"), null)};
+        new SkylarkNestedSet(order, Tuple.of("1", "11"), null),
+        new SkylarkNestedSet(order, Tuple.of("2", "22"), null),
+        new SkylarkNestedSet(order, Tuple.of("3", "33"), null),
+        new SkylarkNestedSet(order, Tuple.of("4", "44"), null)};
   }
 }

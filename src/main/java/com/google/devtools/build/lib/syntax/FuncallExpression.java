@@ -318,7 +318,7 @@ public final class FuncallExpression extends Expression {
   }
 
   static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
-      Object[] args, Location loc) throws EvalException {
+      Object[] args, Location loc, Environment env) throws EvalException {
     try {
       Method method = methodDescriptor.getMethod();
       if (obj == null && !Modifier.isStatic(method.getModifiers())) {
@@ -340,7 +340,7 @@ public final class FuncallExpression extends Expression {
               + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
-      result = SkylarkType.convertToSkylark(result, method);
+      result = SkylarkType.convertToSkylark(result, method, env);
       if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
         throw new EvalException(loc, Printer.format(
             "Method '%s' returns an object of invalid type %r", methodName, result.getClass()));
@@ -464,7 +464,7 @@ public final class FuncallExpression extends Expression {
         value = SkylarkType.convertFromSkylark(value);
       } else if (conversion == ArgConversion.TO_SKYLARK) {
         // We try to auto convert the type if we can.
-        value = SkylarkType.convertToSkylark(value, getLocation());
+        value = SkylarkType.convertToSkylark(value, env);
         // We call into Skylark so we need to be sure that the caller uses the appropriate types.
         SkylarkType.checkTypeAllowedInSkylark(value, getLocation());
       } // else NO_CONVERSION
@@ -565,7 +565,7 @@ public final class FuncallExpression extends Expression {
                 + "\nwhile calling method '%s' for type %s",
                 name, EvalUtils.getDataTypeNameFromClass(objClass)));
       }
-      return callMethod(method, name, obj, args.toArray(), getLocation());
+      return callMethod(method, name, obj, args.toArray(), getLocation(), env);
     } else {
       throw new EvalException(
           getLocation(),

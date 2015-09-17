@@ -18,12 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
 
 /**
  * Tests for the validation process of Skylark files.
@@ -350,18 +350,18 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testParentWithSkylarkModule() throws Exception {
-    Class<?> emptyListClass = SkylarkList.EMPTY_LIST.getClass();
-    Class<?> simpleListClass = SkylarkList.list(Arrays.<Integer>asList(1, 2, 3), SkylarkType.INT)
-        .getClass();
-    Class<?> tupleClass = SkylarkList.tuple(Arrays.<Object>asList(1, "a", "b")).getClass();
+    Class<?> emptyTupleClass = Tuple.EMPTY.getClass();
+    Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
+    Class<?> mutableListClass = new MutableList(Tuple.of(1, 2, 3), env).getClass();
 
-    assertThat(SkylarkList.class.isAnnotationPresent(SkylarkModule.class)).isTrue();
-    assertThat(EvalUtils.getParentWithSkylarkModule(SkylarkList.class))
-        .isEqualTo(SkylarkList.class);
-    assertThat(EvalUtils.getParentWithSkylarkModule(emptyListClass)).isEqualTo(SkylarkList.class);
-    assertThat(EvalUtils.getParentWithSkylarkModule(simpleListClass)).isEqualTo(SkylarkList.class);
+    assertThat(mutableListClass).isEqualTo(MutableList.class);
+    assertThat(MutableList.class.isAnnotationPresent(SkylarkModule.class)).isTrue();
+    assertThat(EvalUtils.getParentWithSkylarkModule(MutableList.class))
+        .isEqualTo(MutableList.class);
+    assertThat(EvalUtils.getParentWithSkylarkModule(emptyTupleClass)).isEqualTo(Tuple.class);
+    assertThat(EvalUtils.getParentWithSkylarkModule(tupleClass)).isEqualTo(Tuple.class);
     // TODO(bazel-team): make a tuple not a list anymore.
-    assertThat(EvalUtils.getParentWithSkylarkModule(tupleClass)).isEqualTo(SkylarkList.class);
+    assertThat(EvalUtils.getParentWithSkylarkModule(tupleClass)).isEqualTo(Tuple.class);
 
     // TODO(bazel-team): fix that?
     assertThat(ClassObject.class.isAnnotationPresent(SkylarkModule.class))
@@ -377,16 +377,14 @@ public class ValidationTests extends EvaluationTestCase {
   @Test
   public void testSkylarkTypeEquivalence() throws Exception {
     // All subclasses of SkylarkList are made equivalent
-    Class<?> emptyListClass = SkylarkList.EMPTY_LIST.getClass();
-    Class<?> simpleListClass = SkylarkList.list(Arrays.<Integer>asList(1, 2, 3), SkylarkType.INT)
-        .getClass();
-    Class<?> tupleClass = SkylarkList.tuple(Arrays.<Object>asList(1, "a", "b")).getClass();
+    Class<?> emptyTupleClass = Tuple.EMPTY.getClass();
+    Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
+    Class<?> mutableListClass = new MutableList(Tuple.of(1, 2, 3), env).getClass();
 
-    assertThat(SkylarkType.of(SkylarkList.class)).isEqualTo(SkylarkType.LIST);
-    assertThat(SkylarkType.of(emptyListClass)).isEqualTo(SkylarkType.LIST);
-    assertThat(SkylarkType.of(simpleListClass)).isEqualTo(SkylarkType.LIST);
-    // TODO(bazel-team): make a tuple not a list anymore.
-    assertThat(SkylarkType.of(tupleClass)).isEqualTo(SkylarkType.LIST);
+    assertThat(SkylarkType.of(mutableListClass)).isEqualTo(SkylarkType.LIST);
+    assertThat(SkylarkType.of(emptyTupleClass)).isEqualTo(SkylarkType.TUPLE);
+    assertThat(SkylarkType.of(tupleClass)).isEqualTo(SkylarkType.TUPLE);
+    assertThat(SkylarkType.TUPLE).isNotEqualTo(SkylarkType.LIST);
 
 
     // Also for ClassObject

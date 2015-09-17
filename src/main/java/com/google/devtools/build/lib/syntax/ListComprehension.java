@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -219,7 +220,7 @@ public final class ListComprehension extends Expression {
   Object doEval(Environment env) throws EvalException, InterruptedException {
     List<Object> result = new ArrayList<>();
     evalStep(env, result, 0);
-    return env.isSkylark() ? SkylarkList.list(result, getLocation()) : result;
+    return env.isSkylark() ? new MutableList(result, env) : result;
   }
 
   @Override

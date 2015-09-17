@@ -329,7 +329,7 @@ public class EvaluationTest extends EvaluationTestCase {
     assertEquals(Arrays.asList(1, 2, 3, 4), x);
     assertTrue(EvalUtils.isImmutable(x));
 
-    checkEvalError("can only concatenate List (not \"Tuple\") to List",
+    checkEvalError("can only concatenate Tuple (not \"List\") to Tuple",
         "(1,2) + [3,4]"); // list + tuple
   }
 
@@ -497,8 +497,8 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testStatement("[1, 2] + [3, 4]", Arrays.asList(1, 2, 3, 4))
         .testStatement("(1, 2) + (3, 4)", ImmutableList.of(1, 2, 3, 4))
-        .testIfExactError("can only concatenate Tuple (not \"List\") to Tuple", "[1, 2] + (3, 4)")
-        .testIfExactError("can only concatenate List (not \"Tuple\") to List", "(1, 2) + [3, 4]");
+        .testIfExactError("can only concatenate List (not \"Tuple\") to List", "[1, 2] + (3, 4)")
+        .testIfExactError("can only concatenate Tuple (not \"List\") to Tuple", "(1, 2) + [3, 4]");
   }
 
   @SuppressWarnings("unchecked")

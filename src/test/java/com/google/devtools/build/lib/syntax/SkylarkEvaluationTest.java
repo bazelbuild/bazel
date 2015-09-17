@@ -915,7 +915,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("cannot concatenate lists and tuples", "[1, 2] + (3, 4)");
+    new SkylarkTest().testIfExactError("can only concatenate list (not \"tuple\") to list",
+        "[1, 2] + (3, 4)");
   }
 
   @Test

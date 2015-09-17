@@ -993,7 +993,7 @@ public abstract class Type<T> {
     public List<Object> convert(Object x, String what, Object context)
         throws ConversionException {
       if (x instanceof SkylarkList) {
-        return ((SkylarkList) x).toList();
+        return ((SkylarkList) x).getList();
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {

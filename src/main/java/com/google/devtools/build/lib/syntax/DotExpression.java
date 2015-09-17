@@ -51,7 +51,7 @@ public final class DotExpression extends Expression {
   Object doEval(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
     String name = field.getName();
-    Object result = eval(objValue, name, getLocation());
+    Object result = eval(objValue, name, getLocation(), env);
     if (result == null) {
       if (objValue instanceof ClassObject) {
         String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
@@ -68,7 +68,8 @@ public final class DotExpression extends Expression {
   /**
    * Returns the field of the given name of the struct objValue, or null if no such field exists.
    */
-  public static Object eval(Object objValue, String name, Location loc) throws EvalException {
+  public static Object eval(Object objValue, String name,
+      Location loc, Environment env) throws EvalException {
     if (objValue instanceof ClassObject) {
       Object result = null;
       try {
@@ -79,7 +80,7 @@ public final class DotExpression extends Expression {
       // ClassObjects may have fields that are annotated with @SkylarkCallable.
       // Since getValue() does not know about those, we cannot expect that result is a valid object.
       if (result != null) {
-        result = SkylarkType.convertToSkylark(result, loc);
+        result = SkylarkType.convertToSkylark(result, env);
         // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
         // so we have to disable it. This should not happen.
         SkylarkType.checkTypeAllowedInSkylark(result, loc);
@@ -92,7 +93,7 @@ public final class DotExpression extends Expression {
     if (methods != null && !methods.isEmpty()) {
       MethodDescriptor method = Iterables.getOnlyElement(methods);
       if (method.getAnnotation().structField()) {
-        return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc);
+        return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc, env);
       }
     }
     return null;

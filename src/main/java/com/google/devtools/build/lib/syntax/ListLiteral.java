@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -108,8 +111,7 @@ public final class ListLiteral extends Expression {
       result.add(expr.eval(env));
     }
     if (env.isSkylark()) {
-      return isTuple()
-          ? SkylarkList.tuple(result) : SkylarkList.list(result, getLocation());
+      return isTuple() ? Tuple.copyOf(result) : new MutableList(result, env);
     } else {
       return EvalUtils.makeSequence(result, isTuple());
     }
