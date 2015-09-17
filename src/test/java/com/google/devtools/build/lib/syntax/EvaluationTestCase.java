@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -138,9 +137,7 @@ public class EvaluationTestCase {
 
   /** Parses an Expression from string without a supporting file */
   Expression parseExpression(String... input) {
-    return Parser.parseExpression(
-        ParserInputSource.create(Joiner.on("\n").join(input), null),
-        getEventHandler());
+    return Parser.parseExpression(env.createLexer(input), getEventHandler());
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {

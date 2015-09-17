@@ -75,7 +75,7 @@ public class WorkspaceFactory {
       throws InterruptedException {
     StoredEventHandler localReporter = new StoredEventHandler();
     BuildFileAST buildFileAST;
-    buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
+    buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, null, false);
     if (buildFileAST.containsErrors()) {
       localReporter.handle(Event.error("WORKSPACE file could not be parsed"));
     } else {

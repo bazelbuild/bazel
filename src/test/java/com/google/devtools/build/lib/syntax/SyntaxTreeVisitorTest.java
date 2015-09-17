@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -33,10 +35,20 @@ public class SyntaxTreeVisitorTest {
 
   private Scratch scratch = new Scratch();
 
+  private class ScratchPathPackageLocator implements CachingPackageLocator {
+    @Override
+    public Path getBuildFileForPackage(PackageIdentifier packageName) {
+      return scratch.resolve(packageName.getPackageFragment()).getRelative("BUILD");
+    }
+  }
+
+  private CachingPackageLocator locator = new ScratchPathPackageLocator();
+
   /** Parses the contents of the specified string and returns the AST. */
   private BuildFileAST parse(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
-    return BuildFileAST.parseSkylarkFile(file, null /* reporter */, null /*validationEnvironment*/);
+    return BuildFileAST.parseSkylarkFile(
+        file, null /* reporter */, locator, null /*validationEnvironment*/);
   }
 
   @Test

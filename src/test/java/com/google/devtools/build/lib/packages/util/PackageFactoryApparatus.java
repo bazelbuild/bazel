@@ -107,7 +107,8 @@ public class PackageFactoryApparatus {
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
     ParserInputSource inputSource = ParserInputSource.create(buildFile);
-    return BuildFileAST.parseBuildFile(inputSource, events.reporter(), /*parsePython=*/false);
+    return BuildFileAST.parseBuildFile(inputSource, events.reporter(), locator,
+        /*parsePython=*/false);
   }
 
   /**
