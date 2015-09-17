@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -79,7 +80,6 @@ public final class TargetMarkerFunction implements SkyFunction {
     }
 
     SkyKey pkgSkyKey = PackageValue.key(label.getPackageIdentifier());
-    NoSuchPackageException nspe = null;
     Package pkg;
     try {
       PackageValue value = (PackageValue)
@@ -89,14 +89,8 @@ public final class TargetMarkerFunction implements SkyFunction {
       }
       pkg = value.getPackage();
     } catch (NoSuchPackageException e) {
-      // For consistency with pre-Skyframe Blaze, we can return a valid Target from a Package
-      // containing errors.
-      pkg = e.getPackage();
-      if (pkg == null) {
-        // Re-throw this exception with our key because root causes should be targets, not packages.
-        throw new TargetMarkerFunctionException(e);
-      }
-      nspe = e;
+      // Re-throw this exception with our key because root causes should be targets, not packages.
+      throw new TargetMarkerFunctionException(e);
     }
 
     Target target;
@@ -106,12 +100,14 @@ public final class TargetMarkerFunction implements SkyFunction {
       throw new TargetMarkerFunctionException(e);
     }
 
-    if (nspe != null) {
+    if (pkg.containsErrors()) {
       // There is a target, but its package is in error. We rethrow so that the root cause is the
       // target, not the package. Note that targets are only in error when their package is
       // "in error" (because a package is in error if there was an error evaluating the package, or
       // if one of its targets was in error).
-      throw new TargetMarkerFunctionException(new NoSuchTargetException(target, nspe));
+      throw new TargetMarkerFunctionException(
+          new NoSuchTargetException(
+              target, new BuildFileContainsErrorsException(label.getPackageIdentifier())));
     }
     return TargetMarkerValue.TARGET_MARKER_INSTANCE;
   }

@@ -219,10 +219,13 @@ public class PackageFunction implements SkyFunction {
    * inconsistent).
    */
   private static boolean markDependenciesAndPropagateInconsistentFilesystemExceptions(
-      Package pkg, Environment env, Collection<Pair<String, Boolean>> globPatterns,
-      Map<Label, Path> subincludes) throws InternalInconsistentFilesystemException {
-    boolean packageWasOriginallyInError = pkg.containsErrors();
-    boolean packageShouldBeInError = packageWasOriginallyInError;
+      Environment env,
+      Collection<Pair<String, Boolean>> globPatterns,
+      Map<Label, Path> subincludes,
+      PackageIdentifier packageIdentifier,
+      boolean containsErrors)
+      throws InternalInconsistentFilesystemException {
+    boolean packageShouldBeInError = containsErrors;
 
     // TODO(bazel-team): This means that many packages will have to be preprocessed twice. Ouch!
     // We need a better continuation mechanism to avoid repeating work. [skyframe-loading]
@@ -232,14 +235,13 @@ public class PackageFunction implements SkyFunction {
     // [skyframe-loading]
 
     Set<SkyKey> subincludePackageLookupDepKeys = Sets.newHashSet();
-    for (Label label : pkg.getSubincludeLabels()) {
+    for (Label label : subincludes.keySet()) {
       // Declare a dependency on the package lookup for the package giving access to the label.
       subincludePackageLookupDepKeys.add(PackageLookupValue.key(label.getPackageIdentifier()));
     }
     Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean> subincludePackageLookupResult =
         getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
-            pkg.getPackageIdentifier(), subincludePackageLookupDepKeys, env,
-            packageWasOriginallyInError);
+            packageIdentifier, subincludePackageLookupDepKeys, env, containsErrors);
     Map<PathFragment, PackageLookupValue> subincludePackageLookupDeps =
         subincludePackageLookupResult.getFirst();
     packageShouldBeInError |= subincludePackageLookupResult.getSecond();
@@ -254,53 +256,64 @@ public class PackageFunction implements SkyFunction {
       if (subincludePackageLookupValue != null) {
         // Declare a dependency on the actual file that was subincluded.
         Path subincludeFilePath = subincludeEntry.getValue();
-        if (subincludeFilePath != null) {
-          if (!subincludePackageLookupValue.packageExists()) {
-            // Legacy blaze puts a non-null path when only when the package does indeed exist.
-            throw new InternalInconsistentFilesystemException(pkg.getPackageIdentifier(),
-                String.format("Unexpected package in %s. Was it modified during the build?",
-                    subincludeFilePath));
-          }
+        if (subincludeFilePath != null && !subincludePackageLookupValue.packageExists()) {
+          // Legacy blaze puts a non-null path when only when the package does indeed exist.
+          throw new InternalInconsistentFilesystemException(
+              packageIdentifier,
+              String.format(
+                  "Unexpected package in %s. Was it modified during the build?",
+                  subincludeFilePath));
+        }
+        if (subincludePackageLookupValue.packageExists()) {
           // Sanity check for consistency of Skyframe and legacy blaze.
           Path subincludeFilePathSkyframe =
               subincludePackageLookupValue.getRoot().getRelative(label.toPathFragment());
-          if (!subincludeFilePathSkyframe.equals(subincludeFilePath)) {
-            throw new InternalInconsistentFilesystemException(pkg.getPackageIdentifier(),
-                String.format("Inconsistent package location for %s: '%s' vs '%s'. "
-                + "Was the source tree modified during the build?",
-                label.getPackageFragment(), subincludeFilePathSkyframe, subincludeFilePath));
+          if (subincludeFilePath != null
+              && !subincludeFilePathSkyframe.equals(subincludeFilePath)) {
+            throw new InternalInconsistentFilesystemException(
+                packageIdentifier,
+                String.format(
+                    "Inconsistent package location for %s: '%s' vs '%s'. "
+                        + "Was the source tree modified during the build?",
+                    label.getPackageFragment(),
+                    subincludeFilePathSkyframe,
+                    subincludeFilePath));
           }
           // The actual file may be under a different package root than the package being
           // constructed.
           SkyKey subincludeSkyKey =
-              FileValue.key(RootedPath.toRootedPath(subincludePackageLookupValue.getRoot(),
-                  subincludeFilePath));
+              FileValue.key(
+                  RootedPath.toRootedPath(
+                      subincludePackageLookupValue.getRoot(),
+                      label.getPackageFragment().getRelative(label.getName())));
           subincludeFileDepKeys.add(subincludeSkyKey);
         }
       }
     }
-    packageShouldBeInError |= markFileDepsAndPropagateInconsistentFilesystemExceptions(
-        pkg.getPackageIdentifier(), subincludeFileDepKeys, env, packageWasOriginallyInError);
+    packageShouldBeInError |=
+        markFileDepsAndPropagateInconsistentFilesystemExceptions(
+            packageIdentifier, subincludeFileDepKeys, env, containsErrors);
 
     // TODO(bazel-team): In the long term, we want to actually resolve the glob patterns within
     // Skyframe. For now, just logging the glob requests provides correct incrementality and
     // adequate performance.
-    PackageIdentifier packageId = pkg.getPackageIdentifier();
     List<SkyKey> globDepKeys = Lists.newArrayList();
     for (Pair<String, Boolean> globPattern : globPatterns) {
       String pattern = globPattern.getFirst();
       boolean excludeDirs = globPattern.getSecond();
       SkyKey globSkyKey;
       try {
-        globSkyKey = GlobValue.key(packageId, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
+        globSkyKey =
+            GlobValue.key(packageIdentifier, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
       } catch (InvalidGlobPatternException e) {
         // Globs that make it to pkg.getGlobPatterns() should already be filtered for errors.
         throw new IllegalStateException(e);
       }
       globDepKeys.add(globSkyKey);
     }
-    packageShouldBeInError |= markGlobDepsAndPropagateInconsistentFilesystemExceptions(
-        pkg.getPackageIdentifier(), globDepKeys, env, packageWasOriginallyInError);
+    packageShouldBeInError |=
+        markGlobDepsAndPropagateInconsistentFilesystemExceptions(
+            packageIdentifier, globDepKeys, env, containsErrors);
     return packageShouldBeInError;
   }
 
@@ -330,11 +343,6 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
-    if (pkg.containsErrors()) {
-      throw new PackageFunctionException(new BuildFileContainsErrorsException(
-          ExternalPackage.PACKAGE_IDENTIFIER, "Package 'external' contains errors"),
-          pkg.containsTemporaryErrors() ? Transience.TRANSIENT : Transience.PERSISTENT);
-    }
 
     return new PackageValue(pkg);
   }
@@ -382,12 +390,17 @@ public class PackageFunction implements SkyFunction {
     if (packageId.equals(ExternalPackage.PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
-    PackageValue externalPackage = (PackageValue) env.getValue(
-        PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER));
+    SkyKey externalPackageKey = PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER);
+    PackageValue externalPackage = (PackageValue) env.getValue(externalPackageKey);
     if (externalPackage == null) {
       return null;
     }
     Package externalPkg = externalPackage.getPackage();
+    if (externalPkg.containsErrors()) {
+      throw new PackageFunctionException(
+          new BuildFileContainsErrorsException(ExternalPackage.PACKAGE_IDENTIFIER),
+          Transience.PERSISTENT);
+    }
 
     PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
@@ -485,13 +498,12 @@ public class PackageFunction implements SkyFunction {
     }
     Collection<Pair<String, Boolean>> globPatterns = legacyPkgBuilder.getGlobPatterns();
     Map<Label, Path> subincludes = legacyPkgBuilder.getSubincludes();
-    Package pkg = legacyPkgBuilder.finishBuild();
-    Event.replayEventsOn(env.getListener(), pkg.getEvents());
+    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
     boolean packageShouldBeConsideredInError;
     try {
       packageShouldBeConsideredInError =
-          markDependenciesAndPropagateInconsistentFilesystemExceptions(pkg, env,
-              globPatterns, subincludes);
+          markDependenciesAndPropagateInconsistentFilesystemExceptions(
+              env, globPatterns, subincludes, packageId, legacyPkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(e,
@@ -501,14 +513,15 @@ public class PackageFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+
+    if (packageShouldBeConsideredInError) {
+      legacyPkgBuilder.setContainsErrors();
+    }
+    Package pkg = legacyPkgBuilder.finishBuild();
+
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
-    if (packageShouldBeConsideredInError) {
-      throw new PackageFunctionException(new BuildFileContainsErrorsException(pkg,
-          "Package '" + packageName + "' contains errors"),
-          pkg.containsTemporaryErrors() ? Transience.TRANSIENT : Transience.PERSISTENT);
-    }
     return new PackageValue(pkg);
   }
 

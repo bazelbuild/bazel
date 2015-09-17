@@ -261,7 +261,14 @@ public abstract class RepositoryFunction implements SkyFunction {
     if (packageValue == null) {
       return null;
     }
-    return (ExternalPackage) packageValue.getPackage();
+    ExternalPackage externalPackage = (ExternalPackage) packageValue.getPackage();
+    if (externalPackage.containsErrors()) {
+      throw new RepositoryFunctionException(
+          new BuildFileContainsErrorsException(
+              ExternalPackage.PACKAGE_IDENTIFIER, "Could not load //external package"),
+          Transience.PERSISTENT);
+    }
+    return externalPackage;
   }
 
   @Nullable

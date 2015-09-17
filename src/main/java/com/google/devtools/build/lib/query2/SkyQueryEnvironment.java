@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -373,6 +374,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     try {
       PackageValue packageValue = (PackageValue) graph.getValue(packageKey);
       if (packageValue != null) {
+        Package pkg = packageValue.getPackage();
+        if (pkg.containsErrors()) {
+          throw new BuildFileContainsErrorsException(label.getPackageIdentifier());
+        }
         return packageValue.getPackage().getTarget(label.getName());
       } else {
         throw (NoSuchThingException) Preconditions.checkNotNull(
@@ -601,7 +606,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     Map<SkyKey, SkyValue> packageValues = graph.getSuccessfulValues(resultKeys);
     ImmutableSet.Builder<Target> result = ImmutableSet.builder();
     for (SkyValue value : packageValues.values()) {
-      result.add(((PackageValue) value).getPackage().getBuildFile());
+      Package pkg = ((PackageValue) value).getPackage();
+      if (!pkg.containsErrors()) {
+        result.add(pkg.getBuildFile());
+      }
     }
     return result.build();
   }

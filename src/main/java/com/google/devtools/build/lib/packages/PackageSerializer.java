@@ -166,7 +166,6 @@ public class PackageSerializer {
     }
 
     builder.setContainsErrors(pkg.containsErrors());
-    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
 
     builder.build().writeDelimitedTo(out);
 

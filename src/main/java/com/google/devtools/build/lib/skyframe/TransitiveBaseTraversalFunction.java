@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -303,9 +304,13 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
         return ValuesMissing.INSTANCE;
       }
 
+      Package pkg = packageValue.getPackage();
+      if (pkg.containsErrors()) {
+        throw new BuildFileContainsErrorsException(label.getPackageIdentifier());
+      }
       packageLoadedSuccessfully = true;
       try {
-        target = packageValue.getPackage().getTarget(label.getName());
+        target = pkg.getTarget(label.getName());
       } catch (NoSuchTargetException unexpected) {
         // Not expected since the TargetMarkerFunction would have failed earlier if the Target
         // was not present.
@@ -318,18 +323,9 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
 
       // We know that a Target may be extracted, but we need to get it out of the Package
       // (which is known to be in error).
-      Package pkg;
-      try {
-        PackageValue packageValue = (PackageValue) env.getValueOrThrow(packageKey,
-            NoSuchPackageException.class);
-        if (packageValue == null) {
-          return ValuesMissing.INSTANCE;
-        }
-        throw new IllegalStateException(
-            "Expected bad package: " + label.getPackageIdentifier());
-      } catch (NoSuchPackageException nsp) {
-        pkg = Preconditions.checkNotNull(nsp.getPackage(), label.getPackageIdentifier());
-      }
+      PackageValue packageValue =
+          (PackageValue) Preconditions.checkNotNull(env.getValue(packageKey), label);
+      Package pkg = packageValue.getPackage();
       try {
         target = pkg.getTarget(label.getName());
       } catch (NoSuchTargetException nste) {

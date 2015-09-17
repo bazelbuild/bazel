@@ -387,9 +387,6 @@ public class PackageDeserializer {
     if (packagePb.hasContainsErrors() && packagePb.getContainsErrors()) {
       builder.setContainsErrors();
     }
-    if (packagePb.hasContainsTemporaryErrors() && packagePb.getContainsTemporaryErrors()) {
-      builder.setContainsTemporaryErrors();
-    }
 
     deserializeTargets(in, context);
   }

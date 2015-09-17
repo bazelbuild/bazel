@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 import javax.annotation.Nullable;
 
@@ -58,11 +57,10 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       return null;
     }
     SkyKey key = PackageValue.key(label.getPackageIdentifier());
-    SkyValue value = env.getValue(key);
-    if (value == null) {
+    PackageValue packageValue = (PackageValue) env.getValue(key);
+    if (packageValue == null || packageValue.getPackage().containsErrors()) {
       return null;
     }
-    PackageValue packageValue = (PackageValue) value;
     return packageValue.getPackage().getTarget(label.getName());
   }
 }

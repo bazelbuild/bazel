@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
-import javax.annotation.Nullable;
-
 /**
  * Exception indicating a failed attempt to access a package that could not
  * be read or had syntax errors.
  */
 public class BuildFileContainsErrorsException extends NoSuchPackageException {
-
-  private Package pkg;
+  public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier) {
+    super(
+        packageIdentifier,
+        "Package '" + packageIdentifier.getPackageFragment().getPathString() + "' contains errors");
+  }
 
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message) {
     super(packageIdentifier, "error loading package", message);
@@ -33,16 +34,5 @@ public class BuildFileContainsErrorsException extends NoSuchPackageException {
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message,
       Throwable cause) {
     super(packageIdentifier, "error loading package", message, cause);
-  }
-
-  public BuildFileContainsErrorsException(Package pkg, String msg) {
-    this(pkg.getPackageIdentifier(), msg);
-    this.pkg = pkg;
-  }
-
-  @Override
-  @Nullable
-  public Package getPackage() {
-    return pkg;
   }
 }

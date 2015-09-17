@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -35,6 +36,12 @@ public class PackageValue implements SkyValue {
     this.pkg = Preconditions.checkNotNull(pkg);
   }
 
+  /**
+   * Returns the package. This package may contain errors, in which case the caller should throw
+   * a {@link BuildFileContainsErrorsException} if an error-free package is needed. See also
+   * {@link PackageErrorFunction} for the case where encountering a package with errors should shut
+   * down the build but the caller can handle packages with errors.
+   */
   public Package getPackage() {
     return pkg;
   }

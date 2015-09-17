@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -74,9 +75,15 @@ public final class AspectFunction implements SkyFunction {
       return null;
     }
 
+    Package pkg = packageValue.getPackage();
+    if (pkg.containsErrors()) {
+      throw new AspectFunctionException(
+          skyKey, new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
+    }
+
     Target target;
     try {
-      target = packageValue.getPackage().getTarget(key.getLabel().getName());
+      target = pkg.getTarget(key.getLabel().getName());
     } catch (NoSuchTargetException e) {
       throw new AspectFunctionException(skyKey, e);
     }

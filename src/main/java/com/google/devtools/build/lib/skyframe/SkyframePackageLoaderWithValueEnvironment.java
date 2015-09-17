@@ -46,26 +46,15 @@ class SkyframePackageLoaderWithValueEnvironment implements
     this.env = env;
   }
 
-  private Package getPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException{
+  @Override
+  public Package getLoadedPackage(final PackageIdentifier pkgIdentifier)
+      throws NoSuchPackageException {
     SkyKey key = PackageValue.key(pkgIdentifier);
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
     if (value != null) {
       return value.getPackage();
     }
     return null;
-  }
-
-  @Override
-  public Package getLoadedPackage(final PackageIdentifier pkgIdentifier)
-      throws NoSuchPackageException {
-    try {
-      return getPackage(pkgIdentifier);
-    } catch (NoSuchPackageException e) {
-      if (e.getPackage() != null) {
-        return e.getPackage();
-      }
-      throw e;
-    }
   }
 
   @Override

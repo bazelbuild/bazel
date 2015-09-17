@@ -62,13 +62,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     if (graph.exists(pkgKey)) {
       pkgValue = (PackageValue) graph.getValue(pkgKey);
       if (pkgValue == null) {
-        NoSuchPackageException noSuchPackageException =
-            (NoSuchPackageException) Preconditions.checkNotNull(graph.getException(pkgKey), pkgKey);
-        Package pkg = noSuchPackageException.getPackage();
-        if (pkg == null) {
-          throw noSuchPackageException;
-        }
-        return pkg;
+        throw (NoSuchPackageException)
+            Preconditions.checkNotNull(graph.getException(pkgKey), pkgKey);
       }
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,

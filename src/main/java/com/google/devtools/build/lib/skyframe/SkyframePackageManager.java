@@ -78,14 +78,7 @@ class SkyframePackageManager implements PackageManager {
   @Override
   public Package getPackage(EventHandler eventHandler, PackageIdentifier packageIdentifier)
       throws NoSuchPackageException, InterruptedException {
-    try {
-      return packageLoader.getPackage(eventHandler, packageIdentifier);
-    } catch (NoSuchPackageException e) {
-      if (e.getPackage() != null) {
-        return e.getPackage();
-      }
-      throw e;
-    }
+    return packageLoader.getPackage(eventHandler, packageIdentifier);
   }
 
   @Override

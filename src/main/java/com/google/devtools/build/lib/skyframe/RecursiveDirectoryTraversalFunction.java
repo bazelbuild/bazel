@@ -163,15 +163,18 @@ abstract class RecursiveDirectoryTraversalFunction
             return null;
           }
           pkg = pkgValue.getPackage();
+          if (pkg.containsErrors()) {
+            env
+                .getListener()
+                .handle(
+                    Event.error("package contains errors: " + rootRelativePath.getPathString()));
+          }
         } catch (NoSuchPackageException e) {
           // The package had errors, but don't fail-fast as there might be subpackages below the
-          // current directory, and there might be targets in the package that were successfully
-          // loaded.
-          env.getListener().handle(Event.error(
-              "package contains errors: " + rootRelativePath.getPathString()));
-          if (e.getPackage() != null) {
-            pkg = e.getPackage();
-          }
+          // current directory.
+          env
+              .getListener()
+              .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
         }
         if (pkg != null) {
           visitor.visitPackageValue(pkg, env);

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -162,9 +163,15 @@ public class TransitiveTargetFunction
       for (Entry<Attribute, Label> entry : transitions.entries()) {
         SkyKey packageKey = PackageValue.key(entry.getValue().getPackageIdentifier());
         try {
-          PackageValue pkgValue = (PackageValue) env.getValueOrThrow(packageKey,
-              NoSuchThingException.class);
+          PackageValue pkgValue =
+              (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
           if (pkgValue == null) {
+            continue;
+          }
+          Package pkg = pkgValue.getPackage();
+          if (pkg.containsErrors()) {
+            // Do nothing. This error was handled when we computed the corresponding
+            // TransitiveTargetValue.
             continue;
           }
           Collection<Label> labels = AspectDefinition.visitAspectsIfRequired(target, entry.getKey(),

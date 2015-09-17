@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
-import javax.annotation.Nullable;
-
 /**
  * Exception indicating an attempt to access a package which is not found, does
  * not exist, or can't be parsed into a package.
@@ -49,13 +47,5 @@ public abstract class NoSuchPackageException extends NoSuchThingException {
 
   public PackageIdentifier getPackageId() {
     return packageId;
-  }
-
-  /**
-   * Return the package if parsing completed enough to construct it. May return null.
-   */
-  @Nullable
-  public Package getPackage() {
-    return null;
   }
 }

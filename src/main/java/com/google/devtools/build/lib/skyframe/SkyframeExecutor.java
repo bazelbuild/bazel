@@ -326,6 +326,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PACKAGE, new PackageFunction(
         reporter, pkgFactory, packageManager, showLoadingProgress, packageFunctionCache,
         preprocessCache, numPackagesLoaded));
+    map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
     map.put(SkyFunctions.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
@@ -1356,20 +1357,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
 
       try {
-        return callUninterruptibly(new Callable<Set<Package>>() {
-          @Override
-          public Set<Package> call() throws Exception {
-            EvaluationResult<PackageValue> result = buildDriver.evaluate(
-                valueNames, false, ResourceUsage.getAvailableProcessors(), errorEventListener);
-            Preconditions.checkState(!result.hasError(),
-                "unexpected errors: %s", result.errorMap());
-            Set<Package> packages = Sets.newHashSet();
-            for (PackageValue value : result.values()) {
-              packages.add(value.getPackage());
-            }
-            return packages;
-          }
-        });
+        return callUninterruptibly(
+            new Callable<Set<Package>>() {
+              @Override
+              public Set<Package> call() throws Exception {
+                EvaluationResult<PackageValue> result =
+                    buildDriver.evaluate(
+                        valueNames,
+                        false,
+                        ResourceUsage.getAvailableProcessors(),
+                        errorEventListener);
+                Preconditions.checkState(
+                    !result.hasError(), "unexpected errors: %s", result.errorMap());
+                Set<Package> packages = Sets.newHashSet();
+                for (PackageValue value : result.values()) {
+                  Package pkg = value.getPackage();
+                  Preconditions.checkState(!pkg.containsErrors(), pkg.getName());
+                  packages.add(pkg);
+                }
+                return packages;
+              }
+            });
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
@@ -1475,8 +1483,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         EvaluationResult<PackageValue> result =
             buildDriver.evaluate(ImmutableList.of(key), /*keepGoing=*/true,
                 DEFAULT_THREAD_COUNT, eventHandler);
-        if (result.hasError()) {
-          ErrorInfo error = result.getError();
+        ErrorInfo error = result.getError(key);
+        if (error != null) {
           if (!Iterables.isEmpty(error.getCycleInfo())) {
             reportCycles(result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
@@ -1486,7 +1494,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
           Throwable e = error.getException();
           // PackageFunction should be catching, swallowing, and rethrowing all transitive
-          // errors as NoSuchPackageExceptions.
+          // errors as NoSuchPackageExceptions or constructing packages with errors, since we're in
+          // keep_going mode.
           Throwables.propagateIfInstanceOf(e, NoSuchPackageException.class);
           throw new IllegalStateException("Unexpected Exception type from PackageValue for '"
               + pkgName + "'' with root causes: " + Iterables.toString(error.getRootCauses()), e);
@@ -1500,16 +1509,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // so this will never throw for packages that are not loaded. However, no code currently
       // relies on having the exception thrown.
       try {
-        return callUninterruptibly(new Callable<Package>() {
-          @Override
-          public Package call() throws Exception {
-            return getPackage(errorEventListener, pkgName);
-          }
-        });
+        return callUninterruptibly(
+            new Callable<Package>() {
+              @Override
+              public Package call() throws InterruptedException, NoSuchPackageException {
+                return getPackage(errorEventListener, pkgName);
+              }
+            });
       } catch (NoSuchPackageException e) {
-        if (e.getPackage() != null) {
-          return e.getPackage();
-        }
         throw e;
       } catch (Exception e) {
         throw new IllegalStateException(e);  // Should never happen.

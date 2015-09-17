@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -150,6 +152,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
+    Package pkg = packageValue.getPackage();
+    if (pkg.containsErrors()) {
+      throw new ConfiguredTargetFunctionException(
+          new BuildFileContainsErrorsException(lc.getLabel().getPackageIdentifier()),
+          Transience.PERSISTENT);
+    }
     Target target;
     try {
       target = packageValue.getPackage().getTarget(lc.getLabel().getName());
@@ -789,6 +797,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
   public static final class ConfiguredTargetFunctionException extends SkyFunctionException {
     public ConfiguredTargetFunctionException(NoSuchTargetException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    public ConfiguredTargetFunctionException(
+        BuildFileContainsErrorsException e, Transience transience) {
+      super(e, transience);
     }
 
     private ConfiguredTargetFunctionException(ConfiguredValueCreationException error) {

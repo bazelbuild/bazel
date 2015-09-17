@@ -114,8 +114,8 @@ public interface Preprocessor {
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
       return new Result(
           buildFileSource,
-          /*preprocessed=*/false,
-          /*containsErrors=*/false,
+          /*preprocessed=*/ false,
+          /*containsErrors=*/ false,
           ImmutableList.<Event>of());
     }
 

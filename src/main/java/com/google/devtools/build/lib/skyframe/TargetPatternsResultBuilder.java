@@ -18,12 +18,10 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
 import java.util.HashSet;
@@ -106,16 +104,9 @@ abstract class TargetPatternsResultBuilder {
 
   private Package findPackageInGraph(PackageIdentifier pkgIdentifier,
       WalkableGraph walkableGraph) {
-    SkyKey key = PackageValue.key(pkgIdentifier);
-    Package pkg = null;
-    NoSuchPackageException nspe = (NoSuchPackageException) walkableGraph.getException(key);
-    if (nspe != null) {
-      pkg = nspe.getPackage();
-    } else {
-      pkg = ((PackageValue) walkableGraph.getValue(key)).getPackage();
-    }
-    Preconditions.checkNotNull(pkg, pkgIdentifier);
-    return pkg;
+    return Preconditions.checkNotNull(
+            ((PackageValue) walkableGraph.getValue(PackageValue.key(pkgIdentifier))), pkgIdentifier)
+        .getPackage();
   }
 
   /**

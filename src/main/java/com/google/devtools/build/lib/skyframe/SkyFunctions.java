@@ -40,6 +40,7 @@ public final class SkyFunctions {
       SkyFunctionName.create("SKYLARK_IMPORTS_LOOKUP");
   public static final SkyFunctionName GLOB = SkyFunctionName.create("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.create("PACKAGE");
+  public static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.create("PACKAGE_ERROR");
   public static final SkyFunctionName TARGET_MARKER = SkyFunctionName.create("TARGET_MARKER");
   public static final SkyFunctionName TARGET_PATTERN = SkyFunctionName.create("TARGET_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERNS =

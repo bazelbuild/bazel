@@ -538,7 +538,7 @@ public final class PackageFactory {
     } catch (IOException expected) {
       context.eventHandler.handle(Event.error(ast.getLocation(),
               "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage()));
-      context.pkgBuilder.setContainsTemporaryErrors();
+      context.pkgBuilder.setContainsErrors();
       return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } catch (GlobCache.BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
