@@ -125,10 +125,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -190,8 +187,6 @@ public final class BlazeRuntime {
 
   private final AtomicInteger storedExitCode = new AtomicInteger();
 
-  private final Map<String, String> clientEnv;
-
   // We pass this through here to make it available to the MasterLogWriter.
   private final OptionsProvider startupOptionsProvider;
 
@@ -212,7 +207,6 @@ public final class BlazeRuntime {
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationFactory configurationFactory, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
-      Map<String, String> clientEnv,
       TimestampGranularityMonitor timestampGranularityMonitor,
       SubscriberExceptionHandler eventBusExceptionHandler,
       BinTools binTools, ProjectFile.Provider projectFileProvider) {
@@ -229,8 +223,6 @@ public final class BlazeRuntime {
     this.loadingPhaseRunner = new LoadingPhaseRunner(
         skyframeExecutor.getPackageManager(),
         pkgFactory.getRuleClassNames());
-
-    this.clientEnv = clientEnv;
 
     this.blazeModules = blazeModules;
     this.ruleClassProvider = ruleClassProvider;
@@ -683,7 +675,7 @@ public final class BlazeRuntime {
     }
     loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
 
-    updateClientEnv(options.clientEnv, options.ignoreClientEnv);
+    env.updateClientEnv(options.clientEnv, options.ignoreClientEnv);
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
@@ -727,12 +719,13 @@ public final class BlazeRuntime {
       try {
         for (Map.Entry<String, String> entry : testEnv.entrySet()) {
           if (entry.getValue() == null) {
-            String clientValue = clientEnv.get(entry.getKey());
+            String clientValue = env.getClientEnv().get(entry.getKey());
             if (clientValue != null) {
               optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
                   "test environment variable from client environment",
                   ImmutableList.of(
-                      "--test_env=" + entry.getKey() + "=" + clientEnv.get(entry.getKey())));
+                      "--test_env=" + entry.getKey() + "="
+                          + env.getClientEnv().get(entry.getKey())));
             }
           }
         }
@@ -745,7 +738,7 @@ public final class BlazeRuntime {
     }
 
     env.getEventBus().post(
-        new CommandStartEvent(command.name(), commandId, clientEnv, workingDirectory));
+        new CommandStartEvent(command.name(), commandId, env.getClientEnv(), workingDirectory));
     // Initialize exit code to dummy value for afterCommand.
     storedExitCode.set(ExitCode.RESERVED.getNumericExitCode());
   }
@@ -800,26 +793,6 @@ public final class BlazeRuntime {
   public static void setupLogging(Level level) {
     templateLogger.setLevel(level);
     templateLogger.info("Log level: " + templateLogger.getLevel());
-  }
-
-  /**
-   * Return an unmodifiable view of the blaze client's environment when it
-   * invoked the most recent command. Updates from future requests will be
-   * accessible from this view.
-   */
-  public Map<String, String> getClientEnv() {
-    return Collections.unmodifiableMap(clientEnv);
-  }
-
-  @VisibleForTesting
-  void updateClientEnv(List<Map.Entry<String, String>> clientEnvList, boolean ignoreClientEnv) {
-    clientEnv.clear();
-
-    Collection<Map.Entry<String, String>> env =
-        ignoreClientEnv ? System.getenv().entrySet() : clientEnvList;
-    for (Map.Entry<String, String> entry : env) {
-      clientEnv.put(entry.getKey(), entry.getValue());
-    }
   }
 
   /**
@@ -1500,7 +1473,6 @@ public final class BlazeRuntime {
       UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
 
       Preconditions.checkNotNull(clock);
-      Map<String, String> clientEnv = new HashMap<>();
       TimestampGranularityMonitor timestampMonitor = new TimestampGranularityMonitor(clock);
 
       Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
@@ -1653,8 +1625,7 @@ public final class BlazeRuntime {
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
           pkgFactory, ruleClassProvider, configurationFactory,
           clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
-          clientEnv, timestampMonitor,
-          eventBusExceptionHandler, binTools, projectFileProvider);
+          timestampMonitor, eventBusExceptionHandler, binTools, projectFileProvider);
     }
 
     public Builder setBinTools(BinTools binTools) {

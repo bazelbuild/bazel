@@ -305,7 +305,7 @@ public class RunCommand implements BlazeCommand  {
         null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
 
     com.google.devtools.build.lib.shell.Command command = new CommandBuilder()
-        .addArgs(cmdLine).setEnv(runtime.getClientEnv()).setWorkingDir(workingDir).build();
+        .addArgs(cmdLine).setEnv(env.getClientEnv()).setWorkingDir(workingDir).build();
 
     try {
       // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the

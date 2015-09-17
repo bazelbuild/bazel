@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
@@ -63,13 +64,13 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
   private final ImmutableList<ActionContext> strategies;
   private final BlazeRuntime runtime;
 
-  public StandaloneActionContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
+  public StandaloneActionContextProvider(CommandEnvironment env, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
-    this.runtime = runtime;
+    this.runtime = env.getRuntime();
 
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
-        runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getClientEnv(),
+        runtime.getStartupOptionsProvider(), runtime.getBinTools(), env.getClientEnv(),
         runtime.getWorkspace());
 
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();

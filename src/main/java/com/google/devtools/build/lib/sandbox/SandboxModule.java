@@ -36,30 +36,33 @@ import java.util.concurrent.TimeUnit;
  * This module provides the Sandbox spawn strategy.
  */
 public class SandboxModule extends BlazeModule {
-  private final ExecutorService backgroundWorkers = Executors.newCachedThreadPool();
-  private BuildRequest buildRequest;
-  private CommandEnvironment env;
-  private BlazeRuntime runtime;
-  private Boolean sandboxingSupported = null;
-
   public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
       "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "
           + "be guaranteed. See http://bazel.io/docs/bazel-user-manual.html#sandboxing for more "
           + "information. You can turn off this warning via --ignore_unsupported_sandboxing";
 
+  // Per-server state
+  private final ExecutorService backgroundWorkers = Executors.newCachedThreadPool();
+  private Boolean sandboxingSupported = null;
+
+  // Per-command state
+  private CommandEnvironment env;
+  private BuildRequest buildRequest;
+
+  private synchronized boolean isSandboxingSupported(BlazeRuntime runtime) {
+    if (sandboxingSupported == null) {
+      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
+    }
+    return sandboxingSupported.booleanValue();
+  }
+
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
     Preconditions.checkNotNull(buildRequest);
     Preconditions.checkNotNull(env);
-
-    // Cache
-    if (sandboxingSupported == null) {
-      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
-    }
-
-    if (sandboxingSupported) {
+    if (isSandboxingSupported(env.getRuntime())) {
       return ImmutableList.<ActionContextProvider>of(
-          new SandboxActionContextProvider(runtime, buildRequest, backgroundWorkers));
+          new SandboxActionContextProvider(env, buildRequest, backgroundWorkers));
     }
 
     // For now, sandboxing is only supported on Linux and there's not much point in showing a scary
@@ -75,15 +78,9 @@ public class SandboxModule extends BlazeModule {
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
     Preconditions.checkNotNull(env);
-
-    if (sandboxingSupported == null) {
-      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
-    }
-
-    if (sandboxingSupported) {
+    if (isSandboxingSupported(env.getRuntime())) {
       return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
     }
-
     return ImmutableList.of();
   }
 
@@ -97,8 +94,13 @@ public class SandboxModule extends BlazeModule {
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
     this.env = env;
-    this.runtime = env.getRuntime();
     env.getEventBus().register(this);
+  }
+
+  @Override
+  public void afterCommand() {
+    this.env = null;
+    this.buildRequest = null;
   }
 
   @Subscribe
