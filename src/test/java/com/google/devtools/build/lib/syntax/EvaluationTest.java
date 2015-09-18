@@ -430,6 +430,11 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSingleTuple() throws Exception {
+    newTest().setUp("a, = [1]").testLookup("a", 1);
+  }
+
+  @Test
   public void testHeterogeneousDict() throws Exception {
     newTest().setUp("d = {'str': 1, 2: 3}", "a = d['str']", "b = d[2]").testLookup("a", 1)
         .testLookup("b", 3);

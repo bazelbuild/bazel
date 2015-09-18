@@ -101,6 +101,7 @@ class Parser {
       EnumSet.of(
           TokenKind.EOF,
           TokenKind.NEWLINE,
+          TokenKind.EQUALS,
           TokenKind.RBRACE,
           TokenKind.RBRACKET,
           TokenKind.RPAREN,
