@@ -130,6 +130,10 @@ public class MemoizingEvaluatorTest {
     return true;
   }
 
+  protected boolean rootCausesStored() {
+    return true;
+  }
+
   @Before
   public void initializeReporter() {
     eventCollector = new EventCollector(EventKind.ALL_EVENTS);
@@ -369,7 +373,9 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(i == 0, "top");
       assertTrue(result.hasError());
-      assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      if (i == 0 || rootCausesStored()) {
+        assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       if (i == 0 || eventsStored()) {

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 
@@ -31,10 +32,9 @@ import javax.annotation.Nullable;
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 public class ErrorInfo implements Serializable {
-  /**
-   * The set of descendants of this value that failed to build
-   */
-  private final NestedSet<SkyKey> rootCauses;
+  /** The set of descendants of this value that failed to build. */
+  // Non-final only to allow for serialization.
+  private transient NestedSet<SkyKey> rootCauses;
 
   /**
    * An exception thrown upon a value's failure to build. The exception is used for reporting, and
@@ -153,5 +153,10 @@ public class ErrorInfo implements Serializable {
    */
   public boolean isCatastrophic() {
     return isCatastrophic;
+  }
+
+  private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+    in.defaultReadObject();
+    rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 }
