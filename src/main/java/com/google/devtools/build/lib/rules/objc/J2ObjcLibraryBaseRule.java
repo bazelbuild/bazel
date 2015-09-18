@@ -47,6 +47,8 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         .add(attr("entry_classes", STRING_LIST))
         .add(attr("$jre_emul_lib", LABEL)
             .value(env.getLabel("//third_party/java/j2objc:jre_emul_lib")))
+        .add(attr("$protobuf_lib", LABEL)
+            .value(env.getLabel("//third_party/java/j2objc:proto_runtime")))
         .build();
   }
 

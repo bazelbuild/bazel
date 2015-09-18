@@ -128,6 +128,8 @@ public class BazelJavaRuleClasses {
       "genproto",  // TODO(bazel-team): we should filter using providers instead (skylark rule).
       "java_import",
       "java_library",
+      // There is no Java protoc for Bazel--yet. This is here for the benefit of J2 protos.
+      "proto_library",
       "sh_binary",
       "sh_library");
 

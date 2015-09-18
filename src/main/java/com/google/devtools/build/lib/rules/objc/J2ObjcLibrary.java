@@ -72,18 +72,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
 
     if (j2ObjcSrcsProvider.hasProtos()) {
-      if (ruleContext.attributes().has("$protobuf_lib", BuildType.LABEL)) {
-        objcProviderBuilder.addTransitiveAndPropagate(
-            ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
-        xcodeSupport.addDependencies(
-            xcodeProviderBuilder, new Attribute("$protobuf_lib", Mode.TARGET));
-      } else {
-        // In theory no Bazel rule should ever provide protos, because they're not supported yet.
-        // If we reach here, it's a programming error, not a rule error.
-        throw new IllegalStateException(
-            "Found protos in the dependencies of rule " + ruleContext.getLabel() + ", "
-                + "but protos are not supported in Bazel.");
-      }
+      // Public J2 in Bazel provides no protobuf_lib, and if OSS users try to sneakily use
+      // undocumented functionality to reach here, the below code will error.
+      objcProviderBuilder.addTransitiveAndPropagate(
+          ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
+      xcodeSupport.addDependencies(
+          xcodeProviderBuilder, new Attribute("$protobuf_lib", Mode.TARGET));
     }
 
     for (J2ObjcSource j2objcSource : j2ObjcSrcsProvider.getSrcs()) {

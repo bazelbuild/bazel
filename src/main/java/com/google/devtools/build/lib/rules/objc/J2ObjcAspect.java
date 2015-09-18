@@ -59,9 +59,9 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
    * Adds the attribute aspect args to the given AspectDefinition.Builder.
    */
   protected AspectDefinition.Builder addAttributeAspects(AspectDefinition.Builder builder) {
-    return builder.attributeAspect("deps", J2ObjcAspect.class)
-        .attributeAspect("exports", J2ObjcAspect.class)
-        .attributeAspect("runtime_deps", J2ObjcAspect.class);
+    return builder.attributeAspect("deps", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class)
+        .attributeAspect("exports", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class)
+        .attributeAspect("runtime_deps", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class);
   }
 
   @Override
