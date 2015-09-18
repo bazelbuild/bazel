@@ -155,6 +155,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      * (e.g. a test host). The given provider is not registered as a dependency with this provider.
      */
     private void addTransitiveSets(XcodeProvider dependencyish) {
+      additionalSources.addTransitive(dependencyish.additionalSources);
       inputsToXcodegen.addTransitive(dependencyish.inputsToXcodegen);
       propagatedUserHeaderSearchPaths.addTransitive(dependencyish.propagatedUserHeaderSearchPaths);
       propagatedHeaderSearchPaths.addTransitive(dependencyish.propagatedHeaderSearchPaths);
