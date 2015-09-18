@@ -114,13 +114,8 @@ filegroup(
 )
 
 java_library(
-    name = "packages",
-    srcs = glob([
-        "com/google/devtools/build/lib/packages/*.java",
-        "com/google/devtools/build/lib/pkgcache/*.java",
-        "com/google/devtools/build/lib/syntax/*.java",
-    ]),
-    exports = [":cmdline"],
+    name = "syntax",
+    srcs = glob(["com/google/devtools/build/lib/syntax/*.java"]),
     deps = [
         ":cmdline",
         ":collect",
@@ -131,6 +126,31 @@ java_library(
         ":vfs",
         "//src/main/protobuf:proto_build",
         "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "packages",
+    srcs = glob([
+        "com/google/devtools/build/lib/packages/*.java",
+        "com/google/devtools/build/lib/pkgcache/*.java",
+    ]),
+    exports = [
+        ":cmdline",
+        ":syntax",
+    ],
+    deps = [
+        ":cmdline",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":options",
+        ":syntax",
+        ":vfs",
+        "//src/main/protobuf:proto_build",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
