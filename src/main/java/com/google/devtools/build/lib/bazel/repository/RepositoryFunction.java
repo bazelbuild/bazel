@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -245,9 +245,9 @@ public abstract class RepositoryFunction implements SkyFunction {
   }
 
   @Nullable
-  public static ExternalPackage getExternalPackage(Environment env)
+  public static Package getExternalPackage(Environment env)
       throws RepositoryFunctionException {
-    SkyKey packageKey = PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER);
+    SkyKey packageKey = PackageValue.key(Package.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue packageValue;
     try {
       packageValue = (PackageValue) env.getValueOrThrow(packageKey,
@@ -255,17 +255,18 @@ public abstract class RepositoryFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new RepositoryFunctionException(
           new BuildFileNotFoundException(
-              ExternalPackage.PACKAGE_IDENTIFIER, "Could not load //external package"),
+              Package.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     if (packageValue == null) {
       return null;
     }
-    ExternalPackage externalPackage = (ExternalPackage) packageValue.getPackage();
+
+    Package externalPackage = packageValue.getPackage();
     if (externalPackage.containsErrors()) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              ExternalPackage.PACKAGE_IDENTIFIER, "Could not load //external package"),
+              Package.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     return externalPackage;
@@ -293,15 +294,16 @@ public abstract class RepositoryFunction implements SkyFunction {
   public static Rule getRule(
       RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
       throws RepositoryFunctionException {
-    ExternalPackage externalPackage = getExternalPackage(env);
+    Package externalPackage = getExternalPackage(env);
     if (externalPackage == null) {
       return null;
     }
-    Rule rule = externalPackage.getRepositoryInfo(repositoryName);
+
+    Rule rule = externalPackage.getRule(repositoryName.strippedName());
     if (rule == null) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              ExternalPackage.PACKAGE_IDENTIFIER,
+              Package.EXTERNAL_PACKAGE_IDENTIFIER,
               "The repository named '" + repositoryName + "' could not be resolved"),
           Transience.PERSISTENT);
     }
@@ -353,8 +355,9 @@ public abstract class RepositoryFunction implements SkyFunction {
   }
 
   public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(
-        ExternalPackage.PACKAGE_IDENTIFIER.getPackageFragment());
+    return directories
+        .getOutputBase()
+        .getRelative(Package.EXTERNAL_PACKAGE_IDENTIFIER.getPackageFragment());
   }
 
   /**

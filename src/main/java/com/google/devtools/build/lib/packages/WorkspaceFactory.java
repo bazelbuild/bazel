@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.ExternalPackage.Builder;
+import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -108,8 +108,8 @@ public class WorkspaceFactory {
 
   private static BuiltinFunction newBindFunction(
       final RuleFactory ruleFactory, final Builder builder) {
-    return new BuiltinFunction("bind",
-        FunctionSignature.namedOnly(1, "name", "actual"), BuiltinFunction.USE_LOC) {
+    return new BuiltinFunction(
+        "bind", FunctionSignature.namedOnly(1, "name", "actual"), BuiltinFunction.USE_LOC) {
       public Object invoke(String name, String actual, Location loc)
           throws EvalException, InterruptedException {
         Label nameLabel = null;
@@ -117,10 +117,18 @@ public class WorkspaceFactory {
           nameLabel = Label.parseAbsolute("//external:" + name);
           try {
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
-            builder.addBindRule(ruleClass, nameLabel,
-                actual == null ? null : Label.parseAbsolute(actual), loc);
-          } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
-              LabelSyntaxException e) {
+            builder
+                .externalPackageData()
+                .addBindRule(
+                    builder,
+                    ruleClass,
+                    nameLabel,
+                    actual == null ? null : Label.parseAbsolute(actual),
+                    loc);
+          } catch (
+              RuleFactory.InvalidRuleException | Package.NameConflictException
+                      | LabelSyntaxException
+                  e) {
             throw new EvalException(loc, e.getMessage());
           }
 
@@ -138,16 +146,19 @@ public class WorkspaceFactory {
    */
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final Builder builder, final String ruleClassName) {
-    return new BuiltinFunction(ruleClassName,
-        FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
+    return new BuiltinFunction(
+        ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
       public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         try {
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-          builder.createAndAddRepositoryRule(ruleClass, bindRuleClass, kwargs, ast, env);
-        } catch (RuleFactory.InvalidRuleException | Package.NameConflictException |
-            LabelSyntaxException e) {
+          builder
+              .externalPackageData()
+              .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
+        } catch (
+            RuleFactory.InvalidRuleException | Package.NameConflictException | LabelSyntaxException
+                e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
         return NONE;

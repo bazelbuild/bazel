@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.MakeEnvironment;
 import com.google.devtools.build.lib.packages.Package;
@@ -128,8 +127,10 @@ public class PackageFactoryApparatus {
     GlobCache globCache = new GlobCache(
         buildFile.getParentDirectory(), packageId, locator, null, TestUtils.getPool());
     LegacyGlobber globber = new LegacyGlobber(globCache);
-    ExternalPackage externalPkg = new ExternalPackage.Builder(
-        buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING").build();
+    Package externalPkg =
+        Package.newExternalPackageBuilder(
+                buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING")
+            .build();
     LegacyBuilder resultBuilder =
         factory.evaluateBuildFile(
             externalPkg,

@@ -1022,16 +1022,32 @@ public final class PackageFactory {
     }
   }
 
+  @VisibleForTesting
+  public Package createPackageForTesting(
+      PackageIdentifier packageId,
+      Path buildFile,
+      CachingPackageLocator locator,
+      EventHandler eventHandler)
+      throws NoSuchPackageException, InterruptedException {
+    Package externalPkg =
+        Package.newExternalPackageBuilder(buildFile.getRelative("WORKSPACE"), "TESTING").build();
+    return createPackageForTesting(packageId, externalPkg, buildFile, locator, eventHandler);
+  }
+
   /**
    * Same as {@link #createPackage}, but does the required validation of "packageName" first,
    * throwing a {@link NoSuchPackageException} if the name is invalid.
    */
   @VisibleForTesting
-  public Package createPackageForTesting(PackageIdentifier packageId,
-      Path buildFile, CachingPackageLocator locator, EventHandler eventHandler)
-          throws NoSuchPackageException, InterruptedException {
-    String error = LabelValidator.validatePackageName(
-        packageId.getPackageFragment().getPathString());
+  public Package createPackageForTesting(
+      PackageIdentifier packageId,
+      Package externalPkg,
+      Path buildFile,
+      CachingPackageLocator locator,
+      EventHandler eventHandler)
+      throws NoSuchPackageException, InterruptedException {
+    String error =
+        LabelValidator.validatePackageName(packageId.getPackageFragment().getPathString());
     if (error != null) {
       throw new BuildFileNotFoundException(
           packageId, "illegal package name: '" + packageId + "' (" + error + ")");
@@ -1050,9 +1066,6 @@ public final class PackageFactory {
           Event.error(Location.fromFile(buildFile), "preprocessing failed: " + e.getMessage()));
       throw new BuildFileContainsErrorsException(packageId, "preprocessing failed", e);
     }
-    ExternalPackage externalPkg =
-        new ExternalPackage.Builder(
-            buildFile.getRelative("WORKSPACE"), ruleClassProvider.getRunfilesPrefix()).build();
 
     Package result =
         createPackageFromPreprocessingResult(

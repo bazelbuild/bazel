@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -386,10 +385,10 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageId.equals(ExternalPackage.PACKAGE_IDENTIFIER)) {
+    if (packageId.equals(Package.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
-    SkyKey externalPackageKey = PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER);
+    SkyKey externalPackageKey = PackageValue.key(Package.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackage = (PackageValue) env.getValue(externalPackageKey);
     if (externalPackage == null) {
       return null;
@@ -397,7 +396,7 @@ public class PackageFunction implements SkyFunction {
     Package externalPkg = externalPackage.getPackage();
     if (externalPkg.containsErrors()) {
       throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(ExternalPackage.PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(Package.EXTERNAL_PACKAGE_IDENTIFIER),
           Transience.PERSISTENT);
     }
 
@@ -859,7 +858,8 @@ public class PackageFunction implements SkyFunction {
 
   private static class BadWorkspaceFileException extends NoSuchPackageException {
     private BadWorkspaceFileException(String message) {
-      super(ExternalPackage.PACKAGE_IDENTIFIER,
+      super(
+          Package.EXTERNAL_PACKAGE_IDENTIFIER,
           "Error encountered while dealing with the WORKSPACE file: " + message);
     }
   }

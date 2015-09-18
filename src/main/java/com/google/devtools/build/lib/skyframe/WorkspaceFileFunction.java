@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.packages.ExternalPackage.Builder;
+import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
@@ -61,8 +61,9 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
-    Builder builder = new Builder(repoWorkspace,
-        packageFactory.getRuleClassProvider().getRunfilesPrefix());
+    Builder builder =
+        com.google.devtools.build.lib.packages.Package.newExternalPackageBuilder(
+            repoWorkspace, packageFactory.getRuleClassProvider().getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
       WorkspaceFactory parser =
           new WorkspaceFactory(

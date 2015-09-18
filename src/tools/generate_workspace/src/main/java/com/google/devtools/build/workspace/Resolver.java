@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ExternalPackage;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
@@ -66,10 +66,10 @@ public class Resolver {
   /**
    * Converts the WORKSPACE file content into an ExternalPackage.
    */
-  public ExternalPackage parse(Path workspacePath) {
+  public Package parse(Path workspacePath) {
     resolver.addHeader(workspacePath.getPathString());
-    ExternalPackage.Builder builder = new ExternalPackage.Builder(workspacePath,
-        ruleClassProvider.getRunfilesPrefix());
+    Package.Builder builder =
+        Package.newExternalPackageBuilder(workspacePath, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
       new WorkspaceFactory(builder, ruleClassProvider, mutability)
           .parse(ParserInputSource.create(workspacePath));
@@ -83,7 +83,7 @@ public class Resolver {
   /**
    * Calculates transitive dependencies of the given //external package.
    */
-  public void resolveTransitiveDependencies(ExternalPackage externalPackage) {
+  public void resolveTransitiveDependencies(Package externalPackage) {
     Location location = Location.fromFile(externalPackage.getFilename());
     for (Target target : externalPackage.getTargets()) {
       // Targets are //external:foo.
@@ -100,7 +100,7 @@ public class Resolver {
           return;
         }
         com.google.devtools.build.lib.packages.Rule workspaceRule =
-            externalPackage.getRepositoryInfo(repositoryName);
+            externalPackage.getRule(repositoryName.strippedName());
 
         DefaultModelResolver modelResolver = resolver.getModelResolver();
         AttributeMap attributeMap = AggregatingAttributeMapper.of(workspaceRule);

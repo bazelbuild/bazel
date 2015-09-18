@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.ExternalPackage;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.Type;
@@ -57,7 +57,7 @@ public class MavenServerFunction extends RepositoryFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     String repository = skyKey.argument().toString();
-    ExternalPackage externalPackage = RepositoryFunction.getExternalPackage(env);
+    Package externalPackage = RepositoryFunction.getExternalPackage(env);
     Rule repositoryRule = externalPackage.getRule(repository);
 
     boolean foundRepoRule = repositoryRule != null

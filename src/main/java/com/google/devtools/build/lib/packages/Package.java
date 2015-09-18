@@ -67,6 +67,16 @@ import java.util.Set;
  */
 public class Package implements Serializable {
 
+  public static PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER;
+
+  static {
+    try {
+      Package.EXTERNAL_PACKAGE_IDENTIFIER = PackageIdentifier.parse("//external");
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException();
+    }
+  }
+
   /**
    * Common superclass for all name-conflict exceptions.
    */
@@ -744,7 +754,14 @@ public class Package implements Serializable {
     }
   }
 
-  static class Builder {
+  public static Builder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
+    Builder b = new Builder(new Package(EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+    b.setFilename(workspacePath);
+    b.setMakeEnv(new MakeEnvironment.Builder());
+    return b;
+  }
+
+  public static class Builder {
     protected static Package newPackage(PackageIdentifier packageId, String runfilesPrefix) {
       return new Package(packageId, runfilesPrefix);
     }
@@ -776,6 +793,8 @@ public class Package implements Serializable {
 
     protected Map<Label, Path> subincludes = null;
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
+
+    protected ExternalPackageBuilder externalPackageData = new ExternalPackageBuilder();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -809,7 +828,7 @@ public class Package implements Serializable {
       }
     }
 
-    Builder(PackageIdentifier id, String runfilesPrefix) {
+    public Builder(PackageIdentifier id, String runfilesPrefix) {
       this(newPackage(id, runfilesPrefix));
     }
 
@@ -1294,6 +1313,9 @@ public class Package implements Serializable {
       if (alreadyBuilt) {
         return pkg;
       }
+
+      externalPackageData.build(this);
+
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);
       defaultDistributionSet =
@@ -1312,6 +1334,10 @@ public class Package implements Serializable {
       pkg.finishInit(this);
       alreadyBuilt = true;
       return pkg;
+    }
+
+    protected ExternalPackageBuilder externalPackageData() {
+      return externalPackageData;
     }
 
     public Package build() {

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.packages.ExternalPackage;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -134,7 +134,7 @@ public class ExternalFilesHelper {
       PackageValue pkgValue =
           (PackageValue)
               Preconditions.checkNotNull(
-                  env.getValue(PackageValue.key(ExternalPackage.PACKAGE_IDENTIFIER)));
+                  env.getValue(PackageValue.key(Package.EXTERNAL_PACKAGE_IDENTIFIER)));
       Preconditions.checkState(!pkgValue.getPackage().containsErrors());
     }
   }
