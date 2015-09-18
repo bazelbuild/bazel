@@ -20,8 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -53,7 +54,7 @@ public final class EnvironmentRule implements RuleDefinition {
           Environments may only fulfill other environments in the same environment group.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(FULFILLS_ATTRIBUTE, Type.LABEL_LIST)
+        .add(attr(FULFILLS_ATTRIBUTE, BuildType.LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .allowedFileTypes(FileTypeSet.NO_FILE)
             .nonconfigurable("used for defining constraint models - this shouldn't be configured"))

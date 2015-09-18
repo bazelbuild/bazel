@@ -22,12 +22,13 @@ import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -84,7 +85,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
 
   public void testAttributeTypeChecking() throws Exception {
     // Good typing:
-    mapper.get("srcs", Type.LABEL_LIST);
+    mapper.get("srcs", BuildType.LABEL_LIST);
 
     // Bad typing:
     try {
@@ -104,7 +105,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
   }
 
   public void testGetAttributeType() throws Exception {
-    assertEquals(Type.LABEL_LIST, mapper.getAttributeType("srcs"));
+    assertEquals(BuildType.LABEL_LIST, mapper.getAttributeType("srcs"));
     assertNull(mapper.getAttributeType("nonsense"));
   }
 
@@ -138,9 +139,9 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
 
   public void testComputedDefault() throws Exception {
     // Should return a valid ComputedDefault instance since this is a computed default:
-    assertThat(mapper.getComputedDefault("$stl", Type.LABEL))
+    assertThat(mapper.getComputedDefault("$stl", BuildType.LABEL))
         .isInstanceOf(Attribute.ComputedDefault.class);
     // Should return null since this *isn't* a computed default:
-    assertNull(mapper.getComputedDefault("srcs", Type.LABEL_LIST));
+    assertNull(mapper.getComputedDefault("srcs", BuildType.LABEL_LIST));
   }
 }

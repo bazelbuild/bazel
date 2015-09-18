@@ -161,7 +161,7 @@ public class EnvironmentGroup implements Target {
       Target env = pkgTargets.get(envName.getName());
       if (isValidEnvironment(env, envName, "", events)) {
         AttributeMap attr = NonconfigurableAttributeMapper.of((Rule) env);
-        for (Label fulfilledEnv : attr.get("fulfills", Type.LABEL_LIST)) {
+        for (Label fulfilledEnv : attr.get("fulfills", BuildType.LABEL_LIST)) {
           if (isValidEnvironment(pkgTargets.get(fulfilledEnv.getName()), fulfilledEnv,
               "in \"fulfills\" attribute of " + envName + ": ", events)) {
             directFulfillers.put(fulfilledEnv, envName);

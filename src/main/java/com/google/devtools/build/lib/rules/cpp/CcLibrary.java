@@ -30,15 +30,16 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -163,13 +164,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       helper.addPrivateHeaders(FileType.filter(
           ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
           CppFileTypes.CPP_HEADER));
       ruleContext.checkSrcsSamePackage(true);
     }
-    if (ruleContext.getRule().isAttrDefined("textual_hdrs", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       helper.addPublicTextualHeaders(
           ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
     }
@@ -187,7 +188,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // where we *do* have the correct value, it may not contain any source files to generate an
     // .so with. If that's the case, register a fake generating action to prevent a "no generating
     // action for this artifact" error.
-    if (!createDynamicLibrary && ruleContext.attributes().isConfigurable("srcs", Type.LABEL_LIST)) {
+    if (!createDynamicLibrary
+        && ruleContext.attributes().isConfigurable("srcs", BuildType.LABEL_LIST)) {
       Artifact solibArtifact = CppHelper.getLinkedArtifact(
           ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
@@ -347,7 +349,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
    * name of a genrule that generates a source file.
    */
   public static boolean appearsToHaveObjectFiles(AttributeMap rule) {
-    if ((rule instanceof RawAttributeMapper) && rule.isConfigurable("srcs", Type.LABEL_LIST)) {
+    if ((rule instanceof RawAttributeMapper) && rule.isConfigurable("srcs", BuildType.LABEL_LIST)) {
       // Since this method gets called by loading phase logic (e.g. the cc_library implicit outputs
       // function), the attribute mapper may not be able to resolve configurable attributes. When
       // that's the case, there's no way to know which value a configurable "srcs" will take, so
@@ -355,7 +357,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return true;
     }
 
-    List<Label> srcs = rule.get("srcs", Type.LABEL_LIST);
+    List<Label> srcs = rule.get("srcs", BuildType.LABEL_LIST);
     if (srcs != null) {
       for (Label srcfile : srcs) {
         /*

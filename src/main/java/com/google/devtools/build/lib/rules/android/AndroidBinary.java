@@ -46,8 +46,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -1249,7 +1250,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * Returns whether to use NativeDepsHelper to link native dependencies.
    */
   public static boolean shouldLinkNativeDeps(RuleContext ruleContext) {
-    TriState attributeValue = ruleContext.attributes().get("legacy_native_support", Type.TRISTATE);
+    TriState attributeValue = ruleContext.attributes().get(
+        "legacy_native_support", BuildType.TRISTATE);
     if (attributeValue == TriState.AUTO) {
       return !ruleContext.getFragment(AndroidConfiguration.class).getLegacyNativeSupport();
     } else {

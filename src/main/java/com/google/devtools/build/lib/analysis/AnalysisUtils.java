@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -52,10 +52,11 @@ public final class AnalysisUtils {
    */
   public static boolean isStampingEnabled(RuleContext ruleContext) {
     BuildConfiguration config = ruleContext.getConfiguration();
-    if (config.isHostConfiguration() || !ruleContext.attributes().has("stamp", Type.TRISTATE)) {
+    if (config.isHostConfiguration()
+        || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
-    TriState stamp = ruleContext.attributes().get("stamp", Type.TRISTATE);
+    TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
     return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
   }
 

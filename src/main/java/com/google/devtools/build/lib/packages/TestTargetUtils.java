@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 
 import java.util.ArrayList;
@@ -281,7 +282,7 @@ public final class TestTargetUtils {
       // Note that testsAndSuites can contain input file targets; the test_suite rule does not
       // restrict the set of targets that can appear in tests or suites.
       testsAndSuites.addAll(getPrerequisites(testSuite, "tests"));
-      if (testSuite.getRuleClassObject().hasAttr("suites", Type.LABEL_LIST)) {
+      if (testSuite.getRuleClassObject().hasAttr("suites", BuildType.LABEL_LIST)) {
         testsAndSuites.addAll(getPrerequisites(testSuite, "suites"));
       }
 
@@ -334,7 +335,7 @@ public final class TestTargetUtils {
         // TODO(bazel-team): This serializes package loading in some cases. We might want to make
         // this multi-threaded.
         for (Label label :
-            NonconfigurableAttributeMapper.of(testSuite).get(attrName, Type.LABEL_LIST)) {
+            NonconfigurableAttributeMapper.of(testSuite).get(attrName, BuildType.LABEL_LIST)) {
           targets.add(targetProvider.getTarget(eventHandler, label));
         }
         return targets;

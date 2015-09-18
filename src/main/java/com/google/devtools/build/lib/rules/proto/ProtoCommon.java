@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,7 +91,7 @@ public class ProtoCommon {
   public static void checkSourceFilesAreInSamePackage(RuleContext ruleContext) {
     // TODO(bazel-team): this does not work with filegroups that contain files
     // that are not in the package
-    for (Label source : ruleContext.attributes().get("srcs", Type.LABEL_LIST)) {
+    for (Label source : ruleContext.attributes().get("srcs", BuildType.LABEL_LIST)) {
       if (!isConfiguredTargetInSamePackage(ruleContext, source)) {
         ruleContext.attributeError(
             "srcs",

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -39,11 +40,11 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -323,8 +324,8 @@ public abstract class DependencyResolver {
   private void addExplicitDeps(
       ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> result, Rule rule,
       String attrName, Iterable<Label> labels, BuildConfiguration configuration) {
-    if (!rule.isAttrDefined(attrName, Type.LABEL_LIST)
-        && !rule.isAttrDefined(attrName, Type.NODEP_LABEL_LIST)) {
+    if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
+        && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
     }
     Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
@@ -350,7 +351,7 @@ public abstract class DependencyResolver {
               return;
             }
 
-            if (attribute.getType() == Type.NODEP_LABEL) {
+            if (attribute.getType() == BuildType.NODEP_LABEL) {
               return;
             }
 
@@ -376,7 +377,7 @@ public abstract class DependencyResolver {
 
       if (abi != null) {
         for (Map.Entry<String, List<Label>> entry
-            : attributes.get("abi_deps", Type.LABEL_LIST_DICT).entrySet()) {
+            : attributes.get("abi_deps", BuildType.LABEL_LIST_DICT).entrySet()) {
           try {
             if (Pattern.matches(entry.getKey(), abi)) {
               for (Label label : entry.getValue()) {
@@ -404,18 +405,18 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      if (attribute.getType() == Type.LABEL) {
+      if (attribute.getType() == BuildType.LABEL) {
         Label label = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), Type.LABEL)
-            : Type.LABEL.cast(attribute.getDefaultValue(rule));
+            ? attributeMap.get(attribute.getName(), BuildType.LABEL)
+            : BuildType.LABEL.cast(attribute.getDefaultValue(rule));
 
         if (label != null) {
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
         }
-      } else if (attribute.getType() == Type.LABEL_LIST) {
+      } else if (attribute.getType() == BuildType.LABEL_LIST) {
         List<Label> labelList = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), Type.LABEL_LIST)
-            : Type.LABEL_LIST.cast(attribute.getDefaultValue(rule));
+            ? attributeMap.get(attribute.getName(), BuildType.LABEL_LIST)
+            : BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
 
         for (Label label : labelList) {
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
@@ -468,11 +469,11 @@ public abstract class DependencyResolver {
           continue;
         }
         try {
-          if (attribute.getType() == Type.LABEL) {
-            Label label = Type.LABEL.cast(actualValue);
+          if (attribute.getType() == BuildType.LABEL) {
+            Label label = BuildType.LABEL.cast(actualValue);
             builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
-          } else if (attribute.getType() == Type.LABEL_LIST) {
-            for (Label label : Type.LABEL_LIST.cast(actualValue)) {
+          } else if (attribute.getType() == BuildType.LABEL_LIST) {
+            for (Label label : BuildType.LABEL_LIST.cast(actualValue)) {
               builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
             }
           } else {

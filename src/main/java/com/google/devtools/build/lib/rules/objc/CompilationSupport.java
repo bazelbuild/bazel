@@ -66,9 +66,9 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -996,7 +996,7 @@ public final class CompilationSupport {
     }
 
     // Check for overlap between srcs and hdrs.
-    if (ruleContext.attributes().has("srcs", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
       Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
       Set<Artifact> srcsSet =
           new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());

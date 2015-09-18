@@ -18,7 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.Label;
 
 import org.junit.Test;
@@ -60,7 +60,7 @@ public class AspectDefinitionTest {
   @Test
   public void testSimpleAspect() throws Exception {
     new AspectDefinition.Builder("simple")
-        .add(attr("$runtime", Type.LABEL).value(Label.parseAbsoluteUnchecked("//run:time")))
+        .add(attr("$runtime", BuildType.LABEL).value(Label.parseAbsoluteUnchecked("//run:time")))
         .attributeAspect("deps", TestAspectFactory.class)
         .build();
   }
@@ -69,7 +69,7 @@ public class AspectDefinitionTest {
   public void testAspectWithUserVisibleAttribute() throws Exception {
     try {
       new AspectDefinition.Builder("user_visible_attribute")
-          .add(attr("invalid", Type.LABEL).value(Label.parseAbsoluteUnchecked("//run:time")))
+          .add(attr("invalid", BuildType.LABEL).value(Label.parseAbsoluteUnchecked("//run:time")))
           .attributeAspect("deps", TestAspectFactory.class)
           .build();
       fail(); // expected IllegalStateException

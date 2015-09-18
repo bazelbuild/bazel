@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.Path;
@@ -809,7 +809,7 @@ public final class Runfiles {
      */
     private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
         RuleContext ruleContext, String attributeName, Mode mode) {
-      if (ruleContext.getRule().isAttrDefined(attributeName, Type.LABEL_LIST)) {
+      if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
         return ruleContext.getPrerequisites(attributeName, mode);
       } else {
         return Collections.emptyList();

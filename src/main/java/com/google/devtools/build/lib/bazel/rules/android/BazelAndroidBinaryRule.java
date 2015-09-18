@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
@@ -40,11 +40,11 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
-        .add(attr("$debug_keystore", Type.LABEL)
+        .add(attr("$debug_keystore", BuildType.LABEL)
             .cfg(HOST)
             .singleArtifact()
             .value(environment.getLabel(Constants.ANDROID_DEP_PREFIX + "debug_keystore")))
-        .add(attr(":cc_toolchain_split", Type.LABEL)
+        .add(attr(":cc_toolchain_split", BuildType.LABEL)
             .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
             .value(BazelCppRuleClasses.CC_TOOLCHAIN))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->

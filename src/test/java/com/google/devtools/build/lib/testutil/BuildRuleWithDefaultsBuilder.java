@@ -18,8 +18,9 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Collection;
@@ -56,7 +57,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
    */
   private String getDummyFileLabel(String rulePkg, String filePkg, String extension,
       Type<?> attrType) {
-    boolean isInput = (attrType == Type.LABEL || attrType == Type.LABEL_LIST);
+    boolean isInput = (attrType == BuildType.LABEL || attrType == BuildType.LABEL_LIST);
     String fileName = (isInput ? "dummy_input" : "dummy_output") + extension;
     generateFiles.add(filePkg + "/" + fileName);
     if (rulePkg.equals(filePkg)) {
@@ -121,7 +122,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       }
     }
     if (label != null) {
-      if (attrType == Type.LABEL_LIST || attrType == Type.OUTPUT_LIST) {
+      if (attrType == BuildType.LABEL_LIST || attrType == BuildType.OUTPUT_LIST) {
         addMultiValueAttributes(attribute.getName(), label);
       } else {
         setSingleValueAttribute(attribute.getName(), label);
@@ -174,7 +175,8 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
   public BuildRuleWithDefaultsBuilder popuplateAttributes(String rulePkg, boolean heuristics) {
     for (Attribute attribute : ruleClass.getAttributes()) {
       if (attribute.isMandatory()) {
-        if (attribute.getType() == Type.LABEL_LIST || attribute.getType() == Type.OUTPUT_LIST) {
+        if (attribute.getType() == BuildType.LABEL_LIST
+            || attribute.getType() == BuildType.OUTPUT_LIST) {
           if (attribute.isNonEmpty()) {
             popuplateLabelAttribute(rulePkg, attribute);
           } else {
@@ -182,7 +184,8 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
             // doesn't support that, and it makes little sense anyway
             popuplateLabelAttribute(rulePkg, attribute);
           }
-        } else if (attribute.getType() == Type.LABEL || attribute.getType() == Type.OUTPUT) {
+        } else if (attribute.getType() == BuildType.LABEL
+            || attribute.getType() == BuildType.OUTPUT) {
           popuplateLabelAttribute(rulePkg, attribute);
         } else {
           // Non label type attributes
@@ -211,7 +214,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
   // Heuristics which might help to generate valid rules.
   // This is a bit hackish, but it helps some generated ruleclasses to pass analysis phase.
   private void populateAttributesHeuristics(String rulePkg, Attribute attribute) {
-    if (attribute.getName().equals("srcs") && attribute.getType() == Type.LABEL_LIST) {
+    if (attribute.getName().equals("srcs") && attribute.getType() == BuildType.LABEL_LIST) {
       // If there is a srcs attribute it might be better to populate it even if it's not mandatory
       popuplateLabelAttribute(rulePkg, attribute);
     } else if (attribute.getName().equals("main_class") && attribute.getType() == Type.STRING) {

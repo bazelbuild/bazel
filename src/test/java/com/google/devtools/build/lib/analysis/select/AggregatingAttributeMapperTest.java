@@ -19,9 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestConstants;
 
 /**
@@ -46,7 +47,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "          srcs = ['a.sh'])");
     assertSameContents(
         ImmutableList.of(ImmutableList.of(Label.create("a", "a.sh"))),
-        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", Type.LABEL_LIST));
+        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST));
   }
 
   /**
@@ -59,14 +60,14 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "          srcs = select({",
         "              '//conditions:a': ['a.sh'],",
         "              '//conditions:b': ['b.sh'],",
-        "              '" + Type.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
+        "              '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
         "          }))");
     assertSameContents(
         ImmutableList.of(
             ImmutableList.of(Label.create("a", "a.sh")),
             ImmutableList.of(Label.create("a", "b.sh")),
             ImmutableList.of(Label.create("a", "default.sh"))),
-        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", Type.LABEL_LIST));
+        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST));
   }
 
   public void testGetPossibleValuesWithConcatenatedSelects() throws Exception {
@@ -85,7 +86,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             ImmutableList.of(Label.create("a", "a1.sh"), Label.create("a", "b2.sh")),
             ImmutableList.of(Label.create("a", "b1.sh"), Label.create("a", "a2.sh")),
             ImmutableList.of(Label.create("a", "b1.sh"), Label.create("a", "b2.sh"))),
-        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", Type.LABEL_LIST));
+        AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST));
   }
 
   /**
@@ -117,7 +118,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "          srcs = select({",
         "              '//conditions:a': ['a.sh'],",
         "              '//conditions:b': ['b.sh'],",
-        "              '" + Type.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
+        "              '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
         "          }))");
 
     VisitationRecorder recorder = new VisitationRecorder();
@@ -141,7 +142,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "         select({",
         "        '//conditions:c': ['c.cc'],",
         "        '//conditions:d': ['d.cc'],",
-        "        '" + Type.Selector.DEFAULT_CONDITION_KEY + "': ['default.cc'],",
+        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.cc'],",
         "    }))");
 
     ImmutableList<Label> valueLabels = ImmutableList.of(

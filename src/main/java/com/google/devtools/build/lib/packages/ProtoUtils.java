@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.Type.FILESET_ENTRY_LIST;
-import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_DICT_UNARY;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST_DICT;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL;
-import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT_UNARY;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
-import static com.google.devtools.build.lib.packages.Type.TRISTATE;
+import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Discriminator;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.Set;
 
@@ -85,8 +86,7 @@ public class ProtoUtils {
           .put(STRING_DICT_UNARY, Discriminator.STRING_DICT_UNARY)
           .build();
 
-  static final ImmutableSet<Type<?>> NODEP_TYPES =
-      ImmutableSet.of(NODEP_LABEL, NODEP_LABEL_LIST);
+  static final ImmutableSet<Type<?>> NODEP_TYPES = ImmutableSet.of(NODEP_LABEL, NODEP_LABEL_LIST);
 
   static final ImmutableSetMultimap<Discriminator, Type<?>> INVERSE_TYPE_MAP =
       TYPE_MAP.asMultimap().inverse();
@@ -94,7 +94,8 @@ public class ProtoUtils {
   /**
    * Returns the appropriate Attribute.Discriminator value from an internal attribute type.
    */
-  public static Discriminator getDiscriminatorFromType(Type<?> type) {
+  public static Discriminator getDiscriminatorFromType(
+      Type<?> type) {
     Preconditions.checkArgument(TYPE_MAP.containsKey(type), type);
     return TYPE_MAP.get(type);
   }

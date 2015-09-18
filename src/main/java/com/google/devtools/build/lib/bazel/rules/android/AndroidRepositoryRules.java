@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;

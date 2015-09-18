@@ -32,13 +32,14 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.IncludeScanningUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -351,7 +352,7 @@ public class CppHelper {
       scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
-    if (ruleContext.attributes().has("malloc", Type.LABEL)) {
+    if (ruleContext.attributes().has("malloc", BuildType.LABEL)) {
       TransitiveInfoCollection malloc = mallocForTarget(ruleContext);
       TransitiveLipoInfoProvider provider = malloc.getProvider(TransitiveLipoInfoProvider.class);
       if (provider != null) {

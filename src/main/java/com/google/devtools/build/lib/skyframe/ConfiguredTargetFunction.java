@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -61,7 +62,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -588,7 +588,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
     for (Attribute a : ((Rule) target).getAttributes()) {
       for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
-        if (!Type.Selector.isReservedLabel(configLabel)) {
+        if (!BuildType.Selector.isReservedLabel(configLabel)) {
           configLabelMap.put(a, LabelAndConfiguration.of(
               configLabel, ctgValue.getConfiguration()));
         }

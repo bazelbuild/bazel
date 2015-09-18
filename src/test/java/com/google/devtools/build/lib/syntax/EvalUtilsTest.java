@@ -19,9 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,16 +48,6 @@ public class EvalUtilsTest {
     return new LinkedHashMap<>();
   }
 
-  private static FilesetEntry makeFilesetEntry() {
-    try {
-      return new FilesetEntry(Label.parseAbsolute("//foo:bar"),
-                              Lists.<Label>newArrayList(), Lists.newArrayList("xyz"), "",
-                              FilesetEntry.SymlinkBehavior.COPY, ".");
-    } catch (LabelSyntaxException e) {
-      throw new RuntimeException("Bad label: ", e);
-    }
-  }
-
   @Test
   public void testDataTypeNames() throws Exception {
     assertEquals("string", EvalUtils.getDataTypeName("foo"));
@@ -68,7 +55,6 @@ public class EvalUtilsTest {
     assertEquals("Tuple", EvalUtils.getDataTypeName(makeTuple(1, 2, 3)));
     assertEquals("List",  EvalUtils.getDataTypeName(makeList(1, 2, 3)));
     assertEquals("dict",  EvalUtils.getDataTypeName(makeDict()));
-    assertEquals("FilesetEntry",  EvalUtils.getDataTypeName(makeFilesetEntry()));
     assertEquals("NoneType", EvalUtils.getDataTypeName(Runtime.NONE));
   }
 
@@ -79,7 +65,6 @@ public class EvalUtilsTest {
     assertTrue(EvalUtils.isImmutable(makeTuple(1, 2, 3)));
     assertFalse(EvalUtils.isImmutable(makeList(1, 2, 3)));
     assertFalse(EvalUtils.isImmutable(makeDict()));
-    assertFalse(EvalUtils.isImmutable(makeFilesetEntry()));
   }
 
   @Test

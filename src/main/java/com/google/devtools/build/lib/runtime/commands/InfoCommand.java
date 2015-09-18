@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
@@ -406,7 +406,7 @@ public class InfoCommand implements BlazeCommand {
         attrPb.setType(ProtoUtils.getDiscriminatorFromType(attr.getType()));
         attrPb.setMandatory(attr.isMandatory());
 
-        if (Type.isLabelType(attr.getType())) {
+        if (BuildType.isLabelType(attr.getType())) {
           attrPb.setAllowedRuleClasses(getAllowedRuleClasses(ruleClasses, attr));
         }
 

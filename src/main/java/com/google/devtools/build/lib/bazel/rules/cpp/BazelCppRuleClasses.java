@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
@@ -37,6 +34,9 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_ARCHIVE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FILE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -204,9 +204,9 @@ public class BazelCppRuleClasses {
    */
   private static Label getStl(Rule rule, BuildConfiguration original) {
     Label stl = null;
-    if (rule.getRuleClassObject().hasAttr("$stl", Type.LABEL)) {
+    if (rule.getRuleClassObject().hasAttr("$stl", BuildType.LABEL)) {
       Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
-      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl", Type.LABEL);
+      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl", BuildType.LABEL);
       if (stlConfigLabel == null) {
         stl = stlRuleLabel;
       } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {

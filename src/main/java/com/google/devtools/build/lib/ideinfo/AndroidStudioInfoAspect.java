@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -100,7 +100,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     // todo(dslomov,tomlu): following current build info logic, this code enumerates dependencies
     // directly by iterating over deps attribute. The more robust way to do this might be
     // to iterate classpath as provided to build action.
-    if (ruleContext.attributes().has("deps", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<AndroidStudioInfoFilesProvider> androidStudioInfoFilesProviders =
           ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidStudioInfoFilesProvider.class);
       for (AndroidStudioInfoFilesProvider depProvider : androidStudioInfoFilesProviders) {

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
@@ -794,7 +794,7 @@ public final class CppModel {
       //    readable and can lead to unexpected breakage.
       // b) Traversing the transitive closure for each C++ compile action would require more complex
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
-      if (ruleContext.getRule().isAttrDefined("deps", Type.LABEL_LIST)) {
+      if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
           if (dep.getProvider(CppCompilationContext.class) != null
               && filter.isIncluded(dep.getLabel().toString())) {

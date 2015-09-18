@@ -114,7 +114,7 @@ public final class EvalUtils {
   /**
    * Checks that an Object is a valid key for a Skylark dict.
    * @param o an Object to validate
-   * @throws an EvalException if o is not a valid key
+   * @throws EvalException if o is not a valid key
    */
   static void checkValidDictKey(Object o) throws EvalException {
     // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.

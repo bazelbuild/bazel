@@ -36,10 +36,10 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.Collection;
@@ -273,13 +273,13 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     Target fromTarget = loadedPackageProvider.getLoadedTarget(from);
     if (fromTarget instanceof Rule) {
       Rule rule = (Rule) fromTarget;
-      if (rule.getRuleClassObject().hasAttr("srcs", Type.LABEL_LIST)) {
+      if (rule.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)) {
         // TODO(bazel-team): refine this. This visits "srcs" reachable under *any* configuration,
         // not necessarily the configuration actually applied to the rule. We should correlate the
         // two. However, doing so requires faithfully reflecting the configuration transitions that
         // might happen as we traverse the dependency chain.
         for (List<Label> labelsForConfiguration :
-            AggregatingAttributeMapper.of(rule).visitAttribute("srcs", Type.LABEL_LIST)) {
+            AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST)) {
           for (Label label : labelsForConfiguration) {
             collectTransitiveClosure(loadedPackageProvider, reachableLabels, label);
           }
@@ -287,7 +287,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       }
 
       if (rule.getRuleClass().equals("bind")) {
-        Label actual = AggregatingAttributeMapper.of(rule).get("actual", Type.LABEL);
+        Label actual = AggregatingAttributeMapper.of(rule).get("actual", BuildType.LABEL);
         if (actual != null) {
           collectTransitiveClosure(loadedPackageProvider, reachableLabels, actual);
         }

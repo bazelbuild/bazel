@@ -49,7 +49,9 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -60,12 +62,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -890,8 +891,8 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == Type.LABEL
-        || attributeDefinition.getType() == Type.LABEL_LIST)) {
+    if (!(attributeDefinition.getType() == BuildType.LABEL
+        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
       throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -932,8 +933,8 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == Type.LABEL
-        || attributeDefinition.getType() == Type.LABEL_LIST)) {
+    if (!(attributeDefinition.getType() == BuildType.LABEL
+        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
       throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -1066,7 +1067,7 @@ public final class RuleContext extends TargetContext
    * referring to a local target. Reports a warning otherwise.
    */
   public Label getLocalNodepLabelAttribute(String attrName) {
-    Label label = attributes().get(attrName, Type.NODEP_LABEL);
+    Label label = attributes().get(attrName, BuildType.NODEP_LABEL);
     if (label == null) {
       return null;
     }
@@ -1112,7 +1113,7 @@ public final class RuleContext extends TargetContext
    *         attribute
    */
   public final FilesToRunProvider getCompiler(boolean warnIfNotDefault) {
-    Label label = attributes().get("compiler", Type.LABEL);
+    Label label = attributes().get("compiler", BuildType.LABEL);
     if (warnIfNotDefault && !label.equals(getRule().getAttrDefaultValue("compiler"))) {
       attributeWarning("compiler", "setting the compiler is strongly discouraged");
     }
@@ -1327,7 +1328,7 @@ public final class RuleContext extends TargetContext
       final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
       for (Attribute attr : rule.getAttributes()) {
-        if (attr.getType() != Type.FILESET_ENTRY_LIST) {
+        if (attr.getType() != BuildType.FILESET_ENTRY_LIST) {
           continue;
         }
         String attributeName = attr.getName();
@@ -1336,7 +1337,7 @@ public final class RuleContext extends TargetContext
           ctMap.put(prerequisite.getLabel(), prerequisite);
         }
         List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
-            .get(attributeName, Type.FILESET_ENTRY_LIST);
+            .get(attributeName, BuildType.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
             Label label = entry.getSrcLabel();

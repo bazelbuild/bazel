@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.syntax.Label;
@@ -368,7 +368,7 @@ final class LabelVisitor {
       Attribute attribute = null;
       if (target instanceof Rule) {
         RuleClass ruleClass = ((Rule) target).getRuleClassObject();
-        if (!ruleClass.hasAttr("visibility", Type.NODEP_LABEL_LIST)) {
+        if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
           return;
         }
         attribute = ruleClass.getAttributeByName("visibility");

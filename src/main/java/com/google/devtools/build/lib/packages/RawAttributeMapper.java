@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.BuildType.Selector;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.Collection;
 import java.util.List;
@@ -66,7 +69,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     }
 
     ImmutableSet.Builder<T> mergedValues = ImmutableSet.builder();
-    for (Type.Selector<List<T>> selector : getSelectorList(attributeName, type).getSelectors()) {
+    for (Selector<List<T>> selector : getSelectorList(attributeName, type).getSelectors()) {
       for (List<T> configuredList : selector.getEntries().values()) {
         mergedValues.addAll(configuredList);
       }
@@ -79,12 +82,12 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
    * keys. Else returns an empty list.
    */
   public <T> Iterable<Label> getConfigurabilityKeys(String attributeName, Type<T> type) {
-    Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<Label> builder = ImmutableList.builder();
-    for (Type.Selector<T> selector : selectorList.getSelectors()) {
+    for (Selector<T> selector : selectorList.getSelectors()) {
       builder.addAll(selector.getEntries().keySet());
     }
     return builder.build();

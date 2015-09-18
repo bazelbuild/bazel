@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
@@ -76,7 +77,7 @@ public final class Rule implements Target {
     @Override
     public boolean apply(Rule rule, Attribute attribute) {
       // isHostConfiguration() is only defined for labels and label lists.
-      if (attribute.getType() != Type.LABEL && attribute.getType() != Type.LABEL_LIST) {
+      if (attribute.getType() != BuildType.LABEL && attribute.getType() != BuildType.LABEL_LIST) {
         return true;
       }
 
@@ -101,8 +102,8 @@ public final class Rule implements Target {
       new BinaryPredicate<Rule, Attribute>() {
     @Override
     public boolean apply(Rule rule, Attribute attribute) {
-      return attribute.getType() != Type.NODEP_LABEL
-          && attribute.getType() != Type.NODEP_LABEL_LIST;
+      return attribute.getType() != BuildType.NODEP_LABEL
+          && attribute.getType() != BuildType.NODEP_LABEL_LIST;
     }
   };
 
@@ -502,13 +503,13 @@ public final class Rule implements Target {
     for (Attribute attribute : ruleClass.getAttributes()) {
       String name = attribute.getName();
       Type<?> type = attribute.getType();
-      if (type == Type.OUTPUT) {
-        Label outputLabel = nonConfigurableAttributes.get(name, Type.OUTPUT);
+      if (type == BuildType.OUTPUT) {
+        Label outputLabel = nonConfigurableAttributes.get(name, BuildType.OUTPUT);
         if (outputLabel != null) {
           addLabelOutput(attribute, outputLabel, eventHandler);
         }
-      } else if (type == Type.OUTPUT_LIST) {
-        for (Label label : nonConfigurableAttributes.get(name, Type.OUTPUT_LIST)) {
+      } else if (type == BuildType.OUTPUT_LIST) {
+        for (Label label : nonConfigurableAttributes.get(name, BuildType.OUTPUT_LIST)) {
           addLabelOutput(attribute, label, eventHandler);
         }
       }
@@ -613,9 +614,9 @@ public final class Rule implements Target {
   @Override
   @SuppressWarnings("unchecked")
   public Set<DistributionType> getDistributions() {
-    if (isAttrDefined("distribs", Type.DISTRIBUTIONS)
+    if (isAttrDefined("distribs", BuildType.DISTRIBUTIONS)
         && isAttributeValueExplicitlySpecified("distribs")) {
-      return NonconfigurableAttributeMapper.of(this).get("distribs", Type.DISTRIBUTIONS);
+      return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
       return getPackage().getDefaultDistribs();
     }
@@ -623,9 +624,9 @@ public final class Rule implements Target {
 
   @Override
   public License getLicense() {
-    if (isAttrDefined("licenses", Type.LICENSE)
+    if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
-      return NonconfigurableAttributeMapper.of(this).get("licenses", Type.LICENSE);
+      return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
     } else {
       return getPackage().getDefaultLicense();
     }
@@ -636,9 +637,9 @@ public final class Rule implements Target {
    * null if it is not specified.
    */
   public License getToolOutputLicense(AttributeMap attributes) {
-    if (isAttrDefined("output_licenses", Type.LICENSE)
+    if (isAttrDefined("output_licenses", BuildType.LICENSE)
         && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
-      return attributes.get("output_licenses", Type.LICENSE);
+      return attributes.get("output_licenses", BuildType.LICENSE);
     } else {
       return null;
     }

@@ -19,9 +19,9 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameConte
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.List;
@@ -45,21 +45,21 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "    srcs = select({",
         "        '//conditions:a': ['a.sh'],",
         "        '//conditions:b': ['b.sh'],",
-        "        '" + Type.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
+        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
         "    }),",
         "    data = [ ':data_a', ':data_b' ])");
   }
 
   public void testGetAttribute() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    List<Label> value = rawMapper.get("data", Type.LABEL_LIST);
+    List<Label> value = rawMapper.get("data", BuildType.LABEL_LIST);
     assertNotNull(value);
     assertThat(value).containsExactly(Label.create("x", "data_a"), Label.create("x", "data_b"));
 
     // Configurable attribute: trying to directly access from a RawAttributeMapper throws a
     // type mismatch exception.
     try {
-      rawMapper.get("srcs", Type.LABEL_LIST);
+      rawMapper.get("srcs", BuildType.LABEL_LIST);
       fail("Expected srcs lookup to fail since the returned type is a SelectorList and not a list");
     } catch (IllegalArgumentException e) {
       assertThat(e.getCause().getMessage())
@@ -70,14 +70,14 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   @Override
   public void testGetAttributeType() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    assertEquals(Type.LABEL_LIST, rawMapper.getAttributeType("data")); // not configurable
-    assertEquals(Type.LABEL_LIST, rawMapper.getAttributeType("srcs")); // configurable
+    assertEquals(BuildType.LABEL_LIST, rawMapper.getAttributeType("data")); // not configurable
+    assertEquals(BuildType.LABEL_LIST, rawMapper.getAttributeType("srcs")); // configurable
   }
 
   public void testConfigurabilityCheck() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    assertFalse(rawMapper.isConfigurable("data", Type.LABEL_LIST));
-    assertTrue(rawMapper.isConfigurable("srcs", Type.LABEL_LIST));
+    assertFalse(rawMapper.isConfigurable("data", BuildType.LABEL_LIST));
+    assertTrue(rawMapper.isConfigurable("srcs", BuildType.LABEL_LIST));
   }
 
   /**
@@ -106,8 +106,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
             Label.parseAbsolute("//conditions:a"),
             Label.parseAbsolute("//conditions:b"),
             Label.parseAbsolute("//conditions:default")),
-        rawMapper.getConfigurabilityKeys("srcs", Type.LABEL_LIST));
-    assertThat(rawMapper.getConfigurabilityKeys("data", Type.LABEL_LIST)).isEmpty();
+        rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST));
+    assertThat(rawMapper.getConfigurabilityKeys("data", BuildType.LABEL_LIST)).isEmpty();
   }
 
   public void testGetMergedValues() throws Exception {
@@ -119,7 +119,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "        '//conditions:b': ['b.sh', 'c.sh'],",
         "    }))");
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
-    assertThat(rawMapper.getMergedValues("srcs", Type.LABEL_LIST)).containsExactly(
+    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST)).containsExactly(
         Label.parseAbsolute("//x:a.sh"),
         Label.parseAbsolute("//x:b.sh"),
         Label.parseAbsolute("//x:c.sh"))
@@ -138,7 +138,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "            '//conditions:b2': ['b2.sh']})",
         "    )");
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
-    assertThat(rawMapper.getMergedValues("srcs", Type.LABEL_LIST)).containsExactly(
+    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST)).containsExactly(
         Label.parseAbsolute("//x:a1.sh"),
         Label.parseAbsolute("//x:b1.sh"),
         Label.parseAbsolute("//x:another_b1.sh"),

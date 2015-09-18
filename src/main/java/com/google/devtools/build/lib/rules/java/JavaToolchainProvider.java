@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 
 import java.util.List;
 
@@ -87,7 +87,7 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
    *         provided by the {@link JavaConfiguration} fragment.
    */
   public static List<String> getDefaultJavacJvmOptions(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined(":java_toolchain", Type.LABEL))  {
+    if (!ruleContext.getRule().isAttrDefined(":java_toolchain", BuildType.LABEL))  {
       // As some rules might not have java_toolchain dependency (e.g., java_import), we silently
       // ignore it. The rules needing it will error in #getDefaultJavacOptions(RuleContext) anyway.
       return ImmutableList.of();

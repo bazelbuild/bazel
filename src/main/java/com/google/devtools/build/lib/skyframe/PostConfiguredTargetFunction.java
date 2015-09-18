@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
@@ -137,7 +137,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     Set<SkyKey> depKeys = new LinkedHashSet<>();
     for (Attribute attribute : rule.getAttributes()) {
       for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
-        if (!Type.Selector.isReservedLabel(label)) {
+        if (!BuildType.Selector.isReservedLabel(label)) {
           depKeys.add(ConfiguredTargetValue.key(label, ctg.getConfiguration()));
         }
       }

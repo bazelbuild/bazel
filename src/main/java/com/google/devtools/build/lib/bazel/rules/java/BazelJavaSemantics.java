@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Te
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.DirectDependencyProvider;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -118,7 +119,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public ImmutableList<Artifact> collectResources(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined("resources", Type.LABEL_LIST)) {
+    if (!ruleContext.getRule().isAttrDefined("resources", BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }
 

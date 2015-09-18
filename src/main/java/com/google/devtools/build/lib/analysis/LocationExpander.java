@@ -24,8 +24,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -280,7 +280,7 @@ public class LocationExpander {
       mapGet(locationMap, out.getLabel()).add(ruleContext.createOutputArtifact(out));
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (FileProvider src : ruleContext
           .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
         Iterables.addAll(mapGet(locationMap, src.getLabel()), src.getFilesToBuild());
@@ -289,16 +289,16 @@ public class LocationExpander {
 
     // Add all locations associated with dependencies and tools
     List<FilesToRunProvider> depsDataAndTools = new ArrayList<>();
-    if (ruleContext.getRule().isAttrDefined("deps", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
       Iterables.addAll(depsDataAndTools,
           ruleContext.getPrerequisites("deps", Mode.DONT_CHECK, FilesToRunProvider.class));
     }
     if (allowDataAttributeEntriesInLabel
-        && ruleContext.getRule().isAttrDefined("data", Type.LABEL_LIST)) {
+        && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       Iterables.addAll(depsDataAndTools,
           ruleContext.getPrerequisites("data", Mode.DATA, FilesToRunProvider.class));
     }
-    if (ruleContext.getRule().isAttrDefined("tools", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("tools", BuildType.LABEL_LIST)) {
       Iterables.addAll(depsDataAndTools,
           ruleContext.getPrerequisites("tools", Mode.HOST, FilesToRunProvider.class));
     }

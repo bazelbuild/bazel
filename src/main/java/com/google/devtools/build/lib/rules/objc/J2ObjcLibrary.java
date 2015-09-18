@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
@@ -71,7 +72,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
 
     if (j2ObjcSrcsProvider.hasProtos()) {
-      if (ruleContext.attributes().has("$protobuf_lib", Type.LABEL)) {
+      if (ruleContext.attributes().has("$protobuf_lib", BuildType.LABEL)) {
         objcProviderBuilder.addTransitiveAndPropagate(
             ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
         xcodeSupport.addDependencies(
@@ -137,7 +138,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static void checkAttributes(RuleContext ruleContext, String attributeName) {
-    if (!ruleContext.attributes().has(attributeName, Type.LABEL_LIST)) {
+    if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       return;
     }
 

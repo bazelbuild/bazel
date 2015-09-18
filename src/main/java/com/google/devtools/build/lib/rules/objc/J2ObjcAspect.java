@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -244,7 +244,7 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
   private static void addJ2ObjCMappingsForAttribute(
       ImmutableList.Builder<J2ObjcMappingFileProvider> builder, RuleContext context,
       String attributeName) {
-    if (context.attributes().has(attributeName, Type.LABEL_LIST)) {
+    if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection dependencyInfoDatum :
           context.getPrerequisites(attributeName, Mode.TARGET)) {
         J2ObjcMappingFileProvider provider =

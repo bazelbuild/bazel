@@ -15,21 +15,21 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.Type;
 
 /**
  * Rule definition for the genrule rule.
@@ -198,7 +198,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
             new Attribute.ComputedDefault("outs", "executable") {
               @Override
               public Object getDefault(AttributeMap rule) {
-                return (rule.get("outs", Type.OUTPUT_LIST).size() == 1)
+                return (rule.get("outs", BuildType.OUTPUT_LIST).size() == 1)
                     && rule.get("executable", BOOLEAN);
               }
             }))

@@ -20,13 +20,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
@@ -123,10 +123,10 @@ public final class SrcTargetUtil {
       if (rule.isConfigurableAttribute(attrName)) {
         // We don't know which path to follow for configurable attributes. So skip them.
         continue;
-      } else if (rule.isAttrDefined(attrName, Type.LABEL_LIST)) {
-        srcLabels.addAll(attributeMap.get(attrName, Type.LABEL_LIST));
-      } else if (rule.isAttrDefined(attrName, Type.LABEL)) {
-        Label srcLabel = attributeMap.get(attrName, Type.LABEL);
+      } else if (rule.isAttrDefined(attrName, BuildType.LABEL_LIST)) {
+        srcLabels.addAll(attributeMap.get(attrName, BuildType.LABEL_LIST));
+      } else if (rule.isAttrDefined(attrName, BuildType.LABEL)) {
+        Label srcLabel = attributeMap.get(attrName, BuildType.LABEL);
         if (srcLabel != null) {
           srcLabels.add(srcLabel);
         }

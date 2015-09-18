@@ -38,11 +38,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -178,7 +179,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   // The transitive closure of these targets is an upper estimate on the labels
   // the query will touch
   private Set<Target> getScope(RuleContext context) {
-    List<Label> scopeLabels = context.attributes().get("scope", Type.LABEL_LIST);
+    List<Label> scopeLabels = context.attributes().get("scope", BuildType.LABEL_LIST);
     Set<Target> scope = Sets.newHashSetWithExpectedSize(scopeLabels.size());
     for (Label scopePart : scopeLabels) {
       SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();

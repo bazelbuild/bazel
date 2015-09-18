@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import javax.annotation.Nullable;
@@ -144,8 +146,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
       // special-case these types.
-      if (type != Type.OUTPUT && type != Type.OUTPUT_LIST
-          && type != Type.NODEP_LABEL && type != Type.NODEP_LABEL_LIST) {
+      if (type != BuildType.OUTPUT && type != BuildType.OUTPUT_LIST
+          && type != BuildType.NODEP_LABEL && type != BuildType.NODEP_LABEL_LIST) {
         visitLabels(attribute, observer);
       }
     }
@@ -184,30 +186,30 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   /**
-   * Returns a {@link Type.SelectorList} for the given attribute if the attribute is configurable
+   * Returns a {@link SelectorList} for the given attribute if the attribute is configurable
    * for this rule, null otherwise.
    *
-   * @return a {@link Type.SelectorList} if the attribute takes the form
+   * @return a {@link SelectorList} if the attribute takes the form
    *     "attrName = { 'a': value1_of_type_T, 'b': value2_of_type_T }") for this rule, null
    *     if it takes the form "attrName = value_of_type_T", null if it doesn't exist
    * @throws IllegalArgumentException if the attribute is configurable but of the wrong type
    */
   @Nullable
   @SuppressWarnings("unchecked")
-  protected <T> Type.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
+  protected <T> SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
     Integer index = ruleClass.getAttributeIndex(attributeName);
     if (index == null) {
       return null;
     }
     Object attrValue = attributes.getAttributeValue(index);
-    if (!(attrValue instanceof Type.SelectorList)) {
+    if (!(attrValue instanceof SelectorList)) {
       return null;
     }
-    if (((Type.SelectorList<?>) attrValue).getOriginalType() != type) {
+    if (((SelectorList<?>) attrValue).getOriginalType() != type) {
       throw new IllegalArgumentException("Attribute " + attributeName
           + " is not of type " + type + " in rule " + ruleLabel);
     }
-    return (Type.SelectorList<T>) attrValue;
+    return (SelectorList<T>) attrValue;
   }
 
   /**

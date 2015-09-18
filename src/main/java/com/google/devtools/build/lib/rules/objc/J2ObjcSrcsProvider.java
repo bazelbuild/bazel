@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 
 /**
@@ -81,7 +81,7 @@ public final class J2ObjcSrcsProvider implements TransitiveInfoProvider {
      * @return this builder
      */
     public Builder addTransitiveJ2ObjcSrcs(RuleContext ruleContext, String attribute) {
-      if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+      if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
         for (J2ObjcSrcsProvider provider :
             ruleContext.getPrerequisites(attribute, Mode.TARGET, J2ObjcSrcsProvider.class)) {
           addTransitive(provider);

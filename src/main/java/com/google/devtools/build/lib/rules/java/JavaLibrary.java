@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -190,10 +190,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
       runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
       List<TransitiveInfoCollection> depsForRunfiles = new ArrayList<>();
-      if (ruleContext.getRule().isAttrDefined("runtime_deps", Type.LABEL_LIST)) {
+      if (ruleContext.getRule().isAttrDefined("runtime_deps", BuildType.LABEL_LIST)) {
         depsForRunfiles.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
       }
-      if (ruleContext.getRule().isAttrDefined("exports", Type.LABEL_LIST)) {
+      if (ruleContext.getRule().isAttrDefined("exports", BuildType.LABEL_LIST)) {
         depsForRunfiles.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
       }
 

@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
@@ -102,9 +102,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
-          .add(Attribute.attr("$implicit", Type.LABEL)
+          .add(Attribute.attr("$implicit", BuildType.LABEL)
               .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
-          .add(Attribute.attr(":latebound", Type.LABEL)
+          .add(Attribute.attr(":latebound", BuildType.LABEL)
               .value(
                   new Attribute.LateBoundLabel<BuildConfiguration>() {
                     @Override
@@ -112,7 +112,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
                       return Label.parseAbsoluteUnchecked("//helpers:latebound");
                     }
                   }))
-          .add(Attribute.attr("normal", Type.LABEL)
+          .add(Attribute.attr("normal", BuildType.LABEL)
               .allowedFileTypes(FileTypeSet.NO_FILE)
               .value(Label.parseAbsoluteUnchecked("//helpers:default")))
           .build();

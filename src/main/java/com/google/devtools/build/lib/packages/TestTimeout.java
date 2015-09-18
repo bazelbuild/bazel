@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 

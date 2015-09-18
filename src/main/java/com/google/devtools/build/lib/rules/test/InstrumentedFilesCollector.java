@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -205,8 +205,8 @@ public final class InstrumentedFilesCollector {
       RuleContext ruleContext, InstrumentationSpec spec) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
     for (String attr : spec.instrumentedAttributes) {
-      if (ruleContext.getRule().isAttrDefined(attr, Type.LABEL_LIST) ||
-          ruleContext.getRule().isAttrDefined(attr, Type.LABEL)) {
+      if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
+          ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
         prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
       }
     }

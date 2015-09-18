@@ -20,7 +20,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
-import com.google.devtools.build.lib.syntax.FilesetEntry.SymlinkBehavior;
+import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;

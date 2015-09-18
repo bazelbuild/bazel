@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -42,17 +43,17 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
       .put(Type.INTEGER_LIST, "List of integers")
       .put(Type.STRING, "String")
       .put(Type.STRING_LIST, "List of strings")
-      .put(Type.TRISTATE, "Integer")
-      .put(Type.LABEL, "<a href=\"build-ref.html#labels\">Label</a>")
-      .put(Type.LABEL_LIST, "List of <a href=\"build-ref.html#labels\">labels</a>")
-      .put(Type.LABEL_DICT_UNARY,
+      .put(BuildType.TRISTATE, "Integer")
+      .put(BuildType.LABEL, "<a href=\"build-ref.html#labels\">Label</a>")
+      .put(BuildType.LABEL_LIST, "List of <a href=\"build-ref.html#labels\">labels</a>")
+      .put(BuildType.LABEL_DICT_UNARY,
           "Dictionary mapping strings to <a href=\"build-ref.html#labels\">labels</a>")
-      .put(Type.LABEL_LIST_DICT,
+      .put(BuildType.LABEL_LIST_DICT,
           "Dictionary mapping strings to lists of <a href=\"build-ref.html#labels\">labels</a>")
-      .put(Type.NODEP_LABEL, "<a href=\"build-ref.html#name\">Name</a>")
-      .put(Type.NODEP_LABEL_LIST, "List of <a href=\"build-ref.html#name\">names</a>")
-      .put(Type.OUTPUT, "<a href=\"build-ref.html#filename\">Filename</a>")
-      .put(Type.OUTPUT_LIST, "List of <a href=\"build-ref.html#filename\">filenames</a>")
+      .put(BuildType.NODEP_LABEL, "<a href=\"build-ref.html#name\">Name</a>")
+      .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"build-ref.html#name\">names</a>")
+      .put(BuildType.OUTPUT, "<a href=\"build-ref.html#filename\">Filename</a>")
+      .put(BuildType.OUTPUT_LIST, "List of <a href=\"build-ref.html#filename\">filenames</a>")
       .build();
 
   private final Class<? extends RuleDefinition> definitionClass;

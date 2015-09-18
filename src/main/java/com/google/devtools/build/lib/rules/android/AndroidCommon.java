@@ -38,8 +38,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -222,8 +223,8 @@ public class AndroidCommon {
     }
 
     for (String attribute : attributes) {
-      if (!ruleContext.attributes().has(attribute, Type.LABEL)
-          && !ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+      if (!ruleContext.attributes().has(attribute, BuildType.LABEL)
+          && !ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
         continue;
       }
 
@@ -592,14 +593,14 @@ public class AndroidCommon {
   }
 
   public static ImmutableList<Artifact> getIdlParcelables(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttrDefined("idl_parcelables", Type.LABEL_LIST)
+    return ruleContext.getRule().isAttrDefined("idl_parcelables", BuildType.LABEL_LIST)
         ? ImmutableList.copyOf(ruleContext.getPrerequisiteArtifacts(
             "idl_parcelables", Mode.TARGET).filter(AndroidRuleClasses.ANDROID_IDL).list())
         : ImmutableList.<Artifact>of();
   }
 
   public static Collection<Artifact> getIdlSrcs(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined("idl_srcs", Type.LABEL_LIST)) {
+    if (!ruleContext.getRule().isAttrDefined("idl_srcs", BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }
     checkIdlSrcsSamePackage(ruleContext);
@@ -657,7 +658,7 @@ public class AndroidCommon {
   }
 
   public static AndroidResourcesProvider getAndroidResources(RuleContext ruleContext) {
-    if (!ruleContext.attributes().has("resources", Type.LABEL)) {
+    if (!ruleContext.attributes().has("resources", BuildType.LABEL)) {
       return null;
     }
 

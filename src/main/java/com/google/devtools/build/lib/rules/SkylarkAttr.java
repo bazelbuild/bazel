@@ -21,8 +21,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -36,6 +35,8 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -155,7 +156,7 @@ public final class SkylarkAttr {
         throw new EvalException(
             ast.getLocation(), "allow_files should be a boolean or a filetype object.");
       }
-    } else if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
+    } else if (type.equals(BuildType.LABEL) || type.equals(BuildType.LABEL_LIST)) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 
@@ -376,7 +377,7 @@ public final class SkylarkAttr {
                   singleFile,
                   CONFIGURATION_ARG,
                   cfg),
-              Type.LABEL,
+              BuildType.LABEL,
               ast,
               env);
         }
@@ -556,7 +557,7 @@ public final class SkylarkAttr {
                   nonEmpty,
                   CONFIGURATION_ARG,
                   cfg),
-              Type.LABEL_LIST,
+              BuildType.LABEL_LIST,
               ast,
               env);
         }
@@ -619,7 +620,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.output", ast.getLocation());
           return createAttribute(
               EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
-              Type.OUTPUT,
+              BuildType.OUTPUT,
               ast,
               env);
         }
@@ -661,7 +662,7 @@ public final class SkylarkAttr {
           return createAttribute(
               EvalUtils.optionMap(
                   DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
-              Type.OUTPUT_LIST,
+              BuildType.OUTPUT_LIST,
               ast,
               env);
         }
@@ -726,7 +727,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.license", ast.getLocation());
           return createAttribute(
               EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
-              Type.LICENSE,
+              BuildType.LICENSE,
               ast,
               env);
         }

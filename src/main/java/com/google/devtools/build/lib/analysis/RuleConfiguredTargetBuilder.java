@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.rules.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.LinkedHashMap;
 import java.util.List;

@@ -38,6 +38,9 @@ import java.util.List;
  * </pre>
  */
 public final class SelectorList {
+  // TODO(build-team): Selectors are currently split between .packages and .syntax . They should
+  // really all be in .packages, but then we'd need to figure out a way how to extend binary
+  // operators, which is a non-trivial problem.
   private final Class<?> type;
   private final List<Object> elements;
 

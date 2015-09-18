@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -148,7 +149,7 @@ public final class SkylarkRuleContext {
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       String attrName = a.getName();
       Type<?> type = a.getType();
-      if (type != Type.OUTPUT && type != Type.OUTPUT_LIST) {
+      if (type != BuildType.OUTPUT && type != BuildType.OUTPUT_LIST) {
         continue;
       }
       ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
@@ -159,13 +160,13 @@ public final class SkylarkRuleContext {
       }
       ImmutableList<Artifact> artifacts = artifactsBuilder.build();
 
-      if (type == Type.OUTPUT) {
+      if (type == BuildType.OUTPUT) {
         if (artifacts.size() == 1) {
           addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(artifacts));
         } else {
           addOutput(outputsBuilder, attrName, Runtime.NONE);
         }
-      } else if (type == Type.OUTPUT_LIST) {
+      } else if (type == BuildType.OUTPUT_LIST) {
         addOutput(outputsBuilder, attrName, new MutableList(artifacts));
       } else {
         throw new IllegalArgumentException(
@@ -187,7 +188,7 @@ public final class SkylarkRuleContext {
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       Type<?> type = a.getType();
       Object val = ruleContext.attributes().get(a.getName(), type);
-      if (type != Type.LABEL && type != Type.LABEL_LIST) {
+      if (type != BuildType.LABEL && type != BuildType.LABEL_LIST) {
         attrBuilder.put(a.getPublicName(), val == null ? Runtime.NONE
             // Attribute values should be type safe
             : SkylarkType.convertToSkylark(val, null));
@@ -217,7 +218,7 @@ public final class SkylarkRuleContext {
       }
       filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode).list());
       List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), mode);
-      if (type == Type.LABEL) {
+      if (type == BuildType.LABEL) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), mode);
         if (prereq == null) {
           prereq = Runtime.NONE;

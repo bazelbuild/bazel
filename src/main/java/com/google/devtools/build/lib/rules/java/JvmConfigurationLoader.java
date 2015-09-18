@@ -24,13 +24,14 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
@@ -109,11 +110,11 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
       if ((javaHomeTarget instanceof Rule) &&
           "filegroup".equals(((Rule) javaHomeTarget).getRuleClass())) {
         RawAttributeMapper javaHomeAttributes = RawAttributeMapper.of((Rule) javaHomeTarget);
-        if (javaHomeAttributes.isConfigurable("srcs", Type.LABEL_LIST)) {
+        if (javaHomeAttributes.isConfigurable("srcs", BuildType.LABEL_LIST)) {
           throw new InvalidConfigurationException("\"srcs\" in " + javaHome
               + " is configurable. JAVABASE targets don't support configurable attributes");
         }
-        List<Label> labels = javaHomeAttributes.get("srcs", Type.LABEL_LIST);
+        List<Label> labels = javaHomeAttributes.get("srcs", BuildType.LABEL_LIST);
         for (Label jvmLabel : labels) {
           if (jvmLabel.getName().endsWith("-" + cpu)) {
             jvmLabel = RedirectChaser.followRedirects(

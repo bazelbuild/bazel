@@ -139,13 +139,13 @@ public final class AspectDefinition {
       if (!predicate.apply(from, aspectAttribute)) {
         continue;
       }
-      if (aspectAttribute.getType() == Type.LABEL) {
-        Label label = Type.LABEL.cast(aspectAttribute.getDefaultValue(from));
+      if (aspectAttribute.getType() == BuildType.LABEL) {
+        Label label = BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from));
         if (label != null) {
           labelBuilder.put(aspectAttribute, label);
         }
-      } else if (aspectAttribute.getType() == Type.LABEL_LIST) {
-        List<Label> labelList = Type.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from));
+      } else if (aspectAttribute.getType() == BuildType.LABEL_LIST) {
+        List<Label> labelList = BuildType.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from));
         labelBuilder.putAll(aspectAttribute, labelList);
       }
     }

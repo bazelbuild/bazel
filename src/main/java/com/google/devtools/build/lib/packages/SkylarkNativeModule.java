@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 /**
  * A class for the Skylark native module.

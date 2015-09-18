@@ -22,13 +22,12 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1322,7 +1321,8 @@ public class MethodLibrary {
         @Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
   private static final BuiltinFunction select = new BuiltinFunction("select") {
     public Object invoke(Map<?, ?> dict) throws EvalException {
-      return SelectorList.of(new SelectorValue(dict));
+      return SelectorList
+          .of(new SelectorValue(dict));
     }
   };
 

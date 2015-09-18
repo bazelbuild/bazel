@@ -36,10 +36,10 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
-import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -503,7 +503,7 @@ public class PackageDeserializer {
       case STRING:
         if (!attrPb.hasStringValue()) {
           return null;
-        } else if (expectedType == Type.NODEP_LABEL) {
+        } else if (expectedType == BuildType.NODEP_LABEL) {
           return deserializeLabel(attrPb.getStringValue());
         } else {
           return attrPb.getStringValue();
@@ -514,7 +514,7 @@ public class PackageDeserializer {
         return attrPb.hasStringValue() ? deserializeLabel(attrPb.getStringValue()) : null;
 
       case STRING_LIST:
-        if (expectedType == Type.NODEP_LABEL_LIST) {
+        if (expectedType == BuildType.NODEP_LABEL_LIST) {
           return deserializeGlobs(deserializeLabels(attrPb.getStringListValueList()), attrPb);
         } else {
           return deserializeGlobs(ImmutableList.copyOf(attrPb.getStringListValueList()), attrPb);

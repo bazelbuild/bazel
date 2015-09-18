@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
@@ -58,7 +58,7 @@ public class AndroidNeverlinkAspect implements ConfiguredAspectFactory {
     // jars in -libraryjars than is required. The alternative would be somehow getting
     // JavaCommon.getDependencies() here, which would be fugly.
     for (String attribute : ATTRIBUTES) {
-      if (!ruleContext.getRule().getRuleClassObject().hasAttr(attribute, Type.LABEL_LIST)) {
+      if (!ruleContext.getRule().getRuleClassObject().hasAttr(attribute, BuildType.LABEL_LIST)) {
         continue;
       }
 

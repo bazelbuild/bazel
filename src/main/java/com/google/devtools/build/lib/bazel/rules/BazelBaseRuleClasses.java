@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;

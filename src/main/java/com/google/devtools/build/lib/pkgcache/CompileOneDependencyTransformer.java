@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
@@ -160,16 +160,16 @@ final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
-      if (attributes.isConfigurable("deps", Type.LABEL_LIST)
-          || attributes.isConfigurable("srcs", Type.LABEL_LIST)) {
+      if (attributes.isConfigurable("deps", BuildType.LABEL_LIST)
+          || attributes.isConfigurable("srcs", BuildType.LABEL_LIST)) {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
-      if (ruleClass.hasAttr("deps", Type.LABEL_LIST) &&
-          ruleClass.hasAttr("srcs", Type.LABEL_LIST)) {
-        for (Label dep : attributes.get("deps", Type.LABEL_LIST)) {
+      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST) &&
+          ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
+        for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
           if (dep.equals(result.getLabel())) {
-            if (!attributes.get("srcs", Type.LABEL_LIST).isEmpty()) {
+            if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {
               return rule;
             }
           }

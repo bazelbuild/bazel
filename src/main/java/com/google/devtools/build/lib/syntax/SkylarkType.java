@@ -659,7 +659,7 @@ public abstract class SkylarkType implements Serializable {
       return ImmutableList.of();
     }
     List<TYPE> results = new ArrayList<>();
-    for (Object object : com.google.devtools.build.lib.packages.Type.LIST.convert(obj, what)) {
+    for (Object object : com.google.devtools.build.lib.syntax.Type.LIST.convert(obj, what)) {
       try {
         results.add(type.cast(object));
       } catch (ClassCastException e) {

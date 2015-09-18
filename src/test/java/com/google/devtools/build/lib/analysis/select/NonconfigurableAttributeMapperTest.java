@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.select;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Unit tests for {@link NonconfigurableAttributeMapper}.

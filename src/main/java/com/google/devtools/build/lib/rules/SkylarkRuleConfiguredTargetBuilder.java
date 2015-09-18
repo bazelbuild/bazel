@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations

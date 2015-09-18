@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.DirectDependencyProvider.Dependency;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Instr
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -267,7 +268,7 @@ public class JavaCommon {
   public static List<TransitiveInfoCollection> getExports(RuleContext ruleContext) {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
-    if (ruleContext.attributes().has("exports", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
       return ImmutableList.copyOf(ruleContext.getPrerequisites("exports", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -306,7 +307,7 @@ public class JavaCommon {
     NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
-    if (ruleContext.getRule().isAttrDefined("data", Type.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       builder.addJavaTargets(ruleContext.getPrerequisites("data", Mode.DATA));
     }
     return builder.build();
@@ -434,7 +435,7 @@ public class JavaCommon {
   private static List<TransitiveInfoCollection> getRuntimeDeps(RuleContext ruleContext) {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
-    if (ruleContext.attributes().has("runtime_deps", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
       return ImmutableList.copyOf(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -474,7 +475,7 @@ public class JavaCommon {
     }
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
-        && ruleContext.attributes().get("srcs", Type.LABEL_LIST).isEmpty()
+        && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
       ruleContext.attributeError("deps", "deps not allowed without srcs; move to runtime_deps?");
     }
@@ -609,7 +610,7 @@ public class JavaCommon {
 
   Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(String attribute,
       Mode mode) {
-    if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);
     }
     return ImmutableList.of();

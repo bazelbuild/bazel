@@ -13,26 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.Type.FILESET_ENTRY_LIST;
-import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_DICT_UNARY;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST_DICT;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL;
-import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT_UNARY;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
-import static com.google.devtools.build.lib.packages.Type.TRISTATE;
+import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.MakeEnvironment.Binding;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
@@ -182,7 +181,7 @@ public class PackageSerializer {
   private Build.Attribute serializeAttribute(Attribute attr, Iterable<Object> values,
       Boolean explicitlySpecified, boolean includeGlobs) {
     // Get the attribute type.  We need to convert and add appropriately
-    com.google.devtools.build.lib.packages.Type<?> type = attr.getType();
+    com.google.devtools.build.lib.syntax.Type<?> type = attr.getType();
 
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
 

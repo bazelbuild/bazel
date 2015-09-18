@@ -45,10 +45,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
@@ -882,7 +883,7 @@ public final class ReleaseBundlingSupport {
 
     ImmutableMap<String, Artifact> cpuSpecificBreakpadFiles() {
       ImmutableMap.Builder<String, Artifact> results = ImmutableMap.builder();
-      if (ruleContext.attributes().has("binary", Type.LABEL)) {
+      if (ruleContext.attributes().has("binary", BuildType.LABEL)) {
         for (TransitiveInfoCollection prerequisite
             : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK)) {
           ObjcProvider prerequisiteProvider =  prerequisite.getProvider(ObjcProvider.class);

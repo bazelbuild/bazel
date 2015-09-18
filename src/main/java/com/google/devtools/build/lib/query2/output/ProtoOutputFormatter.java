@@ -149,7 +149,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
             Build.Attribute.newBuilder()
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)
                 .setType(ProtoUtils.getDiscriminatorFromType(
-                    com.google.devtools.build.lib.packages.Type.STRING))
+                    com.google.devtools.build.lib.syntax.Type.STRING))
                 .setStringValue(env.getTransitiveContentHashCode()));
       }
 

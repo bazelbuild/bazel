@@ -21,10 +21,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuildType.Selector;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -103,20 +106,20 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * can't be resolved due to intrinsic contradictions in the configuration.
    */
   private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException  {
-    Type.SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
       return super.get(attributeName, type);
     }
 
     List<T> resolvedList = new ArrayList<>();
-    for (Type.Selector<T> selector : selectorList.getSelectors()) {
+    for (Selector<T> selector : selectorList.getSelectors()) {
       resolvedList.add(resolveSelector(attributeName, selector));
     }
     return resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList);
   }
 
-  private <T> T resolveSelector(String attributeName, Type.Selector<T> selector)
+  private <T> T resolveSelector(String attributeName, Selector<T> selector)
       throws EvalException {
     ConfigMatchingProvider matchingCondition = null;
     Set<Label> conditionLabels = new LinkedHashSet<>();
@@ -125,7 +128,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // Find the matching condition and record its value (checking for duplicates).
     for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
       Label selectorKey = entry.getKey();
-      if (Type.Selector.isReservedLabel(selectorKey)) {
+      if (BuildType.Selector.isReservedLabel(selectorKey)) {
         continue;
       }
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;

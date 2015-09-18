@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.ArrayList;
@@ -306,12 +307,12 @@ public class RuleClassTest extends PackageLoadingTestCase {
     // Test attribute access:
     AttributeMap attributes = RawAttributeMapper.of(rule);
     assertEquals("//default:label",
-                 attributes.get("my-label-attr", Type.LABEL).toString());
+                 attributes.get("my-label-attr", BuildType.LABEL).toString());
     assertEquals(42,
                  attributes.get("my-integer-attr", Type.INTEGER).intValue());
     assertEquals("",  // missing attribute -> default chosen based on type
                  attributes.get("my-string-attr", Type.STRING));
-    assertThat(attributes.get("my-labellist-attr", Type.LABEL_LIST)).isEmpty();
+    assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
     assertEquals(Arrays.asList("foo", "bar"),
                  attributes.get("my-stringlist-attr", Type.STRING_LIST));
     try {

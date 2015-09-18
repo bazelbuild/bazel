@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
@@ -423,7 +423,7 @@ public class BuildView {
     RawAttributeMapper mapper = RawAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributes()) {
       for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
-        if (Type.Selector.isReservedLabel(label)) {
+        if (BuildType.Selector.isReservedLabel(label)) {
           continue;
         }
         try {

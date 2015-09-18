@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.

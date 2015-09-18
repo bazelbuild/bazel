@@ -278,7 +278,8 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if (lval instanceof SelectorValue || rval instanceof SelectorValue
-        || lval instanceof SelectorList || rval instanceof SelectorList) {
+        || lval instanceof SelectorList
+        || rval instanceof SelectorList) {
       return SelectorList.concat(getLocation(), lval, rval);
     }
 

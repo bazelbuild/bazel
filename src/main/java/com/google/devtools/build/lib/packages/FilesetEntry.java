@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;

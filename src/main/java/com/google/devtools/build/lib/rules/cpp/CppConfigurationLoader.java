@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -179,7 +179,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         && ((Rule) crosstoolTop).getRuleClass().equals("cc_toolchain_suite")) {
       Rule ccToolchainSuite = (Rule) crosstoolTop;
       ccToolchainLabel = NonconfigurableAttributeMapper.of(ccToolchainSuite)
-          .get("toolchains", Type.LABEL_DICT_UNARY)
+          .get("toolchains", BuildType.LABEL_DICT_UNARY)
           .get(toolchain.getTargetCpu());
       if (ccToolchainLabel == null) {
         throw new InvalidConfigurationException(String.format(

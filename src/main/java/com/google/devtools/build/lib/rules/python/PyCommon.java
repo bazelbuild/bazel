@@ -36,13 +36,14 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
@@ -287,7 +288,7 @@ public final class PyCommon {
     Rule target = ruleContext.getRule();
     boolean explicitMain = target.isAttributeValueExplicitlySpecified("main");
     if (explicitMain) {
-      mainSourceName = ruleContext.attributes().get("main", Type.LABEL).getName();
+      mainSourceName = ruleContext.attributes().get("main", BuildType.LABEL).getName();
       if (!mainSourceName.endsWith(".py")) {
         ruleContext.attributeError("main", "main must end in '.py'");
       }

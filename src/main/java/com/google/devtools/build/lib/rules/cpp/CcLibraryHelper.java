@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -611,7 +611,7 @@ public final class CcLibraryHelper {
     Preconditions.checkState(
         // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
         ruleContext.getRule().getRuleClass().equals("cc_inc_library")
-        || ruleContext.getRule().isAttrDefined(":lipo_context_collector", Type.LABEL));
+        || ruleContext.getRule().isAttrDefined(":lipo_context_collector", BuildType.LABEL));
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :

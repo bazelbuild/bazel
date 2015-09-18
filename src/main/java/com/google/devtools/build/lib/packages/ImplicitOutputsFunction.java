@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -295,28 +296,28 @@ public abstract class ImplicitOutputsFunction {
       return singleton(rule.get(attrName, Type.STRING));
     } else if (Type.STRING_LIST == attrType) {
       return Sets.newLinkedHashSet(rule.get(attrName, Type.STRING_LIST));
-    } else if (Type.LABEL == attrType) {
+    } else if (BuildType.LABEL == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
-      Label label = rule.get(attrName, Type.LABEL);
+      Label label = rule.get(attrName, BuildType.LABEL);
       return singleton(FileSystemUtils.removeExtension(label.getName()));
-    } else if (Type.LABEL_LIST == attrType) {
+    } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
       return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, Type.LABEL_LIST),
+          Iterables.transform(rule.get(attrName, BuildType.LABEL_LIST),
               new Function<Label, String>() {
                 @Override
                 public String apply(Label label) {
                   return FileSystemUtils.removeExtension(label.getName());
                 }
               }));
-    } else if (Type.OUTPUT == attrType) {
-      Label out = rule.get(attrName, Type.OUTPUT);
+    } else if (BuildType.OUTPUT == attrType) {
+      Label out = rule.get(attrName, BuildType.OUTPUT);
       return singleton(out.getName());
-    } else if (Type.OUTPUT_LIST == attrType) {
+    } else if (BuildType.OUTPUT_LIST == attrType) {
       return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, Type.OUTPUT_LIST),
+          Iterables.transform(rule.get(attrName, BuildType.OUTPUT_LIST),
               new Function<Label, String>() {
                 @Override
                 public String apply(Label label) {

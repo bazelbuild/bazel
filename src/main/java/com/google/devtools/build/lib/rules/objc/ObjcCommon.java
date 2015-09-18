@@ -61,11 +61,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -99,7 +100,7 @@ public final class ObjcCommon {
 
     ImmutableList<Artifact> hdrs() {
       // Some rules may compile but not have the "hdrs" attribute.
-      if (!ruleContext.attributes().has("hdrs", Type.LABEL_LIST)) {
+      if (!ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
         return ImmutableList.of();
       }
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
@@ -182,7 +183,7 @@ public final class ObjcCommon {
      * this rule.
      */
     public Iterable<String> optionsCopts() {
-      if (!ruleContext.attributes().has("options", Type.LABEL)) {
+      if (!ruleContext.attributes().has("options", BuildType.LABEL)) {
         return ImmutableList.of();
       }
       OptionsProvider optionsProvider =
@@ -215,7 +216,7 @@ public final class ObjcCommon {
      */
     private void collectModuleMapsFromAttributeIfExists(
         ArrayList<CppModuleMap> moduleMaps, String attribute) {
-      if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
+      if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
         Iterable<ObjcProvider> providers =
             ruleContext.getPrerequisites(attribute, Mode.TARGET, ObjcProvider.class);
         for (ObjcProvider provider : providers) {
