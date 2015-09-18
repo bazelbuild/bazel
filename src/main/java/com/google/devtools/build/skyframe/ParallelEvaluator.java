@@ -117,9 +117,7 @@ public final class ParallelEvaluator implements Evaluator {
     }
   }
   
-  /**
-   * An general interface for ParalleelEvaluator to receive objects of type T.
-   */
+  /** An general interface for {@link ParallelEvaluator} to receive objects of type {@code T}. */
   public interface Receiver<T> {
     // TODO(dmarting): should we just make it a common object for all Bazel codebase?
     /**
