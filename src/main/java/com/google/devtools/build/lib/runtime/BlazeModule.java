@@ -206,7 +206,7 @@ public abstract class BlazeModule {
      * Gets a file from the depot based on its label and returns the {@link Path} where it can
      * be found.
      */
-    Path getFileFromDepot(Label label)
+    Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException;
 
     /**

@@ -67,7 +67,7 @@ public final class CommandEnvironment {
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
-    public Path getFileFromDepot(Label label)
+    public Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
       Target target = getPackageManager().getTarget(reporter, label);
       return (runtime.getOutputService() != null)
