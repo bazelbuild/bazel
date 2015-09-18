@@ -50,7 +50,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.logging.Level;
 
 /**
@@ -292,9 +291,6 @@ public class BlazeCommandDispatcher {
           Level.WARNING, "Unable to delete or open command.log", ioException);
     }
 
-    // Create the UUID for this command.
-    runtime.setCommandId(UUID.randomUUID());
-
     ExitCode result = checkCwdInWorkspace(commandAnnotation, commandName, outErr);
     if (result != ExitCode.SUCCESS) {
       return result.getNumericExitCode();
@@ -334,7 +330,7 @@ public class BlazeCommandDispatcher {
 
     // Do this before an actual crash so we don't have to worry about
     // allocating memory post-crash.
-    String[] crashData = runtime.getCrashData();
+    String[] crashData = runtime.getCrashData(env);
     int numericExitCode = ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
     PrintStream savedOut = System.out;
     PrintStream savedErr = System.err;

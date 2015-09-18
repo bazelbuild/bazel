@@ -80,7 +80,7 @@ public class MobileInstallCommand implements BlazeCommand {
     BuildRequest request = BuildRequest.create(
         this.getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
-        env.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     return new BuildTool(env).processRequest(request, null).getExitCondition();
   }
 

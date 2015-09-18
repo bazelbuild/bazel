@@ -21,13 +21,16 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
+import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
@@ -51,6 +54,8 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class CommandEnvironment {
   private final BlazeRuntime runtime;
+
+  private final UUID commandId;  // Unique identifier for the command being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
@@ -74,8 +79,10 @@ public final class CommandEnvironment {
     }
   }
 
-  public CommandEnvironment(BlazeRuntime runtime, Reporter reporter, EventBus eventBus) {
+  public CommandEnvironment(BlazeRuntime runtime, UUID commandId, Reporter reporter,
+      EventBus eventBus) {
     this.runtime = runtime;
+    this.commandId = commandId;
     this.reporter = reporter;
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
@@ -131,8 +138,13 @@ public final class CommandEnvironment {
     return runtime.getView();
   }
 
+  /**
+   * Returns the UUID that Blaze uses to identify everything logged from the current build command.
+   * It's also used to invalidate Skyframe nodes that are specific to a certain invocation, such as
+   * the build info.
+   */
   public UUID getCommandId() {
-    return runtime.getCommandId();
+    return commandId;
   }
 
   public SkyframeExecutor getSkyframeExecutor() {
@@ -194,5 +206,20 @@ public final class CommandEnvironment {
     if (exception != null) {
       throw exception;
     }
+  }
+
+  /**
+   * Initializes the package cache using the given options, and syncs the package cache. Also
+   * injects a defaults package using the options for the {@link BuildConfiguration}.
+   *
+   * @see DefaultsPackage
+   */
+  public void setupPackageCache(PackageCacheOptions packageCacheOptions,
+      String defaultsPackageContents) throws InterruptedException, AbruptExitException {
+    runtime.setupPackageCache(packageCacheOptions, defaultsPackageContents, commandId);
+  }
+
+  public long getCommandStartTime() {
+    return runtime.getCommandStartTime();
   }
 }

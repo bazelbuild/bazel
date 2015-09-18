@@ -70,7 +70,7 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     try {
-      runtime.setupPackageCache(
+      env.setupPackageCache(
           options.getOptions(PackageCacheOptions.class),
           runtime.getDefaultsPackageContent());
     } catch (InterruptedException e) {

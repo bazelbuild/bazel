@@ -113,7 +113,7 @@ public class TestCommand implements BlazeCommand {
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
-        env.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     request.setRunTests();
 
     BuildResult buildResult = new BuildTool(env).processRequest(request, null);

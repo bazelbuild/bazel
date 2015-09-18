@@ -28,12 +28,10 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.OptionsProvider;
@@ -96,7 +94,7 @@ public class DashModule extends BlazeModule {
     DashOptions options = optionsProvider.getOptions(DashOptions.class);
     sender = (options == null || !options.useDash)
         ? new NoOpSender()
-        : new Sender(options.url, env.getRuntime(), env.getReporter(), executorService);
+        : new Sender(options.url, env, executorService);
     if (optionsBuildData != null) {
       sender.send("options", optionsBuildData);
     }
@@ -229,16 +227,15 @@ public class DashModule extends BlazeModule {
   private static class Sender implements Sendable {
     private final String url;
     private final String buildId;
-    private final OutErr outErr;
+    private final Reporter reporter;
     private final ExecutorService executorService;
 
-    public Sender(String url, BlazeRuntime runtime, Reporter reporter,
-        ExecutorService executorService) {
+    public Sender(String url, CommandEnvironment env, ExecutorService executorService) {
       this.url = url;
-      this.buildId = runtime.getCommandId().toString();
-      this.outErr = reporter.getOutErr();
+      this.buildId = env.getCommandId().toString();
+      this.reporter = env.getReporter();
       this.executorService = executorService;
-      reporter
+      env.getReporter()
           .handle(Event.info("Results are being streamed to " + url + "/result/" + buildId));
     }
 
@@ -252,14 +249,18 @@ public class DashModule extends BlazeModule {
           httppost.setHeader(HttpHeaders.CONTENT_TYPE, "application/x-protobuf");
           httppost.setEntity(new ByteArrayEntity(message.toByteArray()));
 
+          // TODO(ulfjack): It's not safe to print directly to out err. The output can be dropped
+          // if the command already returned.
           try {
             httpClient.execute(httppost);
           } catch (IOException | IllegalStateException e) {
             // IllegalStateException is thrown if the URL was invalid (e.g., someone passed
             // --dash_url=localhost:8080 instead of --dash_url=http://localhost:8080).
-            outErr.printErrLn("Error sending results to " + url + ": " + e.getMessage());
+            reporter.getOutErr().printErrLn(
+                "Error sending results to " + url + ": " + e.getMessage());
           } catch (Exception e) {
-            outErr.printErrLn("Unknown error sending results to " + url + ": " + e.getMessage());
+            reporter.getOutErr().printErrLn(
+                "Unknown error sending results to " + url + ": " + e.getMessage());
           }
         }
       });

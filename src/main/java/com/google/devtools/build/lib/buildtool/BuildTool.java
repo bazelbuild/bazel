@@ -145,7 +145,7 @@ public final class BuildTool {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
-    runtime.setupPackageCache(request.getPackageCacheOptions(),
+    env.setupPackageCache(request.getPackageCacheOptions(),
         DefaultsPackage.getDefaultsPackageContent(buildOptions));
 
     ExecutionTool executionTool = null;

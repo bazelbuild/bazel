@@ -147,7 +147,7 @@ public class RunCommand implements BlazeCommand  {
     BuildRequest request = BuildRequest.create(
         this.getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets, outErr,
-        runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getCommandId(), env.getCommandStartTime());
 
     currentRunUnder = runUnder;
     BuildResult result;

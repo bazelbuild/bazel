@@ -76,7 +76,7 @@ public final class QueryCommand implements BlazeCommand {
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
     try {
-      runtime.setupPackageCache(
+      env.setupPackageCache(
           options.getOptions(PackageCacheOptions.class),
           runtime.getDefaultsPackageContent());
     } catch (InterruptedException e) {
@@ -143,7 +143,7 @@ public final class QueryCommand implements BlazeCommand {
     try {
       QueryOutputUtils.output(queryOptions, result, formatter, output,
           queryOptions.aspectDeps.createResolver(
-              runtime.getPackageManager(), env.getReporter()));
+              env.getPackageManager(), env.getReporter()));
     } catch (ClosedByInterruptException | InterruptedException e) {
       env.getReporter().handle(Event.error("query interrupted"));
       return ExitCode.INTERRUPTED;

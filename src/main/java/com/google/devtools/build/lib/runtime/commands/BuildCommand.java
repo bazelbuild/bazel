@@ -67,7 +67,7 @@ public final class BuildCommand implements BlazeCommand {
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(),
         targets,
-        env.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     return new BuildTool(env).processRequest(request, null).getExitCondition();
   }
 }

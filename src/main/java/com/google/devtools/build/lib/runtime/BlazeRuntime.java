@@ -183,8 +183,6 @@ public final class BlazeRuntime {
 
   private final Iterable<BlazeModule> blazeModules;
 
-  private UUID commandId;  // Unique identifier for the command being run
-
   private final AtomicInteger storedExitCode = new AtomicInteger();
 
   // We pass this through here to make it available to the MasterLogWriter.
@@ -276,7 +274,8 @@ public final class BlazeRuntime {
   public CommandEnvironment initCommand() {
     EventBus eventBus = new EventBus(eventBusExceptionHandler);
     skyframeExecutor.setEventBus(eventBus);
-    return new CommandEnvironment(this, reporter, eventBus);
+    UUID commandId = UUID.randomUUID();
+    return new CommandEnvironment(this, commandId, reporter, eventBus);
   }
 
   private void clearEventBus() {
@@ -382,6 +381,7 @@ public final class BlazeRuntime {
   public Range<Long> getLastExecutionTimeRange() {
     return lastExecutionStartFinish;
   }
+
   public void recordCommandStartTime(long commandStartTime) {
     this.commandStartTime = commandStartTime;
   }
@@ -687,7 +687,7 @@ public final class BlazeRuntime {
     // Conditionally enable profiling
     // We need to compensate for launchTimeNanos (measurements taken outside of the jvm).
     long startupTimeNanos = options.startupTime * 1000000L;
-    if (initProfiler(env, options, this.getCommandId(), execStartTimeNanos - startupTimeNanos)) {
+    if (initProfiler(env, options, env.getCommandId(), execStartTimeNanos - startupTimeNanos)) {
       Profiler profiler = Profiler.instance();
 
       // Instead of logEvent() we're calling the low level function to pass the timings we took in
@@ -738,7 +738,8 @@ public final class BlazeRuntime {
     }
 
     env.getEventBus().post(
-        new CommandStartEvent(command.name(), commandId, env.getClientEnv(), workingDirectory));
+        new CommandStartEvent(command.name(), env.getCommandId(), env.getClientEnv(),
+            workingDirectory));
     // Initialize exit code to dummy value for afterCommand.
     storedExitCode.set(ExitCode.RESERVED.getNumericExitCode());
   }
@@ -819,19 +820,12 @@ public final class BlazeRuntime {
    * An array of String values useful if Blaze crashes.
    * For now, just returns the size of the action cache and the build id.
    */
-  public String[] getCrashData() {
+  public String[] getCrashData(CommandEnvironment env) {
     return new String[]{
         getFileSizeString(CompactPersistentActionCache.cacheFile(getCacheDirectory()),
                           "action cache"),
-        commandIdString(),
+        env.getCommandId() + " (build id)",
     };
-  }
-
-  private String commandIdString() {
-    UUID uuid = getCommandId();
-    return (uuid == null)
-        ? "no build id"
-        : uuid + " (build id)";
   }
 
   /**
@@ -849,14 +843,6 @@ public final class BlazeRuntime {
     }
   }
 
-  /**
-   * Returns the UUID that Blaze uses to identify everything
-   * logged from the current build command.
-   */
-  public UUID getCommandId() {
-    return commandId;
-  }
-
   void setCommandMap(Map<String, BlazeCommand> commandMap) {
     this.commandMap = ImmutableMap.copyOf(commandMap);
   }
@@ -866,27 +852,19 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Sets the UUID that Blaze uses to identify everything
-   * logged from the current build command.
-   */
-  @VisibleForTesting
-  public void setCommandId(UUID runId) {
-    commandId = runId;
-  }
-
-  /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
    * injects a defaults package using the options for the {@link BuildConfiguration}.
    *
    * @see DefaultsPackage
    */
   public void setupPackageCache(PackageCacheOptions packageCacheOptions,
-      String defaultsPackageContents) throws InterruptedException, AbruptExitException {
+      String defaultsPackageContents, UUID commandId)
+          throws InterruptedException, AbruptExitException {
     if (!skyframeExecutor.hasIncrementalState()) {
       clearSkyframeRelevantCaches();
     }
     skyframeExecutor.sync(packageCacheOptions, getOutputBase(), getWorkingDirectory(),
-        defaultsPackageContents, getCommandId());
+        defaultsPackageContents, commandId);
   }
 
   public void shutdown() {
