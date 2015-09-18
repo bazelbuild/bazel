@@ -152,7 +152,7 @@ public final class BuildTool {
     LoadingResult loadingResult = null;
     BuildConfigurationCollection configurations = null;
     try {
-      env.getEventBus().post(new BuildStartingEvent(runtime.getOutputFileSystem(), request));
+      env.getEventBus().post(new BuildStartingEvent(env.getOutputFileSystem(), request));
       LOG.info("Build identifier: " + request.getId());
       executionTool = new ExecutionTool(env, request);
       if (needsExecutionPhase(request.getBuildOptions())) {

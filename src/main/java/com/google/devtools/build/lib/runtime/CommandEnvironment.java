@@ -61,6 +61,8 @@ public final class CommandEnvironment {
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new HashMap<>();
 
+  private String outputFileSystem;
+
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
@@ -221,5 +223,13 @@ public final class CommandEnvironment {
 
   public long getCommandStartTime() {
     return runtime.getCommandStartTime();
+  }
+
+  void setOutputFileSystem(String outputFileSystem) {
+    this.outputFileSystem = outputFileSystem;
+  }
+
+  public String getOutputFileSystem() {
+    return outputFileSystem;
   }
 }

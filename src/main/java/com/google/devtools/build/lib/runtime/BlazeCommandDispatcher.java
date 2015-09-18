@@ -44,11 +44,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -92,50 +90,25 @@ public class BlazeCommandDispatcher {
   }
 
   private final BlazeRuntime runtime;
-  private final Map<String, BlazeCommand> commandsByName = new LinkedHashMap<>();
 
   private OutputStream logOutputStream = null;
 
   /**
-   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime}
-   * instance, and no default options, and delegates to {@code commands} as
-   * appropriate.
+   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance, but overrides
+   * the command map with the given commands (plus any commands from modules).
    */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime, BlazeCommand... commands) {
-    this(runtime, ImmutableList.copyOf(commands));
+    this(runtime);
+    runtime.overrideCommands(Arrays.asList(commands));
   }
 
   /**
-   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime}
-   * instance, and delegates to {@code commands} as appropriate.
+   * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance.
    */
-  public BlazeCommandDispatcher(BlazeRuntime runtime, Iterable<BlazeCommand> commands) {
+  @VisibleForTesting
+  public BlazeCommandDispatcher(BlazeRuntime runtime) {
     this.runtime = runtime;
-    for (BlazeCommand command : commands) {
-      addCommandByName(command);
-    }
-
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      for (BlazeCommand command : module.getCommands()) {
-        addCommandByName(command);
-      }
-    }
-
-    runtime.setCommandMap(commandsByName);
-  }
-
-  /**
-   * Adds the given command under the given name to the map of commands.
-   *
-   * @throws AssertionError if the name is already used by another command.
-   */
-  private void addCommandByName(BlazeCommand command) {
-    String name = command.getClass().getAnnotation(Command.class).name();
-    if (commandsByName.containsKey(name)) {
-      throw new IllegalStateException("Command name or alias " + name + " is already used.");
-    }
-    commandsByName.put(name, command);
   }
 
   /**
@@ -199,7 +172,7 @@ public class BlazeCommandDispatcher {
     CommonCommandOptions rcFileOptions = optionsParser.getOptions(CommonCommandOptions.class);
     List<Pair<String, ListMultimap<String, String>>> optionsMap =
         getOptionsMap(outErr, rcFileOptions.rcSource, rcFileOptions.optionsOverrides,
-            commandsByName.keySet());
+            runtime.getCommandMap().keySet());
 
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null);
 
@@ -250,7 +223,7 @@ public class BlazeCommandDispatcher {
       commandName = "help";
     }
 
-    BlazeCommand command = commandsByName.get(commandName);
+    BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
       outErr.printErrLn(String.format(
           "Command '%s' not found. Try '%s help'.", commandName, Constants.PRODUCT_NAME));
@@ -654,13 +627,6 @@ public class BlazeCommandDispatcher {
    */
   public BlazeRuntime getRuntime() {
     return runtime;
-  }
-
-  /**
-   * The map from command names to commands that this dispatcher dispatches to.
-   */
-  Map<String, BlazeCommand> getCommandsByName() {
-    return Collections.unmodifiableMap(commandsByName);
   }
 
   /**
