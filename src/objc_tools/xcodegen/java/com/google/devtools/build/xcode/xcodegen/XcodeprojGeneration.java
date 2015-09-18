@@ -388,6 +388,13 @@ public class XcodeprojGeneration {
 
     NSDictionary projBuildConfigMap = new NSDictionary();
     projBuildConfigMap.put("ARCHS", cpuArchitectures(control.getCpuArchitectureList()));
+    projBuildConfigMap.put("VALID_ARCHS",
+        new NSArray(
+            new NSString("armv7"),
+            new NSString("armv7s"),
+            new NSString("arm64"),
+            new NSString("i386"),
+            new NSString("x86_64")));
     projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
     projBuildConfigMap.put("SDKROOT", "iphoneos");
     projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
