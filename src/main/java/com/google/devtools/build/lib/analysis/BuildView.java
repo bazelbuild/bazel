@@ -312,10 +312,6 @@ public class BuildView {
     skyframeBuildView.setTopLevelHostConfiguration(configurations.getHostConfiguration());
   }
 
-  public BuildConfigurationCollection getConfigurationCollection() {
-    return configurations;
-  }
-
   /**
    * Clear the graphs of ConfiguredTargets and Artifacts.
    */
