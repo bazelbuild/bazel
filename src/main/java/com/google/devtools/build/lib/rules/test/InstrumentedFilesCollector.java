@@ -68,10 +68,9 @@ public final class InstrumentedFilesCollector {
     NestedSetBuilder<Artifact> baselineCoverageInstrumentedFilesBuilder =
         NestedSetBuilder.stableOrder();
 
-    Iterable<TransitiveInfoCollection> prereqs = getAllPrerequisites(ruleContext, spec);
-
     // Transitive instrumentation data.
-    for (TransitiveInfoCollection dep : prereqs) {
+    for (TransitiveInfoCollection dep :
+        getAllPrerequisites(ruleContext, spec.dependencyAttributes)) {
       InstrumentedFilesProvider provider = dep.getProvider(InstrumentedFilesProvider.class);
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
@@ -85,10 +84,9 @@ public final class InstrumentedFilesCollector {
     NestedSet<Artifact> localSources = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     if (shouldIncludeLocalSources(ruleContext)) {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
-      for (TransitiveInfoCollection dep : prereqs) {
-        // TODO(ulfjack): Use different sets of attributes to collect transitive instrumentation
-        // data and to collect local sources, and then remove this if-statement.
-        if (dep.getProvider(InstrumentedFilesProvider.class) != null) {
+      for (TransitiveInfoCollection dep :
+          getAllPrerequisites(ruleContext, spec.sourceAttributes)) {
+        if (!spec.splitLists && dep.getProvider(InstrumentedFilesProvider.class) != null) {
           continue;
         }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
@@ -137,21 +135,34 @@ public final class InstrumentedFilesCollector {
   public static final class InstrumentationSpec {
     private final FileTypeSet instrumentedFileTypes;
 
-    /**
-     * The list of attributes which should be (transitively) checked for sources and instrumentation
-     * metadata.
-     */
-    private final Collection<String> instrumentedAttributes;
+    /** The list of attributes which should be checked for sources. */
+    private final Collection<String> sourceAttributes;
 
-    public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
-        Collection<String> instrumentedAttributes) {
-      this.instrumentedFileTypes = instrumentedFileTypes;
-      this.instrumentedAttributes = ImmutableList.copyOf(instrumentedAttributes);
-    }
+    /** The list of attributes from which to collect transitive coverage information. */
+    private final Collection<String> dependencyAttributes;
+
+    /** Whether the source and dependency lists are separate. */
+    private final boolean splitLists;
 
     public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
         String... instrumentedAttributes) {
       this(instrumentedFileTypes, ImmutableList.copyOf(instrumentedAttributes));
+    }
+
+    public InstrumentationSpec(FileTypeSet instrumentedFileTypes,
+        Collection<String> instrumentedAttributes) {
+      this(instrumentedFileTypes, instrumentedAttributes, instrumentedAttributes, false);
+    }
+
+    private InstrumentationSpec(FileTypeSet instrumentedFileTypes,
+        Collection<String> instrumentedSourceAttributes,
+        Collection<String> instrumentedDependencyAttributes,
+        boolean splitLists) {
+      this.instrumentedFileTypes = instrumentedFileTypes;
+      this.sourceAttributes = ImmutableList.copyOf(instrumentedSourceAttributes);
+      this.dependencyAttributes =
+          ImmutableList.copyOf(instrumentedDependencyAttributes);
+      this.splitLists = splitLists;
     }
 
     /**
@@ -160,6 +171,24 @@ public final class InstrumentedFilesCollector {
      */
     public InstrumentationSpec withAttributes(String... instrumentedAttributes) {
       return new InstrumentationSpec(instrumentedFileTypes, instrumentedAttributes);
+    }
+
+    /**
+     * Returns a new instrumentation spec with the given attribute names replacing the ones
+     * stored in this object.
+     */
+    public InstrumentationSpec withSourceAttributes(String... instrumentedAttributes) {
+      return new InstrumentationSpec(instrumentedFileTypes,
+          ImmutableList.copyOf(instrumentedAttributes), dependencyAttributes, true);
+    }
+
+    /**
+     * Returns a new instrumentation spec with the given attribute names replacing the ones
+     * stored in this object.
+     */
+    public InstrumentationSpec withDependencyAttributes(String... instrumentedAttributes) {
+      return new InstrumentationSpec(instrumentedFileTypes,
+          sourceAttributes, ImmutableList.copyOf(instrumentedAttributes), true);
     }
   }
 
@@ -214,9 +243,9 @@ public final class InstrumentedFilesCollector {
   }
 
   private static Iterable<TransitiveInfoCollection> getAllPrerequisites(
-      RuleContext ruleContext, InstrumentationSpec spec) {
+      RuleContext ruleContext, Collection<String> attributeNames) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (String attr : spec.instrumentedAttributes) {
+    for (String attr : attributeNames) {
       if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
         prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
