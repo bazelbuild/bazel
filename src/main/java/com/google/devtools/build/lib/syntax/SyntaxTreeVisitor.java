@@ -40,7 +40,7 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(Parameter<?, ?> node) {
+  public void visit(@SuppressWarnings("unused") Parameter<?, ?> node) {
     // leaf node (we need the function for overrides)
   }
 
@@ -62,24 +62,17 @@ public class SyntaxTreeVisitor {
     visitAll(node.getArguments());
   }
 
-  public void visit(Identifier node) {
-  }
+  public void visit(@SuppressWarnings("unused") Identifier node) {}
 
-  public void visit(ListComprehension node) {
-    visit(node.getElementExpression());
+  public void visit(AbstractComprehension node) {
+    visitAll(node.getOutputExpressions());
+
     for (ListComprehension.Clause clause : node.getClauses()) {
       if (clause.getLValue() != null) {
         visit(clause.getLValue());
       }
       visit(clause.getExpression());
     }
-  }
-
-  public void accept(DictComprehension node) {
-    visit(node.getKeyExpression());
-    visit(node.getValueExpression());
-    visit(node.getLoopVar().getExpression());
-    visit(node.getListExpression());
   }
 
   public void visit(ForStatement node) {
@@ -96,11 +89,9 @@ public class SyntaxTreeVisitor {
     visitAll(node.getElements());
   }
 
-  public void visit(IntegerLiteral node) {
-  }
+  public void visit(@SuppressWarnings("unused") IntegerLiteral node) {}
 
-  public void visit(StringLiteral node) {
-  }
+  public void visit(@SuppressWarnings("unused") StringLiteral node) {}
 
   public void visit(LValue node) {
     visit(node.getExpression());
@@ -153,8 +144,7 @@ public class SyntaxTreeVisitor {
     visit(node.getField());
   }
 
-  public void visit(Comment node) {
-  }
+  public void visit(@SuppressWarnings("unused") Comment node) {}
 
   public void visit(ConditionalExpression node) {
     visit(node.getThenCase());

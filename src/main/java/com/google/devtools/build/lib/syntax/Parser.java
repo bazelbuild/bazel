@@ -767,32 +767,27 @@ class Parser {
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
   //                        | 'IF' expr comprehension_suffix
   //                        | ']'
-  private Expression parseComprehensionSuffix(ListComprehension listComprehension) {
+  private Expression parseComprehensionSuffix(
+      AbstractComprehension comprehension, TokenKind closingBracket) {
     while (true) {
-      switch (token.kind) {
-        case FOR:
-          nextToken();
-          Expression loopVar = parseForLoopVariables();
-          expect(TokenKind.IN);
-          // The expression cannot be a ternary expression ('x if y else z') due to
-          // conflicts in Python grammar ('if' is used by the comprehension).
-          Expression listExpression = parseNonTupleExpression(0);
-          listComprehension.addFor(loopVar, listExpression);
-          break;
-
-        case IF:
-          nextToken();
-          listComprehension.addIf(parseExpression());
-          break;
-
-        case RBRACKET:
-          nextToken();
-          return listComprehension;
-
-        default:
-          syntaxError(token, "expected ']', 'for' or 'if'");
-          syncPast(LIST_TERMINATOR_SET);
-          return makeErrorExpression(token.left, token.right);
+      if (token.kind == TokenKind.FOR) {
+        nextToken();
+        Expression loopVar = parseForLoopVariables();
+        expect(TokenKind.IN);
+        // The expression cannot be a ternary expression ('x if y else z') due to
+        // conflicts in Python grammar ('if' is used by the comprehension).
+        Expression listExpression = parseNonTupleExpression(0);
+        comprehension.addFor(loopVar, listExpression);
+      } else if (token.kind == TokenKind.IF) {
+        nextToken();
+        comprehension.addIf(parseExpression());
+      } else if (token.kind == closingBracket) {
+        nextToken();
+        return comprehension;
+      } else {
+        syntaxError(token, "expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
+        syncPast(LIST_TERMINATOR_SET);
+        return makeErrorExpression(token.left, token.right);
       }
     }
   }
@@ -820,10 +815,12 @@ class Parser {
         nextToken();
         return literal;
       }
-      case FOR: { // list comprehension
-        Expression result = parseComprehensionSuffix(new ListComprehension(expression));
-        return setLocation(result, start, token.right);
-      }
+      case FOR:
+        { // list comprehension
+          Expression result =
+              parseComprehensionSuffix(new ListComprehension(expression), TokenKind.RBRACKET);
+          return setLocation(result, start, token.right);
+        }
       case COMMA: {
         List<Expression> list = parseExprList();
         Preconditions.checkState(!list.contains(null),
@@ -861,17 +858,10 @@ class Parser {
     }
     DictionaryEntryLiteral entry = parseDictEntry();
     if (token.kind == TokenKind.FOR) {
-      // TODO(bazel-team): Reuse parseComprehensionSuffix when dict
-      // comprehension is compatible with list comprehension.
-
       // Dict comprehension
-      nextToken();
-      Expression loopVar = parseForLoopVariables();
-      expect(TokenKind.IN);
-      Expression listExpression = parseExpression();
-      expect(TokenKind.RBRACE);
-      return setLocation(new DictComprehension(
-          entry.getKey(), entry.getValue(), loopVar, listExpression), start, token.right);
+      Expression result = parseComprehensionSuffix(
+          new DictComprehension(entry.getKey(), entry.getValue()), TokenKind.RBRACE);
+      return setLocation(result, start, token.right);
     }
     List<DictionaryEntryLiteral> entries = new ArrayList<>();
     entries.add(entry);

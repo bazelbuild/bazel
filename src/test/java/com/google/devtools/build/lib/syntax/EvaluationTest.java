@@ -483,6 +483,13 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDictComprehension_ManyClauses() throws Exception {
+    new SkylarkTest().testStatement(
+        "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
+        ImmutableMap.of(2, 4, 4, 16, 6, 36, 8, 64));
+  }
+
+  @Test
   public void testDictComprehensions_MultipleKey() throws Exception {
     newTest().testStatement("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
         .testStatement("{y : y for y in ['ab', 'c', 'a' + 'b']}",
