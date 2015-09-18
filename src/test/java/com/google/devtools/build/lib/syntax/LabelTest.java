@@ -359,7 +359,8 @@ public class LabelTest {
       Label.parseAbsolute("foo//bar/baz:bat/boo");
       fail();
     } catch (LabelSyntaxException e) {
-      assertThat(e).hasMessage("invalid repository name 'foo': workspace name must start with '@'");
+      assertThat(e).hasMessage(
+          "invalid repository name 'foo': workspace names must start with '@'");
     }
   }
 }

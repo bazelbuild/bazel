@@ -54,48 +54,39 @@ public class PackageIdentifierTest {
     assertThat(mainA.getRepository()).isEqualTo(PackageIdentifier.MAIN_REPOSITORY_NAME);
   }
 
+  public void assertNotValid(String name, String expectedMessage) {
+    try {
+      RepositoryName.create(name);
+      fail();
+    } catch (LabelSyntaxException expected) {
+      assertThat(expected.getMessage()).contains(expectedMessage);
+    }
+  }
+
   @Test
   public void testValidateRepositoryName() throws Exception {
-    // OK:
     assertEquals("@foo", RepositoryName.create("@foo").toString());
     assertThat(RepositoryName.create("").toString()).isEmpty();
     assertEquals("@foo/bar", RepositoryName.create("@foo/bar").toString());
     assertEquals("@foo.bar", RepositoryName.create("@foo.bar").toString());
+    assertEquals("@..foo", RepositoryName.create("@..foo").toString());
+    assertEquals("@foo..", RepositoryName.create("@foo..").toString());
+    assertEquals("@.foo", RepositoryName.create("@.foo").toString());
 
-    try {
-      RepositoryName.create("@abc/");
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(
-          "workspace names cannot start nor end with '/'");
-    }
-    try {
-      RepositoryName.create("@/abc");
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(
-          "workspace names cannot start nor end with '/'");
-    }
-    try {
-      RepositoryName.create("@a//////b");
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(
-          "workspace names cannot contain multiple '/'s in a row");
-    }
-    try {
-      RepositoryName.create("@foo@");
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(
-          "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
-    }
-    try {
-      RepositoryName.create("x");
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains("workspace name must start with '@'");
-    }
+    assertNotValid("@/", "workspace names are not allowed to start with '@/'");
+    assertNotValid("@.", "workspace names are not allowed to be '@.'");
+    assertNotValid("@./", "workspace names are not allowed to start with '@./'");
+    assertNotValid("@../", "workspace names are not allowed to start with '@..'");
+    assertNotValid("@x/./x", "workspace names are not allowed to contain '/./'");
+    assertNotValid("@x/../x", "workspace names are not allowed to contain '/../'");
+    assertNotValid("@abc/", "workspace names are not allowed to end with '/'");
+    assertNotValid("@/abc", "workspace names are not allowed to start with '@/'");
+    assertNotValid("@a//////b", "workspace names are not allowed to contain '//'");
+    assertNotValid("@foo@",
+        "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
+    assertNotValid("@foo\0",
+        "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
+    assertNotValid("x", "workspace names must start with '@'");
   }
 
   @Test
@@ -121,16 +112,6 @@ public class PackageIdentifierTest {
   public void testInvalidPackageName() throws Exception {
     // This shouldn't throw an exception, package names aren't validated.
     new PackageIdentifier("@foo", new PathFragment("bar.baz"));
-  }
-
-  @Test
-  public void testInvalidRepositoryName() throws Exception {
-    try {
-      new PackageIdentifier("foo", new PathFragment("bar/baz"));
-      fail("'foo' is not a legal repository name");
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains("workspace name must start with '@'");
-    }
   }
 
   @Test
