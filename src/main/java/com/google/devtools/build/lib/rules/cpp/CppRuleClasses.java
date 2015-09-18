@@ -56,8 +56,9 @@ public class CppRuleClasses {
    */
   static final InstrumentationSpec INSTRUMENTATION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR,
-          ASSEMBLER),
-      "srcs", "deps", "data", "hdrs");
+          ASSEMBLER))
+      .withSourceAttributes("srcs", "hdrs")
+      .withDependencyAttributes("deps", "data");
 
   public static final LibraryLanguage LANGUAGE = new LibraryLanguage("C++");
 
