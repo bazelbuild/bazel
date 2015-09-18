@@ -68,6 +68,12 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   }
 
   @Override
+  public NestedSet<Artifact> getBaselineCoverageInstrumentedFiles() {
+    return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
+        .getBaselineCoverageInstrumentedFiles();
+  }
+
+  @Override
   public NestedSet<Artifact> getBaselineCoverageArtifacts() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getBaselineCoverageArtifacts();

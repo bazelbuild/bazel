@@ -65,7 +65,8 @@ public final class InstrumentedFilesCollector {
 
     NestedSetBuilder<Artifact> instrumentedFilesBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> metadataFilesBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> baselineCoverageArtifactsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> baselineCoverageInstrumentedFilesBuilder =
+        NestedSetBuilder.stableOrder();
 
     Iterable<TransitiveInfoCollection> prereqs = getAllPrerequisites(ruleContext, spec);
 
@@ -75,7 +76,8 @@ public final class InstrumentedFilesCollector {
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
-        baselineCoverageArtifactsBuilder.addTransitive(provider.getBaselineCoverageArtifacts());
+        baselineCoverageInstrumentedFilesBuilder.addTransitive(
+            provider.getBaselineCoverageInstrumentedFiles());
       }
     }
 
@@ -84,6 +86,8 @@ public final class InstrumentedFilesCollector {
     if (shouldIncludeLocalSources(ruleContext)) {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep : prereqs) {
+        // TODO(ulfjack): Use different sets of attributes to collect transitive instrumentation
+        // data and to collect local sources, and then remove this if-statement.
         if (dep.getProvider(InstrumentedFilesProvider.class) != null) {
           continue;
         }
@@ -97,6 +101,12 @@ public final class InstrumentedFilesCollector {
       localSources = localSourcesBuilder.build();
     }
     instrumentedFilesBuilder.addTransitive(localSources);
+    if (withBaselineCoverage) {
+      // Also add the local sources to the baseline coverage instrumented sources, if the current
+      // rule supports baseline coverage.
+      // TODO(ulfjack): Generate a local baseline coverage action, and then merge at the leaves.
+      baselineCoverageInstrumentedFilesBuilder.addTransitive(localSources);
+    }
 
     // Local metadata files.
     if (localMetadataCollector != null) {
@@ -105,13 +115,15 @@ public final class InstrumentedFilesCollector {
     }
 
     // Baseline coverage actions.
-    if (withBaselineCoverage) {
-      baselineCoverageArtifactsBuilder.addTransitive(
-          BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext, localSources));
-    }
+    NestedSet<Artifact> baselineCoverageFiles = baselineCoverageInstrumentedFilesBuilder.build();
+
+    // Create one baseline coverage action per target, but for the transitive closure of files.
+    NestedSet<Artifact> baselineCoverageArtifacts =
+        BaselineCoverageAction.create(ruleContext, baselineCoverageFiles);
     return new InstrumentedFilesProviderImpl(instrumentedFilesBuilder.build(),
         metadataFilesBuilder.build(),
-        baselineCoverageArtifactsBuilder.build(),
+        baselineCoverageFiles,
+        baselineCoverageArtifacts,
         ImmutableMap.<String, String>of());
   }
 

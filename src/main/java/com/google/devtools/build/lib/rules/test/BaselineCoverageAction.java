@@ -44,7 +44,6 @@ import java.util.List;
 @VisibleForTesting
 public final class BaselineCoverageAction extends AbstractFileWriteAction
     implements NotifyOnActionCacheHit {
-
   private final Iterable<Artifact> instrumentedFiles;
 
   private BaselineCoverageAction(
@@ -112,15 +111,13 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
    * Returns collection of baseline coverage artifacts associated with the given target.
    * Will always return 0 or 1 elements.
    */
-  static NestedSet<Artifact> getBaselineCoverageArtifacts(RuleContext ruleContext,
-      Iterable<Artifact> instrumentedFiles) {
+  static NestedSet<Artifact> create(RuleContext ruleContext, Iterable<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
     Artifact coverageData = ruleContext.getPackageRelativeArtifact(
         new PathFragment(ruleContext.getTarget().getName()).getChild("baseline_coverage.dat"),
         ruleContext.getConfiguration().getTestLogsDirectory());
     ruleContext.registerAction(new BaselineCoverageAction(
         ruleContext.getActionOwner(), instrumentedFiles, coverageData));
-
     return NestedSetBuilder.create(Order.STABLE_ORDER, coverageData);
   }
 }
