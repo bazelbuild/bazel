@@ -427,7 +427,7 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed. Note that in
         // skyframe full, this destroys the action graph as well, so we can only do it after the
         // action graph is no longer needed.
-        getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
+        env.getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
         actionGraph = null;
       }
 
@@ -716,7 +716,7 @@ public class ExecutionTool {
         // files), OR when a user explicitly requests an output file but not
         // its rule.
         TransitiveInfoCollection generatingRule =
-            getView().getGeneratingRule((OutputFileConfiguredTarget) target);
+            env.getView().getGeneratingRule((OutputFileConfiguredTarget) target);
         if (CollectionUtils.containsAll(
             generatingRule.getProvider(FileProvider.class).getFilesToBuild(),
             target.getProvider(FileProvider.class).getFilesToBuild()) &&
@@ -840,7 +840,7 @@ public class ExecutionTool {
     fileCache = createBuildSingleFileCache(executor.getExecRoot());
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     return new SkyframeBuilder(skyframeExecutor,
-        new ActionCacheChecker(actionCache, getView().getArtifactFactory(), executionFilter,
+        new ActionCacheChecker(actionCache, env.getView().getArtifactFactory(), executionFilter,
             verboseExplanations),
         keepGoing, actualJobs, options.checkOutputFiles, fileCache,
         request.getBuildOptions().progressReportInterval);
@@ -908,10 +908,6 @@ public class ExecutionTool {
 
   private Reporter getReporter() {
     return env.getReporter();
-  }
-
-  private BuildView getView() {
-    return runtime.getView();
   }
 
   private Path getWorkspace() {

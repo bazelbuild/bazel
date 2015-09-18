@@ -441,7 +441,7 @@ public final class BuildTool {
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
     AnalysisResult analysisResult =
-        runtime.getView()
+        env.getView()
             .update(
                 loadingResult,
                 configurations,
@@ -454,7 +454,7 @@ public final class BuildTool {
 
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus().post(new AnalysisPhaseCompleteEvent(analysisResult.getTargetsToBuild(),
-        runtime.getView().getTargetsVisited(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+        env.getView().getTargetsVisited(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
     env.getEventBus().post(new TestFilteringCompleteEvent(analysisResult.getTargetsToBuild(),
         analysisResult.getTargetsToTest()));
 
