@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -112,13 +111,10 @@ public class ASTFileLookupFunction implements SkyFunction {
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final RuleClassProvider ruleClassProvider;
-  private final CachingPackageLocator packageManager;
 
   public ASTFileLookupFunction(AtomicReference<PathPackageLocator> pkgLocator,
-      CachingPackageLocator packageManager,
       RuleClassProvider ruleClassProvider) {
     this.pkgLocator = pkgLocator;
-    this.packageManager = packageManager;
     this.ruleClassProvider = ruleClassProvider;
   }
 
@@ -143,7 +139,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       if (parseAsSkylark) {
         try (Mutability mutability = Mutability.create("validate")) {
             ast = BuildFileAST.parseSkylarkFile(path, fileSize, env.getListener(),
-                packageManager, new ValidationEnvironment(
+                new ValidationEnvironment(
                     ruleClassProvider.createSkylarkRuleClassEnvironment(
                         mutability,
                         env.getListener(),
@@ -153,7 +149,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                     .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)));
         }
       } else {
-        ast = BuildFileAST.parseBuildFile(path, fileSize, env.getListener(), packageManager, false);
+        ast = BuildFileAST.parseBuildFile(path, fileSize, env.getListener(), false);
       }
     } catch (IOException e) {
         throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(

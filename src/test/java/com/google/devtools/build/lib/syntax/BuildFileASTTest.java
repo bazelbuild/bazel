@@ -48,8 +48,6 @@ public class BuildFileASTTest extends EvaluationTestCase {
     }
   }
 
-  private CachingPackageLocator locator = new ScratchPathPackageLocator();
-
   @Override
   public Environment newEnvironment() throws Exception {
     return newBuildEnvironment();
@@ -61,7 +59,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
    */
   private BuildFileAST parseBuildFile(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
-    return BuildFileAST.parseBuildFile(file, getEventHandler(), locator, false);
+    return BuildFileAST.parseBuildFile(file, getEventHandler(), false);
   }
 
   @Test
@@ -71,7 +69,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "",
         "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
 
-    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), null, false);
+    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
 
     assertTrue(buildfile.exec(env, getEventHandler()));
 
@@ -92,7 +90,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "z = x + y");
 
     setFailFast(false);
-    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), null, false);
+    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
 
     assertFalse(buildfile.exec(env, getEventHandler()));
     Event e = assertContainsEvent("unsupported operand type(s) for +: 'int' and 'List'");
@@ -180,124 +178,5 @@ public class BuildFileASTTest extends EvaluationTestCase {
     assertNull(findEvent(getEventCollector(), "$error$"));
     // This message should not be printed anymore.
     assertNull(findEvent(getEventCollector(), "contains syntax error(s)"));
-  }
-
-  @Test
-  public void testInclude() throws Exception {
-    scratch.file("/foo/bar/BUILD",
-        "c = 4\n"
-        + "d = 5\n");
-    Path buildFile = scratch.file("/BUILD",
-        "a = 2\n"
-        + "include(\"//foo/bar:BUILD\")\n"
-        + "b = 4\n");
-
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(buildFile, getEventHandler(),
-                                                            locator, false);
-
-    assertFalse(buildFileAST.containsErrors());
-    assertThat(buildFileAST.getStatements()).hasSize(5);
-  }
-
-  @Test
-  public void testInclude2() throws Exception {
-    scratch.file("/foo/bar/defs",
-        "a = 1\n");
-    Path buildFile = scratch.file("/BUILD",
-        "include(\"//foo/bar:defs\")\n"
-        + "b = a + 1\n");
-
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(buildFile, getEventHandler(),
-                                                            locator, false);
-
-    assertFalse(buildFileAST.containsErrors());
-    assertThat(buildFileAST.getStatements()).hasSize(3);
-
-    setFailFast(false);
-    assertFalse(buildFileAST.exec(env, getEventHandler()));
-    assertEquals(2, env.lookup("b"));
-  }
-
-  @Test
-  public void testMultipleIncludes() throws Exception {
-    String fileA =
-        "include(\"//foo:fileB\")\n"
-        + "include(\"//foo:fileC\")\n";
-    scratch.file("/foo/fileB",
-        "b = 3\n"
-        + "include(\"//foo:fileD\")\n");
-    scratch.file("/foo/fileC",
-        "include(\"//foo:fileD\")\n"
-        + "c = b + 2\n");
-    scratch.file("/foo/fileD",
-        "b = b + 1\n"); // this code is included twice
-
-    BuildFileAST buildFileAST = parseBuildFile(fileA);
-    assertFalse(buildFileAST.containsErrors());
-    assertThat(buildFileAST.getStatements()).hasSize(8);
-
-    setFailFast(false);
-    assertFalse(buildFileAST.exec(env, getEventHandler()));
-    assertEquals(5, env.lookup("b"));
-    assertEquals(7, env.lookup("c"));
-  }
-
-  @Test
-  public void testFailInclude() throws Exception {
-    setFailFast(false);
-    BuildFileAST buildFileAST = parseBuildFile("include(\"//nonexistent\")");
-    assertThat(buildFileAST.getStatements()).hasSize(1);
-    assertContainsEvent("Include of '//nonexistent' failed");
-  }
-
-
-  @Test
-  public void testFailInclude2() throws Exception {
-    setFailFast(false);
-    Path buildFile = scratch.file("/foo/bar/BUILD",
-        "include(\"//nonexistent:foo\")\n");
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
-        buildFile, getEventHandler(), Environment.EMPTY_PACKAGE_LOCATOR, false);
-    assertThat(buildFileAST.getStatements()).hasSize(1);
-    assertContainsEvent("Package 'nonexistent' not found");
-  }
-
-  @Test
-  public void testInvalidInclude() throws Exception {
-    setFailFast(false);
-    BuildFileAST buildFileAST = parseBuildFile("include(2)");
-    assertThat(buildFileAST.getStatements()).isEmpty();
-    assertContainsEvent("syntax error at '2'");
-  }
-
-  @Test
-  public void testRecursiveInclude() throws Exception {
-    setFailFast(false);
-    Path buildFile = scratch.file("/foo/bar/BUILD",
-        "include(\"//foo/bar:BUILD\")\n");
-
-    BuildFileAST.parseBuildFile(buildFile, getEventHandler(), locator, false);
-    assertContainsEvent("Recursive inclusion");
-  }
-
-  @Test
-  public void testParseErrorInclude() throws Exception {
-    setFailFast(false);
-
-    scratch.file("/foo/bar/file",
-        "a = 2 + % 3\n"); // parse error
-
-    parseBuildFile("include(\"//foo/bar:file\")");
-
-    // Check the location is properly reported
-    Event event = assertContainsEvent("syntax error at '%': expected expression");
-    assertEquals("/foo/bar/file:1:9", event.getLocation().print());
-  }
-
-  @Test
-  public void testNonExistentIncludeReported() throws Exception {
-    setFailFast(false);
-    BuildFileAST buildFileAST = parseBuildFile("include('//foo:bar')");
-    assertThat(buildFileAST.getStatements()).hasSize(1);
   }
 }
