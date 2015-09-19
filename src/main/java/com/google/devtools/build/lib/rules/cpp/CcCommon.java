@@ -533,26 +533,6 @@ public final class CcCommon {
     }
     requestedFeatures.addAll(ruleSpecificRequestedFeatures);
 
-    // Enable FDO related features requested by options.
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    FdoSupport fdoSupport = cppConfiguration.getFdoSupport();
-    if (fdoSupport.getFdoInstrument() != null) {
-      requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
-    }
-    if (fdoSupport.getFdoOptimizeProfile() != null
-        && !fdoSupport.isAutoFdoEnabled()) {
-      requestedFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-    }
-    if (fdoSupport.isAutoFdoEnabled()) {
-      requestedFeatures.add(CppRuleClasses.AUTOFDO);
-    }
-    if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
-      requestedFeatures.add(CppRuleClasses.LIPO);
-    }
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      requestedFeatures.add(CppRuleClasses.COVERAGE);
-    }
-
     FeatureConfiguration configuration =
         toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
     for (String feature : unsupportedFeatures) {

@@ -1295,7 +1295,8 @@ public final class RuleClass {
     }
 
     String name = fragmentNameResolver.resolveName(configurationFragment);
-    return (name != null && requiredConfigurationFragmentNames.get(config).contains(name));
+    ImmutableSet<String> fragmentNames = requiredConfigurationFragmentNames.get(config);
+    return (name != null && fragmentNames != null && fragmentNames.contains(name));
   }
 
   /**

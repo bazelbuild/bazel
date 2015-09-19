@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -1914,5 +1915,32 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         "cpu", getTargetCpu(),
         "compiler", getCompiler()
     );
+  }
+
+  /**
+   * Return set of features enabled by the CppConfiguration, specifically
+   * the FDO and LIPO related features enabled by options.
+   */
+  @Override
+  public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
+    ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
+    FdoSupport fdoSupport = getFdoSupport();
+    if (fdoSupport.getFdoInstrument() != null) {
+      requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
+    }
+    if (fdoSupport.getFdoOptimizeProfile() != null
+        && !fdoSupport.isAutoFdoEnabled()) {
+      requestedFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+    }
+    if (fdoSupport.isAutoFdoEnabled()) {
+      requestedFeatures.add(CppRuleClasses.AUTOFDO);
+    }
+    if (isLipoOptimizationOrInstrumentation()) {
+      requestedFeatures.add(CppRuleClasses.LIPO);
+    }
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      requestedFeatures.add(CppRuleClasses.COVERAGE);
+    }
+    return requestedFeatures.build();
   }
 }

@@ -163,6 +163,12 @@ public final class RuleContext extends TargetContext
     Set<String> globallyEnabled = new HashSet<>();
     Set<String> globallyDisabled = new HashSet<>();
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
+    for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
+        getConfiguration().getAllFragments().entrySet()) {
+      if (rule.getRuleClassObject().isLegalConfigurationFragment(entry.getKey())) {
+        globallyEnabled.addAll(entry.getValue().configurationEnabledFeatures(this));
+      }
+    }
     Set<String> packageEnabled = new HashSet<>();
     Set<String> packageDisabled = new HashSet<>();
     parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);
