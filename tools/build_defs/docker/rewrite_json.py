@@ -230,14 +230,14 @@ def GetParentIdentifier(f):
   # TODO(dmarting): Maybe we could drop the 'top' file all together?
   top = GetTarFile(f, 'top')
   if top:
-    return top
+    return top.strip()
   repositories = GetTarFile(f, 'repositories')
   if repositories:
     data = json.loads(repositories)
     for k1 in data:
       for k2 in data[k1]:
         # Returns the first found key
-        return data[k1][k2]
+        return data[k1][k2].strip()
   return None
 
 
