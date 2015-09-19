@@ -33,7 +33,7 @@ def _setup_deps(deps):
   imports = set()
   for dep in deps:
     transitive_sources += dep.transitive_jsonnet_files
-    imports += dep.imports
+    imports += ["%s/%s" % (dep.label.package, im) for im in dep.imports]
 
   return struct(
       transitive_sources = transitive_sources,
@@ -62,9 +62,9 @@ def _jsonnet_to_json_impl(ctx):
           "set -e;",
           toolchain.jsonnet_path,
       ] +
+      ["-J %s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
+      ["-J %s" % im for im in depinfo.imports] +
       toolchain.imports +
-      ctx.attr.imports +
-      list(depinfo.imports) +
       ["-J ."])
 
   outputs = []
