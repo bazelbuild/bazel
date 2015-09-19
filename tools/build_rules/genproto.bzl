@@ -22,12 +22,11 @@ def gensrcjar_impl(ctx):
   proto_output = out.path + ".proto_output"
   proto_compiler = ctx.file._proto_compiler
   sub_commands = [
-    "rm -rf " + proto_output,
-    "mkdir " + proto_output,
-    ' '.join([proto_compiler.path, "--java_out=" + proto_output,
+    "TDIR=$(mktemp -d ${TMPDIR}/action.XXXXXXXX)",
+    ' '.join([proto_compiler.path, "--java_out=${TDIR}",
               ctx.file.src.path]),
-    "touch -t 198001010000 $(find " + proto_output + ")",
-    ctx.file._jar.path + " cMf " + out.path + " -C " + proto_output + " .",
+    "touch -t 198001010000 $(find ${TDIR})",
+    ctx.file._jar.path + " cMf " + out.path + " -C ${TDIR} .",
   ]
 
   ctx.action(
