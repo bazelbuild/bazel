@@ -62,7 +62,7 @@ jar cmf {manifest} {out} -C {out}_tmp .
 
 
 def _write_manifest(ctx):
-  cp = _scala_lib
+  cp = "/usr/share/java/scala-library.jar"
   manifest = "Class-Path: %s\n" % cp
   if getattr(ctx.attr, "main_class", ""):
     manifest += "Main-Class: %s\n" % ctx.attr.main_class
