@@ -211,7 +211,7 @@ function java_compilation() {
 
   run_silent "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      "@${paramfile}"
+      -encoding UTF-8 "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do

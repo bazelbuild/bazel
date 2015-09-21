@@ -111,8 +111,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         }
 
         pos++;
-        // Disallow strings starting with “/”,  “./”,  or “../”
-        // Disallow strings identical to        ".",   or “..”
+        // Disallow strings starting with "/",  "./",  or "../"
+        // Disallow strings identical to        ".",   or ".."
         if (name.charAt(pos) == '/') {
           return "workspace names are not allowed to start with '@/'";
         } else if (name.charAt(pos) == '.') {
@@ -131,8 +131,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         // This lexes the first letter a second time, to make sure it fulfills the general
         // workspace name criteria (as well as the more strict criteria for the beginning of a
         // workspace name).
-        // Disallow strings containing    “//”, “/./”, or “/../”
-        // Disallow strings ending in     “/”,  "/.",   or “/..”
+        // Disallow strings containing    "//", "/./", or "/../"
+        // Disallow strings ending in     "/",  "/.",   or "/.."
         // name = @( <alphanum> | [/._-] )*
         for (; pos < name.length(); pos++) {
           char c = name.charAt(pos);
