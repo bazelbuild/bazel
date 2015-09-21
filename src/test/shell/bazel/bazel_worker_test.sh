@@ -143,7 +143,7 @@ function test_workers_quit_after_build() {
 }
 
 function prepare_example_worker() {
-  cp -v ${example_worker} worker_lib.jar
+  cp ${example_worker} worker_lib.jar
 
   cat >work.bzl <<'EOF'
 def _impl(ctx):
@@ -152,7 +152,10 @@ def _impl(ctx):
 
   # Generate the "@"-file containing the command-line args for the unit of work.
   argfile = ctx.new_file(ctx.configuration.bin_dir, "worker_input")
-  ctx.file_action(output=argfile, content="\n".join(["--output_file=" + output.path] + ctx.attr.args))
+  argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
+  ctx.file_action(output=argfile, content=argfile_contents)
+
+  print("Using argfile_contents: " + argfile_contents)
 
   ctx.action(
       inputs=[argfile],
@@ -221,6 +224,81 @@ EOF
     || fail "build failed"
   assert_equals "HELLO WORLD" "$(cat bazel-bin/hello_world_uppercase.out)"
   assert_workers_not_running
+}
+
+function test_worker_restarts() {
+  prepare_example_worker
+
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--exit_after=2"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel --batch clean
+  assert_workers_not_running
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+    || fail "build failed"
+  worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat bazel-bin/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+  assert_workers_running
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+    || fail "build failed"
+  worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat bazel-bin/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "2" $work_count
+  assert_workers_not_running
+
+  # Check that the same worker was used twice.
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+    || fail "build failed"
+  worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
+  work_count=$(cat bazel-bin/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
+  assert_equals "1" $work_count
+  assert_workers_running
+
+  # Check that we used a new worker.
+  assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
+}
+
+# When a worker does not conform to the protocol and returns a response that is not a parseable
+# protobuf, it must be killed, the output thrown away, a new worker restarted and Bazel has to retry
+# the action without struggling.
+function test_bazel_recovers_from_worker_returning_junk() {
+  prepare_example_worker
+
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--poison_after=1"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel --batch clean
+  assert_workers_not_running
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+    || fail "build failed"
+  worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  assert_workers_running
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+    || fail "build failed"
+  worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  assert_workers_running
+
+  # Check that the worker failed & was restarted.
+  assert_not_equals "$worker_uuid_1" "$worker_uuid_2"
 }
 
 run_suite "Worker integration tests"

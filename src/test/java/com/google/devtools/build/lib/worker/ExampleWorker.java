@@ -31,11 +31,21 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * An example implementation of a worker process that is used for integration tests.
  */
 public class ExampleWorker {
+
+  // A UUID that uniquely identifies this running worker process.
+  static final UUID workerUuid = UUID.randomUUID();
+
+  // A counter that increases with each work unit processed.
+  static int workUnitCounter = 1;
+
+  // If true, returns corrupt responses instead of correct protobufs.
+  static boolean poisoned = false;
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
@@ -81,12 +91,24 @@ public class ExampleWorker {
           System.setErr(originalStdErr);
         }
 
-        WorkResponse.newBuilder()
-            .setOutput(baos.toString())
-            .setExitCode(exitCode)
-            .build()
-            .writeDelimitedTo(System.out);
+        if (poisoned) {
+          System.out.println("I'm a poisoned worker and this is not a protobuf.");
+        } else {
+          WorkResponse.newBuilder()
+              .setOutput(baos.toString())
+              .setExitCode(exitCode)
+              .build()
+              .writeDelimitedTo(System.out);
+        }
         System.out.flush();
+
+        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
+          return;
+        }
+
+        if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+          poisoned = true;
+        }
       } finally {
         // Be a good worker process and consume less memory when idle.
         System.gc();
@@ -102,25 +124,29 @@ public class ExampleWorker {
     OptionsParser parser = OptionsParser.newOptionsParser(ExampleWorkOptions.class);
     parser.setAllowResidue(true);
     parser.parse(args);
-    ExampleWorkOptions workOptions = parser.getOptions(ExampleWorkOptions.class);
+    ExampleWorkOptions options = parser.getOptions(ExampleWorkOptions.class);
 
-    List<String> residue = parser.getResidue();
-    List<String> outputs = new ArrayList(residue.size());
-    for (String arg : residue) {
-      String output = arg;
-      if (workOptions.uppercase) {
-        output = output.toUpperCase();
-      }
-      outputs.add(output);
+    List<String> outputs = new ArrayList<>();
+
+    if (options.writeUUID) {
+      outputs.add("UUID " + workerUuid.toString());
     }
 
-    String outputStr = Joiner.on(' ').join(outputs);
-    if (workOptions.outputFile.isEmpty()) {
-      System.err.println("ExampleWorker: Writing to stdout!");
+    if (options.writeCounter) {
+      outputs.add("COUNTER " + workUnitCounter++);
+    }
+
+    String residueStr = Joiner.on(' ').join(parser.getResidue());
+    if (options.uppercase) {
+      residueStr = residueStr.toUpperCase();
+    }
+    outputs.add(residueStr);
+
+    String outputStr = Joiner.on('\n').join(outputs);
+    if (options.outputFile.isEmpty()) {
       System.out.println(outputStr);
     } else {
-      System.err.println("ExampleWorker: Writing to file " + workOptions.outputFile);
-      try (PrintStream outputFile = new PrintStream(workOptions.outputFile)) {
+      try (PrintStream outputFile = new PrintStream(options.outputFile)) {
         outputFile.println(outputStr);
       }
     }

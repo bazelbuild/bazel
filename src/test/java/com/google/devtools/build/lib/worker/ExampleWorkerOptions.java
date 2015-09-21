@@ -34,8 +34,34 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(name = "uppercase", defaultValue = "false", help = "Uppercase the input.")
     public boolean uppercase;
+
+    @Option(name = "write_uuid", defaultValue = "false", help = "Writes a UUID into the output.")
+    public boolean writeUUID;
+
+    @Option(
+      name = "write_counter",
+      defaultValue = "false",
+      help = "Writes a counter that increases with each work unit processed into the output."
+    )
+    public boolean writeCounter;
   }
 
   @Option(name = "persistent_worker", defaultValue = "false")
   public boolean persistentWorker;
+
+  @Option(
+    name = "exit_after",
+    defaultValue = "0",
+    help = "The worker exits after processing this many work units (default: disabled)."
+  )
+  public int exitAfter;
+
+  @Option(
+    name = "poison_after",
+    defaultValue = "0",
+    help =
+        "Poisons the worker after processing this many work units, so that it returns a "
+            + "corrupt response instead of a response protobuf from then on (default: disabled)."
+  )
+  public int poisonAfter;
 }
