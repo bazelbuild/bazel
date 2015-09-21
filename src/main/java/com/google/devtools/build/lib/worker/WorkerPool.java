@@ -35,11 +35,6 @@ final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   final WorkerFactory workerFactory;
   final Set<Worker> workers = new HashSet<>();
 
-  public WorkerPool(WorkerFactory factory) {
-    super(factory);
-    this.workerFactory = factory;
-  }
-
   public WorkerPool(WorkerFactory factory, GenericKeyedObjectPoolConfig config) {
     super(factory, config);
     this.workerFactory = factory;
