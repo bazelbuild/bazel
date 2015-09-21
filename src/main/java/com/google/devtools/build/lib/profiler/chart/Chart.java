@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,9 +27,6 @@ public class Chart {
 
   /** The type that is returned when an unknown type is looked up. */
   public static final ChartBarType UNKNOWN_TYPE = new ChartBarType("Unknown type", Color.RED);
-
-  /** The title of the chart. */
-  private final String title;
 
   /** The rows of the chart. */
   private final Map<Long, ChartRow> rows = new HashMap<>();
@@ -49,16 +45,6 @@ public class Chart {
 
   /** The maximum stop value of any bar in the chart. */
   private long maxStop;
-
-  /**
-   * Creates a chart.
-   *
-   * @param title the title of the chart
-   */
-  public Chart(String title) {
-    Preconditions.checkNotNull(title);
-    this.title = title;
-  }
 
   /**
    * Adds a bar to a row of the chart. If a row with the given id already
@@ -204,10 +190,6 @@ public class Chart {
     List<ChartRow> list = new ArrayList<>(rows.values());
     Collections.sort(list);
     return list;
-  }
-
-  public String getTitle() {
-    return title;
   }
 
   public int getRowCount() {

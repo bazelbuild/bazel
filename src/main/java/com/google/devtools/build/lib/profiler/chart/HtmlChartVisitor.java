@@ -73,7 +73,6 @@ public class HtmlChartVisitor implements ChartVisitor {
   @Override
   public void visit(Chart chart) {
     maxStop = chart.getMaxStop();
-    heading(chart.getTitle(), 1);
 
     printContentBox();
 

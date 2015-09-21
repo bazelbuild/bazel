@@ -41,7 +41,7 @@ public class DetailedChartCreator implements ChartCreator {
 
   @Override
   public Chart create() {
-    Chart chart = new Chart(info.comment);
+    Chart chart = new Chart();
     CommonChartCreator.createCommonChartItems(chart, info);
     createTypes(chart);
 

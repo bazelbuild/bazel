@@ -34,6 +34,7 @@ public final class HtmlCreator {
   private final Chart chart;
   private final HtmlChartVisitor chartVisitor;
   private final Optional<SkylarkStatistics> skylarkStats;
+  private final String title;
 
   /**
    * Pre-formatted statistics for each phase of the profiled build.
@@ -42,11 +43,13 @@ public final class HtmlCreator {
 
   private HtmlCreator(
       PrintStream out,
+      String title,
       Chart chart,
       Optional<SkylarkStatistics> skylarkStats,
       int htmlPixelsPerSecond,
       List<ProfilePhaseStatistics> statistics) {
     this.out = out;
+    this.title = title;
     this.chart = chart;
     chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
     this.skylarkStats = skylarkStats;
@@ -68,7 +71,7 @@ public final class HtmlCreator {
 
   private void htmlFrontMatter() {
     out.println("<html><head>");
-    out.printf("<title>%s</title>", chart.getTitle());
+    out.printf("<title>%s</title>", title);
     chartVisitor.printCss(chart.getSortedTypes());
 
     if (skylarkStats.isPresent()) {
@@ -77,6 +80,7 @@ public final class HtmlCreator {
 
     out.println("</head>");
     out.println("<body>");
+    out.printf("<h1>%s</h1>\n", title);
   }
 
   private void htmlBackMatter() {
@@ -130,7 +134,8 @@ public final class HtmlCreator {
         skylarkStats = Optional.absent();
       }
       Chart chart = chartCreator.create();
-      new HtmlCreator(out, chart, skylarkStats, htmlPixelsPerSecond, statistics).print();
+      new HtmlCreator(out, info.comment, chart, skylarkStats, htmlPixelsPerSecond, statistics)
+        .print();
     }
   }
 }
