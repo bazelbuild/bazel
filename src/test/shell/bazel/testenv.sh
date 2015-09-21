@@ -35,7 +35,7 @@ langtools="${TEST_SRCDIR}/src/test/shell/bazel/langtools.jar"
 # Tools directory location
 tools_dir="${TEST_SRCDIR}/tools"
 langtools_dir="${TEST_SRCDIR}/third_party/java/jdk/langtools"
-EXTRA_BAZELRC="build --java_langtools=//tools/jdk:test-langtools"
+EXTRA_BAZELRC="build --java_langtools=//tools/jdk:test-langtools --ios_sdk_version=8.4"
 
 # Java tooling
 javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
