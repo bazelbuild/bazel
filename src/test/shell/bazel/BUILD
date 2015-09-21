@@ -41,6 +41,7 @@ filegroup(
         "remote_helpers.sh",
         "test-setup.sh",
         "testenv.sh",
+        "testing_server.py",
         ":langtools-copy",
         ":objc-deps",
         "//examples:srcs",

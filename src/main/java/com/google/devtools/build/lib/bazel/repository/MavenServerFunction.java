@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
@@ -37,9 +39,9 @@ import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -48,6 +50,9 @@ import javax.annotation.Nullable;
  */
 public class MavenServerFunction extends RepositoryFunction {
   public static final SkyFunctionName NAME = SkyFunctionName.create("MAVEN_SERVER_FUNCTION");
+
+  private static final String USER_KEY = "user";
+  private static final String SYSTEM_KEY = "system";
 
   public MavenServerFunction(BlazeDirectories directories) {
     setDirectories(directories);
@@ -58,48 +63,75 @@ public class MavenServerFunction extends RepositoryFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     String repository = skyKey.argument().toString();
     Package externalPackage = RepositoryFunction.getExternalPackage(env);
+    if (externalPackage == null) {
+      return null;
+    }
     Rule repositoryRule = externalPackage.getRule(repository);
 
+    String serverName;
+    String url;
+    Map<String, FileValue> settingsFiles;
     boolean foundRepoRule = repositoryRule != null
         && repositoryRule.getRuleClass().equals(MavenServerRule.NAME);
     if (!foundRepoRule) {
       if (repository.equals(MavenServerValue.DEFAULT_ID)) {
-        // The default repository is being used and the WORKSPACE is not overriding the default.
-        return new MavenServerValue();
+        settingsFiles = getDefaultSettingsFile(env);
+        serverName = MavenServerValue.DEFAULT_ID;
+        url = MavenConnector.getMavenCentralRemote().getUrl();
+      } else {
+        throw new RepositoryFunctionException(
+            new IOException("Could not find maven repository " + repository),
+            Transience.TRANSIENT);
       }
-      throw new RepositoryFunctionException(
-          new IOException("Could not find maven repository " + repository), Transience.TRANSIENT);
-    }
+    } else {
+      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(repositoryRule);
+      serverName = repositoryRule.getName();
+      url = mapper.get("url", Type.STRING);
+      if (!mapper.has("settings_file", Type.STRING)
+          || mapper.get("settings_file", Type.STRING).isEmpty()) {
+        settingsFiles = getDefaultSettingsFile(env);
+      } else {
+        PathFragment settingsFilePath = new PathFragment(mapper.get("settings_file", Type.STRING));
+        RootedPath settingsPath = RootedPath.toRootedPath(
+            getWorkspace().getRelative(settingsFilePath), PathFragment.EMPTY_FRAGMENT);
+        FileValue fileValue = (FileValue) env.getValue(FileValue.key(settingsPath));
+        if (fileValue == null) {
+          return null;
+        }
 
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(repositoryRule);
-    String serverName = repositoryRule.getName();
-    String url = mapper.get("url", Type.STRING);
-    if (!mapper.has("settings_file", Type.STRING)
-        || mapper.get("settings_file", Type.STRING).isEmpty()) {
-      return new MavenServerValue(serverName, url, new Server());
+        if (!fileValue.exists()) {
+          throw new RepositoryFunctionException(
+              new IOException("Could not find settings file " + settingsPath),
+              Transience.TRANSIENT);
+        }
+        settingsFiles = ImmutableMap.<String, FileValue>builder().put(
+            USER_KEY, fileValue).build();
+      }
     }
-    PathFragment settingsFilePath = new PathFragment(mapper.get("settings_file", Type.STRING));
-    RootedPath settingsPath = RootedPath.toRootedPath(
-        getWorkspace().getRelative(settingsFilePath), PathFragment.EMPTY_FRAGMENT);
-    FileValue settingsFile = (FileValue) env.getValue(FileValue.key(settingsPath));
-    if (settingsFile == null) {
+    if (settingsFiles == null) {
       return null;
     }
 
-    if (!settingsFile.exists()) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not find settings file " + settingsPath), Transience.TRANSIENT);
+    if (settingsFiles.isEmpty()) {
+      return new MavenServerValue(serverName, url, new Server());
     }
 
     DefaultSettingsBuildingRequest request = new DefaultSettingsBuildingRequest();
-    request.setUserSettingsFile(new File(settingsFile.realRootedPath().asPath().toString()));
+    if (settingsFiles.containsKey(SYSTEM_KEY)) {
+      request.setGlobalSettingsFile(
+          settingsFiles.get(SYSTEM_KEY).realRootedPath().asPath().getPathFile());
+    }
+    if (settingsFiles.containsKey(USER_KEY)) {
+      request.setUserSettingsFile(
+          settingsFiles.get(USER_KEY).realRootedPath().asPath().getPathFile());
+    }
     DefaultSettingsBuilder builder = (new DefaultSettingsBuilderFactory()).newInstance();
     SettingsBuildingResult result;
     try {
       result = builder.build(request);
     } catch (SettingsBuildingException e) {
       throw new RepositoryFunctionException(
-          new IOException("Error parsing settings file " + settingsFile + ": " + e.getMessage()),
+          new IOException("Error parsing settings files: " + e.getMessage()),
           Transience.TRANSIENT);
     }
     if (!result.getProblems().isEmpty()) {
@@ -108,9 +140,51 @@ public class MavenServerFunction extends RepositoryFunction {
               + Arrays.toString(result.getProblems().toArray())), Transience.PERSISTENT);
     }
     Settings settings = result.getEffectiveSettings();
-    Server server = settings.getServer(mapper.getName());
+    Server server = settings.getServer(serverName);
     server = server == null ? new Server() : server;
     return new MavenServerValue(serverName, url, server);
+  }
+
+  private Map<String, FileValue> getDefaultSettingsFile(Environment env) {
+    // The system settings file is at $M2_HOME/conf/settings.xml.
+    String m2Home = System.getenv("M2_HOME");
+    ImmutableList.Builder<SkyKey> settingsFilesBuilder = ImmutableList.builder();
+    SkyKey systemKey = null;
+    if (m2Home != null) {
+      PathFragment mavenInstallSettings = new PathFragment(m2Home).getRelative("conf/settings.xml");
+      systemKey = FileValue.key(
+          RootedPath.toRootedPath(getWorkspace().getRelative(mavenInstallSettings),
+              PathFragment.EMPTY_FRAGMENT));
+      settingsFilesBuilder.add(systemKey);
+    }
+
+    // The user settings file is at $HOME/.m2/settings.xml.
+    String userHome = System.getenv("HOME");
+    SkyKey userKey = null;
+    if (userHome != null) {
+      PathFragment userSettings = new PathFragment(userHome).getRelative(".m2/settings.xml");
+      userKey = FileValue.key(RootedPath.toRootedPath(getWorkspace().getRelative(userSettings),
+          PathFragment.EMPTY_FRAGMENT));
+      settingsFilesBuilder.add(userKey);
+    }
+
+    ImmutableList settingsFiles = settingsFilesBuilder.build();
+    if (settingsFiles.isEmpty()) {
+      return ImmutableMap.of();
+    }
+    Map<SkyKey, SkyValue> values = env.getValues(settingsFilesBuilder.build());
+    ImmutableMap.Builder<String, FileValue> settingsBuilder = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, SkyValue> entry : values.entrySet()) {
+      if (entry.getValue() == null) {
+        return null;
+      }
+      if (systemKey != null && systemKey.equals(entry.getKey())) {
+        settingsBuilder.put(SYSTEM_KEY, (FileValue) entry.getValue());
+      } else if (userKey != null && userKey.equals(entry.getKey())) {
+        settingsBuilder.put(USER_KEY, (FileValue) entry.getValue());
+      }
+    }
+    return settingsBuilder.build();
   }
 
   @Override

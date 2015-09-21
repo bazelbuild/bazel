@@ -35,6 +35,10 @@ public class MavenServerValue implements SkyValue {
     return new SkyKey(MavenServerFunction.NAME, serverName);
   }
 
+  public static MavenServerValue createFromUrl(String url) {
+    return new MavenServerValue(DEFAULT_ID, url, new Server());
+  }
+
   public MavenServerValue() {
     id = DEFAULT_ID;
     url = MavenConnector.getMavenCentralRemote().getUrl();

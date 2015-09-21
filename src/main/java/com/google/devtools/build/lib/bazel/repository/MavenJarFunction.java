@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -37,16 +38,21 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import org.apache.maven.settings.Server;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.repository.Authentication;
+import org.eclipse.aether.repository.AuthenticationContext;
+import org.eclipse.aether.repository.AuthenticationDigest;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 
 import java.io.IOException;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -65,7 +71,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       return null;
     }
 
-    String url;
+    MavenServerValue serverValue;
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     boolean hasRepository = mapper.has("repository", Type.STRING)
         && !mapper.get("repository", Type.STRING).isEmpty();
@@ -77,30 +83,28 @@ public class MavenJarFunction extends HttpArchiveFunction {
               + "'repository' and 'server', which are mutually exclusive options"),
           Transience.PERSISTENT);
     } else if (hasRepository) {
-      url = mapper.get("repository", Type.STRING);
+      serverValue = MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
     } else {
       String serverName = DEFAULT_SERVER;
       if (mapper.has("server", Type.STRING) && !mapper.get("server", Type.STRING).isEmpty()) {
         serverName = mapper.get("server", Type.STRING);
       }
 
-      MavenServerValue mavenServerValue = (MavenServerValue) env.getValue(
-          MavenServerValue.key(serverName));
-      if (mavenServerValue == null) {
+      serverValue = (MavenServerValue) env.getValue(MavenServerValue.key(serverName));
+      if (serverValue == null) {
         return null;
       }
-      url = mavenServerValue.getUrl();
     }
 
-    MavenDownloader downloader = createMavenDownloader(mapper, url);
+    MavenDownloader downloader = createMavenDownloader(mapper, serverValue);
     return createOutputTree(downloader, env);
   }
 
   @VisibleForTesting
-  MavenDownloader createMavenDownloader(AttributeMap mapper, String url) {
+  MavenDownloader createMavenDownloader(AttributeMap mapper, MavenServerValue serverValue) {
     String name = mapper.getName();
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(name);
-    return new MavenDownloader(name, mapper, outputDirectory, url);
+    return new MavenDownloader(name, mapper, outputDirectory, serverValue);
   }
 
   SkyValue createOutputTree(MavenDownloader downloader, Environment env)
@@ -159,9 +163,10 @@ public class MavenJarFunction extends HttpArchiveFunction {
     @Nullable
     private final String sha1;
     private final String url;
+    private final Server server;
 
     public MavenDownloader(
-        String name, AttributeMap mapper, Path outputDirectory, String url) {
+        String name, AttributeMap mapper, Path outputDirectory, MavenServerValue serverValue) {
       this.name = name;
       this.outputDirectory = outputDirectory;
 
@@ -173,7 +178,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
             + mapper.get("version", Type.STRING);
       }
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
-      this.url = url;
+      this.url = serverValue.getUrl();
+      this.server = serverValue.getServer();
     }
 
     /**
@@ -198,7 +204,11 @@ public class MavenJarFunction extends HttpArchiveFunction {
       RepositorySystem system = connector.newRepositorySystem();
       RepositorySystemSession session = connector.newRepositorySystemSession(system);
 
-      RemoteRepository repository = new RemoteRepository.Builder(name, "default", url).build();
+
+      RemoteRepository repository = new RemoteRepository.Builder(
+          name, MavenServerValue.DEFAULT_ID, url)
+          .setAuthentication(new MavenAuthentication(server))
+          .build();
       ArtifactRequest artifactRequest = new ArtifactRequest();
       Artifact artifact;
       try {
@@ -227,6 +237,39 @@ public class MavenJarFunction extends HttpArchiveFunction {
         }
       }
       return downloadPath;
+    }
+  }
+
+  private static class MavenAuthentication implements Authentication {
+
+    private final Map<String, String> authenticationInfo;
+
+    private MavenAuthentication(Server server) {
+      ImmutableMap.Builder builder = ImmutableMap.<String, String>builder();
+      // From https://maven.apache.org/settings.html: "If you use a private key to login to the
+      // server, make sure you omit the <password> element. Otherwise, the key will be ignored."
+      if (server.getPassword() != null) {
+        builder.put(AuthenticationContext.USERNAME, server.getUsername());
+        builder.put(AuthenticationContext.PASSWORD, server.getPassword());
+      } else if (server.getPrivateKey() != null) {
+        // getPrivateKey sounds like it returns the key, but it actually returns a path to it.
+        builder.put(AuthenticationContext.PRIVATE_KEY_PATH, server.getPrivateKey());
+        builder.put(AuthenticationContext.PRIVATE_KEY_PASSPHRASE, server.getPassphrase());
+      }
+      authenticationInfo = builder.build();
+    }
+
+    @Override
+    public void fill(
+        AuthenticationContext authenticationContext, String s, Map<String, String> map) {
+      for (Map.Entry<String, String> entry : authenticationInfo.entrySet()) {
+        authenticationContext.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    @Override
+    public void digest(AuthenticationDigest authenticationDigest) {
+      // No-op.
     }
   }
 

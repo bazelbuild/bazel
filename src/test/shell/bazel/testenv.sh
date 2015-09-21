@@ -66,6 +66,7 @@ environment_plist_path="${TEST_SRCDIR}/src/tools/xcode/environment/environment_p
 
 # Test data
 testdata_path=${TEST_SRCDIR}/src/test/shell/bazel/testdata
+python_server="${TEST_SRCDIR}/src/test/shell/bazel/testing_server.py"
 
 # Third-party
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"

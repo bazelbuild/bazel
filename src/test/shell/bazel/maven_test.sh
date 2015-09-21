@@ -52,22 +52,19 @@ function tear_down() {
 
 function test_maven_jar() {
   setup_zoo
-  serve_jar
+  serve_artifact com.example.carnivore carnivore 1.23
 
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://localhost:$fileserver_port/',
     sha1 = '$sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
-  kill_nc
-  assert_contains "GET /com/example/carnivore/carnivore/1.23/carnivore-1.23.jar" $nc_log
   expect_log "Tra-la!"
 }
 
@@ -217,6 +214,59 @@ EOF
 
   bazel build //:y &> $TEST_log && fail "Building thing failed"
   expect_log "no such package '@x//'"
+}
+
+function test_auth() {
+  startup_auth_server
+  create_artifact thing amabop 1.9
+  cat > WORKSPACE <<EOF
+maven_server(
+    name = "x",
+    url = "http://localhost:$fileserver_port/",
+    settings_file = "settings.xml",
+)
+maven_jar(
+    name = "good-auth",
+    artifact = "thing:amabop:1.9",
+    server = "x",
+)
+
+maven_server(
+    name = "y",
+    url = "http://localhost:$fileserver_port/",
+    settings_file = "settings.xml",
+)
+maven_jar(
+    name = "bad-auth",
+    artifact = "thing:amabop:1.9",
+    server = "y",
+)
+EOF
+
+  cat > settings.xml <<EOF
+<settings>
+  <servers>
+    <server>
+      <id>x</id>
+      <username>foo</username>
+      <password>bar</password>
+    </server>
+    <server>
+      <id>y</id>
+      <username>foo</username>
+      <password>baz</password>
+    </server>
+  </servers>
+</settings>
+EOF
+
+  bazel build @good-auth//jar &> $TEST_log \
+    || fail "Expected correct password to work"
+  expect_log "Target @good-auth//jar:jar up-to-date"
+
+  bazel build @bad-auth//jar &> $TEST_log \
+    && fail "Expected incorrect password to fail"
+  expect_log "Unauthorized (401)"
 }
 
 run_suite "maven tests"

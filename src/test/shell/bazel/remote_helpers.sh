@@ -57,7 +57,7 @@ function serve_jar() {
 function make_test_jar() {
   pkg_dir=$TEST_TMPDIR/carnivore
   rm -fr $pkg_dir
-  mkdir $pkg_dir
+  mkdir -p $pkg_dir
   cat > $pkg_dir/Mongoose.java <<EOF
 package carnivore;
 public class Mongoose {
@@ -108,26 +108,37 @@ function wait_for_server_startup() {
 }
 
 
-function serve_artifact() {
-  startup_server $PWD
+function create_artifact() {
   local group_id=$1
   local artifact_id=$2
   local version=$3
   make_test_jar
-  maven_path=$fileserver_root/$(echo $group_id | sed 's/\./\//g')/$artifact_id/$version
+  maven_path=$PWD/$(echo $group_id | sed 's/\./\//g')/$artifact_id/$version
   mkdir -p $maven_path
   openssl sha1 $test_jar > $maven_path/$artifact_id-$version.jar.sha1
   mv $test_jar $maven_path/$artifact_id-$version.jar
+}
+
+function serve_artifact() {
+  startup_server $PWD
+  create_artifact $1 $2 $3
 }
 
 function startup_server() {
   fileserver_root=$1
   cd $fileserver_root
   fileserver_port=$(pick_random_unused_tcp_port) || exit 1
-  python -m SimpleHTTPServer $fileserver_port &
+  python $python_server --port=$fileserver_port &
   fileserver_pid=$!
   wait_for_server_startup
   cd -
+}
+
+function startup_auth_server() {
+  fileserver_port=$(pick_random_unused_tcp_port) || exit 1
+  python $python_server --port=$fileserver_port --auth=basic &
+  fileserver_pid=$!
+  wait_for_server_startup
 }
 
 function shutdown_server() {
