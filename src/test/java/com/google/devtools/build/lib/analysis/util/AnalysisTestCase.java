@@ -219,6 +219,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return analysisResult.getActionGraph().getGeneratingAction(artifact);
   }
 
+  protected BuildConfigurationCollection getBuildConfigurationCollection() {
+    return masterConfig;
+  }
+
   protected BuildConfiguration getTargetConfiguration() {
     return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }

@@ -390,7 +390,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
       throws InterruptedException {
-    return view.getDirectPrerequisites(target);
+    return view.getDirectPrerequisites(target, masterConfig);
   }
 
   /**
@@ -440,7 +440,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * given configured target.
    */
   protected RuleContext getRuleContext(ConfiguredTarget target) throws InterruptedException {
-    return view.getRuleContextForTesting(target, new StubAnalysisEnvironment());
+    return view.getRuleContextForTesting(target, new StubAnalysisEnvironment(), masterConfig);
   }
 
   /**
@@ -460,7 +460,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         reporter.handle(e);
       }
     };
-    return view.getRuleContextForTesting(target, eventHandler);
+    return view.getRuleContextForTesting(target, eventHandler, masterConfig);
   }
 
   /**

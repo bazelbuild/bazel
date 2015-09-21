@@ -354,20 +354,23 @@ public class BuildView {
     return getConfiguredTarget(packageManager.getLoadedTarget(label), config);
   }
 
-  public Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget ct)
+  public Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget ct,
+      BuildConfigurationCollection configurations)
       throws InterruptedException {
-    return getDirectPrerequisites(ct, null);
+    return getDirectPrerequisites(ct, null, configurations);
   }
 
   public Iterable<ConfiguredTarget> getDirectPrerequisites(
-      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache)
+      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache,
+      BuildConfigurationCollection configurations)
       throws InterruptedException {
     return skyframeExecutor.getConfiguredTargets(ct.getConfiguration(),
-        getDirectPrerequisiteDependencies(ct, targetCache), false);
+        getDirectPrerequisiteDependencies(ct, targetCache, configurations), false);
   }
 
   public Iterable<Dependency> getDirectPrerequisiteDependencies(
-      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache)
+      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache,
+      BuildConfigurationCollection configurations)
       throws InterruptedException {
     if (!(ct.getTarget() instanceof Rule)) {
       return ImmutableList.of();
@@ -888,9 +891,9 @@ public class BuildView {
         null);
   }
 
-  @VisibleForTesting
-  ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(ConfiguredTarget target)
-      throws InterruptedException {
+  private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
+      ConfiguredTarget target, BuildConfigurationCollection configurations)
+          throws InterruptedException {
     DependencyResolver resolver = new DependencyResolver() {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
@@ -988,7 +991,8 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
-      ConfiguredTarget target, StoredEventHandler eventHandler) throws InterruptedException {
+      ConfiguredTarget target, StoredEventHandler eventHandler,
+      BuildConfigurationCollection configurations) throws InterruptedException {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
         new CachingAnalysisEnvironment(artifactFactory,
@@ -1000,7 +1004,7 @@ public class BuildView {
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(target))
+            .setPrerequisites(getPrerequisiteMapForTesting(target, configurations))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
   }
@@ -1010,15 +1014,15 @@ public class BuildView {
    * given configured target.
    */
   @VisibleForTesting
-  public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env)
-      throws InterruptedException {
+  public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env,
+      BuildConfigurationCollection configurations) throws InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
         env, (Rule) target.getTarget(), targetConfig, configurations.getHostConfiguration(),
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(target))
+            .setPrerequisites(getPrerequisiteMapForTesting(target, configurations))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
   }
@@ -1030,10 +1034,11 @@ public class BuildView {
    */
   @VisibleForTesting
   public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
-      ConfiguredTarget dependentTarget, ConfiguredTarget desiredTarget)
+      ConfiguredTarget dependentTarget, ConfiguredTarget desiredTarget,
+      BuildConfigurationCollection configurations)
       throws InterruptedException {
     Collection<ConfiguredTarget> configuredTargets =
-        getPrerequisiteMapForTesting(dependentTarget).values();
+        getPrerequisiteMapForTesting(dependentTarget, configurations).values();
     for (ConfiguredTarget ct : configuredTargets) {
       if (ct.getLabel().equals(desiredTarget.getLabel())) {
         return ct;
