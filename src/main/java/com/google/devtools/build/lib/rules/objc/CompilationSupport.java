@@ -722,11 +722,11 @@ public final class CompilationSupport {
         .add(IosSdkCommands.DEFAULT_LINKER_FLAGS)
         .addBeforeEach("-framework", frameworkNames(objcProvider))
         .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
+        .addFormatEach("-l%s", libraryNames(objcProvider))
         .addExecPath("-o", linkedBinary)
         .addExecPaths(objcProvider.get(LIBRARY))
         .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
         .addExecPaths(ccLibraries)
-        .add(dylibPaths(objcProvider))
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)
         .build();
@@ -785,12 +785,15 @@ public final class CompilationSupport {
     }
   }
 
-  private Iterable<String> dylibPaths(ObjcProvider objcProvider) {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+  private Iterable<String> libraryNames(ObjcProvider objcProvider) {
     ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
     for (String dylib : objcProvider.get(SDK_DYLIB)) {
-      args.add(String.format(
-          "%s/usr/lib/%s.dylib", IosSdkCommands.sdkDir(objcConfiguration), dylib));
+      if (dylib.startsWith("lib")) {
+        // remove lib prefix if it exists which is standard
+        // for libraries (libxml.dylib -> -lxml).
+        dylib = dylib.substring(3);
+      }
+      args.add(dylib);
     }
     return args.build();
   }

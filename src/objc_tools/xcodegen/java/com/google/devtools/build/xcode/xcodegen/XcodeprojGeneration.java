@@ -348,14 +348,9 @@ public class XcodeprojGeneration {
     }
   }
 
-  private static PBXFrameworksBuildPhase buildLibraryInfo(
+  private static PBXFrameworksBuildPhase buildFrameworksInfo(
       LibraryObjects libraryObjects, TargetControl target) {
     BuildPhaseBuilder builder = libraryObjects.newBuildPhase();
-    if (Containing.item(PRODUCT_TYPES_THAT_HAVE_A_BINARY, productType(target))) {
-      for (String dylib : target.getSdkDylibList()) {
-        builder.addDylib(dylib);
-      }
-    }
     for (String sdkFramework : target.getSdkFrameworkList()) {
       builder.addSdkFramework(sdkFramework);
     }
@@ -374,6 +369,15 @@ public class XcodeprojGeneration {
         flags.add("$(WORKSPACE_ROOT)/" + importedLibrary);
       }
     }
+    if (Containing.item(PRODUCT_TYPES_THAT_HAVE_A_BINARY, productType(targetControl))) {
+      for (String dylib : targetControl.getSdkDylibList()) {
+        if (dylib.startsWith("lib")) {
+          dylib = dylib.substring(3);
+        }
+        flags.add("-l" + dylib);
+      }
+    }
+
     return flags.build();
   }
 
@@ -530,7 +534,10 @@ public class XcodeprojGeneration {
       }
       target.setProductReference(productReference);
 
-      PBXFrameworksBuildPhase frameworksPhase = buildLibraryInfo(libraryObjects, targetControl);
+      // We only add frameworks here and not dylibs because of differences in how
+      // Xcode 6 and Xcode 7 specify dylibs in the project organizer.
+      // (Xcode 6 -> *.dylib, Xcode 7 -> *.tbd)
+      PBXFrameworksBuildPhase frameworksPhase = buildFrameworksInfo(libraryObjects, targetControl);
       PBXResourcesBuildPhase resourcesPhase = resources.resourcesBuildPhase(targetControl);
 
       for (String importedArchive : targetControl.getImportedLibraryList()) {

@@ -43,7 +43,6 @@ import java.util.LinkedHashSet;
 public final class LibraryObjects implements HasProjectNavigatorFiles {
 
   @VisibleForTesting static final String FRAMEWORK_FILE_TYPE = "wrapper.framework";
-  @VisibleForTesting static final String DYLIB_FILE_TYPE = "compiled.mach-o.dylib";
 
   private final LinkedHashMap<FileReference, PBXReference> fileToMainGroupReferences =
       new LinkedHashMap<>();
@@ -65,19 +64,6 @@ public final class LibraryObjects implements HasProjectNavigatorFiles {
     private final LinkedHashSet<FileReference> fileReferences = new LinkedHashSet<>();
 
     private BuildPhaseBuilder() {} // Don't allow instantiation from outside the enclosing class.
-
-    /**
-     * Creates a new dylib library based on the passed name.
-     *
-     * @param name simple dylib without ".dylib" suffix, e.g. "libz"
-     */
-    public BuildPhaseBuilder addDylib(String name) {
-      FileReference reference =
-          FileReference.of(String.format("usr/lib/%s.dylib", name), SourceTree.SDKROOT)
-              .withExplicitFileType(DYLIB_FILE_TYPE);
-      fileReferences.add(reference);
-      return this;
-    }
 
     /**
      * Creates a new SDK framework based on the passed name.

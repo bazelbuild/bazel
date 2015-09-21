@@ -172,8 +172,8 @@ message TargetControl {
   // SDK .dylib files to link with this target. Each name should not include the
   // the path or the .dylib extension, e.g. "libz" to link in
   // "SDKROOT/usr/lib/libz.dylib". For all targets, this causes the library to
-  // appear in the Project Navigator. For binary targets, this causes the
-  // library to be linked with the final binary.
+  // appear in the Project Build Settings under OTHER_LDFLAGS. For binary
+  // targets, this causes the library to be linked with the final binary.
   repeated string sdk_dylib = 19;
 }
 
