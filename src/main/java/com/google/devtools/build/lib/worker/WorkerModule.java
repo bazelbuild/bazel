@@ -66,7 +66,24 @@ public class WorkerModule extends BlazeModule {
       }
 
       GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
-      config.setTimeBetweenEvictionRunsMillis(10 * 1000);
+
+      // It's better to re-use a worker as often as possible and keep it hot, in order to profit
+      // from JIT optimizations as much as possible.
+      config.setLifo(true);
+
+      // Check for & deal with idle workers every 5 seconds.
+      config.setTimeBetweenEvictionRunsMillis(5 * 1000);
+
+      // Always test the liveliness of worker processes.
+      config.setTestOnBorrow(true);
+      config.setTestOnCreate(true);
+      config.setTestOnReturn(true);
+      config.setTestWhileIdle(true);
+
+      // Don't limit the total number of worker processes, as otherwise the pool might be full of
+      // e.g. Java workers and could never accommodate another request for a different kind of
+      // worker.
+      config.setMaxTotal(-1);
 
       workers = new WorkerPool(new WorkerFactory(), config);
       workers.setReporter(env.getReporter());
