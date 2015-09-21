@@ -162,3 +162,18 @@ java_binary(
 java_import(
     name = "sdklib",
     jars = ["tools/lib/sdklib.jar", "tools/lib/common.jar", "tools/lib/guava-17.0.jar"])
+
+GOOGLE_PLAY_SERVICES_DIR = "extras/google/google_play_services/libproject/google-play-services_lib"
+
+java_import(
+    name = "google_play_services_lib",
+    jars = [GOOGLE_PLAY_SERVICES_DIR + "/libs/google-play-services.jar"])
+
+android_library(
+    name = "google_play_services",
+    custom_package = "google.bazel",
+    manifest = GOOGLE_PLAY_SERVICES_DIR + "/AndroidManifest.xml",
+    exports_manifest = 1,
+    resource_files = glob([GOOGLE_PLAY_SERVICES_DIR + "/res/**"]),
+    proguard_specs = [GOOGLE_PLAY_SERVICES_DIR + "/proguard.txt"],
+    deps = [":google_play_services_lib"])

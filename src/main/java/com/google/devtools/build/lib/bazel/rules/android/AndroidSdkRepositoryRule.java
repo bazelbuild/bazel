@@ -47,6 +47,8 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           String prefix = "@" + rule.getName() + "//:";
           return ImmutableMap.of(
               "android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"),
+              "android/google_play_services",
+              Label.parseAbsoluteUnchecked(prefix + "google_play_services"),
               "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"),
               "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
         }
