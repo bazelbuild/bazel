@@ -313,7 +313,9 @@ will need to take some extra care:
 Do you have binary releases?
 ----------------------------
 
-Not yet, but we are actively working on this. Stay tuned.
+Yes, you can find the latest release binaries
+[here](https://github.com/bazelbuild/bazel/releases/latest). Our release
+policy is documented [here](http://bazel.io/support.html).
 
 I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
 --------------------------------------------------------------
