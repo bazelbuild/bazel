@@ -80,19 +80,36 @@ features are not included.
 
 Some differences with Python should be noted:
 
-* All data structures are immutable. This is temporary, lists and dicts will be
-  made mutable in the future.
+* Although some data structures are mutable, all objects are recursively frozen
+  and become recursively immutable before Bazel invokes Skylark
+  and after it is done with such evaluation,
+  i.e. when a .bzl file is loaded, when a BUILD file is processed,
+  when a Skylark-defined rule is evaluated to create a configured target, or
+  when a callback function is called to compute a configured target attribute.
+  These objects that are frozen notably include the recursive contents of any
+  global variable exported by a .bzl file or imported by a `load()` statement,
+  and any parameter passed to a callback function or result returned by it.
+  From the point of view of the Skylark code
+  in given a Bazel-initiated evaluation,
+  objects passed as input or present in the evaluation's initial environment
+  are immutable, whereas objects created during the evaluation are mutable.
+  From the point of view of the Bazel code that evaluates said Skylark code,
+  all inputs and outputs of the evaluation are recursively immutable
+  and all evaluations are deterministic,
+  which guarantees the hermeticity of the build,
+  and allows sharing of evaluations without any fear of side-effects.
+
+* Lists are mutable, but dicts and sets are immutable.
+  This is temporary: dicts will be made mutable in the near future;
+  however there are no plans to make sets mutable at this time.
 
 * All global values are constant (they cannot be reassigned).
-
-* Heterogeneous lists are forbidden. This is temporary and will be allowed
-  in the future.
 
 * `x += y` is syntactic sugar for `x = x + y`. Even if `x` and `y` are lists,
   dicts or sets, the original value is not mutated, so references to `x`
   that were assigned before the operation will see the old value.
 
-* The + operator is defined for dictionaries, returning an immutable
+* The `+` operator is defined for dictionaries, returning an immutable
   concatenated dictionary created from the entries of the original
   dictionaries. In case of duplicate keys, we use values from the second
   operand.
