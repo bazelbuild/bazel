@@ -910,7 +910,8 @@ public class Package implements Serializable {
     /**
      * Uses the workspace name from {@code //external} to set this package's workspace name.
      */
-    Builder setWorkspaceName(String workspaceName) {
+    @VisibleForTesting
+    public Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
       return this;
     }

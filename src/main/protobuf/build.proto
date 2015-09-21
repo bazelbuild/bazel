@@ -509,6 +509,7 @@ message Package {
   optional bool contains_errors = 2008;
   optional bool contains_temporary_errors = 2009;
   repeated string skylark_label = 2010;
+  optional string workspace_name = 2011;
 
   // Targets
   repeated SourceFile source_file = 3001;

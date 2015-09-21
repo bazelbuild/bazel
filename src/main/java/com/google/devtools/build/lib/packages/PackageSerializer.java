@@ -166,6 +166,8 @@ public class PackageSerializer {
 
     builder.setContainsErrors(pkg.containsErrors());
 
+    builder.setWorkspaceName(pkg.getWorkspaceName());
+
     builder.build().writeDelimitedTo(out);
 
     // Targets are emitted separately as individual protocol buffers as to prevent overwhelming

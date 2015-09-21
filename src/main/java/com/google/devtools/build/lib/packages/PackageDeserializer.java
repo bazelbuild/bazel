@@ -388,6 +388,8 @@ public class PackageDeserializer {
       builder.setContainsErrors();
     }
 
+    builder.setWorkspaceName(packagePb.getWorkspaceName());
+
     deserializeTargets(in, context);
   }
 
