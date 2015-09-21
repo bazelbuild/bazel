@@ -95,6 +95,9 @@ class SimpleArFile(object):
 class TarFileWriter(object):
   """A wrapper to write tar files."""
 
+  class Error(Exception):
+    pass
+
   def __init__(self, name):
     self.tar = tarfile.open(name=name, mode='w')
 
@@ -103,6 +106,49 @@ class TarFileWriter(object):
 
   def __exit__(self, t, v, traceback):
     self.close()
+
+  def add_dir(self, name, path, uid=0, gid=0, uname='', gname='',
+              mtime=0, mode=None, depth=100):
+    """Recursively add a directory.
+
+    Args:
+      name: the destination path of the directory to add.
+      path: the path of the directory to add.
+      uid: owner user identifier.
+      gid: owner group identifier.
+      uname: owner user names.
+      gname: owner group names.
+      mtime: modification time to put in the archive.
+      mode: unix permission mode of the file, default 0644 (0755).
+      depth: maximum depth to recurse in to avoid infinite loops
+             with cyclic mounts.
+
+    Raises:
+      TarFileWriter.Error: when the recursion depth has exceeded the
+                           `depth` argument.
+    """
+    if not name.startswith('.') and not name.startswith('/'):
+      name = './' + name
+    if os.path.isdir(path):
+      # Remove trailing '/' (index -1 => last character)
+      if name[-1] == '/':
+        name = name[:-1]
+      self.add_file(name + '/', tarfile.DIRTYPE, uid=uid, gid=gid,
+                    uname=uname, gname=gname, mtime=mtime, mode=mode)
+      if depth <= 0:
+        raise self.Error('Recursion depth exceeded, probably in '
+                         'an infinite directory loop.')
+      # Iterate over the sorted list of file so we get a deterministic result.
+      filelist = os.listdir(path)
+      filelist.sort()
+      for f in filelist:
+        new_name = os.path.join(name, f)
+        new_path = os.path.join(path, f)
+        self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime,
+                     mode, depth-1)
+    else:
+      self.add_file(name, tarfile.REGTYPE, file_content=path, uid=uid, gid=gid,
+                    uname=uname, gname=gname, mtime=mtime, mode=mode)
 
   def add_file(self, name, kind=tarfile.REGTYPE, content=None, link=None,
                file_content=None, uid=0, gid=0, uname='', gname='', mtime=0,
@@ -123,6 +169,10 @@ class TarFileWriter(object):
       mtime: modification time to put in the archive.
       mode: unix permission mode of the file, default 0644 (0755).
     """
+    if file_content and os.path.isdir(file_content):
+      # Recurse into directory
+      self.add_dir(name, file_content, uid, gid, uname, gname, mtime, mode)
+      return
     if not name.startswith('.') and not name.startswith('/'):
       name = './' + name
     tarinfo = tarfile.TarInfo(name)

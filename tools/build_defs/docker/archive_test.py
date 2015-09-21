@@ -153,10 +153,32 @@ class TarFileWriterTest(unittest.TestCase):
     self.assertSimpleFileContent(["./a", "./ab"])
     self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
+  def testAddDir(self):
+    # For some strange reason, ending slash is stripped by the test
+    content = [
+        {"name": "."},
+        {"name": "./a"},
+        {"name": "./a/b", "data": "ab"},
+        {"name": "./a/c"},
+        {"name": "./a/c/d", "data": "acd"},
+        ]
+    tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
+    # Iterate over the `content` array to create the directory
+    # structure it describes.
+    for c in content:
+      if "data" in c:
+        p = os.path.join(tempdir, c["name"][2:])
+        os.makedirs(os.path.dirname(p))
+        with open(p, "w") as f:
+          f.write(c["data"])
+    with archive.TarFileWriter(self.tempfile) as f:
+      f.add_dir("./", tempdir)
+    self.assertTarFileContent(self.tempfile, content)
+
   def testMergeTar(self):
     content = [
         {"name": "./a", "data": "a"},
-        {"name": "./ab", "data": "ab"}
+        {"name": "./ab", "data": "ab"},
         ]
     for ext in ["", ".gz", ".bz2", ".xz"]:
       with archive.TarFileWriter(self.tempfile) as f:
