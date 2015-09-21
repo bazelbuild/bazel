@@ -18,7 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -58,7 +58,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           new Function<SkyKey, String>() {
         @Override
         public String apply(SkyKey input) {
-          return ((PackageIdentifier) input.argument()).toString();
+          return ((Label) input.argument()).toString();
         }
       });
 

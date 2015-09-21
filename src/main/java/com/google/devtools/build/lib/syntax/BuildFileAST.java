@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.List;
@@ -36,7 +34,7 @@ public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Comment> comments;
 
-  private ImmutableMap<Location, PathFragment> loads;
+  private ImmutableList<LoadStatement> loads;
 
   /**
    * Whether any errors were encountered during scanning or parsing.
@@ -61,13 +59,13 @@ public class BuildFileAST extends ASTNode {
     setLocation(result.location);
   }
 
-  /** Collects paths from all load statements */
-  private ImmutableMap<Location, PathFragment> fetchLoads(List<Statement> stmts) {
-    ImmutableMap.Builder<Location, PathFragment> loads = ImmutableMap.builder();
+  /** Collects all load statements */
+  private ImmutableList<LoadStatement> fetchLoads(List<Statement> stmts) {
+    ImmutableList.Builder<LoadStatement> loads = new ImmutableList.Builder<>();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         LoadStatement imp = (LoadStatement) stmt;
-        loads.put(imp.getLocation(), imp.getImportPath());
+        loads.add(imp);
       }
     }
     return loads.build();
@@ -97,9 +95,9 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Returns a set of loads in this BUILD file.
+   * Returns a list of loads in this BUILD file.
    */
-  public synchronized ImmutableMap<Location, PathFragment> getImports() {
+  public synchronized ImmutableList<LoadStatement> getImports() {
     if (loads == null) {
       loads = fetchLoads(stmts);
     }

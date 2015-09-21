@@ -25,8 +25,6 @@ import java.util.Map;
  */
 public final class LoadStatement extends Statement {
 
-  public static final String PATH_ERROR_MSG = "Path '%s' is not valid. "
-      + "It should either start with a slash or refer to a file in the current directory.";
   private final ImmutableMap<Identifier, String> symbols;
   private final ImmutableList<Identifier> cachedSymbols; // to save time
   private final PathFragment importPath;
@@ -35,10 +33,9 @@ public final class LoadStatement extends Statement {
   /**
    * Constructs an import statement.
    *
-   * <p>Symbols maps a symbol to its original name under which it was defined in
-   * the bzl file that should be loaded.
-   * If aliasing is used, the value differs from it's key's symbol#getName().
-   * Otherwise, both values are identical.
+   * <p>{@code symbols} maps a symbol to the original name under which it was defined in
+   * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
+   * {@code symbol.getName()}. Otherwise, both values are identical.
    */
   LoadStatement(StringLiteral path, Map<Identifier, String> symbols) {
     this.symbols = ImmutableMap.copyOf(symbols);
@@ -71,7 +68,7 @@ public final class LoadStatement extends Statement {
               getLocation(), "symbol '" + current + "' is private and cannot be imported");
         }
         // The key is the original name that was used to define the symbol
-        // in the loaded bzl file
+        // in the loaded bzl file.
         env.importSymbol(getImportPath(), current, entry.getValue());
       } catch (Environment.NoSuchVariableException | Environment.LoadFailedException e) {
         throw new EvalException(getLocation(), e.getMessage());
@@ -87,10 +84,6 @@ public final class LoadStatement extends Statement {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     validatePath();
-
-    if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
-      throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
-    }
     for (Identifier symbol : cachedSymbols) {
       env.declare(symbol.getName(), getLocation());
     }
@@ -113,10 +106,19 @@ public final class LoadStatement extends Statement {
       error =
           "First argument of load() is a path, not a label. "
           + "It should start with a single slash if it is an absolute path.";
+    } else if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
+      error = String.format(
+          "Path '%s' is not valid. "
+              + "It should either start with a slash or refer to a file in the current directory.",
+          importPath);
     }
 
     if (error != null) {
       throw new EvalException(getLocation(), error);
     }
+  }
+
+  public boolean isAbsolute() {
+    return getImportPath().isAbsolute();
   }
 }

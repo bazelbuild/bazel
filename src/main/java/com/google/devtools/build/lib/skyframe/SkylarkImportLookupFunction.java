@@ -17,17 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
-import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -38,6 +36,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * A Skyframe function to look up and import a single Skylark extension.
@@ -56,111 +56,117 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
-    PackageIdentifier arg = (PackageIdentifier) skyKey.argument();
-    PathFragment file = arg.getPackageFragment();
+    Label fileLabel = (Label) skyKey.argument();
+    PathFragment importPath = fileLabel.toPathFragment();
     ASTFileLookupValue astLookupValue = null;
     try {
-      SkyKey astLookupKey = ASTFileLookupValue.key(arg);
+      SkyKey astLookupKey = ASTFileLookupValue.key(fileLabel);
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
       throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.errorReadingFile(
-          file, e.getMessage()));
+          importPath, e.getMessage()));
     } catch (InconsistentFilesystemException e) {
       throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
     }
     if (astLookupValue == null) {
       return null;
     }
-    if (astLookupValue.getAST() == null) {
+    if (!astLookupValue.lookupSuccessful()) {
       // Skylark import files have to exist.
-      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.noFile(file));
+      throw new SkylarkImportLookupFunctionException(
+          SkylarkImportFailedException.noFile(astLookupValue.getErrorMsg()));
     }
 
     Map<PathFragment, Extension> importMap = new HashMap<>();
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     BuildFileAST ast = astLookupValue.getAST();
-    // TODO(bazel-team): Refactor this code and PackageFunction to reduce code duplications.
-    for (Map.Entry<Location, PathFragment> entry : ast.getImports().entrySet()) {
+    for (LoadStatement loadStmt : ast.getImports()) {
       try {
-        PathFragment importFile = entry.getValue();
-        // HACK: The prelude sometimes contains load() statements, which need to be resolved
-        // relative to the prelude file. However, we don't have a good way to tell "this should come
-        // from the main repository" in a load() statement, and we don't have a good way to tell if
-        // a load() statement comes from the prelude, since we just prepend those statements before
-        // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
-        RepositoryName repository =
-            entry.getKey().getPath().endsWith(ruleClassProvider.getPreludePath())
-                ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : arg.getRepository();
-        SkyKey importsLookupKey = SkylarkImportLookupValue.key(repository, file, importFile);
+        Label importLabel = findLabelForLoadStatement(loadStmt, fileLabel, env);
+        if (importLabel == null) {
+          return null;
+        }
+        SkyKey importsLookupKey = SkylarkImportLookupValue.key(importLabel);
         SkylarkImportLookupValue importsLookupValue;
-        importsLookupValue = (SkylarkImportLookupValue) env.getValueOrThrow(
-            importsLookupKey, ASTLookupInputException.class);
+        importsLookupValue = (SkylarkImportLookupValue) env.getValue(importsLookupKey);
         if (importsLookupValue != null) {
-          importMap.put(importFile, importsLookupValue.getEnvironmentExtension());
+          importMap.put(loadStmt.getImportPath(), importsLookupValue.getEnvironmentExtension());
           fileDependencies.add(importsLookupValue.getDependency());
         }
-      } catch (ASTLookupInputException e) {
-        throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
+      } catch (SkylarkImportFailedException e) {
+        throw new SkylarkImportLookupFunctionException(e);
       }
     }
-    Label label = pathFragmentToLabel(arg.getRepository(), file, env);
     if (env.valuesMissing()) {
       // This means some imports are unavailable.
       return null;
     }
 
     if (ast.containsErrors()) {
-      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.skylarkErrors(
-          file));
+      throw new SkylarkImportLookupFunctionException(
+          SkylarkImportFailedException.skylarkErrors(importPath));
     }
 
     // Skylark UserDefinedFunction-s in that file will share this function definition Environment,
     // which will be frozen by the time it is returned by createExtension.
     Extension extension =
-        createExtension(ast, file, importMap, env);
+        createExtension(ast, importPath, importMap, env);
 
     return new SkylarkImportLookupValue(
-        extension, new SkylarkFileDependency(label, fileDependencies.build()));
+        extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
   }
 
-  /**
-   * Converts the PathFragment of the Skylark file to a Label using the BUILD file closest to the
-   * Skylark file in its directory hierarchy - finds the package to which the Skylark file belongs.
-   * Throws an exception if no such BUILD file exists.
-   */
-  private Label pathFragmentToLabel(RepositoryName repo, PathFragment file, Environment env)
-      throws SkylarkImportLookupFunctionException {
-    ContainingPackageLookupValue containingPackageLookupValue = null;
+ /**
+  * Given a Skylark {@link LoadStatement} and the {@link Label} of the file containing the load
+  * statement, returns a canonical {@link Label} corresponding to the load path in the statement.
+  * If no package can be found that contains the loaded file, throws
+  * {@link SkylarkImportFailedException}. Returns null if Skyframe dependencies are unavailable.
+  */
+  @Nullable
+  static Label findLabelForLoadStatement(LoadStatement loadStmt, Label containingFileLabel,
+      Environment env)
+          throws SkylarkImportFailedException {
+    PathFragment importPath = loadStmt.getImportPath();
+    PackageIdentifier pkgIdForImport;
+    String targetNameForImport;
+    if (loadStmt.isAbsolute()) {
+      PathFragment relativeImportPath = importPath.toRelative();
+      PackageIdentifier pkgToLookUp =
+          PackageIdentifier.createInDefaultRepo(relativeImportPath.getParentDirectory());
+      ContainingPackageLookupValue containingPackageLookupValue = null;
+      try {
+        containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
+            ContainingPackageLookupValue.key(pkgToLookUp),
+            BuildFileNotFoundException.class, InconsistentFilesystemException.class);
+      } catch (BuildFileNotFoundException e) {
+        // Thrown when there are IO errors looking for BUILD files.
+        throw new SkylarkImportFailedException(e);
+      } catch (InconsistentFilesystemException e) {
+        throw new SkylarkImportFailedException(e);
+      }
+
+      if (containingPackageLookupValue == null) {
+        return null;
+      }
+
+      if (!containingPackageLookupValue.hasContainingPackage()) {
+        throw SkylarkImportFailedException.noBuildFile(importPath);
+      }
+      pkgIdForImport = containingPackageLookupValue.getContainingPackageName();
+      PathFragment containingPkgPath = pkgIdForImport.getPackageFragment();  
+      targetNameForImport = relativeImportPath.relativeTo(containingPkgPath).toString();
+    } else {
+      // The load statement has a relative path
+      pkgIdForImport = containingFileLabel.getPackageIdentifier();
+      PathFragment containingDir =
+          (new PathFragment(containingFileLabel.getName())).getParentDirectory();
+      targetNameForImport = importPath.getRelative(containingDir).toString();
+    }
     try {
-      PackageIdentifier newPkgId = new PackageIdentifier(repo, file.getParentDirectory());
-      containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
-          ContainingPackageLookupValue.key(newPkgId),
-          BuildFileNotFoundException.class, InconsistentFilesystemException.class);
-    } catch (BuildFileNotFoundException e) {
-      // Thrown when there are IO errors looking for BUILD files.
-      throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
-    } catch (InconsistentFilesystemException e) {
-      throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
-    }
-
-    if (containingPackageLookupValue == null) {
-      return null;
-    }
-
-    if (!containingPackageLookupValue.hasContainingPackage()) {
-      throw new SkylarkImportLookupFunctionException(
-          SkylarkImportFailedException.noBuildFile(file));
-    }
-
-    PathFragment pkgName =
-        containingPackageLookupValue.getContainingPackageName().getPackageFragment();
-    PathFragment fileInPkg = file.relativeTo(pkgName);
-
-    try {
-      // This code relies on PackageIdentifier.RepositoryName.toString()
-      return Label.parseAbsolute(repo + "//" + pkgName.getPathString() + ":" + fileInPkg);
+      return Label.create(pkgIdForImport, targetNameForImport);
     } catch (LabelSyntaxException e) {
+      // Shouldn't happen; the Label is well-formed by construction.
       throw new IllegalStateException(e);
     }
   }
@@ -205,6 +211,14 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       super(errorMessage);
     }
 
+    private SkylarkImportFailedException(InconsistentFilesystemException e) {
+      super(e.getMessage());
+    }
+
+    private SkylarkImportFailedException(BuildFileNotFoundException e) {
+      super(e.getMessage());
+    }
+
     static SkylarkImportFailedException errors(PathFragment file) {
       return new SkylarkImportFailedException(
           String.format("Extension file '%s' has errors", file));
@@ -215,9 +229,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           String.format("Encountered error while reading extension file '%s': %s", file, error));
     }
 
-    static SkylarkImportFailedException noFile(PathFragment file) {
+    static SkylarkImportFailedException noFile(String reason) {
       return new SkylarkImportFailedException(
-          String.format("Extension file not found: '%s'", file));
+          String.format("Extension file not found. %s", reason));
     }
 
     static SkylarkImportFailedException noBuildFile(PathFragment file) {
@@ -238,11 +252,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
 
     private SkylarkImportLookupFunctionException(InconsistentFilesystemException e,
-        Transience transience) {
-      super(e, transience);
-    }
-
-    private SkylarkImportLookupFunctionException(ASTLookupInputException e,
         Transience transience) {
       super(e, transience);
     }

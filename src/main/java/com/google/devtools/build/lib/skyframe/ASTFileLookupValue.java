@@ -14,48 +14,90 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import javax.annotation.Nullable;
-
 /**
- * A value that represents an AST file lookup result.
+ * A value that represents an AST file lookup result. There are two subclasses: one for the
+ * case where the file is found, and another for the case where the file is missing (but there
+ * are no other errors).
  */
-public class ASTFileLookupValue implements SkyValue {
-
-  private static final ASTFileLookupValue NO_FILE = new ASTFileLookupValue(null);
-
-  @Nullable private final BuildFileAST ast;
-
-  private ASTFileLookupValue(@Nullable BuildFileAST ast) {
-    this.ast = ast;
-  }
-
-  public static ASTFileLookupValue noFile() {
-    return NO_FILE;
-  }
-
-  public static ASTFileLookupValue withFile(BuildFileAST ast) {
-    return new ASTFileLookupValue(ast);
-  }
-
-  /**
-   * Returns the original AST file.
+public abstract class ASTFileLookupValue implements SkyValue {
+  public abstract boolean lookupSuccessful();
+  public abstract BuildFileAST getAST();
+  public abstract String getErrorMsg();
+  
+  /*
+   * If the file is found, this class encapsulates the parsed AST.
    */
-  @Nullable public BuildFileAST getAST() {
-    return ast;
-  }
+  private static class ASTLookupWithFile extends ASTFileLookupValue {
+    private final BuildFileAST ast;
 
-  static SkyKey key(PackageIdentifier astFileIdentifier) {
-    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFileIdentifier);
-  }
-
-  static final class ASTLookupInputException extends Exception {
-    ASTLookupInputException(String msg) {
-      super(msg);
+    private ASTLookupWithFile(BuildFileAST ast) {
+      Preconditions.checkNotNull(ast);
+      this.ast = ast;
     }
+
+    @Override
+    public boolean lookupSuccessful() {
+      return true;
+    }
+
+    @Override
+    public BuildFileAST getAST() {
+      return this.ast;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      throw new IllegalStateException("can't retrieve error for successful lookup");
+    }
+  }
+ 
+  /*
+   * If the file isn't found, this class encapsulates a message with the reason.
+   */
+  private static class ASTLookupNoFile extends ASTFileLookupValue {
+    private final String errorMsg;
+
+    private ASTLookupNoFile(String errorMsg) {
+      this.errorMsg = Preconditions.checkNotNull(errorMsg);
+    }
+
+    @Override
+    public boolean lookupSuccessful() {
+      return false;
+    }
+
+    @Override
+    public BuildFileAST getAST() {
+      throw new IllegalStateException("can't retrieve AST for unsuccessful lookup");
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return this.errorMsg;
+    }
+  }
+
+  static ASTFileLookupValue forBadPackage(Label fileLabel, String reason) {
+    return new ASTLookupNoFile(
+        String.format("Unable to load package for '%s': %s", fileLabel, reason));
+  }
+  
+  static ASTFileLookupValue forBadFile(Label fileLabel) {
+    return new ASTLookupNoFile(
+        String.format("Unable to load file '%s': file doesn't exist or isn't a file", fileLabel));
+  }
+  
+  public static ASTFileLookupValue withFile(BuildFileAST ast) {
+    return new ASTLookupWithFile(ast);
+  }
+
+  static SkyKey key(Label astFileLabel) {
+    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
   }
 }

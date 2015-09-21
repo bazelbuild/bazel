@@ -227,7 +227,7 @@ public class BazelRuleClassProvider {
         .addBuildInfoFactory(new CppBuildInfo())
         .addBuildInfoFactory(new ObjcBuildInfoFactory())
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
-        .setPrelude("tools/build_rules/prelude_bazel")
+        .setPrelude("//tools/build_rules:prelude_bazel")
         .setRunfilesPrefix("")
         .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
