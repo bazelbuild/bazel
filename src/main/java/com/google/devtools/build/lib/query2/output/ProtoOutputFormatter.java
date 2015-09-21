@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedForm
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.io.IOException;

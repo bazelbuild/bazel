@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,8 +60,10 @@ public class PrinterTest {
     assertEquals("3", Printer.repr(3));
     assertEquals("None", Printer.repr(Runtime.NONE));
 
-    assertEquals("//x:x", Printer.str(Label.parseAbsolute("//x")));
-    assertEquals("\"//x:x\"", Printer.repr(Label.parseAbsolute("//x")));
+    assertEquals("//x:x", Printer.str(
+        Label.parseAbsolute("//x")));
+    assertEquals("\"//x:x\"", Printer.repr(
+        Label.parseAbsolute("//x")));
 
     List<?> list = makeList("foo", "bar");
     List<?> tuple = makeTuple("foo", "bar");

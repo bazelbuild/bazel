@@ -18,13 +18,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,14 +47,29 @@ public final class FilesetEntry implements SkylarkValue {
     return false;
   }
 
+  public static List<String> makeStringList(List<Label> labels) {
+    if (labels == null) {
+      return Collections.emptyList();
+    }
+    List<String> strings = Lists.newArrayListWithCapacity(labels.size());
+    for (Label label : labels) {
+      strings.add(label.toString());
+    }
+    return strings;
+  }
+
+  public static List<?> makeList(Collection<?> list) {
+    return list == null ? Lists.newArrayList() : Lists.newArrayList(list);
+  }
+
   @Override
   public void write(Appendable buffer, char quotationMark) {
       Printer.append(buffer, "FilesetEntry(srcdir = ");
       Printer.write(buffer, getSrcLabel().toString(), quotationMark);
       Printer.append(buffer, ", files = ");
-      Printer.write(buffer, Printer.makeStringList(getFiles()), quotationMark);
+      Printer.write(buffer, makeStringList(getFiles()), quotationMark);
       Printer.append(buffer, ", excludes = ");
-      Printer.write(buffer, Printer.makeList(getExcludes()), quotationMark);
+      Printer.write(buffer, makeList(getExcludes()), quotationMark);
       Printer.append(buffer, ", destdir = ");
       Printer.write(buffer, getDestDir().getPathString(), quotationMark);
       Printer.append(buffer, ", strip_prefix = ");

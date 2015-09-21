@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.query2.output;
 
 import com.google.common.collect.ImmutableMultimap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.Collection;
 import java.util.Set;

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsRegex;
@@ -19,7 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -98,7 +97,8 @@ public class LabelTest {
 
   @Test
   public void testGetRelative() throws Exception {
-    Label base = Label.parseAbsolute("//foo/bar:baz");
+    Label base = Label
+        .parseAbsolute("//foo/bar:baz");
     {
       Label l = base.getRelative("//p1/p2:target");
       assertEquals("p1/p2", l.getPackageName());
@@ -253,7 +253,9 @@ public class LabelTest {
 
   @Test
   public void testTrailingDotSegment() throws Exception {
-    assertEquals(Label.parseAbsolute("//foo:dir/."), Label.parseAbsolute("//foo:dir"));
+    assertEquals(Label
+        .parseAbsolute("//foo:dir/."), Label
+        .parseAbsolute("//foo:dir"));
   }
 
   @Test
@@ -319,17 +321,17 @@ public class LabelTest {
 
   @Test
   public void testSerializationSimple() throws Exception {
-    checkSerialization("//a", 91);
+    checkSerialization("//a", 92);
   }
 
   @Test
   public void testSerializationNested() throws Exception {
-    checkSerialization("//foo/bar:baz", 99);
+    checkSerialization("//foo/bar:baz", 100);
   }
 
   @Test
   public void testSerializationWithoutTargetName() throws Exception {
-    checkSerialization("//foo/bar", 99);
+    checkSerialization("//foo/bar", 100);
   }
 
   private void checkSerialization(String labelString, int expectedSize) throws Exception {

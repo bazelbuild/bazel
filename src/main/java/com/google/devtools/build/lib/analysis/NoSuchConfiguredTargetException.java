@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * Exception indicating that the required configured target is not in the

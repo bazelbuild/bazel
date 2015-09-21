@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.Map;
 import java.util.Set;

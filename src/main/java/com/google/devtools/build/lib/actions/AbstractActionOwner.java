@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * An action owner base class that provides default implementations for some of

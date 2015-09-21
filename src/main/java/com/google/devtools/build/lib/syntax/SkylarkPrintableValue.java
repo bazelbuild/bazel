@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,19 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.analysis;
-
-import com.google.devtools.build.lib.cmdline.Label;
+package com.google.devtools.build.lib.syntax;
 
 /**
- * Encapsulates the services available for implementors of the {@link RuleDefinition}
- * interface.
+ * A Skylark value that is represented by {@code print()} differently than by {@code write()}.
  */
-public interface RuleDefinitionEnvironment {
+public interface SkylarkPrintableValue extends SkylarkValue {
   /**
-   * Parses the given string as a label and returns the label, by calling {@link
-   * Label#parseAbsolute}. Throws a {@link IllegalArgumentException} if the parsing fails.
+   * Print an informal, human-readable representation of the value.
+   *
+   * @param buffer the buffer to append the representation to
+   * @param quotationMark The quote style (" or ') to be used
    */
-  Label getLabel(String labelValue);
+  void print(Appendable buffer, char quotationMark);
 }

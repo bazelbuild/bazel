@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * Helper class for actions.

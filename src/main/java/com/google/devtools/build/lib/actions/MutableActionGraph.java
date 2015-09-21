@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.StringUtil;
 
 import java.util.Set;

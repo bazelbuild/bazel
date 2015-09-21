@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * The collection of labels of exported targets and artifacts reached via "exports" attribute

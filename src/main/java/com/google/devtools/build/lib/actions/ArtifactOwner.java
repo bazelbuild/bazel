@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /**
  * An interface for {@code LabelAndConfiguration}, or at least for a {@link Label}. Only tests and

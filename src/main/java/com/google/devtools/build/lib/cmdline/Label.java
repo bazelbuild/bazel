@@ -11,16 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkPrintableValue;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +40,7 @@ import java.io.Serializable;
  */
 @SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkValue {
+public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
 
   /**
    * Factory for Labels from absolute string form. e.g.
@@ -417,5 +418,12 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     // TODO(bazel-team): make the representation readable Label(//foo),
     // and isolate the legacy functions that want the unreadable variant.
     Printer.write(buffer, toString(), quotationMark);
+  }
+
+  @Override
+  public void print(Appendable buffer, char quotationMark) {
+    // TODO(bazel-team): make the representation readable Label(//foo),
+    // and isolate the legacy functions that want the unreadable variant.
+    Printer.append(buffer, toString());
   }
 }

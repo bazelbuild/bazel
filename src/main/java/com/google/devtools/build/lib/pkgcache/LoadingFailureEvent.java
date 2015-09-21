@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /**
  * This event is fired during the build, when it becomes known that the loading

@@ -14,13 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Formattable;
 import java.util.Formatter;
 import java.util.IllegalFormatException;
@@ -82,17 +79,19 @@ public final class Printer {
    * @param quotationMark The quotation mark to be used (' or ")
    * @return the buffer, in fluent style
    */
-  public static Appendable print(Appendable buffer, Object o, char quotationMark) {
-    if (o instanceof Label) {
-      return append(buffer, o.toString());  // Pretty-print a label like a string
+  private static Appendable print(Appendable buffer, Object o, char quotationMark) {
+    if (o instanceof SkylarkPrintableValue) {
+      ((SkylarkPrintableValue) o).print(buffer, quotationMark);
+      return buffer;
     }
+
     if (o instanceof String) {
       return append(buffer, (String) o);
     }
     return write(buffer, o, quotationMark);
   }
 
-  public static Appendable print(Appendable buffer, Object o) {
+  private static Appendable print(Appendable buffer, Object o) {
     return print(buffer, o, SKYLARK_QUOTATION_MARK);
   }
 
@@ -319,21 +318,6 @@ public final class Printer {
   public static String listString(
       Iterable<?> list, String before, String separator, String after, String singletonTerminator) {
     return listString(list, before, separator, after, singletonTerminator, SKYLARK_QUOTATION_MARK);
-  }
-
-  public static List<?> makeList(Collection<?> list) {
-    return list == null ? Lists.newArrayList() : Lists.newArrayList(list);
-  }
-
-  public static List<String> makeStringList(List<Label> labels) {
-    if (labels == null) {
-      return Collections.emptyList();
-    }
-    List<String> strings = Lists.newArrayListWithCapacity(labels.size());
-    for (Label label : labels) {
-      strings.add(label.toString());
-    }
-    return strings;
   }
 
   /**

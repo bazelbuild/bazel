@@ -37,6 +37,8 @@ java_library(
     ]),
     deps = [
         ":common",
+        ":concurrent",
+        ":syntax",
         ":vfs",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -117,7 +119,6 @@ java_library(
     name = "syntax",
     srcs = glob(["com/google/devtools/build/lib/syntax/*.java"]),
     deps = [
-        ":cmdline",
         ":collect",
         ":common",
         ":concurrent",

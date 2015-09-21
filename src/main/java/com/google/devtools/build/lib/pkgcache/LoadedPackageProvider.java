@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * Read-only API for retrieving packages, i.e., calling this API should not result in packages being

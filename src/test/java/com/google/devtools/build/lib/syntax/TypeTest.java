@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.TriState;
@@ -221,14 +222,16 @@ public class TypeTest {
 
   @Test
   public void testLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar");
+    Label label = Label
+        .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.LABEL.convert("//foo:bar", null, currentRule));
     assertThat(BuildType.LABEL.flatten(label)).containsExactly(label);
   }
 
   @Test
   public void testNodepLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar");
+    Label label = Label
+        .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule));
     assertThat(BuildType.NODEP_LABEL.flatten(label)).containsExactly(label);
   }
@@ -376,8 +379,10 @@ public class TypeTest {
         "wiz", Arrays.asList(":bang"));
     Map<String, List<Label>> converted =
         BuildType.LABEL_LIST_DICT.convert(input, null, currentRule);
-    Label fooLabel = Label.parseAbsolute("//foo:bar");
-    Label bangLabel = Label.parseAbsolute("//quux:bang");
+    Label fooLabel = Label
+        .parseAbsolute("//foo:bar");
+    Label bangLabel = Label
+        .parseAbsolute("//quux:bang");
     Map<?, ?> expected = ImmutableMap.<String, List<Label>>of(
             "foo", Arrays.<Label>asList(fooLabel),
             "wiz", Arrays.<Label>asList(bangLabel));
