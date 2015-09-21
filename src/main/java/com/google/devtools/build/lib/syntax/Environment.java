@@ -158,14 +158,7 @@ public final class Environment implements Freezable {
 
     @Override
     public String toString() {
-      String prefix = "Frame";
-      StringBuilder sb = new StringBuilder();
-      for (Frame f = this; f != null; f = f.parent) {
-        Printer.formatTo(sb, "%s%s%r",
-            ImmutableList.<Object>of(prefix, f.mutability(), f.bindings));
-        prefix = "=>";
-      }
-      return sb.toString();
+      return String.format("<Frame%s>", mutability());
     }
   }
 
@@ -772,25 +765,7 @@ public final class Environment implements Freezable {
 
   @Override
   public String toString() {
-    StringBuilder out = new StringBuilder();
-    out.append("Environment(lexicalFrame=");
-    out.append(lexicalFrame);
-    out.append(", globalFrame=");
-    out.append(globalFrame);
-    out.append(", dynamicFrame=");
-    out.append(dynamicFrame);
-    out.append(", eventHandler.getClass()=");
-    out.append(eventHandler.getClass());
-    out.append(", importedExtensions=");
-    out.append(importedExtensions);
-    out.append(", isSkylark=");
-    out.append(isSkylark);
-    out.append(", fileContentHashCode=");
-    out.append(fileContentHashCode);
-    out.append(", isLoadingPhase=");
-    out.append(isLoadingPhase);
-    out.append(")");
-    return out.toString();
+    return String.format("<Environment%s>", mutability());
   }
 
   /**

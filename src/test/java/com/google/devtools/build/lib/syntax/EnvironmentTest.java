@@ -135,10 +135,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   public void testToString() throws Exception {
     update("subject", new StringLiteral("Hello, 'world'.", '\''));
     update("from", new StringLiteral("Java", '"'));
-    assertThat(getEnvironment().toString())
-        .startsWith("Environment(lexicalFrame=null, "
-            + "globalFrame=Frame[test]{\"from\": \"Java\", \"subject\": 'Hello, \\'world\\'.'}=>"
-            + "(BUILD){");
+    assertThat(getEnvironment().toString()).isEqualTo("<Environment[test]>");
   }
 
   @Test
