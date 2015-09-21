@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -62,9 +63,17 @@ public class ZipFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     DecompressorDescriptor descriptor = (DecompressorDescriptor) skyKey.argument();
     Path destinationDirectory = descriptor.archivePath().getParentDirectory();
+    Optional<String> prefix = descriptor.prefix();
+    boolean foundPrefix = false;
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        foundPrefix = foundPrefix || entryPath.foundPrefix();
+        if (entryPath.skip()) {
+          continue;
+        }
+        entry.setName(entryPath.getPathFragment().getPathString());
         extractZipEntry(reader, entry, destinationDirectory);
       }
     } catch (IOException e) {
@@ -73,6 +82,13 @@ public class ZipFunction implements SkyFunction {
               descriptor.archivePath(), destinationDirectory, e.getMessage())),
           Transience.TRANSIENT);
     }
+
+    if (prefix.isPresent() && !foundPrefix) {
+      throw new RepositoryFunctionException(
+          new IOException("Prefix " + prefix.get() + " was given, but not found in the zip"),
+          Transience.PERSISTENT);
+    }
+
     return new DecompressorValue(destinationDirectory);
   }
 

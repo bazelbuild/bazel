@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -48,13 +48,21 @@ public class TarGzFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
     DecompressorDescriptor descriptor = (DecompressorDescriptor) skyKey.argument();
+    Optional<String> prefix = descriptor.prefix();
+    boolean foundPrefix = false;
 
     try (GZIPInputStream gzipStream = new GZIPInputStream(
         new FileInputStream(descriptor.archivePath().getPathFile()))) {
       TarArchiveInputStream tarStream = new TarArchiveInputStream(gzipStream);
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
-        Path filename = descriptor.repositoryPath().getRelative(entry.getName());
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        foundPrefix = foundPrefix || entryPath.foundPrefix();
+        if (entryPath.skip()) {
+          continue;
+        }
+
+        Path filename = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
         FileSystemUtils.createDirectoryAndParents(filename.getParentDirectory());
         if (entry.isDirectory()) {
           FileSystemUtils.createDirectoryAndParents(filename);
@@ -76,6 +84,13 @@ public class TarGzFunction implements SkyFunction {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+
+    if (prefix.isPresent() && !foundPrefix) {
+      throw new RepositoryFunctionException(
+          new IOException("Prefix " + prefix.get() + " was given, but not found in the archive"),
+          Transience.PERSISTENT);
+    }
+
     return new DecompressorValue(descriptor.repositoryPath());
   }
 

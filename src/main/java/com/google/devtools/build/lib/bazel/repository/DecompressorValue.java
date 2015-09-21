@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.util.Objects;
+
+import javax.annotation.Nullable;
 
 /**
  * The contents of decompressed archive.
@@ -70,10 +73,17 @@ public class DecompressorValue implements SkyValue {
   public static SkyKey key(
       String targetKind, String targetName, Path archivePath, Path repositoryPath)
       throws IOException {
+    return key(targetKind, targetName, archivePath, repositoryPath, null);
+  }
+
+  public static SkyKey key(
+      String targetKind, String targetName, Path archivePath, Path repositoryPath,
+      @Nullable String prefix)
+      throws IOException {
     String baseName = archivePath.getBaseName();
 
     DecompressorDescriptor descriptor =
-        new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath);
+        new DecompressorDescriptor(targetKind, targetName, archivePath, repositoryPath, prefix);
 
     if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
       return new SkyKey(ZipFunction.NAME, descriptor);
@@ -95,13 +105,20 @@ public class DecompressorValue implements SkyValue {
     private final String targetName;
     private final Path archivePath;
     private final Path repositoryPath;
+    private final Optional<String> prefix;
 
-    public DecompressorDescriptor(String targetKind, String targetName, Path archivePath,
+    private DecompressorDescriptor(String targetKind, String targetName, Path archivePath,
         Path repositoryPath) {
+      this(targetKind, targetName, archivePath, repositoryPath, null);
+    }
+
+    private DecompressorDescriptor(String targetKind, String targetName, Path archivePath,
+        Path repositoryPath, @Nullable String prefix) {
       this.targetKind = targetKind;
       this.targetName = targetName;
       this.archivePath = archivePath;
       this.repositoryPath = repositoryPath;
+      this.prefix = Optional.fromNullable(prefix);
     }
 
     public String targetKind() {
@@ -120,6 +137,10 @@ public class DecompressorValue implements SkyValue {
       return repositoryPath;
     }
 
+    public Optional<String> prefix() {
+      return prefix;
+    }
+
     @Override
     public boolean equals(Object other) {
       if (this == other) {
@@ -134,21 +155,13 @@ public class DecompressorValue implements SkyValue {
       return targetKind.equals(descriptor.targetKind)
           && targetName.equals(descriptor.targetName)
           && archivePath.equals(descriptor.archivePath)
-          && repositoryPath.equals(descriptor.repositoryPath);
+          && repositoryPath.equals(descriptor.repositoryPath)
+          && prefix.equals(descriptor.prefix);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(targetKind, targetName, archivePath, repositoryPath);
-    }
-  }
-
-  /**
-   * Exceptions thrown when something goes wrong decompressing an archive.
-   */
-  static class DecompressorException extends Exception {
-    public DecompressorException(String message) {
-      super(message);
+      return Objects.hash(targetKind, targetName, archivePath, repositoryPath, prefix);
     }
   }
 }
