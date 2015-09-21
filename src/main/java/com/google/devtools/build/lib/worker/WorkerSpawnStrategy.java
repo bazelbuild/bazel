@@ -148,20 +148,20 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
             "Worker process did not return a correct WorkResponse. This is probably caused by a "
                 + "bug in the worker, writing unexpected other data to stdout.");
       }
-    } catch (InterruptedException e) {
-      // The user pressed Ctrl-C. Get out here quick.
-      if (worker != null) {
-        workers.invalidateObject(key, worker);
-        worker = null;
-      }
-      throw e;
     } catch (Exception e) {
-      // "Something" failed - let's retry with a fresh worker.
+      if (e instanceof InterruptedException) {
+        // The user pressed Ctrl-C. Get out here quick.
+        retriesLeft = 0;
+      }
+
       if (worker != null) {
         workers.invalidateObject(key, worker);
         worker = null;
       }
+
       if (retriesLeft > 0) {
+        // The worker process failed, but we still have some retries left. Let's retry with a fresh
+        // worker.
         eventHandler.handle(
             Event.warn(
                 key.getMnemonic()

@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
  *<p>
  * The names used here are adapted from those used in Joshua Bloch's book
  * "Effective Java", which are also described at
- * <http://www-128.ibm.com/developerworks/java/library/j-jtp09263.html>.
+ * <http://www.ibm.com/developerworks/java/library/j-jtp09263/>.
  *<p>
  * These attributes are just documentation.  They don't have any run-time
  * effect.  The main aim is mainly just to standardize the terminology.

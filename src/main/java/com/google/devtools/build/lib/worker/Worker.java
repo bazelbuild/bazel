@@ -63,12 +63,13 @@ final class Worker {
 
     final Process process = processBuilder.start();
 
-    Thread shutdownHook = new Thread() {
-      @Override
-      public void run() {
-        process.destroy();
-      }
-    };
+    Thread shutdownHook =
+        new Thread() {
+          @Override
+          public void run() {
+            destroyProcess(process);
+          }
+        };
     Runtime.getRuntime().addShutdownHook(shutdownHook);
 
     if (verbose) {
@@ -87,7 +88,33 @@ final class Worker {
 
   void destroy() {
     Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    process.destroy();
+    destroyProcess(process);
+  }
+
+  /**
+   * Destroys a process and waits for it to exit. This is necessary for the child to not become a
+   * zombie.
+   *
+   * @param process the process to destroy.
+   */
+  private static void destroyProcess(Process process) {
+    boolean wasInterrupted = false;
+    try {
+      process.destroy();
+      while (true) {
+        try {
+          process.waitFor();
+          return;
+        } catch (InterruptedException ie) {
+          wasInterrupted = true;
+        }
+      }
+    } finally {
+      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
+      if (wasInterrupted) {
+        Thread.currentThread().interrupt(); // preserve interrupted status
+      }
+    }
   }
 
   /**
