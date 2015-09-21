@@ -17,6 +17,11 @@
 # Test rules provided in Bazel not tested by examples
 #
 
+# TODO(philwo): Change this so the path to the custom worker gets passed in as an argument to the
+# test, once the bug that makes using the "args" attribute with sh_tests in Bazel impossible is
+# fixed.
+example_worker=$(find $PWD -name worker-example_deploy.jar)
+
 # Load test environment
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
@@ -58,22 +63,164 @@ public class HelloLibrary {
 EOF
 }
 
+function print_workers() {
+  pid=$(bazel info | fgrep server_pid | cut -d' ' -f2)
+  # DANGER. This contains arcane shell wizardry that was carefully crafted to be compatible with
+  # both BSD and GNU tools so that this works under Linux and OS X.
+  ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${pid} " | cut -d' ' -f2
+}
+
+function shutdown_and_print_unkilled_workers() {
+  workers=$(print_workers)
+  bazel shutdown || fail "shutdown failed"
+  # Wait at most 10 seconds for all workers to shut down, then print the remaining (if any).
+  for i in 0 1 2 3 4 5 6 7 8 9; do
+    still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+    if [[ ! -z "${still_running_workers}" ]]; then
+      sleep 1
+    fi
+  done
+}
+
+function assert_workers_running() {
+  workers=$(print_workers)
+  if [[ -z "${workers}" ]]; then
+    fail "Expected workers to be running, but found none"
+  fi
+}
+
+function assert_workers_not_running() {
+  workers=$(print_workers)
+  if [[ ! -z "${workers}" ]]; then
+    fail "Expected no workers, but found some running: ${workers}"
+  fi
+}
+
 function test_compiles_hello_library_using_persistent_javac() {
   write_hello_library_files
   bazel --batch clean
-  bazel build --experimental_persistent_javac //java/main:main || fail "build failed"
+
+  bazel build --strategy=Javac=worker //java/main:main || fail "build failed"
   bazel-bin/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
-  bazel_pid=$(bazel info | fgrep server_pid | cut -d' ' -f2)
-  # DANGER. This contains arcane shell wizardry that was carefully crafted to be compatible with
-  # both BSD and GNU tools so that this works under Linux and OS X.
-  bazel_children=$(ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${bazel_pid} " | cut -d' ' -f2)
-  bazel shutdown || fail "shutdown failed"
-  sleep 10
-  unkilled_children=$(for pid in $bazel_children; do ps -p $pid | sed 1d; done)
-  if [ ! -z "$unkilled_children" ]; then
-    fail "Worker processes were still running: ${unkilled_children}"
+  assert_workers_running
+  unkilled_workers=$(shutdown_and_print_unkilled_workers)
+  if [ ! -z "$unkilled_workers" ]; then
+    fail "Worker processes were still running after shutdown: ${unkilled_workers}"
   fi
+}
+
+function test_incremental_heuristic() {
+  write_hello_library_files
+  bazel --batch clean
+
+  # Default strategy is assumed to not use workers.
+  bazel build //java/main:main || fail "build failed"
+  assert_workers_not_running
+
+  # No workers used, because too many files changed.
+  echo '// hello '>> java/hello_library/HelloLibrary.java
+  echo '// hello' >> java/main/Main.java
+  bazel build --worker_max_changed_files=1 --strategy=Javac=worker //java/main:main \
+    || fail "build failed"
+  assert_workers_not_running
+
+  # Workers used, because changed number of files is less-or-equal to --worker_max_changed_files=2.
+  echo '// again '>> java/hello_library/HelloLibrary.java
+  echo '// again' >> java/main/Main.java
+  bazel build --worker_max_changed_files=2 --strategy=Javac=worker //java/main:main \
+    || fail "build failed"
+  assert_workers_running
+}
+
+function test_workers_quit_after_build() {
+  write_hello_library_files
+  bazel --batch clean
+
+  bazel build --worker_quit_after_build --strategy=Javac=worker //java/main:main \
+    || fail "build failed"
+  assert_workers_not_running
+}
+
+function prepare_example_worker() {
+  cp -v ${example_worker} worker_lib.jar
+
+  cat >work.bzl <<'EOF'
+def _impl(ctx):
+  worker = ctx.executable.worker
+  output = ctx.outputs.out
+
+  # Generate the "@"-file containing the command-line args for the unit of work.
+  argfile = ctx.new_file(ctx.configuration.bin_dir, "worker_input")
+  ctx.file_action(output=argfile, content="\n".join(["--output_file=" + output.path] + ctx.attr.args))
+
+  ctx.action(
+      inputs=[argfile],
+      outputs=[output],
+      executable=worker,
+      progress_message="Working on %s" % ctx.label.name,
+      mnemonic="Work",
+      arguments=ctx.attr.worker_args + ["@" + argfile.path],
+  )
+
+work = rule(
+    implementation=_impl,
+    attrs={
+        "worker": attr.label(cfg=HOST_CFG, mandatory=True, allow_files=True, executable=True),
+        "worker_args": attr.string_list(),
+        "args": attr.string_list(),
+    },
+    outputs = {"out": "%{name}.out"},
+)
+EOF
+  cat >BUILD <<EOF
+load("work", "work")
+
+java_import(
+  name = "worker_lib",
+  jars = ["worker_lib.jar"],
+)
+
+java_binary(
+  name = "worker",
+  main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+  runtime_deps = [
+    ":worker_lib",
+  ],
+)
+
+EOF
+}
+
+function test_example_worker() {
+  prepare_example_worker
+
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  args = ["hello world"],
+)
+
+work(
+  name = "hello_world_uppercase",
+  worker = ":worker",
+  args = ["--uppercase", "hello world"],
+)
+EOF
+
+  bazel --batch clean
+  assert_workers_not_running
+
+  bazel build --strategy=Work=worker :hello_world \
+    || fail "build failed"
+  assert_equals "hello world" "$(cat bazel-bin/hello_world.out)"
+  assert_workers_running
+
+  bazel build --worker_quit_after_build --strategy=Work=worker :hello_world_uppercase \
+    || fail "build failed"
+  assert_equals "HELLO WORLD" "$(cat bazel-bin/hello_world_uppercase.out)"
+  assert_workers_not_running
 }
 
 run_suite "Worker integration tests"

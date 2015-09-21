@@ -213,7 +213,10 @@ sh_test(
     name = "bazel_worker_test",
     size = "large",
     srcs = ["bazel_worker_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/java:worker-example_deploy.jar",
+    ],
 )
 
 sh_test(

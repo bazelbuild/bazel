@@ -603,6 +603,30 @@ java_test(
     ],
 )
 
+java_library(
+    name = "worker-example-lib",
+    srcs = glob(["com/google/devtools/build/lib/worker/ExampleWorker*.java"]),
+    visibility = [
+        "//src/test/shell/bazel:__pkg__",
+    ],
+    deps = [
+        "//src/main/java:options",
+        "//src/main/protobuf:proto_worker_protocol",
+        "//third_party:guava",
+    ],
+)
+
+java_binary(
+    name = "worker-example",
+    main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/bazel:__pkg__",
+    ],
+    runtime_deps = [
+        ":worker-example-lib",
+    ],
+)
+
 TEST_SUITES = [
     "ziputils",
     "rules",

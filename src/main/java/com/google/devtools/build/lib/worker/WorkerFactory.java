@@ -76,15 +76,6 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-    if (verbose) {
-      reporter.handle(
-          Event.info(
-              "Validating "
-                  + key.getMnemonic()
-                  + " worker (id "
-                  + p.getObject().getWorkerId()
-                  + ")."));
-    }
     return p.getObject().isAlive();
   }
 }
