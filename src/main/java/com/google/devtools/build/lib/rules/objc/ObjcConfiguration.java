@@ -69,13 +69,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final Path clientWorkspaceRoot;
 
-  // We only load these labels if the mode which uses them is enabled. That is know as part of the
+  // We only load these labels if the mode which uses them is enabled. That is known as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
   // can conditionally cause loading.
   // They are referenced from late bound attributes, and if loading wasn't forced in a
   // configuration, the late bound attribute will fail to be initialized because it hasn't been
   // loaded.
   @Nullable private final Label gcovLabel;
+  @Nullable private final Label experimentalGcovLabel;
   @Nullable private final Label dumpSymsLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
@@ -96,6 +97,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.gcovLabel = options.objcGcovBinary;
+    this.experimentalGcovLabel = options.experimentalObjcGcovBinary;
     this.dumpSymsLabel = objcOptions.dumpSyms;
     this.defaultProvisioningProfileLabel = objcOptions.defaultProvisioningProfile;
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
@@ -214,6 +216,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getGcovLabel() {
     return gcovLabel;
+  }
+
+  /**
+   * Returns the label of the experimental gcov binary, used to get test coverage data for {@code
+   * experimental_ios_test}. Null iff not in coverage mode.
+   */
+  @Nullable public Label getExperimentalGcovLabel() {
+    return experimentalGcovLabel;
   }
 
   /**

@@ -812,6 +812,15 @@ public final class BuildConfiguration {
         category = "undocumented")
     public Label objcGcovBinary;
 
+    // This performs the same function as objc_gcov_binary but applies to experminental_ios_test
+    // rather than ios_test.
+    // TODO(bazel-team): Remove this once experimental_ios_test replaces to ios_test.
+    @Option(name = "experimental_objc_gcov_binary",
+            converter = LabelConverter.class,
+            defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
+            category = "undocumented")
+    public Label experimentalObjcGcovBinary;
+
     @Option(name = "experimental_dynamic_configs",
         defaultValue = "false",
         category = "undocumented",
@@ -875,6 +884,7 @@ public final class BuildConfiguration {
       }
       if (collectCodeCoverage) {
         labelMap.put("objc_gcov", objcGcovBinary);
+        labelMap.put("experimental_objc_gcov", experimentalObjcGcovBinary);
       }
     }
   }

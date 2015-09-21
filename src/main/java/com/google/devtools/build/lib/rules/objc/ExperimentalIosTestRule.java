@@ -95,7 +95,7 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
                   return ImmutableList.of();
                 }
                 return ImmutableList.of(
-                    configuration.getFragment(ObjcConfiguration.class).getGcovLabel());
+                    configuration.getFragment(ObjcConfiguration.class).getExperimentalGcovLabel());
               }
             }))
         .build();
