@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -554,6 +555,25 @@ public class PackageFunction implements SkyFunction {
     return importResult;
   }
 
+  static SkyKey getImportKey(
+      Map.Entry<Location, PathFragment> entry,
+      PathFragment preludePath,
+      PathFragment buildFileFragment,
+      PackageIdentifier packageId)
+      throws ASTLookupInputException {
+    PathFragment importFile = entry.getValue();
+    // HACK: The prelude sometimes contains load() statements, which need to be resolved
+    // relative to the prelude file. However, we don't have a good way to tell "this should come
+    // from the main repository" in a load() statement, and we don't have a good way to tell if
+    // a load() statement comes from the prelude, since we just prepend those statements before
+    // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
+    RepositoryName repository =
+        entry.getKey().getPath().endsWith(preludePath)
+            ? PackageIdentifier.DEFAULT_REPOSITORY_NAME
+            : packageId.getRepository();
+    return SkylarkImportLookupValue.key(repository, buildFileFragment, importFile);
+  }
+
   /**
    * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet,
    * returns null.
@@ -567,44 +587,63 @@ public class PackageFunction implements SkyFunction {
       Environment env)
       throws PackageFunctionException {
     ImmutableMap<Location, PathFragment> imports = buildFileAST.getImports();
-    Map<PathFragment, Extension> importMap = new HashMap<>();
+    Map<PathFragment, Extension> importMap = Maps.newHashMapWithExpectedSize(imports.size());
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
-    try {
-      for (Map.Entry<Location, PathFragment> entry : imports.entrySet()) {
-        PathFragment importFile = entry.getValue();
-        // HACK: The prelude sometimes contains load() statements, which need to be resolved
-        // relative to the prelude file. However, we don't have a good way to tell "this should come
-        // from the main repository" in a load() statement, and we don't have a good way to tell if
-        // a load() statement comes from the prelude, since we just prepend those statements before
-        // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
-        RepositoryName repository =
-            entry.getKey().getPath().endsWith(preludePath)
-                ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : packageId.getRepository();
-        SkyKey importsLookupKey = SkylarkImportLookupValue.key(
-            repository, buildFileFragment, importFile);
-        SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
-            env.getValueOrThrow(importsLookupKey, SkylarkImportFailedException.class,
-                InconsistentFilesystemException.class, ASTLookupInputException.class,
-                BuildFileNotFoundException.class);
-        if (importLookupValue != null) {
-          importMap.put(importFile, importLookupValue.getEnvironmentExtension());
-          fileDependencies.add(importLookupValue.getDependency());
-        }
+    Map<SkyKey, PathFragment> skylarkImports = Maps.newHashMapWithExpectedSize(imports.size());
+    for (Map.Entry<Location, PathFragment> entry : imports.entrySet()) {
+      try {
+        skylarkImports.put(
+            getImportKey(entry, preludePath, buildFileFragment, packageId), entry.getValue());
+      } catch (ASTLookupInputException e) {
+        // The load syntax is bad in the BUILD file so BuildFileContainsErrorsException is OK.
+        throw new PackageFunctionException(
+            new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
       }
-    } catch (SkylarkImportFailedException e) {
-      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
-    } catch (InconsistentFilesystemException e) {
-      throw new PackageFunctionException(
-          new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
-    } catch (ASTLookupInputException e) {
-      // The load syntax is bad in the BUILD file so BuildFileContainsErrorsException is OK.
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
-    } catch (BuildFileNotFoundException e) {
-      throw new PackageFunctionException(e, Transience.PERSISTENT);
     }
+    Map<
+            SkyKey,
+            ValueOrException4<
+                SkylarkImportFailedException, InconsistentFilesystemException,
+                ASTLookupInputException, BuildFileNotFoundException>>
+        skylarkImportMap =
+            env.getValuesOrThrow(
+                skylarkImports.keySet(),
+                SkylarkImportFailedException.class,
+                InconsistentFilesystemException.class,
+                ASTLookupInputException.class,
+                BuildFileNotFoundException.class);
+    for (Map.Entry<
+            SkyKey,
+            ValueOrException4<
+                SkylarkImportFailedException, InconsistentFilesystemException,
+                ASTLookupInputException, BuildFileNotFoundException>>
+        entry : skylarkImportMap.entrySet()) {
+      SkylarkImportLookupValue importLookupValue;
+      try {
+        importLookupValue = (SkylarkImportLookupValue) entry.getValue().get();
+      } catch (SkylarkImportFailedException e) {
+        env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
+        throw new PackageFunctionException(
+            new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
+      } catch (InconsistentFilesystemException e) {
+        throw new PackageFunctionException(
+            new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
+      } catch (ASTLookupInputException e) {
+        // The load syntax is bad in the BUILD file so BuildFileContainsErrorsException is OK.
+        throw new PackageFunctionException(
+            new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
+      } catch (BuildFileNotFoundException e) {
+        throw new PackageFunctionException(e, Transience.PERSISTENT);
+      }
+      if (importLookupValue == null) {
+        Preconditions.checkState(env.valuesMissing(), entry);
+      } else {
+        importMap.put(
+            skylarkImports.get(entry.getKey()), importLookupValue.getEnvironmentExtension());
+        fileDependencies.add(importLookupValue.getDependency());
+      }
+    }
+
     if (env.valuesMissing()) {
       // There are unavailable Skylark dependencies.
       return null;

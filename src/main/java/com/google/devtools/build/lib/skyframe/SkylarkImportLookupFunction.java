@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -36,7 +38,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -77,42 +78,43 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.noFile(file));
     }
 
-    Map<PathFragment, Extension> importMap = new HashMap<>();
-    ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     BuildFileAST ast = astLookupValue.getAST();
-    // TODO(bazel-team): Refactor this code and PackageFunction to reduce code duplications.
+    if (ast.containsErrors()) {
+      throw new SkylarkImportLookupFunctionException(
+          SkylarkImportFailedException.skylarkErrors(file));
+    }
+
+    Map<Location, PathFragment> astImports = ast.getImports();
+    Map<PathFragment, Extension> importMap = Maps.newHashMapWithExpectedSize(astImports.size());
+    ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
+    Map<SkyKey, PathFragment> skylarkImports = Maps.newHashMapWithExpectedSize(astImports.size());
     for (Map.Entry<Location, PathFragment> entry : ast.getImports().entrySet()) {
       try {
-        PathFragment importFile = entry.getValue();
-        // HACK: The prelude sometimes contains load() statements, which need to be resolved
-        // relative to the prelude file. However, we don't have a good way to tell "this should come
-        // from the main repository" in a load() statement, and we don't have a good way to tell if
-        // a load() statement comes from the prelude, since we just prepend those statements before
-        // the actual BUILD file. So we use this evil .endsWith() statement to figure it out.
-        RepositoryName repository =
-            entry.getKey().getPath().endsWith(ruleClassProvider.getPreludePath())
-                ? PackageIdentifier.DEFAULT_REPOSITORY_NAME : arg.getRepository();
-        SkyKey importsLookupKey = SkylarkImportLookupValue.key(repository, file, importFile);
-        SkylarkImportLookupValue importsLookupValue;
-        importsLookupValue = (SkylarkImportLookupValue) env.getValueOrThrow(
-            importsLookupKey, ASTLookupInputException.class);
-        if (importsLookupValue != null) {
-          importMap.put(importFile, importsLookupValue.getEnvironmentExtension());
-          fileDependencies.add(importsLookupValue.getDependency());
-        }
+        skylarkImports.put(
+            PackageFunction.getImportKey(entry, ruleClassProvider.getPreludePath(), file, arg),
+            entry.getValue());
       } catch (ASTLookupInputException e) {
         throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
       }
     }
-    Label label = pathFragmentToLabel(arg.getRepository(), file, env);
+    Map<SkyKey, SkyValue> skylarkImportMap = env.getValues(skylarkImports.keySet());
+
     if (env.valuesMissing()) {
       // This means some imports are unavailable.
       return null;
     }
+    for (Map.Entry<SkyKey, SkyValue> entry : skylarkImportMap.entrySet()) {
+      SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue) entry.getValue();
+      importMap.put(
+          skylarkImports.get(entry.getKey()), importLookupValue.getEnvironmentExtension());
+      fileDependencies.add(importLookupValue.getDependency());
+    }
 
-    if (ast.containsErrors()) {
-      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.skylarkErrors(
-          file));
+    Label label = pathFragmentToLabel(arg.getRepository(), file, env);
+
+    if (label == null) {
+      Preconditions.checkState(env.valuesMissing(), "label null but no missing for %s", file);
+      return null;
     }
 
     // Skylark UserDefinedFunction-s in that file will share this function definition Environment,
