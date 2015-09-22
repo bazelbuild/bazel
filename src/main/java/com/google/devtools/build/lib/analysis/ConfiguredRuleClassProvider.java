@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.ABSTRACT;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.TEST;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -80,7 +81,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public static class Builder implements RuleDefinitionEnvironment {
     private final StringBuilder defaultWorkspaceFile = new StringBuilder();
-    private Label preludeLabel;
+    private PathFragment preludePath;
     private String runfilesPrefix;
     private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
@@ -104,14 +105,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       defaultWorkspaceFile.append(contents);
     }
 
-    public Builder setPrelude(String preludeLabelString) {
-      try {
-        this.preludeLabel = Label.parseAbsolute(preludeLabelString);
-      } catch (LabelSyntaxException e) {
-        String errorMsg =
-            String.format("Prelude label '%s' is not syntactically valid", preludeLabelString);
-        throw new IllegalArgumentException(errorMsg);
-      }
+    public Builder setPrelude(String workspaceRelativePath) {
+      PathFragment preludePathFragment = new PathFragment(workspaceRelativePath);
+      Preconditions.checkArgument(!preludePathFragment.isAbsolute());
+      Preconditions.checkArgument(preludePathFragment.isNormalized());
+      this.preludePath = preludePathFragment;
       return this;
     }
 
@@ -228,7 +226,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
 
       return new ConfiguredRuleClassProvider(
-          preludeLabel,
+          preludePath,
           runfilesPrefix,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
@@ -271,9 +269,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   String defaultWorkspaceFile;
 
   /**
-   * Label for the prelude file.
+   * Workspace-relative path to the prelude.
    */
-  private final Label preludeLabel;
+  private final PathFragment preludePath;
 
   /**
    * The default runfiles prefix.
@@ -317,7 +315,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final Environment.Frame globals;
 
   public ConfiguredRuleClassProvider(
-      Label preludeLabel,
+      PathFragment preludePath,
       String runfilesPrefix,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
@@ -329,7 +327,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ConfigurationCollectionFactory configurationCollectionFactory,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
-    this.preludeLabel = preludeLabel;
+    this.preludePath = preludePath;
     this.runfilesPrefix = runfilesPrefix;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
@@ -348,8 +346,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public Label getPreludeLabel() {
-    return preludeLabel;
+  public PathFragment getPreludePath() {
+    return preludePath;
   }
 
   @Override

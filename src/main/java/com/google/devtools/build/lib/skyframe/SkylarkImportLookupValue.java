@@ -13,9 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.LoadStatement;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -53,7 +58,38 @@ public class SkylarkImportLookupValue implements SkyValue {
     return dependency;
   }
 
-  static SkyKey key(Label importLabel) {
-    return new SkyKey(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, importLabel);  
+  private static void checkInputArgument(PathFragment astFilePathFragment)
+      throws ASTLookupInputException {
+    if (astFilePathFragment.isAbsolute()) {
+      throw new ASTLookupInputException(String.format(
+          "Input file '%s' cannot be an absolute path.", astFilePathFragment));
+    }
+  }
+
+  @VisibleForTesting
+  static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
+    return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
+  }
+
+  static SkyKey key(RepositoryName repo, PathFragment fromFile, PathFragment fileToImport)
+      throws ASTLookupInputException {
+    PathFragment computedPath;
+    if (fileToImport.isAbsolute()) {
+      computedPath = fileToImport.toRelative();
+    } else if (fileToImport.segmentCount() == 1) {
+      computedPath = fromFile.getParentDirectory().getRelative(fileToImport);
+    } else {
+      throw new ASTLookupInputException(String.format(LoadStatement.PATH_ERROR_MSG, fileToImport));
+    }
+    return key(repo, computedPath);
+  }
+
+  private static SkyKey key(RepositoryName repo, PathFragment fileToImport)
+      throws ASTLookupInputException {
+    // Skylark import lookup keys need to be valid AST file lookup keys.
+    checkInputArgument(fileToImport);
+    return new SkyKey(
+        SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
+        new PackageIdentifier(repo, fileToImport));
   }
 }

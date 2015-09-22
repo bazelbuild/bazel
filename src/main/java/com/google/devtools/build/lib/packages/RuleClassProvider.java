@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -31,9 +30,9 @@ import javax.annotation.Nullable;
 public interface RuleClassProvider {
 
   /**
-   * Label referencing the prelude file.
+   * Workspace relative path to the prelude file.
    */
-  Label getPreludeLabel();
+  PathFragment getPreludePath();
 
   /**
    * The default runfiles prefix (may be overwritten by the WORKSPACE file).
