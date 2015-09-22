@@ -13,47 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 
-import java.util.Map;
-
 /**
  * An implementation class for the InstrumentedFilesProvider interface.
  */
 public final class InstrumentedFilesProviderImpl implements InstrumentedFilesProvider {
-  public static final InstrumentedFilesProvider EMPTY = new InstrumentedFilesProviderImpl(
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      ImmutableMap.<String, String>of());
+  public static final InstrumentedFilesProvider EMPTY =
+      new InstrumentedFilesProviderImpl(
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
   private final NestedSet<Artifact> baselineCoverageFiles;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
-  private final ImmutableMap<String, String> extraEnv;
 
-  public InstrumentedFilesProviderImpl(NestedSet<Artifact> instrumentedFiles,
+  public InstrumentedFilesProviderImpl(
+      NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
       NestedSet<Artifact> baselineCoverageFiles,
-      NestedSet<Artifact> baselineCoverageArtifacts, Map<String, String> extraEnv) {
+      NestedSet<Artifact> baselineCoverageArtifacts) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
-    this.extraEnv = ImmutableMap.copyOf(extraEnv);
-  }
-
-  public InstrumentedFilesProviderImpl(NestedSet<Artifact> instrumentedFiles,
-      NestedSet<Artifact> instrumentationMetadataFiles, Map<String, String> extraEnv) {
-    this(instrumentedFiles, instrumentationMetadataFiles,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), extraEnv);
   }
 
   @Override
@@ -74,10 +63,5 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Artifact> getBaselineCoverageArtifacts() {
     return baselineCoverageArtifacts;
-  }
-
-  @Override
-  public Map<String, String> getExtraEnv() {
-    return extraEnv;
   }
 }

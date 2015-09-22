@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
+import com.google.devtools.build.lib.rules.test.TestEnvironmentProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -197,12 +195,8 @@ public class TestSupport {
 
   /**
    * Adds all files needed to run this test to the passed Runfiles builder.
-   *
-   * @param objcProvider common information about this rule's attributes and its dependencies
-   * @throws InterruptedException 
    */
-  public TestSupport addRunfiles(Builder runfilesBuilder, ObjcProvider objcProvider)
-      throws InterruptedException {
+  public TestSupport addRunfiles(Builder runfilesBuilder) throws InterruptedException {
     runfilesBuilder
         .addArtifact(testIpa())
         .addArtifacts(xctestIpa().asSet())
@@ -218,67 +212,28 @@ public class TestSupport {
       runfilesBuilder.addTransitiveArtifacts(labDeviceRunfiles());
     }
 
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      runfilesBuilder
-          .addTransitiveArtifacts(objcProvider.get(ObjcProvider.SOURCE))
-          .addTransitiveArtifacts(gcnoFiles(objcProvider));
-    }
     return this;
   }
 
   /**
    * Returns any additional providers that need to be exported to the rule context to the passed
    * builder.
-   *
-   * @param objcProvider common information about this rule's attributes and its dependencies
    */
-  public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-      getExtraProviders(ObjcProvider objcProvider) {
-    return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
-        InstrumentedFilesProvider.class,
-        new InstrumentedFilesProviderImpl(
-            instrumentedFiles(objcProvider), gcnoFiles(objcProvider), gcovEnv()));
+  public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getExtraProviders() {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
+          TestEnvironmentProvider.class, new TestEnvironmentProvider(gcovEnv()));
+    }
+    return ImmutableMap.of();
   }
 
   /**
    * Returns a map of extra environment variable names to their values used to point to gcov binary,
    * which should be added to the test action environment, if coverage is enabled.
    */
-  private Map<String, String> gcovEnv() {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return ImmutableMap.of("COVERAGE_GCOV_PATH",
-          ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
-    }
-    return ImmutableMap.of();
-  }
-
-  /**
-   * Returns all GCC coverage notes files available for computing coverage.
-   */
-  private NestedSet<Artifact> gcnoFiles(ObjcProvider objcProvider) {
-    return filesWithXcTestApp(ObjcProvider.GCNO, objcProvider);
-  }
-
-  /**
-   * Returns all source files from the test (and if present xctest app) which have been
-   * instrumented for code coverage.
-   */
-  private NestedSet<Artifact> instrumentedFiles(ObjcProvider objcProvider) {
-    return filesWithXcTestApp(ObjcProvider.INSTRUMENTED_SOURCE, objcProvider);
-  }
-
-  private NestedSet<Artifact> filesWithXcTestApp(Key<Artifact> key, ObjcProvider objcProvider) {
-    NestedSet<Artifact> underlying = objcProvider.get(key);
-    XcTestAppProvider provider = ruleContext.getPrerequisite(
-        IosTest.XCTEST_APP, Mode.TARGET, XcTestAppProvider.class);
-    if (provider == null) {
-      return underlying;
-    }
-
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(underlying)
-        .addTransitive(provider.getObjcProvider().get(key))
-        .build();
+  private ImmutableMap<String, String> gcovEnv() {
+    return ImmutableMap.of(
+        "COVERAGE_GCOV_PATH", ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
   }
 
   /**
@@ -307,7 +262,6 @@ public class TestSupport {
 
   /**
    * Adds files which must be built in order to run this test to builder.
-   * @throws InterruptedException 
    */
   public TestSupport addFilesToBuild(NestedSetBuilder<Artifact> builder)
       throws InterruptedException {

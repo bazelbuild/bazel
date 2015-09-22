@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 
 /**
  * Implementation for rules that link binaries.
@@ -95,13 +96,14 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
       return null;
     }
 
-    new CompilationSupport(ruleContext)
-        .registerJ2ObjcCompileAndArchiveActions(objcProvider)
-        .registerCompileAndArchiveActions(common)
-        .addXcodeSettings(xcodeProviderBuilder, common)
-        .registerLinkActions(objcProvider, getExtraLinkArgs(ruleContext),
-            ImmutableList.<Artifact>of())
-        .validateAttributes();
+    CompilationSupport compilationSupport =
+        new CompilationSupport(ruleContext)
+            .registerJ2ObjcCompileAndArchiveActions(objcProvider)
+            .registerCompileAndArchiveActions(common)
+            .addXcodeSettings(xcodeProviderBuilder, common)
+            .registerLinkActions(
+                objcProvider, getExtraLinkArgs(ruleContext), ImmutableList.<Artifact>of())
+            .validateAttributes();
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -157,7 +159,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
             .addProvider(XcodeProvider.class, xcodeProvider)
-            .addProvider(ObjcProvider.class, objcProvider);
+            .addProvider(ObjcProvider.class, objcProvider)
+            .addProvider(
+                InstrumentedFilesProvider.class,
+                compilationSupport.getInstrumentedFilesProvider(common));
     if (xcTestAppProvider.isPresent()) {
       // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
       // application bundle.

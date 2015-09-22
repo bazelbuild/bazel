@@ -88,18 +88,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> SOURCE = new Key<>(STABLE_ORDER);
 
   /**
-   * Contains all coverage instrumented source files.
-   */
-  public static final Key<Artifact> INSTRUMENTED_SOURCE = new Key<>(STABLE_ORDER);
-
-  /**
-   * Contains all .gcno files one for every source file if in coverage mode.
-   * It contains information to reconstruct the basic block graphs and assign source line numbers
-   * to blocks.
-   */
-  public static final Key<Artifact> GCNO = new Key<>(STABLE_ORDER);
-
-  /**
    * Include search paths specified with {@code -I} on the command line. Also known as header search
    * paths (and distinct from <em>user</em> header search paths).
    */
@@ -381,16 +369,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
      */
     public <E> Builder addAll(Key<E> key, Iterable<? extends E> toAdd) {
       uncheckedAddAll(key, toAdd, true);
-      return this;
-    }
-
-    /**
-     * Add element, but don't propagate dependers on this ObjcProvider. These elements will be
-     * exposed to {@link #get(Key)} calls, but not to any ObjcProviders which add this provider to
-     * themselves.
-     */
-    public <E> Builder addWithoutPropagating(Key<E> key, E toAdd) {
-      uncheckedAddAll(key, ImmutableList.of(toAdd), false);
       return this;
     }
 

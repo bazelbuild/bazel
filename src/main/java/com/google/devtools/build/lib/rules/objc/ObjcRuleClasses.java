@@ -331,7 +331,7 @@ public class ObjcRuleClasses {
    */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
-  private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
+  static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
@@ -364,6 +364,12 @@ public class ObjcRuleClasses {
 
   // TODO(bazel-team): Restrict this to actual header files only.
   static final FileTypeSet HDRS_TYPE = FileTypeSet.ANY_FILE;
+
+  /**
+   * Coverage note files which contain information to reconstruct the basic block graphs and assign
+   * source line numbers to blocks.
+   */
+  static final FileType COVERAGE_NOTES = FileType.of(".gcno");
 
   /**
    * Common attributes for {@code objc_*} rules that allow the definition of resources such as

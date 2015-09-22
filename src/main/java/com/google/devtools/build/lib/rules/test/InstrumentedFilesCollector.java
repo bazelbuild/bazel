@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -35,15 +34,32 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import javax.annotation.Nullable;
-
 /**
  * A helper class for collecting instrumented files and metadata for a target.
  */
 public final class InstrumentedFilesCollector {
-  public static InstrumentedFilesProvider collect(RuleContext ruleContext, InstrumentationSpec spec,
-      @Nullable LocalMetadataCollector localMetadataCollector,
-      @Nullable Iterable<Artifact> rootFiles) {
+
+  /**
+   * Forwards any instrumented files from the given target's dependencies (as defined in
+   * {@code dependencyAttributes}) for further export. No files from this target are considered
+   * instrumented.
+   *
+   * @return instrumented file provider of all dependencies in {@code dependencyAttributes}
+   */
+  public static InstrumentedFilesProvider forward(
+      RuleContext ruleContext, String... dependencyAttributes) {
+    return collect(
+        ruleContext,
+        new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
+        null,
+        null);
+  }
+
+  public static InstrumentedFilesProvider collect(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      LocalMetadataCollector localMetadataCollector,
+      Iterable<Artifact> rootFiles) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles, false);
   }
 
@@ -53,9 +69,12 @@ public final class InstrumentedFilesCollector {
    * configured target, and creates baseline coverage actions for the transitive closure of source
    * files (if <code>withBaselineCoverage</code> is true).
    */
-  public static InstrumentedFilesProvider collect(RuleContext ruleContext,
-      InstrumentationSpec spec, @Nullable LocalMetadataCollector localMetadataCollector,
-      @Nullable Iterable<Artifact> rootFiles, boolean withBaselineCoverage) {
+  public static InstrumentedFilesProvider collect(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      LocalMetadataCollector localMetadataCollector,
+      Iterable<Artifact> rootFiles,
+      boolean withBaselineCoverage) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -118,11 +137,11 @@ public final class InstrumentedFilesCollector {
     // Create one baseline coverage action per target, but for the transitive closure of files.
     NestedSet<Artifact> baselineCoverageArtifacts =
         BaselineCoverageAction.create(ruleContext, baselineCoverageFiles);
-    return new InstrumentedFilesProviderImpl(instrumentedFilesBuilder.build(),
+    return new InstrumentedFilesProviderImpl(
+        instrumentedFilesBuilder.build(),
         metadataFilesBuilder.build(),
         baselineCoverageFiles,
-        baselineCoverageArtifacts,
-        ImmutableMap.<String, String>of());
+        baselineCoverageArtifacts);
   }
 
   /**

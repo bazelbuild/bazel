@@ -18,8 +18,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
-import java.util.Map;
-
 /**
  * A provider of instrumented file sources and instrumentation metadata.
  */
@@ -51,9 +49,4 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
   // particular because baseline coverage is language-specific (it requires a parser for the
   // specific language), and we don't want to depend on all language parsers from any single rule.
   NestedSet<Artifact> getBaselineCoverageArtifacts();
-
-  /**
-   * Returns environment variables which should be set for coverage to function.
-   */
-  Map<String, String> getExtraEnv();
 }

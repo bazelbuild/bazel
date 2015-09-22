@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
 /**
@@ -93,10 +94,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
-    new CompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(common)
-        .addXcodeSettings(xcodeProviderBuilder, common)
-        .validateAttributes();
+    CompilationSupport compilationSupport =
+        new CompilationSupport(ruleContext)
+            .registerCompileAndArchiveActions(common)
+            .addXcodeSettings(xcodeProviderBuilder, common)
+            .validateAttributes();
 
     new ResourceSupport(ruleContext)
         .validateAttributes()
@@ -117,6 +119,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcSrcsProvider.class, J2ObjcSrcsProvider.buildFrom(ruleContext))
         .addProvider(
             J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
+        .addProvider(
+            InstrumentedFilesProvider.class,
+            compilationSupport.getInstrumentedFilesProvider(common))
         .build();
   }
 }

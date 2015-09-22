@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 
 import javax.annotation.Nullable;
 
@@ -89,7 +91,10 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
             .addProvider(XcTestAppProvider.class, releaseBundlingSupport.xcTestAppProvider())
-            .addProvider(XcodeProvider.class, xcodeProviderBuilder.build());
+            .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
+            .addProvider(
+                InstrumentedFilesProvider.class,
+                InstrumentedFilesCollector.forward(ruleContext, "binary"));
 
     ObjcProvider exposedObjcProvider = exposedObjcProvider(ruleContext);
     if (exposedObjcProvider != null) {

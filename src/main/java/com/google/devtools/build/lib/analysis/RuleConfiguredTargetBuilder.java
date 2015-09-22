@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
+import com.google.devtools.build.lib.rules.test.TestEnvironmentProvider;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -165,19 +166,21 @@ public final class RuleConfiguredTargetBuilder {
           "Having more than 50 shards is indicative of poor test organization. "
           + "Please reduce the number of shards.");
     }
-    TestActionBuilder testActionBuilder = new TestActionBuilder(ruleContext);
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        findProvider(InstrumentedFilesProvider.class);
-    if (instrumentedFilesProvider != null) {
-      testActionBuilder
-          .setInstrumentedFiles(instrumentedFilesProvider)
-          .setExtraEnv(instrumentedFilesProvider.getExtraEnv());
+    TestActionBuilder testActionBuilder =
+        new TestActionBuilder(ruleContext)
+            .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class));
+
+    TestEnvironmentProvider environmentProvider = findProvider(TestEnvironmentProvider.class);
+    if (environmentProvider != null) {
+      testActionBuilder.setExtraEnv(environmentProvider.getEnvironment());
     }
-    final TestParams testParams = testActionBuilder
-        .setFilesToRunProvider(filesToRunProvider)
-        .setExecutionRequirements(findProvider(ExecutionInfoProvider.class))
-        .setShardCount(explicitShardCount)
-        .build();
+
+    final TestParams testParams =
+        testActionBuilder
+            .setFilesToRunProvider(filesToRunProvider)
+            .setExecutionRequirements(findProvider(ExecutionInfoProvider.class))
+            .setShardCount(explicitShardCount)
+            .build();
     final ImmutableList<String> testTags =
         ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
     return new TestProvider(testParams, testTags);
@@ -233,9 +236,9 @@ public final class RuleConfiguredTargetBuilder {
 
     List<Label> actionListenerLabels = configuration.getActionListeners();
     if (!actionListenerLabels.isEmpty()
-        && ruleContext.getRule().getAttributeDefinition(":action_listener") != null) {
-      ExtraActionsVisitor visitor = new ExtraActionsVisitor(ruleContext,
-          computeMnemonicsToExtraActionMap());
+        && ruleContext.attributes().getAttributeDefinition(":action_listener") != null) {
+      ExtraActionsVisitor visitor =
+          new ExtraActionsVisitor(ruleContext, computeMnemonicsToExtraActionMap());
 
       // The action list is modified within the body of the loop by the addExtraAction() call,
       // thus the copy
@@ -446,7 +449,7 @@ public final class RuleConfiguredTargetBuilder {
       return result;
     }
 
-    result = NestedSetBuilder.<Artifact>stableOrder();
+    result = NestedSetBuilder.stableOrder();
     outputGroupBuilders.put(name, result);
     return result;
   }
