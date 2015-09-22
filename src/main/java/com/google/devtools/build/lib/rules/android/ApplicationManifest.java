@@ -324,7 +324,6 @@ public final class ApplicationManifest {
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
             .withPrimary(resourceContainer)
             .withDependencies(resourceContainers)
-            .setWorkingDirectory(ruleContext.getUniqueDirectory("_resources"))
             .setDensities(densities)
             .setProguardOut(proguardCfg)
             .setApplicationId(applicationId)

@@ -170,7 +170,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               .withDependencies(transitiveResources)
               .setDebug(
                   ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-              .setWorkingDirectory(ruleContext.getUniqueDirectory("_resources"))
               .build(ruleContext);
     }
 

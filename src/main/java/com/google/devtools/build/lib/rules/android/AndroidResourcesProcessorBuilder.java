@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +49,6 @@ public class AndroidResourcesProcessorBuilder {
   private final AndroidSdkProvider sdk;
   private List<String> assetsToIgnore = Collections.emptyList();
   private SpawnAction.Builder spawnActionBuilder;
-  private PathFragment workingDirectory;
   private List<String> densities = Collections.emptyList();
   private String customJavaPackage;
   private final RuleContext ruleContext;
@@ -133,11 +131,6 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setWorkingDirectory(PathFragment workingDirectory) {
-    this.workingDirectory = workingDirectory;
-    return this;
-  }
-
   private void addResourceContainer(List<Artifact> inputs, List<String> args,
       ResourceContainer container) {
     Iterables.addAll(inputs, container.getArtifacts());
@@ -202,11 +195,6 @@ public class AndroidResourcesProcessorBuilder {
         addResourceContainer(ins, data, container);
       }
       args.add(Joiner.on(",").join(data));
-    }
-
-    if (rTxtOut != null || sourceJarOut != null) {
-      args.add("--generatedSourcePath");
-      args.add(workingDirectory.toString());
     }
 
     if (rTxtOut != null) {
