@@ -27,7 +27,7 @@ public class TimeUtilities {
    *
    * @param timeInNs The length of time in nanoseconds.
    */
-  public static String prettyTime(long timeInNs) {
+  public static String prettyTime(double timeInNs) {
     double ms = timeInNs / 1000000.0;
     if (ms < 10.0) {
       return String.format("%.2f ms", ms);

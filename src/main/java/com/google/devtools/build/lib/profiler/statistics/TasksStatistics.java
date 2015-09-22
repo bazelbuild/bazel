@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.profiler.chart;
+package com.google.devtools.build.lib.profiler.statistics;
 
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 
@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * Data container to aggregate execution time statistics of multiple tasks grouped by some name.
  */
-class TasksStatistics {
+public class TasksStatistics {
   public final String name;
   public final int count;
   public final long minNanos;

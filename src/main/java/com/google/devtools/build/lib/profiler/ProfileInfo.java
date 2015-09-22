@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.profiler;
 
 import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH_COMPONENT;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
 import com.google.common.base.Joiner;
@@ -294,6 +293,15 @@ public class ProfileInfo {
 
     public long getCriticalTime() {
       return criticalTime;
+    }
+
+    /**
+     * @return true when this is just an action element on the critical path as logged by
+     *     {@link com.google.devtools.build.lib.runtime.BuildSummaryStatsModule} and is thus a
+     *     pre-processed and -analyzed critical path element
+     */
+    public boolean isComponent() {
+      return task.type == ProfilerTask.CRITICAL_PATH_COMPONENT;
     }
   }
 
@@ -760,7 +768,7 @@ public class ProfileInfo {
   public void analyzeCriticalPath(Set<ProfilerTask> ignoredTypes, CriticalPathEntry path) {
     // With light critical path we do not need to analyze since it is already preprocessed
     // by blaze build.
-    if (path != null && path.task.type == CRITICAL_PATH_COMPONENT) {
+    if (path == null || path.isComponent()) {
       return;
     }
     for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
