@@ -107,15 +107,18 @@ Some differences with Python should be noted:
 
 * `x += y` is syntactic sugar for `x = x + y`. Even if `x` and `y` are lists,
   dicts or sets, the original value is not mutated, so references to `x`
-  that were assigned before the operation will see the old value.
+  that were assigned before the operation will see the old value. This behavior
+  is temporary, and will follow Python semantics in the future.
 
 * The `+` operator is defined for dictionaries, returning an immutable
   concatenated dictionary created from the entries of the original
   dictionaries. In case of duplicate keys, we use values from the second
-  operand.
+  operand. If you need compatibility with Python, we suggest this syntax:
+  `dict(a.items() + b.items())`.
 
 * Dictionary assignment has slightly different semantics: `d["x"] = y` is
-  syntactic sugar for `d = d + {"x": y}` or `d += {"x": y}`.
+  syntactic sugar for `d = d + {"x": y}` or `d += {"x": y}`. This behavior
+  is temporary, and will follow Python semantics in the future.
 
 * Dictionaries have deterministic order when iterating (sorted by key).
 
