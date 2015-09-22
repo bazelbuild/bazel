@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
@@ -136,8 +137,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public ResolvedTargets<Target> findTargetsBeneathDirectory(String originalPattern,
-      String directory, boolean rulesOnly, ImmutableSet<String> excludedSubdirectories)
+  public ResolvedTargets<Target> findTargetsBeneathDirectory(RepositoryName repository,
+      String originalPattern, String directory, boolean rulesOnly,
+      ImmutableSet<String> excludedSubdirectories)
       throws TargetParsingException, InterruptedException {
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
@@ -146,10 +148,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
     PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
     ResolvedTargets.Builder<Target> targetBuilder = ResolvedTargets.builder();
+    // TODO(bazel-team): This is where we need to depend on the RepositoryValue of a remote
+    // repository in order figure out its root and thus support recursive package search in them.
     for (Path root : pkgPath.getPathEntries()) {
       RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
       Iterable<PathFragment> packagesUnderDirectory =
-          recursivePackageProvider.getPackagesUnderDirectory(rootedPath, excludedPathFragments);
+          recursivePackageProvider.getPackagesUnderDirectory(
+              repository, rootedPath, excludedPathFragments);
       for (PathFragment pkg : packagesUnderDirectory) {
         targetBuilder.merge(getTargetsInPackage(originalPattern, pkg, FilteringPolicies.NO_FILTER));
       }

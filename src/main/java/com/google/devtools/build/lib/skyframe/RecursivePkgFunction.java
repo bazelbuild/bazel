@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -57,9 +58,10 @@ public class RecursivePkgFunction implements SkyFunction {
     }
 
     @Override
-    protected SkyKey getSkyKeyForSubdirectory(RootedPath subdirectory,
+    protected SkyKey getSkyKeyForSubdirectory(RepositoryName repository, RootedPath subdirectory,
         ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
-      return RecursivePkgValue.key(subdirectory, excludedSubdirectoriesBeneathSubdirectory);
+      return RecursivePkgValue.key(
+          repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
     }
 
     @Override

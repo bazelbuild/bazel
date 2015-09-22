@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -89,13 +90,14 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(RootedPath directory,
+  public Iterable<PathFragment> getPackagesUnderDirectory(
+      RepositoryName repository, RootedPath directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException {
     PathFragment rootedPathFragment = directory.getRelativePath();
     PathFragment.checkAllPathsAreUnder(excludedSubdirectories, rootedPathFragment);
     RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(
-        RecursivePkgValue.key(directory, excludedSubdirectories));
+        RecursivePkgValue.key(repository, directory, excludedSubdirectories));
     if (lookup == null) {
       // Typically a null value from Environment.getValue(k) means that either the key k is missing
       // a dependency or an exception was thrown during evaluation of k. Here, if this getValue

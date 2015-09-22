@@ -423,7 +423,8 @@ public abstract class TargetPattern implements Serializable {
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver,
         ImmutableSet<String> excludedSubdirectories)
         throws TargetParsingException, InterruptedException {
-      return resolver.findTargetsBeneathDirectory(getOriginalPattern(), directory, rulesOnly,
+      return resolver.findTargetsBeneathDirectory(
+          PackageIdentifier.DEFAULT_REPOSITORY_NAME, getOriginalPattern(), directory, rulesOnly,
           excludedSubdirectories);
     }
 

@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -96,8 +97,9 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
 
   /** Create a prepare deps of targets under directory request. */
   @ThreadSafe
-  public static SkyKey key(RootedPath rootedPath, ImmutableSet<PathFragment> excludedPaths) {
-    return key(rootedPath, excludedPaths, FilteringPolicies.NO_FILTER);
+  public static SkyKey key(RepositoryName repository, RootedPath rootedPath,
+      ImmutableSet<PathFragment> excludedPaths) {
+    return key(repository, rootedPath, excludedPaths, FilteringPolicies.NO_FILTER);
   }
 
   /**
@@ -105,10 +107,11 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
    * targets.
    */
   @ThreadSafe
-  public static SkyKey key(RootedPath rootedPath, ImmutableSet<PathFragment> excludedPaths,
-      FilteringPolicy filteringPolicy) {
+  public static SkyKey key(RepositoryName repository, RootedPath rootedPath,
+      ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
     return new SkyKey(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
-        new PrepareDepsOfTargetsUnderDirectoryKey(new RecursivePkgKey(rootedPath, excludedPaths),
+        new PrepareDepsOfTargetsUnderDirectoryKey(
+            new RecursivePkgKey(repository, rootedPath, excludedPaths),
             filteringPolicy));
   }
 
