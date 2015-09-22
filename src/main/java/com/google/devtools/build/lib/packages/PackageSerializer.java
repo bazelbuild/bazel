@@ -34,6 +34,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.MakeEnvironment.Binding;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.Rule.Builder;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 
@@ -56,8 +58,34 @@ import java.util.Map;
  * Functionality to serialize loaded packages.
  */
 public class PackageSerializer {
+  /** Allows custom serialization logic to be injected. */
+  public interface PackageSerializationEnvironment {
+    /**
+     * Called right before the given builder's {@link Build.Rule.Builder#build} method is called.
+     * Implementations can use this hook to serialize additional data in the proto.
+     */
+    void maybeSerializeAdditionalDataForRule(Rule rule, Build.Rule.Builder builder);
+  }
 
-  public static final PackageSerializer DEFAULT = new PackageSerializer();
+  // Workaround for Java serialization making it tough to pass in a serialization environment
+  // manually.
+  // volatile is needed to ensure that the objects are published safely.
+  public static volatile PackageSerializationEnvironment defaultPackageSerializationEnvironment =
+      new PackageSerializationEnvironment() {
+        @Override
+        public void maybeSerializeAdditionalDataForRule(Rule rule, Builder builder) {
+        }
+      };
+
+  private final PackageSerializationEnvironment env;
+
+  public PackageSerializer() {
+    this(defaultPackageSerializationEnvironment);
+  }
+
+  public PackageSerializer(PackageSerializationEnvironment env) {
+    this.env = Preconditions.checkNotNull(env);
+  }
 
   /**
    * Get protocol buffer representation of the specified attribute.
@@ -69,7 +97,8 @@ public class PackageSerializer {
    */
   public static Build.Attribute getAttributeProto(Attribute attr, Iterable<Object> values,
       Boolean explicitlySpecified) {
-    return DEFAULT.serializeAttribute(attr, values, explicitlySpecified, /*includeGlobs=*/ false);
+    return new PackageSerializer().serializeAttribute(attr, values, explicitlySpecified,
+        /*includeGlobs=*/ false);
   }
 
   /**
@@ -446,6 +475,7 @@ public class PackageSerializer {
           serializeAttribute(attribute, getAttributeValues(rule, attribute),
               rule.isAttributeValueExplicitlySpecified(attribute), /*includeGlobs=*/ true));
     }
+    env.maybeSerializeAdditionalDataForRule(rule, builder);
 
     return Build.Target.newBuilder()
         .setType(Build.Target.Discriminator.RULE)
@@ -516,7 +546,7 @@ public class PackageSerializer {
       if (target instanceof InputFile) {
         emitTarget(serializeInputFile((InputFile) target), out);
       } else if (target instanceof OutputFile) {
-        // Output files are ignored; they are recorded in rules.
+        // Output files are not serialized; they are recreated by the RuleClass on deserialization.
       } else if (target instanceof PackageGroup) {
         emitTarget(serializePackageGroup((PackageGroup) target), out);
       } else if (target instanceof Rule) {
