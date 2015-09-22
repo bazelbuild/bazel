@@ -889,8 +889,10 @@ How long the test is normally expected to run before returning.
 While a test's size attribute controls resource estimation, a test's
 timeout may be set independently.  If not explicitly specified, the
 timeout is based on the test's size (with "small" &rArr; "short",
-"medium" &rArr; "moderate", etc...). "short" means 1 minute, "moderate"
-5 minutes, and "long" 15 minutes.
+"medium" &rArr; "moderate", etc...). By default, "short" means 1 minute,
+"moderate" 5 minutes, and "long" 15 minutes (this can be overridden with
+--test_timeout, e.g. for running under certain configurations which are
+known to be slow).
 </p>
 </td>
       </tr>
@@ -11977,6 +11979,35 @@ maven_jar(
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
 &lt;server&lt; definition from a settings.xml file.</p>
 
+<h4>Using <code>maven_server</code></h4>
+
+<p><code>maven_jar</code> rules can specify the name of a <code>maven_server</code> in their
+<code>server</code> field. For example, suppose we have the following WORKSPACE file:</p>
+
+<pre>
+maven_jar(
+    name = "junit",
+    artifact = "junit:junit-dep:4.10",
+    server = "my-server",
+)
+
+maven_server(
+    name = "my-server",
+    url = "http://intranet.mycorp.net",
+)
+</pre>
+
+This specifies that junit should be downloaded from http://intranet.mycorp.net using the
+authentication information found in ~/.m2/settings.xml (specifically, the settings
+for the server with the id <code>my-server</code>).
+
+<h4>Specifying a default server</h4>
+
+<p>If you create a <code>maven_server</code> with the <code>name</code> "default" it will be
+used for any <code>maven_jar</code> that does not specify a <code>server</code> nor
+<code>repository</code>. If there is no <code>maven_server</code> named default, the
+default will be fetching from Maven Central with no authentication enabled.</p>
+
 
 
     <h4 id="maven_server_args">Arguments</h4>
@@ -12006,7 +12037,9 @@ maven_jar(
           </td>
           <td>
                         <p><code>String; optional</code></p>
-                                A path to a settings.xml file.
+                                A path to a settings.xml file.  Used for testing. If unspecified, this defaults to using
+        <code>$M2_HOME/conf/settings.xml</code> for the global settings and
+        <code>$HOME/.m2/settings.xml</code> for the user settings.
         
 
           </td>
