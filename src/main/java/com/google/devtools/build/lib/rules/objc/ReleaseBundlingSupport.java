@@ -316,8 +316,7 @@ public final class ReleaseBundlingSupport {
             .addInput(attributes.environmentPlistScript())
             .setExecutable(attributes.environmentPlistScript())
             .addArguments("--platform", platformWithVersion)
-            .addArguments(
-                "--output", getGeneratedEnvironmentPlist().getShellEscapedExecPathString())
+            .addArguments("--output", getGeneratedEnvironmentPlist().getExecPathString())
             .addOutput(getGeneratedEnvironmentPlist())
             .build(ruleContext));
   }
