@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -265,7 +266,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR));
 
-    return createAndroidBinary(ruleContext,
+
+    return createAndroidBinary(
+        ruleContext,
         filesBuilder,
         deployJar,
         javaCommon,
@@ -506,9 +509,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(splitDeployMarker)
         .build();
 
-    androidCommon.addTransitiveInfoProviders(builder);
-    androidSemantics.addTransitiveInfoProviders(builder, ruleContext, javaCommon, androidCommon,
-        jarToDex, resourceApk, zipAlignedApk, apksUnderTest);
+    androidCommon.addTransitiveInfoProviders(
+        builder, androidSemantics, resourceApk, zipAlignedApk, apksUnderTest);
+    androidSemantics.addTransitiveInfoProviders(
+        builder, ruleContext, javaCommon, androidCommon, jarToDex);
 
     if (proguardOutput.mapping != null) {
       builder.add(ProguardMappingProvider.class,
@@ -517,14 +521,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .add(RunfilesProvider.class, RunfilesProvider.simple(
-            new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-            .addTransitiveArtifacts(filesToBuild)
-            .build()))
-        .add(ApkProvider.class,
-            new ApkProvider(NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
-                coverageMetadata))
+        .add(
+            RunfilesProvider.class,
+            RunfilesProvider.simple(
+                new Runfiles.Builder(ruleContext.getWorkspaceName())
+                    .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+                    .addTransitiveArtifacts(filesToBuild)
+                    .build()))
+        .add(
+            JavaSourceInfoProvider.class,
+            JavaSourceInfoProvider.fromJavaTargetAttributes(resourceClasses, javaSemantics))
+        .add(
+            ApkProvider.class,
+            new ApkProvider(
+                NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk), coverageMetadata))
         .add(AndroidPreDexJarProvider.class, new AndroidPreDexJarProvider(jarToDex))
         .addOutputGroup("mobile_install_full", fullDeployMarker)
         .addOutputGroup("mobile_install_incremental", incrementalDeployMarker)

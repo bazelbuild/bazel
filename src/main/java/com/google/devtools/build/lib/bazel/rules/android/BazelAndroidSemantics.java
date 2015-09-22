@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
+import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ApplicationManifest;
 import com.google.devtools.build.lib.rules.android.ResourceApk;
@@ -39,11 +40,18 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext, JavaCommon javaCommon, AndroidCommon androidCommon,
-      Artifact jarWithAllClasses, ResourceApk resourceApk, Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest) {
-  }
+  public void addNonLocalResources(
+      RuleContext ruleContext,
+      ResourceApk resourceApk,
+      AndroidIdeInfoProvider.Builder ideInfoProviderBuilder) {}
+
+  @Override
+  public void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      AndroidCommon androidCommon,
+      Artifact jarWithAllClasses) {}
 
   @Override
   public ApplicationManifest getManifestForRule(RuleContext ruleContext) {

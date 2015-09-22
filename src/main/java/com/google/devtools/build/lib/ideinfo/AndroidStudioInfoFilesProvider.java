@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
+import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 
 /**
  * File provider for Android Studio ide build files.
@@ -27,11 +29,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> ideBuildFiles;
   private final NestedSet<Label> transitiveDependencies;
+  private final NestedSet<AndroidIdeInfoProvider.SourceDirectory> transitiveResources;
 
   public AndroidStudioInfoFilesProvider(
-      NestedSet<Artifact> ideBuildFiles, NestedSet<Label> transitiveDependencies) {
+      NestedSet<Artifact> ideBuildFiles,
+      NestedSet<Label> transitiveDependencies,
+      NestedSet<SourceDirectory> transitiveResources) {
     this.ideBuildFiles = ideBuildFiles;
     this.transitiveDependencies = transitiveDependencies;
+    this.transitiveResources = transitiveResources;
   }
 
   public NestedSet<Artifact> getIdeBuildFiles() {
@@ -40,5 +46,9 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
 
   public NestedSet<Label> getTransitiveDependencies() {
     return transitiveDependencies;
+  }
+
+  public NestedSet<SourceDirectory> getTransitiveResources() {
+    return transitiveResources;
   }
 }

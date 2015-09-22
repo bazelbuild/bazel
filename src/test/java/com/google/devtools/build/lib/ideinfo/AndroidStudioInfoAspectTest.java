@@ -416,6 +416,109 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
             "<jar:com/google/example/foobar-exe.jar><source:com/google/example/foobar-exe-src.jar>");
   }
 
+  public void testAndroidLibrary() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "android_library(",
+        "  name = \"l1\",",
+        "  manifest = \"Manifesto.xml\",",
+        "  custom_package = \"com.google.example\",",
+        "  resource_files = [\"r1/values/a.xml\"],",
+        ")",
+        "android_library(",
+        "  name = \"l\",",
+        "  srcs = [\"Main.java\"],",
+        "  deps = [\":l1\"],",
+        "  manifest = \"Abracadabra.xml\",",
+        "  custom_package = \"com.google.example\",",
+        "  resource_files = [\"res/drawable/a.png\", \"res/drawable/b.png\"],",
+        ")");
+    String target = "//com/google/example:l";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_LIBRARY);
+    assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
+    assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly("<jar:com/google/example/libl.jar>");
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/Abracadabra.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+
+    assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
+                ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res", "com/google/example/r1");
+  }
+
+  public void testAndroidBinary() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "android_library(",
+        "  name = \"l1\",",
+        "  manifest = \"Manifesto.xml\",",
+        "  custom_package = \"com.google.example\",",
+        "  resource_files = [\"r1/values/a.xml\"],",
+        ")",
+        "android_binary(",
+        "  name = \"b\",",
+        "  srcs = [\"Main.java\"],",
+        "  deps = [\":l1\"],",
+        "  manifest = \"Abracadabra.xml\",",
+        "  custom_package = \"com.google.example\",",
+        "  resource_files = [\"res/drawable/a.png\", \"res/drawable/b.png\"],",
+        ")");
+    String target = "//com/google/example:b";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
+    assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
+    assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:com/google/example/libb.jar><source:com/google/example/libb-src.jar>");
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/Abracadabra.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+
+    assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
+                ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res", "com/google/example/r1");
+  }
+
+  public void testAndroidInferredPackage() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = \"l\",",
+        "  manifest = \"Manifesto.xml\",",
+        ")",
+        "android_binary(",
+        "  name = \"b\",",
+        "  srcs = [\"Main.java\"],",
+        "  deps = [\":l\"],",
+        "  manifest = \"Abracadabra.xml\",",
+        ")");
+    String target = "//java/com/google/example:b";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo lRuleInfo = getRuleInfoAndVerifyLabel("//java/com/google/example:l", ruleIdeInfos);
+    RuleIdeInfo bRuleInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+
+    assertThat(bRuleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    assertThat(lRuleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+  }
+
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
         update(

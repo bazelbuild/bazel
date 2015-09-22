@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 
+import javax.annotation.Nullable;
+
 /**
  * Pluggable semantics for Android rules.
  *
@@ -32,12 +34,27 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 public interface AndroidSemantics {
   /**
    * Adds transitive info providers for {@code android_binary} and {@code android_library} rules.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
-  void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext, JavaCommon javaCommon, AndroidCommon androidCommon,
-      Artifact jarWithAllClasses, ResourceApk resourceApk, Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest) throws InterruptedException;
+  void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      RuleContext ruleContext,
+      JavaCommon javaCommon,
+      AndroidCommon androidCommon,
+      Artifact jarWithAllClasses)
+      throws InterruptedException;
+
+  /**
+   * Add additional resources to IDE info for {@code android_binary} and {@code android_library}
+   *
+   * @param ruleContext rule context for target rule
+   * @param resourceApk resource apk directly provided by the rule
+   * @param ideInfoProviderBuilder
+   */
+  void addNonLocalResources(
+      RuleContext ruleContext,
+      @Nullable ResourceApk resourceApk,
+      AndroidIdeInfoProvider.Builder ideInfoProviderBuilder);
 
   /**
    * Returns the manifest to be used when compiling a given rule.
