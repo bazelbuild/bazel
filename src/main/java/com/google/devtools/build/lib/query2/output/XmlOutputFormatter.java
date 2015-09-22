@@ -60,8 +60,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private boolean xmlLineNumbers;
   private boolean showDefaultValues;
   private boolean relativeLocations;
-  private AspectResolver aspectResolver;
-  private BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private transient AspectResolver aspectResolver;
+  private transient BinaryPredicate<Rule, Attribute> dependencyFilter;
 
   @Override
   public String getName() {

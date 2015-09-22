@@ -61,10 +61,11 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
    */
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
 
-  private BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private transient BinaryPredicate<Rule, Attribute> dependencyFilter;
+  protected transient AspectResolver aspectResolver;
+
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
-  protected AspectResolver aspectResolver;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
