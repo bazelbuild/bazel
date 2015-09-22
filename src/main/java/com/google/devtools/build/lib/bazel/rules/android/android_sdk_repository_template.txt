@@ -25,7 +25,7 @@ java_import(
 
 android_sdk(
     name = "sdk",
-    proguard = "tools/proguard/bin/proguard.sh",
+    proguard = ":proguard_binary",
     aapt = ":aapt_binary",
     dx = ":dx_binary",
     main_dex_list_creator = ":main_dex_list_creator",
@@ -42,6 +42,17 @@ android_sdk(
     jack = ":fail",
     jill = ":fail",
     resource_extractor = ":fail"
+)
+
+java_import(
+    name = "proguard_import",
+    jars = ["tools/proguard/lib/proguard.jar"]
+)
+
+java_binary(
+    name = "proguard_binary",
+    main_class = "proguard.ProGuard",
+    runtime_deps = [":proguard_import"]
 )
 
 filegroup(
