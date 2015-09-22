@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -976,7 +977,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> stmts3 = parseFile("[ i for (i, j, k) in [(1, 2, 3)] ]\n");
     assertThat(stmts3).hasSize(1);
   }
-  
+
   @Test
   public void testReturnNone() throws Exception {
     List<Statement> defNone = parseFileForSkylark("def foo():", "  return None\n");
@@ -993,10 +994,10 @@ public class ParserTest extends EvaluationTestCase {
       List<Statement> defNoExpr = parseFileForSkylark("def bar" + i + "():", "  return" + end);
       i++;
       assertThat(defNoExpr).hasSize(1);
-  
+
       List<Statement> bodyNoExpr = ((FunctionDefStatement) defNoExpr.get(0)).getStatements();
       assertThat(bodyNoExpr).hasSize(1);
-  
+
       ReturnStatement returnNoExpr = (ReturnStatement) bodyNoExpr.get(0);
       Identifier none = (Identifier) returnNoExpr.getReturnExpression();
       assertEquals("None", none.getName());
@@ -1149,7 +1150,7 @@ public class ParserTest extends EvaluationTestCase {
     parseFileForSkylark("load('/foo', test3 = old)\n");
     assertContainsEvent("syntax error at 'old': expected string");
   }
-  
+
   @Test
   public void testParseErrorNotComparison() throws Exception {
     setFailFast(false);

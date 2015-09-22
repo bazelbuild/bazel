@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -175,7 +176,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   private SkylarkNestedSet get(String varname) throws Exception {
     return (SkylarkNestedSet) lookup(varname);
   }
-  
+
   @Test
   public void testSetOuterOrderWins() throws Exception {
     // The order of the outer set should define the final iteration order,
@@ -236,7 +237,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   private boolean areOrdersCompatible(Order first, Order second) {
     return first == Order.STABLE_ORDER || second == Order.STABLE_ORDER || first == second;
   }
-  
+
   @Test
   public void testSetOrderComplexUnion() throws Exception {
     // {1, 11, {2, 22}, {3, 33}, {4, 44}}

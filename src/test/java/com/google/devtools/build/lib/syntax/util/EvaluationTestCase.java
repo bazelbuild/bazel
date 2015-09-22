@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.syntax.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
@@ -24,6 +25,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Parser;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.testutil.TestMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
@@ -43,7 +51,7 @@ public class EvaluationTestCase {
   protected Environment env;
   protected Mutability mutability = Mutability.create("test");
 
-  public EvaluationTestCase()   {
+  public EvaluationTestCase() {
     createNewInfrastructure();
   }
 
@@ -88,12 +96,12 @@ public class EvaluationTestCase {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
-          + "Environment manually by overriding newEnvironment()");
+              + "Environment manually by overriding newEnvironment()");
     }
     return testMode.createEnvironment(getEventHandler(), null);
   }
 
-  protected void createNewInfrastructure()  {
+  protected void createNewInfrastructure() {
     eventCollectionApparatus = new EventCollectionApparatus(EventKind.ALL_EVENTS);
     factory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
   }
@@ -137,10 +145,10 @@ public class EvaluationTestCase {
   }
 
   /** Parses an Expression from string without a supporting file */
-  Expression parseExpression(String... input) {
+  @VisibleForTesting
+  public Expression parseExpression(String... input) {
     return Parser.parseExpression(
-        ParserInputSource.create(Joiner.on("\n").join(input), null),
-        getEventHandler());
+        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
@@ -189,24 +197,30 @@ public class EvaluationTestCase {
     eventCollectionApparatus.setFailFast(failFast);
     return this;
   }
+
   public EvaluationTestCase assertNoEvents() {
     eventCollectionApparatus.assertNoEvents();
     return this;
   }
+
   public EventCollector getEventCollector() {
     return eventCollectionApparatus.collector();
   }
+
   public Event assertContainsEvent(String expectedMessage) {
     return eventCollectionApparatus.assertContainsEvent(expectedMessage);
   }
-  public List<Event> assertContainsEventWithFrequency(String expectedMessage,
-      int expectedFrequency) {
+
+  public List<Event> assertContainsEventWithFrequency(
+      String expectedMessage, int expectedFrequency) {
     return eventCollectionApparatus.assertContainsEventWithFrequency(
         expectedMessage, expectedFrequency);
   }
+
   public Event assertContainsEventWithWordsInQuotes(String... words) {
     return eventCollectionApparatus.assertContainsEventWithWordsInQuotes(words);
   }
+
   public EvaluationTestCase clearEvents() {
     eventCollectionApparatus.collector().clear();
     return this;
@@ -347,8 +361,8 @@ public class EvaluationTestCase {
      * @param exactMatch If true, the error message has to be identical to the expected error
      * @return An instance of Testable that runs the error check
      */
-    protected Testable errorTestable(final boolean exactMatch, final String error,
-        final String... statements) {
+    protected Testable errorTestable(
+        final boolean exactMatch, final String error, final String... statements) {
       return new Testable() {
         @Override
         public void run() throws Exception {
@@ -479,12 +493,13 @@ public class EvaluationTestCase {
      * @param value
      */
     public void registerUpdate(final String name, final Object value) {
-      setup.add(new Testable() {
-        @Override
-        public void run() throws Exception {
-          EvaluationTestCase.this.update(name, value);
-        }
-      });
+      setup.add(
+          new Testable() {
+            @Override
+            public void run() throws Exception {
+              EvaluationTestCase.this.update(name, value);
+            }
+          });
     }
 
     /**
@@ -493,12 +508,13 @@ public class EvaluationTestCase {
      * @param statements
      */
     public void registerEval(final String... statements) {
-      setup.add(new Testable() {
-        @Override
-        public void run() throws Exception {
-          EvaluationTestCase.this.eval(statements);
-        }
-      });
+      setup.add(
+          new Testable() {
+            @Override
+            public void run() throws Exception {
+              EvaluationTestCase.this.eval(statements);
+            }
+          });
     }
 
     /**

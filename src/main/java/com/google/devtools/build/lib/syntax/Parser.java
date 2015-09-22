@@ -45,9 +45,9 @@ import javax.annotation.Nullable;
  * Recursive descent parser for LL(2) BUILD language.
  * Loosely based on Python 2 grammar.
  * See https://docs.python.org/2/reference/grammar.html
- *
  */
-class Parser {
+@VisibleForTesting
+public class Parser {
 
   /**
    * Combines the parser result into a single value object.

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +30,7 @@ import org.junit.runners.JUnit4;
  * Tests for the validation process of Skylark files.
  */
 @RunWith(JUnit4.class)
-public class ValidationTests extends EvaluationTestCase {
+public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testAssignmentNotValidLValue() {
@@ -48,16 +49,14 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
-    checkError("Variable foo is read only",
-        "def foo():",
-        "  return 1",
-        "def foo(x, y):",
-        "  return 1");
+    checkError(
+        "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");
   }
 
   @Test
   public void testFunctionLocalVariable() throws Exception {
-    checkError("name 'a' is not defined",
+    checkError(
+        "name 'a' is not defined",
         "def func2(b):",
         "  c = b",
         "  c = a",
@@ -68,29 +67,17 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testFunctionLocalVariableDoesNotEffectGlobalValidationEnv() throws Exception {
-    checkError("name 'a' is not defined",
-        "def func1():",
-        "  a = 1",
-        "def func2(b):",
-        "  b = a");
+    checkError("name 'a' is not defined", "def func1():", "  a = 1", "def func2(b):", "  b = a");
   }
 
   @Test
   public void testFunctionParameterDoesNotEffectGlobalValidationEnv() throws Exception {
-    checkError("name 'a' is not defined",
-        "def func1(a):",
-        "  return a",
-        "def func2():",
-        "  b = a");
+    checkError("name 'a' is not defined", "def func1(a):", "  return a", "def func2():", "  b = a");
   }
 
   @Test
   public void testLocalValidationEnvironmentsAreSeparated() throws Exception {
-    parse(
-        "def func1():",
-        "  a = 1",
-        "def func2():",
-        "  a = 'abc'\n");
+    parse("def func1():", "  a = 1", "def func2():", "  a = 'abc'\n");
   }
 
   @Test
@@ -100,51 +87,41 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testSkylarkGlobalVariablesAreReadonly() throws Exception {
-    checkError("Variable a is read only",
-        "a = 1",
-        "a = 2");
+    checkError("Variable a is read only", "a = 1", "a = 2");
   }
 
   @Test
   public void testFunctionDefRecursion() throws Exception {
-    parse(
-        "def func():",
-        "  func()\n");
+    parse("def func():", "  func()\n");
   }
 
   @Test
   public void testMutualRecursion() throws Exception {
-    parse(
-        "def foo(i):",
-        "  bar(i)",
-        "def bar(i):",
-        "  foo(i)",
-        "foo(4)");
+    parse("def foo(i):", "  bar(i)", "def bar(i):", "  foo(i)", "foo(4)");
   }
 
   @Test
   public void testFunctionDefinedBelow() {
-    parse(
-        "def bar(): a = foo() + 'a'",
-        "def foo(): return 1\n");
+    parse("def bar(): a = foo() + 'a'", "def foo(): return 1\n");
   }
 
   @Test
   public void testFunctionDoesNotExist() {
-    checkError("function 'foo' does not exist",
-        "def bar(): a = foo() + 'a'");
+    checkError("function 'foo' does not exist", "def bar(): a = foo() + 'a'");
   }
 
   @Test
   public void testStructMembersAreImmutable() {
-    checkError("can only assign to variables and tuples, not to 's.x'",
+    checkError(
+        "can only assign to variables and tuples, not to 's.x'",
         "s = struct(x = 'a')",
         "s.x = 'b'\n");
   }
 
   @Test
   public void testStructDictMembersAreImmutable() {
-    checkError("can only assign to variables and tuples, not to 's.x['b']'",
+    checkError(
+        "can only assign to variables and tuples, not to 's.x['b']'",
         "s = struct(x = {'a' : 1})",
         "s.x['b'] = 2\n");
   }
@@ -161,10 +138,7 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testNoneAssignment() throws Exception {
-    parse("def func():",
-        "  a = None",
-        "  a = 2",
-        "  a = None\n");
+    parse("def func():", "  a = None", "  a = 2", "  a = None\n");
   }
 
   @Test
@@ -180,7 +154,8 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testFuncReturningDictAssignmentAsLValue() throws Exception {
-    checkError("can only assign to variables and tuples, not to 'my_dict()['b']'",
+    checkError(
+        "can only assign to variables and tuples, not to 'my_dict()['b']'",
         "def my_dict():",
         "  return {'a': 1}",
         "def func():",
@@ -190,22 +165,18 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testEmptyLiteralGenericIsSetInLaterConcatWorks() {
-    parse("def func():",
-        "  s = {}",
-        "  s['a'] = 'b'\n");
+    parse("def func():", "  s = {}", "  s['a'] = 'b'\n");
   }
 
   @Test
   public void testReadOnlyWorksForSimpleBranching() {
-    parse("if 1:",
-        "  v = 'a'",
-        "else:",
-        "  v = 'b'");
+    parse("if 1:", "  v = 'a'", "else:", "  v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksForNestedBranching() {
-    parse("if 1:",
+    parse(
+        "if 1:",
         "  if 0:",
         "    v = 'a'",
         "  else:",
@@ -219,58 +190,43 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testReadOnlyWorksForDifferentLevelBranches() {
-    checkError("Variable v is read only",
-        "if 1:",
-        "  if 1:",
-        "    v = 'a'",
-        "  v = 'b'\n");
+    checkError("Variable v is read only", "if 1:", "  if 1:", "    v = 'a'", "  v = 'b'\n");
   }
 
   @Test
   public void testReadOnlyWorksWithinSimpleBranch() {
-    checkError("Variable v is read only",
-        "if 1:",
-        "  v = 'a'",
-        "else:",
-        "  v = 'b'",
-        "  v = 'c'\n");
+    checkError(
+        "Variable v is read only", "if 1:", "  v = 'a'", "else:", "  v = 'b'", "  v = 'c'\n");
   }
 
   @Test
   public void testReadOnlyWorksWithinNestedBranch() {
-    checkError("Variable v is read only",
+    checkError(
+        "Variable v is read only",
         "if 1:",
-      "  v = 'a'",
-      "else:",
-      "  if 1:",
-      "    v = 'b'",
-      "  else:",
-      "    v = 'c'",
-      "    v = 'd'\n");
+        "  v = 'a'",
+        "else:",
+        "  if 1:",
+        "    v = 'b'",
+        "  else:",
+        "    v = 'c'",
+        "    v = 'd'\n");
   }
 
   @Test
   public void testReadOnlyWorksAfterSimpleBranch() {
-    checkError("Variable v is read only",
-        "if 1:",
-      "  v = 'a'",
-      "else:",
-      "  w = 'a'",
-      "v = 'b'");
+    checkError("Variable v is read only", "if 1:", "  v = 'a'", "else:", "  w = 'a'", "v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksAfterNestedBranch() {
-    checkError("Variable v is read only",
-        "if 1:",
-        "  if 1:",
-        "    v = 'a'",
-        "v = 'b'");
+    checkError("Variable v is read only", "if 1:", "  if 1:", "    v = 'a'", "v = 'b'");
   }
 
   @Test
   public void testReadOnlyWorksAfterNestedBranch2() {
-    checkError("Variable v is read only",
+    checkError(
+        "Variable v is read only",
         "if 1:",
         "  v = 'a'",
         "else:",
@@ -281,20 +237,17 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testModulesReadOnlyInFuncDefBody() {
-    parse("def func():",
-        "  cmd_helper = set()");
+    parse("def func():", "  cmd_helper = set()");
   }
 
   @Test
   public void testBuiltinGlobalFunctionsReadOnlyInFuncDefBody() {
-    parse("def func():",
-        "  rule = 'abc'");
+    parse("def func():", "  rule = 'abc'");
   }
 
   @Test
   public void testBuiltinGlobalFunctionsReadOnlyAsFuncDefArg() {
-    parse("def func(rule):",
-        "  return rule");
+    parse("def func(rule):", "  return rule");
   }
 
   @Test
@@ -327,19 +280,17 @@ public class ValidationTests extends EvaluationTestCase {
 
   @Test
   public void testLoadRelativePathMultipleSegments() throws Exception {
-    checkError("Path 'pkg/extension.bzl' is not valid. It should either start with "
-        + "a slash or refer to a file in the current directory.",
+    checkError(
+        "Path 'pkg/extension.bzl' is not valid. It should either start with "
+            + "a slash or refer to a file in the current directory.",
         "load('pkg/extension', 'a')\n");
   }
 
   @Test
   public void testDollarErrorDoesNotLeak() throws Exception {
     setFailFast(false);
-    parseFile("def GenerateMapNames():",
-        "  a = 2",
-        "  b = [3, 4]",
-        "  if a not b:",
-        "    print(a)");
+    parseFile(
+        "def GenerateMapNames():", "  a = 2", "  b = [3, 4]", "  if a not b:", "    print(a)");
     assertContainsEvent("syntax error at 'b': expected in");
     // Parser uses "$error" symbol for error recovery.
     // It should not be used in error messages.
@@ -364,14 +315,14 @@ public class ValidationTests extends EvaluationTestCase {
     assertThat(EvalUtils.getParentWithSkylarkModule(tupleClass)).isEqualTo(Tuple.class);
 
     // TODO(bazel-team): fix that?
-    assertThat(ClassObject.class.isAnnotationPresent(SkylarkModule.class))
-        .isFalse();
+    assertThat(ClassObject.class.isAnnotationPresent(SkylarkModule.class)).isFalse();
     assertThat(ClassObject.SkylarkClassObject.class.isAnnotationPresent(SkylarkModule.class))
         .isTrue();
-    assertThat(EvalUtils.getParentWithSkylarkModule(ClassObject.SkylarkClassObject.class)
-        == ClassObject.SkylarkClassObject.class).isTrue();
-    assertThat(EvalUtils.getParentWithSkylarkModule(ClassObject.class))
-        .isNull();
+    assertThat(
+            EvalUtils.getParentWithSkylarkModule(ClassObject.SkylarkClassObject.class)
+                == ClassObject.SkylarkClassObject.class)
+        .isTrue();
+    assertThat(EvalUtils.getParentWithSkylarkModule(ClassObject.class)).isNull();
   }
 
   @Test
@@ -386,20 +337,16 @@ public class ValidationTests extends EvaluationTestCase {
     assertThat(SkylarkType.of(tupleClass)).isEqualTo(SkylarkType.TUPLE);
     assertThat(SkylarkType.TUPLE).isNotEqualTo(SkylarkType.LIST);
 
-
     // Also for ClassObject
-    assertThat(SkylarkType.of(ClassObject.SkylarkClassObject.class))
-        .isEqualTo(SkylarkType.STRUCT);
+    assertThat(SkylarkType.of(ClassObject.SkylarkClassObject.class)).isEqualTo(SkylarkType.STRUCT);
     // TODO(bazel-team): fix that?
-    assertThat(SkylarkType.of(ClassObject.class))
-        .isNotEqualTo(SkylarkType.STRUCT);
+    assertThat(SkylarkType.of(ClassObject.class)).isNotEqualTo(SkylarkType.STRUCT);
 
     // Also test for these bazel classes, to avoid some regression.
     // TODO(bazel-team): move to some other place to remove dependency of syntax tests on Artifact?
     assertThat(SkylarkType.of(Artifact.SpecialArtifact.class))
         .isEqualTo(SkylarkType.of(Artifact.class));
-    assertThat(SkylarkType.of(RuleConfiguredTarget.class))
-        .isNotEqualTo(SkylarkType.STRUCT);
+    assertThat(SkylarkType.of(RuleConfiguredTarget.class)).isNotEqualTo(SkylarkType.STRUCT);
   }
 
   @Test
@@ -411,15 +358,16 @@ public class ValidationTests extends EvaluationTestCase {
     SkylarkType combo1 = SkylarkType.Combination.of(SkylarkType.LIST, SkylarkType.INT);
     assertThat(SkylarkType.LIST.includes(combo1)).isTrue();
 
-    SkylarkType union1 = SkylarkType.Union.of(
-        SkylarkType.MAP, SkylarkType.LIST, SkylarkType.STRUCT);
+    SkylarkType union1 =
+        SkylarkType.Union.of(SkylarkType.MAP, SkylarkType.LIST, SkylarkType.STRUCT);
     assertThat(union1.includes(SkylarkType.MAP)).isTrue();
     assertThat(union1.includes(SkylarkType.STRUCT)).isTrue();
     assertThat(union1.includes(combo1)).isTrue();
     assertThat(union1.includes(SkylarkType.STRING)).isFalse();
 
-    SkylarkType union2 = SkylarkType.Union.of(
-        SkylarkType.LIST, SkylarkType.MAP, SkylarkType.STRING, SkylarkType.INT);
+    SkylarkType union2 =
+        SkylarkType.Union.of(
+            SkylarkType.LIST, SkylarkType.MAP, SkylarkType.STRING, SkylarkType.INT);
     SkylarkType inter1 = SkylarkType.intersection(union1, union2);
     assertThat(inter1.includes(SkylarkType.MAP)).isTrue();
     assertThat(inter1.includes(SkylarkType.LIST)).isTrue();

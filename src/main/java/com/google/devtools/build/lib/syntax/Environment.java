@@ -393,7 +393,8 @@ public final class Environment implements Freezable {
   // TODO(bazel-team): Delete this function.
   // This function is currently used in various functions that change their behavior with respect to
   // lists depending on the Skylark-ness of the code; lists should be unified between the two modes.
-  boolean isSkylark() {
+  @VisibleForTesting
+  public boolean isSkylark() {
     return isSkylark;
   }
 
@@ -900,7 +901,7 @@ public final class Environment implements Freezable {
    * @param input a list of lines of code
    */
   @VisibleForTesting
-  List<Statement> parseFile(String... input) {
+  public List<Statement> parseFile(String... input) {
     return parseFileWithComments(input).statements;
   }
 

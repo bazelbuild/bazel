@@ -320,7 +320,7 @@ public class SkylarkRuleClassFunctions {
   };
 
   // This class is needed for testing
-  static final class RuleFunction extends BaseFunction {
+  public static final class RuleFunction extends BaseFunction {
     // Note that this means that we can reuse the same builder.
     // This is fine since we don't modify the builder from here.
     private final RuleClass.Builder builder;
@@ -367,7 +367,7 @@ public class SkylarkRuleClassFunctions {
     }
 
     @VisibleForTesting
-    RuleClass.Builder getBuilder() {
+    public RuleClass.Builder getBuilder() {
       return builder;
     }
   }

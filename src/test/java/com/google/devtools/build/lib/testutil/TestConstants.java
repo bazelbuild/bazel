@@ -44,6 +44,11 @@ public class TestConstants {
   public static final String RUNFILES_PREFIX = "DOES-NOT-WORK-YET";
 
   /**
+   * Default workspace name.
+   */
+  public static final String WORKSPACE_NAME = "";
+
+  /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
    */
   public static final String TEST_ANALYSIS_MOCK =
