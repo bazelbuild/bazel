@@ -53,7 +53,7 @@ Bazel needs to run the Android SDK
 [build tools](https://developer.android.com/tools/revisions/build-tools.html)
 and uses the SDK libraries to build the app. This means that you need to add
 some information to your `WORKSPACE` file so that Bazel knows where to find
-them.  Note that this step is not required when you build all types of outputs.
+them.  Note that this step is not required when you build for other platforms.
 For example, Bazel automatically detects the location of Java, C++ and
 Objective-C compilers from settings in your environment.
 
@@ -70,6 +70,27 @@ android_sdk_repository(
     build_tools_version="23.0.0"
 )
 ```
+
+If you want to compile native code into your Android app, you also need download
+the [Android NDK](https://developer.android.com/ndk/downloads/index.html) and
+tell Bazel where to find it by adding the following stanza to your `WORKSPACE`
+file:
+
+```python
+android_ndk_repository(
+    name = "androidndk",
+    # Replace with path to Android NDK on your system
+    path = "/Users/username/Library/Android/ndk",
+    # Replace with the Android NDK API level
+    api_level = 21
+)
+```
+
+"API level" is the version of the Android API the SDK and the NDK target
+(for example, 19 for Android K and 21 for Android L). It's not necessary to set
+the API levels to the same value for the SDK and NDK.
+[This web page](https://developer.android.com/ndk/guides/stable_apis.html)
+contains a map from Android releases to NDK-supported API levels.
 
 ## Create a BUILD file
 
