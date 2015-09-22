@@ -29,15 +29,17 @@ import javax.annotation.Nullable;
  */
 public interface NodeEntry extends ThinNodeEntry {
   /**
-   * Return code for {@link #addReverseDepAndCheckIfDone(SkyKey)}.
+   * Return code for {@link #addReverseDepAndCheckIfDone} and
+   * {@link #checkIfDoneForDirtyReverseDep}.
    */
   enum DependencyState {
     /** The node is done. */
     DONE,
 
     /**
-     * The node was just created and needs to be scheduled for its first evaluation pass. The
-     * evaluator is responsible for signaling the reverse dependency node.
+     * The node has not started evaluating, and needs to be scheduled for its first evaluation pass.
+     * The caller getting this return value is responsible for scheduling its evaluation and
+     * signaling the reverse dependency node when this node is done.
      */
     NEEDS_SCHEDULING,
 
@@ -45,7 +47,7 @@ public interface NodeEntry extends ThinNodeEntry {
      * The node was already created, but isn't done yet. The evaluator is responsible for
      * signaling the reverse dependency node.
      */
-    ADDED_DEP;
+    ALREADY_EVALUATING;
   }
 
   /**
@@ -63,9 +65,11 @@ public interface NodeEntry extends ThinNodeEntry {
      */
     VERIFIED_CLEAN,
     /**
-     * A rebuilding is required or in progress, because either the node itself changed or one of
-     * its dependencies did.
+     * A rebuilding is required, because either the node itself changed or one of its dependencies
+     * did.
      */
+    NEEDS_REBUILDING,
+    /** A rebuilding is in progress. */
     REBUILDING
   }
 
@@ -149,7 +153,17 @@ public interface NodeEntry extends ThinNodeEntry {
    * if the node needs to be scheduled.
    */
   @ThreadSafe
-  DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep);
+  DependencyState addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep);
+
+  /**
+   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
+   * be a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
+   * checking its dependencies for changes. The caller must treat the return value just as they
+   * would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this node for
+   * evaluation if needed.
+   */
+  @ThreadSafe
+  DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep);
 
   /**
    * Tell this node that one of its dependencies is now done. Callers must check the return value,
@@ -169,7 +183,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * {@link #getVersion()}, then this entry records that one of its children has changed since it
    * was last evaluated (namely, it was last evaluated at version {@link #getVersion()} and the
    * child was last evaluated at {@code childVersion}. Thus, the next call to
-   * {@link #getDirtyState()} will return {@link DirtyState#REBUILDING}.
+   * {@link #getDirtyState()} will return {@link DirtyState#NEEDS_REBUILDING}.
    */
   @ThreadSafe
   boolean signalDep(Version childVersion);
@@ -228,6 +242,37 @@ public interface NodeEntry extends ThinNodeEntry {
    */
   @ThreadSafe
   Collection<SkyKey> getNextDirtyDirectDeps();
+
+  /**
+   * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
+   * a reverse dep on this node, its key will be in the returned set here. If this node was freshly
+   * created, this is just any elements that were added using {@link #addTemporaryDirectDeps} (so it
+   * is the same as {@link #getTemporaryDirectDeps}). If this node is marked dirty, this includes
+   * all the elements that would have been returned by successive calls to
+   * {@link #getNextDirtyDirectDeps}.
+   *
+   * <p>This method should only be called when this node is about to be deleted after an aborted
+   * evaluation. After such an evaluation, any nodes that did not finish evaluating are deleted, as
+   * are any nodes that depend on them, which are necessarily also not done. If this node is to be
+   * deleted because of this, we must delete it as a reverse dep from other nodes. This method
+   * returns that list of other nodes. This method may not be called on done nodes, since they do
+   * not need to be deleted after aborted evaluations.
+   *
+   * <p>This method must not be called twice: the next thing done to this node after this method is
+   * called should be the removal of the node from the graph.
+   */
+  Iterable<SkyKey> getAllDirectDepsForIncompleteNode();
+
+  /**
+   * Notifies a node that it is about to be rebuilt. This method can only be called if the node
+   * {@link DirtyState#NEEDS_REBUILDING}. It returns the remaining deps of the node that had not
+   * yet been checked: all the keys that would be returned by successive calls to
+   * {@link #getNextDirtyDirectDeps}. It is the caller's responsibility to (uninterruptibly) remove
+   * the reverse deps those deps have on this node in order to keep the graph consistent. After this
+   * call, this node no longer has a dep on the nodes whose keys were returned by this call and
+   * is ready to be rebuilt (it will be in {@link DirtyState#REBUILDING}).
+   */
+  Collection<SkyKey> markRebuildingAndGetAllRemainingDirtyDirectDeps();
 
   /**
    * Returns the set of direct dependencies. This may only be called while the node is being

@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /** Base class for concurrency sanity tests on {@link EvaluableGraph} implementations. */
 public abstract class GraphConcurrencyTest {
@@ -85,58 +86,59 @@ public abstract class GraphConcurrencyTest {
     final NodeEntry entry = graph.createIfAbsent(key);
     // These numbers are arbitrary.
     int numThreads = 50;
-    int numKeys = 100;
+    int numKeys = numThreads;
     // One chunk will be used to add and remove rdeps before setting the node value.  The second
     // chunk of work will have the node value set and the last chunk will be to add and remove
     // rdeps after the value has been set.
     final int chunkSize = 40;
-    final int numIterations = chunkSize * 3;
+    final int numIterations = chunkSize * 2;
     // This latch is used to signal that the runnables have been submitted to the executor.
-    final CountDownLatch countDownLatch1 = new CountDownLatch(1);
+    final CountDownLatch waitForStart = new CountDownLatch(1);
     // This latch is used to signal to the main thread that we have begun the second chunk
     // for sufficiently many keys.  The minimum of numThreads and numKeys is used to prevent
     // thread starvation from causing a delay here.
-    final CountDownLatch countDownLatch2 = new CountDownLatch(Math.min(numThreads, numKeys));
+    final CountDownLatch waitForAddedRdep = new CountDownLatch(numThreads);
     // This latch is used to guarantee that we set the node's value before we enter the third
     // chunk for any key.
-    final CountDownLatch countDownLatch3 = new CountDownLatch(1);
+    final CountDownLatch waitForSetValue = new CountDownLatch(1);
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     // Add single rdep before transition to done.
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(key("rdep")));
     for (int i = 0; i < numKeys; i++) {
       final int j = i;
-      Runnable r = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            countDownLatch1.await();
-            // Add and remove the rdep a bunch of times to test interleaving.
-            for (int k = 1; k <= numIterations; k++) {
-              if (k == chunkSize) {
-                countDownLatch2.countDown();
+      Runnable r =
+          new Runnable() {
+            @Override
+            public void run() {
+              try {
+                // Add and remove the rdep a bunch of times to test interleaving.
+                waitForStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                for (int k = 1; k < chunkSize; k++) {
+                  assertThat(entry.addReverseDepAndCheckIfDone(key("rdep" + j)))
+                      .isNotEqualTo(DependencyState.DONE);
+                  entry.removeInProgressReverseDep(key("rdep" + j));
+                  assertThat(entry.getInProgressReverseDeps()).doesNotContain(key("rdep" + j));
+                }
+                assertThat(entry.addReverseDepAndCheckIfDone(key("rdep" + j)))
+                    .isNotEqualTo(DependencyState.DONE);
+                waitForAddedRdep.countDown();
+                waitForSetValue.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+              } catch (InterruptedException e) {
+                fail("Test failed: " + e.toString());
               }
-              entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-              entry.removeReverseDep(key("rdep" + j));
-              if (k == chunkSize * 2) {
-                countDownLatch3.await();
+              for (int k = chunkSize; k <= numIterations; k++) {
+                entry.removeReverseDep(key("rdep" + j));
+                entry.addReverseDepAndCheckIfDone(key("rdep" + j));
+                entry.getReverseDeps();
               }
             }
-            entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-          } catch (InterruptedException e) {
-            fail("Test failed: " + e.toString());
-          }
-        }
-      };
+          };
       pool.execute(wrapper.wrap(r));
     }
-    countDownLatch1.countDown();
-    try {
-      countDownLatch2.await();
-    } catch (InterruptedException e) {
-      fail("Test failed: " + e.toString());
-    }
+    waitForStart.countDown();
+    waitForAddedRdep.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     entry.setValue(new StringValue("foo1"), startingVersion);
-    countDownLatch3.countDown();
+    waitForSetValue.countDown();
     entry.removeReverseDep(key("rdep"));
     wrapper.waitForTasksAndMaybeThrow();
     assertFalse(ExecutorUtil.interruptibleShutdown(pool));
@@ -148,6 +150,7 @@ public abstract class GraphConcurrencyTest {
     // Mark the node as dirty again and check that the reverse deps have been preserved.
     sameEntry.markDirty(true);
     startEvaluation(sameEntry);
+    sameEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
     sameEntry.setValue(new StringValue("foo2"), startingVersion.next());
     assertEquals(new StringValue("foo2"), graph.get(key).getValue());
     assertEquals(numKeys, Iterables.size(graph.get(key).getReverseDeps()));
@@ -253,6 +256,7 @@ public abstract class GraphConcurrencyTest {
               entry.markDirty(true);
               // Make some changes, like adding a dep and rdep.
               entry.addReverseDepAndCheckIfDone(key("rdep"));
+              entry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
               addTemporaryDirectDep(entry, key("dep"));
               entry.signalDep();
               // Move node from dirty back to done.

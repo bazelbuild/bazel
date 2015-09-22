@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
@@ -582,6 +583,32 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   /**
+   * If the entry is dirty and not already rebuilding, puts it in a state that it can rebuild, and
+   * removes it as a reverse dep from any dirty direct deps it had yet to check.
+   */
+  private void maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(SkyKey key, NodeEntry entry) {
+    if (entry.isDirty() && entry.getDirtyState() != DirtyState.REBUILDING) {
+      Collection<SkyKey> depsToRemove = entry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
+      Map<SkyKey, NodeEntry> depsToClearFrom = graph.getBatch(depsToRemove);
+      Preconditions.checkState(
+          depsToRemove.size() == depsToClearFrom.size(),
+          "%s %s: %s %s",
+          key,
+          entry,
+          depsToRemove,
+          depsToClearFrom);
+      for (NodeEntry depEntry : depsToClearFrom.values()) {
+        depEntry.removeReverseDep(key);
+      }
+    }
+  }
+
+  private enum DirtyOutcome {
+    ALREADY_PROCESSED,
+    NEEDS_EVALUATION
+  }
+
+  /**
    * An action that evaluates a value.
    */
   private class Evaluate implements Runnable {
@@ -594,20 +621,24 @@ public final class ParallelEvaluator implements Evaluator {
       this.skyKey = skyKey;
     }
 
-    private void enqueueChild(SkyKey skyKey, NodeEntry entry, SkyKey child) {
+    private void enqueueChild(SkyKey skyKey, NodeEntry entry, SkyKey child, boolean dirtyParent) {
       Preconditions.checkState(!entry.isDone(), "%s %s", skyKey, entry);
 
       NodeEntry depEntry = graph.createIfAbsent(child);
-      switch (depEntry.addReverseDepAndCheckIfDone(skyKey)) {
-        case DONE :
+      DependencyState dependencyState =
+          dirtyParent
+              ? depEntry.checkIfDoneForDirtyReverseDep(skyKey)
+              : depEntry.addReverseDepAndCheckIfDone(skyKey);
+      switch (dependencyState) {
+        case DONE:
           if (entry.signalDep(depEntry.getVersion())) {
             // This can only happen if there are no more children to be added.
             visitor.enqueueEvaluation(skyKey);
           }
           break;
-        case ADDED_DEP :
+        case ALREADY_EVALUATING:
           break;
-        case NEEDS_SCHEDULING :
+        case NEEDS_SCHEDULING:
           visitor.enqueueEvaluation(child);
           break;
       }
@@ -623,97 +654,116 @@ public final class ParallelEvaluator implements Evaluator {
           && !graph.get(ErrorTransienceValue.key()).getVersion().atMost(entry.getVersion());
     }
 
+    private DirtyOutcome maybeHandleDirtyNode(NodeEntry state) {
+      if (!state.isDirty()) {
+        return DirtyOutcome.NEEDS_EVALUATION;
+      }
+      switch (state.getDirtyState()) {
+        case CHECK_DEPENDENCIES:
+          // Evaluating a dirty node for the first time, and checking its children to see if any
+          // of them have changed. Note that there must be dirty children for this to happen.
+
+          // Check the children group by group -- we don't want to evaluate a value that is no
+          // longer needed because an earlier dependency changed. For example, //foo:foo depends
+          // on target //bar:bar and is built. Then foo/BUILD is modified to remove the dependence
+          // on bar, and bar/BUILD is deleted. Reloading //bar:bar would incorrectly throw an
+          // exception. To avoid this, we must reload foo/BUILD first, at which point we will
+          // discover that it has changed, and re-evaluate target //foo:foo from scratch.
+          // On the other hand, when an action requests all of its inputs, we can safely check all
+          // of them in parallel on a subsequent build. So we allow checking an entire group in
+          // parallel here, if the node builder requested a group last build.
+          // Note: every dep returned here must either have this node re-registered for it (using
+          // checkIfDoneForDirtyReverseDep) and be registered as a direct dep of this node, or have
+          // its reverse dep on this node removed. Failing to do either one of these would result in
+          // a graph inconsistency, where the child had a reverse dep on this node, but this node
+          // had no kind of dependency on the child.
+          Collection<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
+
+          if (invalidatedByErrorTransience(directDepsToCheck, state)) {
+            // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
+            // updated then we need to force a rebuild. We would like to just signal the entry as
+            // usual, but we can't, because then the ErrorTransienceValue would remain as a dep,
+            // which would be incorrect if, for instance, the value re-evaluated to a non-error.
+            state.forceRebuild();
+            graph.get(ErrorTransienceValue.key()).removeReverseDep(skyKey);
+            return DirtyOutcome.NEEDS_EVALUATION;
+          }
+          if (!keepGoing) {
+            // This check ensures that we maintain the invariant that if a node with an error is
+            // reached during a no-keep-going build, none of its currently building parents
+            // finishes building. If the child isn't done building yet, it will detect on its own
+            // that it has an error (see the VERIFIED_CLEAN case below). On the other hand, if it
+            // is done, then it is the parent's responsibility to notice that, which we do here.
+            // We check the deps for errors so that we don't continue building this node if it has
+            // a child error.
+            Map<SkyKey, NodeEntry> entriesToCheck = graph.getBatch(directDepsToCheck);
+            for (Map.Entry<SkyKey, NodeEntry> entry : entriesToCheck.entrySet()) {
+              if (entry.getValue().isDone() && entry.getValue().getErrorInfo() != null) {
+                // If any child has an error, we arbitrarily add a dep on the first one (needed
+                // for error bubbling) and throw an exception coming from it.
+                SkyKey errorKey = entry.getKey();
+                NodeEntry errorEntry = entry.getValue();
+                state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(errorKey)));
+                errorEntry.checkIfDoneForDirtyReverseDep(skyKey);
+                // Perform the necessary bookkeeping for any deps that are not being used.
+                for (Map.Entry<SkyKey, NodeEntry> depEntry : entriesToCheck.entrySet()) {
+                  if (!depEntry.getKey().equals(errorKey)) {
+                    depEntry.getValue().removeReverseDep(skyKey);
+                  }
+                }
+                if (!visitor.preventNewEvaluations()) {
+                  // An error was already thrown in the evaluator. Don't do anything here.
+                  return DirtyOutcome.ALREADY_PROCESSED;
+                }
+                throw SchedulerException.ofError(errorEntry.getErrorInfo(), entry.getKey());
+              }
+            }
+          }
+          // It is safe to add these deps back to the node -- even if one of them has changed, the
+          // contract of pruning is that the node will request these deps again when it rebuilds.
+          // We must add these deps before enqueuing them, so that the node knows that it depends
+          // on them. If one of these deps is the error transience node, the check we did above
+          // in #invalidatedByErrorTransience means that the error transience node is not newer
+          // than this node, so we are going to mark it clean (since the error transience node is
+          // always the last dep).
+          state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
+          for (SkyKey directDep : directDepsToCheck) {
+            enqueueChild(skyKey, state, directDep, /*dirtyParent=*/ true);
+          }
+          return DirtyOutcome.ALREADY_PROCESSED;
+        case VERIFIED_CLEAN:
+          // No child has a changed value. This node can be marked done and its parents signaled
+          // without any re-evaluation.
+          visitor.notifyDone(skyKey);
+          Set<SkyKey> reverseDeps = state.markClean();
+          if (progressReceiver != null) {
+            // Tell the receiver that the value was not actually changed this run.
+            progressReceiver.evaluated(skyKey, new SkyValueSupplier(state), EvaluationState.CLEAN);
+          }
+          if (!keepGoing && state.getErrorInfo() != null) {
+            if (!visitor.preventNewEvaluations()) {
+              return DirtyOutcome.ALREADY_PROCESSED;
+            }
+            throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
+          }
+          signalValuesAndEnqueueIfReady(visitor, reverseDeps, state.getVersion());
+          return DirtyOutcome.ALREADY_PROCESSED;
+        case NEEDS_REBUILDING:
+          maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(skyKey, state);
+          // Fall through to REBUILDING case.
+        case REBUILDING:
+          return DirtyOutcome.NEEDS_EVALUATION;
+        default:
+          throw new IllegalStateException("key: " + skyKey + ", entry: " + state);
+      }
+    }
+
     @Override
     public void run() {
       NodeEntry state = Preconditions.checkNotNull(graph.get(skyKey), skyKey);
       Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
-
-      if (state.isDirty()) {
-        switch (state.getDirtyState()) {
-          case CHECK_DEPENDENCIES:
-            // Evaluating a dirty node for the first time, and checking its children to see if any
-            // of them have changed. Note that there must be dirty children for this to happen.
-
-            // Check the children group by group -- we don't want to evaluate a value that is no
-            // longer needed because an earlier dependency changed. For example, //foo:foo depends
-            // on target //bar:bar and is built. Then foo/BUILD is modified to remove the dependence
-            // on bar, and bar/BUILD is deleted. Reloading //bar:bar would incorrectly throw an
-            // exception. To avoid this, we must reload foo/BUILD first, at which point we will
-            // discover that it has changed, and re-evaluate target //foo:foo from scratch.
-            // On the other hand, when an action requests all of its inputs, we can safely check all
-            // of them in parallel on a subsequent build. So we allow checking an entire group in
-            // parallel here, if the node builder requested a group last build.
-            Collection<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
-
-            if (invalidatedByErrorTransience(directDepsToCheck, state)) {
-              // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
-              // updated then we need to force a rebuild. We would like to just signal the entry as
-              // usual, but we can't, because then the ErrorTransienceValue would remain as a dep,
-              // which would be incorrect if, for instance, the value re-evaluated to a non-error.
-              state.forceRebuild();
-              break; // Fall through to re-evaluation.
-            }
-            if (!keepGoing) {
-              // This check ensures that we maintain the invariant that if a node with an error is
-              // reached during a no-keep-going build, none of its currently building parents
-              // finishes building. If the child isn't done building yet, it will detect on its own
-              // that it has an error (see the VERIFIED_CLEAN case below). On the other hand, if it
-              // is done, then it is the parent's responsibility to notice that, which we do here.
-              // We check the deps for errors so that we don't continue building this node if it has
-              // a child error.
-              for (Map.Entry<SkyKey, NodeEntry> entry :
-                  graph.getBatch(directDepsToCheck).entrySet()) {
-                if (entry.getValue().isDone() && entry.getValue().getErrorInfo() != null) {
-                  // If any child has an error, we arbitrarily add a dep on the first one (needed
-                  // for error bubbling) and throw an exception coming from it.
-                  if (!visitor.preventNewEvaluations()) {
-                    // An error was already thrown in the evaluator. Don't do anything here.
-                    return;
-                  }
-                  SkyKey errorKey = entry.getKey();
-                  NodeEntry errorEntry = entry.getValue();
-                  state.addTemporaryDirectDeps(
-                      GroupedListHelper.create(ImmutableList.of(errorKey)));
-                  DependencyState errorState = entry.getValue().addReverseDepAndCheckIfDone(skyKey);
-                  Preconditions.checkState(errorState == DependencyState.DONE, "%s %s %s %s",
-                      skyKey, state, errorKey, errorEntry);
-                  throw SchedulerException.ofError(errorEntry.getErrorInfo(), entry.getKey());
-                }
-              }
-            }
-            // It is safe to add these deps back to the node -- even if one of them has changed, the
-            // contract of pruning is that the node will request these deps again when it rebuilds.
-            // We must add these deps before enqueuing them, so that the node knows that it depends
-            // on them. If one of these deps is the error transience node, the check we did above
-            // in #invalidatedByErrorTransience means that the error transience node is not newer
-            // than this node, so we are going to mark it clean (since the error transience node is
-            // always the last dep).
-            state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
-            for (SkyKey directDep : directDepsToCheck) {
-              enqueueChild(skyKey, state, directDep);
-            }
-            return;
-          case VERIFIED_CLEAN:
-            // No child has a changed value. This node can be marked done and its parents signaled
-            // without any re-evaluation.
-            visitor.notifyDone(skyKey);
-            Set<SkyKey> reverseDeps = state.markClean();
-            if (progressReceiver != null) {
-              // Tell the receiver that the value was not actually changed this run.
-              progressReceiver.evaluated(skyKey, new SkyValueSupplier(state),
-                  EvaluationState.CLEAN);
-            }
-            if (!keepGoing && state.getErrorInfo() != null) {
-              if (!visitor.preventNewEvaluations()) {
-                return;
-              }
-              throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
-            }
-            signalValuesAndEnqueueIfReady(visitor, reverseDeps, state.getVersion());
-            return;
-          case REBUILDING:
-            // Nothing to be done if we are already rebuilding.
-        }
+      if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
+        return;
       }
 
       // TODO(bazel-team): Once deps are requested in a deterministic order within a group, or the
@@ -850,7 +900,7 @@ public final class ParallelEvaluator implements Evaluator {
       }
 
       for (SkyKey newDirectDep : newDirectDeps) {
-        enqueueChild(skyKey, state, newDirectDep);
+        enqueueChild(skyKey, state, newDirectDep, /*dirtyParent=*/ false);
       }
       // It is critical that there is no code below this point.
     }
@@ -904,13 +954,13 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * If child is not done, removes key from child's reverse deps. Returns whether child should be
-   * removed from key's entry's direct deps.
+   * If child is not done, removes {@param inProgressParent} from {@param child}'s reverse deps.
+   * Returns whether child should be removed from inProgressParent's entry's direct deps.
    */
-  private boolean removeIncompleteChild(SkyKey key, SkyKey child) {
+  private boolean removeIncompleteChild(SkyKey inProgressParent, SkyKey child) {
     NodeEntry childEntry = graph.get(child);
     if (!isDoneForBuild(childEntry)) {
-      childEntry.removeReverseDep(key);
+      childEntry.removeInProgressReverseDep(inProgressParent);
       return true;
     }
     return false;
@@ -1021,18 +1071,13 @@ public final class ParallelEvaluator implements Evaluator {
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
     NodeEntry errorTransienceEntry = graph.createIfAbsent(ErrorTransienceValue.key());
-    DependencyState triState = errorTransienceEntry.addReverseDepAndCheckIfDone(null);
-    Preconditions.checkState(triState != DependencyState.ADDED_DEP,
-        "%s %s", errorTransienceEntry, triState);
-    if (triState != DependencyState.DONE) {
-      errorTransienceEntry.setValue(new ErrorTransienceValue(), graphVersion);
-      // The error transience entry is always invalidated by the RecordingDifferencer.
-      // Now that the entry's value is set, it is no longer dirty.
-      dirtyKeyTracker.notDirty(ErrorTransienceValue.key());
-
-      Preconditions.checkState(
-          errorTransienceEntry.addReverseDepAndCheckIfDone(null) != DependencyState.ADDED_DEP,
-          errorTransienceEntry);
+    if (!errorTransienceEntry.isDone()) {
+      injectValue(
+          ErrorTransienceValue.key(),
+          new ErrorTransienceValue(),
+          graphVersion,
+          graph,
+          dirtyKeyTracker);
     }
     for (SkyKey skyKey : skyKeys) {
       NodeEntry entry = graph.createIfAbsent(skyKey);
@@ -1044,7 +1089,7 @@ public final class ParallelEvaluator implements Evaluator {
         case DONE:
           informProgressReceiverThatValueIsDone(skyKey);
           break;
-        case ADDED_DEP:
+        case ALREADY_EVALUATING:
           break;
         default:
           throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
@@ -1135,7 +1180,7 @@ public final class ParallelEvaluator implements Evaluator {
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = new HashMap<>();
     boolean externalInterrupt = false;
     while (true) {
-      NodeEntry errorEntry = graph.get(errorKey);
+      NodeEntry errorEntry = Preconditions.checkNotNull(graph.get(errorKey), errorKey);
       Iterable<SkyKey> reverseDeps = errorEntry.isDone()
           ? errorEntry.getReverseDeps()
           : errorEntry.getInProgressReverseDeps();
@@ -1178,15 +1223,27 @@ public final class ParallelEvaluator implements Evaluator {
               bubbleParent, bubbleParentEntry, parentVersion, graphVersion);
           continue;
         }
-        // Arbitrarily pick the first in-flight parent.
-        Preconditions.checkState(visitor.isInflight(bubbleParent),
-            "errorKey: %s, errorEntry: %s, bubbleParent: %s, bubbleParentEntry: %s", errorKey,
-            errorEntry, bubbleParent, bubbleParentEntry);
-        parent = bubbleParent;
-        parentEntry = bubbleParentEntry;
+        if (visitor.isInflight(bubbleParent)
+            && bubbleParentEntry.getTemporaryDirectDeps().contains(errorKey)) {
+          // Only bubble up to parent if it's part of this build. If this node was dirtied and
+          // re-evaluated, but in a build without this parent, we may try to bubble up to that
+          // parent. Don't -- it's not part of the build.
+          // Similarly, the parent may not yet have requested this dep in its dirtiness-checking
+          // process. Don't bubble up to it in that case either.
+          parent = bubbleParent;
+          parentEntry = bubbleParentEntry;
+          break;
+        }
+      }
+      if (parent == null) {
+        Preconditions.checkState(
+            rootValues.contains(errorKey),
+            "Current key %s has to be a top-level key: %s, %s",
+            errorKey,
+            rootValues,
+            errorEntry);
         break;
       }
-      Preconditions.checkNotNull(parent, "%s %s", errorKey, bubbleErrorInfo);
       errorKey = parent;
       SkyFunction factory = skyFunctions.get(parent.functionName());
       if (parentEntry.isDirty()) {
@@ -1195,9 +1252,11 @@ public final class ParallelEvaluator implements Evaluator {
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.
             parentEntry.signalDep();
-            // Fall through to REBUILDING, since state is now REBUILDING.
+            // Fall through to NEEDS_REBUILDING, since state is now NEEDS_REBUILDING.
+          case NEEDS_REBUILDING:
+            maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(parent, parentEntry);
+            // Fall through to REBUILDING.
           case REBUILDING:
-            // Nothing to be done.
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
@@ -1392,6 +1451,7 @@ public final class ParallelEvaluator implements Evaluator {
         } else if (!entry.isReady()) {
           removeIncompleteChildrenForCycle(key, entry, entry.getTemporaryDirectDeps());
         }
+        maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(key, entry);
         Set<SkyKey> directDeps = entry.getTemporaryDirectDeps();
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps = getChildrenErrorsForCycle(directDeps);
@@ -1425,6 +1485,7 @@ public final class ParallelEvaluator implements Evaluator {
           // cycles, and this is the only missing one). Thus, it will not be removed below in
           // removeDescendantsOfCycleValue, so it is safe here to signal that it is done.
           entry.signalDep();
+          maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(key, entry);
         }
         if (keepGoing) {
           // Any children of this node that we haven't already visited are not worth visiting,
@@ -1560,6 +1621,7 @@ public final class ParallelEvaluator implements Evaluator {
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
       // and was built.
       entry.signalDep();
+      maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(key, entry);
     }
     Preconditions.checkState(entry.isReady(), "%s %s %s", key, cycleChild, entry);
     Iterator<SkyKey> it = toVisit.iterator();
@@ -1644,5 +1706,40 @@ public final class ParallelEvaluator implements Evaluator {
    */
   private boolean isDoneForBuild(@Nullable NodeEntry entry) {
     return entry != null && entry.isDone();
+  }
+
+  static void injectValue(
+      SkyKey key,
+      SkyValue value,
+      Version version,
+      EvaluableGraph graph,
+      DirtyKeyTracker dirtyKeyTracker) {
+    Preconditions.checkNotNull(value, key);
+    NodeEntry prevEntry = graph.createIfAbsent(key);
+    DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
+    Preconditions.checkState(
+        newState != DependencyState.ALREADY_EVALUATING, "%s %s", key, prevEntry);
+    if (prevEntry.isDirty()) {
+      Preconditions.checkState(
+          newState == DependencyState.NEEDS_SCHEDULING, "%s %s", key, prevEntry);
+      // There was an existing entry for this key in the graph.
+      // Get the node in the state where it is able to accept a value.
+
+      // Check that the previous node has no dependencies. Overwriting a value with deps with an
+      // injected value (which is by definition deps-free) needs a little additional bookkeeping
+      // (removing reverse deps from the dependencies), but more importantly it's something that
+      // we want to avoid, because it indicates confusion of input values and derived values.
+      Preconditions.checkState(
+          prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
+      // Put the node into a "rebuilding" state and verify that there were no dirty deps remaining.
+      Preconditions.checkState(
+          prevEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps().isEmpty(),
+          "%s %s",
+          key,
+          prevEntry);
+    }
+    prevEntry.setValue(value, version);
+    // Now that this key's injected value is set, it is no longer dirty.
+    dirtyKeyTracker.notDirty(key);
   }
 }

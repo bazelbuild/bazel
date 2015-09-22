@@ -21,9 +21,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * A utility class that allows us to keep the reverse dependencies as an array list instead of a
@@ -46,13 +50,126 @@ public abstract class ReverseDepsUtil<T> {
 
   abstract void setSingleReverseDep(T container, boolean singleObject);
 
-  abstract void setReverseDepsToRemove(T container, List<SkyKey> object);
+  abstract void setDataToConsolidate(T container, Object dataToConsolidate);
 
   abstract Object getReverseDepsObject(T container);
 
   abstract boolean isSingleReverseDep(T container);
 
-  abstract List<SkyKey> getReverseDepsToRemove(T container);
+  abstract Object getDataToConsolidate(T container);
+
+  private enum DataState {
+    NULL,
+    CHECK_ONLY,
+    BOTH
+  }
+
+  private static class RDepsToCheckAndRemove {
+    // reverseDepstoCheck may be null, but not toRemove, because we store a bare list if
+    // we have only toCheck.
+    @Nullable List<SkyKey> toCheck;
+    List<SkyKey> toRemove;
+
+    RDepsToCheckAndRemove(List<SkyKey> toCheck, List<SkyKey> toRemove) {
+      this.toCheck = toCheck;
+      this.toRemove = Preconditions.checkNotNull(toRemove);
+    }
+
+    static RDepsToCheckAndRemove justRemove(List<SkyKey> toRemove) {
+      return new RDepsToCheckAndRemove(null, toRemove);
+    }
+
+    static RDepsToCheckAndRemove replaceRemove(
+        RDepsToCheckAndRemove original, List<SkyKey> toRemove) {
+      return new RDepsToCheckAndRemove(original.toCheck, toRemove);
+    }
+
+    static RDepsToCheckAndRemove replaceCheck(
+        RDepsToCheckAndRemove original, List<SkyKey> toCheck) {
+      return new RDepsToCheckAndRemove(toCheck, original.toRemove);
+    }
+  }
+
+  private static DataState getDataState(Object reverseDepsToCheckAndRemove) {
+    if (reverseDepsToCheckAndRemove == null) {
+      return DataState.NULL;
+    } else if (reverseDepsToCheckAndRemove instanceof List) {
+      return DataState.CHECK_ONLY;
+    } else {
+      Preconditions.checkState(
+          reverseDepsToCheckAndRemove instanceof RDepsToCheckAndRemove,
+          reverseDepsToCheckAndRemove);
+      return DataState.BOTH;
+    }
+  }
+
+  private void setReverseDepsToRemove(T container, List<SkyKey> toRemove) {
+    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
+    switch (getDataState(reverseDepsToCheckAndRemove)) {
+      case NULL:
+        reverseDepsToCheckAndRemove = RDepsToCheckAndRemove.justRemove(toRemove);
+        break;
+      case CHECK_ONLY:
+        reverseDepsToCheckAndRemove =
+            new RDepsToCheckAndRemove(((List<SkyKey>) reverseDepsToCheckAndRemove), toRemove);
+        break;
+      case BOTH:
+        reverseDepsToCheckAndRemove =
+            RDepsToCheckAndRemove.replaceRemove(
+                (RDepsToCheckAndRemove) reverseDepsToCheckAndRemove, toRemove);
+        break;
+      default:
+        throw new IllegalStateException(container + ", " + toRemove);
+    }
+    setDataToConsolidate(container, reverseDepsToCheckAndRemove);
+  }
+
+  private void setReverseDepsToCheck(T container, List<SkyKey> toCheck) {
+    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
+    switch (getDataState(reverseDepsToCheckAndRemove)) {
+      case NULL:
+      case CHECK_ONLY:
+        reverseDepsToCheckAndRemove = toCheck;
+        break;
+      case BOTH:
+        reverseDepsToCheckAndRemove =
+            RDepsToCheckAndRemove.replaceCheck(
+                (RDepsToCheckAndRemove) reverseDepsToCheckAndRemove, toCheck);
+        break;
+      default:
+        throw new IllegalStateException(container + ", " + toCheck);
+    }
+    setDataToConsolidate(container, reverseDepsToCheckAndRemove);
+  }
+
+  @Nullable
+  private List<SkyKey> getReverseDepsToRemove(T container) {
+    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
+    switch (getDataState(reverseDepsToCheckAndRemove)) {
+      case NULL:
+      case CHECK_ONLY:
+        return null;
+      case BOTH:
+        return ((RDepsToCheckAndRemove) reverseDepsToCheckAndRemove).toRemove;
+      default:
+        throw new IllegalStateException(reverseDepsToCheckAndRemove.toString());
+    }
+  }
+
+  @Nullable
+  private List<SkyKey> getReverseDepsToCheck(T container) {
+    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
+    switch (getDataState(reverseDepsToCheckAndRemove)) {
+      case NULL:
+        return null;
+      case CHECK_ONLY:
+        return (List<SkyKey>) reverseDepsToCheckAndRemove;
+      case BOTH:
+        return ((RDepsToCheckAndRemove) reverseDepsToCheckAndRemove).toCheck;
+      default:
+        throw new IllegalStateException(reverseDepsToCheckAndRemove.toString());
+    }
+  }
 
   /**
    * We check that the reverse dependency is not already present. We only do that if reverseDeps is
@@ -60,15 +177,22 @@ public abstract class ReverseDepsUtil<T> {
    */
   void maybeCheckReverseDepNotPresent(T container, SkyKey reverseDep) {
     if (isSingleReverseDep(container)) {
-      Preconditions.checkState(!getReverseDepsObject(container).equals(reverseDep),
-          "Reverse dep %s already present", reverseDep);
+      Preconditions.checkState(
+          !getReverseDepsObject(container).equals(reverseDep),
+          "Reverse dep %s already present in %s",
+          reverseDep,
+          container);
       return;
     }
     @SuppressWarnings("unchecked")
     List<SkyKey> asList = (List<SkyKey>) getReverseDepsObject(container);
     if (asList.size() < MAYBE_CHECK_THRESHOLD) {
-      Preconditions.checkState(!asList.contains(reverseDep), "Reverse dep %s already present"
-          + " in %s", reverseDep, asList);
+      Preconditions.checkState(
+          !asList.contains(reverseDep),
+          "Reverse dep %s already present in %s for %s",
+          reverseDep,
+          asList,
+          container);
     }
   }
 
@@ -106,9 +230,29 @@ public abstract class ReverseDepsUtil<T> {
     }
   }
 
-  boolean reverseDepsIsEmpty(T container) {
-    return !isSingleReverseDep(container)
-        && ((List<SkyKey>) getReverseDepsObject(container)).isEmpty();
+  void checkReverseDep(T container, SkyKey reverseDep) {
+    Object reverseDepsObject = getReverseDepsObject(container);
+    if (isSingleReverseDep(container)) {
+      Preconditions.checkState(
+          reverseDepsObject.equals(reverseDep),
+          "%s %s %s",
+          reverseDep,
+          reverseDepsObject,
+          container);
+      return;
+    }
+    List<SkyKey> asList = (List<SkyKey>) reverseDepsObject;
+    if (asList.size() < MAYBE_CHECK_THRESHOLD) {
+      Preconditions.checkState(
+          asList.contains(reverseDep), "%s not in %s for %s", reverseDep, asList, container);
+    } else {
+      List<SkyKey> reverseDepsToCheck = getReverseDepsToCheck(container);
+      if (reverseDepsToCheck == null) {
+        reverseDepsToCheck = new ArrayList<>();
+        setReverseDepsToCheck(container, reverseDepsToCheck);
+      }
+      reverseDepsToCheck.add(reverseDep);
+    }
   }
 
   /**
@@ -122,7 +266,7 @@ public abstract class ReverseDepsUtil<T> {
           "toRemove: %s container: %s",
           reverseDep,
           container);
-        overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
+      overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
       return;
     }
     @SuppressWarnings("unchecked")
@@ -138,7 +282,7 @@ public abstract class ReverseDepsUtil<T> {
   }
 
   ImmutableSet<SkyKey> getReverseDeps(T container) {
-    consolidateReverseDepsRemovals(container);
+    consolidateData(container);
 
     // TODO(bazel-team): Unfortunately, we need to make a copy here right now to be on the safe side
     // wrt. thread-safety. The parents of a node get modified when any of the parents is deleted,
@@ -155,19 +299,38 @@ public abstract class ReverseDepsUtil<T> {
     }
   }
 
-  void consolidateReverseDepsRemovals(T container) {
-    List<SkyKey> reverseDepsToRemove = getReverseDepsToRemove(container);
+  void consolidateData(T container) {
     Object reverseDeps = getReverseDepsObject(container);
-    if (reverseDepsToRemove == null) {
+    List<SkyKey> reverseDepsToRemove = getReverseDepsToRemove(container);
+    List<SkyKey> reverseDepsToCheck = getReverseDepsToCheck(container);
+    if (reverseDepsToRemove == null && reverseDepsToCheck == null) {
       return;
     }
-    Preconditions.checkState(!isSingleReverseDep(container),
-        "We do not use reverseDepsToRemove for single lists: %s", container);
-    // Should not happen, as we only create reverseDepsToRemove in case we have at least one
-    // reverse dep to remove.
-    Preconditions.checkState((!((List<?>) reverseDeps).isEmpty()),
-        "Could not remove %s elements from %s.\nReverse deps to remove: %s. %s",
-        reverseDepsToRemove.size(), reverseDeps, reverseDepsToRemove, container);
+    Preconditions.checkState(
+        !isSingleReverseDep(container),
+        "We do not delay removals/checks for single lists: %s %s %s",
+        container,
+        reverseDepsToRemove,
+        reverseDepsToCheck);
+    @SuppressWarnings("unchecked")
+    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
+    // Should not happen, as we only create reverseDepsToRemove/Check in case we have at least one
+    // reverse dep to remove/check.
+    Preconditions.checkState(
+        !reverseDepsAsList.isEmpty(),
+        "Could not do delayed removal/check for %s elements from %s.\n"
+            + "Reverse deps to check: %s. Container: %s",
+        reverseDepsToRemove,
+        reverseDeps,
+        reverseDepsToCheck,
+        container);
+    if (reverseDepsToRemove == null) {
+      Set<SkyKey> reverseDepsAsSet = new HashSet<>(reverseDepsAsList);
+      Preconditions.checkState(
+          reverseDepsAsSet.containsAll(reverseDepsToCheck), "%s %s", reverseDepsToCheck, container);
+      setDataToConsolidate(container, null);
+      return;
+    }
 
     Set<SkyKey> toRemove = Sets.newHashSet(reverseDepsToRemove);
     int expectedRemovals = toRemove.size();
@@ -175,12 +338,13 @@ public abstract class ReverseDepsUtil<T> {
         "A reverse dependency tried to remove itself twice: %s. %s", reverseDepsToRemove,
         container);
 
-    @SuppressWarnings("unchecked")
-    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
+    Set<SkyKey> toCheck =
+        reverseDepsToCheck == null ? new HashSet<SkyKey>() : new HashSet<>(reverseDepsToCheck);
     List<SkyKey> newReverseDeps = Lists
         .newArrayListWithExpectedSize(Math.max(0, reverseDepsAsList.size() - expectedRemovals));
 
     for (SkyKey reverseDep : reverseDepsAsList) {
+      toCheck.remove(reverseDep);
       if (!toRemove.contains(reverseDep)) {
         newReverseDeps.add(reverseDep);
       }
@@ -188,6 +352,7 @@ public abstract class ReverseDepsUtil<T> {
     Preconditions.checkState(newReverseDeps.size() == reverseDepsAsList.size() - expectedRemovals,
         "Could not remove some elements from %s.\nReverse deps to remove: %s. %s", reverseDeps,
         toRemove, container);
+    Preconditions.checkState(toCheck.isEmpty(), "%s %s", toCheck, container);
 
     if (newReverseDeps.isEmpty()) {
       overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
@@ -196,14 +361,14 @@ public abstract class ReverseDepsUtil<T> {
     } else {
       overwriteReverseDepsList(container, newReverseDeps);
     }
-    setReverseDepsToRemove(container, null);
+    setDataToConsolidate(container, null);
   }
 
   String toString(T container) {
     return MoreObjects.toStringHelper("ReverseDeps")
         .add("reverseDeps", getReverseDepsObject(container))
         .add("singleReverseDep", isSingleReverseDep(container))
-        .add("reverseDepsToRemove", getReverseDepsToRemove(container))
+        .add("dataToConsolidate", getDataToConsolidate(container))
         .toString();
   }
 

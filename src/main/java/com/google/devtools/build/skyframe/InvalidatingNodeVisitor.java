@@ -239,17 +239,39 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
                 for (SkyKey reverseDep : entry.getReverseDeps()) {
                   visit(reverseDep, InvalidationType.DELETED, !MUST_EXIST);
                 }
+
+                // Unregister this node as an rdep from its direct deps, since reverse dep edges
+                // cannot point to non-existent nodes. To know whether the child has this node as an
+                // "in-progress" rdep to be signaled, or just as a known rdep, we look at the deps
+                // that this node declared during its last (presumably interrupted) evaluation. If a
+                // dep is in this set, then it was notified to signal this node, and so the rdep
+                // will be an in-progress rdep, if the dep itself isn't done. Otherwise it will be a
+                // normal rdep. That information is used to remove this node as an rdep from the
+                // correct list of rdeps in the child -- because of our compact storage of rdeps,
+                // checking which list contains this parent could be expensive.
+                Set<SkyKey> signalingDeps =
+                    entry.isDone() ? ImmutableSet.<SkyKey>of() : entry.getTemporaryDirectDeps();
                 Iterable<SkyKey> directDeps =
-                    entry.isDone() ? entry.getDirectDeps() : entry.getTemporaryDirectDeps();
-                // Unregister this node from direct deps, since reverse dep edges cannot point to
-                // non-existent nodes.
-                for (SkyKey directDep : directDeps) {
-                  NodeEntry dep = graph.get(directDep);
+                    entry.isDone()
+                        ? entry.getDirectDeps()
+                        : entry.getAllDirectDepsForIncompleteNode();
+                Map<SkyKey, NodeEntry> depMap = graph.getBatch(directDeps);
+                for (Map.Entry<SkyKey, NodeEntry> directDepEntry : depMap.entrySet()) {
+                  NodeEntry dep = directDepEntry.getValue();
                   if (dep != null) {
-                    dep.removeReverseDep(key);
+                    if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
+                      dep.removeReverseDep(key);
+                    } else {
+                      // This step is not strictly necessary, since all in-progress nodes are
+                      // deleted during graph cleaning, which happens in a single
+                      // DeletingNodeVisitor visitation, aka the one right now. We leave this here
+                      // in case the logic changes.
+                      dep.removeInProgressReverseDep(key);
+                    }
                   }
                 }
               }
+
               // Allow custom key-specific logic to update dirtiness status.
               informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DELETED);
               // Actually remove the node.
@@ -343,38 +365,18 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
                 return;
               }
 
-              // This entry remains in the graph in this dirty state until it is re-evaluated.
-              Iterable<SkyKey> deps = entry.markDirty(isChanged);
               // It is not safe to interrupt the logic from this point until the end of the method.
               // Any exception thrown should be unrecoverable.
-              if (deps == null) {
+              // This entry remains in the graph in this dirty state until it is re-evaluated.
+              if (!entry.markDirty(isChanged)) {
                 // Another thread has already dirtied this node. Don't do anything in this thread.
                 pendingVisitations.remove(invalidationPair);
                 return;
               }
-              // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps
-              // should only be marked dirty (because only a dependency of theirs has changed).
+              // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
+              // only be marked dirty (because only a dependency of theirs has changed).
               for (SkyKey reverseDep : entry.getReverseDeps()) {
                 visit(reverseDep, InvalidationType.DIRTIED, MUST_EXIST);
-              }
-
-              // Remove this node as a reverse dep from its children, since we have reset it and
-              // it no longer lists its children as direct deps.
-              Map<SkyKey, ? extends ThinNodeEntry> children = graph.getBatch(deps);
-              if (children.size() != Iterables.size(deps)) {
-                Set<SkyKey> depsSet = ImmutableSet.copyOf(deps);
-                throw new IllegalStateException(
-                    "Mismatch in getBatch: "
-                        + key
-                        + ", "
-                        + entry
-                        + "\n"
-                        + Sets.difference(depsSet, children.keySet())
-                        + "\n"
-                        + Sets.difference(children.keySet(), depsSet));
-              }
-              for (ThinNodeEntry child : children.values()) {
-                child.removeReverseDep(key);
               }
 
               informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);

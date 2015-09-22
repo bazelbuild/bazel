@@ -27,7 +27,6 @@ import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluator.Receiver;
 
 import java.io.PrintStream;
@@ -224,29 +223,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       return;
     }
     for (Entry<SkyKey, SkyValue> entry : valuesToInject.entrySet()) {
-      SkyKey key = entry.getKey();
-      SkyValue value = entry.getValue();
-      Preconditions.checkState(value != null, key);
-      NodeEntry prevEntry = graph.createIfAbsent(key);
-      if (prevEntry.isDirty()) {
-        // There was an existing entry for this key in the graph.
-        // Get the node in the state where it is able to accept a value.
-        Preconditions.checkState(prevEntry.getTemporaryDirectDeps().isEmpty(), key);
-
-        DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
-        Preconditions.checkState(newState == DependencyState.NEEDS_SCHEDULING, key);
-
-        // Check that the previous node has no dependencies. Overwriting a value with deps with an
-        // injected value (which is by definition deps-free) needs a little additional bookkeeping
-        // (removing reverse deps from the dependencies), but more importantly it's something that
-        // we want to avoid, because it indicates confusion of input values and derived values.
-        Preconditions.checkState(prevEntry.noDepsLastBuild(),
-            "existing entry for %s has deps: %s", key, prevEntry);
-      }
-      prevEntry.setValue(value, version);
-      // The evaluate method previously invalidated all keys in valuesToInject that survived the
-      // pruneInjectedValues call. Now that this key's injected value is set, it is no longer dirty.
-      dirtyKeyTracker.notDirty(key);
+      ParallelEvaluator.injectValue(
+          entry.getKey(), entry.getValue(), version, graph, dirtyKeyTracker);
     }
     // Start with a new map to avoid bloat since clear() does not downsize the map.
     valuesToInject = new HashMap<>();

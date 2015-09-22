@@ -126,6 +126,10 @@ public class EagerInvalidatorTest {
     throw new UnsupportedOperationException("Sublcasses must override");
   }
 
+  protected boolean reverseDepsPresent() {
+    throw new UnsupportedOperationException("Subclasses must override");
+  }
+
   // Convenience method for eval-ing a single value.
   protected SkyValue eval(boolean keepGoing, SkyKey key) throws InterruptedException {
     SkyKey[] keys = { key };
@@ -349,10 +353,20 @@ public class EagerInvalidatorTest {
     assertTrue(isInvalidated(skyKey("ab")));
     assertTrue(isInvalidated(skyKey("abc")));
 
-    // The reverse deps to ab and ab_c should have been removed.
-    assertThat(graph.get(skyKey("a")).getReverseDeps()).isEmpty();
-    assertThat(graph.get(skyKey("b")).getReverseDeps()).containsExactly(skyKey("bc"));
-    assertThat(graph.get(skyKey("c")).getReverseDeps()).containsExactly(skyKey("bc"));
+    // The reverse deps to ab and ab_c should have been removed if reverse deps are cleared.
+    Set<SkyKey> reverseDeps = new HashSet<>();
+    if (reverseDepsPresent()) {
+      reverseDeps.add(skyKey("ab"));
+    }
+    assertThat(graph.get(skyKey("a")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    reverseDeps.add(skyKey("bc"));
+    assertThat(graph.get(skyKey("b")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    reverseDeps.clear();
+    if (reverseDepsPresent()) {
+      reverseDeps.add(skyKey("ab_c"));
+    }
+    reverseDeps.add(skyKey("bc"));
+    assertThat(graph.get(skyKey("c")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
   }
 
   @Test
@@ -612,6 +626,11 @@ public class EagerInvalidatorTest {
       return InvalidationType.DELETED;
     }
 
+    @Override
+    protected boolean reverseDepsPresent() {
+      return false;
+    }
+
     @Test
     public void dirtyKeyTrackerWorksWithDeletingInvalidator() throws Exception {
       setupInvalidatableGraph();
@@ -628,7 +647,7 @@ public class EagerInvalidatorTest {
       Iterable<SkyKey> diff = ImmutableList.of(skyKey("a"));
       Preconditions.checkNotNull(EagerInvalidator.createDeletingVisitorIfNeeded(graph, diff,
           receiver, state, true, dirtyKeyTracker)).run();
-      assertThat(dirtyKeyTracker.getDirtyKeys()).containsExactly(skyKey("ab"));
+      assertThat(dirtyKeyTracker.getDirtyKeys()).isEmpty();
     }
   }
 
@@ -668,6 +687,11 @@ public class EagerInvalidatorTest {
     @Override
     protected InvalidationType defaultInvalidationType() {
       return InvalidationType.CHANGED;
+    }
+
+    @Override
+    protected boolean reverseDepsPresent() {
+      return true;
     }
 
     @Test
