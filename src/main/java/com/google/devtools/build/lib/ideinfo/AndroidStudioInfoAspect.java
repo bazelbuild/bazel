@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
@@ -95,12 +94,10 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       AspectParameters parameters) {
     Aspect.Builder builder = new Builder(NAME);
 
+    AndroidStudioInfoFilesProvider.Builder providerBuilder =
+        new AndroidStudioInfoFilesProvider.Builder();
     // Collect ide build files and calculate dependencies.
-    NestedSetBuilder<Label> transitiveDependenciesBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<SourceDirectory> transitiveResourcesBuilder = NestedSetBuilder.stableOrder();
-
-    NestedSetBuilder<Artifact> ideBuildFilesBuilder = NestedSetBuilder.stableOrder();
 
     // todo(dslomov,tomlu): following current build info logic, this code enumerates dependencies
     // directly by iterating over deps attribute. The more robust way to do this might be
@@ -109,9 +106,11 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       Iterable<AndroidStudioInfoFilesProvider> androidStudioInfoFilesProviders =
           ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidStudioInfoFilesProvider.class);
       for (AndroidStudioInfoFilesProvider depProvider : androidStudioInfoFilesProviders) {
-        ideBuildFilesBuilder.addTransitive(depProvider.getIdeBuildFiles());
-        transitiveDependenciesBuilder.addTransitive(depProvider.getTransitiveDependencies());
-        transitiveResourcesBuilder.addTransitive(depProvider.getTransitiveResources());
+        providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
+        providerBuilder.transitiveDependenciesBuilder().addTransitive(
+            depProvider.getTransitiveDependencies());
+        providerBuilder.transitiveResourcesBuilder().addTransitive(
+            depProvider.getTransitiveResources());
       }
       List<? extends TransitiveInfoCollection> deps =
           ruleContext.getPrerequisites("deps", Mode.TARGET);
@@ -127,34 +126,29 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     }
 
     NestedSet<Label> directDependencies = dependenciesBuilder.build();
-    transitiveDependenciesBuilder.addTransitive(directDependencies);
-    NestedSet<Label> transitiveDependencies = transitiveDependenciesBuilder.build();
+    providerBuilder.transitiveDependenciesBuilder().addTransitive(directDependencies);
 
     RuleIdeInfo.Kind ruleKind = getRuleKind(ruleContext.getRule(), base);
 
-    NestedSet<SourceDirectory> transitiveResources;
+    AndroidStudioInfoFilesProvider provider;
     if (ruleKind != RuleIdeInfo.Kind.UNRECOGNIZED) {
-      Pair<Artifact, NestedSet<SourceDirectory>> ideBuildFile =
+      provider =
           createIdeBuildArtifact(
               base,
               ruleContext,
               ruleKind,
               directDependencies,
-              transitiveDependencies,
-              transitiveResourcesBuilder);
-      ideBuildFilesBuilder.add(ideBuildFile.first);
-      transitiveResources = ideBuildFile.second;
+              providerBuilder);
     } else {
-      transitiveResources = transitiveResourcesBuilder.build();
+      provider = providerBuilder.build();
     }
 
-    NestedSet<Artifact> ideBuildFiles = ideBuildFilesBuilder.build();
+    NestedSet<Artifact> ideBuildFiles = provider.getIdeBuildFiles();
     builder
         .addOutputGroup(IDE_BUILD, ideBuildFiles)
         .addProvider(
             AndroidStudioInfoFilesProvider.class,
-            new AndroidStudioInfoFilesProvider(
-                ideBuildFiles, transitiveDependencies, transitiveResources));
+            provider);
 
     return builder.build();
   }
@@ -175,19 +169,19 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     return sdkInfoBuilder.build();
   }
 
-  private Pair<Artifact, NestedSet<SourceDirectory>> createIdeBuildArtifact(
+  private AndroidStudioInfoFilesProvider createIdeBuildArtifact(
       ConfiguredTarget base,
       RuleContext ruleContext,
       Kind ruleKind,
       NestedSet<Label> directDependencies,
-      NestedSet<Label> transitiveDependencies,
-      NestedSetBuilder<SourceDirectory> transitiveResourcesBuilder) {
+      AndroidStudioInfoFilesProvider.Builder providerBuilder) {
     PathFragment ideBuildFilePath = getOutputFilePath(base, ruleContext);
     Root genfilesDirectory = ruleContext.getConfiguration().getGenfilesDirectory();
     Artifact ideBuildFile =
         ruleContext
             .getAnalysisEnvironment()
             .getDerivedArtifact(ideBuildFilePath, genfilesDirectory);
+    providerBuilder.ideBuildFilesBuilder().add(ideBuildFile);
 
     RuleIdeInfo.Builder outputBuilder = RuleIdeInfo.newBuilder();
 
@@ -203,10 +197,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     outputBuilder.setKind(ruleKind);
 
-    outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
-    outputBuilder.addAllTransitiveDependencies(transform(transitiveDependencies, LABEL_TO_STRING));
 
-    NestedSet<SourceDirectory> transitiveResources = null;
     if (ruleKind == Kind.JAVA_LIBRARY
         || ruleKind == Kind.JAVA_IMPORT
         || ruleKind == Kind.JAVA_TEST
@@ -214,30 +205,30 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base));
     } else if (ruleKind == Kind.ANDROID_LIBRARY || ruleKind == Kind.ANDROID_BINARY) {
       outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base));
-      Pair<AndroidRuleIdeInfo, NestedSet<SourceDirectory>> androidRuleIdeInfo =
-          makeAndroidRuleIdeInfo(ruleContext, base, transitiveResourcesBuilder);
-      outputBuilder.setAndroidRuleIdeInfo(androidRuleIdeInfo.first);
-      transitiveResources = androidRuleIdeInfo.second;
+      outputBuilder.setAndroidRuleIdeInfo(
+          makeAndroidRuleIdeInfo(ruleContext, base, providerBuilder));
     } else if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
           makeAndroidSdkRuleInfo(ruleContext, base.getProvider(AndroidSdkProvider.class)));
     }
 
-    if (transitiveResources == null) {
-      transitiveResources = transitiveResourcesBuilder.build();
-    }
+    AndroidStudioInfoFilesProvider provider = providerBuilder.build();
+
+    outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
+    outputBuilder.addAllTransitiveDependencies(
+        transform(provider.getTransitiveDependencies(), LABEL_TO_STRING));
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
     ruleContext.registerAction(
         makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideBuildFile));
 
-    return Pair.of(ideBuildFile, transitiveResources);
+    return provider;
   }
 
-  private static Pair<AndroidRuleIdeInfo, NestedSet<SourceDirectory>> makeAndroidRuleIdeInfo(
+  private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
       RuleContext ruleContext,
       ConfiguredTarget base,
-      NestedSetBuilder<SourceDirectory> transitiveResourcesBuilder) {
+      AndroidStudioInfoFilesProvider.Builder providerBuilder) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
     AndroidIdeInfoProvider provider = base.getProvider(AndroidIdeInfoProvider.class);
     if (provider.getSignedApk() != null) {
@@ -258,17 +249,17 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     for (SourceDirectory resourceDir : provider.getResourceDirs()) {
       ArtifactLocation artifactLocation = makeArtifactLocation(resourceDir);
       builder.addResources(artifactLocation);
-      transitiveResourcesBuilder.add(resourceDir);
+      providerBuilder.transitiveResourcesBuilder().add(resourceDir);
     }
 
     builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
 
-    NestedSet<SourceDirectory> transitiveResources = transitiveResourcesBuilder.build();
+    NestedSet<SourceDirectory> transitiveResources = providerBuilder.getTransitiveResources();
     for (SourceDirectory transitiveResource : transitiveResources) {
       builder.addTransitiveResources(makeArtifactLocation(transitiveResource));
     }
 
-    return Pair.of(builder.build(), transitiveResources);
+    return builder.build();
   }
 
   private static BinaryFileWriteAction makeProtoWriteAction(
