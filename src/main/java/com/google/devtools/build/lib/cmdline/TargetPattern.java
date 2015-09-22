@@ -249,7 +249,7 @@ public abstract class TargetPattern implements Serializable {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
           getOriginalPattern(), getType(), excludedSubdirectories);
-      if (resolver.isPackage(path)) {
+      if (resolver.isPackage(PackageIdentifier.createInDefaultRepo(path))) {
         // User has specified a package name. lookout for default target.
         return resolver.getExplicitTarget("//" + path);
       }
@@ -260,7 +260,7 @@ public abstract class TargetPattern implements Serializable {
       // first BUILD file is found (i.e. longest prefix match).
       for (int i = pieces.size() - 1; i > 0; i--) {
         String packageName = SLASH_JOINER.join(pieces.subList(0, i));
-        if (resolver.isPackage(packageName)) {
+        if (resolver.isPackage(PackageIdentifier.createInDefaultRepo(packageName))) {
           String targetName = SLASH_JOINER.join(pieces.subList(i, pieces.size()));
           return resolver.getExplicitTarget("//" + packageName + ":" + targetName);
         }
@@ -334,8 +334,18 @@ public abstract class TargetPattern implements Serializable {
           return targets;
         }
       }
-      return resolver.getTargetsInPackage(getOriginalPattern(), removeSuffix(pattern, suffix),
-          rulesOnly);
+
+      String packageName = removeSuffix(pattern, suffix);
+
+      try {
+        PackageIdentifier.parse(packageName);
+      } catch (LabelSyntaxException e) {
+        throw new TargetParsingException(
+            "Invalid package name '" + packageName + "': " + e.getMessage());
+      }
+
+      return resolver.getTargetsInPackage(getOriginalPattern(),
+          PackageIdentifier.createInDefaultRepo(packageName), rulesOnly);
     }
 
     @Override

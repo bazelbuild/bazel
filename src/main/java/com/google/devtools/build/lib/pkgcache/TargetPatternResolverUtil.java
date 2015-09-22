@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
@@ -83,7 +84,7 @@ public final class TargetPatternResolverUtil {
     if (LabelValidator.validatePackageName(packageName) != null) {
       throw new TargetParsingException("'" + packageName + "' is not a valid package name");
     }
-    if (!resolver.isPackage(packageName)) {
+    if (!resolver.isPackage(PackageIdentifier.createInDefaultRepo(packageName))) {
       throw new TargetParsingException(
           TargetPatternResolverUtil.getParsingErrorMessage(
               "no such package '" + packageName + "': BUILD file not found on package path",

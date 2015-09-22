@@ -160,20 +160,18 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public ResolvedTargets<Void> getTargetsInPackage(String originalPattern, String packageName,
-        boolean rulesOnly) throws TargetParsingException {
+    public ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
+        PackageIdentifier packageIdentifier, boolean rulesOnly) throws TargetParsingException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      return getTargetsInPackage(originalPattern, new PathFragment(packageName), policy);
+      return getTargetsInPackage(originalPattern, packageIdentifier, policy);
     }
 
     private ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
-        PathFragment packageNameFragment, FilteringPolicy policy)
+        PackageIdentifier packageIdentifier, FilteringPolicy policy)
         throws TargetParsingException {
-      TargetPatternResolverUtil.validatePatternPackage(originalPattern, packageNameFragment, this);
       try {
-        PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(packageNameFragment);
-        Package pkg = packageProvider.getPackage(env.getListener(), packageId);
+        Package pkg = packageProvider.getPackage(env.getListener(), packageIdentifier);
         ResolvedTargets<Target> packageTargets =
             TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
         ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
@@ -194,11 +192,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public boolean isPackage(String packageName) {
-      // TODO(bazel-team): this should get the whole PackageIdentifier. Using only the package name
-      // makes it impossible to use wildcards to refer to targets in remote repositories.
-      return packageProvider.isPackage(env.getListener(),
-          PackageIdentifier.createInDefaultRepo(packageName));
+    public boolean isPackage(PackageIdentifier packageIdentifier) {
+      return packageProvider.isPackage(env.getListener(), packageIdentifier);
     }
 
     @Override
