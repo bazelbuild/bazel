@@ -17,6 +17,13 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0.
 
 
+[apache_commons_codec](http://commons.apache.org/proper/commons-codec/)
+----------------------------
+
+* Version: 1.9
+* License: Apache License 2.0.
+
+
 [apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
 ----------------------------
 

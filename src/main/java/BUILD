@@ -569,6 +569,7 @@ java_library(
     ],
     runtime_deps = [
         "//third_party:aether",
+        "//third_party:apache_commons_codec",
         "//third_party:apache_commons_logging",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",

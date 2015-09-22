@@ -69,6 +69,11 @@ java_import(
 )
 
 java_import(
+    name = "apache_commons_codec",
+    jars = ["apache_commons_codec/commons-codec-1.9.jar"],
+)
+
+java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.1.jar"],
 )
