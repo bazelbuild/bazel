@@ -489,8 +489,9 @@ class IncrementalInstallTest(unittest.TestCase):
     try:
       self._CallIncrementalInstall(incremental=True)
       self.fail("Should have quit if there is no device")
-    except SystemExit:
-      pass
+    except SystemExit as e:
+      # make sure it's the right SystemExit reason
+      self.assertTrue("Device not found" in str(e))
 
   def testUnauthorizedDevice(self):
     self._mock_adb.SetError(1, "", "device unauthorized. Please check the "
@@ -498,8 +499,9 @@ class IncrementalInstallTest(unittest.TestCase):
     try:
       self._CallIncrementalInstall(incremental=True)
       self.fail("Should have quit if the device is unauthorized.")
-    except SystemExit:
-      pass
+    except SystemExit as e:
+      # make sure it's the right SystemExit reason
+      self.assertTrue("Device unauthorized." in str(e))
 
   def testInstallFailure(self):
     self._mock_adb.SetError(0, "Failure", "", for_arg="install")
@@ -508,8 +510,9 @@ class IncrementalInstallTest(unittest.TestCase):
     try:
       self._CallIncrementalInstall(incremental=False)
       self.fail("Should have quit if the install failed.")
-    except SystemExit:
-      pass
+    except SystemExit as e:
+      # make sure it's the right SystemExit reason
+      self.assertTrue("Failure" in str(e))
 
   def testStartCold(self):
     # Based on testUploadToPristineDevice
@@ -579,12 +582,13 @@ class IncrementalInstallTest(unittest.TestCase):
         "more than one emulator",
     ]
     for error in errors:
-      self._mock_adb.SetError(255, "", error)
+      self._mock_adb.SetError(1, "", error)
       try:
         self._CallIncrementalInstall(incremental=True)
         self.fail("Should have quit if there were multiple devices.")
-      except SystemExit:
-        pass
+      except SystemExit as e:
+        # make sure it's the right SystemExit reason
+        self.assertTrue("Try specifying a device serial" in str(e))
 
   def testIncrementalInstallOnPristineDevice(self):
     self._CreateZip()
@@ -620,6 +624,19 @@ class IncrementalInstallTest(unittest.TestCase):
       self.fail("Should have quit if install timestamp is wrong")
     except SystemExit:
       pass
+
+  def testSdkTooOld(self):
+    self._mock_adb.SetError(
+        0, "INSTALL_FAILED_OLDER_SDK", "", for_arg="install")
+    self._CreateZip()
+    self._CreateLocalManifest("zip1 zp1 ip1 0")
+    try:
+      self._CallIncrementalInstall(incremental=False)
+      self.fail("Should have quit if the SDK is too old.")
+    except SystemExit as e:
+      # make sure it's the right SystemExit reason
+      self.assertTrue("minSdkVersion" in str(e))
+
 
 if __name__ == "__main__":
   unittest.main()

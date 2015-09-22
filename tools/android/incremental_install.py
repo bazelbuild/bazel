@@ -106,6 +106,10 @@ class TimestampException(Exception):
   """Raised when there is a problem with timestamp reading/writing."""
 
 
+class OldSdkException(Exception):
+  """Raised when the SDK on the target device is older than the app allows."""
+
+
 class Adb(object):
   """A class to handle interaction with adb."""
 
@@ -156,6 +160,8 @@ class Adb(object):
       # "error: " to the beginning, so take it off so that we don't end up
       # printing "Error: error: ..."
       raise MultipleDevicesError(re.sub("^error: ", "", stderr))
+    elif "INSTALL_FAILED_OLDER_SDK" in stdout:
+      raise OldSdkException()
 
     if adb.returncode != 0:
       raise AdbError(args, adb.returncode, stdout, stderr)
@@ -729,9 +735,12 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
     sys.exit("Error: Device unauthorized. Please check the confirmation "
              "dialog on your device.")
   except MultipleDevicesError as e:
-    sys.exit(
-        "Error: " + e.message + "\nTry specifying a device serial with " +
-        "\"blaze mobile-install --adb_arg=-s --adb_arg=$ANDROID_SERIAL\"")
+    sys.exit("Error: " + e.message + "\nTry specifying a device serial with "
+             "\"blaze mobile-install --adb_arg=-s --adb_arg=$ANDROID_SERIAL\"")
+  except OldSdkException as e:
+    sys.exit("Error: The device does not support the API level specified in "
+             "the application's manifest. Check minSdkVersion in "
+             "AndroidManifest.xml")
   except TimestampException as e:
     sys.exit("Error:\n%s" % e.message)
   except AdbError as e:
