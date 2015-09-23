@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.Reso
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.LocalResourceContainer.Builder.InvalidAssetPath;
 import com.google.devtools.build.lib.rules.android.LocalResourceContainer.Builder.InvalidResourcePath;
-import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -149,13 +148,7 @@ public final class ApplicationManifest {
         ruleContext.getRule().getName() + "_generated", new PathFragment("AndroidManifest.xml"),
         ruleContext.getBinOrGenfilesDirectory());
 
-    String manifestPackage;
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("custom_package")) {
-      manifestPackage = ruleContext.attributes().get("custom_package", Type.STRING);
-    } else {
-      manifestPackage = JavaUtil.getJavaFullClassname(
-          ruleContext.getRule().getPackage().getNameFragment());
-    }
+    String manifestPackage = AndroidCommon.getJavaPackage(ruleContext);
     String contents = Joiner.on("\n").join(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
         "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"",
