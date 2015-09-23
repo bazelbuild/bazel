@@ -25,6 +25,7 @@ filegroup(
         "//tools/build_defs/d:srcs",
         "//tools/build_defs/jsonnet:srcs",
         "//tools/build_defs/docker:srcs",
+        "//tools/build_defs/sass:srcs",
         "//tools/build_rules/appengine:srcs",
         "//tools/build_rules/closure:srcs",
         "//tools/build_rules/rust:srcs",
