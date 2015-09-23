@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * Rule definition for environment rules (for Bazel's constraint enforcement system).
  */
-public final class EnvironmentRule implements RuleDefinition {
+public class EnvironmentRule implements RuleDefinition {
   public static final String RULE_NAME = "environment";
 
   public static final String FULFILLS_ATTRIBUTE = "fulfills";
