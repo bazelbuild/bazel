@@ -38,16 +38,14 @@ import java.io.IOException;
  * {@link SkyFunction.Environment#getValue} instead of {@link MemoizingEvaluator#evaluate}
  * for node evaluation
  */
-class SkyframePackageLoaderWithValueEnvironment implements
-    PackageProviderForConfigurations {
+class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
 
   public SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env) {
     this.env = env;
   }
 
-  @Override
-  public Package getLoadedPackage(final PackageIdentifier pkgIdentifier)
+  private Package getPackage(final PackageIdentifier pkgIdentifier)
       throws NoSuchPackageException {
     SkyKey key = PackageValue.key(pkgIdentifier);
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
@@ -58,9 +56,9 @@ class SkyframePackageLoaderWithValueEnvironment implements
   }
 
   @Override
-  public Target getLoadedTarget(Label label) throws NoSuchPackageException,
+  public Target getTarget(Label label) throws NoSuchPackageException,
       NoSuchTargetException {
-    Package pkg = getLoadedPackage(label.getPackageIdentifier());
+    Package pkg = getPackage(label.getPackageIdentifier());
     return pkg == null ? null : pkg.getTarget(label.getName());
   }
 

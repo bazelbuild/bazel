@@ -57,9 +57,9 @@ public class ConfigurationFragmentFunction implements SkyFunction {
     BuildOptions buildOptions = configurationFragmentKey.getBuildOptions();
     ConfigurationFragmentFactory factory = getFactory(configurationFragmentKey.getFragmentType());
     try {
-      PackageProviderForConfigurations loadedPackageProvider = 
+      PackageProviderForConfigurations packageProvider = 
           new SkyframePackageLoaderWithValueEnvironment(env);
-      ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(loadedPackageProvider);
+      ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(packageProvider);
       Fragment fragment = factory.create(confEnv, buildOptions);
       
       if (env.valuesMissing()) {
@@ -95,23 +95,22 @@ public class ConfigurationFragmentFunction implements SkyFunction {
    * A {@link ConfigurationEnvironment} implementation that can create dependencies on files.
    */
   private final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
-    private final PackageProviderForConfigurations loadedPackageProvider;
+    private final PackageProviderForConfigurations packageProvider;
 
-    ConfigurationBuilderEnvironment(
-        PackageProviderForConfigurations loadedPackageProvider) {
-      this.loadedPackageProvider = loadedPackageProvider;
+    ConfigurationBuilderEnvironment(PackageProviderForConfigurations packageProvider) {
+      this.packageProvider = packageProvider;
     }
 
     @Override
     public Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-      return loadedPackageProvider.getLoadedTarget(label);
+      return packageProvider.getTarget(label);
     }
 
     @Override
     public Path getPath(Package pkg, String fileName) {
       Path result = pkg.getPackageDirectory().getRelative(fileName);
       try {
-        loadedPackageProvider.addDependency(pkg, fileName);
+        packageProvider.addDependency(pkg, fileName);
       } catch (IOException | LabelSyntaxException e) {
         return null;
       }
@@ -121,12 +120,12 @@ public class ConfigurationFragmentFunction implements SkyFunction {
     @Override
     public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
         throws InvalidConfigurationException {
-      return loadedPackageProvider.getFragment(buildOptions, fragmentType);
+      return packageProvider.getFragment(buildOptions, fragmentType);
     }
 
     @Override
     public BlazeDirectories getBlazeDirectories() {
-      return loadedPackageProvider.getDirectories();
+      return packageProvider.getDirectories();
     }
   }
 

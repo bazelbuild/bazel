@@ -60,13 +60,13 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
       Cache<String, BuildConfiguration> cache,
-      PackageProviderForConfigurations loadedPackageProvider,
+      PackageProviderForConfigurations packageProvider,
       BuildOptions buildOptions,
       EventHandler errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException {
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        loadedPackageProvider, buildOptions, false, cache);
+        packageProvider, buildOptions, false, cache);
     if (targetConfiguration == null) {
       return null;
     }
@@ -77,7 +77,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
-        loadedPackageProvider, dataConfiguration, buildOptions, cache);
+        packageProvider, dataConfiguration, buildOptions, cache);
     if (hostConfiguration == null) {
       return null;
     }
@@ -99,11 +99,11 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
       for (BuildOptions splitOptions : splitOptionsList) {
         BuildConfiguration splitConfig = configurationFactory.getConfiguration(
-            loadedPackageProvider, splitOptions, false, cache);
+            packageProvider, splitOptions, false, cache);
         splitTransitionsTable.put(transition, splitConfig);
       }
     }
-    if (loadedPackageProvider.valuesMissing()) {
+    if (packageProvider.valuesMissing()) {
       return null;
     }
 
@@ -115,7 +115,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       // We allow the package provider to be null for testing.
       for (Label label : buildOptions.getAllLabels().values()) {
         try {
-          collectTransitiveClosure(loadedPackageProvider, reachableLabels, label);
+          collectTransitiveClosure(packageProvider, reachableLabels, label);
         } catch (NoSuchThingException e) {
           // We've loaded the transitive closure of the labels-to-load above, and made sure that
           // there are no errors loading it, so this can't happen.
@@ -265,12 +265,12 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
   }
 
-  private void collectTransitiveClosure(PackageProviderForConfigurations loadedPackageProvider,
+  private void collectTransitiveClosure(PackageProviderForConfigurations packageProvider,
       Set<Label> reachableLabels, Label from) throws NoSuchThingException {
     if (!reachableLabels.add(from)) {
       return;
     }
-    Target fromTarget = loadedPackageProvider.getLoadedTarget(from);
+    Target fromTarget = packageProvider.getTarget(from);
     if (fromTarget instanceof Rule) {
       Rule rule = (Rule) fromTarget;
       if (rule.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)) {
@@ -281,7 +281,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         for (List<Label> labelsForConfiguration :
             AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST)) {
           for (Label label : labelsForConfiguration) {
-            collectTransitiveClosure(loadedPackageProvider, reachableLabels, label);
+            collectTransitiveClosure(packageProvider, reachableLabels, label);
           }
         }
       }
@@ -289,7 +289,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       if (rule.getRuleClass().equals("bind")) {
         Label actual = AggregatingAttributeMapper.of(rule).get("actual", BuildType.LABEL);
         if (actual != null) {
-          collectTransitiveClosure(loadedPackageProvider, reachableLabels, actual);
+          collectTransitiveClosure(packageProvider, reachableLabels, actual);
         }
       }
     }
