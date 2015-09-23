@@ -69,8 +69,7 @@ class SkyframePackageManager implements PackageManager {
     this.skyframeExecutor = skyframeExecutor;
   }
 
-  @Override
-  public Package getLoadedPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException {
+  private Package getLoadedPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException {
     return packageLoader.getLoadedPackage(pkgIdentifier);
   }
 

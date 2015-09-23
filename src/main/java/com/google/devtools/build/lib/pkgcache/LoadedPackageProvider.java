@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
@@ -28,13 +26,6 @@ import com.google.devtools.build.lib.packages.Target;
  */
 // TODO(bazel-team): Skyframe doesn't really implement this - can we remove it?
 public interface LoadedPackageProvider {
-
-  /**
-   * Returns a package if it was recently loaded, i.e., since the most recent cache sync. This
-   * throws an exception if the package was not loaded, even if it exists on disk. Returns the
-   * package even if it is in error.
-   */
-  Package getLoadedPackage(PackageIdentifier packageIdentifier) throws NoSuchPackageException;
 
   /**
    * Returns a target if it was recently loaded, i.e., since the most recent cache sync. This
