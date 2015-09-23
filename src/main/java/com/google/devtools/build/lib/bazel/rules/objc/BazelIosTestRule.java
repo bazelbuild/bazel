@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
+import com.google.devtools.build.lib.rules.objc.ExperimentalIosTest;
 import com.google.devtools.build.lib.rules.objc.IosTest;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
@@ -109,7 +110,7 @@ public final class BazelIosTestRule implements RuleDefinition {
         .type(RuleClassType.TEST)
         .ancestors(BaseRuleClasses.BaseRule.class, BaseRuleClasses.TestBaseRule.class,
             ObjcRuleClasses.IosTestBaseRule.class, ObjcRuleClasses.SimulatorRule.class)
-        .factoryClass(BazelIosTest.class)
+        .factoryClass(ExperimentalIosTest.class)
         .build();
   }
 }
