@@ -29,17 +29,12 @@ import java.util.Set;
  * An apparatus for reporting / collecting events.
  */
 public class EventCollectionApparatus {
-
-  private Set<EventKind> customMask;
-
   /**
    * Determine which events the {@link #collector()} created by this apparatus
    * will collect. Default: {@link EventKind#ERRORS_AND_WARNINGS}.
    */
   public EventCollectionApparatus(Set<EventKind> mask) {
-    this.customMask = mask;
-
-    eventCollector = new EventCollector(customMask);
+    eventCollector = new EventCollector(mask);
     reporter = new Reporter(eventCollector);
     printingEventHandler = new PrintingEventHandler(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
     reporter.addHandler(printingEventHandler);
