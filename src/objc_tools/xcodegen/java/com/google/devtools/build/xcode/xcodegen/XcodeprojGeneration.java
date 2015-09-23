@@ -405,6 +405,10 @@ public class XcodeprojGeneration {
     projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
     projBuildConfigMap.put("CODE_SIGN_IDENTITY[sdk=iphoneos*]", "iPhone Developer");
 
+    // Disable bitcode for now.
+    // TODO(bazel-team): Need to re-enable once we have real Xcode 7 support.
+    projBuildConfigMap.put("ENABLE_BITCODE", "NO");
+
     for (XcodeprojBuildSetting projectSetting : control.getBuildSettingList()) {
       projBuildConfigMap.put(projectSetting.getName(), projectSetting.getValue());
     }
@@ -490,6 +494,7 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(
             "INFOPLIST_FILE", "$(WORKSPACE_ROOT)/" + targetControl.getInfoplist());
       }
+
 
       // Double-quotes in copt strings need to be escaped for XCode.
       if (targetControl.getCoptCount() > 0) {
