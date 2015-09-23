@@ -57,20 +57,35 @@ def _short_path_dirname(path):
 
 def _dest_path(f, strip_prefix):
   """Returns the short path of f, stripped of strip_prefix."""
+  if not strip_prefix:
+    # If no strip_prefix was specified, use the package of the
+    # given input as the strip_prefix.
+    strip_prefix = _short_path_dirname(f)
   if f.short_path.startswith(strip_prefix):
     return f.short_path[len(strip_prefix):]
   return f.short_path
 
+def _compute_data_path(out, data_path):
+  """Compute the relative data path prefix from the data_path attribute."""
+  if data_path:
+    # Strip ./ from the beginning if specified.
+    # There is no way to handle .// correctly (no function that would make
+    # that possible and Skylark is not turing complete) so just consider it
+    # as an absolute path.
+    if data_path[0:2] == "./":
+      data_path = data_path[2:]
+    if data_path[0] == "/":  # Absolute path
+      return data_path[1:]
+    elif not data_path or data_path == ".":  # Relative to current package
+      return _short_path_dirname(out)
+    else:  # Relative to a sub-directory
+      return _short_path_dirname(out) + "/" + data_path
+  return data_path
+
 def _build_layer(ctx):
   """Build the current layer for appending it the base layer."""
   # Compute the relative path
-  data_path = ctx.attr.data_path
-  if not data_path:
-    data_path = _short_path_dirname(ctx.outputs.out)
-  elif data_path[0] == "/":
-    data_path = data_path[1:]
-  else:  # relative path
-    data_path = _short_path_dirname(ctx.outputs.out) + "/" + data_path
+  data_path = _compute_data_path(ctx.outputs.out, ctx.attr.data_path)
 
   layer = ctx.new_file(ctx.label.name + ".layer")
   build_layer = ctx.executable._build_layer
@@ -272,7 +287,8 @@ docker_build_ = rule(
 #      # equivalent to FROM.
 #      base="//another/build:rule",]
 #
-#      # The base directory of the files, defaulted to this package.
+#      # The base directory of the files, defaulted to
+#      # the package of the input.
 #      # All files structure relatively to that path will be preserved.
 #      # A leading '/' mean the workspace root and this path is relative
 #      # to the current package by default.

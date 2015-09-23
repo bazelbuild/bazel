@@ -308,4 +308,41 @@ function test_with_double_env() {
     '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
 }
 
+function test_with_double_env() {
+  check_layers "with_double_env" \
+    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
+    "80b94376a90de45256c3e94c82bc3812bc5cbd05b7d01947f29e6805e8cd7018" \
+    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93"
+
+  # Check both the aggregation and the expansion of embedded variables.
+  check_env "with_double_env" \
+    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93" \
+    '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
+}
+
+function get_layer_listing() {
+  local input=$1
+  local layer=$2
+  local test_data="${TEST_DATA_DIR}/${input}.tar"
+  tar xOf "${test_data}" \
+    "./${layer}/layer.tar" | tar tv | sed -e 's/^.*:00 //'
+}
+
+function test_data_path() {
+  local no_data_path_sha="29bab1d66ea34ebbb9604704322458e0f06a3a9a7b0ac08df8b95a6c9c3d9320"
+  local data_path_sha="9a5c6b96227af212d1300964aaeb0723e78e78de019de1ba2382603f3050558a"
+
+  check_layers_aux "no_data_path_image" "${no_data_path_sha}"
+  check_layers_aux "data_path_image" "${data_path_sha}"
+
+  # Without data_path = "." the file will be inserted as `./test`
+  # (since it is the path in the package) and with data_path = "."
+  # the file will be inserted relatively to the testdata package
+  # (so `./test/test`).
+  check_eq $(get_layer_listing "no_data_path_image" "${no_data_path_sha}") \
+    ./test
+  check_eq $(get_layer_listing "data_path_image" "${data_path_sha}") \
+    ./test/test
+}
+
 run_suite "build_test"

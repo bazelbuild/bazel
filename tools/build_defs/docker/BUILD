@@ -32,6 +32,8 @@ TEST_DATA = [
     for t in TEST_TARGETS
 ] + [
     "//tools/build_defs/docker/testdata:gen_image",
+    "//tools/build_defs/docker/testdata:data_path_image",
+    "//tools/build_defs/docker/testdata:no_data_path_image",
 ]
 
 sh_test(

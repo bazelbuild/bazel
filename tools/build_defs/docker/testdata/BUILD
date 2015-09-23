@@ -8,7 +8,9 @@ load("/tools/build_defs/docker/docker", "docker_build")
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//tools/build_defs/docker/testdata/test:srcs",
+    ],
 )
 
 filegroup(
@@ -20,6 +22,17 @@ genrule(
     name = "gen",
     outs = ["gen.out"],
     cmd = "echo generated > $@",
+)
+
+docker_build(
+    name = "no_data_path_image",
+    files = ["//tools/build_defs/docker/testdata/test:test-data"],
+)
+
+docker_build(
+    name = "data_path_image",
+    data_path = ".",
+    files = ["//tools/build_defs/docker/testdata/test:test-data"],
 )
 
 docker_build(

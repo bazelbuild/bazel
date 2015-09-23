@@ -218,7 +218,10 @@ symlinks, entrypoint, cmd, env, ports, volumes)`
           docker image but a prefix path determined by `data_path`
           is removed from the directory structure. This path can
           be absolute from the workspace root if starting with a `/` or
-          relative to the rule's directory. It is set to `.` by default.
+          relative to the rule's directory. A relative path may starts with "./"
+          (or be ".") but cannot use go up with "..". By default, the
+          `data_path` attribute is unused and all files are supposed to have no
+          prefix.
         </p>
       </td>
     </tr>
