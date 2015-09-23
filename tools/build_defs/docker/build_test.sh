@@ -192,76 +192,76 @@ function test_files_with_files_base() {
 
 function test_tar_base() {
   check_layers "tar_base" \
-    "83e8285de55c00f74f45628f75aec4366b361913be486e2e96af1a7b05211094"
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277"
 
   # Check that this layer doesn't have any entrypoint data by looking
   # for *any* entrypoint.
   check_no_property "Entrypoint" "tar_base" \
-    "83e8285de55c00f74f45628f75aec4366b361913be486e2e96af1a7b05211094"
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277"
 }
 
 function test_tar_with_tar_base() {
   check_layers "tar_with_tar_base" \
-    "83e8285de55c00f74f45628f75aec4366b361913be486e2e96af1a7b05211094" \
-    "f2878819ee41f261d2ed346e92c1fc2096e9eaa51e3e1fb32c7da1a21be77029"
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
+    "1cc81a2aaec2e3727d98d48bf9ba09d3ac96ef48adf5edae861d15dd0191dc40"
 }
 
 function test_files_with_tar_base() {
   check_layers "files_with_tar_base" \
-    "83e8285de55c00f74f45628f75aec4366b361913be486e2e96af1a7b05211094" \
-    "c96f2793f6ade79f8f4a4cfe46f31752de14f3b1eae7f27aa0c7440f78f612f3"
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
+    "b0fe5685bf89a2c875a93495a4e2b7a3f1fb6f27a9ac5dc2b174e7d74cb6fe27"
 }
 
 function test_tar_with_files_base() {
   check_layers "tar_with_files_base" \
     "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b" \
-    "2f1d1cc52ab8e72bf5affcac1a68a86c7f75679bf58a2b2a6fefdbfa0d239651"
+    "c1ec3719c075f54f65045f127a6cfd77675c547446cdda7193de81b9b59afb51"
 }
 
 function test_base_with_entrypoint() {
   check_layers "base_with_entrypoint" \
-    "3cf09865c613d49e5fa6a1f7027744e51da662139ea833f8e757f70c8f75a554"
+    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00"
 
   check_entrypoint "base_with_entrypoint" \
-    "3cf09865c613d49e5fa6a1f7027744e51da662139ea833f8e757f70c8f75a554" \
+    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
     '["/bar"]'
 
   # Check that the base layer has a port exposed.
   check_ports "base_with_entrypoint" \
-    "3cf09865c613d49e5fa6a1f7027744e51da662139ea833f8e757f70c8f75a554" \
+    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
     '{"8080/tcp": {}}'
 }
 
 function test_derivative_with_shadowed_cmd() {
   check_layers "derivative_with_shadowed_cmd" \
-    "3cf09865c613d49e5fa6a1f7027744e51da662139ea833f8e757f70c8f75a554" \
-    "46e302dc2cb5c19baaeb479e8142ab1bb12ca77b3d7a0ecd379304413e6c5b28"
+    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
+    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3"
 }
 
 function test_derivative_with_cmd() {
   check_layers "derivative_with_cmd" \
-    "3cf09865c613d49e5fa6a1f7027744e51da662139ea833f8e757f70c8f75a554" \
-    "46e302dc2cb5c19baaeb479e8142ab1bb12ca77b3d7a0ecd379304413e6c5b28" \
-    "968891207e14ab79a7ab3c71c796b88a4321ec30b9a74feb1d7c92d5a47c8bc2"
+    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
+    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3" \
+    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee"
 
   check_entrypoint "derivative_with_cmd" \
-    "968891207e14ab79a7ab3c71c796b88a4321ec30b9a74feb1d7c92d5a47c8bc2" \
+    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
     '["/bar"]'
 
   # Check that the middle layer has our shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "46e302dc2cb5c19baaeb479e8142ab1bb12ca77b3d7a0ecd379304413e6c5b28" \
+    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3" \
     '["shadowed-arg"]'
 
   # Check that our topmost layer excludes the shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "968891207e14ab79a7ab3c71c796b88a4321ec30b9a74feb1d7c92d5a47c8bc2" \
+    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
     '["arg1", "arg2"]'
 
   # Check that the topmost layer has the ports exposed by the bottom
   # layer, and itself.
   check_ports "derivative_with_cmd" \
-    "968891207e14ab79a7ab3c71c796b88a4321ec30b9a74feb1d7c92d5a47c8bc2" \
+    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
     '{"80/tcp": {}, "8080/tcp": {}}'
 }
 

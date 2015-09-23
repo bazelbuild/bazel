@@ -91,17 +91,13 @@ class DockerLayer(object):
     """Add a tar file to the layer.
 
     All files presents in that tar will be added to the layer under
-    the same paths. The current user uid and gid will be replaced
-    by 0 (to make like we are running as root) and no user name nor
-    group names will be added to the layer.
+    the same paths. No user name nor group name will be added to
+    the layer.
 
     Args:
       tar: the tar file to add to the layer
     """
-    self.tarfile.add_tar(tar,
-                         rootuid=os.getuid(),
-                         rootgid=os.getgid(),
-                         numeric=True)
+    self.tarfile.add_tar(tar, numeric=True)
 
   def add_link(self, symlink, destination):
     """Add a symbolic link pointing to `destination` in the layer.
