@@ -233,7 +233,8 @@ public class SkylarkRuleClassFunctions {
             + "there must be an action that generates <code>ctx.outputs.executable</code>."),
         @Param(name = "output_to_genfiles", type = Boolean.class, defaultValue = "False",
             doc = "If true, the files will be generated in the genfiles directory instead of the "
-            + "bin directory. This is used for compatibility with existing rules."),
+            + "bin directory. Unless you need it for compatibility with existing rules "
+            + "(e.g. when generating header files for C++), do not set this flag."),
        @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
            defaultValue = "[]",
            doc = "List of names of configuration fragments that the rule requires "
