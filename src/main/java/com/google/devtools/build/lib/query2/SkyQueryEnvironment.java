@@ -77,6 +77,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -419,17 +420,23 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     GraphBackedRecursivePackageProvider provider =
         new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys);
     Map<String, Set<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
+
+    Map<String, SkyKey> keys = new HashMap<>(patterns.size());
+
     for (String pattern : patterns) {
-      SkyKey patternKey = TargetPatternValue.key(pattern,
-          TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
+      keys.put(pattern, TargetPatternValue.key(pattern,
+          TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix));
+    }
+    // Get all the patterns in one batch call
+    Map<SkyKey, SkyValue> existingPatterns = graph.getSuccessfulValues(keys.values());
 
-      TargetPatternValue.TargetPatternKey targetPatternKey =
-          ((TargetPatternValue.TargetPatternKey) patternKey.argument());
-
+    Map<String, Set<Target>> patternsWithTargetsToFilter = new HashMap<>();
+    for (String pattern : patterns) {
+      SkyKey patternKey = keys.get(pattern);
       TargetParsingException targetParsingException = null;
-      if (graph.exists(patternKey)) {
+      if (existingPatterns.containsKey(patternKey)) {
         // The graph already contains a value or exception for this target pattern, so we use it.
-        TargetPatternValue value = (TargetPatternValue) graph.getValue(patternKey);
+        TargetPatternValue value = (TargetPatternValue) existingPatterns.get(patternKey);
         if (value != null) {
           result.put(
               pattern, ImmutableSet.copyOf(makeTargetsFromLabels(value.getTargets().getTargets())));
@@ -445,12 +452,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       } else {
         // If the graph doesn't contain a value for this target pattern, try to directly evaluate
         // it, by making use of packages already present in the graph.
+        TargetPatternValue.TargetPatternKey targetPatternKey =
+            ((TargetPatternValue.TargetPatternKey) patternKey.argument());
+
         RecursivePackageProviderBackedTargetPatternResolver resolver =
             new RecursivePackageProviderBackedTargetPatternResolver(provider, eventHandler,
                 targetPatternKey.getPolicy(), pkgPath);
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
         try {
-          result.put(pattern, filterTargetsNotInGraph(parsedPattern.eval(resolver).getTargets()));
+          patternsWithTargetsToFilter.put(pattern, parsedPattern.eval(resolver).getTargets());
         } catch (TargetParsingException e) {
           targetParsingException = e;
         } catch (InterruptedException e) {
@@ -468,6 +478,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         }
       }
     }
+    // filterTargetsNotInGraph does graph lookups. So we batch all the queries in one call.
+    Set<Target> targetsInGraph = filterTargetsNotInGraph(
+        ImmutableSet.copyOf(Iterables.concat(patternsWithTargetsToFilter.values())));
+
+    for (Entry<String, Set<Target>> pattern : patternsWithTargetsToFilter.entrySet()) {
+      result.put(pattern.getKey(), Sets.intersection(pattern.getValue(), targetsInGraph));
+    }
+
     return result;
   }
 
