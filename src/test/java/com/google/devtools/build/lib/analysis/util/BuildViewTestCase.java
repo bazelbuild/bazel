@@ -197,6 +197,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
             new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
+            binTools,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableSet.<Path>of(),

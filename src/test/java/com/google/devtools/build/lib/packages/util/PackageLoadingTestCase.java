@@ -76,6 +76,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
             new TimestampGranularityMonitor(BlazeClock.instance()),
             new BlazeDirectories(outputBase, outputBase, rootDirectory),
+            null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableSet.<Path>of(),

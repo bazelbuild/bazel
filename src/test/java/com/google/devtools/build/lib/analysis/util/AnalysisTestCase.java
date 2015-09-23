@@ -162,12 +162,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
     PackageFactory pkgFactory = new PackageFactory(ruleClassProvider);
+    BinTools binTools = BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS);
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             reporter,
             pkgFactory,
             new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
+            binTools,
             workspaceStatusActionFactory,
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableSet.<Path>of(),
@@ -183,7 +185,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = new LoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
     buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor,
-        BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS), null);
+        binTools, null);
     useConfiguration();
   }
 

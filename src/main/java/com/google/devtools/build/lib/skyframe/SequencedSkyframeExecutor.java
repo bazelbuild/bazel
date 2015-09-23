@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
@@ -100,6 +101,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
+      BinTools binTools,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -115,6 +117,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pkgFactory,
         tsgm,
         directories,
+        binTools,
         workspaceStatusActionFactory,
         buildInfoFactories,
         immutableDirectories,
@@ -132,6 +135,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
+      BinTools binTools,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -148,6 +152,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             pkgFactory,
             tsgm,
             directories,
+            binTools,
             workspaceStatusActionFactory,
             buildInfoFactories,
             immutableDirectories,
@@ -163,7 +168,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @VisibleForTesting
   public static SequencedSkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
+      TimestampGranularityMonitor tsgm, BlazeDirectories directories, BinTools binTools,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -173,6 +178,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pkgFactory,
         tsgm,
         directories,
+        binTools,
         workspaceStatusActionFactory,
         buildInfoFactories,
         immutableDirectories,
@@ -498,9 +504,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void dropConfiguredTargets() {
-    if (skyframeBuildView != null) {
-      skyframeBuildView.clearInvalidatedConfiguredTargets();
-    }
+    skyframeBuildView.clearInvalidatedConfiguredTargets();
+    skyframeBuildView.clearLegacyData();
     memoizingEvaluator.delete(
         // We delete any value that can hold an action -- all subclasses of ActionLookupValue -- as
         // well as ActionExecutionValues, since they do not depend on ActionLookupValues.

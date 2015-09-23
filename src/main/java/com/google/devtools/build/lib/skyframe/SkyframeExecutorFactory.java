@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -43,6 +44,7 @@ public interface SkyframeExecutorFactory {
    * @param pkgFactory the package factory
    * @param tsgm timestamp granularity monitor
    * @param directories Blaze directories
+   * @param binTools the embedded tools
    * @param workspaceStatusActionFactory a factory for creating WorkspaceStatusAction objects
    * @param buildInfoFactories list of BuildInfoFactories
    * @param diffAwarenessFactories
@@ -59,6 +61,7 @@ public interface SkyframeExecutorFactory {
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
+      BinTools binTools,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,

@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -88,7 +90,6 @@ public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
-  private final Runnable legacyDataCleaner;
   private final BinTools binTools;
   private boolean enableAnalysis = false;
 
@@ -115,16 +116,14 @@ public final class SkyframeBuildView {
   private Map<Set<Class<? extends BuildConfiguration.Fragment>>, BuildConfiguration>
       hostConfigurationCache = Maps.newConcurrentMap();
 
-  public SkyframeBuildView(ConfiguredTargetFactory factory, ArtifactFactory artifactFactory,
-      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,  BinTools binTools,
-      RuleClassProvider ruleClassProvider) {
-    this.factory = factory;
-    this.artifactFactory = artifactFactory;
+  public SkyframeBuildView(BlazeDirectories directories,
+      SkyframeExecutor skyframeExecutor, BinTools binTools,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    this.factory = new ConfiguredTargetFactory(ruleClassProvider);
+    this.artifactFactory = new ArtifactFactory(directories.getExecRoot());
     this.skyframeExecutor = skyframeExecutor;
-    this.legacyDataCleaner = legacyDataCleaner;
     this.binTools = binTools;
     this.ruleClassProvider = ruleClassProvider;
-    skyframeExecutor.setArtifactFactoryAndBinTools(artifactFactory, binTools);
   }
 
   public void resetEvaluatedConfiguredTargetKeysSet() {
@@ -375,7 +374,7 @@ public final class SkyframeBuildView {
     }
   }
 
-  ArtifactFactory getArtifactFactory() {
+  public ArtifactFactory getArtifactFactory() {
     return artifactFactory;
   }
 
@@ -480,12 +479,12 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Workaround to clear all legacy data, like the action graph and the artifact factory. We need
+   * Workaround to clear all legacy data, like the artifact factory. We need
    * to clear them to avoid conflicts.
    * TODO(bazel-team): Remove this workaround. [skyframe-execution]
    */
   void clearLegacyData() {
-    legacyDataCleaner.run();
+    artifactFactory.clear();
   }
 
   /**

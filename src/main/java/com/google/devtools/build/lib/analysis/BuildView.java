@@ -220,8 +220,6 @@ public class BuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  private final ArtifactFactory artifactFactory;
-
   /**
    * A factory class to create the coverage report action. May be null.
    */
@@ -266,23 +264,9 @@ public class BuildView {
     this.packageManager = skyframeExecutor.getPackageManager();
     this.binTools = binTools;
     this.coverageReportActionFactory = coverageReportActionFactory;
-    this.artifactFactory = new ArtifactFactory(directories.getExecRoot());
     this.ruleClassProvider = ruleClassProvider;
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
-    this.skyframeBuildView =
-        new SkyframeBuildView(
-            new ConfiguredTargetFactory(ruleClassProvider),
-            artifactFactory,
-            skyframeExecutor,
-            new Runnable() {
-              @Override
-              public void run() {
-                clear();
-              }
-            },
-            binTools,
-            ruleClassProvider);
-    skyframeExecutor.setSkyframeBuildView(skyframeBuildView);
+    this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
   /** Returns the action graph. */
@@ -312,16 +296,8 @@ public class BuildView {
     skyframeBuildView.setTopLevelHostConfiguration(configurations.getHostConfiguration());
   }
 
-  /**
-   * Clear the graphs of ConfiguredTargets and Artifacts.
-   */
-  @VisibleForTesting
-  public void clear() {
-    artifactFactory.clear();
-  }
-
   public ArtifactFactory getArtifactFactory() {
-    return artifactFactory;
+    return skyframeBuildView.getArtifactFactory();
   }
 
   @VisibleForTesting
@@ -627,7 +603,6 @@ public class BuildView {
 
       skyframeExecutor.dropConfiguredTargets();
       skyframeCacheWasInvalidated = true;
-      clear();
     }
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
@@ -741,7 +716,7 @@ public class BuildView {
       actionsWrapper = coverageReportActionFactory.createCoverageReportActionsWrapper(
           allTargetsToTest,
           baselineCoverageArtifacts,
-          artifactFactory,
+          getArtifactFactory(),
           CoverageReportValue.ARTIFACT_OWNER);
       if (actionsWrapper != null) {
         ImmutableList <Action> actions = actionsWrapper.getActions();
@@ -952,7 +927,7 @@ public class BuildView {
       realPackageRoots.put(entry.getKey(), root);
     }
     // Source Artifact roots:
-    artifactFactory.setPackageRoots(realPackageRoots);
+    getArtifactFactory().setPackageRoots(realPackageRoots);
 
     // Derived Artifact roots:
     ImmutableList.Builder<Root> roots = ImmutableList.builder();
@@ -965,7 +940,7 @@ public class BuildView {
       roots.addAll(cfg.getRoots());
     }
 
-    artifactFactory.setDerivedArtifactRoots(roots.build());
+    getArtifactFactory().setDerivedArtifactRoots(roots.build());
   }
 
   /**
@@ -995,7 +970,7 @@ public class BuildView {
       BuildConfigurationCollection configurations) throws InterruptedException {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
-        new CachingAnalysisEnvironment(artifactFactory,
+        new CachingAnalysisEnvironment(getArtifactFactory(),
             new ConfiguredTargetKey(target.getLabel(), config),
             /*isSystemEnv=*/false, config.extendedSanityChecks(), eventHandler,
             /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView.Options;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
@@ -229,7 +230,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final Set<Path> immutableDirectories;
 
-  private BinTools binTools = null;
+  private final BinTools binTools;
   private boolean needToInjectEmbeddedArtifacts = true;
   private boolean needToInjectPrecomputedValuesForAnalysis = true;
   protected int modifiedFiles;
@@ -256,6 +257,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
+      BinTools binTools,
       Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
@@ -288,6 +290,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.extraSkyFunctions = extraSkyFunctions;
     this.extraPrecomputedValues = extraPrecomputedValues;
     this.errorOnExternalFiles = errorOnExternalFiles;
+    this.binTools = binTools;
+
+    this.skyframeBuildView = new SkyframeBuildView(
+        directories,
+        this,
+        binTools,
+        (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider());
+    this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -479,9 +489,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
-    if (skyframeBuildView != null) {
-      skyframeBuildView.clearLegacyData();
-    }
+    skyframeBuildView.clearLegacyData();
     reinjectConstantValuesLazily();
   }
 
@@ -890,13 +898,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  /**
-   * Specifies the current {@link SkyframeBuildView} instance. This should only be set once over the
-   * lifetime of the Blaze server, except in tests.
-   */
-  public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
-    this.skyframeBuildView = skyframeBuildView;
-    this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
+  public SkyframeBuildView getSkyframeBuildView() {
+    return skyframeBuildView;
   }
 
   /**
@@ -1062,11 +1065,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public ImmutableMap<Dependency, ConfiguredTarget> getConfiguredTargetMap(
       BuildConfiguration originalConfig, Iterable<Dependency> keys, boolean useOriginalConfig) {
     checkActive();
-    if (skyframeBuildView == null) {
-      // If build view has not yet been initialized, no configured targets can have been created.
-      // This is most likely to happen after a failed loading phase.
-      return ImmutableMap.of();
-    }
 
     Map<Dependency, BuildConfiguration> configs;
     if (originalConfig != null) {
@@ -1620,15 +1618,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.statusReporterRef.set(statusReporter);
   }
 
-  /**
-   * This should be called at most once in the lifetime of the SkyframeExecutor (except for
-   * tests), and it should be called before the execution phase.
-   */
-  void setArtifactFactoryAndBinTools(ArtifactFactory artifactFactory, BinTools binTools) {
-    this.artifactFactory.set(artifactFactory);
-    this.binTools = binTools;
-  }
-
   public void prepareExecution(boolean checkOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange) throws AbruptExitException,
       InterruptedException {
@@ -1704,9 +1693,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().invalidated(skyKey, state);
-      }
+      skyframeBuildView.getInvalidationReceiver().invalidated(skyKey, state);
     }
 
     @Override
@@ -1714,9 +1701,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
-      }
+      skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.enqueueing(skyKey);
       }
@@ -1730,9 +1715,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, valueSupplier, state);
-      }
+      skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, valueSupplier, state);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(skyKey, valueSupplier, state);
       }

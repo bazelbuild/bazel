@@ -621,7 +621,6 @@ public final class BlazeRuntime {
   /** Removes skyframe cache and other caches that must be kept synchronized with skyframe. */
   private void clearSkyframeRelevantCaches() {
     skyframeExecutor.resetEvaluator();
-    view.clear();
   }
 
   /**
@@ -1598,6 +1597,7 @@ public final class BlazeRuntime {
               pkgFactory,
               timestampMonitor,
               directories,
+              binTools,
               workspaceStatusActionFactory,
               ruleClassProvider.getBuildInfoFactories(),
               immutableDirectories,
