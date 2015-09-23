@@ -103,7 +103,14 @@ TESTS=()                        # A subset or "working set" of test
                                 # default, all tests called test_* are
                                 # run.
 if [ $# -gt 0 ]; then
-  TESTS=($(for i in $@; do echo $i; done | grep ^test_))
+  # Legacy behavior is to ignore missing regexp, but with errexit
+  # the following line fails without || true.
+  # TODO(dmarting): maybe we should revisit the way of selecting
+  # test with that framework (use Bazel's environment variable instead).
+  TESTS=($(for i in $@; do echo $i; done | grep ^test_ || true))
+  if (( ${#TESTS[@]} == 0 )); then
+    echo "WARNING: Arguments do not specifies tests!" >&2
+  fi
 fi
 
 TEST_verbose=true               # Whether or not to be verbose.  A
