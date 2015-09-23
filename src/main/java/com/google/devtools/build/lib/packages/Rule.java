@@ -202,12 +202,12 @@ public final class Rule implements Target {
 
   @Override
   public Label getLabel() {
-    return attributeMap.getLabel();
+    return label;
   }
 
   @Override
   public String getName() {
-    return attributeMap.getName();
+    return label.getName();
   }
 
   @Override
@@ -570,11 +570,6 @@ public final class Rule implements Target {
 
   void reportWarning(String message, EventHandler eventHandler) {
     eventHandler.handle(Event.warn(location, message));
-  }
-
-  @Override
-  public int hashCode() {
-    return label.hashCode();
   }
 
   /**

@@ -103,11 +103,6 @@ public final class InputFile extends FileTarget {
   }
 
   @Override
-  public int hashCode() {
-    return label.hashCode();
-  }
-
-  @Override
   public String getTargetKind() {
     return "source file";
   }

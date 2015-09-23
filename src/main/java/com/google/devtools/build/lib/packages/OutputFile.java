@@ -59,9 +59,4 @@ public final class OutputFile extends FileTarget {
   public Location getLocation() {
     return generatingRule.getLocation();
   }
-
-  @Override
-  public int hashCode() {
-    return label.hashCode();
-  }
 }

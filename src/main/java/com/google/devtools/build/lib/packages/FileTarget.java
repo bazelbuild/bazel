@@ -64,11 +64,6 @@ public abstract class FileTarget implements Target, HasFilename {
   }
 
   @Override
-  public int hashCode() {
-    return label.hashCode();
-  }
-
-  @Override
   public Set<DistributionType> getDistributions() {
     return getPackage().getDefaultDistribs();
   }

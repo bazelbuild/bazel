@@ -313,16 +313,4 @@ public class EnvironmentGroup implements Target {
   public static String targetKind() {
     return "environment group";
   }
-
-  @Override
-  public boolean equals(Object o) {
-    // In a distributed implementation these may not be the same object.
-    if (o == this) {
-      return true;
-    } else if (!(o instanceof EnvironmentGroup)) {
-      return false;
-    } else {
-      return ((EnvironmentGroup) o).getLabel().equals(getLabel());
-    }
-  }
 }

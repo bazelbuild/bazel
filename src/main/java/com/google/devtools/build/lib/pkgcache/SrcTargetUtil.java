@@ -59,7 +59,8 @@ public final class SrcTargetUtil {
   public static List<FileTarget> getSrcTargets(EventHandler eventHandler, Rule rule,
                                                TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
-    return getTargets(eventHandler, rule, SOURCE_ATTRIBUTES, Sets.newHashSet(rule), provider);
+    return getTargets(eventHandler, rule, SOURCE_ATTRIBUTES, Sets.newHashSet(rule.getLabel()),
+        provider);
   }
 
   // Attributes referring to "sources".
@@ -89,7 +90,8 @@ public final class SrcTargetUtil {
         .add(HEADER_ATTRIBUTE)
         .add(TEXTUAL_HEADER_ATTRIBUTE)
         .build();
-    return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
+    return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule.getLabel()),
+        provider);
   }
 
   @ThreadSafety.ThreadSafe
@@ -97,7 +99,8 @@ public final class SrcTargetUtil {
                                                      TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
     return getTargets(
-        eventHandler, rule, ImmutableSet.of(HEADER_ATTRIBUTE), Sets.newHashSet(rule), provider);
+        eventHandler, rule, ImmutableSet.of(HEADER_ATTRIBUTE), Sets.newHashSet(rule.getLabel()),
+        provider);
   }
 
   @ThreadSafety.ThreadSafe
@@ -105,7 +108,7 @@ public final class SrcTargetUtil {
       EventHandler eventHandler, Rule rule, TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     return getTargets(eventHandler, rule, ImmutableSet.of(TEXTUAL_HEADER_ATTRIBUTE),
-        Sets.newHashSet(rule), provider);
+        Sets.newHashSet(rule.getLabel()), provider);
   }
 
   /**
@@ -114,7 +117,7 @@ public final class SrcTargetUtil {
   private static List<FileTarget> getTargets(EventHandler eventHandler,
       Rule rule,
       ImmutableSet<String> attributes,
-      Set<Rule> visitedRules,
+      Set<Label> visitedRuleLabels,
       TargetProvider targetProvider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     List<Label> srcLabels = Lists.newArrayList();
@@ -142,11 +145,11 @@ public final class SrcTargetUtil {
         srcTargets.add((FileTarget) target);
       } else {
         Rule srcRule = target.getAssociatedRule();
-        if (srcRule != null && !visitedRules.contains(srcRule)) {
-          visitedRules.add(srcRule);
+        if (srcRule != null && !visitedRuleLabels.contains(srcRule.getLabel())) {
+          visitedRuleLabels.add(srcRule.getLabel());
           if ("filegroup".equals(srcRule.getRuleClass())) {
-            srcTargets.addAll(getTargets(eventHandler, srcRule, FILEGROUP_ATTRIBUTES, visitedRules,
-                targetProvider));
+            srcTargets.addAll(getTargets(eventHandler, srcRule, FILEGROUP_ATTRIBUTES,
+                visitedRuleLabels, targetProvider));
           } else {
             srcTargets.addAll(srcRule.getOutputFiles());
           }
