@@ -271,7 +271,7 @@ public class LoadingPhaseRunner {
    * a {@code BuildConfigurationCollection} without running a full loading phase. Don't
    * add any more clients; instead, we should change info so that it doesn't need the configuration.
    */
-  public LoadedPackageProvider loadForConfigurations(EventHandler eventHandler,
+  public boolean loadForConfigurations(EventHandler eventHandler,
       Set<Label> labelsToLoad, boolean keepGoing) throws InterruptedException {
     // Use a new Label Visitor here to avoid erasing the cache on the existing one.
     TransitivePackageLoader transitivePackageLoader = packageManager.newTransitiveLoader();
@@ -279,7 +279,7 @@ public class LoadingPhaseRunner {
         eventHandler, ImmutableSet.<Target>of(),
         labelsToLoad, keepGoing, /*parallelThreads=*/10,
         /*maxDepth=*/Integer.MAX_VALUE);
-    return loadingSuccessful ? packageManager : null;
+    return loadingSuccessful;
   }
 
   /**

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -170,11 +169,11 @@ public final class CommandEnvironment {
       throws InvalidConfigurationException, InterruptedException {
     BuildOptions buildOptions = runtime.createBuildOptions(optionsProvider);
     boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
-    LoadedPackageProvider loadedPackageProvider =
+    boolean loadingSuccessful =
         runtime.getLoadingPhaseRunner().loadForConfigurations(reporter,
             ImmutableSet.copyOf(buildOptions.getAllLabels().values()),
             keepGoing);
-    if (loadedPackageProvider == null) {
+    if (!loadingSuccessful) {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
     return getSkyframeExecutor().createConfigurations(runtime.getConfigurationFactory(),
