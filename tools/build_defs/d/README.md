@@ -574,7 +574,7 @@ bazel test //hello_lib:greeter_test
 ## d_docs
 
 ```python
-d_docs(name, srcs, imports)
+d_docs(name, dep)
 ```
 
 <table>
@@ -593,21 +593,14 @@ d_docs(name, srcs, imports)
       </td>
     </tr>
     <tr>
-      <td><code>srcs</code></td>
+      <td><code>dep</code></td>
       <td>
-        <code>List of labels, required</code>
+        <code>Label, required</code>
+        <p>The label of the target to generate code documentation for.</p>
         <p>
-          List of D <code>.d</code> source files to generate documentation for.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>imports</code></td>
-      <td>
-        <code>List of strings, optional</code>
-        <p>List of import dirs to add to the compile line.</p>
-        <p>
-          These will be passed to the D compiler via <code>-I</code> flags.
+          <code>d_docs</code> can generate HTML code documentation for the
+          source files of <code>d_library</code>, <code>d_source_library</code>,
+          <code>d_binary</code>, or <code>d_test</code> targets.
         </p>
       </td>
     </tr>
@@ -628,20 +621,27 @@ Suppose you have the following directory structure for a D project:
         baz.d
 ```
 
-To generate HTML documentation for the `foo` package, define a `d_docs` target:
+The `foo/` directory contains the sources for the `d_library` `foo`. To
+generate HTML documentation for the `foo` library, define a `d_docs` target
+that takes the `d_library` `foo` as its dependency:
 
 `foo/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_docs")
+load("/tools/build_defs/d/d", "d_library", "d_docs")
 
-d_docs(
-    name = "foo_docs",
+d_library(
+    name = "foo",
     srcs = [
         "foo.d",
         "bar.d",
         "baz.d",
     ],
+)
+
+d_docs(
+    name = "foo_docs",
+    dep = ":foo",
 )
 ```
 

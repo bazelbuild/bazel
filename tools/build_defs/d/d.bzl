@@ -121,7 +121,7 @@ def _setup_deps(deps, name, working_dir):
   Returns:
     Returns a struct containing the following fields:
       libs: List of Files containing the target's direct library dependencies.
-      transitive_d_libs: List of Files containing all of the target's
+      transitive_libs: List of Files containing all of the target's
           transitive libraries.
       d_srcs: List of Files representing D source files of dependencies that
           will be used as inputs for this target.
@@ -137,29 +137,31 @@ def _setup_deps(deps, name, working_dir):
   setup_cmd = ["rm -rf " + deps_dir + ";" + "mkdir -p " + deps_dir + ";"]
 
   libs = set()
-  transitive_d_libs = set()
+  transitive_libs = set()
   d_srcs = set()
-  symlinked_libs = set()
+  transitive_d_srcs = set()
   versions = set()
   imports = set()
   link_flags = set()
+  symlinked_libs = set()
   for dep in deps:
     if hasattr(dep, "d_lib"):
       # The dependency is a d_library.
       libs += [dep.d_lib]
+      transitive_libs += dep.transitive_libs
+      symlinked_libs += [dep.d_lib] + dep.transitive_libs
       d_srcs += dep.d_srcs
-      transitive_d_libs += [dep.d_lib] + dep.transitive_d_libs
-      symlinked_libs += [dep.d_lib] + dep.transitive_d_libs
-      versions += dep.versions
-      versions += ["Have_%s" % _format_version(dep.label.name)]
+      transitive_d_srcs += dep.transitive_d_srcs
+      versions += dep.versions + ["Have_%s" % _format_version(dep.label.name)]
       link_flags += ["-L-l%s" % dep.label.name] + dep.link_flags
       imports += ["%s/%s" % (dep.label.package, im) for im in dep.imports]
 
     elif hasattr(dep, "d_srcs"):
       # The dependency is a d_source_library.
       d_srcs += dep.d_srcs
-      transitive_d_libs += dep.transitive_d_libs
-      symlinked_libs += dep.transitive_d_libs
+      transitive_d_srcs += dep.transitive_d_srcs
+      transitive_libs += dep.transitive_libs
+      symlinked_libs += dep.transitive_libs
       link_flags += ["-L%s" % linkopt for linkopt in dep.linkopts]
       imports += ["%s/%s" % (dep.label.package, im) for im in dep.imports]
       versions += dep.versions
@@ -168,7 +170,7 @@ def _setup_deps(deps, name, working_dir):
       # The dependency is a cc_library
       native_libs = A_FILETYPE.filter(dep.cc.libs)
       libs += native_libs
-      transitive_d_libs += native_libs
+      transitive_libs += native_libs
       symlinked_libs += native_libs
       link_flags += ["-L-l%s" % dep.label.name]
 
@@ -181,8 +183,9 @@ def _setup_deps(deps, name, working_dir):
 
   return struct(
       libs = list(libs),
-      transitive_d_libs = list(transitive_d_libs),
+      transitive_libs = list(transitive_libs),
       d_srcs = list(d_srcs),
+      transitive_d_srcs = list(transitive_d_srcs),
       versions = versions,
       setup_cmd = setup_cmd,
       imports = list(imports),
@@ -207,8 +210,9 @@ def _d_library_impl(ctx):
   compile_inputs = (
       ctx.files.srcs +
       depinfo.d_srcs +
+      depinfo.transitive_d_srcs +
       depinfo.libs +
-      depinfo.transitive_d_libs +
+      depinfo.transitive_libs +
       [ctx.file._d_compiler] +
       ctx.files._d_stdlib +
       ctx.files._d_stdlib_src +
@@ -222,8 +226,9 @@ def _d_library_impl(ctx):
              progress_message = "Compiling D library " + ctx.label.name)
 
   return struct(files = set([d_lib]),
-                d_srcs = ctx.files.srcs + depinfo.d_srcs,
-                transitive_d_libs = depinfo.transitive_d_libs,
+                d_srcs = ctx.files.srcs,
+                transitive_d_srcs = depinfo.d_srcs,
+                transitive_libs = depinfo.transitive_libs,
                 link_flags = depinfo.link_flags,
                 versions = ctx.attr.versions,
                 imports = ctx.attr.imports,
@@ -250,7 +255,10 @@ def _d_binary_impl_common(ctx, extra_flags=[]):
       ctx.files._d_stdlib_src +
       ctx.files._d_runtime_import_src)
 
-  compile_inputs = ctx.files.srcs + depinfo.d_srcs + toolchain_files
+  compile_inputs = (ctx.files.srcs +
+                    depinfo.d_srcs +
+                    depinfo.transitive_d_srcs +
+                    toolchain_files)
   ctx.action(inputs = compile_inputs,
              outputs = [d_obj],
              mnemonic = "Dcompile",
@@ -268,7 +276,7 @@ def _d_binary_impl_common(ctx, extra_flags=[]):
   link_inputs = (
       [d_obj] +
       depinfo.libs +
-      depinfo.transitive_d_libs +
+      depinfo.transitive_libs +
       toolchain_files)
 
   ctx.action(inputs = link_inputs,
@@ -277,6 +285,10 @@ def _d_binary_impl_common(ctx, extra_flags=[]):
              command = link_cmd,
              use_default_shell_env = True,
              progress_message = "Linking D binary " + ctx.label.name)
+
+  return struct(d_srcs = ctx.files.srcs,
+                transitive_d_srcs = depinfo.d_srcs,
+                imports = ctx.attr.imports)
 
 def _d_binary_impl(ctx):
   """Implementation of the d_binary rule."""
@@ -289,7 +301,7 @@ def _d_test_impl(ctx):
 def _d_source_library_impl(ctx):
   """Implementation of the d_source_library rule."""
   transitive_d_srcs = set(order="compile")
-  transitive_d_libs = set()
+  transitive_libs = set()
   transitive_imports = set()
   transitive_linkopts = set()
   transitive_versions = set()
@@ -304,7 +316,7 @@ def _d_source_library_impl(ctx):
     elif hasattr(dep, "cc"):
       # Dependency is a cc_library target.
       native_libs = A_FILETYPE.filter(dep.cc.libs)
-      transitive_d_libs += native_libs
+      transitive_libs += native_libs
       transitive_linkopts += ["-l%s" % dep.label.name]
 
     else:
@@ -312,8 +324,9 @@ def _d_source_library_impl(ctx):
            "d_source_library or cc_library targets.", "deps")
 
   return struct(
-      d_srcs = ctx.files.srcs + list(transitive_d_srcs),
-      transitive_d_libs = transitive_d_libs,
+      d_srcs = ctx.files.srcs,
+      transitive_d_srcs = list(transitive_d_srcs),
+      transitive_libs = transitive_libs,
       imports = ctx.attr.imports + list(transitive_imports),
       linkopts = ctx.attr.linkopts + list(transitive_linkopts),
       versions = ctx.attr.versions + list(transitive_versions))
@@ -332,6 +345,11 @@ def _d_docs_impl(ctx):
   docs_dir = d_docs_zip.dirname + "/_d_docs"
   objs_dir = d_docs_zip.dirname + "/_d_objs"
 
+  target = struct(name = ctx.attr.dep.label.name,
+                  srcs = ctx.attr.dep.d_srcs,
+                  transitive_srcs = ctx.attr.dep.transitive_d_srcs,
+                  imports = ctx.attr.dep.imports)
+
   # Build D docs command
   toolchain = _d_toolchain(ctx)
   doc_cmd = (
@@ -346,48 +364,31 @@ def _d_docs_impl(ctx):
           "-od%s" % objs_dir,
           "-I.",
       ] +
-      ["-I%s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
+      ["-I%s/%s" % (ctx.label.package, im) for im in target.imports] +
       toolchain.import_flags +
-      [src.path for src in ctx.files.srcs])
-
-  # HTML documentation generated by the D compiler.
-  d_docs = [
-      ctx.new_file(ctx.configuration.bin_dir,
-                   "_d_docs/%s" % src.basename.replace(".d", ".html"))
-      for src in ctx.files.srcs]
-
-  # Object files created by the D compiler during documentation generation.
-  d_objs = [
-      ctx.new_file(ctx.configuration.bin_dir,
-                   "_d_objs/%s" % src.basename.replace(".d", ".o"))
-      for src in ctx.files.srcs]
+      [src.path for src in target.srcs] +
+      [
+          "&&",
+          "(cd %s &&" % docs_dir,
+          ZIP_PATH,
+          "-qR",
+          d_docs_zip.basename,
+          "$(find . -type f) ) &&",
+          "mv %s/%s %s" % (docs_dir, d_docs_zip.basename, d_docs_zip.path)
+      ])
 
   toolchain_files = (
       [ctx.file._d_compiler] +
       ctx.files._d_stdlib +
       ctx.files._d_stdlib_src +
       ctx.files._d_runtime_import_src)
-  ddoc_inputs = ctx.files.srcs + toolchain_files
+  ddoc_inputs = target.srcs + target.transitive_srcs + toolchain_files
   ctx.action(inputs = ddoc_inputs,
-             outputs = d_docs + d_objs,
+             outputs = [d_docs_zip],
              mnemonic = "Ddoc",
              command = " ".join(doc_cmd),
              use_default_shell_env = True,
              progress_message = "Generating D docs for " + ctx.label.name)
-
-  # Build zip command.
-  zip_cmd = [
-      ZIP_PATH,
-      "-qj",
-      d_docs_zip.path,
-  ] + [doc.path for doc in d_docs]
-
-  ctx.action(inputs = d_docs,
-             outputs = [d_docs_zip],
-             mnemonic = "Ddoczip",
-             command = " ".join(zip_cmd),
-             use_default_shell_env = True,
-             progress_message = "Creating D doc archive for " + ctx.label.name)
 
 _d_common_attrs = {
     "srcs": attr.label_list(allow_files = D_FILETYPE),
@@ -437,8 +438,7 @@ d_test = rule(
 )
 
 _d_docs_attrs = {
-    "srcs": attr.label_list(allow_files = D_FILETYPE),
-    "imports": attr.string_list(),
+    "dep": attr.label(mandatory = True),
 }
 
 d_docs = rule(

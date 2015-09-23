@@ -33,8 +33,10 @@ d_source_library(
 
 d_docs(
     name = "greeter_docs",
-    srcs = glob(
-        ["*.d"],
-        exclude = ["*_test.d"],
-    ),
+    dep = ":greeter",
+)
+
+d_docs(
+    name = "native_greeter_docs",
+    dep = ":native_greeter",
 )
