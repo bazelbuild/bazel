@@ -43,10 +43,4 @@ public interface LoadedPackageProvider {
    * target.
    */
   Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException;
-
-  /**
-   * Returns true iff the specified target is current, i.e. a request for its label using {@link
-   * #getLoadedTarget} would return the same target instance.
-   */
-  boolean isTargetCurrent(Target target);
 }

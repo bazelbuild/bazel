@@ -93,16 +93,6 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public boolean isTargetCurrent(Target target) {
-    Package pkg = target.getPackage();
-    try {
-      return getLoadedPackage(target.getLabel().getPackageIdentifier()) == pkg;
-    } catch (NoSuchPackageException e) {
-      return false;
-    }
-  }
-
-  @Override
   public void partiallyClear() {
     packageLoader.partiallyClear();
   }

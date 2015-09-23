@@ -65,11 +65,6 @@ class SkyframePackageLoaderWithValueEnvironment implements
   }
 
   @Override
-  public boolean isTargetCurrent(Target target) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public void addDependency(Package pkg, String fileName) throws LabelSyntaxException, IOException {
     RootedPath fileRootedPath = RootedPath.toRootedPath(pkg.getSourceRoot(),
         pkg.getNameFragment().getRelative(fileName));
