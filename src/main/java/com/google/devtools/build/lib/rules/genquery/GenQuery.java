@@ -478,7 +478,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     @Override
     public Target getTarget(EventHandler eventHandler, Label label)
-        throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+        throws NoSuchPackageException, NoSuchTargetException {
       Preconditions.checkState(targets.contains(label), label);
       Package pkg = Preconditions.checkNotNull(pkgMap.get(label.getPackageIdentifier()), label);
       Target target = Preconditions.checkNotNull(pkg.getTarget(label.getName()), label);

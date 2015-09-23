@@ -30,7 +30,7 @@ import com.google.devtools.build.skyframe.SkyKey;
  * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
  */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
-
+  @SuppressWarnings("unchecked")
   private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY = Predicates.or(
       SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT),
       SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
