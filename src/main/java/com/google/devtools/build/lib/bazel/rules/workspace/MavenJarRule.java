@@ -52,7 +52,7 @@ public class MavenJarRule implements RuleDefinition {
          ("central.maven.org").</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("repository", Type.STRING))
-        /* <!-- #BLAZE_RULE(maven_jar).attribute(server) -->
+        /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(server) -->
         A maven_server to use for this artifact.
          ${SYNOPSIS}
 
