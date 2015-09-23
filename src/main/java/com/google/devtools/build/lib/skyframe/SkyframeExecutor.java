@@ -212,7 +212,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private MutableSupplier<UUID> buildId = new MutableSupplier<>();
 
   protected boolean active = true;
-  private final PackageManager packageManager;
+  private final SkyframePackageManager packageManager;
 
   private final Preprocessor.Factory.Supplier preprocessorFactorySupplier;
   private Preprocessor.Factory preprocessorFactory;

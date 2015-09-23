@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -34,7 +33,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
   private static final Predicate<SkyKey> IS_CONFIGURED_TARGET_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET);
 
-  ConfiguredTargetCycleReporter(LoadedPackageProvider loadedPackageProvider) {
+  ConfiguredTargetCycleReporter(SkyframePackageManager loadedPackageProvider) {
     super(loadedPackageProvider);
   }
 

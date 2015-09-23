@@ -20,7 +20,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -35,7 +34,7 @@ class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
   private static final Predicate<SkyKey> IS_TRANSITIVE_TARGET_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET);
 
-  TransitiveTargetCycleReporter(LoadedPackageProvider loadedPackageProvider) {
+  TransitiveTargetCycleReporter(SkyframePackageManager loadedPackageProvider) {
     super(loadedPackageProvider);
   }
 
