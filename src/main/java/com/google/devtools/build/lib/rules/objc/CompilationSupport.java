@@ -778,6 +778,7 @@ public final class CompilationSupport {
         .addExecPaths(ccLibraries)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)
+        .add(objcProvider.get(ObjcProvider.LINKOPT))
         .build();
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
