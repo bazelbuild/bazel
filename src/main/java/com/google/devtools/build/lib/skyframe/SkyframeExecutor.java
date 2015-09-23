@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -1530,32 +1532,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /** Same as {@link PackageManager#partiallyClear}. */
     void partiallyClear() {
       packageFunctionCache.invalidateAll();
-    }
-  }
-
-  /**
-   * Calls the given callable uninterruptibly.
-   *
-   * <p>If the callable throws {@link InterruptedException}, calls it again, until the callable
-   * returns a result. Sets the {@code currentThread().interrupted()} bit if the callable threw
-   * {@link InterruptedException} at least once.
-   *
-   * <p>This is almost identical to {@code Uninterruptibles#getUninterruptibly}.
-   */
-  protected static final <T> T callUninterruptibly(Callable<T> callable) throws Exception {
-    boolean interrupted = false;
-    try {
-      while (true) {
-        try {
-          return callable.call();
-        } catch (InterruptedException e) {
-          interrupted = true;
-        }
-      }
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
     }
   }
 
