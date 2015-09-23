@@ -76,10 +76,13 @@ public class HttpArchiveRule implements RuleDefinition {
 
 ${ATTRIBUTE_SIGNATURE}
 
-<p>Downloads a Bazel repository as a compressed archive file, decompresses it, and makes its
-  targets available for binding.</p>
+<p>Downloads a Bazel repository as a compressed archive file,
+  decompresses it, and makes its targets available for binding. The
+  repository should already contain a BUILD file. If it does not, use
+  <a href="#new_http_archive">new_http_archive</a> instead.</p>
 
-<p>Only Zip-formatted archives with the .zip extension are supported.</p>
+<p>It supports Zip-formatted archives (with the .zip extension) and
+tarballs (.tar.gz and .tgz extensions).</p>
 
 ${ATTRIBUTE_DEFINITION}
 

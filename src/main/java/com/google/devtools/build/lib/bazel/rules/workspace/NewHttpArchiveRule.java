@@ -106,7 +106,8 @@ ${ATTRIBUTE_SIGNATURE}
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
 combining the archive with the provided BUILD file.</p>
 
-<p>Only Zip-formatted archives with the .zip extension are supported.</p>
+<p>It supports Zip-formatted archives (with the .zip extension) and
+tarballs (.tar.gz and .tgz extensions).</p>
 
 ${ATTRIBUTE_DEFINITION}
 
