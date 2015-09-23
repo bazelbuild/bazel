@@ -62,8 +62,8 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
-import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -212,7 +212,7 @@ public class BuildView {
   private final SkyframeBuildView skyframeBuildView;
 
   // Same as skyframeExecutor.getPackageManager().
-  private final PackageManager packageManager;
+  private final LoadedPackageProvider packageManager;
 
   private final BinTools binTools;
 
