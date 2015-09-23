@@ -118,14 +118,17 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     filesBuilder.add(classJar);
 
-    // The gensrc jar is created only if the target uses annotation processing.
-    // Otherwise, it is null, and the source jar action will not depend on the compile action.
-    Artifact genSourceJar = helper.createGensrcJar(classJar);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
-    Artifact genClassJar = ruleContext.getImplicitOutputArtifact(
-        JavaSemantics.JAVA_LIBRARY_GEN_JAR);
-    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
+    // The gensrc jar is created only if the target uses annotation processing.
+    // Otherwise, it is null, and the source jar action will not depend on the compile action.
+    Artifact genSourceJar = null;
+    Artifact genClassJar = null;
+    if (helper.usesAnnotationProcessing()) {
+      genClassJar = helper.createGenJar(classJar);
+      genSourceJar = helper.createGensrcJar(classJar);
+      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
+    }
 
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
 

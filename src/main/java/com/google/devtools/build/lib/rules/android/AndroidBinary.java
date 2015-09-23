@@ -257,8 +257,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         resourceApk,
         AndroidIdlProvider.EMPTY,
         ruleContext.getConfiguration().isCodeCoverageEnabled(),
-        true /* collectJavaCompilationArgs */,
-        AndroidRuleClasses.ANDROID_BINARY_GEN_JAR);
+        true /* collectJavaCompilationArgs */);
     if (resourceClasses == null) {
       return null;
     }
