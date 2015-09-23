@@ -180,8 +180,8 @@ docker_build(
 <a name="docker_build"></a>
 ### `docker_build`
 
-`docker_build(name, base, data_path, directory, files, tars, debs,
-symlinks, entrypoint, cmd, env, ports, volumes)`
+`docker_build(name, base, data_path, directory, files, mode, tars,
+debs, symlinks, entrypoint, cmd, env, ports, volumes)`
 
 <table>
   <thead>
@@ -243,6 +243,15 @@ symlinks, entrypoint, cmd, env, ports, volumes)`
         <p>File to add to the layer.</p>
         <p>
           A list of files that should be included in the docker image.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>mode</code></td>
+      <td>
+        <code>String, default to 0555</code>
+        <p>
+          Set the mode of files added by the <code>files</code> attribute.
         </p>
       </td>
     </tr>

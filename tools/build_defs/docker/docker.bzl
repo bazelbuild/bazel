@@ -91,7 +91,8 @@ def _build_layer(ctx):
   build_layer = ctx.executable._build_layer
   args = [
       "--output=" + layer.path,
-      "--directory=" + ctx.attr.directory
+      "--directory=" + ctx.attr.directory,
+      "--mode=" + ctx.attr.mode,
       ]
   args += ["--file=%s=%s" % (f.path, _dest_path(f, data_path))
            for f in ctx.files.files]
@@ -240,6 +241,7 @@ docker_build_ = rule(
         "tars": attr.label_list(allow_files=tar_filetype),
         "debs": attr.label_list(allow_files=deb_filetype),
         "files": attr.label_list(allow_files=True),
+        "mode": attr.string(default="0555"),
         "symlinks": attr.string_dict(),
         "entrypoint": attr.string_list(),
         "cmd": attr.string_list(),

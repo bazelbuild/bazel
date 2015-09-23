@@ -31,6 +31,10 @@ gflags.DEFINE_multistring(
     'file', [],
     'A file to add to the layer')
 
+gflags.DEFINE_string(
+    'mode', None,
+    'Force the mode on the added files (in octal).')
+
 gflags.DEFINE_multistring(
     'tar', [],
     'A tar file to add to the layer')
@@ -71,13 +75,14 @@ class DockerLayer(object):
   def __exit__(self, t, v, traceback):
     self.tarfile.close()
 
-  def add_file(self, f, destfile):
+  def add_file(self, f, destfile, mode=None):
     """Add a file to the layer.
 
     Args:
        f: the file to add to the layer
        destfile: the name of the file in the layer
-
+       mode: force to set the specified mode, by
+          default the value from the source is taken.
     `f` will be copied to `self.directory/destfile` in the layer.
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
@@ -85,7 +90,10 @@ class DockerLayer(object):
     # options, not just files...
     if self.directory and self.directory != '/':
       dest = self.directory.lstrip('/') + '/' + dest
-    self.tarfile.add_file(dest, file_content=f)
+    # If mode is unspecified, derive the mode from the file's mode.
+    if mode is None:
+      mode = 0755 if os.access(f, os.X_OK) else 0644
+    self.tarfile.add_file(dest, file_content=f, mode=mode)
 
   def add_tar(self, tar):
     """Add a tar file to the layer.
@@ -138,10 +146,14 @@ class DockerLayer(object):
 
 
 def main(unused_argv):
+  force_mode = None
+  if FLAGS.mode:
+    # Convert from octal
+    force_mode = int(FLAGS.mode, 8)
   with DockerLayer(FLAGS.output, FLAGS.directory) as layer:
     for f in FLAGS.file:
       (inf, tof) = f.split('=', 1)
-      layer.add_file(inf, tof)
+      layer.add_file(inf, tof, force_mode)
     for tar in FLAGS.tar:
       layer.add_tar(tar)
     for deb in FLAGS.deb:

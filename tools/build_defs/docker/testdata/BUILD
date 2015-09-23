@@ -27,28 +27,33 @@ genrule(
 docker_build(
     name = "no_data_path_image",
     files = ["//tools/build_defs/docker/testdata/test:test-data"],
+    mode = "0644",
 )
 
 docker_build(
     name = "data_path_image",
     data_path = ".",
     files = ["//tools/build_defs/docker/testdata/test:test-data"],
+    mode = "0644",
 )
 
 docker_build(
     name = "gen_image",
     files = [":gen"],
+    mode = "0644",
 )
 
 docker_build(
     name = "files_base",
     files = ["foo"],
+    mode = "0644",
 )
 
 docker_build(
     name = "files_with_files_base",
     base = ":files_base",
     files = ["bar"],
+    mode = "0644",
 )
 
 docker_build(
@@ -66,6 +71,7 @@ docker_build(
     name = "files_with_tar_base",
     base = ":tar_base",
     files = ["bar"],
+    mode = "0644",
 )
 
 docker_build(
@@ -79,6 +85,7 @@ docker_build(
     name = "base_with_entrypoint",
     entrypoint = ["/bar"],
     files = ["bar"],
+    mode = "0644",
     ports = ["8080"],
     tars = ["two.tar"],
 )
@@ -89,6 +96,7 @@ docker_build(
     base = ":base_with_entrypoint",
     cmd = ["shadowed-arg"],
     files = ["foo"],
+    mode = "0644",
 )
 
 docker_build(
@@ -108,6 +116,7 @@ docker_build(
         "bar",
         "foo",
     ],
+    mode = "0644",
     volumes = ["/logs"],
 )
 
@@ -190,6 +199,7 @@ docker_build(
     name = "notop_files_with_files_base",
     base = ":notop_files_base",
     files = ["bar"],
+    mode = "0644",
 )
 
 docker_build(
@@ -202,6 +212,7 @@ docker_build(
     name = "notop_files_with_tar_base",
     base = ":notop_tar_base",
     files = ["bar"],
+    mode = "0644",
 )
 
 docker_build(
@@ -215,6 +226,7 @@ docker_build(
     base = ":notop_base_with_entrypoint",
     cmd = ["shadowed-arg"],
     files = ["foo"],
+    mode = "0644",
 )
 
 docker_build(
