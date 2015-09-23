@@ -100,8 +100,8 @@ public class AndroidCommon {
   private JackCompilationHelper jackCompilationHelper;
   private Artifact classJar;
   private Artifact srcJar;
-  private Artifact genJar;
-  private Artifact gensrcJar;
+  private Artifact genClassJar;
+  private Artifact genSourceJar;
 
   private Collection<Artifact> idls;
   private AndroidIdlProvider transitiveIdlImportData;
@@ -324,7 +324,7 @@ public class AndroidCommon {
       javacHelper.createCompileActionWithInstrumentation(
           binaryResourcesJar,
           null /* manifestProtoOutput */,
-          null /* gensrcJar */,
+          null /* genSourceJar */,
           outputDepsProto,
           javaArtifactsBuilder);
   }
@@ -548,22 +548,22 @@ public class AndroidCommon {
 
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
-    gensrcJar = helper.createGensrcJar(classJar);
+    genSourceJar = helper.createGensrcJar(classJar);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     // AndroidBinary will pass its -gen.jar output, and AndroidLibrary will pass its own.
-    genJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
-    helper.createGenJarAction(classJar, manifestProtoOutput, genJar);
+    genClassJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
 
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
-    helper.createSourceJarAction(srcJar, gensrcJar);
+    helper.createSourceJarAction(srcJar, genSourceJar);
 
     NestedSetBuilder<Artifact> compileTimeDependenciesBuilder = NestedSetBuilder.stableOrder();
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
     if (outputDepsProto != null) {
       compileTimeDependenciesBuilder.add(outputDepsProto);
     }
-    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, gensrcJar,
+    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
         outputDepsProto, javaArtifactsBuilder);
 
     compileTimeDependencyArtifacts = compileTimeDependenciesBuilder.build();
@@ -613,9 +613,10 @@ public class AndroidCommon {
         .build();
 
     javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar);
+    javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
     builder.add(
         JavaRuleOutputJarsProvider.class,
-        new JavaRuleOutputJarsProvider(classJar, srcJar, genJar, gensrcJar));
+        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, genSourceJar));
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -645,8 +646,7 @@ public class AndroidCommon {
                 : jackCompilationHelper.compileAsLibrary())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
-        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
-        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJar);
+        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {
@@ -854,12 +854,12 @@ public class AndroidCommon {
     return javaCommon.getJavacOpts();
   }
 
-  public Artifact getGenJar() {
-    return genJar;
+  public Artifact getGenClassJar() {
+    return genClassJar;
   }
 
-  @Nullable public Artifact getGensrcJar() {
-    return gensrcJar;
+  @Nullable public Artifact getGenSourceJar() {
+    return genSourceJar;
   }
 
   public ImmutableList<Artifact> getRuntimeJars() {

@@ -120,7 +120,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     // The gensrc jar is created only if the target uses annotation processing.
     // Otherwise, it is null, and the source jar action will not depend on the compile action.
-    Artifact gensrcJar = helper.createGensrcJar(classJar);
+    Artifact genSourceJar = helper.createGensrcJar(classJar);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     Artifact genClassJar = ruleContext.getImplicitOutputArtifact(
@@ -129,9 +129,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
 
-    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, gensrcJar,
+    helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
         outputDepsProto, javaArtifactsBuilder);
-    helper.createSourceJarAction(srcJar, gensrcJar);
+    helper.createSourceJarAction(srcJar, genSourceJar);
 
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
       helper.createCompileTimeJarAction(jar, outputDepsProto,
@@ -213,15 +213,17 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext);
 
     semantics.addProviders(
-        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, genClassJar, gensrcJar,
-        ImmutableMap.<Artifact, Artifact>of(), helper, filesBuilder, builder);
+        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, 
+        genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(), 
+        helper, filesBuilder, builder);
 
     builder.add(
         JavaRuleOutputJarsProvider.class,
-        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, gensrcJar));
+        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, genSourceJar));
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
+    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
     builder
         .add(JavaRuntimeJarProvider.class,
@@ -244,8 +246,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(
             exportedProcessorClasses, exportedProcessorClasspath))
-        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
-        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genClassJar);
+        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
 
     if (ruleContext.hasErrors()) {
       return null;

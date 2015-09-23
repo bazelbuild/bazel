@@ -212,7 +212,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
   /**
    * Returns whether this target uses annotation processing.
    */
-  private boolean usesAnnotationProcessing() {
+  public boolean usesAnnotationProcessing() {
     JavaTargetAttributes attributes = getAttributes();
     return getJavacOpts().contains("-processor") || !attributes.getProcessorNames().isEmpty();
   }
