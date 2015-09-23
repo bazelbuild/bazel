@@ -100,6 +100,7 @@ class TarFileWriter(object):
 
   def __init__(self, name):
     self.tar = tarfile.open(name=name, mode='w')
+    self.members = set([])
 
   def __enter__(self):
     return self
@@ -150,6 +151,15 @@ class TarFileWriter(object):
       self.add_file(name, tarfile.REGTYPE, file_content=path, uid=uid, gid=gid,
                     uname=uname, gname=gname, mtime=mtime, mode=mode)
 
+  def _addfile(self, info, fileobj=None):
+    """Add a file in the tar file if there is no conflict."""
+    if info.name not in self.members:
+      self.tar.addfile(info, fileobj)
+      self.members.add(info.name)
+    elif info.type != tarfile.DIRTYPE:
+      print('Duplicate file in archive: %s, '
+            'picking first occurrence' % info.name)
+
   def add_file(self, name, kind=tarfile.REGTYPE, content=None, link=None,
                file_content=None, uid=0, gid=0, uname='', gname='', mtime=0,
                mode=None):
@@ -194,9 +204,9 @@ class TarFileWriter(object):
     elif file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
-        self.tar.addfile(tarinfo, f)
+        self._addfile(tarinfo, f)
     else:
-      self.tar.addfile(tarinfo)
+      self._addfile(tarinfo)
 
   def add_tar(self, tar, rootuid=None, rootgid=None,
               numeric=False, name_filter=None):
@@ -250,9 +260,9 @@ class TarFileWriter(object):
           tarinfo.name = './' + name
 
         if tarinfo.isfile():
-          self.tar.addfile(tarinfo, intar.extractfile(tarinfo.name))
+          self._addfile(tarinfo, intar.extractfile(tarinfo.name))
         else:
-          self.tar.addfile(tarinfo)
+          self._addfile(tarinfo)
     intar.close()
 
   def close(self):
