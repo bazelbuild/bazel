@@ -167,6 +167,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
+  private PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
 
@@ -191,10 +192,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
+    pkgFactory = new PackageFactory(ruleClassProvider, getEnvironmentExtensions());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             reporter,
-            new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
+            pkgFactory,
             new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
             binTools,
@@ -229,6 +231,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Creates or retrieves the rule class provider used in this test. */
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     return TestRuleClassProvider.getRuleClassProvider();
+  }
+
+  protected PackageFactory getPackageFactory() {
+    return pkgFactory;
   }
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {

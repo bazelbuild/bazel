@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -220,16 +221,18 @@ public class FileFunction implements SkyFunction {
       FileSymlinkException fse;
       if (symlinkTargetPath.equals(existingFloorPath)) {
         Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
-            splitIntoPathAndChain(symlinkTargetRootedPath.asPath(), symlinkChain);
+            CycleUtils.splitIntoPathAndChain(
+                isPathPredicate(symlinkTargetRootedPath.asPath()), symlinkChain);
         FileSymlinkCycleException fsce =
             new FileSymlinkCycleException(pathAndChain.getFirst(), pathAndChain.getSecond());
         uniquenessKey = FileSymlinkCycleUniquenessValue.key(fsce.getCycle());
         fse = fsce;
       } else {
         Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
-            splitIntoPathAndChain(existingFloorPath,
-                ImmutableList.copyOf(Iterables.concat(symlinkChain,
-                    ImmutableList.of(symlinkTargetRootedPath))));
+            CycleUtils.splitIntoPathAndChain(
+                isPathPredicate(existingFloorPath),
+                ImmutableList.copyOf(
+                    Iterables.concat(symlinkChain, ImmutableList.of(symlinkTargetRootedPath))));
         uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
         fse = new FileSymlinkInfiniteExpansionException(
             pathAndChain.getFirst(), pathAndChain.getSecond());
@@ -244,22 +247,13 @@ public class FileFunction implements SkyFunction {
     return resolveFromAncestors(symlinkTargetRootedPath, env);
   }
 
-  private Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> splitIntoPathAndChain(
-      Path startOfCycle, Iterable<RootedPath> symlinkRootedPaths) {
-    boolean inPathToCycle = true;
-    ImmutableList.Builder<RootedPath> pathToCycleBuilder = ImmutableList.builder();
-    ImmutableList.Builder<RootedPath> cycleBuilder = ImmutableList.builder();
-    for (RootedPath rootedPath : symlinkRootedPaths) {
-      if (rootedPath.asPath().equals(startOfCycle)) {
-        inPathToCycle = false;
+  private static final Predicate<RootedPath> isPathPredicate(final Path path) {
+    return new Predicate<RootedPath>() {
+      @Override
+      public boolean apply(RootedPath rootedPath) {
+        return rootedPath.asPath().equals(path);
       }
-      if (inPathToCycle) {
-        pathToCycleBuilder.add(rootedPath);
-      } else {
-        cycleBuilder.add(rootedPath);
-      }
-    }
-    return Pair.of(pathToCycleBuilder.build(), cycleBuilder.build());
+    };
   }
 
   @Nullable

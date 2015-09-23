@@ -13,15 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** A {@link SkyFunction} that has the side effect of reporting a file symlink expansion error. */
 public class FileSymlinkInfiniteExpansionUniquenessFunction
-    extends AbstractFileSymlinkExceptionUniquenessFunction {
+    extends AbstractChainUniquenessFunction<RootedPath> {
   @Override
   protected SkyValue getDummyValue() {
     return FileSymlinkInfiniteExpansionUniquenessValue.INSTANCE;
+  }
+
+  @Override
+  protected String elementToString(RootedPath elt) {
+    return elt.asPath().toString();
   }
 
   @Override

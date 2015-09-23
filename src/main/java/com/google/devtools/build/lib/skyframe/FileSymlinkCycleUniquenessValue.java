@@ -20,16 +20,15 @@ import com.google.devtools.build.skyframe.SkyKey;
 /**
  * A value for ensuring that a file symlink cycle is reported exactly once. This is achieved by
  * forcing the same value key for two logically equivalent cycles (e.g. ['a' -> 'b' -> 'c' -> 'a']
- * and ['b' -> 'c' -> 'a' -> 'b']), and letting Skyframe do its magic. 
+ * and ['b' -> 'c' -> 'a' -> 'b']), and letting Skyframe do its magic.
  */
-class FileSymlinkCycleUniquenessValue extends AbstractFileSymlinkExceptionUniquenessValue {
+class FileSymlinkCycleUniquenessValue extends AbstractChainUniquenessValue {
   static final FileSymlinkCycleUniquenessValue INSTANCE = new FileSymlinkCycleUniquenessValue();
 
   private FileSymlinkCycleUniquenessValue() {
   }
 
   static SkyKey key(ImmutableList<RootedPath> cycle) {
-    return AbstractFileSymlinkExceptionUniquenessValue.key(
-        SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, cycle);
+    return AbstractChainUniquenessValue.key(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, cycle);
   }
 }

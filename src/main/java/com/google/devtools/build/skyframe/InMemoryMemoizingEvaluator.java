@@ -310,6 +310,10 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     }
   }
 
+  public ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction>
+      getSkyFunctionsForTesting() {
+    return skyFunctions;
+  }
   public static final Predicate<Event> DEFAULT_STORED_EVENT_FILTER = new Predicate<Event>() {
     @Override
     public boolean apply(Event event) {

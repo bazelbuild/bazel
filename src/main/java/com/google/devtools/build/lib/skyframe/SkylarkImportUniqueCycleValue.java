@@ -14,26 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A value for ensuring that a file symlink expansion error is reported exactly once. This is
- * achieved by forcing the same value key for two logically equivalent expansion errors (e.g.
- * ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b' -> 'c' -> 'a' -> 'a/nope']), and letting Skyframe do
- * its magic.
+ * If {@link SkylarkImportLookupFunction} is inlined, this is used to emit cycle errors exactly
+ * once.
  */
-class FileSymlinkInfiniteExpansionUniquenessValue implements SkyValue {
-  static final FileSymlinkInfiniteExpansionUniquenessValue INSTANCE =
-      new FileSymlinkInfiniteExpansionUniquenessValue();
-
-  private FileSymlinkInfiniteExpansionUniquenessValue() {
-  }
-
-  static SkyKey key(ImmutableList<RootedPath> cycle) {
-    return AbstractChainUniquenessValue.key(
-        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS, cycle);
+public class SkylarkImportUniqueCycleValue implements SkyValue {
+  static SkyKey key(ImmutableList<SkyKey> cycle) {
+    return AbstractChainUniquenessValue.key(SkyFunctions.SKYLARK_IMPORT_CYCLE, cycle);
   }
 }
-

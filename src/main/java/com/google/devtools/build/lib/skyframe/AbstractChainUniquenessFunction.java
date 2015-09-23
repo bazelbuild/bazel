@@ -15,16 +15,29 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-abstract class AbstractFileSymlinkExceptionUniquenessFunction implements SkyFunction {
+/**
+ * Given a "cycle" of objects of type {@param S}, emits an error message for this cycle.
+ * The keys for this SkyFunction are assumed to deduplicate cycles that differ only in which element
+ * of the cycle they start at, so multiple paths to the cycle will be reported by a single execution
+ * of this function.
+ *
+ * <p>The cycle need not actually be a cycle -- any iterable exhibiting an error that is independent
+ * of the iterable's starting point can be an argument to this function.
+ */
+abstract class AbstractChainUniquenessFunction<S> implements SkyFunction {
   protected abstract String getConciseDescription();
+
   protected abstract String getHeaderMessage();
+
   protected abstract String getFooterMessage();
+
   protected abstract SkyValue getDummyValue();
+
+  protected abstract String elementToString(S elt);
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) {
@@ -32,13 +45,13 @@ abstract class AbstractFileSymlinkExceptionUniquenessFunction implements SkyFunc
     errorMessage.append(getConciseDescription() + " detected\n");
     errorMessage.append(getHeaderMessage() + "\n");
     @SuppressWarnings("unchecked")
-    ImmutableList<RootedPath> chain = (ImmutableList<RootedPath>) skyKey.argument();
-    for (RootedPath rootedPath : chain) {
-      errorMessage.append(rootedPath.asPath() + "\n");
+    ImmutableList<S> chain = (ImmutableList<S>) skyKey.argument();
+    for (S elt : chain) {
+      errorMessage.append(elementToString(elt) + "\n");
     }
     errorMessage.append(getFooterMessage() + "\n");
     // The purpose of this SkyFunction is the side effect of emitting an error message exactly
-    // once per build per unique symlink error.
+    // once per build per unique error.
     env.getListener().handle(Event.error(errorMessage.toString()));
     return getDummyValue();
   }

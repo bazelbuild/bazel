@@ -15,23 +15,22 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A value for ensuring that a file symlink error is reported exactly once. This is achieved by
- * forcing the same value key for two logically equivalent errors and letting Skyframe do its
+ * A value for ensuring that an error for a cycle/chain is reported exactly once. This is achieved
+ * by forcing the same value key for two logically equivalent errors and letting Skyframe do its
  * magic.
  */
-class AbstractFileSymlinkExceptionUniquenessValue implements SkyValue {
-  protected static SkyKey key(SkyFunctionName functionName, ImmutableList<RootedPath> chain) {
+class AbstractChainUniquenessValue implements SkyValue {
+  protected static SkyKey key(SkyFunctionName functionName, ImmutableList<? extends Object> chain) {
     Preconditions.checkState(!chain.isEmpty());
     return new SkyKey(functionName, canonicalize(chain));
   }
 
-  private static ImmutableList<RootedPath> canonicalize(ImmutableList<RootedPath> cycle) {
+  private static ImmutableList<Object> canonicalize(ImmutableList<? extends Object> cycle) {
     int minPos = 0;
     String minString = cycle.get(0).toString();
     for (int i = 1; i < cycle.size(); i++) {
@@ -41,7 +40,7 @@ class AbstractFileSymlinkExceptionUniquenessValue implements SkyValue {
         minString = candidateString;
       }
     }
-    ImmutableList.Builder<RootedPath> builder = ImmutableList.builder();
+    ImmutableList.Builder<Object> builder = ImmutableList.builder();
     for (int i = 0; i < cycle.size(); i++) {
       int pos = (minPos + i) % cycle.size();
       builder.add(cycle.get(pos));

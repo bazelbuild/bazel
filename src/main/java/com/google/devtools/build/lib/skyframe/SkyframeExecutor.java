@@ -79,8 +79,10 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.Preprocessor.Result;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -325,8 +327,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgLocator, ruleClassProvider));
-    map.put(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupFunction(
-        ruleClassProvider, pkgFactory));
+    map.put(
+        SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
+        newSkylarkImportLookupFunction(ruleClassProvider, pkgFactory));
+    map.put(SkyFunctions.SKYLARK_IMPORT_CYCLE, new SkylarkImportUniqueCycleFunction());
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
@@ -334,9 +338,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryFunction());
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction());
-    map.put(SkyFunctions.PACKAGE, new PackageFunction(
-        reporter, pkgFactory, packageManager, showLoadingProgress, packageFunctionCache,
-        preprocessCache, numPackagesLoaded));
+    map.put(
+        SkyFunctions.PACKAGE,
+        newPackageFunction(
+            reporter,
+            pkgFactory,
+            packageManager,
+            showLoadingProgress,
+            packageFunctionCache,
+            preprocessCache,
+            numPackagesLoaded,
+            ruleClassProvider));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
@@ -376,6 +388,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newGlobFunction() {
     return new GlobFunction(/*alwaysUseDirListing=*/false);
+  }
+
+  protected PackageFunction newPackageFunction(
+      Reporter reporter,
+      PackageFactory pkgFactory,
+      PackageManager packageManager,
+      AtomicBoolean showLoadingProgress,
+      Cache<PackageIdentifier, LegacyBuilder> packageFunctionCache,
+      Cache<PackageIdentifier, Result> preprocessCache,
+      AtomicInteger numPackagesLoaded,
+      RuleClassProvider ruleClassProvider) {
+    return new PackageFunction(
+        reporter,
+        pkgFactory,
+        packageManager,
+        showLoadingProgress,
+        packageFunctionCache,
+        preprocessCache,
+        numPackagesLoaded,
+        null);
+  }
+
+  protected SkyFunction newSkylarkImportLookupFunction(
+      RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
+    return new SkylarkImportLookupFunction(ruleClassProvider, this.pkgFactory);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache() {

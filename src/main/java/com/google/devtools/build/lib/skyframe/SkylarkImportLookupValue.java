@@ -71,6 +71,12 @@ public class SkylarkImportLookupValue implements SkyValue {
     return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
   }
 
+  /**
+   * Returns a SkyKey to get a SkylarkImportLookupValue. Note that SkylarkImportLookupValue
+   * computations may be inlined to avoid having them in the graph. Callers should confirm whether
+   * inlining is desired and either do the computation directly themselves (if inlined) or request
+   * this key's value from the environment (if not).
+   */
   static SkyKey key(RepositoryName repo, PathFragment fromFile, PathFragment fileToImport)
       throws ASTLookupInputException {
     PathFragment computedPath;
