@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.Reso
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -193,13 +192,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
       .add(JavaNeverlinkInfoProvider.class,
           new JavaNeverlinkInfoProvider(androidCommon.isNeverLink()))
-      // TODO(ahumesky): The gensrcJar is passed in for the srcJar -- is this a mistake?
-      .add(JavaRuleOutputJarsProvider.class,
-          new JavaRuleOutputJarsProvider(
-              classesJar,
-              androidCommon.getGenSourceJar(),
-              androidCommon.getGenClassJar(),
-              androidCommon.getGenSourceJar()))
       .add(JavaSourceInfoProvider.class,
            JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
       .add(JavaSourceJarsProvider.class, androidCommon.getJavaSourceJarsProvider())

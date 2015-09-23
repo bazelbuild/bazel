@@ -27,15 +27,11 @@ import javax.annotation.Nullable;
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
   @Nullable private final Artifact classJar;
   private final Artifact srcJar;
-  private final Artifact genClassJar;
-  private final Artifact gensrcJar;
 
   public JavaRuleOutputJarsProvider(
-      Artifact classJar, Artifact srcJar, Artifact genClassJar, Artifact gensrcJar) {
+      Artifact classJar, Artifact srcJar) {
     this.classJar = classJar;
     this.srcJar = srcJar;
-    this.genClassJar = genClassJar;
-    this.gensrcJar = gensrcJar;
   }
 
   @Nullable
@@ -45,13 +41,5 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
 
   public Artifact getSrcJar() {
     return srcJar;
-  }
-
-  public Artifact getGenClassJar() {
-    return genClassJar;
-  }
-
-  public Artifact getGensrcJar() {
-    return gensrcJar;
   }
 }

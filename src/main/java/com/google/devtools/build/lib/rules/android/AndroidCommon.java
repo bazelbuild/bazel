@@ -611,12 +611,10 @@ public class AndroidCommon {
 
     javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar);
     javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
-    builder.add(
-        JavaRuleOutputJarsProvider.class,
-        new JavaRuleOutputJarsProvider(classJar, srcJar, genClassJar, genSourceJar));
 
     return builder
         .setFilesToBuild(filesToBuild)
+        .add(JavaRuleOutputJarsProvider.class, new JavaRuleOutputJarsProvider(classJar, srcJar))
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))

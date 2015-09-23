@@ -439,7 +439,8 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_LIBRARY);
     assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
-        .containsExactly("<jar:com/google/example/libl.jar>");
+        .containsExactly(
+            "<jar:com/google/example/libl.jar><source:com/google/example/libl-src.jar>");
     assertThat(
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
