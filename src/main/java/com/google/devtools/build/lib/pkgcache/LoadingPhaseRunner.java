@@ -537,9 +537,8 @@ public class LoadingPhaseRunner {
     }
   }
 
-  private Collection<Target> getTargetsForLabels(Collection<Label> labels) {
+  private Set<Target> getTargetsForLabels(Collection<Label> labels) {
     Set<Target> result = new HashSet<>();
-
     for (Label label : labels) {
       try {
         result.add(packageManager.getLoadedTarget(label));
@@ -547,7 +546,6 @@ public class LoadingPhaseRunner {
         throw new IllegalStateException(e);  // The target should have been loaded
       }
     }
-
     return result;
   }
 
@@ -573,7 +571,7 @@ public class LoadingPhaseRunner {
     }
 
     return ImmutableSet.copyOf(Sets.difference(ImmutableSet.copyOf(targetsToLoad),
-        ImmutableSet.copyOf(getTargetsForLabels(rootCauses.keySet()))));
+        getTargetsForLabels(rootCauses.keySet())));
   }
 
   /**
