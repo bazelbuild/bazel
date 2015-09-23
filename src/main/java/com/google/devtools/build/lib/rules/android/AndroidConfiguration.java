@@ -165,10 +165,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // TODO(cushon): enable by default, then delete the flag
     @Option(
       name = "treat_srcjars_as_srcs_for_strict_deps",
-      defaultValue = "false",
-      category = "semantics",
-      help = "Causes deps of android_library rules with .srcjars (but no Java srcs)"
-          + " to be promoted to exports."
+      defaultValue = "true",
+      category = "undocumented",
+      help = "No-op. Kept here for backwards compatibility."
     )
     public boolean treatSrcjarsAsSrcsForStrictDeps;
 
@@ -259,7 +258,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final Label proguard;
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
-  private final boolean treatSrcjarsAsSrcsForStrictDeps;
 
   AndroidConfiguration(Options options) {
     this.sdk = options.realSdk();
@@ -272,7 +270,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.proguard = options.proguard;
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
-    this.treatSrcjarsAsSrcsForStrictDeps = options.treatSrcjarsAsSrcsForStrictDeps;
   }
 
   public String getCpu() {
@@ -308,14 +305,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean isJackSanityChecked() {
     return jackSanityChecks;
-  }
-
-  /**
-   * Returns true if srcjars should be treated as sources when deciding to promote
-   * deps to exports for Strict Java Deps.
-   */
-  public boolean treatSrcjarsAsSrcsForStrictDeps() {
-    return treatSrcjarsAsSrcsForStrictDeps;
   }
 
   public boolean useIncrementalNativeLibs() {
