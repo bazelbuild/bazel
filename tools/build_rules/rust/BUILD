@@ -33,6 +33,14 @@ filegroup(
 )
 
 filegroup(
+    name = "rustdoc",
+    srcs = select({
+        ":darwin": ["@rust-darwin-x86_64//:rustdoc"],
+        ":k8": ["@rust-linux-x86_64//:rustdoc"],
+    }),
+)
+
+filegroup(
     name = "rustlib",
     srcs = select({
         ":darwin": ["@rust-darwin-x86_64//:rustlib"],

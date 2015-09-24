@@ -10,6 +10,7 @@ These build rules are used for building [Rust][rust] projects with Bazel.
   * [`rust_library`](#reference-rust_library)
   * [`rust_binary`](#reference-rust_binary)
   * [`rust_test`](#reference-rust_test)
+  * [`rust_docs`](#reference-rust_docs)
 * [Roadmap](#roadmap)
 
 [rust]: http://www.rust-lang.org/
@@ -320,7 +321,9 @@ Hello world
 <a name="reference-rust_test"></a>
 ### `rust_test`
 
-`rust_test(name, srcs, deps, data, crate_features, rustc_flags)`
+```python
+rust_test(name, srcs, deps, data, crate_features, rustc_flags)
+```
 
 <table>
   <thead>
@@ -402,18 +405,82 @@ Hello world
   </tbody>
 </table>
 
+<a name="reference-rust_docs"></a>
+### `rust_docs`
+
+```python
+rust_docs(name, dep, markdown_css, html_in_header, html_before_content, html_after_content)
+```
+
+<table>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        <code>Name, required</code>
+        <p>A unique name for this rule.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>dep</code></td>
+      <td>
+        <code>Label, required</code>
+        <p>The label of the target to generate code documentation for.</p>
+        <p>
+          <code>rust_docs</code> can generate HTML code documentation for the
+          source files of <code>rust_library</code> or <code>rust_binary</code>
+          targets.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>markdown_css</code></td>
+      <td>
+        <code>List of Labels, optional</code>
+        <p>
+          CSS files to include via <code>&lt;link&gt;</code> in a rendered
+          Markdown file.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>html_in_header</code></td>
+      <td>
+        <code>Label, optional</code>
+        <p>File to add to <code>&lt;head&gt;</code>.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>html_before_content</code></td>
+      <td>
+        <code>Label, optional</code>
+        <p>File to add in <code>&lt;body&gt;</code>, before content.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>html_after_content</code></td>
+      <td>
+        <code>Label, optional</code>
+        <p>File to add in <code>&lt;body&gt;</code>, after content.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
 <a name="#roadmap"></a>
 ## Roadmap
 
 ### Near-term roadmap
 
-* Implement `rust_bench_test` rule for running benchmarks.
 * Enable `rust_test` to depend solely on a `rust_library` since many projects
   intermix `#[test]` methods in implementation source.
 * Improve documentation with more detailed examples.
-* Implement `rust_doc` rule for generating [rustdoc][rustdoc] documentation.
-
-[rustdoc]: https://doc.rust-lang.org/book/documentation.html#about-rustdoc
 
 ### Longer-term roadmap
 
