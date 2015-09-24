@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -225,7 +226,8 @@ public abstract class OutputFormatter implements Serializable {
   /**
    * An ordering of Targets based on the ordering of their labels.
    */
-  static class TargetOrdering implements Comparator<Target> {
+  @VisibleForTesting
+  public static class TargetOrdering implements Comparator<Target> {
     @Override
     public int compare(Target o1, Target o2) {
       return o1.getLabel().compareTo(o2.getLabel());
