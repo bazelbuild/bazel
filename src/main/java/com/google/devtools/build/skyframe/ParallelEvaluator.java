@@ -329,8 +329,17 @@ public final class ParallelEvaluator implements Evaluator {
             builder.put(depKey, ValueOrExceptionUtils.ofNull());
             continue;
           }
-          Preconditions.checkState(!directDeps.contains(depKey), "%s %s %s", skyKey, depKey,
-              value);
+          if (directDeps.contains(depKey)) {
+            throw new IllegalStateException(
+                "Undone key "
+                    + depKey
+                    + " was already in deps of "
+                    + skyKey
+                    + "( dep: "
+                    + graph.get(depKey)
+                    + ", parent: "
+                    + graph.get(skyKey));
+          }
           addDep(depKey);
           valuesMissing = true;
           builder.put(depKey, ValueOrExceptionUtils.ofNull());
@@ -608,6 +617,20 @@ public final class ParallelEvaluator implements Evaluator {
     NEEDS_EVALUATION
   }
 
+  // Take advantage of graphs that cache batch requests and prefetch keys that will be needed.
+  private static void batchPrefetchAndAssertDone(
+      Set<SkyKey> keys, QueryableGraph graph, SkyKey keyForDebugging) {
+    Map<SkyKey, NodeEntry> batchMap = graph.getBatch(keys);
+    if (batchMap.size() != keys.size()) {
+      throw new IllegalStateException(
+          "Missing keys for " + keyForDebugging + ": " + Sets.difference(keys, batchMap.keySet()));
+    }
+    for (Map.Entry<SkyKey, NodeEntry> entry : batchMap.entrySet()) {
+      Preconditions.checkState(
+          entry.getValue().isDone(), "%s had not done %s", keyForDebugging, entry);
+    }
+  }
+
   /**
    * An action that evaluates a value.
    */
@@ -774,6 +797,7 @@ public final class ParallelEvaluator implements Evaluator {
       Set<SkyKey> directDeps = state.getTemporaryDirectDeps();
       Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.key()),
           "%s cannot have a dep on ErrorTransienceValue during building: %s", skyKey, state);
+      batchPrefetchAndAssertDone(directDeps, graph, skyKey);
       // Get the corresponding SkyFunction and call it on this value.
       SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor);
       SkyFunctionName functionName = skyKey.functionName();
