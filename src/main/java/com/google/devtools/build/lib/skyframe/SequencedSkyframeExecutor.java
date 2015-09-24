@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -226,13 +227,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void sync(PackageCacheOptions packageCacheOptions, Path outputBase, Path workingDirectory,
-                   String defaultsPackageContents, UUID commandId)
-      throws InterruptedException, AbruptExitException {
+  public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
+      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId)
+          throws InterruptedException, AbruptExitException {
     this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
-    super.sync(
-        packageCacheOptions, outputBase, workingDirectory, defaultsPackageContents, commandId);
-    handleDiffs();
+    super.sync(eventHandler, packageCacheOptions, outputBase, workingDirectory,
+        defaultsPackageContents, commandId);
+    handleDiffs(eventHandler);
   }
 
   /**
@@ -285,11 +286,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * Uses diff awareness on all the package paths to invalidate changed files.
    */
   @VisibleForTesting
-  public void handleDiffs() throws InterruptedException {
+  public void handleDiffs(EventHandler eventHandler) throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
-      dropConfiguredTargetsNow();
+      dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
     modifiedFiles = 0;
@@ -307,7 +308,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
     handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
-    handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
+    handleDiffsWithMissingDiffInformation(eventHandler, pathEntriesWithoutDiffInformation);
   }
 
   /**
@@ -333,7 +334,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * Finds and invalidates changed files under path entries whose corresponding
    * {@link DiffAwareness} said all files may have been modified.
    */
-  private void handleDiffsWithMissingDiffInformation(
+  private void handleDiffsWithMissingDiffInformation(EventHandler eventHandler,
       Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
           pathEntriesWithoutDiffInformation) throws InterruptedException {
     if (pathEntriesWithoutDiffInformation.isEmpty() && Iterables.isEmpty(customDirtinessCheckers)) {
@@ -344,7 +345,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
     buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
-        DEFAULT_THREAD_COUNT, reporter);
+        DEFAULT_THREAD_COUNT, eventHandler);
 
     FilesystemValueChecker fsvc = new FilesystemValueChecker(memoizingEvaluator, tsgm, null);
     // We need to manually check for changes to known files. This entails finding all dirty file
@@ -439,12 +440,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet, Path pathEntry)
-      throws InterruptedException {
+  public void invalidateFilesUnderPathForTesting(EventHandler eventHandler,
+      ModifiedFileSet modifiedFileSet, Path pathEntry) throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
-      dropConfiguredTargetsNow();
+      dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
     Differencer.Diff diff;
@@ -529,7 +530,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe.
    * The next build should clear the legacy caches.
    */
-  private void dropConfiguredTargetsNow() {
+  private void dropConfiguredTargetsNow(final EventHandler eventHandler) {
     dropConfiguredTargets();
     // Run the invalidator to actually delete the values.
     try {
@@ -538,7 +539,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         @Override
         public Void call() throws InterruptedException {
           buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
-              ResourceUsage.getAvailableProcessors(), reporter);
+              ResourceUsage.getAvailableProcessors(), eventHandler);
           return null;
         }
       });

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
@@ -97,6 +98,7 @@ public class SkyframeBuilder implements Builder {
 
   @Override
   public void buildArtifacts(
+      EventHandler eventHandler,
       Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
@@ -120,7 +122,7 @@ public class SkyframeBuilder implements Builder {
     EvaluationResult<?> result;
 
     ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
-        skyframeExecutor.getReporter(), executor, skyframeExecutor.getEventBus());
+        eventHandler, executor, skyframeExecutor.getEventBus());
 
     AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
     ActionExecutionInactivityWatchdog watchdog = new ActionExecutionInactivityWatchdog(

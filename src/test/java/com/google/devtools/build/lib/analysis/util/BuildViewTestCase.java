@@ -342,8 +342,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @throws InterruptedException
    */
   protected void invalidatePackages() throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(ModifiedFileSet.EVERYTHING_MODIFIED,
-        rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
   }
 
   /**
@@ -678,6 +678,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     String buildFilePathString = packageName + "/BUILD";
     scratch.file(buildFilePathString, lines);
     skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
         new ModifiedFileSet.Builder().modify(new PathFragment(buildFilePathString)).build(),
         rootDirectory);
     return (Rule) getTarget("//" + packageName + ":" + ruleName);

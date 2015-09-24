@@ -192,6 +192,7 @@ public final class SkyframeBuildView {
    * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
   public SkyframeAnalysisResult configureTargets(
+      EventHandler eventHandler,
       List<ConfiguredTargetKey> values,
       List<AspectKey> aspectKeys,
       EventBus eventBus,
@@ -250,12 +251,12 @@ public final class SkyframeBuildView {
         try {
           ex.rethrowTyped();
         } catch (MutableActionGraph.ActionConflictException ace) {
-          ace.reportTo(skyframeExecutor.getReporter());
+          ace.reportTo(eventHandler);
           String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
               + "' failed; build aborted";
           throw new ViewCreationFailedException(errorMsg);
         } catch (ArtifactPrefixConflictException apce) {
-          skyframeExecutor.getReporter().handle(Event.error(apce.getMessage()));
+          eventHandler.handle(Event.error(apce.getMessage()));
         }
         throw new ViewCreationFailedException(ex.getMessage());
       }
@@ -265,14 +266,14 @@ public final class SkyframeBuildView {
       ErrorInfo errorInfo = error.getValue();
       assertSaneAnalysisError(errorInfo, topLevel);
       skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), topLevel,
-          skyframeExecutor.getReporter());
+          eventHandler);
       Throwable cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()),
           errorInfo);
       String errorMsg = "Analysis of target '" + ConfiguredTargetValue.extractLabel(topLevel)
           + "' failed; build aborted";
       if (cause instanceof ActionConflictException) {
-        ((ActionConflictException) cause).reportTo(skyframeExecutor.getReporter());
+        ((ActionConflictException) cause).reportTo(eventHandler);
       }
       throw new ViewCreationFailedException(errorMsg);
     }
@@ -286,7 +287,7 @@ public final class SkyframeBuildView {
         assertSaneAnalysisError(errorInfo, errorKey);
 
         skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
-            skyframeExecutor.getReporter());
+            eventHandler);
         // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
         // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
         // error key.
@@ -300,9 +301,9 @@ public final class SkyframeBuildView {
         }
         Exception cause = errorInfo.getException();
         if (cause instanceof ActionConflictException) {
-          ((ActionConflictException) cause).reportTo(skyframeExecutor.getReporter());
+          ((ActionConflictException) cause).reportTo(eventHandler);
         }
-        skyframeExecutor.getReporter().handle(
+        eventHandler.handle(
             Event.warn("errors encountered while analyzing target '"
                 + label.getLabel() + "': it will not be built"));
         eventBus.post(new AnalysisFailureEvent(
@@ -316,13 +317,13 @@ public final class SkyframeBuildView {
       try {
         ex.rethrowTyped();
       } catch (MutableActionGraph.ActionConflictException ace) {
-        ace.reportTo(skyframeExecutor.getReporter());
-        skyframeExecutor.getReporter()
+        ace.reportTo(eventHandler);
+        eventHandler
             .handle(Event.warn("errors encountered while analyzing target '"
                 + bad.getKey().getOwner().getLabel() + "': it will not be built"));
       } catch (ArtifactPrefixConflictException apce) {
         if (reportedExceptions.add(apce)) {
-          skyframeExecutor.getReporter().handle(Event.error(apce.getMessage()));
+          eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
     }

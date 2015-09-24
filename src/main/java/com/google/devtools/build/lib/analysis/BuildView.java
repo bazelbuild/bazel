@@ -642,13 +642,13 @@ public class BuildView {
     if (loadingEnabled) {
       setArtifactRoots(loadingResult.getPackageRoots(), configurations);
     }
-    prepareToBuild(configurations, new SkyframePackageRootResolver(skyframeExecutor));
+    prepareToBuild(configurations, new SkyframePackageRootResolver(skyframeExecutor, eventHandler));
     skyframeExecutor.injectWorkspaceStatusData();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              targetSpecs, aspectKeys, eventBus, viewOptions.keepGoing);
+              eventHandler, targetSpecs, aspectKeys, eventBus, viewOptions.keepGoing);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots(), configurations);
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -666,6 +666,7 @@ public class BuildView {
 
     AnalysisResult result =
         createResult(
+            eventHandler,
             loadingResult,
             topLevelOptions,
             viewOptions,
@@ -679,6 +680,7 @@ public class BuildView {
   }
 
   private AnalysisResult createResult(
+      EventHandler eventHandler,
       LoadingResult loadingResult,
       TopLevelArtifactContext topLevelOptions,
       BuildView.Options viewOptions,
@@ -701,7 +703,8 @@ public class BuildView {
     Set<ConfiguredTarget> exclusiveTests = new HashSet<>();
 
     // build-info and build-changelist.
-    Collection<Artifact> buildInfoArtifacts = skyframeExecutor.getWorkspaceStatusArtifacts();
+    Collection<Artifact> buildInfoArtifacts =
+        skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
     artifactsToBuild.addAll(buildInfoArtifacts);
 

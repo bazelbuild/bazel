@@ -237,8 +237,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
    * @throws InterruptedException
    */
   protected void invalidatePackages() throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(ModifiedFileSet.EVERYTHING_MODIFIED,
-        rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
   }
 
   protected String getErrorMsgNonEmptyList(String attrName, String ruleType, String ruleName) {

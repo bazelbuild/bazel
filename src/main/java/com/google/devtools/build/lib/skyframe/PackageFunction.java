@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -84,7 +82,6 @@ import javax.annotation.Nullable;
  */
 public class PackageFunction implements SkyFunction {
 
-  private final EventHandler reporter;
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
@@ -102,7 +99,6 @@ public class PackageFunction implements SkyFunction {
   public static final String EXTERNAL_PACKAGE_NAME = "external";
 
   public PackageFunction(
-      Reporter reporter,
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
@@ -110,9 +106,7 @@ public class PackageFunction implements SkyFunction {
       Cache<PackageIdentifier, Result> preprocessCache,
       AtomicInteger numPackagesLoaded,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
-    this.reporter = reporter;
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
-
     // Can be null in tests.
     this.preludePath = packageFactory == null
         ? null
@@ -474,7 +468,7 @@ public class PackageFunction implements SkyFunction {
       if (showLoadingProgress.get() && packageFunctionCache.getIfPresent(packageId) == null) {
         // TODO(bazel-team): don't duplicate the loading message if there are unavailable
         // Skylark dependencies.
-        reporter.handle(Event.progress("Loading package: " + packageName));
+        env.getListener().handle(Event.progress("Loading package: " + packageName));
       }
       inputSource = ParserInputSource.create(buildFilePath, buildFileValue.getSize());
     } catch (IOException e) {

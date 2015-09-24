@@ -35,7 +35,6 @@ import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.NullActionCache;
@@ -43,7 +42,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -173,7 +171,6 @@ public final class BlazeRuntime {
   private final Reporter reporter;
   private final LoadingPhaseRunner loadingPhaseRunner;
   private final PackageFactory packageFactory;
-  private final PackageRootResolver packageRootResolver;
   private final ConfigurationFactory configurationFactory;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BuildView view;
@@ -219,7 +216,6 @@ public final class BlazeRuntime {
     this.projectFileProvider = projectFileProvider;
 
     this.skyframeExecutor = skyframeExecutor;
-    this.packageRootResolver = new SkyframePackageRootResolver(skyframeExecutor);
     this.loadingPhaseRunner = new LoadingPhaseRunner(
         skyframeExecutor.getPackageManager(),
         pkgFactory.getRuleClassNames());
@@ -525,10 +521,6 @@ public final class BlazeRuntime {
    */
   public PackageManager getPackageManager() {
     return skyframeExecutor.getPackageManager();
-  }
-
-  public PackageRootResolver getPackageRootResolver() {
-    return packageRootResolver;
   }
 
   public WorkspaceStatusAction.Factory getworkspaceStatusActionFactory() {
@@ -882,7 +874,7 @@ public final class BlazeRuntime {
     if (!skyframeExecutor.hasIncrementalState()) {
       clearSkyframeRelevantCaches();
     }
-    skyframeExecutor.sync(packageCacheOptions, getOutputBase(), getWorkingDirectory(),
+    skyframeExecutor.sync(reporter, packageCacheOptions, getOutputBase(), getWorkingDirectory(),
         defaultsPackageContents, commandId);
   }
 

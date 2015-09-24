@@ -258,8 +258,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(pathPackageLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
-    skyframeExecutor.invalidateFilesUnderPathForTesting(ModifiedFileSet.EVERYTHING_MODIFIED,
-        rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
 
     LoadingResult loadingResult = loadingPhaseRunner
         .execute(reporter, eventBus, ImmutableList.copyOf(labels), loadingOptions,

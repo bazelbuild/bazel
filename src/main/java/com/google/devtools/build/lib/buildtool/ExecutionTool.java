@@ -436,6 +436,7 @@ public class ExecutionTool {
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
 
       builder.buildArtifacts(
+          env.getReporter(),
           additionalArtifacts,
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),

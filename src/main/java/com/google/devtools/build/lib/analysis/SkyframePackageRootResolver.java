@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -29,14 +30,16 @@ import java.util.Map;
  */
 public final class SkyframePackageRootResolver implements PackageRootResolver {
   private final SkyframeExecutor executor;
+  private final EventHandler eventHandler;
 
-  public SkyframePackageRootResolver(SkyframeExecutor executor) {
+  public SkyframePackageRootResolver(SkyframeExecutor executor, EventHandler eventHandler) {
     this.executor = executor;
+    this.eventHandler = eventHandler;
   }
 
   @Override
   public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
       throws PackageRootResolutionException {
-    return executor.getArtifactRoots(execPaths);
+    return executor.getArtifactRoots(eventHandler, execPaths);
   }
 }

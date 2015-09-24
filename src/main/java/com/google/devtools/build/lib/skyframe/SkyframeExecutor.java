@@ -155,7 +155,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
       new MemoizingEvaluator.EmittedEventState();
-  protected final Reporter reporter;
   private final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final BlazeDirectories directories;
@@ -272,7 +271,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean errorOnExternalFiles) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
-    this.reporter = Preconditions.checkNotNull(reporter);
     this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.pkgFactory.setSyscalls(syscalls);
@@ -282,7 +280,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
-    this.errorEventListener = this.reporter;
+    this.errorEventListener = Preconditions.checkNotNull(reporter);
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(reporter, resourceManager, eventBus,
         statusReporterRef);
@@ -341,7 +339,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PACKAGE,
         newPackageFunction(
-            reporter,
             pkgFactory,
             packageManager,
             showLoadingProgress,
@@ -391,7 +388,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected PackageFunction newPackageFunction(
-      Reporter reporter,
       PackageFactory pkgFactory,
       PackageManager packageManager,
       AtomicBoolean showLoadingProgress,
@@ -400,7 +396,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       AtomicInteger numPackagesLoaded,
       RuleClassProvider ruleClassProvider) {
     return new PackageFunction(
-        reporter,
         pkgFactory,
         packageManager,
         showLoadingProgress,
@@ -670,19 +665,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
-  public Collection<Artifact> getWorkspaceStatusArtifacts() throws InterruptedException {
+  public Collection<Artifact> getWorkspaceStatusArtifacts(EventHandler eventHandler)
+      throws InterruptedException {
     // Should already be present, unless the user didn't request any targets for analysis.
     EvaluationResult<WorkspaceStatusValue> result = buildDriver.evaluate(
         ImmutableList.of(WorkspaceStatusValue.SKY_KEY), /*keepGoing=*/true, /*numThreads=*/1,
-        reporter);
+        eventHandler);
     WorkspaceStatusValue value =
         Preconditions.checkNotNull(result.get(WorkspaceStatusValue.SKY_KEY));
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
   // TODO(bazel-team): Make this take a PackageIdentifier.
-  public Map<PathFragment, Root> getArtifactRoots(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException {
+  public Map<PathFragment, Root> getArtifactRoots(final EventHandler eventHandler,
+      Iterable<PathFragment> execPaths) throws PackageRootResolutionException {
     final List<SkyKey> packageKeys = new ArrayList<>();
     for (PathFragment execPath : execPaths) {
       Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
@@ -697,7 +693,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         public EvaluationResult<ContainingPackageLookupValue> call() throws InterruptedException {
           synchronized (valueLookupLock) {
             return buildDriver.evaluate(
-                packageKeys, /*keepGoing=*/true, /*numThreads=*/1, reporter);
+                packageKeys, /*keepGoing=*/true, /*numThreads=*/1, eventHandler);
           }
         }
       });
@@ -738,10 +734,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // from previous requests.
   protected void informAboutNumberOfModifiedFiles() {
     LOG.info(String.format("Found %d modified files from last build", modifiedFiles));
-  }
-
-  public Reporter getReporter() {
-    return reporter;
   }
 
   public EventBus getEventBus() {
@@ -1308,8 +1300,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>May throw an {@link InterruptedException}, which means that no values have been invalidated.
    */
   @VisibleForTesting
-  public abstract void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet,
-      Path pathEntry) throws InterruptedException;
+  public abstract void invalidateFilesUnderPathForTesting(EventHandler eventHandler,
+      ModifiedFileSet modifiedFileSet, Path pathEntry) throws InterruptedException;
 
   /**
    * Invalidates SkyFrame values that may have failed for transient reasons.
@@ -1586,13 +1578,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @ThreadCompatible
   public abstract void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages);
 
-  public void sync(PackageCacheOptions packageCacheOptions, Path outputBase, Path workingDirectory,
-      String defaultsPackageContents, UUID commandId) throws InterruptedException,
+  public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
+      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId)
+          throws InterruptedException,
       AbruptExitException{
 
     preparePackageLoading(
         createPackageLocator(
-            packageCacheOptions, outputBase, directories.getWorkspace(), workingDirectory),
+            eventHandler, packageCacheOptions, outputBase, directories.getWorkspace(),
+            workingDirectory),
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
         packageCacheOptions.globbingThreads, defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
@@ -1601,10 +1595,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     invalidateTransientErrors();
   }
 
-  protected PathPackageLocator createPackageLocator(PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workspace, Path workingDirectory) throws AbruptExitException {
+  protected PathPackageLocator createPackageLocator(EventHandler eventHandler,
+      PackageCacheOptions packageCacheOptions, Path outputBase, Path workspace,
+      Path workingDirectory) throws AbruptExitException {
     return PathPackageLocator.create(
-        outputBase, packageCacheOptions.packagePath, getReporter(), workspace, workingDirectory);
+        outputBase, packageCacheOptions.packagePath, eventHandler, workspace, workingDirectory);
   }
 
   private CyclesReporter createCyclesReporter() {
