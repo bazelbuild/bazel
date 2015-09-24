@@ -66,8 +66,6 @@ public final class AndroidRuleClasses {
       JavaSemantics.JAVA_LIBRARY_SOURCE_JAR;
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_CLASS_JAR =
       JavaSemantics.JAVA_LIBRARY_CLASS_JAR;
-  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_GEN_JAR =
-      JavaSemantics.JAVA_LIBRARY_GEN_JAR;
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_JACK_FILE =
       fromTemplates("lib%{name}.jack");
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR =
@@ -86,8 +84,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_unsigned.apk");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_SIGNED_APK =
       fromTemplates("%{name}_signed.apk");
-  public static final SafeImplicitOutputsFunction ANDROID_BINARY_GEN_JAR =
-      JavaSemantics.JAVA_BINARY_GEN_JAR;
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =
@@ -248,7 +244,6 @@ public final class AndroidRuleClasses {
           functions.add(AndroidRuleClasses.ANDROID_BINARY_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR);
-          functions.add(AndroidRuleClasses.ANDROID_BINARY_GEN_JAR);
 
           // The below is a hack to support configurable attributes (proguard_specs seems like
           // too valuable an attribute to make nonconfigurable, and we don't currently
@@ -291,7 +286,6 @@ public final class AndroidRuleClasses {
           
           implicitOutputs.add(
               AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
-              AndroidRuleClasses.ANDROID_LIBRARY_GEN_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE,
               AndroidRuleClasses.ANDROID_LIBRARY_AAR);

@@ -118,8 +118,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         resourceApk,
         transitiveIdlImportData,
         false /* addCoverageSupport */,
-        true /* collectJavaCompilationArgs */,
-        AndroidRuleClasses.ANDROID_LIBRARY_GEN_JAR);
+        true /* collectJavaCompilationArgs */);
     if (javaTargetAttributes == null) {
       return null;
     }
