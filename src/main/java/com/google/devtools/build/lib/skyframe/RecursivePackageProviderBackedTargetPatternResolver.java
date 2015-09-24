@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -73,22 +72,20 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public Target getTargetOrNull(String targetName) throws InterruptedException {
+  public Target getTargetOrNull(Label label) throws InterruptedException {
     try {
-      Label label = Label.parseAbsolute(targetName);
       if (!isPackage(label.getPackageIdentifier())) {
         return null;
       }
       return recursivePackageProvider.getTarget(eventHandler, label);
-    } catch (LabelSyntaxException | NoSuchThingException e) {
+    } catch (NoSuchThingException e) {
       return null;
     }
   }
 
   @Override
-  public ResolvedTargets<Target> getExplicitTarget(String targetName)
+  public ResolvedTargets<Target> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException {
-    Label label = TargetPatternResolverUtil.label(targetName);
     try {
       Target target = recursivePackageProvider.getTarget(eventHandler, label);
       return policy.shouldRetain(target, true)

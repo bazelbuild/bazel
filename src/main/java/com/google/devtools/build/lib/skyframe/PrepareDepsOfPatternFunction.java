@@ -131,7 +131,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public Void getTargetOrNull(String targetName) throws InterruptedException {
+    public Void getTargetOrNull(Label label) throws InterruptedException {
       // Note:
       // This method is used in just one place, TargetPattern.TargetsInPackage#getWildcardConflict.
       // Returning null tells #getWildcardConflict that there is not a target with a name like
@@ -142,9 +142,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public ResolvedTargets<Void> getExplicitTarget(String targetName)
+    public ResolvedTargets<Void> getExplicitTarget(Label label)
         throws TargetParsingException, InterruptedException {
-      Label label = TargetPatternResolverUtil.label(targetName);
       try {
         Target target = packageProvider.getTarget(env.getListener(), label);
         SkyKey key = TransitiveTraversalValue.key(target.getLabel());

@@ -32,15 +32,15 @@ public interface TargetPatternResolver<T> {
   void warn(String msg);
 
   /**
-   * Returns a single target corresponding to the given name, or null. This method may only throw an
-   * exception if the current thread was interrupted.
+   * Returns a single target corresponding to the given label, or null. This method may only throw
+   * an exception if the current thread was interrupted.
    */
-  T getTargetOrNull(String targetName) throws InterruptedException;
+  T getTargetOrNull(Label label) throws InterruptedException;
 
   /**
-   * Returns a single target corresponding to the given name, or an empty or failed result.
+   * Returns a single target corresponding to the given label, or an empty or failed result.
    */
-  ResolvedTargets<T> getExplicitTarget(String targetName)
+  ResolvedTargets<T> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException;
 
   /**
@@ -83,8 +83,8 @@ public interface TargetPatternResolver<T> {
       throws TargetParsingException, InterruptedException;
 
   /**
-   * Returns true, if and only if the given name corresponds to a package, i.e., a file with the
-   * name {@code packageName/BUILD} exists.
+   * Returns true, if and only if the given package identifier corresponds to a package, i.e., a
+   * file with the name {@code packageName/BUILD} exists in the appropriat repository.
    */
   boolean isPackage(PackageIdentifier packageIdentifier);
 

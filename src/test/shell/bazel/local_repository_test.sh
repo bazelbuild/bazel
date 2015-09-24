@@ -824,4 +824,28 @@ EOF
   expect_log "Hello User"
 }
 
+function test_package_wildcard_in_remote_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a
+  touch $r/{x,y,a/g,a/h}
+  cat > $r/BUILD <<EOF
+exports_files(["x", "y"])
+EOF
+
+  cat > $r/a/BUILD <<EOF
+exports_files(["g", "h"])
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$r")
+EOF
+
+  bazel query @r//:all-targets + @r//a:all-targets >& $TEST_log || fail "query failed"
+  expect_log "@r//:x"
+  expect_log "@r//:y"
+  expect_log "@r//a:g"
+  expect_log "@r//a:h"
+}
+
 run_suite "local repository tests"

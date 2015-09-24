@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -23,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -32,26 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public final class TargetPatternResolverUtil {
   private TargetPatternResolverUtil() {
     // Utility class.
-  }
-
-  // Parse 'label' as a Label, mapping LabelSyntaxException into
-  // TargetParsingException.
-  public static Label label(String label) throws TargetParsingException {
-    try {
-      return Label.parseAbsolute(label);
-    } catch (LabelSyntaxException e) {
-      throw invalidTarget(label, e.getMessage());
-    }
-  }
-
-  /**
-   * Returns a new exception indicating that a command-line target is invalid.
-   */
-  private static TargetParsingException invalidTarget(String packageName,
-                                                      String additionalMessage) {
-    return new TargetParsingException("invalid target format: '" +
-        StringUtilities.sanitizeControlChars(packageName) + "'; " +
-        StringUtilities.sanitizeControlChars(additionalMessage));
   }
 
   public static String getParsingErrorMessage(String message, String originalPattern) {
