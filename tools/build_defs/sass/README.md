@@ -68,7 +68,7 @@ html {
     font-family: $default-font-stack;
     h1 {
       font-family: $modern-font-stack;
-      colors: $example-red;
+      color: $example-red;
     }
   }
 }
