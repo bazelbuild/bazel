@@ -153,6 +153,24 @@ class TarFileWriterTest(unittest.TestCase):
     self.assertSimpleFileContent(["./a", "./ab"])
     self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
+  def testDottedFiles(self):
+    with archive.TarFileWriter(self.tempfile) as f:
+      f.add_file("a")
+      f.add_file("/b")
+      f.add_file("./c")
+      f.add_file("./.d")
+      f.add_file("..e")
+      f.add_file(".f")
+    content = [
+        {"name": "./a"},
+        {"name": "/b"},
+        {"name": "./c"},
+        {"name": "./.d"},
+        {"name": "./..e"},
+        {"name": "./.f"}
+        ]
+    self.assertTarFileContent(self.tempfile, content)
+
   def testAddDir(self):
     # For some strange reason, ending slash is stripped by the test
     content = [

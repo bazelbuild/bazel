@@ -128,7 +128,7 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not name.startswith('.') and not name.startswith('/'):
+    if not (name == '.' or name.startswith('/') or name.startswith('./')):
       name = './' + name
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
@@ -183,7 +183,7 @@ class TarFileWriter(object):
       # Recurse into directory
       self.add_dir(name, file_content, uid, gid, uname, gname, mtime, mode)
       return
-    if not name.startswith('.') and not name.startswith('/'):
+    if not (name == '.' or name.startswith('/') or name.startswith('./')):
       name = './' + name
     tarinfo = tarfile.TarInfo(name)
     tarinfo.mtime = mtime
