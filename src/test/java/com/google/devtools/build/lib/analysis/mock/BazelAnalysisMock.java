@@ -45,7 +45,16 @@ public class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockClient(MockToolsConfig config) throws IOException {
-    config.create("WORKSPACE");
+    config.overwrite("WORKSPACE",
+        "bind(",
+        "  name = 'objc_proto_lib',",
+        "  actual = '//objcproto:ProtocolBuffers_lib',",
+        ")",
+        "bind(",
+        "  name = 'objc_proto_cpp_lib',",
+        "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
+        ")");
+
     config.create("tools/defaults/BUILD");
     config.create("tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",

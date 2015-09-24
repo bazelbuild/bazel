@@ -70,15 +70,7 @@ public abstract class FoundationTestCase extends TestCase {
     scratch = new Scratch(createFileSystem(), "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
-    scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "bind(",
-        "  name = 'objc_proto_lib',",
-        "  actual = '//objcproto:ProtocolBuffers_lib',",
-        ")",
-        "bind(",
-        "  name = 'objc_proto_cpp_lib',",
-        "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
-        ")");
+    scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
     actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(eventCollector);
