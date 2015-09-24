@@ -150,7 +150,7 @@ public class SkyframeBuilder implements Builder {
               actionCacheChecker,
               executionProgressReceiver);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
-      success = processResult(result, keepGoing, skyframeExecutor);
+      success = processResult(eventHandler, result, keepGoing, skyframeExecutor);
 
       Preconditions.checkState(
           !success
@@ -183,7 +183,7 @@ public class SkyframeBuilder implements Builder {
                 numJobs,
                 actionCacheChecker,
                 null);
-        boolean exclusiveSuccess = processResult(result, keepGoing, skyframeExecutor);
+        boolean exclusiveSuccess = processResult(eventHandler, result, keepGoing, skyframeExecutor);
         Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
             exclusiveTest, result);
@@ -217,13 +217,14 @@ public class SkyframeBuilder implements Builder {
    * <p>Returns false if the update() failed, but we should continue. Returns true on success.
    * Throws on fail-fast failures.
    */
-  private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
-      SkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
+  private static boolean processResult(EventHandler eventHandler, EvaluationResult<?> result,
+      boolean keepGoing, SkyframeExecutor skyframeExecutor)
+          throws BuildFailedException, TestExecException {
     if (result.hasError()) {
       boolean hasCycles = false;
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
         Iterable<CycleInfo> cycles = entry.getValue().getCycleInfo();
-        skyframeExecutor.reportCycles(cycles, entry.getKey());
+        skyframeExecutor.reportCycles(eventHandler, cycles, entry.getKey());
         hasCycles |= !Iterables.isEmpty(cycles);
       }
       if (keepGoing && !resultHasCatastrophicError(result)) {

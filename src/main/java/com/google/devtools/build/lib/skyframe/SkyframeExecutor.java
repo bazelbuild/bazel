@@ -454,8 +454,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * This method exists only to allow a module to make a top-level Skyframe call during the
    * transition to making it fully Skyframe-compatible. Do not add additional callers!
    */
-  public <E extends Exception> SkyValue evaluateSkyKeyForCodeMigration(final SkyKey key,
-      final Class<E> clazz) throws E {
+  public <E extends Exception> SkyValue evaluateSkyKeyForCodeMigration(
+      final EventHandler eventHandler, final SkyKey key, final Class<E> clazz) throws E {
     try {
       return callUninterruptibly(new Callable<SkyValue>() {
         @Override
@@ -466,7 +466,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             // permitted.
             EvaluationResult<SkyValue> result = buildDriver.evaluate(
                 ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(),
-                errorEventListener);
+                eventHandler);
             if (!result.hasError()) {
               return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
             }
@@ -1517,7 +1517,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ErrorInfo error = result.getError(key);
         if (error != null) {
           if (!Iterables.isEmpty(error.getCycleInfo())) {
-            reportCycles(result.getError().getCycleInfo(), key);
+            reportCycles(eventHandler, result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
             // or loading phase
             throw new BuildFileContainsErrorsException(
@@ -1618,8 +1618,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Convenience method with same semantics as {@link CyclesReporter#reportCycles}. */
-  public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey) {
-    getCyclesReporter().reportCycles(cycles, topLevelKey, errorEventListener);
+  public void reportCycles(EventHandler eventHandler, Iterable<CycleInfo> cycles,
+      SkyKey topLevelKey) {
+    getCyclesReporter().reportCycles(cycles, topLevelKey, eventHandler);
   }
 
   public void setActionExecutionProgressReportingObjects(@Nullable ProgressSupplier supplier,
