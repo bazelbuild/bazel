@@ -375,7 +375,7 @@ public class BazelCppRuleClasses {
           .add(attr(":lipo_context_collector", LABEL)
               .cfg(CppTransition.LIPO_COLLECTOR)
               .value(LIPO_CONTEXT_COLLECTOR)
-              .skipConstraintsCheck())
+              .skipPrereqValidatorCheck())
           .build();
     }
 
