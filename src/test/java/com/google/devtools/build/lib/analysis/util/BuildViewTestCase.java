@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisHooks;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -319,22 +318,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected PackageManager getPackageManager() {
     return skyframeExecutor.getPackageManager();
-  }
-
-  protected AnalysisHooks getAnalysisHooks() {
-    return new AnalysisHooks() {
-      @Override
-      public PackageManager getPackageManager() {
-        return BuildViewTestCase.this.getPackageManager();
-      }
-
-      @Override
-      public ConfiguredTarget getExistingConfiguredTarget(Target target,
-          BuildConfiguration configuration) {
-        return view.getExistingConfiguredTarget(target, configuration);
-      }
-
-    };
   }
 
   /**

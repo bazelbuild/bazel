@@ -299,12 +299,6 @@ public interface JavaSemantics {
       RuleConfiguredTargetBuilder ruleBuilder) throws InterruptedException;
 
   /**
-   * Tell if a build with the given configuration should use strict java dependencies. This method
-   * enforces strict java dependencies off if it returns false.
-   */
-  boolean useStrictJavaDeps(BuildConfiguration configuration);
-
-  /**
    * Translates XMB messages to translations artifact suitable for Java targets.
    */
   Collection<Artifact> translate(RuleContext ruleContext, JavaConfiguration javaConfig,

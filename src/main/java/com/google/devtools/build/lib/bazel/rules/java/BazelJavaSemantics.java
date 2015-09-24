@@ -29,13 +29,10 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Co
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
-import com.google.devtools.build.lib.rules.java.DirectDependencyProvider;
-import com.google.devtools.build.lib.rules.java.DirectDependencyProvider.Dependency;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -232,15 +229,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaCompilationHelper helper,
       NestedSetBuilder<Artifact> filesBuilder,
       RuleConfiguredTargetBuilder ruleBuilder) {
-    if (!isJavaBinaryOrJavaTest(ruleContext)) {
-      Artifact outputDepsProto = helper.getOutputDepsProtoArtifact();
-      if (outputDepsProto != null && helper.getStrictJavaDeps() != StrictDepsMode.OFF) {
-        ImmutableList<Dependency> strictDependencies =
-            javaCommon.computeStrictDepsFromJavaAttributes(helper.getAttributes());
-        ruleBuilder.add(DirectDependencyProvider.class,
-            new DirectDependencyProvider(strictDependencies));
-      }
-    } else {
+    if (isJavaBinaryOrJavaTest(ruleContext)) {
       boolean createExec = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
       ruleBuilder.add(JavaPrimaryClassProvider.class, 
           new JavaPrimaryClassProvider(createExec ? getMainClassInternal(ruleContext) : null));
@@ -260,11 +249,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact executable, Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder, String mainClass) {
     return mainClass;
-  }
-
-  @Override
-  public boolean useStrictJavaDeps(BuildConfiguration configuration) {
-    return true;
   }
 
   @Override

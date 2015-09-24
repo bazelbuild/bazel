@@ -265,10 +265,6 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
       .setMnemonic("JavaSourceJar")
       .build(getRuleContext()));
   }
-  
-  public Artifact getOutputDepsProtoArtifact() {
-    return outputDepsProtoArtifact;
-  }
 
   /**
    * Creates the jdeps file artifact if needed. Returns null if the target can't emit dependency

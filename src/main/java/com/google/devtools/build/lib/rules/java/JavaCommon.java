@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -42,7 +40,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.DirectDependencyProvider.Dependency;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -705,20 +702,6 @@ public class JavaCommon {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     return NestedSetBuilder.create(Order.STABLE_ORDER, classJar);
-  }
-
-  public ImmutableList<Dependency> computeStrictDepsFromJavaAttributes(
-      JavaTargetAttributes javaTargetAttributes) {
-    Multimap<Label, String> depMap = HashMultimap.<Label, String>create();
-    for (Artifact jar : javaTargetAttributes.getDirectJars()) {
-      depMap.put(Preconditions.checkNotNull(jar.getOwner()),
-          jar.getExecPathString());
-    }
-    ImmutableList.Builder<Dependency> depOuts = ImmutableList.builder();
-    for (Label label : depMap.keySet()) {
-      depOuts.add(new Dependency(label, depMap.get(label)));
-    }
-    return depOuts.build();
   }
 
   public ImmutableList<Artifact> getSrcsArtifacts() {

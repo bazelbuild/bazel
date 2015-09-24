@@ -568,8 +568,7 @@ public class JavaCompileAction extends AbstractAction {
     // written out and whether we try to minimize the compile-time classpath.
     if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
       result.add("--strict_java_deps");
-      result.add((semantics.useStrictJavaDeps(configuration) ? strictJavaDeps
-          : BuildConfiguration.StrictDepsMode.OFF).toString());
+      result.add(strictJavaDeps.toString());
       result.add(new CustomMultiArgv() {
         @Override
         public Iterable<String> argv() {
