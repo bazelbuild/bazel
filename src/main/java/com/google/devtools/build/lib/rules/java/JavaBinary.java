@@ -165,21 +165,17 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     common.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
 
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
-    Artifact genSourceJar = null;
-    Artifact genClassJar = null;
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(classJar);
-      genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
-    }
+    Artifact genSourceJar = helper.createGensrcJar(classJar);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     helper.createCompileAction(
         classJar, manifestProtoOutput, genSourceJar, outputDepsProto, instrumentationMetadata);
     helper.createSourceJarAction(srcJar, genSourceJar);
+
+    Artifact genClassJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_GEN_JAR);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
 
     common.setClassPathFragment(new ClasspathConfiguredFragment(
         common.getJavaCompilationArtifacts(), attributes, false));

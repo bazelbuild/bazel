@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
@@ -386,7 +387,8 @@ public class AndroidCommon {
   public JavaTargetAttributes init(
       JavaSemantics javaSemantics, AndroidSemantics androidSemantics,
       ResourceApk resourceApk, AndroidIdlProvider transitiveIdlImportData,
-      boolean addCoverageSupport, boolean collectJavaCompilationArgs) throws InterruptedException {
+      boolean addCoverageSupport, boolean collectJavaCompilationArgs,
+      SafeImplicitOutputsFunction genClassJarImplicitOutput) throws InterruptedException {
     ImmutableList<Artifact> extraSources =
         resourceApk.isLegacy() || resourceApk.getResourceJavaSrcJar() == null
             ? ImmutableList.<Artifact>of()
@@ -421,7 +423,8 @@ public class AndroidCommon {
     }
 
     initJava(
-        helper, artifactsBuilder, collectJavaCompilationArgs, resourceApk.getResourceJavaSrcJar());
+        helper, artifactsBuilder, collectJavaCompilationArgs, resourceApk.getResourceJavaSrcJar(),
+        genClassJarImplicitOutput);
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -509,7 +512,8 @@ public class AndroidCommon {
       JavaCompilationHelper helper,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       boolean collectJavaCompilationArgs,
-      @Nullable Artifact additionalSourceJar) throws InterruptedException {
+      @Nullable Artifact additionalSourceJar,
+      SafeImplicitOutputsFunction genClassJarImplicitOutput) throws InterruptedException {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
     if (additionalSourceJar != null) {
       filesBuilder.add(additionalSourceJar);
@@ -542,15 +546,14 @@ public class AndroidCommon {
 
     filesBuilder.add(classJar);
 
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(classJar);
-      genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
-    }
+    genSourceJar = helper.createGensrcJar(classJar);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
+
+    // AndroidBinary will pass its -gen.jar output, and AndroidLibrary will pass its own.
+    genClassJar = ruleContext.getImplicitOutputArtifact(genClassJarImplicitOutput);
+    helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
 
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
     helper.createSourceJarAction(srcJar, genSourceJar);
