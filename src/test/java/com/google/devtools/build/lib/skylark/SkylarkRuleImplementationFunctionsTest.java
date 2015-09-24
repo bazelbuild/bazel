@@ -790,6 +790,27 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 
+  public void testGlobInImplicitOutputs() throws Exception {
+    scratch.file("test/glob.bzl",
+        "def _impl(ctx):",
+        "  ctx.empty_action(",
+        "    inputs = [],",
+        "  )",
+        "def _foo(attr_map):",
+        "  return native.glob(['*'])",
+        "glob_rule = rule(",
+        "  implementation = _impl,",
+        "  outputs = _foo,",
+        ")");
+    scratch.file("test/BUILD",
+        "load('/test/glob', 'glob_rule')",
+        "glob_rule(name = 'my_glob',",
+        "  srcs = ['foo.bar', 'other_foo.bar'])");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:my_glob");
+    assertContainsEvent("native.glob() can only be called during the loading phase");
+  }
+
   private void setupThrowFunction(BuiltinFunction func) throws Exception {
     throwFunction = func;
     throwFunction.configure(
