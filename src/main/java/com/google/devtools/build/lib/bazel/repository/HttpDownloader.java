@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.events.Event;
@@ -27,10 +26,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -41,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Helper class for downloading a file from a URL.
  */
 public class HttpDownloader {
-  private static final int BUFFER_SIZE = 8192;
+  private static final int BUFFER_SIZE = 32 * 1024;
 
   private final String urlString;
   private final String sha256;
@@ -83,21 +78,17 @@ public class HttpDownloader {
     } catch (IOException e) {
       // Ignore error trying to hash. We'll just download again.
     }
-    int currentBytes;
-    final AtomicInteger totalBytes = new AtomicInteger(0);
+
+    AtomicInteger totalBytes = new AtomicInteger(0);
     final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
 
     try (OutputStream outputStream = destination.getOutputStream()) {
-      ReadableByteChannel rbc = getChannel(url);
-      WritableByteChannel obc = Channels.newChannel(outputStream);
-      ByteBuffer byteBuffer = ByteBuffer.allocate(BUFFER_SIZE);
-      while ((currentBytes = rbc.read(byteBuffer)) > 0) {
-        totalBytes.addAndGet(currentBytes);
-        byteBuffer.flip();
-        while (byteBuffer.hasRemaining()) {
-          obc.write(byteBuffer);
-        }
-        byteBuffer.flip();
+      InputStream in = getInputStream(url);
+      int read;
+      byte[] buf = new byte[BUFFER_SIZE];
+      while ((read = in.read(buf)) > 0) {
+        totalBytes.addAndGet(read);
+        outputStream.write(buf, 0, read);
       }
     } catch (IOException e) {
       throw new IOException(
@@ -159,12 +150,11 @@ public class HttpDownloader {
     return scheduler.scheduleAtFixedRate(logger, 0, 1, TimeUnit.SECONDS);
   }
 
-  @VisibleForTesting
-  protected ReadableByteChannel getChannel(URL url) throws IOException {
+  private InputStream getInputStream(URL url) throws IOException {
     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
     connection.setInstanceFollowRedirects(true);
     connection.connect();
-    return Channels.newChannel(connection.getInputStream());
+    return connection.getInputStream();
   }
 
   public static String getHash(Hasher hasher, Path path) throws IOException {
