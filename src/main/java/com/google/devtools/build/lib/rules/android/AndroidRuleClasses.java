@@ -650,6 +650,13 @@ com/google/common/base/Objects.class
           Must be used with <code>multidex="manual_main_dex"</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list", LABEL).legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_proguard_specs) -->
+          Files to be used as the Proguard specifications to determine classes that must be kept in
+          the main dex.
+          ${SYNOPSIS}
+          Only allowed if the <code>multidex</code> attribute is set to <code>legacy</code>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("main_dex_proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_specs) -->
           Files to be used as Proguard specification.
           ${SYNOPSIS}

@@ -121,6 +121,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
       List<String> depsAttributes) throws InterruptedException {
+
+    if (getMultidexMode(ruleContext) != MultidexMode.LEGACY
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified(
+            "main_dex_proguard_specs")) {
+      ruleContext.attributeError("main_dex_proguard_specs", "The 'main_dex_proguard_specs' "
+          + "attribute is only allowed if 'multidex' is set to 'legacy'");
+      return null;
+    }
+
     // TODO(bazel-team): Find a way to simplify this code.
     // treeKeys() means that the resulting map sorts the entries by key, which is necessary to
     // ensure determinism.
@@ -1005,7 +1014,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // Process the input jar through Proguard into an intermediate, streamlined jar.
     Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    ruleContext.registerAction(new SpawnAction.Builder()
+    SpawnAction.Builder streamlinedBuilder = new SpawnAction.Builder()
         .addOutput(strippedJar)
         .setExecutable(sdk.getProguard())
         .setProgressMessage("Generating streamlined input jar for main dex classes list")
@@ -1021,10 +1030,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addArgument("-forceprocessing")
         .addArgument("-dontoptimize")
         .addArgument("-dontobfuscate")
-        .addArgument("-dontpreverify")
-        .addArgument("-include")
-        .addInputArgument(sdk.getMainDexClasses())
-        .build(ruleContext));
+        .addArgument("-dontpreverify");
+
+    List<Artifact> specs = ruleContext.getPrerequisiteArtifacts(
+        "main_dex_proguard_specs", Mode.TARGET).list();
+    if (specs.isEmpty()) {
+      specs = ImmutableList.of(sdk.getMainDexClasses());
+    }
+
+    for (Artifact spec : specs) {
+      streamlinedBuilder.addArgument("-include");
+      streamlinedBuilder.addInputArgument(spec);
+    }
+
+    ruleContext.registerAction(streamlinedBuilder.build(ruleContext));
 
     // Create the main dex classes list.
     Artifact mainDexList = AndroidBinary.getDxArtifact(ruleContext, "main_dex_list.txt");
