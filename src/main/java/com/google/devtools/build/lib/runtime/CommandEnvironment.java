@@ -182,7 +182,7 @@ public final class CommandEnvironment {
     if (!loadingSuccessful) {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
-    return getSkyframeExecutor().createConfigurations(runtime.getConfigurationFactory(),
+    return getSkyframeExecutor().createConfigurations(reporter, runtime.getConfigurationFactory(),
         buildOptions, runtime.getDirectories(), ImmutableSet.<String>of(), keepGoing);
   }
 

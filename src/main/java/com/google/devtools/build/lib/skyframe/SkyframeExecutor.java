@@ -186,7 +186,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
   protected SkyframeBuildView skyframeBuildView;
-  private EventHandler errorEventListener;
+  private final EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   protected BuildDriver buildDriver;
@@ -962,9 +962,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * result. Also invalidates {@link PrecomputedValue#BLAZE_DIRECTORIES} if it has changed.
    */
   public BuildConfigurationCollection createConfigurations(
-      ConfigurationFactory configurationFactory, BuildOptions buildOptions,
-      BlazeDirectories directories, Set<String> multiCpu, boolean keepGoing)
-      throws InvalidConfigurationException, InterruptedException {
+      EventHandler eventHandler, ConfigurationFactory configurationFactory,
+      BuildOptions buildOptions, BlazeDirectories directories, Set<String> multiCpu,
+      boolean keepGoing)
+          throws InvalidConfigurationException, InterruptedException {
     this.configurationFactory.set(configurationFactory);
     this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
     // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of
@@ -974,7 +975,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     SkyKey skyKey = ConfigurationCollectionValue.key(
         buildOptions, ImmutableSortedSet.copyOf(multiCpu));
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
-            Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
+            Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, eventHandler);
     if (result.hasError()) {
       Throwable e = result.getError(skyKey).getException();
       // Wrap loading failed exceptions
@@ -1028,6 +1029,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * given test targets.
    */
   public EvaluationResult<?> buildArtifacts(
+      EventHandler eventHandler,
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
@@ -1056,7 +1058,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           Iterables.concat(artifactKeys, targetKeys, aspectKeys, testKeys),
           keepGoing,
           numJobs,
-          errorEventListener);
+          eventHandler);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -1266,11 +1268,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions options)
-      throws InterruptedException {
+      EventHandler eventHandler,  Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      BuildOptions options)
+          throws InterruptedException {
     SkyKey key = BuildConfigurationValue.key(fragments, options);
     BuildConfigurationValue result = (BuildConfigurationValue) buildDriver
-        .evaluate(ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, errorEventListener).get(key);
+        .evaluate(ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, eventHandler).get(key);
     return result.getConfiguration();
   }
 
@@ -1314,7 +1317,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Configures a given set of configured targets. */
-  public EvaluationResult<ActionLookupValue> configureTargets(
+  public EvaluationResult<ActionLookupValue> configureTargets(EventHandler eventHandler,
       List<ConfiguredTargetKey> values, List<AspectKey> aspectKeys, boolean keepGoing)
           throws InterruptedException {
     checkActive();
@@ -1325,7 +1328,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     return buildDriver.evaluate(keys, keepGoing, ResourceUsage.getAvailableProcessors(),
-        errorEventListener);
+        eventHandler);
   }
 
   /**
@@ -1333,7 +1336,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * error-free from action conflicts.
    */
   public EvaluationResult<PostConfiguredTargetValue> postConfigureTargets(
-      List<ConfiguredTargetKey> values, boolean keepGoing,
+      EventHandler eventHandler, List<ConfiguredTargetKey> values, boolean keepGoing,
       ImmutableMap<Action, SkyframeActionExecutor.ConflictException> badActions)
           throws InterruptedException {
     checkActive();
@@ -1341,7 +1344,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<PostConfiguredTargetValue> result =
         buildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
-            ResourceUsage.getAvailableProcessors(), errorEventListener);
+            ResourceUsage.getAvailableProcessors(), eventHandler);
 
     // Remove all post-configured target values immediately for memory efficiency. We are OK with
     // this mini-phase being non-incremental as the failure mode of action conflict is rare.

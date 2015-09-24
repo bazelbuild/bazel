@@ -201,7 +201,7 @@ public final class SkyframeBuildView {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
     try {
-      result = skyframeExecutor.configureTargets(values, aspectKeys, keepGoing);
+      result = skyframeExecutor.configureTargets(eventHandler, values, aspectKeys, keepGoing);
     } finally {
       enableAnalysis(false);
     }
@@ -332,7 +332,7 @@ public final class SkyframeBuildView {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
       EvaluationResult<PostConfiguredTargetValue> actionConflictResult =
-          skyframeExecutor.postConfigureTargets(values, keepGoing, badActions);
+          skyframeExecutor.postConfigureTargets(eventHandler, values, keepGoing, badActions);
 
       goodCts = Lists.newArrayListWithCapacity(values.size());
       for (ConfiguredTargetKey value : values) {

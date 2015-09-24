@@ -137,6 +137,7 @@ public class SkyframeBuilder implements Builder {
     try {
       result =
           skyframeExecutor.buildArtifacts(
+              eventHandler,
               executor,
               artifacts,
               targetsToBuild,
@@ -170,6 +171,7 @@ public class SkyframeBuilder implements Builder {
         // built and then the build being interrupted.
         result =
             skyframeExecutor.buildArtifacts(
+                eventHandler,
                 executor,
                 ImmutableSet.<Artifact>of(),
                 targetsToBuild,

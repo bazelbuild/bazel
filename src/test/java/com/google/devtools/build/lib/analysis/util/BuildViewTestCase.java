@@ -272,8 +272,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
       ensureTargetsVisited(buildOptions.getAllLabels().values());
       skyframeExecutor.invalidateConfigurationCollection();
-      return skyframeExecutor.createConfigurations(configurationFactory, buildOptions, directories,
-          ImmutableSet.<String>of(), false);
+      return skyframeExecutor.createConfigurations(reporter, configurationFactory, buildOptions,
+          directories, ImmutableSet.<String>of(), false);
     } catch (InvalidConfigurationException | OptionsParsingException e) {
       throw new IllegalArgumentException(e);
     }

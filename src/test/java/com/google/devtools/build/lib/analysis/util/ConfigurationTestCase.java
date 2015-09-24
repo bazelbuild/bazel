@@ -154,8 +154,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     configurationFactory.forbidSanityCheck();
     BuildOptions buildOptions = BuildOptions.of(buildOptionClasses, parser);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
-        configurationFactory, buildOptions, new BlazeDirectories(outputBase, outputBase, workspace),
-        multiCpu, false);
+        reporter, configurationFactory, buildOptions,
+        new BlazeDirectories(outputBase, outputBase, workspace), multiCpu, false);
     return collection;
   }
 
