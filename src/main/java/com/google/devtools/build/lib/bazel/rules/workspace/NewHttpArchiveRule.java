@@ -63,7 +63,7 @@ public class NewHttpArchiveRule implements RuleDefinition {
          "tgz" here.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("type", STRING))
-        /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(strip_prefix) -->
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(strip_prefix) -->
          A directory prefix to strip from the extracted files.
          ${SYNOPSIS}
 
