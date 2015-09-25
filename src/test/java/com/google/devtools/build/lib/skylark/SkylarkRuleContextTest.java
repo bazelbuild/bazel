@@ -72,6 +72,99 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
   }
 
+  private void setUpAttributeErrorTest() throws Exception   {
+    scratch.file("test/BUILD",
+        "load('/test/macros', 'macro_native_rule', 'macro_skylark_rule', 'skylark_rule')",
+        "macro_native_rule(name = 'm_native',",
+        "  deps = [':jlib'])",
+        "macro_skylark_rule(name = 'm_skylark',",
+        "  deps = [':jlib'])",
+        "java_library(name = 'jlib',",
+        "  srcs = ['bla.java'])",
+        "cc_library(name = 'cclib',",
+        "  deps = [':jlib'])",
+        "skylark_rule(name = 'skyrule',",
+        "  deps = [':jlib'])");
+    scratch.file("test/macros.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(providers = ['some_provider'], allow_files=True)",
+        "  }",
+        ")",
+        "def macro_native_rule(name, deps): ",
+        "  native.cc_library(name = name, deps = deps)",
+        "def macro_skylark_rule(name, deps):",
+        "  skylark_rule(name = name, deps = deps)");
+    reporter.removeHandler(failFastHandler);
+  }
+
+  public void testNativeRuleAttributeErrorWithMacro() throws Exception {
+    setUpAttributeErrorTest();
+    try {
+      createRuleContext("//test:m_native");
+      fail("Should have failed because of invalid dependency");
+    } catch (Exception ex) {
+      // Macro creates native rule -> location points to the rule and the message contains details
+      // about the macro.
+      assertContainsEvent(
+          "ERROR /workspace/test/BUILD:2:1: in deps attribute of cc_library rule //test:m_native: "
+          + "java_library rule '//test:jlib' is misplaced here (expected ");
+      // Skip the part of the error message that has details about the allowed deps since the mocks
+      // for the mac tests might have different values for them.
+      assertContainsEvent(". Since this "
+          + "rule was created by the macro 'macro_native_rule', the error might have been caused "
+          + "by the macro implementation in /workspace/test/macros.bzl:10:41");
+    }
+  }
+  public void testSkylarkRuleAttributeErrorWithMacro() throws Exception {
+    setUpAttributeErrorTest();
+    try {
+      createRuleContext("//test:m_skylark");
+      fail("Should have failed because of invalid attribute value");
+    } catch (Exception ex) {
+      // Macro creates Skylark rule -> location points to the rule and the message contains details
+      // about the macro.
+      assertContainsEvent(
+          "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
+          + "//test:m_skylark: '//test:jlib' does not have mandatory provider 'some_provider'. "
+          + "Since this rule was created by the macro 'macro_skylark_rule', the error might have "
+          + "been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
+    }
+  }
+  public void testNativeRuleAttributeErrorWithoutMacro() throws Exception {
+    setUpAttributeErrorTest();
+    try {
+      createRuleContext("//test:cclib");
+      fail("Should have failed because of invalid dependency");
+    } catch (Exception ex) {
+      // Native rule WITHOUT macro -> location points to the attribute and there is no mention of
+      // 'macro' at all.
+      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+          + "cc_library rule //test:cclib: java_library rule '//test:jlib' is misplaced here "
+          + "(expected ");
+      // Skip the part of the error message that has details about the allowed deps since the mocks
+      // for the mac tests might have different values for them.
+      assertDoesNotContainEvent("Since this rule was created by the macro");
+    }
+  }
+
+  public void testSkylarkRuleAttributeErrorWithoutMacro() throws Exception {
+    setUpAttributeErrorTest();
+    try {
+      createRuleContext("//test:skyrule");
+      fail("Should have failed because of invalid dependency");
+    } catch (Exception ex) {
+      // Skylark rule WITHOUT macro -> location points to the attribute and there is no mention of
+      // 'macro' at all.
+      assertContainsEvent("ERROR /workspace/test/BUILD:11:10: in deps attribute of "
+          + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory provider "
+          + "'some_provider'");
+    }
+  }
+
   public void testGetPrerequisiteArtifacts() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.files.srcs");

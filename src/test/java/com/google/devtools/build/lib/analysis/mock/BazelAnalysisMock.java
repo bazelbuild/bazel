@@ -71,6 +71,7 @@ public class BazelAnalysisMock extends AnalysisMock {
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar'])");
     config.create("tools/cpp/BUILD",
+        "cc_library(name = 'stl')",
         "filegroup(name = 'toolchain', ",
         "    srcs = [':cc-compiler-local', ':cc-compiler-darwin', ':cc-compiler-piii',",
         "            ':cc-compiler-armeabi-v7a', ':empty'],",

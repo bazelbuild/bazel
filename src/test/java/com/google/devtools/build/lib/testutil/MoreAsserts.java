@@ -359,7 +359,9 @@ public class MoreAsserts {
                                           String expectedEvent,
                                           Set<EventKind> kinds) {
     for (Event event : eventCollector) {
-      if (event.getMessage().contains(expectedEvent) && kinds.contains(event.getKind())) {
+      // We want to be able to check for the location and the message type (error / warning).
+      // Consequently, we use toString() instead of getMessage().
+      if (event.toString().contains(expectedEvent) && kinds.contains(event.getKind())) {
         return event;
       }
     }
