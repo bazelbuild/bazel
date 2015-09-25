@@ -48,7 +48,45 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   /**
    * A human-readable name for the repository.
    */
-  public static final class RepositoryName {
+  public static final class RepositoryName implements Serializable {
+    /** Helper for serializing {@link RepositoryName}. */
+    private static final class SerializationProxy implements Serializable {
+      private RepositoryName repositoryName;
+
+      private SerializationProxy(RepositoryName repositoryName) {
+        this.repositoryName = repositoryName;
+      }
+
+      private void writeObject(ObjectOutputStream out) throws IOException {
+        out.writeObject(repositoryName.toString());
+      }
+
+      private void readObject(ObjectInputStream in)
+          throws IOException, ClassNotFoundException {
+        try {
+          repositoryName = RepositoryName.create((String) in.readObject());
+        } catch (LabelSyntaxException e) {
+          throw new IOException("Error serializing repository name: " + e.getMessage());
+        }
+      }
+
+      @SuppressWarnings("unused")
+      private void readObjectNoData() throws ObjectStreamException {
+      }
+
+      private Object readResolve() {
+        return repositoryName;
+      }
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException {
+      throw new IOException("Serialization is allowed only by proxy");
+    }
+
+    private Object writeReplace() {
+      return new SerializationProxy(this);
+    }
+
     private static final LoadingCache<String, RepositoryName> repositoryNameCache =
         CacheBuilder.newBuilder()
           .weakValues()
@@ -235,42 +273,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
   }
 
-  /**
-   * Helper for serializing PackageIdentifiers.
-   *
-   * <p>PackageIdentifier's field should be final, but then it couldn't be deserialized. This
-   * allows the fields to be deserialized and copied into a new PackageIdentifier.</p>
-   */
-  private static final class SerializationProxy implements Serializable {
-    PackageIdentifier packageId;
-
-    public SerializationProxy(PackageIdentifier packageId) {
-      this.packageId = packageId;
-    }
-
-    private void writeObject(ObjectOutputStream out) throws IOException {
-      out.writeObject(packageId.repository.toString());
-      out.writeObject(packageId.pkgName);
-    }
-
-    private void readObject(ObjectInputStream in)
-        throws IOException, ClassNotFoundException {
-      try {
-        packageId = new PackageIdentifier((String) in.readObject(), (PathFragment) in.readObject());
-      } catch (LabelSyntaxException e) {
-        throw new IOException("Error serializing package identifier: " + e.getMessage());
-      }
-    }
-
-    @SuppressWarnings("unused")
-    private void readObjectNoData() throws ObjectStreamException {
-    }
-
-    private Object readResolve() {
-      return packageId;
-    }
-  }
-
   // Temporary factory for identifiers without explicit repositories.
   // TODO(bazel-team): remove all usages of this.
   public static PackageIdentifier createInDefaultRepo(String name) {
@@ -334,18 +336,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
 
     return new PackageIdentifier(repo, new PathFragment(packageName));
-  }
-
-  private Object writeReplace() {
-    return new SerializationProxy(this);
-  }
-
-  private void readObject(ObjectInputStream in) throws IOException {
-    throw new IOException("Serialization is allowed only by proxy");
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() throws ObjectStreamException {
   }
 
   public RepositoryName getRepository() {

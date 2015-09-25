@@ -56,6 +56,7 @@ public abstract class TargetPattern implements Serializable {
 
   private final Type type;
   private final String originalPattern;
+  private final String offset;
 
   /**
    * Returns a parser with no offset. Note that the Parser class is immutable, so this method may
@@ -108,10 +109,11 @@ public abstract class TargetPattern implements Serializable {
     return SLASH_JOINER.join(pieces);
   }
 
-  private TargetPattern(Type type, String originalPattern) {
+  private TargetPattern(Type type, String originalPattern, String offset) {
     // Don't allow inheritance outside this class.
     this.type = type;
     this.originalPattern = Preconditions.checkNotNull(originalPattern);
+    this.offset = Preconditions.checkNotNull(offset);
   }
 
   /**
@@ -127,6 +129,13 @@ public abstract class TargetPattern implements Serializable {
    */
   public String getOriginalPattern() {
     return originalPattern;
+  }
+
+  /**
+   * Return the offset this target pattern was parsed with.
+   */
+  public String getOffset() {
+    return offset;
   }
 
   /**
@@ -186,8 +195,9 @@ public abstract class TargetPattern implements Serializable {
     private final String targetName;
     private final String directory;
 
-    private SingleTarget(String targetName, String directory, String originalPattern) {
-      super(Type.SINGLE_TARGET, originalPattern);
+    private SingleTarget(
+        String targetName, String directory, String originalPattern, String offset) {
+      super(Type.SINGLE_TARGET, originalPattern, offset);
       this.targetName = Preconditions.checkNotNull(targetName);
       this.directory = Preconditions.checkNotNull(directory);
     }
@@ -239,8 +249,8 @@ public abstract class TargetPattern implements Serializable {
 
     private final String path;
 
-    private InterpretPathAsTarget(String path, String originalPattern) {
-      super(Type.PATH_AS_TARGET, originalPattern);
+    private InterpretPathAsTarget(String path, String originalPattern, String offset) {
+      super(Type.PATH_AS_TARGET, originalPattern, offset);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
 
@@ -313,9 +323,10 @@ public abstract class TargetPattern implements Serializable {
     private final boolean rulesOnly;
     private final boolean checkWildcardConflict;
 
-    private TargetsInPackage(String originalPattern, PackageIdentifier packageIdentifier,
-        String suffix, boolean isAbsolute, boolean rulesOnly, boolean checkWildcardConflict) {
-      super(Type.TARGETS_IN_PACKAGE, originalPattern);
+    private TargetsInPackage(String originalPattern, String offset,
+        PackageIdentifier packageIdentifier, String suffix, boolean isAbsolute, boolean rulesOnly,
+        boolean checkWildcardConflict) {
+      super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
       this.isAbsolute = isAbsolute;
@@ -420,8 +431,9 @@ public abstract class TargetPattern implements Serializable {
     private final String directory;
     private final boolean rulesOnly;
 
-    private TargetsBelowDirectory(String originalPattern, String directory, boolean rulesOnly) {
-      super(Type.TARGETS_BELOW_DIRECTORY, originalPattern);
+    private TargetsBelowDirectory(
+        String originalPattern, String offset, String directory, boolean rulesOnly) {
+      super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
     }
@@ -593,9 +605,11 @@ public abstract class TargetPattern implements Serializable {
       if (packagePart.endsWith("/...")) {
         String realPackagePart = removeSuffix(packagePart, "/...");
         if (targetPart.isEmpty() || ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowDirectory(originalPattern, realPackagePart, true);
+          return new TargetsBelowDirectory(
+              originalPattern, relativeDirectory, realPackagePart, true);
         } else if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowDirectory(originalPattern, realPackagePart, false);
+          return new TargetsBelowDirectory(
+              originalPattern, relativeDirectory, realPackagePart, false);
         }
       }
 
@@ -607,8 +621,8 @@ public abstract class TargetPattern implements Serializable {
           throw new TargetParsingException(
               "Invalid package name '" + packagePart + "': " + e.getMessage());
         }
-        return new TargetsInPackage(
-            originalPattern, packageIdentifier, targetPart, isAbsolute, true, true);
+        return new TargetsInPackage(originalPattern, relativeDirectory, packageIdentifier,
+            targetPart, isAbsolute, true, true);
       }
 
       if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
@@ -619,8 +633,8 @@ public abstract class TargetPattern implements Serializable {
           throw new TargetParsingException(
               "Invalid package name '" + packagePart + "': " + e.getMessage());
         }
-        return new TargetsInPackage(
-            originalPattern, packageIdentifier, targetPart, isAbsolute, false, true);
+        return new TargetsInPackage(originalPattern, relativeDirectory, packageIdentifier,
+            targetPart, isAbsolute, false, true);
       }
 
       if (includesRepo || isAbsolute || pattern.contains(":")) {
@@ -632,7 +646,8 @@ public abstract class TargetPattern implements Serializable {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);
         }
-        return new SingleTarget(fullLabel, packageAndTarget.getPackageName(), originalPattern);
+        return new SingleTarget(
+            fullLabel, packageAndTarget.getPackageName(), originalPattern, relativeDirectory);
       }
 
       // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
@@ -650,7 +665,7 @@ public abstract class TargetPattern implements Serializable {
         throw new TargetParsingException("Bad target pattern '" + originalPattern + "': " +
             errorMessage);
       }
-      return new InterpretPathAsTarget(pattern, originalPattern);
+      return new InterpretPathAsTarget(pattern, originalPattern, relativeDirectory);
     }
 
     /**
