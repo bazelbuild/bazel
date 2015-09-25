@@ -1370,9 +1370,11 @@ public final class RuleClass {
   @SuppressWarnings("unchecked")
   Rule createRuleWithParsedAttributeValues(Label label,
       Package.Builder pkgBuilder, Location ruleLocation,
-      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler)
+      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler,
+      AttributeContainer attributeContainer)
           throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabel(label, this, null, ruleLocation);
+    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, this, null, ruleLocation,
+        attributeContainer);
     rule.checkValidityPredicate(eventHandler);
 
     for (Attribute attribute : rule.getRuleClassObject().getAttributes()) {
@@ -1386,7 +1388,6 @@ public final class RuleClass {
       }
 
       rule.setAttributeValue(attribute, value.getValue(), value.getExplicitlySpecified());
-      rule.setAttributeLocation(attribute, value.getLocation());
       checkAllowedValues(rule, attribute, eventHandler);
 
       if (attribute.getName().equals("visibility")) {

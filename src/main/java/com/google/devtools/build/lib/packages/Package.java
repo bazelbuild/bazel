@@ -1040,7 +1040,13 @@ public class Package implements Serializable {
      */
     Rule newRuleWithLabel(Label label, RuleClass ruleClass, FuncallExpression ast,
         Location location) {
-      return new Rule(pkg, label, ruleClass, ast, location);
+      return newRuleWithLabelAndAttrContainer(label, ruleClass, ast, location,
+          new AttributeContainer(ruleClass));
+    }
+
+    Rule newRuleWithLabelAndAttrContainer(Label label, RuleClass ruleClass, FuncallExpression ast,
+        Location location, AttributeContainer attributeContainer) {
+      return new Rule(pkg, label, ruleClass, ast, location, attributeContainer);
     }
 
     /**

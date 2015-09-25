@@ -47,10 +47,14 @@ public class AttributeContainer {
    * Create a container for a rule of the given rule class.
    */
   AttributeContainer(RuleClass ruleClass) {
+   this(ruleClass, new Location[ruleClass.getAttributeCount()]);
+  }
+  
+  AttributeContainer(RuleClass ruleClass, Location[] locations) {
     this.ruleClass = ruleClass;
     this.attributeValues = new Object[ruleClass.getAttributeCount()];
     this.attributeValueExplicitlySpecified = new BitSet(ruleClass.getAttributeCount());
-    this.attributeLocations = new Location[ruleClass.getAttributeCount()];
+    this.attributeLocations = locations;
   }
 
   /**

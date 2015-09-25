@@ -178,7 +178,7 @@ public class PackageDeserializer {
     try {
       Rule rule = ruleClass.createRuleWithParsedAttributeValues(
           ruleLabel, context.packageBuilder, ruleLocation, attributeValues,
-          NullEventHandler.INSTANCE);
+          NullEventHandler.INSTANCE, new AttributeContainerWithoutLocation(ruleClass));
       context.packageBuilder.addRule(rule);
 
       Preconditions.checkState(!rule.containsErrors());
@@ -620,4 +620,27 @@ public class PackageDeserializer {
         throw new IllegalStateException();
     }
   }
+
+  private static class AttributeContainerWithoutLocation extends AttributeContainer {
+
+    private AttributeContainerWithoutLocation(RuleClass ruleClass) {
+      super(ruleClass, null);
+    }
+
+    @Override
+    public Location getAttributeLocation(String attrName) {
+      return EmptyLocation.INSTANCE;
+    }
+
+    @Override
+    void setAttributeLocation(int attrIndex, Location location) {
+      throw new UnsupportedOperationException("Setting location not supported");
+    }
+
+    @Override
+    void setAttributeLocation(Attribute attribute, Location location) {
+      throw new UnsupportedOperationException("Setting location not supported");
+    }
+  }
+
 }

@@ -157,12 +157,13 @@ public final class Rule implements Target {
   private List<OutputFile> outputFiles;
   private ListMultimap<String, OutputFile> outputFileMap;
 
-  Rule(Package pkg, Label label, RuleClass ruleClass, FuncallExpression ast, Location location) {
+  Rule(Package pkg, Label label, RuleClass ruleClass, FuncallExpression ast, Location location,
+      AttributeContainer attributeContainer) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.label = label;
     this.ruleClass = Preconditions.checkNotNull(ruleClass);
     this.location = Preconditions.checkNotNull(location);
-    this.attributes = new AttributeContainer(ruleClass);
+    this.attributes = attributeContainer;
     this.attributeMap = new RawAttributeMapper(pkg, ruleClass, label, attributes);
     this.containsErrors = false;
     this.ast = ast;
@@ -183,10 +184,6 @@ public final class Rule implements Target {
 
   void setAttributeLocation(int attrIndex, Location location) {
     attributes.setAttributeLocation(attrIndex, location);
-  }
-
-  void setAttributeLocation(Attribute attribute, Location location) {
-    attributes.setAttributeLocation(attribute, location);
   }
 
   void setContainsErrors() {
