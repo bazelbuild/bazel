@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +38,8 @@ import java.util.Map;
  */
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
-  public EvaluationTest() throws Exception {
+  @Before
+  public void setBuildMode() throws Exception {
     super.setMode(TestMode.BUILD);
   }
 

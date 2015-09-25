@@ -19,12 +19,18 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests for {@link SkylarkCommandLine}.
  */
+@RunWith(JUnit4.class)
 public class SkylarkCommandLineTest extends SkylarkTestCase {
 
-  @Override
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     scratch.file(
@@ -36,6 +42,7 @@ public class SkylarkCommandLineTest extends SkylarkTestCase {
         "  outs = ['c.txt'])");
   }
 
+  @Test
   public void testCmdHelperAll() throws Exception {
     Object result =
         evalRuleContextCode(

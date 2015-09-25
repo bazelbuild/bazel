@@ -44,20 +44,16 @@ import java.util.List;
  * Base class for test cases that use parsing and evaluation services.
  */
 public class EvaluationTestCase {
-
-  private EventCollectionApparatus eventCollectionApparatus;
+  private EventCollectionApparatus eventCollectionApparatus =
+      new EventCollectionApparatus(EventKind.ALL_EVENTS);
   private PackageFactory factory;
   private TestMode testMode = TestMode.SKYLARK;
   protected Environment env;
   protected Mutability mutability = Mutability.create("test");
 
-  public EvaluationTestCase() {
-    createNewInfrastructure();
-  }
-
   @Before
   public void setUp() throws Exception {
-    createNewInfrastructure();
+    factory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
     env = newEnvironment();
   }
 
@@ -99,11 +95,6 @@ public class EvaluationTestCase {
               + "Environment manually by overriding newEnvironment()");
     }
     return testMode.createEnvironment(getEventHandler(), null);
-  }
-
-  protected void createNewInfrastructure() {
-    eventCollectionApparatus = new EventCollectionApparatus(EventKind.ALL_EVENTS);
-    factory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
   }
 
   /**

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.testutil.TestMode;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,7 +40,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class SkylarkEvaluationTest extends EvaluationTest {
-  public SkylarkEvaluationTest() throws Exception {
+  @Before
+  public void setup() throws Exception {
     setMode(TestMode.SKYLARK);
   }
 

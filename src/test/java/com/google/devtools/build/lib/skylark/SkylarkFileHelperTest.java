@@ -21,12 +21,18 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests for SkylarkFileset and SkylarkFileType.
  */
+@RunWith(JUnit4.class)
 public class SkylarkFileHelperTest extends SkylarkTestCase {
 
-  @Override
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     scratch.file(
@@ -39,6 +45,7 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testFilterPasses() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -46,6 +53,7 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
     assertEquals(ActionsTestUtil.baseNamesOf((Iterable<Artifact>) result), "b.img");
   }
 
+  @Test
   public void testFilterFiltersFilesOut() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -53,12 +61,14 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
     assertThat(((Iterable<?>) result)).isEmpty();
   }
 
+  @Test
   public void testArtifactPath() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     String result = (String) evalRuleContextCode(ruleContext, "ruleContext.files.tools[0].path");
     assertEquals("foo/t.exe", result);
   }
 
+  @Test
   public void testArtifactShortPath() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     String result =

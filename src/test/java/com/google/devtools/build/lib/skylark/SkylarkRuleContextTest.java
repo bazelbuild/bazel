@@ -28,20 +28,25 @@ import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PythonSourcesProvider;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
 /**
  * Tests for SkylarkRuleContext.
  */
+@RunWith(JUnit4.class)
 public class SkylarkRuleContextTest extends SkylarkTestCase {
 
-  @Override
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     scratch.file(
@@ -101,6 +106,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
   }
 
+  @Test
   public void testNativeRuleAttributeErrorWithMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
@@ -119,6 +125,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           + "by the macro implementation in /workspace/test/macros.bzl:10:41");
     }
   }
+
+  @Test
   public void testSkylarkRuleAttributeErrorWithMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
@@ -134,6 +142,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           + "been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
     }
   }
+
+  @Test
   public void testNativeRuleAttributeErrorWithoutMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
@@ -151,6 +161,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     }
   }
 
+  @Test
   public void testSkylarkRuleAttributeErrorWithoutMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
@@ -165,22 +176,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     }
   }
 
+  @Test
   public void testGetPrerequisiteArtifacts() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.files.srcs");
     assertArtifactList(result, ImmutableList.of("a.txt", "b.img"));
-  }
-
-  public void disabledTestGetPrerequisiteArtifact() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.file.tools");
-    assertEquals("t.exe", ((Artifact) result).getFilename());
-  }
-
-  public void disabledTestGetPrerequisiteArtifactNoFile() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo2");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.file.srcs");
-    assertSame(Runtime.NONE, result);
   }
 
   private void assertArtifactList(Object result, List<String> artifacts) {
@@ -193,6 +193,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     }
   }
 
+  @Test
   public void testGetPrerequisites() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.srcs");
@@ -203,6 +204,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertNull(tic1.getProvider(PythonSourcesProvider.class));
   }
 
+  @Test
   public void testGetPrerequisite() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:asr");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.srcjar");
@@ -211,6 +213,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("asr-src.jar", tic.getLabel().getName());
   }
 
+  @Test
   public void testMiddleMan() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.middle_man(':host_jdk')");
@@ -220,51 +223,60 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         .contains("middlemen");
   }
 
+  @Test
   public void testGetRuleAttributeListType() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.outs");
     assertThat(result).isInstanceOf(SkylarkList.class);
   }
 
+  @Test
   public void testGetRuleAttributeListValue() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.outs");
     assertEquals(1, ((SkylarkList) result).size());
   }
 
+  @Test
   public void testGetRuleAttributeListValueNoGet() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.outs");
     assertEquals(1, ((SkylarkList) result).size());
   }
 
+  @Test
   public void testGetRuleAttributeStringTypeValue() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.cmd");
     assertEquals("dummy_cmd", (String) result);
   }
 
+  @Test
   public void testGetRuleAttributeStringTypeValueNoGet() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.cmd");
     assertEquals("dummy_cmd", (String) result);
   }
 
+  @Test
   public void testGetRuleAttributeBadAttributeName() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"), "No attribute 'bad'", "ruleContext.attr.bad");
   }
 
+  @Test
   public void testGetLabel() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.label");
     assertEquals("//foo:foo", ((Label) result).toString());
   }
 
+  @Test
   public void testRuleError() throws Exception {
     checkErrorContains(createRuleContext("//foo:foo"), "message", "fail('message')");
   }
 
+  @Test
   public void testAttributeError() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
@@ -272,12 +284,14 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "fail(attr='srcs', msg='message')");
   }
 
+  @Test
   public void testGetExecutablePrerequisite() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._ijar");
     assertEquals("ijar", ((Artifact) result).getFilename());
   }
 
+  @Test
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
     evalRuleContextCode(
@@ -294,24 +308,28 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(action.getCommandFilename()).endsWith("/ijar");
   }
 
+  @Test
   public void testOutputs() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
     Iterable<?> result = (Iterable<?>) evalRuleContextCode(ruleContext, "ruleContext.outputs.outs");
     assertEquals("d.txt", ((Artifact) Iterables.getOnlyElement(result)).getFilename());
   }
 
+  @Test
   public void testSkylarkRuleContextStr() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "'%s' % ruleContext");
     assertEquals("//foo:foo", result);
   }
 
+  @Test
   public void testSkylarkRuleContextGetDefaultShellEnv() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.configuration.default_shell_env");
     assertThat(result).isInstanceOf(ImmutableMap.class);
   }
 
+  @Test
   public void testCheckPlaceholders() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -319,6 +337,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals(true, result);
   }
 
+  @Test
   public void testCheckPlaceholdersBadPlaceholder() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -326,6 +345,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals(false, result);
   }
 
+  @Test
   public void testExpandMakeVariables() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -334,6 +354,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("DEF", result);
   }
 
+  @Test
   public void testExpandMakeVariablesShell() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -341,24 +362,28 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("$ABC", result);
   }
 
+  @Test
   public void testConfiguration() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.configuration");
     assertSame(result, ruleContext.getRuleContext().getConfiguration());
   }
 
+  @Test
   public void testHostConfiguration() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.host_configuration");
     assertSame(result, ruleContext.getRuleContext().getHostConfiguration());
   }
 
+  @Test
   public void testWorkspaceName() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.workspace_name");
     assertSame(result, TestConstants.WORKSPACE_NAME);
   }
 
+  @Test
   public void testDeriveArtifactLegacy() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -369,6 +394,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("foo/a/b.txt", fragment.getPathString());
   }
 
+  @Test
   public void testDeriveArtifact() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.new_file('a/b.txt')");
@@ -376,6 +402,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("foo/a/b.txt", fragment.getPathString());
   }
 
+  @Test
   public void testParamFileLegacy() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -387,6 +414,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("foo/t.exe.params", fragment.getPathString());
   }
 
+  @Test
   public void testParamFileSuffix() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(
