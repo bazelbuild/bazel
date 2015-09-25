@@ -77,11 +77,15 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
       return null;
     }
 
-    if (!forceLegacy && javaHome.startsWith("//")) {
-      return createDefault(env, javaHome, cpu);
-    } else {
-      return createLegacy(javaHome);
+    if (!forceLegacy) {
+      try {
+        return createDefault(env, javaHome, cpu);
+      } catch (LabelSyntaxException e) {
+        // Try again with legacy
+      }
     }
+
+    return createLegacy(javaHome);
   }
 
   @Override
@@ -96,7 +100,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
 
   @Nullable
   private Jvm createDefault(ConfigurationEnvironment lookup, String javaHome, String cpu)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, LabelSyntaxException {
     try {
       Label label = Label.parseAbsolute(javaHome);
       label = RedirectChaser.followRedirects(lookup, label, "jdk");
@@ -157,8 +161,6 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
       throw new InvalidConfigurationException(e.getMessage(), e);
     } catch (NoSuchTargetException e) {
       throw new InvalidConfigurationException("No such target: " + e.getMessage(), e);
-    } catch (LabelSyntaxException e) {
-      throw new InvalidConfigurationException(e.getMessage(), e);
     }
   }
 

@@ -112,7 +112,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   }
 
   private static Label parseOptionalLabel(String value) {
-    if ((value != null) && value.startsWith("//")) {
+    if (value != null) {
       try {
         return Label.parseAbsolute(value);
       } catch (LabelSyntaxException e) {

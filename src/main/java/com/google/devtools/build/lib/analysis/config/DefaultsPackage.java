@@ -158,14 +158,10 @@ public final class DefaultsPackage {
   }
 
   public static Label parseOptionalLabel(String value) {
-    if (value.startsWith("//")) {
-      try {
-        return Label.parseAbsolute(value);
-      } catch (LabelSyntaxException e) {
-        // We ignore this exception here - it will cause an error message at a later time.
-        return null;
-      }
-    } else {
+    try {
+      return Label.parseAbsolute(value);
+    } catch (LabelSyntaxException e) {
+      // We ignore this exception here - it will cause an error message at a later time.
       return null;
     }
   }
