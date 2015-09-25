@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.docgen;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
@@ -22,8 +26,10 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +41,10 @@ import java.util.TreeMap;
  * Class that parses the documentation fragments of rule-classes and
  * generates the html format documentation.
  */
-class BuildDocCollector {
+@VisibleForTesting
+public class BuildDocCollector {
+  private static final Splitter SHARP_SPLITTER = Splitter.on('#').limit(2).trimResults();
+
   private ConfiguredRuleClassProvider ruleClassProvider;
   private boolean printMessages;
 
@@ -46,11 +55,42 @@ class BuildDocCollector {
   }
 
   /**
+   * Parse the file containing black-listed rules for documentation. The list is simply a list of
+   * rules separated by new lines. Line comments can be added to the file by starting them with #.
+   *
+   * @param blackList The name of the file containing the black list.
+   * @return The set of black listed rules.
+   * @throws IOException
+   */
+  @VisibleForTesting
+  public static Set<String> readBlackList(String blackList) throws IOException {
+    Set<String> result = new HashSet<String>();
+    if (blackList != null && !blackList.isEmpty()) {
+      File file = new File(blackList);
+      try (BufferedReader reader = Files.newBufferedReader(file.toPath(), UTF_8)) {
+        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+          String rule = SHARP_SPLITTER.split(line).iterator().next();
+          if (!rule.isEmpty()) {
+            result.add(rule);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
    * Collects all the rule and attribute documentation present in inputDirs, integrates the
    * attribute documentation in the rule documentation and returns the rule documentation.
+   *
+   * @param inputDirs list of directories to scan for documentation
+   * @param blackList specify an optional black list file that list some rules that should
+   *                  not be listed in the output.
    */
-  public Map<String, RuleDocumentation> collect(String[] inputDirs)
+  public Map<String, RuleDocumentation> collect(String[] inputDirs, String blackList)
       throws BuildEncyclopediaDocException, IOException {
+    // Read the blackList file
+    Set<String> blacklistedRules = readBlackList(blackList);
     // RuleDocumentations are generated in order (based on rule type then alphabetically).
     // The ordering is also used to determine in which rule doc the common attribute docs are
     // generated (they are generated at the first appearance).
@@ -73,8 +113,8 @@ class BuildDocCollector {
         System.out.println(" Processing input directory: " + inputDir);
       }
       int ruleNum = ruleDocEntries.size();
-      collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, attributeDocEntries,
-          new File(inputDir));
+      collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, blacklistedRules,
+          attributeDocEntries, new File(inputDir));
       if (printMessages) {
         System.out.println(" " + (ruleDocEntries.size() - ruleNum)
             + " rule documentations found.");
@@ -150,6 +190,7 @@ class BuildDocCollector {
       Set<File> processedFiles,
       Map<String, File> ruleClassFiles,
       Map<String, RuleDocumentation> ruleDocEntries,
+      Set<String> blackList,
       ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries,
       File inputPath) throws BuildEncyclopediaDocException, IOException {
     if (processedFiles.contains(inputPath)) {
@@ -163,13 +204,16 @@ class BuildDocCollector {
         sfr.readDocsFromComments();
         for (RuleDocumentation d : sfr.getRuleDocEntries()) {
           String ruleName = d.getRuleName();
-          if (ruleDocEntries.containsKey(ruleName)
-              && !ruleClassFiles.get(ruleName).equals(inputPath)) {
-            System.err.printf("WARNING: '%s' from '%s' overrides value already in map from '%s'\n",
-                d.getRuleName(), inputPath, ruleClassFiles.get(ruleName));
+          if (!blackList.contains(ruleName)) {
+            if (ruleDocEntries.containsKey(ruleName)
+                && !ruleClassFiles.get(ruleName).equals(inputPath)) {
+              System.err.printf(
+                  "WARNING: '%s' from '%s' overrides value already in map from '%s'\n",
+                  d.getRuleName(), inputPath, ruleClassFiles.get(ruleName));
+            }
+            ruleClassFiles.put(ruleName, inputPath);
+            ruleDocEntries.put(ruleName, d);
           }
-          ruleClassFiles.put(ruleName, inputPath);
-          ruleDocEntries.put(ruleName, d);
         }
         if (attributeDocEntries != null) {
           // Collect all attribute documentations from this file.
@@ -178,7 +222,8 @@ class BuildDocCollector {
       }
     } else if (inputPath.isDirectory()) {
       for (File childPath : inputPath.listFiles()) {
-        collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, attributeDocEntries, childPath);
+        collectDocs(processedFiles, ruleClassFiles, ruleDocEntries, blackList,
+            attributeDocEntries, childPath);
       }
     }
 

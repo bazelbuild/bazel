@@ -57,12 +57,17 @@ public class BuildEncyclopediaGenerator {
       try {
         BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
             createRuleClassProvider());
-        processor.generateDocumentation(args[0].split(","), args.length > 1 ? args[1] : null);
+        processor.generateDocumentation(
+            args[0].split(","), getArgsOrNull(args, 1), getArgsOrNull(args, 2));
       } catch (BuildEncyclopediaDocException e) {
         fail(e, false);
       } catch (Throwable e) {
         fail(e, true);
       }
     }
+  }
+
+  private static String getArgsOrNull(String[] args, int idx) {
+    return args.length > idx ? args[idx] : null;
   }
 }

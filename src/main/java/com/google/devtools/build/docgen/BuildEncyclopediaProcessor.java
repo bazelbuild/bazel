@@ -62,8 +62,12 @@ public class BuildEncyclopediaProcessor {
   /**
    * Collects and processes all the rule and attribute documentation in inputDirs and
    * generates the Build Encyclopedia into the outputRootDir.
+   * 
+   * @param inputDirs list of directory to scan for document in the source code
+   * @param outputRootDir output directory where to write the build encyclopedia
+   * @param blackList optional path to a file listing rules to not document
    */
-  public void generateDocumentation(String[] inputDirs, String outputRootDir)
+  public void generateDocumentation(String[] inputDirs, String outputRootDir, String blackList)
       throws BuildEncyclopediaDocException, IOException {
     File buildEncyclopediaPath = setupDirectories(outputRootDir);
 
@@ -71,7 +75,7 @@ public class BuildEncyclopediaProcessor {
         "com/google/devtools/build/docgen/templates/build-encyclopedia.vm");
 
     BuildDocCollector collector = new BuildDocCollector(ruleClassProvider, false);
-    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs);
+    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs, blackList);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
     writeRuleClassDocs(ruleDocEntries.values(), page);
