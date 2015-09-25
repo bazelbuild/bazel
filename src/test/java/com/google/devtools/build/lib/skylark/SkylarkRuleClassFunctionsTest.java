@@ -66,6 +66,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         ")");
   }
 
+  public void testCannotOverrideBuiltInAttribute() throws Exception {
+    checkEvalError(
+        "There is already a built-in attribute 'tags' which cannot be overridden",
+        "def impl(ctx): return",
+        "r = rule(impl, attrs = {'tags': attr.string_list()})");
+  }
+
   public void testImplicitArgsAttribute() throws Exception {
     eval(
         "def _impl(ctx):",

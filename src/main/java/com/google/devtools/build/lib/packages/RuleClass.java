@@ -770,13 +770,16 @@ public final class RuleClass {
 
     /**
      * Adds or overrides the attribute in the rule class. Meant for Skylark usage.
+     *
+     * @throws IllegalArgumentException if the attribute overrides an existing attribute (will be
+     * legal in the future).
      */
     public void addOrOverrideAttribute(Attribute attribute) {
-      if (attributes.containsKey(attribute.getName())) {
-        overrideAttribute(attribute);
-      } else {
-        addAttribute(attribute);
-      }
+      String name = attribute.getName();
+      // Attributes may be overridden in the future.
+      Preconditions.checkArgument(!attributes.containsKey(name),
+          "There is already a built-in attribute '%s' which cannot be overridden", name);
+      addAttribute(attribute);
     }
 
     /** True if the rule class contains an attribute named {@code name}. */
