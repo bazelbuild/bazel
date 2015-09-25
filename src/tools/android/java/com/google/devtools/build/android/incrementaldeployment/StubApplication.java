@@ -103,9 +103,10 @@ public class StubApplication extends Application {
 
   private List<String> getDexList(String packageName) {
     List<String> result = new ArrayList<>();
-    File[] dexes = new File(INCREMENTAL_DEPLOYMENT_DIR + "/" + packageName + "/dex").listFiles();
+    String dexDirectory = INCREMENTAL_DEPLOYMENT_DIR + "/" + packageName + "/dex";
+    File[] dexes = new File(dexDirectory).listFiles();
     if (dexes == null) {
-      throw new IllegalStateException(".dex directory does not exist");
+      throw new IllegalStateException(".dex directory '" + dexDirectory + "' does not exist");
     }
 
     for (File dex : dexes) {
@@ -291,7 +292,7 @@ public class StubApplication extends Application {
     }
   }
 
-  private void instantiateRealApplication(String codeCacheDir, String dataDir) {
+  private void instantiateRealApplication(File codeCacheDir, String dataDir) {
     externalResourceFile = getExternalResourceFile();
 
     String nativeLibDir;
@@ -455,7 +456,7 @@ public class StubApplication extends Application {
   @Override
   protected void attachBaseContext(Context context) {
     instantiateRealApplication(
-        context.getCacheDir().getPath(),
+        context.getCacheDir(),
         context.getApplicationInfo().dataDir);
 
     // This is called from ActivityThread#handleBindApplication() -> LoadedApk#makeApplication().
