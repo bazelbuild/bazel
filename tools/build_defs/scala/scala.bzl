@@ -27,7 +27,8 @@ set -e
 mkdir -p {out}_tmp
 {scalac} {scala_opts} {jvm_flags} -classpath "{jars}" $@ -d {out}_tmp
 # Make jar file deterministic by setting the timestamp of files
-touch -t 198001010000 $(find .)
+touch -t 198001010000 $(find {out}_tmp)
+touch -t 198001010000 {manifest}
 jar cmf {manifest} {out} -C {out}_tmp .
 """
   cmd = cmd.format(
