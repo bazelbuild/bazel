@@ -123,7 +123,7 @@ Some differences with Python should be noted:
 * Dictionaries have deterministic order when iterating (sorted by key).
 
 * Sets use a custom order when iterating (see
-  [documentation](lib/Globals.html#set)).
+  [documentation](lib/globals.html#set)).
 
 * Recursion is not allowed.
 

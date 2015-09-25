@@ -7,7 +7,7 @@ Rules
 Rule creation
 -------------
 
-In a Skylark extension, use the [rule](lib/Globals.html#rule) function
+In a Skylark extension, use the [rule](lib/globals.html#rule) function
 to create a new rule and store it in a global variable.
 [See example](cookbook.md#empty).
 
@@ -355,7 +355,7 @@ Executable rules
 ----------------
 
 To make a rule executable, set `executable=True` in the
-[rule function](lib/Globals.html#rule). During the analysis
+[rule function](lib/globals.html#rule). During the analysis
 phase, the rule must generate the output file `ctx.outputs.executable`.
 [See example](cookbook.md#outputs-executable)
 
