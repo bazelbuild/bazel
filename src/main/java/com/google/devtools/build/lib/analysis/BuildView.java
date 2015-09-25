@@ -269,16 +269,6 @@ public class BuildView {
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
-  /** Returns the action graph. */
-  public ActionGraph getActionGraph() {
-    return new ActionGraph() {
-        @Override
-        public Action getGeneratingAction(Artifact artifact) {
-          return skyframeExecutor.getGeneratingAction(artifact);
-        }
-      };
-  }
-
   /**
    * Returns whether the given configured target has errors.
    */

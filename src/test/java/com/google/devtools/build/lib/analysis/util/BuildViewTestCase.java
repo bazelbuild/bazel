@@ -29,6 +29,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -490,13 +491,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.copyOf(result);
   }
 
+  protected ActionGraph getActionGraph() {
+    return skyframeExecutor.getActionGraph();
+  }
+
   protected final Action getGeneratingAction(Artifact artifact) {
     Preconditions.checkNotNull(artifact);
     Action action = mutableActionGraph.getGeneratingAction(artifact);
     if (action != null) {
       return action;
     }
-    return view.getActionGraph().getGeneratingAction(artifact);
+    return getActionGraph().getGeneratingAction(artifact);
   }
 
   protected void simulateLoadingPhase() {
@@ -508,7 +513,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected ActionsTestUtil actionsTestUtil() {
-    return new ActionsTestUtil(view.getActionGraph());
+    return new ActionsTestUtil(getActionGraph());
   }
 
   private Set<Target> getTargets(Iterable<Label> labels) throws InterruptedException,

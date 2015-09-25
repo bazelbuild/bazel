@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1451,44 +1452,55 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns the generating {@link Action} of the given {@link Artifact}.
-   *
-   * <p>For use for legacy support from {@code BuildView} only.
+   * Returns the generating action of a given artifact ({@code null} if it's a source artifact).
    */
-  @ThreadSafety.ThreadSafe
-  public Action getGeneratingAction(final Artifact artifact) {
+  private Action getGeneratingAction(Artifact artifact) throws InterruptedException {
     if (artifact.isSourceArtifact()) {
       return null;
     }
 
-    try {
-      return callUninterruptibly(new Callable<Action>() {
-        @Override
-        public Action call() throws InterruptedException {
-          ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-          Preconditions.checkState(artifactOwner instanceof ActionLookupValue.ActionLookupKey,
-              "%s %s", artifact, artifactOwner);
-          SkyKey actionLookupKey =
-              ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
+    ArtifactOwner artifactOwner = artifact.getArtifactOwner();
+    Preconditions.checkState(artifactOwner instanceof ActionLookupValue.ActionLookupKey,
+        "%s %s", artifact, artifactOwner);
+    SkyKey actionLookupKey =
+        ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
 
-          synchronized (valueLookupLock) {
-            // Note that this will crash (attempting to run a configured target value builder after
-            // analysis) after a failed --nokeep_going analysis in which the configured target that
-            // failed was a (transitive) dependency of the configured target that should generate
-            // this action. We don't expect callers to query generating actions in such cases.
-            EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
-                ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
-                errorEventListener);
-            return result.hasError()
-                ? null
-                : result.get(actionLookupKey).getGeneratingAction(artifact);
-          }
-        }
-      });
-    } catch (Exception e) {
-      throw new IllegalStateException("Error getting generating action: " + artifact.prettyPrint(),
-          e);
+    synchronized (valueLookupLock) {
+      // Note that this will crash (attempting to run a configured target value builder after
+      // analysis) after a failed --nokeep_going analysis in which the configured target that
+      // failed was a (transitive) dependency of the configured target that should generate
+      // this action. We don't expect callers to query generating actions in such cases.
+      EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
+          ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
+          errorEventListener);
+      return result.hasError()
+          ? null
+          : result.get(actionLookupKey).getGeneratingAction(artifact);
     }
+  }
+
+  /**
+   * Returns an action graph.
+   *
+   * <p>For legacy compatibility only.
+   */
+  public ActionGraph getActionGraph() {
+    return new ActionGraph() {
+      @Override
+      public Action getGeneratingAction(final Artifact artifact) {
+        try {
+          return callUninterruptibly(new Callable<Action>() {
+            @Override
+            public Action call() throws InterruptedException {
+              return SkyframeExecutor.this.getGeneratingAction(artifact);
+            }
+          });
+        } catch (Exception e) {
+          throw new IllegalStateException("Error getting generating action: "
+              + artifact.prettyPrint(), e);
+        }
+      }
+    };
   }
 
   public PackageManager getPackageManager() {

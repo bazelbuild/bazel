@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -362,6 +363,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected BuildView getView() {
     return buildView;
+  }
+
+  protected ActionGraph getActionGraph() {
+    return skyframeExecutor.getActionGraph();
   }
 
   protected AnalysisResult getAnalysisResult() {
