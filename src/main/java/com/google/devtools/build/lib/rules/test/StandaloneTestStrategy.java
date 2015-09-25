@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -60,7 +61,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     this.workspace = workspace;
   }
 
-  private static final String TEST_SETUP = "tools/test/test-setup.sh";
+  private static final String TEST_SETUP_BASENAME = "test-setup.sh";
 
   @Override
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
@@ -88,11 +89,12 @@ public class StandaloneTestStrategy extends TestStrategy {
     info.put("timeout", "" + getTimeout(action));
     info.putAll(action.getTestProperties().getExecutionInfo());
 
+    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
     Spawn spawn =
         new BaseSpawn(
             // Bazel lacks much of the tooling for coverage, so we don't attempt to pass a coverage
             // script here.
-            getArgs(TEST_SETUP, "", action),
+            getArgs(testSetup.getExecPathString(), "", action),
             env,
             info,
             new RunfilesSupplierImpl(

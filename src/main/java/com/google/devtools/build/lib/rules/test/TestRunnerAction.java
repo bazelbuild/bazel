@@ -27,10 +27,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -58,6 +60,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
+  private final NestedSet<Artifact> runtime;
   private final BuildConfiguration configuration;
   private final Artifact testLog;
   private final Artifact cacheStatus;
@@ -111,6 +114,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
    */
   TestRunnerAction(ActionOwner owner,
       Iterable<Artifact> inputs,
+      NestedSet<Artifact> runtime,   // Must be a subset of inputs
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
@@ -126,6 +130,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         // Note that this action only cares about the runfiles, not the mapping.
         new RunfilesSupplierImpl(new PathFragment("runfiles"), executionSettings.getRunfiles()),
         list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
+    this.runtime = runtime;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
@@ -537,6 +542,16 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return getOutputs();
+  }
+
+  public Artifact getRuntimeArtifact(String basename) throws ExecException {
+    for (Artifact runtimeArtifact : runtime) {
+      if (runtimeArtifact.getExecPath().getBaseName().equals(basename)) {
+        return runtimeArtifact;
+      }
+    }
+
+    throw new UserExecException("'" + basename + "' not found in test runtime");
   }
 
   /**
