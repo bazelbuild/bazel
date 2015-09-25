@@ -437,7 +437,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         nativeLibs,
         stubData);
 
-    NestedSetBuilder<Artifact> splitApkSetBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> splitApkSetBuilder = NestedSetBuilder.compileOrder();
+
+    // Put the Android resource APK first so that this split gets installed first.
+    //
+    // This avoids some logcat spam during installation, because otherwise the Android package
+    // manager would complain about references to missing resources in the manifest during the
+    // installation of each split (said references would eventually get installed, but it cannot
+    // know that in advance)
+    Artifact resourceSplitApk = getDxArtifact(ruleContext, "android_resources.apk");
+    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
+        .resourceApk(splitResourceApk.getArtifact())
+        .sign(true)
+        .message("Generating split Android resource apk")
+        .build(resourceSplitApk));
+    splitApkSetBuilder.add(resourceSplitApk);
 
     for (int i = 0; i < dexingOutput.shardDexZips.size(); i++) {
       String splitName = "dex" + (i + 1);
@@ -474,14 +488,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .message("Generating split Java resource apk")
         .build(javaSplitApk));
     splitApkSetBuilder.add(javaSplitApk);
-
-    Artifact resourceSplitApk = getDxArtifact(ruleContext, "android_resources.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-        .resourceApk(splitResourceApk.getArtifact())
-        .sign(true)
-        .message("Generating split Android resource apk")
-        .build(resourceSplitApk));
-    splitApkSetBuilder.add(resourceSplitApk);
 
     Artifact splitMainApkResources = getDxArtifact(ruleContext, "split_main.ap_");
     ruleContext.registerAction(new SpawnAction.Builder()
