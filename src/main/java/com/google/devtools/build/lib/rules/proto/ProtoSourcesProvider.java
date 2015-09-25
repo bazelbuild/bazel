@@ -74,6 +74,11 @@ public final class ProtoSourcesProvider implements TransitiveInfoProvider {
    * Returns the proto sources from the 'srcs' attribute. If the library is a proxy library
    * that has no sources, return the sources from the direct deps.
    */
+  @SkylarkCallable(
+      name = "sources",
+      doc = "Proto sources from the 'srcs' attribute. If the library is a proxy library "
+          + "that has no sources, it contains the sources from the direct deps.",
+      structField = true)
   public ImmutableList<Artifact> getProtoSources() {
     return protoSources;
   }
