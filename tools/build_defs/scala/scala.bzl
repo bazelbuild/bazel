@@ -17,10 +17,6 @@
 
 _scala_filetype = FileType([".scala"])
 
-# TODO(bazel-team): Add local_repository to properly declare the dependency.
-_scala_library_path = "/usr/share/java/scala-library.jar"
-_scalac_path = "/usr/bin/scalac"
-
 def _compile(ctx, jars):
   cmd = """
 set -e
@@ -31,7 +27,7 @@ touch -t 198001010000 $(find .)
 jar cmf {manifest} {out} -C {out}_tmp .
 """
   cmd = cmd.format(
-      scalac=_scalac_path,
+      scalac=ctx.file._scalac.path,
       scala_opts=" ".join(ctx.attr.scalacopts),
       jvm_flags=" ".join(["-J" + flag for flag in ctx.attr.jvm_flags]),
       out=ctx.outputs.jar.path,
@@ -47,7 +43,7 @@ jar cmf {manifest} {out} -C {out}_tmp .
 
 
 def _write_manifest(ctx):
-  cp = "/usr/share/java/scala-library.jar"
+  cp = ctx.file._scala_lib.path
   manifest = "Class-Path: %s\n" % cp
   if getattr(ctx.attr, "main_class", ""):
     manifest += "Main-Class: %s\n" % ctx.attr.main_class
@@ -123,6 +119,14 @@ scala_library = rule(
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
       "scalacopts": attr.string_list(),
       "jvm_flags": attr.string_list(),
+      "_scalac": attr.label(
+        default=Label("//external:scalac"),
+        allow_files=True,
+        single_file=True),
+      "_scala_lib": attr.label(
+        default=Label("//external:scala-lib"),
+        allow_files=True,
+        single_file=True),
       },
   outputs={
       "jar": "%{name}_deploy.jar",
@@ -141,6 +145,14 @@ scala_binary = rule(
       "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
       "scalacopts":attr.string_list(),
       "jvm_flags": attr.string_list(),
+      "_scalac": attr.label(
+        default=Label("//external:scalac"),
+        allow_files=True,
+        single_file=True),
+      "_scala_lib": attr.label(
+        default=Label("//external:scala-lib"),
+        allow_files=True,
+        single_file=True),
       },
   outputs={
       "jar": "%{name}_deploy.jar",
