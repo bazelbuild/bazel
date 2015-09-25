@@ -3451,7 +3451,8 @@ adb -s deadbeef install ...
   This switch will cause bazel to be run in batch mode, instead of the
   standard client/server mode described <a href='#client/server'>above</a>.
   Doing so provides more predictable semantics with respect to signal handling,
-  job control, and environment variable inheritance.
+  job control, and environment variable inheritance, and is necessary for running
+  bazel in a chroot jail.
 </p>
 
 <p>
