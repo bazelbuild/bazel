@@ -1605,12 +1605,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private CyclesReporter createCyclesReporter() {
-    LoadedPackageProvider loadedPackageProvider = getLoadedPackageProvider();
     return new CyclesReporter(
-        new TransitiveTargetCycleReporter(loadedPackageProvider),
-        new ActionArtifactCycleReporter(loadedPackageProvider),
+        new TransitiveTargetCycleReporter(packageManager),
+        new ActionArtifactCycleReporter(packageManager),
         new SkylarkModuleCycleReporter(),
-        new ConfiguredTargetCycleReporter(loadedPackageProvider));
+        new ConfiguredTargetCycleReporter(packageManager));
   }
 
   CyclesReporter getCyclesReporter() {
