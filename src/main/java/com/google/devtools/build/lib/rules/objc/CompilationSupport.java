@@ -169,6 +169,10 @@ public final class CompilationSupport {
   static final String FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT =
       "File '%s' is in both srcs and hdrs.";
 
+  @VisibleForTesting
+  static final String FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT =
+      "File '%s' is present in both srcs and non_arc_srcs which is forbidden.";
+
   /**
    * Returns information about the given rule's compilation artifacts.
    */
@@ -1048,17 +1052,28 @@ public final class CompilationSupport {
           "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
 
-    // Check for overlap between srcs and hdrs.
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
       Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
       Set<Artifact> srcsSet =
           new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+      
+      // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
         String path = header.getRootRelativePath().toString();
         ruleContext.attributeWarning(
             "srcs", String.format(FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT, path));
       }
+
+      // Check for overlap between srcs and non_arc_srcs.
+      Set<Artifact> nonArcSrcsSet =
+          new HashSet<>(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
+      for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
+        String path = conflict.getRootRelativePath().toString();
+        ruleContext.attributeError(
+            "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
+      }
     }
+
     return this;
   }
 
