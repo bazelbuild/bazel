@@ -279,7 +279,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.tsgm = tsgm;
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
-        new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
+        new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(reporter),
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
     this.errorEventListener = Preconditions.checkNotNull(reporter);
@@ -1361,10 +1361,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public TransitivePackageLoader pkgLoader() {
     checkActive();
-    return new SkyframeLabelVisitor(new SkyframeTransitivePackageLoader(), cyclesReporter);
+    return new SkyframeLabelVisitor(
+        new SkyframeTransitivePackageLoader(errorEventListener), cyclesReporter);
   }
 
   class SkyframeTransitivePackageLoader {
+    private final EventHandler eventHandler;
+
+    SkyframeTransitivePackageLoader(EventHandler eventHandler) {
+      this.eventHandler = eventHandler;
+    }
+
     /**
      * Loads the specified {@link TransitiveTargetValue}s.
      */
@@ -1399,7 +1406,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                         valueNames,
                         false,
                         ResourceUsage.getAvailableProcessors(),
-                        errorEventListener);
+                        eventHandler);
                 Preconditions.checkState(
                     !result.hasError(), "unexpected errors: %s", result.errorMap());
                 Set<Package> packages = Sets.newHashSet();
@@ -1414,7 +1421,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
-
     }
   }
 
