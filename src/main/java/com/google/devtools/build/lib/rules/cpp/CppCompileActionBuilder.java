@@ -248,8 +248,16 @@ public class CppCompileActionBuilder {
     // Configuration can be null in tests.
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    if (tempOutputFile == null && configuration != null
-        && !configuration.getFragment(CppConfiguration.class).shouldScanIncludes()) {
+    String filename = sourceFile.getFilename();
+    // Assembler without C preprocessing can use the '.include' pseudo-op which is not
+    // understood by the include scanner, so we'll disable scanning, and instead require
+    // the declared sources to state (possibly overapproximate) the dependencies.
+    // Assembler with preprocessing can also use '.include', but supporting both kinds
+    // of inclusion for that use-case is ridiculous.
+    boolean shouldScanIncludes = !CppFileTypes.ASSEMBLER.matches(filename)
+        && configuration != null
+        && configuration.getFragment(CppConfiguration.class).shouldScanIncludes();
+    if (tempOutputFile == null && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
@@ -260,7 +268,8 @@ public class CppCompileActionBuilder {
     // Copying the collections is needed to make the builder reusable.
     if (fake) {
       return new FakeCppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
-          variables, sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile,
+          variables, sourceFile, shouldScanIncludes, sourceLabel,
+          realMandatoryInputsBuilder.build(), outputFile,
           tempOutputFile, dotdFile, configuration, cppConfiguration, context, actionContext,
           ImmutableList.copyOf(copts), ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext,
@@ -269,8 +278,8 @@ public class CppCompileActionBuilder {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 
       return new CppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
-          variables, sourceFile, sourceLabel, realMandatoryInputs, outputFile, dotdFile,
-          gcnoFile, getDwoFile(ruleContext, outputFile, cppConfiguration),
+          variables, sourceFile, shouldScanIncludes, sourceLabel, realMandatoryInputs,
+          outputFile, dotdFile, gcnoFile, getDwoFile(ruleContext, outputFile, cppConfiguration),
           optionalSourceFile, configuration, cppConfiguration, context,
           actionContext, ImmutableList.copyOf(copts),
           ImmutableList.copyOf(pluginOpts),
