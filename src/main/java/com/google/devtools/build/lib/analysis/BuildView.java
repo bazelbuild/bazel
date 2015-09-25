@@ -261,7 +261,7 @@ public class BuildView {
       SkyframeExecutor skyframeExecutor,
       BinTools binTools, CoverageReportActionFactory coverageReportActionFactory) {
     this.directories = directories;
-    this.packageManager = skyframeExecutor.getPackageManager();
+    this.packageManager = skyframeExecutor.getLoadedPackageProvider();
     this.binTools = binTools;
     this.coverageReportActionFactory = coverageReportActionFactory;
     this.ruleClassProvider = ruleClassProvider;

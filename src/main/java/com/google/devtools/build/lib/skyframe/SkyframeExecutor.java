@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.packages.Preprocessor.Result;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -1366,7 +1367,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /**
      * Loads the specified {@link TransitiveTargetValue}s.
      */
-    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(
+    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(EventHandler eventHandler,
         Iterable<Target> targetsToVisit, Iterable<Label> labelsToVisit, boolean keepGoing)
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
@@ -1378,7 +1379,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
 
       return buildDriver.evaluate(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
-          errorEventListener);
+          eventHandler);
     }
 
     public Set<Package> retrievePackages(Set<PackageIdentifier> packageIds) {
@@ -1494,6 +1495,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return packageManager;
   }
 
+  public LoadedPackageProvider getLoadedPackageProvider() {
+    return new LoadedPackageProvider.Bridge(packageManager, errorEventListener);
+  }
+
   class SkyframePackageLoader {
     /**
      * Looks up a particular package (mostly used after the loading phase, so packages should
@@ -1532,25 +1537,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               + pkgName + "'' with root causes: " + Iterables.toString(error.getRootCauses()), e);
         }
         return result.get(key).getPackage();
-      }
-    }
-
-    Package getLoadedPackage(final PackageIdentifier pkgName) throws NoSuchPackageException {
-      // Note that in Skyframe there is no way to tell if the package has been loaded before or not,
-      // so this will never throw for packages that are not loaded. However, no code currently
-      // relies on having the exception thrown.
-      try {
-        return callUninterruptibly(
-            new Callable<Package>() {
-              @Override
-              public Package call() throws InterruptedException, NoSuchPackageException {
-                return getPackage(errorEventListener, pkgName);
-              }
-            });
-      } catch (NoSuchPackageException e) {
-        throw e;
-      } catch (Exception e) {
-        throw new IllegalStateException(e);  // Should never happen.
       }
     }
 
@@ -1606,11 +1592,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private CyclesReporter createCyclesReporter() {
+    LoadedPackageProvider loadedPackageProvider = getLoadedPackageProvider();
     return new CyclesReporter(
-        new TransitiveTargetCycleReporter(packageManager),
-        new ActionArtifactCycleReporter(packageManager),
+        new TransitiveTargetCycleReporter(loadedPackageProvider),
+        new ActionArtifactCycleReporter(loadedPackageProvider),
         new SkylarkModuleCycleReporter(),
-        new ConfiguredTargetCycleReporter(packageManager));
+        new ConfiguredTargetCycleReporter(loadedPackageProvider));
   }
 
   CyclesReporter getCyclesReporter() {

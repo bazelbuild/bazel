@@ -17,17 +17,15 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.vfs.Path;
-
-import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
 
@@ -61,14 +59,12 @@ public interface ConfigurationEnvironment {
    * An implementation backed by a {@link PackageProvider} instance.
    */
   public static final class TargetProviderEnvironment implements ConfigurationEnvironment {
-    private final PackageProvider packageProvider;
-    private final EventHandler eventHandler;
+    private final LoadedPackageProvider.Bridge packageProvider;
     private final BlazeDirectories blazeDirectories;
 
     public TargetProviderEnvironment(PackageProvider packageProvider,
         EventHandler eventHandler, BlazeDirectories blazeDirectories) {
-      this.packageProvider = packageProvider;
-      this.eventHandler = eventHandler;
+      this.packageProvider = new LoadedPackageProvider.Bridge(packageProvider, eventHandler);
       this.blazeDirectories = blazeDirectories;
     }
 
@@ -80,19 +76,7 @@ public interface ConfigurationEnvironment {
     @Override
     public Target getTarget(final Label label)
         throws NoSuchPackageException, NoSuchTargetException {
-      try {
-        return Uninterruptibles.callUninterruptibly(new Callable<Target>() {
-          @Override
-          public Target call()
-              throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-            return packageProvider.getTarget(eventHandler, label);
-          }
-        });
-      } catch (NoSuchPackageException | NoSuchTargetException e) {
-        throw e;
-      } catch (Exception e) {
-        throw new IllegalStateException(e);
-      }
+      return packageProvider.getLoadedTarget(label);
     }
 
     @Override

@@ -197,8 +197,9 @@ public final class BuildTool {
       result.setActualTargets(analysisResult.getTargetsToBuild());
       result.setTestTargets(analysisResult.getTargetsToTest());
 
-      checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(),
-          runtime.getPackageManager());
+      LoadedPackageProvider.Bridge bridge =
+          new LoadedPackageProvider.Bridge(env.getPackageManager(), env.getReporter());
+      checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
       reportTargets(analysisResult);
 
       // Execution phase.

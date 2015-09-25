@@ -69,20 +69,11 @@ class SkyframePackageManager implements PackageManager {
     this.skyframeExecutor = skyframeExecutor;
   }
 
-  private Package getLoadedPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException {
-    return packageLoader.getLoadedPackage(pkgIdentifier);
-  }
-
   @ThreadSafe
   @Override
   public Package getPackage(EventHandler eventHandler, PackageIdentifier packageIdentifier)
       throws NoSuchPackageException, InterruptedException {
     return packageLoader.getPackage(eventHandler, packageIdentifier);
-  }
-
-  @Override
-  public Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-    return getLoadedPackage(label.getPackageIdentifier()).getTarget(label.getName());
   }
 
   @Override

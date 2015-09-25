@@ -14,9 +14,13 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
+
+import java.util.concurrent.Callable;
 
 /**
  * Read-only API for retrieving packages, i.e., calling this API should not result in packages being
@@ -34,4 +38,46 @@ public interface LoadedPackageProvider {
    * target.
    */
   Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException;
+
+  /**
+   * A bridge class that implements the legacy semantics of {@link #getLoadedTarget} using a
+   * normal {@link PackageProvider} instance.
+   */
+  public static final class Bridge implements LoadedPackageProvider {
+    private final PackageProvider packageProvider;
+    private final EventHandler eventHandler;
+
+    public Bridge(PackageProvider packageProvider, EventHandler eventHandler) {
+      this.packageProvider = packageProvider;
+      this.eventHandler = eventHandler;
+    }
+
+    @Override
+    public Target getLoadedTarget(final Label label)
+        throws NoSuchPackageException, NoSuchTargetException {
+      return getLoadedTarget(packageProvider, eventHandler, label);
+    }
+
+    /**
+     * Uninterruptible method to convert a label into a target using a given package provider and
+     * event handler.
+     */
+    public static Target getLoadedTarget(
+        final PackageProvider packageProvider, final EventHandler eventHandler, final Label label)
+            throws NoSuchPackageException, NoSuchTargetException {
+      try {
+        return Uninterruptibles.callUninterruptibly(new Callable<Target>() {
+          @Override
+          public Target call()
+              throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+            return packageProvider.getTarget(eventHandler, label);
+          }
+        });
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    }
+  }
 }

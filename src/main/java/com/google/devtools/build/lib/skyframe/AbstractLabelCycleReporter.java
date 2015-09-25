@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -29,9 +30,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
 abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
 
-  private final SkyframePackageManager loadedPackageProvider;
+  private final LoadedPackageProvider loadedPackageProvider;
 
-  AbstractLabelCycleReporter(SkyframePackageManager loadedPackageProvider) {
+  AbstractLabelCycleReporter(LoadedPackageProvider loadedPackageProvider) {
     this.loadedPackageProvider = loadedPackageProvider;
   }
 

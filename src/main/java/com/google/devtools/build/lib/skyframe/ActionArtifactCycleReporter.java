@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,7 +36,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
       SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION));
 
-  ActionArtifactCycleReporter(SkyframePackageManager loadedPackageProvider) {
+  ActionArtifactCycleReporter(LoadedPackageProvider loadedPackageProvider) {
     super(loadedPackageProvider);
   }
 

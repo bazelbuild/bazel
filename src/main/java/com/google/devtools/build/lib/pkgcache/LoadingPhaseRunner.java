@@ -485,7 +485,7 @@ public class LoadingPhaseRunner {
       targetsToAnalyze = targetsToLoad;
     } else if (keepGoing) {
       // Keep going: filter out the error-free targets and only continue with those.
-      targetsToAnalyze = filterErrorFreeTargets(eventBus, targetsToLoad,
+      targetsToAnalyze = filterErrorFreeTargets(eventHandler, eventBus, targetsToLoad,
           labelsToLoadUnconditionally);
       reportAboutPartiallySuccesfulLoading(targetsToLoad, targetsToAnalyze, eventHandler);
     } else {
@@ -537,11 +537,12 @@ public class LoadingPhaseRunner {
     }
   }
 
-  private Set<Target> getTargetsForLabels(Collection<Label> labels) {
+  private Set<Target> getTargetsForLabels(
+      LoadedPackageProvider loadedPackageProvider, Collection<Label> labels) {
     Set<Target> result = new HashSet<>();
     for (Label label : labels) {
       try {
-        result.add(packageManager.getLoadedTarget(label));
+        result.add(loadedPackageProvider.getLoadedTarget(label));
       } catch (NoSuchThingException e) {
         throw new IllegalStateException(e);  // The target should have been loaded
       }
@@ -549,7 +550,7 @@ public class LoadingPhaseRunner {
     return result;
   }
 
-  private ImmutableSet<Target> filterErrorFreeTargets(
+  private ImmutableSet<Target> filterErrorFreeTargets(EventHandler eventHandler,
       EventBus eventBus, Collection<Target> targetsToLoad,
       ListMultimap<String, Label> labelsToLoadUnconditionally) throws LoadingFailedException {
     // Error out if any of the labels needed for the configuration could not be loaded.
@@ -570,8 +571,10 @@ public class LoadingPhaseRunner {
       eventBus.post(new LoadingFailureEvent(entry.getKey(), entry.getValue()));
     }
 
+    LoadedPackageProvider.Bridge bridge =
+        new LoadedPackageProvider.Bridge(packageManager, eventHandler);
     return ImmutableSet.copyOf(Sets.difference(ImmutableSet.copyOf(targetsToLoad),
-        getTargetsForLabels(rootCauses.keySet())));
+        getTargetsForLabels(bridge, rootCauses.keySet())));
   }
 
   /**
