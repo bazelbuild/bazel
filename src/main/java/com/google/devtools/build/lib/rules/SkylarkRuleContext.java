@@ -442,16 +442,8 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc =
-      "Creates a new file object, derived from the given file and suffix. " + DOC_NEW_FILE_TAIL
-      + " Deprecated.")
-  public Artifact newFileSuffix(Artifact baseArtifact, String suffix) {
-    return newFile(baseArtifact, baseArtifact.getRootRelativePath().getBaseName() + suffix);
-  }
-
-  @SkylarkCallable(doc =
       "Creates a new file object in the same directory as the original file. "
       + DOC_NEW_FILE_TAIL)
-
   public Artifact newFile(Artifact baseArtifact, String newBaseName) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(newBaseName);

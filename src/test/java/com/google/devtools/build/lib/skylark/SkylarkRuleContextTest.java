@@ -294,22 +294,12 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertEquals("foo/t.exe.params", fragment.getPathString());
   }
 
-  public void testParamFile() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(
-            ruleContext, "ruleContext.new_file_suffix(ruleContext.files.tools[0], '.params')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertEquals("foo/t.exe.params", fragment.getPathString());
-  }
-
-  // new_file_suffix() is deprecated. This test will be removed after the next blaze release (not
-  // later than end of August, 2015).
   public void testParamFileSuffix() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(
-            ruleContext, "ruleContext.new_file_suffix(ruleContext.files.tools[0], '.params')");
+    Object result = evalRuleContextCode(
+        ruleContext,
+        "ruleContext.new_file(ruleContext.files.tools[0], "
+        + "ruleContext.files.tools[0].basename + '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertEquals("foo/t.exe.params", fragment.getPathString());
   }
