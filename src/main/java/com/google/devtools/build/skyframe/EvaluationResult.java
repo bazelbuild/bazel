@@ -32,6 +32,9 @@ import javax.annotation.Nullable;
  * for the first value that failed to evaluate (in the non-keep-going case), or any remaining values
  * that failed to evaluate (in the keep-going case) will be retrievable.
  *
+ * <p>A node can never be successfully evaluated and fail to evaluate. Thus, if {@link #get} returns
+ * non-null for some key, there is no stored error for that key, and vice versa.
+ *
  * @param <T> The type of the values that the caller has requested.
  */
 public class EvaluationResult<T extends SkyValue> {
@@ -98,7 +101,8 @@ public class EvaluationResult<T extends SkyValue> {
   }
 
   /**
-   * @return Names of all values that were successfully evaluated.
+   * @return Names of all values that were successfully evaluated. This collection is disjoint from
+   *     the keys in {@link #errorMap}.
    */
   public <S> Collection<? extends S> keyNames() {
     return this.<S>getNames(resultMap.keySet());
@@ -150,14 +154,20 @@ public class EvaluationResult<T extends SkyValue> {
     private boolean hasError = false;
     private WalkableGraph walkableGraph = null;
 
+    /** Adds a value to the result. An error for this key must not already be present. */
     @SuppressWarnings("unchecked")
     public Builder<T> addResult(SkyKey key, SkyValue value) {
       result.put(key, Preconditions.checkNotNull((T) value, key));
+      Preconditions.checkState(
+          !errors.containsKey(key), "%s in both result and errors: %s %s", value, errors);
       return this;
     }
 
+    /** Adds an error to the result. A successful value for this key must not already be present. */
     public Builder<T> addError(SkyKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
+      Preconditions.checkState(
+          !result.containsKey(key), "%s in both result and errors: %s %s", error, result);
       return this;
     }
 
