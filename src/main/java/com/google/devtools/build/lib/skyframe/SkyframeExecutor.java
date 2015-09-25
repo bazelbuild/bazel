@@ -279,7 +279,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.tsgm = tsgm;
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
-        new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(reporter),
+        new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
     this.errorEventListener = Preconditions.checkNotNull(reporter);
@@ -1361,17 +1361,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public TransitivePackageLoader pkgLoader() {
     checkActive();
-    return new SkyframeLabelVisitor(
-        new SkyframeTransitivePackageLoader(errorEventListener), cyclesReporter);
+    return new SkyframeLabelVisitor(new SkyframeTransitivePackageLoader(), cyclesReporter);
   }
 
   class SkyframeTransitivePackageLoader {
-    private final EventHandler eventHandler;
-
-    SkyframeTransitivePackageLoader(EventHandler eventHandler) {
-      this.eventHandler = eventHandler;
-    }
-
     /**
      * Loads the specified {@link TransitiveTargetValue}s.
      */
@@ -1390,7 +1383,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           eventHandler);
     }
 
-    public Set<Package> retrievePackages(Set<PackageIdentifier> packageIds) {
+    public Set<Package> retrievePackages(
+        final EventHandler eventHandler, Set<PackageIdentifier> packageIds) {
       final List<SkyKey> valueNames = new ArrayList<>();
       for (PackageIdentifier pkgId : packageIds) {
         valueNames.add(PackageValue.key(pkgId));

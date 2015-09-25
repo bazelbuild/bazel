@@ -72,7 +72,7 @@ public interface TransitivePackageLoader {
    *
    * <p>Not thread-safe; do not call during visitation.
    */
-  Set<Package> getErrorFreeVisitedPackages();
+  Set<Package> getErrorFreeVisitedPackages(EventHandler eventHandler);
 
   /**
    * Return a mapping between the specified top-level targets and root causes. Note that targets in

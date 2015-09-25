@@ -468,7 +468,7 @@ public class LoadingPhaseRunner {
     // packages/targets have been visited since the last sync/clear.
     boolean loadingSuccessful = pkgLoader.sync(eventHandler, targetsToLoad, labelsToLoad,
           keepGoing, loadingPhaseThreads, Integer.MAX_VALUE);
-    Set<Package> errorFreePackages = pkgLoader.getErrorFreeVisitedPackages();
+    Set<Package> errorFreePackages = pkgLoader.getErrorFreeVisitedPackages(eventHandler);
 
     ImmutableSet<Target> targetsToAnalyze;
     if (loadingSuccessful) {
