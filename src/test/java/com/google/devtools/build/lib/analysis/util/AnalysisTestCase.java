@@ -366,7 +366,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected ActionGraph getActionGraph() {
-    return skyframeExecutor.getActionGraph();
+    return skyframeExecutor.getActionGraph(reporter);
   }
 
   protected AnalysisResult getAnalysisResult() {

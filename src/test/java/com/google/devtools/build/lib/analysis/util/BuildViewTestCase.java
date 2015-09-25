@@ -492,7 +492,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected ActionGraph getActionGraph() {
-    return skyframeExecutor.getActionGraph();
+    return skyframeExecutor.getActionGraph(reporter);
   }
 
   protected final Action getGeneratingAction(Artifact artifact) {
