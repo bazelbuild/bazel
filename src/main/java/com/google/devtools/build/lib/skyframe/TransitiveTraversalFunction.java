@@ -13,25 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.DummyAccumulator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 
+import java.util.Collection;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * This class is like {@link TransitiveTargetFunction}, but the values it returns do not contain
@@ -77,39 +76,34 @@ public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction
     }
   }
 
+  protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,
+      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal, Environment env) {
+    try {
+      if (toVal == null) {
+        return ImmutableList.of();
+      }
+      TransitiveTraversalValue traversalVal = (TransitiveTraversalValue) toVal.get();
+      if (traversalVal == null || traversalVal.getProviders() == null) {
+        return ImmutableList.of();
+      }
+      // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
+      // issuing a dep on its defining Package.
+      Set<String> providers = traversalVal.getProviders();
+      return AspectDefinition.visitAspectsIfRequired(fromTarget, attr, providers).values();
+    } catch (NoSuchThingException e) {
+      // Do nothing. This error was handled when we computed the corresponding
+      // TransitiveTargetValue.
+      return ImmutableList.of();
+    }
+  }
+
   @Override
   SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
       DummyAccumulator processedTargets) {
     NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
     return errorLoadingTarget == null
-        ? TransitiveTraversalValue.SUCCESSFUL_TRANSITIVE_TRAVERSAL_VALUE
+        ? TransitiveTraversalValue.forTarget(targetAndErrorIfAny.getTarget())
         : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(errorLoadingTarget);
-  }
-
-  @Override
-  protected Iterable<SkyKey> getStrictLabelAspectKeys(Target target, Environment env) {
-    return ImmutableSet.of();
-  }
-
-  @Override
-  protected Iterable<SkyKey> getConservativeLabelAspectKeys(Target target) {
-    if (!(target instanceof Rule)) {
-      return ImmutableSet.of();
-    }
-    Rule rule = (Rule) target;
-    Multimap<Attribute, Label> attibuteMap = LinkedHashMultimap.create();
-    for (Attribute attribute : rule.getTransitions(Rule.NO_NODEP_ATTRIBUTES).keys()) {
-      for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
-        AspectDefinition.addAllAttributesOfAspect(rule, attibuteMap,
-            AspectFactory.Util.create(aspectFactory).getDefinition(), Rule.ALL_DEPS);
-      }
-    }
-
-    ImmutableSet.Builder<SkyKey> depKeys = new ImmutableSet.Builder<>();
-    for (Label label : attibuteMap.values()) {
-      depKeys.add(getKey(label));
-    }
-    return depKeys.build();
   }
 
  /**

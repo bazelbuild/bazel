@@ -53,6 +53,7 @@ public final class AspectDefinition {
 
   private final String name;
   private final ImmutableSet<Class<?>> requiredProviders;
+  private final ImmutableSet<String> requiredProviderNames;
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableMultimap<String, Class<? extends AspectFactory<?, ?, ?>>> attributeAspects;
 
@@ -63,6 +64,7 @@ public final class AspectDefinition {
       ImmutableMultimap<String, Class<? extends AspectFactory<?, ?, ?>>> attributeAspects) {
     this.name = name;
     this.requiredProviders = requiredProviders;
+    this.requiredProviderNames = toStringSet(requiredProviders);
     this.attributes = attributes;
     this.attributeAspects = attributeAspects;
   }
@@ -95,6 +97,20 @@ public final class AspectDefinition {
   }
 
   /**
+   * Returns the set of {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}
+   * instances that must be present on a configured target so that this aspect can be applied to it.
+   *
+   * <p>We cannot refer to that class here due to our dependency structure, so this returns a set
+   * of unconstrained class objects.
+   *
+   * <p>If a configured target does not have a required provider, the aspect is silently not created
+   * for it.
+   */
+  public ImmutableSet<String> getRequiredProviderNames() {
+    return requiredProviderNames;
+  }
+
+  /**
    * Returns the attribute -&gt; set of required aspects map.
    *
    * <p>Note that the map actually contains {@link AspectFactory}
@@ -113,19 +129,40 @@ public final class AspectDefinition {
     if (!(from instanceof Rule) || !(to instanceof Rule)) {
       return ImmutableMultimap.of();
     }
-    LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
+    ImmutableSet<Class<?>> providers = ruleClass.getAdvertisedProviders();
+    return visitAspectsIfRequired(from, attribute, toStringSet(providers));
+  }
+
+  /**
+   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
+   */
+  public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
+      Target from, Attribute attribute, Set<String> advertisedProviders) {
+    if (advertisedProviders.isEmpty()) {
+      return ImmutableMultimap.of();
+    }
+
+    LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
       AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
-      if (!ruleClass.getAdvertisedProviders().containsAll(
-          candidate.getDefinition().getRequiredProviders())) {
+      if (!advertisedProviders.containsAll(
+            candidate.getDefinition().getRequiredProviderNames())) {
         continue;
       }
       addAllAttributesOfAspect((Rule) from, result, candidate.getDefinition(), Rule.ALL_DEPS);
     }
     return ImmutableMultimap.copyOf(result);
+  }
+
+  private static ImmutableSet<String> toStringSet(ImmutableSet<Class<?>> classes) {
+    ImmutableSet.Builder<String> classStrings = new ImmutableSet.Builder<>();
+    for (Class<?> clazz : classes) {
+      classStrings.add(clazz.getName());
+    }
+    return classStrings.build();
   }
 
   /**

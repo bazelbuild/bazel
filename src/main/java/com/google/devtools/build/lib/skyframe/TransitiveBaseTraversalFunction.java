@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -36,8 +37,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -113,23 +117,20 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
     TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) loadTargetResults;
     TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
-    // Process deps from attributes and conservative aspects of current target.
+    // Process deps from attributes.
     Iterable<SkyKey> labelDepKeys = getLabelDepKeys(targetAndErrorIfAny.getTarget());
-    Iterable<SkyKey> labelAspectKeys =
-        getConservativeLabelAspectKeys(targetAndErrorIfAny.getTarget());
-    Iterable<SkyKey> depAndAspectKeys = Iterables.concat(labelDepKeys, labelAspectKeys);
 
-    Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-        depsAndAspectEntries = env.getValuesOrThrow(depAndAspectKeys,
-        NoSuchPackageException.class, NoSuchTargetException.class).entrySet();
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depsAndAspectEntries);
+    Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
+        env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
+            NoSuchTargetException.class);
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
     if (env.valuesMissing()) {
       return null;
     }
 
-
-    // Process deps from strict aspects.
-    labelAspectKeys = getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), env);
+    // Process deps from aspects.
+    Iterable<SkyKey> labelAspectKeys =
+        getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env);
     Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
         labelAspectEntries = env.getValuesOrThrow(labelAspectKeys, NoSuchPackageException.class,
         NoSuchTargetException.class).entrySet();
@@ -151,18 +152,41 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
    *
    *  <p>This method may return a precise set of aspect keys, but may need to request additional
    *  dependencies from the env to do so.
-   *
-   *  <p>Subclasses should implement only one of #getStrictLabelAspectKeys and
-   *  @getConservativeLabelAspectKeys.
    */
-  protected abstract Iterable<SkyKey> getStrictLabelAspectKeys(Target target, Environment env);
+  private Iterable<SkyKey> getStrictLabelAspectKeys(Target target,
+          Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
+          Environment env) {
+    List<SkyKey> depKeys = Lists.newArrayList();
+    if (target instanceof Rule) {
+      Map<Label, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> labelDepMap =
+          new HashMap<>(depMap.size());
+      for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
+          depMap.entrySet()) {
+        labelDepMap.put((Label) entry.getKey().argument(), entry.getValue());
+      }
+
+      Multimap<Attribute, Label> transitions =
+              ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+      for (Entry<Attribute, Label> entry : transitions.entries()) {
+        ValueOrException2<NoSuchPackageException, NoSuchTargetException> value =
+            labelDepMap.get(entry.getValue());
+        for (Label label :
+                getAspectLabels(target, entry.getKey(), entry.getValue(), value, env)) {
+          depKeys.add(getKey(label));
+        }
+      }
+    }
+    return depKeys;
+  }
 
   /**
-   * Return an Iterable of SkyKeys corresponding to the Aspect-related dependencies of target.
-   *
-   *  <p>This method may return a conservative over-approximation of the exact set.
+   * Get the Aspect-related Label deps for the given edge.
    */
-  protected abstract Iterable<SkyKey> getConservativeLabelAspectKeys(Target target);
+  protected abstract Collection<Label> getAspectLabels(Target fromTarget, Attribute attr,
+          Label toLabel,
+          ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+          Environment env);
+
 
   private Iterable<SkyKey> getLabelDepKeys(Target target) {
     List<SkyKey> depKeys = Lists.newArrayList();

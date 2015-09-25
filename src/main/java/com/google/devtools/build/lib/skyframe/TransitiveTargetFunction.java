@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -41,7 +40,6 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -154,43 +152,29 @@ public class TransitiveTargetFunction
     return builder.build(errorLoadingTarget);
   }
 
-  @Override
-  protected Iterable<SkyKey> getStrictLabelAspectKeys(Target target, Environment env) {
-    List<SkyKey> depKeys = Lists.newArrayList();
-    if (target instanceof Rule) {
-      Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
-      for (Entry<Attribute, Label> entry : transitions.entries()) {
-        SkyKey packageKey = PackageValue.key(entry.getValue().getPackageIdentifier());
-        try {
-          PackageValue pkgValue =
-              (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
-          if (pkgValue == null) {
-            continue;
-          }
-          Package pkg = pkgValue.getPackage();
-          if (pkg.containsErrors()) {
-            // Do nothing. This error was handled when we computed the corresponding
-            // TransitiveTargetValue.
-            continue;
-          }
-          Collection<Label> labels = AspectDefinition.visitAspectsIfRequired(target, entry.getKey(),
-              pkgValue.getPackage().getTarget(entry.getValue().getName())).values();
-          for (Label label : labels) {
-            depKeys.add(getKey(label));
-          }
-        } catch (NoSuchThingException e) {
-          // Do nothing. This error was handled when we computed the corresponding
-          // TransitiveTargetValue.
-        }
+  protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,
+      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env) {
+    SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
+    try {
+      PackageValue pkgValue =
+          (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
+      if (pkgValue == null) {
+        return ImmutableList.of();
       }
+      Package pkg = pkgValue.getPackage();
+      if (pkg.containsErrors()) {
+        // Do nothing. This error was handled when we computed the corresponding
+        // TransitiveTargetValue.
+        return ImmutableList.of();
+      }
+      Target dependedTarget = pkgValue.getPackage().getTarget(toLabel.getName());
+      return AspectDefinition.visitAspectsIfRequired(fromTarget, attr, dependedTarget).values();
+    } catch (NoSuchThingException e) {
+      // Do nothing. This error was handled when we computed the corresponding
+      // TransitiveTargetValue.
+      return ImmutableList.of();
     }
-    return depKeys;
-  }
-
-  @Override
-  protected Iterable<SkyKey> getConservativeLabelAspectKeys(Target target) {
-    return ImmutableSet.of();
   }
 
   /**
