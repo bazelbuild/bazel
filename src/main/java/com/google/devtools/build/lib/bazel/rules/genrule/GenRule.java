@@ -50,9 +50,6 @@ import java.util.Map;
  */
 public class GenRule implements RuleConfiguredTargetFactory {
 
-  public static final String GENRULE_SETUP_CMD =
-      "source tools/genrule/genrule-setup.sh; ";
-
   private Artifact getExecutable(RuleContext ruleContext, NestedSet<Artifact> filesToBuild) {
     if (Iterables.size(filesToBuild) == 1) {
       Artifact out = Iterables.getOnlyElement(filesToBuild);
@@ -99,7 +96,9 @@ public class GenRule implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN), false);
 
     // Adds the genrule environment setup script before the actual shell command
-    String command = GENRULE_SETUP_CMD + baseCommand;
+    String command = String.format("source %s; %s",
+        ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
+        baseCommand);
 
     command = resolveCommand(ruleContext, command, resolvedSrcs, filesToBuild);
 
