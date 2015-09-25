@@ -115,6 +115,9 @@ public final class LTOBackendArtifacts {
     builder.addInput(index);
     builder.addInput(beCommandline);
     builder.addTransitiveInputs(CppHelper.getToolchain(ruleContext).getCompile());
+
+    // The backend compile invokes ld too.
+    builder.addTransitiveInputs(CppHelper.getToolchain(ruleContext).getLink());
     builder.addOutput(objectFile);
 
     builder.setProgressMessage("LTO Backend Compile");
