@@ -68,6 +68,9 @@ public class CppHelper {
       CppFileTypes.CPP_HEADER,
       CppFileTypes.CPP_SOURCE);
 
+  private static final ImmutableList<String> LINKOPTS_PREREQUISITE_LABEL_KINDS =
+      ImmutableList.of("deps", "srcs");
+
   private CppHelper() {
     // prevents construction
   }
@@ -190,13 +193,15 @@ public class CppHelper {
       String labelName) {
     try {
       Label label = ruleContext.getLabel().getRelative(labelName);
-      for (FileProvider target : ruleContext
-          .getPrerequisites("deps", Mode.TARGET, FileProvider.class)) {
-        if (target.getLabel().equals(label)) {
-          for (Artifact artifact : target.getFilesToBuild()) {
-            linkopts.add(artifact.getExecPathString());
+      for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
+        for (FileProvider target : ruleContext
+            .getPrerequisites(prereqKind, Mode.TARGET, FileProvider.class)) {
+          if (target.getLabel().equals(label)) {
+            for (Artifact artifact : target.getFilesToBuild()) {
+              linkopts.add(artifact.getExecPathString());
+            }
+            return true;
           }
-          return true;
         }
       }
     } catch (LabelSyntaxException e) {
