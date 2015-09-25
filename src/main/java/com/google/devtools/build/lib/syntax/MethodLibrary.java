@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -1186,37 +1186,52 @@ public class MethodLibrary {
       + "will overwrite values from the positional argument if a key appears multiple times. "
       + "Dictionaries are always sorted by their keys",
       optionalPositionals = {
-          @Param(name = "args", type = Iterable.class, defaultValue = "[]",
+          @Param(name = "args", type = Object.class, defaultValue = "[]",
               doc =
-              "List of entries. Entries must be tuples or lists with exactly "
-              + "two elements: key, value"),
+              "Either a dictionary or a list of entries. Entries must be tuples or lists with "
+              + "exactly two elements: key, value"),
       },
       extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of additional entries.")},
       useLocation = true)
   private static final BuiltinFunction dict = new BuiltinFunction("dict") {
     @SuppressWarnings("unused")
-    public Map<Object, Object> invoke(Iterable<Object> args, Map<Object, Object> kwargs,
-        Location loc) throws EvalException, ConversionException {
+    public Map<Object, Object> invoke(Object args, Map<Object, Object> kwargs, Location loc)
+        throws EvalException {
+      Map<Object, Object> result =
+          (args instanceof Map<?, ?>)
+              ? new LinkedHashMap<>((Map<?, ?>) args) : getMapFromArgs(args, loc);
+      result.putAll(kwargs);
+      return result;
+    }
+
+    private Map<Object, Object> getMapFromArgs(Object args, Location loc) throws EvalException {
+      Map<Object, Object> result = new LinkedHashMap<>();
+      int pos = 0;
+      for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
+        List<Object> pair = convertToPair(element, pos, loc);
+        result.put(pair.get(0), pair.get(1));
+        ++pos;
+      }
+      return result;
+    }
+
+    private List<Object> convertToPair(Object element, int pos, Location loc)
+        throws EvalException {
       try {
-        Map<Object, Object> result = new HashMap<>();
-        List<Object> list = Type.OBJECT_LIST.convert(args, "dict(args)");
-
-        for (Object tuple : list) {
-          List<Object> mapping = Type.OBJECT_LIST.convert(tuple, "dict(args)");
-          int numElements = mapping.size();
-
-          if (numElements != 2) {
-            throw new EvalException(
-                location,
-                String.format(
-                    "Tuple has length %d, but exactly two elements are required", numElements));
-          }
-          result.put(mapping.get(0), mapping.get(1));
+        List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
+        int numElements = tuple.size();
+        if (numElements != 2) {
+          throw new EvalException(
+              location,
+              String.format("Sequence #%d has length %d, but exactly two elements are required",
+                  pos, numElements));
         }
-        result.putAll(kwargs);
-        return result;
-      } catch (IllegalArgumentException | ClassCastException | NullPointerException ex) {
-        throw new EvalException(loc, ex);
+        return tuple;
+      } catch (ConversionException e) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "Cannot convert dictionary update sequence element #%d to a sequence", pos));
       }
     }
   };
