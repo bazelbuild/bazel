@@ -359,7 +359,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.dropConfiguredTargets();
 
-    view = new BuildView(directories, ruleClassProvider, skyframeExecutor, binTools, null);
+    view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(masterConfig);
 
     view.setArtifactRoots(
@@ -451,7 +451,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         reporter.handle(e);
       }
     };
-    return view.getRuleContextForTesting(target, eventHandler, masterConfig);
+    return view.getRuleContextForTesting(target, eventHandler, masterConfig, binTools);
   }
 
   /**

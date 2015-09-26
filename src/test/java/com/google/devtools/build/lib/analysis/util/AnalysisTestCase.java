@@ -185,8 +185,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = new LoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
-    buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor,
-        binTools, null);
+    buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     useConfiguration();
   }
 

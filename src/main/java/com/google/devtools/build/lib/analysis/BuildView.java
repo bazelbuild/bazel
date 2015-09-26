@@ -214,8 +214,6 @@ public class BuildView {
   // Same as skyframeExecutor.getPackageManager().
   private final LoadedPackageProvider packageManager;
 
-  private final BinTools binTools;
-
   private BuildConfigurationCollection configurations;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -259,10 +257,9 @@ public class BuildView {
   public BuildView(BlazeDirectories directories,
       ConfiguredRuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
-      BinTools binTools, CoverageReportActionFactory coverageReportActionFactory) {
+      CoverageReportActionFactory coverageReportActionFactory) {
     this.directories = directories;
     this.packageManager = skyframeExecutor.getLoadedPackageProvider();
-    this.binTools = binTools;
     this.coverageReportActionFactory = coverageReportActionFactory;
     this.ruleClassProvider = ruleClassProvider;
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
@@ -960,7 +957,7 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler,
-      BuildConfigurationCollection configurations) throws InterruptedException {
+      BuildConfigurationCollection configurations, BinTools binTools) throws InterruptedException {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
         new CachingAnalysisEnvironment(getArtifactFactory(),

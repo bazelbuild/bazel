@@ -224,7 +224,7 @@ public final class BlazeRuntime {
     this.blazeModules = blazeModules;
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
-    this.view = new BuildView(directories, ruleClassProvider, skyframeExecutor, binTools,
+    this.view = new BuildView(directories, ruleClassProvider, skyframeExecutor,
         getCoverageReportActionFactory(blazeModules));
     this.clock = clock;
     this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
