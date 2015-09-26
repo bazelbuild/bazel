@@ -224,12 +224,6 @@ public class BuildView {
   @Nullable private final CoverageReportActionFactory coverageReportActionFactory;
 
   /**
-   * Used only for testing that we clear Skyframe caches correctly.
-   * TODO(bazel-team): Remove this once we get rid of legacy Skyframe synchronization.
-   */
-  private boolean skyframeCacheWasInvalidated;
-
-  /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
    * running Skyframe full, we should clear the legacy data since it is out-of-sync.
    */
@@ -243,15 +237,6 @@ public class BuildView {
   /** The number of targets freshly evaluated in the last analysis run. */
   public int getTargetsVisited() {
     return skyframeBuildView.getEvaluatedTargetKeys().size();
-  }
-
-  /**
-   * Returns true iff Skyframe was invalidated during the analysis phase.
-   * TODO(bazel-team): Remove this once we do not need to keep legacy in sync with Skyframe.
-   */
-  @VisibleForTesting
-  boolean wasSkyframeCacheInvalidatedDuringAnalysis() {
-    return skyframeCacheWasInvalidated;
   }
 
   public BuildView(BlazeDirectories directories,
@@ -575,21 +560,15 @@ public class BuildView {
     Collection<Target> targets = loadingResult.getTargets();
     eventBus.post(new AnalysisPhaseStartedEvent(targets));
 
-    skyframeCacheWasInvalidated = false;
-    // Clear all cached ConfiguredTargets on configuration change. We need to do this explicitly
-    // because we need to make sure that the legacy action graph does not contain multiple actions
-    // with different versions of the same (target/host/etc.) configuration.
-    // In the future the action graph will be probably be keyed by configurations, which should
-    // obviate the need for this workaround.
+    // Clear all cached ConfiguredTargets on configuration change.
+    // TODO(ulfjack): Can we remove this now?
     //
     // Also if --discard_analysis_cache was used in the last build we want to clear the legacy
     // data.
     if ((this.configurations != null && !configurations.equals(this.configurations))
         || skyframeAnalysisWasDiscarded) {
       LOG.info("Discarding analysis cache: configurations have changed.");
-
       skyframeExecutor.dropConfiguredTargets();
-      skyframeCacheWasInvalidated = true;
     }
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
