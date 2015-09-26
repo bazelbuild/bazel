@@ -174,7 +174,6 @@ public final class BlazeRuntime {
   private final PackageFactory packageFactory;
   private final ConfigurationFactory configurationFactory;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final BuildView view;
   private ActionCache actionCache;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Clock clock;
@@ -224,8 +223,6 @@ public final class BlazeRuntime {
     this.blazeModules = blazeModules;
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
-    this.view = new BuildView(directories, ruleClassProvider, skyframeExecutor,
-        getCoverageReportActionFactory(blazeModules));
     this.clock = clock;
     this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
     this.startupOptionsProvider = startupOptionsProvider;
@@ -240,8 +237,7 @@ public final class BlazeRuntime {
     setupExecRoot();
   }
 
-  @Nullable private CoverageReportActionFactory getCoverageReportActionFactory(
-      Iterable<BlazeModule> blazeModules) {
+  @Nullable CoverageReportActionFactory getCoverageReportActionFactory() {
     CoverageReportActionFactory firstFactory = null;
     for (BlazeModule module : blazeModules) {
       CoverageReportActionFactory factory = module.getCoverageReportFactory();
@@ -537,13 +533,6 @@ public final class BlazeRuntime {
 
   public LoadingPhaseRunner getLoadingPhaseRunner() {
     return loadingPhaseRunner;
-  }
-
-  /**
-   * Returns the build view.
-   */
-  BuildView getView() {
-    return view;
   }
 
   public Iterable<BlazeModule> getBlazeModules() {

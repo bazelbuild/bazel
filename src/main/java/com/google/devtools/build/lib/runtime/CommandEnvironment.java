@@ -61,6 +61,7 @@ public final class CommandEnvironment {
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new HashMap<>();
+  private final BuildView view;
 
   private String outputFileSystem;
 
@@ -89,6 +90,8 @@ public final class CommandEnvironment {
     this.reporter = reporter;
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
+    this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
+        runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
   }
 
   public BlazeRuntime getRuntime() {
@@ -138,7 +141,7 @@ public final class CommandEnvironment {
   }
 
   public BuildView getView() {
-    return runtime.getView();
+    return view;
   }
 
   public PackageRootResolver getPackageRootResolver() {
