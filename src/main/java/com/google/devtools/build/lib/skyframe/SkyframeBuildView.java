@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -77,6 +80,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -86,6 +90,7 @@ import javax.annotation.Nullable;
  * <p>Covers enough functionality to work as a substitute for {@code BuildView#configureTargets}.
  */
 public final class SkyframeBuildView {
+  private static Logger LOG = Logger.getLogger(BuildView.class.getName());
 
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
@@ -116,6 +121,14 @@ public final class SkyframeBuildView {
   private Map<Set<Class<? extends BuildConfiguration.Fragment>>, BuildConfiguration>
       hostConfigurationCache = Maps.newConcurrentMap();
 
+  private BuildConfigurationCollection configurations;
+
+  /**
+   * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
+   * running Skyframe full, we should clear the legacy data since it is out-of-sync.
+   */
+  private boolean skyframeAnalysisWasDiscarded;
+
   public SkyframeBuildView(BlazeDirectories directories,
       SkyframeExecutor skyframeExecutor, BinTools binTools,
       ConfiguredRuleClassProvider ruleClassProvider) {
@@ -135,18 +148,48 @@ public final class SkyframeBuildView {
   }
 
   /**
+   * Sets the configurations. Not thread-safe. DO NOT CALL except from tests!
+   */
+  @VisibleForTesting
+  public void setConfigurations(BuildConfigurationCollection configurations) {
+    // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
+    // was set on the previous build. In the former case, it's not required for correctness, but
+    // prevents unbounded memory usage.
+    if ((this.configurations != null && !configurations.equals(this.configurations))
+        || skyframeAnalysisWasDiscarded) {
+      LOG.info("Discarding analysis cache: configurations have changed.");
+      skyframeExecutor.dropConfiguredTargets();
+    }
+    skyframeAnalysisWasDiscarded = false;
+    this.configurations = configurations;
+    setTopLevelHostConfiguration(configurations.getHostConfiguration());
+  }
+
+  /**
    * Sets the host configuration consisting of all fragments that will be used by the top level
    * targets' transitive closures.
    *
    * <p>This is used to power {@link #getHostConfiguration} during analysis, which computes
    * fragment-trimmed host configurations from the top-level one.
    */
-  public void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
+  private void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
     if (topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
       return;
     }
     hostConfigurationCache.clear();
     this.topLevelHostConfiguration = topLevelHostConfiguration;
+  }
+
+  /**
+   * Drops the analysis cache. If building with Skyframe, targets in {@code topLevelTargets} may
+   * remain in the cache for use during the execution phase.
+   *
+   * @see com.google.devtools.build.lib.analysis.BuildView.Options#discardAnalysisCache
+   */
+  public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
+    // TODO(bazel-team): Consider clearing packages too to save more memory.
+    skyframeAnalysisWasDiscarded = true;
+    skyframeExecutor.clearAnalysisCache(topLevelTargets);
   }
 
   private void setDeserializedArtifactOwners() throws ViewCreationFailedException {
