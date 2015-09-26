@@ -531,6 +531,8 @@ public final class AndroidRuleClasses {
           // like all the rest of android tools.
           .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//third_party/java/jarjar:jarjar_bin")))
+          .add(attr("$idlclass", LABEL).cfg(HOST).exec()
+              .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "IdlClass")))
           .build();
     }
 

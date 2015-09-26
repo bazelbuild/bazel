@@ -260,6 +260,21 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       builder.addTransitiveResources(makeArtifactLocation(transitiveResource));
     }
 
+    boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
+    builder.setHasIdlSources(hasIdlSources);
+    if (hasIdlSources) {
+      LibraryArtifact.Builder jarBuilder = LibraryArtifact.newBuilder();
+      Artifact idlClassJar = provider.getIdlClassJar();
+      if (idlClassJar != null) {
+        jarBuilder.setJar(makeArtifactLocation(idlClassJar));
+      }
+      Artifact idlSourceJar = provider.getIdlSourceJar();
+      if (idlSourceJar != null) {
+        jarBuilder.setSourceJar(makeArtifactLocation(idlSourceJar));
+      }
+      builder.setIdlJar(jarBuilder.build());
+    }
+
     return builder.build();
   }
 

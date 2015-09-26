@@ -36,6 +36,12 @@ sh_binary(
     data = ["//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper"],
 )
 
+sh_binary(
+    name = "IdlClass",
+    srcs = ["idlclass.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
+)
+
 py_binary(
     name = "merge_manifests",
     srcs = [

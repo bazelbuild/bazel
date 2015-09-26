@@ -39,14 +39,11 @@ import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
-import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * An implementation for the "android_library" rule.
@@ -66,7 +63,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     List<? extends TransitiveInfoCollection> deps =
         ruleContext.getPrerequisites("deps", Mode.TARGET);
     checkResourceInlining(ruleContext);
-    checkIdlRootImport(ruleContext);
     NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources =
         AndroidCommon.getTransitiveResourceContainers(ruleContext, true);
     NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
@@ -74,10 +70,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         AndroidCommon.collectTransitiveNativeLibraries(deps);
     NestedSet<Artifact> transitiveProguardConfigs =
         collectTransitiveProguardConfigs(ruleContext);
-    AndroidIdlProvider transitiveIdlImportData = collectTransitiveIdlImports(ruleContext);
     JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
     AndroidCommon androidCommon = new AndroidCommon(ruleContext, javaCommon);
-
 
     boolean definesLocalResources =
       LocalResourceContainer.definesAndroidResources(ruleContext.attributes());
@@ -116,7 +110,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         javaSemantics,
         androidSemantics,
         resourceApk,
-        transitiveIdlImportData,
         false /* addCoverageSupport */,
         true /* collectJavaCompilationArgs */);
     if (javaTargetAttributes == null) {
@@ -221,53 +214,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     return mergedJar;
   }
 
-  private AndroidIdlProvider collectTransitiveIdlImports(RuleContext ruleContext) {
-    NestedSetBuilder<String> rootsBuilder = NestedSetBuilder.naiveLinkOrder();
-    NestedSetBuilder<Artifact> importsBuilder = NestedSetBuilder.naiveLinkOrder();
-
-    for (AndroidIdlProvider dep : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, AndroidIdlProvider.class)) {
-      rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
-      importsBuilder.addTransitive(dep.getTransitiveIdlImports());
-    }
-
-    Collection<Artifact> idlImports = getIdlImports(ruleContext);
-    if (!hasExplicitlySpecifiedIdlImportRoot(ruleContext)) {
-      for (Artifact idlImport : idlImports) {
-        PathFragment javaRoot = JavaUtil.getJavaRoot(idlImport.getExecPath());
-        if (javaRoot == null) {
-          ruleContext.ruleError("Cannot determine java/javatests root for import "
-              + idlImport.getExecPathString());
-        } else {
-          rootsBuilder.add(javaRoot.toString());
-        }
-      }
-    } else {
-      PathFragment pkgFragment = ruleContext.getLabel().getPackageFragment();
-      Set<PathFragment> idlImportRoots = new HashSet<>();
-      for (Artifact idlImport : idlImports) {
-        idlImportRoots.add(idlImport.getRoot().getExecPath()
-            .getRelative(pkgFragment)
-            .getRelative(getIdlImportRoot(ruleContext)));
-      }
-      for (PathFragment idlImportRoot : idlImportRoots) {
-        rootsBuilder.add(idlImportRoot.toString());
-      }
-    }
-    importsBuilder.addAll(idlImports);
-
-    return new AndroidIdlProvider(rootsBuilder.build(), importsBuilder.build());
-  }
-
-  private void checkIdlRootImport(RuleContext ruleContext) {
-    if (hasExplicitlySpecifiedIdlImportRoot(ruleContext)
-        && !hasExplicitlySpecifiedIdlSrcsOrParcelables(ruleContext)) {
-      ruleContext.attributeError("idl_import_root",
-          "Neither idl_srcs nor idl_parcelables were specified, "
-              + "but 'idl_import_root' attribute was set");
-    }
-  }
-
   private void checkResourceInlining(RuleContext ruleContext) {
     AndroidResourcesProvider resources = AndroidCommon.getAndroidResources(ruleContext);
     if (resources == null) {
@@ -291,30 +237,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       builder.addTransitive(library.getTransitiveAars());
     }
     return builder;
-  }
-
-  private boolean hasExplicitlySpecifiedIdlImportRoot(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttributeValueExplicitlySpecified("idl_import_root");
-  }
-
-  private boolean hasExplicitlySpecifiedIdlSrcsOrParcelables(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttributeValueExplicitlySpecified("idl_srcs")
-        || ruleContext.getRule().isAttributeValueExplicitlySpecified("idl_parcelables");
-  }
-
-  private String getIdlImportRoot(RuleContext ruleContext) {
-    return ruleContext.attributes().get("idl_import_root", Type.STRING);
-  }
-
-  /**
-   * Returns the union of "idl_srcs" and "idl_parcelables", i.e. all .aidl files
-   * provided by this library that contribute to .aidl --> .java compilation.
-   */
-  private static Collection<Artifact> getIdlImports(RuleContext ruleContext) {
-    return ImmutableList.<Artifact>builder()
-        .addAll(AndroidCommon.getIdlParcelables(ruleContext))
-        .addAll(AndroidCommon.getIdlSrcs(ruleContext))
-        .build();
   }
 
   private NestedSet<Artifact> collectTransitiveProguardConfigs(RuleContext ruleContext) {

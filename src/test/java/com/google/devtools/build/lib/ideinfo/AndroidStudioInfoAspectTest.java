@@ -520,6 +520,40 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(lRuleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
   }
 
+  public void testAndroidLibraryWithoutAidlHasNoIdlJars() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'no_idl',",
+        "  srcs = ['Test.java'],",
+        ")"
+    );
+    String noIdlTarget = "//java/com/google/example:no_idl";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(noIdlTarget);
+    RuleIdeInfo noIdlRuleInfo = getRuleInfoAndVerifyLabel(noIdlTarget, ruleIdeInfos);
+
+    assertThat(noIdlRuleInfo.getAndroidRuleIdeInfo().getHasIdlSources()).isFalse();
+  }
+
+  public void testAndroidLibraryWithAidlHasIdlJars() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'has_idl',",
+        "  idl_srcs = ['a.aidl'],",
+        ")"
+    );
+    String idlTarget = "//java/com/google/example:has_idl";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(idlTarget);
+    RuleIdeInfo idlRuleInfo = getRuleInfoAndVerifyLabel(idlTarget, ruleIdeInfos);
+
+    assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getHasIdlSources()).isTrue();
+    assertThat(LIBRARY_ARTIFACT_TO_STRING.apply(idlRuleInfo.getAndroidRuleIdeInfo().getIdlJar()))
+        .isEqualTo(
+                "<jar:java/com/google/example/libhas_idl-idl.jar>"
+                + "<source:java/com/google/example/libhas_idl-idl.srcjar>");
+  }
+
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
         update(

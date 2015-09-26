@@ -160,6 +160,7 @@ java_library(
     ],
     visibility = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/idlclass:__pkg__",
     ],
     deps = [
         "//third_party:guava",

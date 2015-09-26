@@ -29,15 +29,20 @@ public final class AndroidIdlProvider implements TransitiveInfoProvider {
 
   public static final AndroidIdlProvider EMPTY = new AndroidIdlProvider(
       NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<String> transitiveIdlImportRoots;
   private final NestedSet<Artifact> transitiveIdlImports;
+  private final NestedSet<Artifact> transitiveIdlJars;
 
-  public AndroidIdlProvider(NestedSet<String> transitiveIdlImportRoots,
-      NestedSet<Artifact> transitiveIdlImports) {
+  public AndroidIdlProvider(
+      NestedSet<String> transitiveIdlImportRoots,
+      NestedSet<Artifact> transitiveIdlImports,
+      NestedSet<Artifact> transitiveIdlJars) {
     this.transitiveIdlImportRoots = transitiveIdlImportRoots;
     this.transitiveIdlImports = transitiveIdlImports;
+    this.transitiveIdlJars = transitiveIdlJars;
   }
 
   /**
@@ -52,5 +57,12 @@ public final class AndroidIdlProvider implements TransitiveInfoProvider {
    */
   public NestedSet<Artifact> getTransitiveIdlImports() {
     return transitiveIdlImports;
+  }
+
+  /**
+   * The IDL jars in the transitive closure, both class and source jars.
+   */
+  public NestedSet<Artifact> getTransitiveIdlJars() {
+    return transitiveIdlJars;
   }
 }

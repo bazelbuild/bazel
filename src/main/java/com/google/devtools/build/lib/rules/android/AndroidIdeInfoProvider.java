@@ -97,6 +97,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact manifest = null;
     private Artifact generatedManifest = null;
     private Artifact apk = null;
+    private Artifact idlClassJar = null;
+    private Artifact idlSourceJar = null;
     private final Set<SourceDirectory> resourceDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
@@ -108,6 +110,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           manifest,
           generatedManifest,
           apk,
+          idlClassJar,
+          idlSourceJar,
           ImmutableList.copyOf(assetDirs),
           ImmutableList.copyOf(resourceDirs),
           ImmutableList.copyOf(idlDirs),
@@ -130,6 +134,18 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     public Builder setGeneratedManifest(Artifact manifest) {
       Preconditions.checkState(this.generatedManifest == null);
       this.generatedManifest = manifest;
+      return this;
+    }
+
+    public Builder setIdlClassJar(@Nullable Artifact idlClassJar) {
+      Preconditions.checkState(this.idlClassJar == null);
+      this.idlClassJar = idlClassJar;
+      return this;
+    }
+
+    public Builder setIdlSourceJar(@Nullable Artifact idlSourceJar) {
+      Preconditions.checkState(this.idlSourceJar == null);
+      this.idlSourceJar = idlSourceJar;
       return this;
     }
 
@@ -268,6 +284,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   private final Artifact manifest;
   private final Artifact generatedManifest;
   private final Artifact signedApk;
+  @Nullable private final Artifact idlClassJar;
+  @Nullable private final Artifact idlSourceJar;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
   private final ImmutableCollection<SourceDirectory> assetDirs;
   private final ImmutableCollection<SourceDirectory> idlImports;
@@ -277,6 +295,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   AndroidIdeInfoProvider(@Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
+      @Nullable Artifact idlClassJar,
+      @Nullable Artifact idlSourceJar,
       ImmutableCollection<SourceDirectory> assetDirs,
       ImmutableCollection<SourceDirectory> resourceDirs,
       ImmutableCollection<SourceDirectory> idlImports,
@@ -285,6 +305,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
     this.signedApk = signedApk;
+    this.idlClassJar = idlClassJar;
+    this.idlSourceJar = idlSourceJar;
     this.assetDirs = assetDirs;
     this.resourceDirs = resourceDirs;
     this.idlImports = idlImports;
@@ -309,6 +331,16 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable
   public Artifact getSignedApk() {
     return signedApk;
+  }
+
+  @Nullable
+  public Artifact getIdlClassJar() {
+    return idlClassJar;
+  }
+
+  @Nullable
+  public Artifact getIdlSourceJar() {
+    return idlSourceJar;
   }
 
   /** A list of the direct Resource directories. */

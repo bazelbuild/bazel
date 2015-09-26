@@ -175,12 +175,32 @@ sh_binary(
 EOF
 
   cat > third_party/java/jarjar/fail.sh <<EOF
+
 #!/bin/bash
 
 exit 1
 EOF
 
   chmod +x third_party/java/jarjar/fail.sh
+
+  mkdir -p src/tools/android/java/com/google/devtools/build/android/idlclass
+  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
+licenses(["unencumbered"])
+sh_binary(
+  name = "IdlClass",
+  srcs = ["fail.sh"],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
+
+#!/bin/bash
+
+exit 1
+EOF
+
+  chmod +x src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
 
   ANDROID_NDK=$PWD/android_ndk
   ANDROID_SDK=$PWD/android_sdk
