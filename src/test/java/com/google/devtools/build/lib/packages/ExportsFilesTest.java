@@ -41,7 +41,7 @@ public class ExportsFilesTest {
 
   private Scratch scratch = new Scratch("/workspace");
   private EventCollectionApparatus events = new EventCollectionApparatus();
-  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events, scratch);
+  private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
 
   private Package pkg() throws Exception {
     Path buildFile = scratch.file("pkg/BUILD",

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -46,16 +44,14 @@ import java.io.IOException;
  */
 public class PackageFactoryApparatus {
 
-  private final EventCollectionApparatus events;
-  private final Scratch scratch;
+  private final Reporter reporter;
   private final CachingPackageLocator locator;
 
   private final PackageFactory factory;
 
-  public PackageFactoryApparatus(EventCollectionApparatus events, Scratch scratch,
-      PackageFactory.EnvironmentExtension... environmentExtensions) {
-    this.events = events;
-    this.scratch = scratch;
+  public PackageFactoryApparatus(
+      Reporter reporter, PackageFactory.EnvironmentExtension... environmentExtensions) {
+    this.reporter = reporter;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
 
     // This is used only in globbing and will cause us to always traverse
@@ -82,7 +78,7 @@ public class PackageFactoryApparatus {
    */
   public Package createPackage(String packageName, Path buildFile)
       throws Exception {
-    return createPackage(packageName, buildFile, events.reporter());
+    return createPackage(packageName, buildFile, reporter);
   }
 
   /**
@@ -106,16 +102,7 @@ public class PackageFactoryApparatus {
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
     ParserInputSource inputSource = ParserInputSource.create(buildFile);
-    return BuildFileAST.parseBuildFile(inputSource, events.reporter(), /*parsePython=*/false);
-  }
-
-  /**
-   * Parses the {@code lines} into a {@link BuildFileAST}.
-   */
-  public BuildFileAST ast(String fileName, String... lines)
-      throws IOException {
-    Path file = scratch.file(fileName, lines);
-    return ast(file);
+    return BuildFileAST.parseBuildFile(inputSource, reporter, /*parsePython=*/ false);
   }
 
   /**
@@ -145,7 +132,7 @@ public class PackageFactoryApparatus {
             ImmutableMap.<PathFragment, Extension>of(),
             ImmutableList.<Label>of());
     Package result = resultBuilder.build();
-    Event.replayEventsOn(events.reporter(), result.getEvents());
+    Event.replayEventsOn(reporter, result.getEvents());
     return Pair.of(result, globCache);
   }
 

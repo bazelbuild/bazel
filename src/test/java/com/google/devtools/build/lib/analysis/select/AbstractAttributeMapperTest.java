@@ -55,7 +55,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
   protected Rule createRule(String pkgPath, String ruleName, String... ruleDef) throws Exception  {
     Scratch scratch = new Scratch();
     EventCollectionApparatus events = new EventCollectionApparatus();
-    PackageFactoryApparatus packages = new PackageFactoryApparatus(events, scratch);
+    PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
 
     Path buildFile = scratch.file(pkgPath + "/BUILD", ruleDef);
     pkg = packages.createPackage(pkgPath, buildFile);
