@@ -200,6 +200,39 @@ cc_library(
 )
 ```
 
+This is somewhat messy: everything is prefixed with gtest-1.7.0 as a byproduct
+of the archive's structure. You can make `new_http_archive` strip this prefix by
+adding the `strip_prefix` attribute:
+
+```python
+new_http_archive(
+    name = "gtest",
+    url = "https://googletest.googlecode.com/files/gtest-1.7.0.zip",
+    sha256 = "247ca18dd83f53deb1328be17e4b1be31514cedfc1e3424f672bf11fd7e0d60d",
+    build_file = "gtest.BUILD",
+    strip_prefix = "gtest-1.7.0",
+)
+```
+
+Then `gtest.BUILD` would look like this:
+
+```python
+cc_library(
+    name = "main",
+    srcs = glob(
+        ["src/*.cc"],
+        exclude = ["src/gtest-all.cc"]
+    ),
+    hdrs = glob(["include/**/*.h"]),
+    includes = [
+        ".",
+        "include"
+    ],
+    linkopts = ["-pthread"],
+    visibility = ["//visibility:public"],
+)
+```
+
 Now `cc_` rules can depend on `//external:gtest/main`.
 
 For example, we could create a test such as:
