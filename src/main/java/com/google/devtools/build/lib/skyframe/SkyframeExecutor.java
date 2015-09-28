@@ -1091,14 +1091,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableList<ConfiguredTarget> getConfiguredTargets(BuildConfiguration originalConfig,
-      Iterable<Dependency> keys, boolean useOriginalConfig) {
-    return getConfiguredTargetMap(originalConfig, keys, useOriginalConfig).values().asList();
+  public ImmutableList<ConfiguredTarget> getConfiguredTargets(
+      EventHandler eventHandler, BuildConfiguration originalConfig, Iterable<Dependency> keys,
+      boolean useOriginalConfig) {
+    return getConfiguredTargetMap(
+        eventHandler, originalConfig, keys, useOriginalConfig).values().asList();
   }
 
   @ThreadSafety.ThreadSafe
   public ImmutableMap<Dependency, ConfiguredTarget> getConfiguredTargetMap(
-      BuildConfiguration originalConfig, Iterable<Dependency> keys, boolean useOriginalConfig) {
+      EventHandler eventHandler, BuildConfiguration originalConfig, Iterable<Dependency> keys,
+      boolean useOriginalConfig) {
     checkActive();
 
     Map<Dependency, BuildConfiguration> configs;
@@ -1116,7 +1119,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         configs = new HashMap<>();
         configs.put(Iterables.getOnlyElement(keys), originalConfig);
       } else {
-        configs = getConfigurations(originalConfig.getOptions(), keys);
+        configs = getConfigurations(eventHandler, originalConfig.getOptions(), keys);
       }
     } else {
       configs = new HashMap<>();
@@ -1134,7 +1137,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    EvaluationResult<SkyValue> result = evaluateSkyKeys(skyKeys);
+    EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
     ImmutableMap.Builder<Dependency, ConfiguredTarget> cts = ImmutableMap.builder();
 
   DependentNodeLoop:
@@ -1169,8 +1172,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Retrieves the configurations needed for the given deps, trimming down their fragments
    * to those only needed by their transitive closures.
    */
-  private Map<Dependency, BuildConfiguration> getConfigurations(BuildOptions fromOptions,
-      Iterable<Dependency> keys) {
+  private Map<Dependency, BuildConfiguration> getConfigurations(EventHandler eventHandler,
+      BuildOptions fromOptions, Iterable<Dependency> keys) {
     Map<Dependency, BuildConfiguration> builder = new HashMap<>();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
@@ -1190,7 +1193,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         transitiveFragmentSkyKeys.add(TransitiveTargetValue.key(key.getLabel()));
       }
     }
-    EvaluationResult<SkyValue> fragmentsResult = evaluateSkyKeys(transitiveFragmentSkyKeys);
+    EvaluationResult<SkyValue> fragmentsResult = evaluateSkyKeys(
+        eventHandler, transitiveFragmentSkyKeys);
     for (Dependency key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.
@@ -1212,7 +1216,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       configSkyKeys.add(BuildConfigurationValue.key(fragmentsMap.get(key.getLabel()),
           getDynamicConfigOptions(key, fromOptions)));
     }
-    EvaluationResult<SkyValue> configsResult = evaluateSkyKeys(configSkyKeys);
+    EvaluationResult<SkyValue> configsResult = evaluateSkyKeys(eventHandler, configSkyKeys);
     for (Dependency key : keys) {
       if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
         continue;
@@ -1242,7 +1246,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Evaluates the given sky keys, blocks, and returns their evaluation results.
    */
-  private EvaluationResult<SkyValue> evaluateSkyKeys(final Iterable<SkyKey> skyKeys) {
+  private EvaluationResult<SkyValue> evaluateSkyKeys(
+      final EventHandler eventHandler, final Iterable<SkyKey> skyKeys) {
     EvaluationResult<SkyValue> result;
     try {
       result = callUninterruptibly(new Callable<EvaluationResult<SkyValue>>() {
@@ -1251,7 +1256,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           synchronized (valueLookupLock) {
             try {
               skyframeBuildView.enableAnalysis(true);
-              return buildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT, errorEventListener);
+              return buildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT, eventHandler);
             } finally {
               skyframeBuildView.enableAnalysis(false);
             }
@@ -1287,13 +1292,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
-      Label label, BuildConfiguration configuration) {
+      EventHandler eventHandler, Label label, BuildConfiguration configuration) {
     if (memoizingEvaluator.getExistingValueForTesting(
         PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
       injectWorkspaceStatusData();
     }
     return Iterables.getFirst(
-        getConfiguredTargets(configuration, ImmutableList.of(new Dependency(label, configuration)),
+        getConfiguredTargets(
+            eventHandler,
+            configuration,
+            ImmutableList.of(new Dependency(label, configuration)),
             true),
         null);
   }

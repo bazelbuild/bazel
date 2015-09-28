@@ -315,7 +315,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetForTesting(parsedLabel, configuration);
+    return skyframeExecutor.getConfiguredTargetForTesting(reporter, parsedLabel, configuration);
   }
 
   /**

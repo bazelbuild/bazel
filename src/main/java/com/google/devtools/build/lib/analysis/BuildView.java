@@ -47,15 +47,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -268,49 +265,20 @@ public class BuildView {
     return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
   }
 
-  /**
-   * Returns a corresponding ConfiguredTarget, if one exists; otherwise throws an {@link
-   * NoSuchConfiguredTargetException}.
-   */
-  @ThreadSafe
-  private ConfiguredTarget getConfiguredTarget(Target target, BuildConfiguration config)
-      throws NoSuchConfiguredTargetException {
-    ConfiguredTarget result =
-        getExistingConfiguredTarget(target.getLabel(), config);
-    if (result == null) {
-      throw new NoSuchConfiguredTargetException(target.getLabel(), config);
-    }
-    return result;
+  @VisibleForTesting
+  public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(
+      EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
+          throws InterruptedException {
+    return skyframeExecutor.getConfiguredTargets(
+        eventHandler, ct.getConfiguration(),
+        getDirectPrerequisiteDependenciesForTesting(eventHandler, ct, null, configurations), false);
   }
 
-  /**
-   * Obtains a {@link ConfiguredTarget} given a {@code label}, by delegating
-   * to the package cache and
-   * {@link #getConfiguredTarget(Target, BuildConfiguration)}.
-   */
-  public ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
-      throws NoSuchPackageException, NoSuchTargetException, NoSuchConfiguredTargetException {
-    return getConfiguredTarget(packageManager.getLoadedTarget(label), config);
-  }
-
-  public Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget ct,
-      BuildConfigurationCollection configurations)
-      throws InterruptedException {
-    return getDirectPrerequisites(ct, null, configurations);
-  }
-
-  public Iterable<ConfiguredTarget> getDirectPrerequisites(
-      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache,
-      BuildConfigurationCollection configurations)
-      throws InterruptedException {
-    return skyframeExecutor.getConfiguredTargets(ct.getConfiguration(),
-        getDirectPrerequisiteDependencies(ct, targetCache, configurations), false);
-  }
-
-  public Iterable<Dependency> getDirectPrerequisiteDependencies(
-      ConfiguredTarget ct, @Nullable final LoadingCache<Label, Target> targetCache,
-      BuildConfigurationCollection configurations)
-      throws InterruptedException {
+  @VisibleForTesting
+  public Iterable<Dependency> getDirectPrerequisiteDependenciesForTesting(
+      EventHandler eventHandler, ConfiguredTarget ct,
+      @Nullable final LoadingCache<Label, Target> targetCache,
+      BuildConfigurationCollection configurations) throws InterruptedException {
     if (!(ct.getTarget() instanceof Rule)) {
       return ImmutableList.of();
     }
@@ -345,14 +313,15 @@ public class BuildView {
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
     return dependencyResolver.dependentNodes(ctgNode, configurations.getHostConfiguration(),
-        getConfigurableAttributeKeys(ctgNode));
+        getConfigurableAttributeKeysForTesting(eventHandler, ctgNode));
   }
 
   /**
    * Returns ConfigMatchingProvider instances corresponding to the configurable attribute keys
    * present in this rule's attributes.
    */
-  private Set<ConfigMatchingProvider> getConfigurableAttributeKeys(TargetAndConfiguration ctg) {
+  private Set<ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
+      EventHandler eventHandler, TargetAndConfiguration ctg) {
     if (!(ctg.getTarget() instanceof Rule)) {
       return ImmutableSet.of();
     }
@@ -364,14 +333,9 @@ public class BuildView {
         if (BuildType.Selector.isReservedLabel(label)) {
           continue;
         }
-        try {
-          ConfiguredTarget ct = getConfiguredTarget(label, ctg.getConfiguration());
-          keys.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
-        } catch (
-            NoSuchPackageException | NoSuchTargetException | NoSuchConfiguredTargetException e) {
-          // All lookups should succeed because we should not be looking up any targets in error.
-          throw new IllegalStateException(e);
-        }
+        ConfiguredTarget ct = getConfiguredTargetForTesting(
+            eventHandler, label, ctg.getConfiguration());
+        keys.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
       }
     }
     return keys.build();
@@ -792,31 +756,40 @@ public class BuildView {
     return ImmutableList.copyOf(nodes);
   }
 
-  /**
-   * Returns an existing ConfiguredTarget for the specified target and
-   * configuration, or null if none exists.  No validity check is done.
-   */
-  @ThreadSafe
-  public ConfiguredTarget getExistingConfiguredTarget(Target target, BuildConfiguration config) {
-    return getExistingConfiguredTarget(target.getLabel(), config);
-  }
-
-  /**
-   * Returns an existing ConfiguredTarget for the specified node, or null if none exists. No
-   * validity check is done.
-   */
-  @ThreadSafe
-  private ConfiguredTarget getExistingConfiguredTarget(
-      Label label, BuildConfiguration configuration) {
+  // For ide_build_info
+  public ConfiguredTarget getConfiguredTargetForIdeInfo(
+      EventHandler eventHandler, Label label, BuildConfiguration configuration) {
     return Iterables.getFirst(
         skyframeExecutor.getConfiguredTargets(
-            configuration, ImmutableList.of(new Dependency(label, configuration)), true),
+            eventHandler,
+            configuration,
+            ImmutableList.of(new Dependency(label, configuration)),
+            true),
         null);
   }
 
-  private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
-      ConfiguredTarget target, BuildConfigurationCollection configurations)
+  public ConfiguredTarget getConfiguredTargetForIdeInfo(
+      EventHandler eventHandler, Target target, BuildConfiguration config) {
+    return getConfiguredTargetForIdeInfo(eventHandler, target.getLabel(), config);
+  }
+
+  public Iterable<ConfiguredTarget> getDirectPrerequisitesForIdeInfo(
+      EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
           throws InterruptedException {
+    return getDirectPrerequisitesForTesting(eventHandler, ct, configurations);
+  }
+
+  public Iterable<Dependency> getDirectPrerequisiteDependenciesForIdeInfo(
+      EventHandler eventHandler, ConfiguredTarget ct,
+      @Nullable final LoadingCache<Label, Target> targetCache,
+      BuildConfigurationCollection configurations) throws InterruptedException {
+    return getDirectPrerequisiteDependenciesForTesting(
+        eventHandler, ct, targetCache, configurations);
+  }
+
+  private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
+      EventHandler eventHandler, ConfiguredTarget target,
+      BuildConfigurationCollection configurations) throws InterruptedException {
     DependencyResolver resolver = new DependencyResolver() {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
@@ -837,13 +810,14 @@ public class BuildView {
     ListMultimap<Attribute, Dependency> depNodeNames;
     try {
       depNodeNames = resolver.dependentNodeMap(ctNode, configurations.getHostConfiguration(),
-          /*aspect=*/null, AspectParameters.EMPTY, getConfigurableAttributeKeys(ctNode));
+          /*aspect=*/null, AspectParameters.EMPTY,
+          getConfigurableAttributeKeysForTesting(eventHandler, ctNode));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
 
     ImmutableMap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
-        ctNode.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
+        eventHandler, ctNode.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
 
     ImmutableListMultimap.Builder<Attribute, ConfiguredTarget> builder =
         ImmutableListMultimap.builder();
@@ -854,12 +828,8 @@ public class BuildView {
   }
 
   /**
-   * Sets the possible artifact roots in the artifact factory. This allows the
-   * factory to resolve paths with unknown roots to artifacts.
-   * <p>
-   * <em>Note: This must be called before any call to
-   * {@link #getConfiguredTarget(Label, BuildConfiguration)}
-   * </em>
+   * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve
+   * paths with unknown roots to artifacts.
    */
   @VisibleForTesting // for BuildViewTestCase
   public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots,
@@ -892,21 +862,13 @@ public class BuildView {
   }
 
   /**
-   * Returns a configured target for the specified target and configuration.
-   * This should only be called from test cases, and is needed, because
-   * plain {@link #getConfiguredTarget(Target, BuildConfiguration)} does not
-   * construct the configured target graph, and would thus fail if called from
-   * outside an update.
+   * Returns a configured target for the specified target and configuration. Returns {@code null}
+   * if something goes wrong.
    */
   @VisibleForTesting
-  public ConfiguredTarget getConfiguredTargetForTesting(Label label, BuildConfiguration config)
-      throws NoSuchPackageException, NoSuchTargetException {
-    return getConfiguredTargetForTesting(packageManager.getLoadedTarget(label), config);
-  }
-
-  @VisibleForTesting
-  public ConfiguredTarget getConfiguredTargetForTesting(Target target, BuildConfiguration config) {
-    return skyframeExecutor.getConfiguredTargetForTesting(target.getLabel(), config);
+  public ConfiguredTarget getConfiguredTargetForTesting(
+      EventHandler eventHandler, Label label, BuildConfiguration config) {
+    return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config);
   }
 
   /**
@@ -916,20 +878,13 @@ public class BuildView {
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler,
       BuildConfigurationCollection configurations, BinTools binTools) throws InterruptedException {
-    BuildConfiguration config = target.getConfiguration();
-    CachingAnalysisEnvironment analysisEnvironment =
+    BuildConfiguration targetConfig = target.getConfiguration();
+    CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
-            new ConfiguredTargetKey(target.getLabel(), config),
-            /*isSystemEnv=*/false, config.extendedSanityChecks(), eventHandler,
-            /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);
-    return new RuleContext.Builder(analysisEnvironment,
-        (Rule) target.getTarget(), config, configurations.getHostConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator())
-            .setVisibility(NestedSetBuilder.<PackageSpecification>create(
-                Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(target, configurations))
-            .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
-            .build();
+            new ConfiguredTargetKey(target.getLabel(), targetConfig),
+            /*isSystemEnv=*/false, targetConfig.extendedSanityChecks(), eventHandler,
+            /*skyframeEnv=*/null, targetConfig.isActionsEnabled(), binTools);
+    return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 
   /**
@@ -937,15 +892,16 @@ public class BuildView {
    * given configured target.
    */
   @VisibleForTesting
-  public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env,
-      BuildConfigurationCollection configurations) throws InterruptedException {
+  public RuleContext getRuleContextForTesting(EventHandler eventHandler, ConfiguredTarget target,
+      AnalysisEnvironment env, BuildConfigurationCollection configurations)
+          throws InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
         env, (Rule) target.getTarget(), targetConfig, configurations.getHostConfiguration(),
         ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(target, configurations))
+            .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
   }
@@ -957,13 +913,13 @@ public class BuildView {
    */
   @VisibleForTesting
   public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
-      ConfiguredTarget dependentTarget, ConfiguredTarget desiredTarget,
+      EventHandler eventHandler, ConfiguredTarget dependentTarget, Label desiredTarget,
       BuildConfigurationCollection configurations)
       throws InterruptedException {
     Collection<ConfiguredTarget> configuredTargets =
-        getPrerequisiteMapForTesting(dependentTarget, configurations).values();
+        getPrerequisiteMapForTesting(eventHandler, dependentTarget, configurations).values();
     for (ConfiguredTarget ct : configuredTargets) {
-      if (ct.getLabel().equals(desiredTarget.getLabel())) {
+      if (ct.getLabel().equals(desiredTarget)) {
         return ct;
       }
     }
