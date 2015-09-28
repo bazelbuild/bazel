@@ -18,39 +18,55 @@ import unittest
 from tools.android import proguard_whitelister
 
 
-class ValidateProguardTest(unittest.TestCase):
+class ProguardConfigValidatorTest(unittest.TestCase):
+
+  def _CreateValidator(self, input_path, output_path):
+    return proguard_whitelister.ProguardConfigValidator(input_path, output_path)
 
   def testValidConfig(self):
-    path = os.path.join(
-        os.path.dirname(__file__), "proguard_whitelister_input.cfg")
-    with open(path) as config:
-      self.assertEqual([], proguard_whitelister.Validate(config.read()))
+    input_path = os.path.join(
+        os.path.dirname(__file__), "proguard_whitelister_test_input.cfg")
+    tmpdir = os.environ["TEST_TMPDIR"]
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+    # This will raise an exception if the config is invalid.
+    self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
+    with file(output_path) as output:
+      self.assertTrue(("# Merged from %s" % input_path) in output.read())
+
+  def _TestInvalidConfig(self, invalid_args, config):
+    tmpdir = os.environ["TEST_TMPDIR"]
+    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.cfg")
+    with open(input_path, "w") as f:
+      f.write(config)
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+    validator = self._CreateValidator(input_path, output_path)
+    try:
+      validator.ValidateAndWriteOutput()
+      self.fail()
+    except RuntimeError as e:
+      for invalid_arg in invalid_args:
+        self.assertTrue(invalid_arg in str(e))
 
   def testInvalidNoteConfig(self):
-    self.assertEqual(["-dontnote"], proguard_whitelister.Validate(
-        """# We don't want libraries disabling notes globally.
-        -dontnote
-        """))
+    self._TestInvalidConfig(["-dontnote"], """\
+# We don"t want libraries disabling notes globally.
+-dontnote""")
 
   def testInvalidWarnConfig(self):
-    self.assertEqual(["-dontwarn"], proguard_whitelister.Validate(
-        """# We don't want libraries disabling warnings globally.
-        -dontwarn
-        """))
+    self._TestInvalidConfig(["-dontwarn"], """\
+# We don"t want libraries disabling warnings globally.
+-dontwarn""")
 
   def testInvalidOptimizationConfig(self):
-    self.assertEqual(["-optimizations"], proguard_whitelister.Validate(
-        """#We don't want libraries disabling global optimizations.
-        -optimizations !class/merging/*,!code/allocation/variable
-        """))
+    self._TestInvalidConfig(["-optimizations"], """\
+# We don"t want libraries disabling global optimizations.
+-optimizations !class/merging/*,!code/allocation/variable""")
 
   def testMultipleInvalidArgs(self):
-    self.assertEqual(
-        ["-optimizations", "-dontnote"], proguard_whitelister.Validate(
-            """#We don't want libraries disabling global optimizations.
-            -optimizations !class/merging/*,!code/allocation/variable
-            -dontnote
-            """))
+    self._TestInvalidConfig(["-optimizations", "-dontnote"], """\
+# We don"t want libraries disabling global optimizations.
+-optimizations !class/merging/*,!code/allocation/variable
+-dontnote""")
 
 
 if __name__ == "__main__":

@@ -72,7 +72,7 @@ py_binary(
 py_test(
     name = "proguard_whitelister_test",
     srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_input.cfg"],
+    data = ["proguard_whitelister_test_input.cfg"],
     deps = [
         ":proguard_whitelister",
     ],
