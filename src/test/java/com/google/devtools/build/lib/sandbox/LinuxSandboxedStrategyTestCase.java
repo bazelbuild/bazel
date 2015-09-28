@@ -49,7 +49,6 @@ public class LinuxSandboxedStrategyTestCase {
   protected FileSystem fileSystem;
   protected Path workspaceDir;
   protected Path fakeSandboxDir;
-  protected Path fakeSandboxExecRoot;
 
   protected BlazeExecutor executor;
   protected BlazeDirectories blazeDirs;
@@ -82,7 +81,7 @@ public class LinuxSandboxedStrategyTestCase {
 
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(ExecutionOptions.class, SandboxOptions.class);
-    optionsParser.parse("--verbose_failures");
+    optionsParser.parse("--verbose_failures", "--sandbox_debug");
 
     EventBus bus = new EventBus();
 
