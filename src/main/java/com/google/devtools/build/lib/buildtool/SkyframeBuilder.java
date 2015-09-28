@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
@@ -98,7 +99,7 @@ public class SkyframeBuilder implements Builder {
 
   @Override
   public void buildArtifacts(
-      EventHandler eventHandler,
+      Reporter reporter,
       Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
@@ -122,7 +123,7 @@ public class SkyframeBuilder implements Builder {
     EvaluationResult<?> result;
 
     ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
-        eventHandler, executor, skyframeExecutor.getEventBus());
+        reporter, executor, skyframeExecutor.getEventBus());
 
     AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
     ActionExecutionInactivityWatchdog watchdog = new ActionExecutionInactivityWatchdog(
@@ -137,7 +138,7 @@ public class SkyframeBuilder implements Builder {
     try {
       result =
           skyframeExecutor.buildArtifacts(
-              eventHandler,
+              reporter,
               executor,
               artifacts,
               targetsToBuild,
@@ -150,7 +151,7 @@ public class SkyframeBuilder implements Builder {
               actionCacheChecker,
               executionProgressReceiver);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
-      success = processResult(eventHandler, result, keepGoing, skyframeExecutor);
+      success = processResult(reporter, result, keepGoing, skyframeExecutor);
 
       Preconditions.checkState(
           !success
@@ -171,7 +172,7 @@ public class SkyframeBuilder implements Builder {
         // built and then the build being interrupted.
         result =
             skyframeExecutor.buildArtifacts(
-                eventHandler,
+                reporter,
                 executor,
                 ImmutableSet.<Artifact>of(),
                 targetsToBuild,
@@ -183,7 +184,7 @@ public class SkyframeBuilder implements Builder {
                 numJobs,
                 actionCacheChecker,
                 null);
-        boolean exclusiveSuccess = processResult(eventHandler, result, keepGoing, skyframeExecutor);
+        boolean exclusiveSuccess = processResult(reporter, result, keepGoing, skyframeExecutor);
         Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
             exclusiveTest, result);

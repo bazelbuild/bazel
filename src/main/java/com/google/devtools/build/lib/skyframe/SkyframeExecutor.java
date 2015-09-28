@@ -255,7 +255,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
-      Reporter reporter,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
@@ -269,7 +268,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       boolean errorOnExternalFiles) {
-    Preconditions.checkNotNull(reporter);
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -282,8 +280,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
-    this.skyframeActionExecutor = new SkyframeActionExecutor(reporter, resourceManager, eventBus,
-        statusReporterRef);
+    this.skyframeActionExecutor = new SkyframeActionExecutor(
+        resourceManager, eventBus, statusReporterRef);
     this.directories = Preconditions.checkNotNull(directories);
     this.buildInfoFactories = buildInfoFactories;
     this.immutableDirectories = immutableDirectories;
@@ -1029,7 +1027,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * given test targets.
    */
   public EvaluationResult<?> buildArtifacts(
-      EventHandler eventHandler,
+      Reporter reporter,
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
@@ -1045,7 +1043,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
-    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, actionCacheChecker);
+    skyframeActionExecutor.prepareForExecution(
+        reporter, executor, keepGoing, explain, actionCacheChecker);
 
     resourceManager.resetResourceUsage();
     try {
@@ -1058,7 +1057,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           Iterables.concat(artifactKeys, targetKeys, aspectKeys, testKeys),
           keepGoing,
           numJobs,
-          eventHandler);
+          reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -1069,9 +1068,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  public void prepareBuildingForTestingOnly(Executor executor, boolean keepGoing, boolean explain,
-                                            ActionCacheChecker checker) {
-    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, checker);
+  public void prepareBuildingForTestingOnly(Reporter reporter, Executor executor, boolean keepGoing,
+      boolean explain, ActionCacheChecker checker) {
+    skyframeActionExecutor.prepareForExecution(reporter, executor, keepGoing, explain, checker);
   }
 
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,

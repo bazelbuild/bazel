@@ -95,7 +95,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            reporter,
             pkgFactory,
             new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,

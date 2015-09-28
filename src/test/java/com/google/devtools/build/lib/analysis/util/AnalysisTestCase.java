@@ -166,7 +166,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     BinTools binTools = BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS);
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            reporter,
             pkgFactory,
             new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,

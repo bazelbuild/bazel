@@ -96,7 +96,7 @@ import javax.annotation.Nullable;
  * all output artifacts were created, error reporting, etc.
  */
 public final class SkyframeActionExecutor implements ActionExecutionContextFactory {
-  private final Reporter reporter;
+  private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private final ResourceManager resourceManager;
   private Executor executorEngine;
@@ -131,10 +131,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private ActionCompletedReceiver completionReceiver;
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
 
-  SkyframeActionExecutor(Reporter reporter, ResourceManager resourceManager,
+  SkyframeActionExecutor(ResourceManager resourceManager,
       AtomicReference<EventBus> eventBus,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
-    this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
@@ -331,8 +330,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     };
   }
 
-  void prepareForExecution(Executor executor, boolean keepGoing,
+  void prepareForExecution(Reporter reporter, Executor executor, boolean keepGoing,
       boolean explain, ActionCacheChecker actionCacheChecker) {
+    this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
 
     // Start with a new map each build so there's no issue with internal resizing.
@@ -350,6 +350,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   void executionOver() {
+    this.reporter = null;
     // This transitively holds a bunch of heavy objects, so it's important to clear it at the
     // end of a build.
     this.executorEngine = null;

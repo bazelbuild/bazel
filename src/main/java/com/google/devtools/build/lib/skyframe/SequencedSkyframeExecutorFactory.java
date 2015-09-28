@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -38,7 +37,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
 
   @Override
   public SkyframeExecutor create(
-      Reporter reporter,
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
@@ -53,7 +51,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     return SequencedSkyframeExecutor.create(
-        reporter,
         pkgFactory,
         tsgm,
         directories,
