@@ -426,8 +426,8 @@ function __trap_with_arg() {
 # arguments need to be escaped.
 function __log_to_test_report() {
     local node="$1"
-    local block="${2//\}/\\\}}"
-
+    # Escape '\', '{' and '}' character, since we are inlining the text in the perl expression.
+    local block=$(echo "$2" | sed -e 's/\([\{\}\\]\)/\\\1/g')
     if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
         echo "$xml_header<testsuites></testsuites>" > $XML_OUTPUT_FILE
