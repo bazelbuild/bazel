@@ -159,8 +159,6 @@ toolchain {
   compiler_flag: "-U_FORTIFY_SOURCE"
   compiler_flag: "-D_FORTIFY_SOURCE=1"
   compiler_flag: "-fstack-protector"
-  compiler_flag: "-fPIE"
-  linker_flag: "-pie"
   linker_flag: "-Wl,-z,relro,-z,now"
 
   # Enable coloring even if there's no attached terminal. Bazel removes the
@@ -272,7 +270,6 @@ toolchain {
   # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
   compiler_flag: "-D_FORTIFY_SOURCE=1"
   compiler_flag: "-fstack-protector"
-  compiler_flag: "-fPIE"
 
   # Enable coloring even if there's no attached terminal. Bazel removes the
   # escape sequences if --nocolor is specified.
@@ -380,8 +377,6 @@ toolchain {
   compiler_flag: "-U_FORTIFY_SOURCE"
   compiler_flag: "-D_FORTIFY_SOURCE=1"
   compiler_flag: "-fstack-protector"
-  compiler_flag: "-fPIE"
-  linker_flag: "-pie"
   linker_flag: "-Wl,-z,relro,-z,now"
 
   # Enable coloring even if there's no attached terminal. Bazel removes the

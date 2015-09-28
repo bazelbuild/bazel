@@ -26,6 +26,15 @@ cc_library(
         "blaze_util.h",
         "blaze_util_platform.h",
     ],
+    linkopts = select({
+        "//src:darwin": [
+        ],
+        "//src:freebsd": [
+        ],
+        "//conditions:default": [
+            "-lrt",
+        ],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/cpp/util",
