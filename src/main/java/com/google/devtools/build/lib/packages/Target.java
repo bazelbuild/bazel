@@ -78,4 +78,9 @@ public interface Target {
    * Returns the visibility of this target.
    */
   RuleVisibility getVisibility();
+
+  /**
+   * Returns whether this target type can be configured (e.g. accepts non-null configurations).
+   */
+  boolean isConfigurable();
 }

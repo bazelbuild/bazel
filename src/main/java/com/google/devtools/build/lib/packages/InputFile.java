@@ -71,6 +71,11 @@ public final class InputFile extends FileTarget {
     }
   }
 
+  @Override
+  public boolean isConfigurable() {
+    return false;
+  }
+
   public boolean isLicenseSpecified() {
     return license != null && license != License.NO_LICENSE;
   }

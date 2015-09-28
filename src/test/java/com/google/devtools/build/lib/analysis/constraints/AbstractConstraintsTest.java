@@ -68,8 +68,9 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
             .append(getAttrDef("fulfills", fulfillsMap.get(env).toArray(new String[0])))
             .append(")\n");
       }
+      String envGroupName = name.contains("/") ? name.substring(name.lastIndexOf("/") + 1) : name;
       builder.append("environment_group(\n")
-          .append("    name = '" + name + "',\n")
+          .append("    name = '" + envGroupName + "',\n")
           .append(getAttrDef("environments", environments.toArray(new String[0])) + ",\n")
           .append(getAttrDef("defaults", defaults.toArray(new String[0])) + ",\n")
           .append(")");

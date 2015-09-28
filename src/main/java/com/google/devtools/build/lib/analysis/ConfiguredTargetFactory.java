@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -201,6 +202,8 @@ public final class ConfiguredTargetFactory {
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+    } else if (target instanceof EnvironmentGroup) {
+      return new EnvironmentGroupConfiguredTarget(targetContext, (EnvironmentGroup) target);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }

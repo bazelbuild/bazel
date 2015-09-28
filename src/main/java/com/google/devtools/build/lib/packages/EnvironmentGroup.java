@@ -310,6 +310,11 @@ public class EnvironmentGroup implements Target {
     return ConstantRuleVisibility.PRIVATE; // No rule should be referencing an environment_group.
   }
 
+  @Override
+  public boolean isConfigurable() {
+    return false;
+  }
+
   public static String targetKind() {
     return "environment group";
   }

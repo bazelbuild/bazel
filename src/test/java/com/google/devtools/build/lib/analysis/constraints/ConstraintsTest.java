@@ -800,4 +800,12 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNull(getConfiguredTarget("//ihave:nolimits"));
     assertContainsEvent("no such attribute 'restricted_to' in 'totally_free_rule'");
   }
+
+  public void testBuildingEnvironmentGroupDirectlyDoesntCrash() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo")
+        .setEnvironments("a", "b")
+        .setDefaults("a")
+        .make();
+    assertNotNull(getConfiguredTarget("//buildenv/foo:foo"));
+  }
 }

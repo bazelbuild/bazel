@@ -83,4 +83,9 @@ public class FakeSubincludeTarget implements Target {
   public RuleVisibility getVisibility() {
     return ConstantRuleVisibility.PUBLIC;
   }
+
+  @Override
+  public boolean isConfigurable() {
+    return true;
+  }
 }
