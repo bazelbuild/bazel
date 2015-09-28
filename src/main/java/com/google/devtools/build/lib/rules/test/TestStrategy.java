@@ -59,6 +59,8 @@ import javax.annotation.Nullable;
  * A strategy for executing a {@link TestRunnerAction}.
  */
 public abstract class TestStrategy implements TestActionContext {
+  protected static final String TEST_SETUP_BASENAME = "test-setup.sh";
+
   /**
    * Returns true if coverage data should be gathered.
    */

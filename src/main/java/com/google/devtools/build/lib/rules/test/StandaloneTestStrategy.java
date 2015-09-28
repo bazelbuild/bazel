@@ -63,8 +63,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     this.workspace = workspace;
   }
 
-  private static final String TEST_SETUP_BASENAME = "test-setup.sh";
-
   @Override
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
