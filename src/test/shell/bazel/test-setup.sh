@@ -115,6 +115,12 @@ java_binary(
 )
 
 sh_binary(
+    name = "IdlClass",
+    srcs = ["idlclass.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
+)
+
+sh_binary(
     name = "merge_manifests",
     srcs = ["fail.sh"],
 )
@@ -183,8 +189,8 @@ EOF
 
   chmod +x third_party/java/jarjar/fail.sh
 
-  mkdir -p src/tools/android/java/com/google/devtools/build/android/idlclass
-  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
+  mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass
+  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
 licenses(["unencumbered"])
 sh_binary(
   name = "IdlClass",
@@ -193,14 +199,14 @@ sh_binary(
 )
 EOF
 
-  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
+  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
 
 #!/bin/bash
 
 exit 1
 EOF
 
-  chmod +x src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
+  chmod +x ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
 
   ANDROID_NDK=$PWD/android_ndk
   ANDROID_SDK=$PWD/android_sdk
