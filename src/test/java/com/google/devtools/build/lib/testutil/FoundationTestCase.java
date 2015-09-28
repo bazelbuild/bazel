@@ -42,9 +42,7 @@ public abstract class FoundationTestCase extends TestCase {
   // May be overridden by subclasses:
   protected Reporter reporter;
   protected EventCollector eventCollector;
-
   protected Scratch scratch;
-
 
   // Individual tests can opt-out of this handler if they expect an error, by
   // calling reporter.removeHandler(failFastHandler).
