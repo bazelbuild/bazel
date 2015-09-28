@@ -208,11 +208,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<LinkerInputs.LibraryToLink> CC_LIBRARY = new Key<>(LINK_ORDER);
 
   /**
-   * Linking options from dependencies.
-   */
-  public static final Key<String> LINKOPT = new Key<>(LINK_ORDER);
-
-  /**
    * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a
    * flag. If the item is included in the key {@link #FLAG}, then the flag is considered set.
    */
