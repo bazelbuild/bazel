@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.packages.Preprocessor.Result;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -188,7 +187,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
   protected SkyframeBuildView skyframeBuildView;
-  private final EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   protected BuildDriver buildDriver;
@@ -271,6 +269,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       boolean errorOnExternalFiles) {
+    Preconditions.checkNotNull(reporter);
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -282,7 +281,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
-    this.errorEventListener = Preconditions.checkNotNull(reporter);
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(reporter, resourceManager, eventBus,
         statusReporterRef);
@@ -1514,10 +1512,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public PackageManager getPackageManager() {
     return packageManager;
-  }
-
-  public LoadedPackageProvider getLoadedPackageProvider() {
-    return new LoadedPackageProvider.Bridge(packageManager, errorEventListener);
   }
 
   class SkyframePackageLoader {

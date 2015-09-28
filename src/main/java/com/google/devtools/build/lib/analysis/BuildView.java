@@ -208,9 +208,6 @@ public class BuildView {
   private final SkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
 
-  // Same as skyframeExecutor.getPackageManager().
-  private final LoadedPackageProvider packageManager;
-
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
   /**
@@ -233,7 +230,6 @@ public class BuildView {
       SkyframeExecutor skyframeExecutor,
       CoverageReportActionFactory coverageReportActionFactory) {
     this.directories = directories;
-    this.packageManager = skyframeExecutor.getLoadedPackageProvider();
     this.coverageReportActionFactory = coverageReportActionFactory;
     this.ruleClassProvider = ruleClassProvider;
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
@@ -777,7 +773,7 @@ public class BuildView {
 
   @VisibleForTesting
   public Iterable<Dependency> getDirectPrerequisiteDependenciesForTesting(
-      EventHandler eventHandler, ConfiguredTarget ct,
+      final EventHandler eventHandler, ConfiguredTarget ct,
       @Nullable final LoadingCache<Label, Target> targetCache,
       BuildConfigurationCollection configurations) throws InterruptedException {
     if (!(ct.getTarget() instanceof Rule)) {
@@ -798,7 +794,8 @@ public class BuildView {
       @Override
       protected Target getTarget(Label label) throws NoSuchThingException {
         if (targetCache == null) {
-          return packageManager.getLoadedTarget(label);
+          return LoadedPackageProvider.Bridge.getLoadedTarget(
+              skyframeExecutor.getPackageManager(), eventHandler, label);
         }
 
         try {
@@ -843,7 +840,7 @@ public class BuildView {
   }
 
   private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
-      EventHandler eventHandler, ConfiguredTarget target,
+      final EventHandler eventHandler, ConfiguredTarget target,
       BuildConfigurationCollection configurations) throws InterruptedException {
     DependencyResolver resolver = new DependencyResolver() {
       @Override
@@ -858,7 +855,8 @@ public class BuildView {
 
       @Override
       protected Target getTarget(Label label) throws NoSuchThingException {
-        return packageManager.getLoadedTarget(label);
+        return LoadedPackageProvider.Bridge.getLoadedTarget(
+            skyframeExecutor.getPackageManager(), eventHandler, label);
       }
     };
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
