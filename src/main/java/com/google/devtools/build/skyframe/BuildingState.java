@@ -303,6 +303,15 @@ public class BuildingState {
     return getLastBuildValue().equals(newValue) && lastBuildDirectDeps.equals(directDeps);
   }
 
+  /**
+   * Returns true if the deps requested during this evaluation are exactly those requested the
+   * last time this node was built, in the same order.
+   */
+  boolean depsUnchangedFromLastBuild() {
+    checkFinishedBuildingWhenAboutToSetValue();
+    return lastBuildDirectDeps.equals(directDeps);
+  }
+
   boolean noDepsLastBuild() {
     return lastBuildDirectDeps.isEmpty();
   }

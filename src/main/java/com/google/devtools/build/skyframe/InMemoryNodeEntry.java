@@ -356,9 +356,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized Set<SkyKey> markClean() {
     this.value = buildingState.getLastBuildValue();
-    // This checks both the value and the direct deps, but since we're passing in the same value,
-    // the value check should be trivial.
-    Preconditions.checkState(buildingState.unchangedFromLastBuild(this.value),
+    Preconditions.checkState(buildingState.depsUnchangedFromLastBuild(),
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
     Preconditions.checkState(isDirty(), this);
