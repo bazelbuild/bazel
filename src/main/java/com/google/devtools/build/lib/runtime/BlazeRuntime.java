@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -858,13 +859,13 @@ public final class BlazeRuntime {
    *
    * @see DefaultsPackage
    */
-  public void setupPackageCache(PackageCacheOptions packageCacheOptions,
+  public void setupPackageCache(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
       String defaultsPackageContents, UUID commandId)
           throws InterruptedException, AbruptExitException {
     if (!skyframeExecutor.hasIncrementalState()) {
       clearSkyframeRelevantCaches();
     }
-    skyframeExecutor.sync(reporter, packageCacheOptions, getOutputBase(), getWorkingDirectory(),
+    skyframeExecutor.sync(eventHandler, packageCacheOptions, getOutputBase(), getWorkingDirectory(),
         defaultsPackageContents, commandId);
   }
 
@@ -1463,7 +1464,6 @@ public final class BlazeRuntime {
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(startupOptionsProvider);
-      Reporter reporter = (this.reporter == null) ? new Reporter() : this.reporter;
 
       Clock clock = (this.clock == null) ? BlazeClock.instance() : this.clock;
       UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
