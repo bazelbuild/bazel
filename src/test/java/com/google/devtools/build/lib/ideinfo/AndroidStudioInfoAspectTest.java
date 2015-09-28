@@ -598,6 +598,22 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
             "<jar:java/com/google/example/libtest-gen.jar>"
             + "<source:java/com/google/example/libtest-gensrc.jar>");
   }
+  
+  public void testNonConformingPackageName() throws Exception {
+    scratch.file(
+        "bad/package/google/example/BUILD",
+        "android_library(",
+        "  name = 'test',",
+        "  srcs = ['Test.java'],",
+        ")"
+    );
+    String target = "//bad/package/google/example:test";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage())
+        .isEqualTo("bad.package.google.example");
+  }
 
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
