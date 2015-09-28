@@ -54,10 +54,12 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private final Path workspace;
 
-  public StandaloneTestStrategy(OptionsClassProvider requestOptions,
-      OptionsClassProvider startupOptions, BinTools binTools, Map<String, String> clientEnv,
+  public StandaloneTestStrategy(
+      OptionsClassProvider requestOptions,
+      BinTools binTools,
+      Map<String, String> clientEnv,
       Path workspace) {
-    super(requestOptions, startupOptions, binTools, clientEnv);
+    super(requestOptions, binTools, clientEnv);
     this.workspace = workspace;
   }
 

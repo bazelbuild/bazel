@@ -69,9 +69,9 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     BlazeRuntime runtime = env.getRuntime();
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
-    TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
-        runtime.getStartupOptionsProvider(), runtime.getBinTools(), env.getClientEnv(),
-        runtime.getWorkspace());
+    TestActionContext testStrategy =
+        new StandaloneTestStrategy(
+            buildRequest, runtime.getBinTools(), env.getClientEnv(), runtime.getWorkspace());
 
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
 

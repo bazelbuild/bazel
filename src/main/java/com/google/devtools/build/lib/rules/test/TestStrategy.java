@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -129,20 +128,17 @@ public abstract class TestStrategy implements TestActionContext {
 
   // Used for generating unique temporary directory names.
   private final AtomicInteger tmpIndex = new AtomicInteger(0);
-  private final boolean statusServerRunning;
   protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
 
-  public TestStrategy(OptionsClassProvider requestOptionsProvider,
-      OptionsClassProvider startupOptionsProvider, BinTools binTools,
+  public TestStrategy(
+      OptionsClassProvider requestOptionsProvider,
+      BinTools binTools,
       Map<String, String> clientEnv) {
     this.executionOptions = requestOptionsProvider.getOptions(ExecutionOptions.class);
     this.binTools = binTools;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    BlazeServerStartupOptions startupOptions =
-        startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-    statusServerRunning = startupOptions != null && startupOptions.useWebStatusServer > 0;
   }
 
   @Override
@@ -315,8 +311,8 @@ public abstract class TestStrategy implements TestActionContext {
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
-       a large amount of memory. */
-    if (executionOptions.testSummary != TestSummaryFormat.DETAILED && !statusServerRunning) {
+     a large amount of memory. */
+    if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
       return null;
     }
 

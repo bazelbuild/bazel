@@ -524,25 +524,6 @@ java_library(
 )
 
 java_library(
-    name = "webstatusserver",
-    srcs = glob([
-        "com/google/devtools/build/lib/webstatusserver/**/*.java",
-    ]),
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":buildtool-runtime",
-        ":clock",
-        ":events",
-        ":options",
-        ":packages",
-        ":util",
-        "//src/main/protobuf:proto_test_status",
-        "//third_party:gson",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "bazel-core",
     srcs = glob(
         [
@@ -601,7 +582,6 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
-        ":webstatusserver",
         "//src/java_tools/singlejar:zip",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
         "//src/main/java/com/google/devtools/build/lib/sandbox",

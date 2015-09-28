@@ -235,9 +235,4 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "changes instead of scanning every file for a change.")
   public boolean watchFS;
 
-  @Option(name = "use_webstatusserver",
-      defaultValue = "0",
-      category = "server startup",
-      help = "Specifies port to run web status server on (0 to disable, which is default).")
-  public int useWebStatusServer;
 }

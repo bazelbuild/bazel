@@ -48,8 +48,7 @@ public final class BazelMain {
           com.google.devtools.build.lib.worker.WorkerModule.class,
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
-          com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
-          com.google.devtools.build.lib.webstatusserver.WebStatusServerModule.class);
+          com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
