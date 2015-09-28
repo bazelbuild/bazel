@@ -105,6 +105,17 @@ public final class ObjcCommon {
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
     }
 
+    /**
+     * Returns headers that cannot be compiled individually.
+     */
+    ImmutableList<Artifact> textualHdrs() {
+      // Some rules may compile but not have the "textual_hdrs" attribute.
+      if (!ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
+        return ImmutableList.of();
+      }
+      return ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list();
+    }
+
     Optional<Artifact> bridgingHeader() {
       Artifact header = ruleContext.getPrerequisiteArtifact("bridging_header", Mode.TARGET);
       return Optional.fromNullable(header);
@@ -480,6 +491,7 @@ public final class ObjcCommon {
             TO_PATH_FRAGMENT);
         objcProvider
             .addAll(HEADER, attributes.hdrs())
+            .addAll(HEADER, attributes.textualHdrs())
             .addAll(INCLUDE, attributes.headerSearchPaths())
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
