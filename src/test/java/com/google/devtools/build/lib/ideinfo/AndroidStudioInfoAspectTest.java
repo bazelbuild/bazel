@@ -553,6 +553,51 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
                 "<jar:java/com/google/example/libhas_idl-idl.jar>"
                 + "<source:java/com/google/example/libhas_idl-idl.srcjar>");
   }
+  
+  public void testJavaLibraryWithoutGeneratedSourcesHasNoGenJars() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "java_library(",
+        "  name = 'no_plugin',",
+        "  srcs = ['Test.java'],",
+        ")"
+    );
+    String target = "//java/com/google/example:no_plugin";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList())
+        .isEmpty();
+  }
+
+  public void testJavaLibraryWithGeneratedSourcesHasGenJars() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "java_library(",
+        "  name = 'test',",
+        "  plugins = [':plugin']",
+        ")",
+        "java_plugin(",
+        "  name = 'plugin',",
+        "  processor_class = 'com.google.example.Plugin',",
+        "  deps = ['plugin_lib'],",
+        ")",
+        "java_library(",
+        "  name = 'plugin_lib',",
+        "  srcs = ['Plugin.java'],",
+        ")"
+    );
+    String target = "//java/com/google/example:test";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+
+    assertThat(
+            transform(ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList(), 
+                LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            "<jar:java/com/google/example/libtest-gen.jar>"
+            + "<source:java/com/google/example/libtest-gensrc.jar>");
+  }
 
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
