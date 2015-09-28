@@ -39,7 +39,7 @@ public class CycleInfo implements Serializable {
     this(ImmutableList.<SkyKey>of(), cycle);
   }
 
-  CycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
+  public CycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
     this.pathToCycle = ImmutableList.copyOf(pathToCycle);
     this.cycle = ImmutableList.copyOf(cycle);
   }

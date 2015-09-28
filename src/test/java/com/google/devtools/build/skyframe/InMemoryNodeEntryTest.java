@@ -115,7 +115,7 @@ public class InMemoryNodeEntryTest {
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = ErrorInfo.fromException(exception);
     assertThat(setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L)).isEmpty();
     assertTrue(entry.isDone());
     assertNull(entry.getValue());
@@ -129,7 +129,7 @@ public class InMemoryNodeEntryTest {
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = ErrorInfo.fromException(exception);
     setValue(entry, new SkyValue() {}, errorInfo, /*graphVersion=*/0L);
     assertTrue(entry.isDone());
     assertEquals(errorInfo, entry.getErrorInfo());
@@ -447,7 +447,7 @@ public class InMemoryNodeEntryTest {
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
-    setValue(entry, new IntegerValue(5), new ErrorInfo(exception),
+    setValue(entry, new IntegerValue(5), ErrorInfo.fromException(exception),
         /*graphVersion=*/1L);
     assertTrue(entry.isDone());
     assertEquals("Version increments when setValue changes", new IntVersion(1), entry.getVersion());
@@ -463,7 +463,7 @@ public class InMemoryNodeEntryTest {
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = ErrorInfo.fromException(exception);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
@@ -522,7 +522,7 @@ public class InMemoryNodeEntryTest {
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("key"));
-    setValue(entry, null, new ErrorInfo(exception), 0L);
+    setValue(entry, null, ErrorInfo.fromException(exception), 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());

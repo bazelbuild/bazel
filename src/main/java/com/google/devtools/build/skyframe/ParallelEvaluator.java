@@ -117,7 +117,7 @@ public final class ParallelEvaluator implements Evaluator {
       return state.getValue();
     }
   }
-  
+
   /** An general interface for {@link ParallelEvaluator} to receive objects of type {@code T}. */
   public interface Receiver<T> {
     // TODO(dmarting): should we just make it a common object for all Bazel codebase?
@@ -269,7 +269,7 @@ public final class ParallelEvaluator implements Evaluator {
      */
     private void finalizeErrorInfo() {
       if (errorInfo == null && !childErrorInfos.isEmpty()) {
-        errorInfo = new ErrorInfo(skyKey, childErrorInfos);
+        errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
       }
     }
 
@@ -826,7 +826,7 @@ public final class ParallelEvaluator implements Evaluator {
           }
 
           registerNewlyDiscoveredDepsForDoneEntry(skyKey, state, env);
-          ErrorInfo errorInfo = new ErrorInfo(reifiedBuilderException);
+          ErrorInfo errorInfo = ErrorInfo.fromException(reifiedBuilderException);
           env.setError(errorInfo);
           env.commit(/*enqueueParents=*/keepGoing);
           if (!shouldFailFast) {
@@ -1297,9 +1297,9 @@ public final class ParallelEvaluator implements Evaluator {
         ReifiedSkyFunctionException reifiedBuilderException =
             new ReifiedSkyFunctionException(builderException, parent);
         if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
-          error = new ErrorInfo(reifiedBuilderException);
+          error = ErrorInfo.fromException(reifiedBuilderException);
           bubbleErrorInfo.put(errorKey,
-              ValueWithMetadata.error(new ErrorInfo(errorKey, ImmutableSet.of(error)),
+              ValueWithMetadata.error(ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
                   env.buildEvents(/*missingChildren=*/true)));
           continue;
         }
@@ -1314,7 +1314,7 @@ public final class ParallelEvaluator implements Evaluator {
       }
       // Builder didn't throw an exception, so just propagate this one up.
       bubbleErrorInfo.put(errorKey,
-          ValueWithMetadata.error(new ErrorInfo(errorKey, ImmutableSet.of(error)),
+          ValueWithMetadata.error(ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
               env.buildEvents(/*missingChildren=*/true)));
     }
 
@@ -1483,7 +1483,7 @@ public final class ParallelEvaluator implements Evaluator {
             "Value %s was not successfully evaluated, but had no child errors. ValueEntry: %s", key,
             entry);
         SkyFunctionEnvironment env = new SkyFunctionEnvironment(key, directDeps, visitor);
-        env.setError(new ErrorInfo(key, errorDeps));
+        env.setError(ErrorInfo.fromChildErrors(key, errorDeps));
         env.commit(/*enqueueParents=*/false);
       }
 
@@ -1531,8 +1531,8 @@ public final class ParallelEvaluator implements Evaluator {
               getChildrenErrors(entry.getTemporaryDirectDeps(), /*unfinishedChild=*/cycleChild);
           CycleInfo cycleInfo = new CycleInfo(cycle);
           // Add in this cycle.
-          allErrors.add(new ErrorInfo(cycleInfo));
-          env.setError(new ErrorInfo(key, allErrors));
+          allErrors.add(ErrorInfo.fromCycle(cycleInfo));
+          env.setError(ErrorInfo.fromChildErrors(key, allErrors));
           env.commit(/*enqueueParents=*/false);
           continue;
         } else {
@@ -1540,7 +1540,7 @@ public final class ParallelEvaluator implements Evaluator {
           // path) and return.
           Preconditions.checkState(graphPath.get(0).equals(root),
               "%s not reached from %s. ValueEntry: %s", key, root, entry);
-          return new ErrorInfo(new CycleInfo(graphPath.subList(0, cycleStart), cycle));
+          return ErrorInfo.fromCycle(new CycleInfo(graphPath.subList(0, cycleStart), cycle));
         }
       }
 
