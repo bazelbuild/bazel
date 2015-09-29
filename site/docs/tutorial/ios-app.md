@@ -36,7 +36,7 @@ $ vi $WORKSPACE/ios-app/BUILD
 
 ## Add an objc_library rule
 
-Bazel provides several build rules, that you can use to build an app for the
+Bazel provides several build rules that you can use to build an app for the
 iOS platform. For this tutorial, you'll first use the
 [`objc_library`](/docs/build-encyclopedia.html#objc_library) rule to tell Bazel
 how to build an
