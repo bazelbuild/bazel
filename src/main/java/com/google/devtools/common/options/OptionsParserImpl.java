@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 
@@ -433,6 +434,28 @@ class OptionsParserImpl {
     entry.addValue(priority, value);
   }
 
+  void clearValue(String optionName, Map<String, OptionValueDescription> clearedValues) {
+    Field field = optionsData.getFieldFromName(optionName);
+    if (field == null) {
+      throw new IllegalArgumentException("No such option '" + optionName + "'");
+    }
+
+    ParsedOptionEntry removed = parsedValues.remove(field);
+    if (removed != null) {
+      clearedValues.put(optionName, removed.asOptionValueDescription(optionName));
+    }
+
+    // Recurse to remove any implicit or expansion flags that this flag may have added when
+    // originally parsed.
+    Option option = field.getAnnotation(Option.class);
+    for (String implicitRequirement : option.implicitRequirements()) {
+      clearValue(implicitRequirement, clearedValues);
+    }
+    for (String expansion : option.expansion()) {
+      clearValue(expansion, clearedValues);
+    }
+  }
+
   private Object getValue(Field field) {
     ParsedOptionEntry entry = parsedValues.get(field);
     return entry == null ? null : entry.getValue();
@@ -448,6 +471,20 @@ class OptionsParserImpl {
       return null;
     }
     return entry.asOptionValueDescription(name);
+  }
+
+  OptionDescription getOptionDescription(String name) {
+    Field field = optionsData.getFieldFromName(name);
+    if (field == null) {
+      return null;
+    }
+
+    Option optionAnnotation = field.getAnnotation(Option.class);
+    return new OptionDescription(
+        name,
+        optionsData.getDefaultValue(field),
+        optionsData.getConverter(field),
+        optionAnnotation.allowMultiple());
   }
 
   boolean containsExplicitOption(String name) {
@@ -475,7 +512,7 @@ class OptionsParserImpl {
    * of options; in that case, the arg seen last takes precedence.
    *
    * <p>The method uses the invariant that if an option has neither an implicit
-   * dependant nor an expanded from value, then it must have been explicitly
+   * dependent nor an expanded from value, then it must have been explicitly
    * set.
    */
   private List<String> parse(OptionPriority priority,
@@ -720,5 +757,4 @@ class OptionsParserImpl {
       throw new AssertionError(e);
     }
   }
-
 }

@@ -198,6 +198,9 @@ class BlazeStartupOptions {
   // Port for web status server, 0 to disable
   int webstatus_port;
 
+  // Invocation policy proto. May be NULL.
+  const char* invocation_policy;
+
  private:
   string host_javabase;
 

@@ -51,6 +51,7 @@ void BlazeStartupOptions::Init() {
   max_idle_secs = testing ? 5 : (3 * 3600);
   webstatus_port = 0;
   watchfs = false;
+  invocation_policy = NULL;
 }
 
 string BlazeStartupOptions::GetHostJavabase() {
@@ -84,6 +85,7 @@ void BlazeStartupOptions::Copy(
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
   lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
   lhs->option_sources = rhs.option_sources;
+  lhs->invocation_policy = rhs.invocation_policy;
 }
 
 blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
@@ -227,6 +229,16 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["webstatusserver"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy"))
+              != NULL) {
+    if (invocation_policy == NULL) {
+      invocation_policy = value;
+      option_sources["invocation_policy"] = rcfile;
+    } else {
+      *error = "The startup flag --invocation_policy cannot be specified "
+          "multiple times.";
+      return blaze_exit_code::BAD_ARGV;
+    }
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(
