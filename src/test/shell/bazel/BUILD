@@ -19,15 +19,15 @@ filegroup(
     srcs = select({
         ":darwin": [
             "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
-            "//src/objc_tools/momczip:momczip_deploy.jar",
             "//src/objc_tools/plmerge:plmerge_deploy.jar",
             "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
-            "//src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip:actoolzip_deploy.jar",
-            "//src/tools/xcode-common/java/com/google/devtools/build/xcode/swiftstdlibtoolzip:swiftstdlibtoolzip_deploy.jar",
+            "//src/tools/xcode/actoolwrapper",
             "//src/tools/xcode/environment:environment_plist",
             "//src/tools/xcode/ibtoolwrapper",
+            "//src/tools/xcode/momcwrapper",
             "//src/tools/xcode/realpath",
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",
+            "//src/tools/xcode/swiftstdlibtoolwrapper",
             "//third_party/iossim",
         ],
         "//conditions:default": [],
