@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 
@@ -99,7 +98,7 @@ public class PathFragmentFilter implements Serializable {
 
   @Override
   public String toString() {
-    List<String> list = Lists.newArrayListWithExpectedSize(inclusions.size() + exclusions.size());
+    List<String> list = new ArrayList<>(inclusions.size() + exclusions.size());
     for (PathFragment path : inclusions) {
       list.add(path.getPathString());
     }
