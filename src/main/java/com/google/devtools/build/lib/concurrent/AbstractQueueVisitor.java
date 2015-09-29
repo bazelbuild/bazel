@@ -54,52 +54,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AbstractQueueVisitor {
 
   /**
-   * Configuration parameters for {@link ThreadPoolExecutor} construction.
-   */
-  public static class ThreadPoolExecutorParams {
-    private final int corePoolSize;
-    private final int maxPoolSize;
-    private final long keepAliveTime;
-    private final TimeUnit units;
-    private final String poolName;
-    private final BlockingQueue<Runnable> workQueue;
-
-    public ThreadPoolExecutorParams(int corePoolSize, int maxPoolSize, long keepAliveTime,
-        TimeUnit units, String poolName, BlockingQueue<Runnable> workQueue) {
-      this.corePoolSize = corePoolSize;
-      this.maxPoolSize = maxPoolSize;
-      this.keepAliveTime = keepAliveTime;
-      this.units = units;
-      this.poolName = poolName;
-      this.workQueue = workQueue;
-    }
-
-    public int getCorePoolSize() {
-      return corePoolSize;
-    }
-
-    public int getMaxPoolSize() {
-      return maxPoolSize;
-    }
-
-    public long getKeepAliveTime() {
-      return keepAliveTime;
-    }
-
-    public TimeUnit getUnits() {
-      return units;
-    }
-
-    public String getPoolName() {
-      return poolName;
-    }
-
-    public BlockingQueue<Runnable> getWorkQueue() {
-      return workQueue;
-    }
-  }
-
-  /**
    * Default factory function for constructing {@link ThreadPoolExecutor}s.
    */
   public static final Function<ThreadPoolExecutorParams, ThreadPoolExecutor> EXECUTOR_FACTORY =
