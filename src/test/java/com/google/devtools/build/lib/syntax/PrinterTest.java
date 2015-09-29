@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 
@@ -28,6 +29,7 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IllegalFormatException;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -165,5 +167,74 @@ public class PrinterTest {
         .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
     assertThat(Printer.repr(dict, '\''))
         .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
+  }
+
+  @Test
+  public void testListLimitStringLength() throws Exception {
+    String limit = Strings.repeat("x", Printer.CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
+    String half = Strings.repeat("x", Printer.CRITICAL_LIST_ELEMENTS_STRING_LENGTH / 2);
+
+    List<String> list = Arrays.asList(limit + limit);
+
+    // String is way too long -> shorten.
+    assertThat(Printer.str(list)).isEqualTo("[\"" + limit + "...\"]");
+
+    LinkedList<List<String>> nestedList = new LinkedList<>();
+    nestedList.add(list);
+
+    // Same as above, but with one additional level of indirection.
+    assertThat(Printer.str(nestedList)).isEqualTo("[[\"" + limit + "...\"]]");
+
+    // The inner list alone would meet the limit, but because of the first element, it has to be
+    // shortened.
+    assertThat(Printer.str(Arrays.asList(half, Arrays.asList(limit))))
+        .isEqualTo("[\"" + half + "\", [\"" + half + "...\"]]");
+
+    // String is too long, but the ellipsis make it even longer.
+    assertThat(Printer.str(Arrays.asList(limit + "x"))).isEqualTo("[\"" + limit + "...\"]");
+
+    // We hit the limit exactly -> everything is printed.
+    assertThat(Printer.str(Arrays.asList(limit))).isEqualTo("[\"" + limit + "\"]");
+
+    // Exact hit, but with two arguments -> everything is printed.
+    assertThat(Printer.str(Arrays.asList(half, half)))
+        .isEqualTo("[\"" + half + "\", \"" + half + "\"]");
+
+    // First argument hits the limit -> remaining argument is shortened.
+    assertThat(Printer.str(Arrays.asList(limit, limit))).isEqualTo("[\"" + limit + "\", \"...\"]");
+
+    String limitMinusOne = limit.substring(0, limit.length() - 1);
+
+    // First arguments is one below the limit -> print first character of remaining argument.
+    assertThat(Printer.str(Arrays.asList(limitMinusOne, limit)))
+        .isEqualTo("[\"" + limitMinusOne + "\", \"x...\"]");
+
+    // First argument hits the limit -> we skip  the remaining two arguments.
+    assertThat(Printer.str(Arrays.asList(limit, limit, limit)))
+        .isEqualTo("[\"" + limit + "\", <2 more arguments>]");
+  }
+
+  @Test
+  public void testListLimitTooManyArgs() throws Exception {
+    StringBuilder builder = new StringBuilder();
+    List<Integer> maxLength = new LinkedList<>();
+
+    int next;
+    for (next = 0; next < Printer.CRITICAL_LIST_ELEMENTS_COUNT; ++next) {
+      maxLength.add(next);
+      if (next > 0) {
+        builder.append(", ");
+      }
+      builder.append(next);
+    }
+
+    // There is one too many, but we print every argument nonetheless.
+    maxLength.add(next);
+    assertThat(Printer.str(maxLength)).isEqualTo("[" + builder + ", " + next + "]");
+
+    // There are two too many, hence we don't print them.
+    ++next;
+    maxLength.add(next);
+    assertThat(Printer.str(maxLength)).isEqualTo("[" + builder + ", <2 more arguments>]");
   }
 }
