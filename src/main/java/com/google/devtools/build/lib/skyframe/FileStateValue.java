@@ -115,6 +115,13 @@ public abstract class FileStateValue implements SkyValue {
     throw new IllegalStateException();
   }
 
+  @Override
+  public String toString() {
+    return prettyPrint();
+  }
+
+  abstract String prettyPrint();
+
   /**
    * Implementation of {@link FileStateValue} for files that exist.
    *
@@ -212,9 +219,12 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
-      return "[size: " + size + " " + (mtime != -1 ? "mtime: " + mtime : "")
-          + (digest != null ? "digest: " + Arrays.toString(digest) : contentsProxy) + "]";
+    public String prettyPrint() {
+      String contents = digest != null
+          ? String.format("digest of ", Arrays.toString(digest))
+          : contentsProxy.prettyPrint();
+      String extra = mtime != -1 ? String.format(" and mtime of %d", mtime) : "";
+      return String.format("regular file with size of %d and %s%s", size, contents, extra);
     }
   }
 
@@ -232,7 +242,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
+    public String prettyPrint() {
       return "directory";
     }
 
@@ -282,7 +292,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
+    public String prettyPrint() {
       return "symlink to " + symlinkTarget;
     }
   }
@@ -301,8 +311,8 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    public String toString() {
-      return "nonexistent";
+    public String prettyPrint() {
+      return "nonexistent path";
     }
 
     // This object is normally a singleton, but deserialization produces copies.

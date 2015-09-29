@@ -59,7 +59,7 @@ public class FileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws FileFunctionException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
-    RootedPath realRootedPath = rootedPath;
+    RootedPath realRootedPath = null;
     FileStateValue realFileStateValue = null;
     PathFragment relativePath = rootedPath.getRelativePath();
 
@@ -83,7 +83,16 @@ public class FileFunction implements SkyFunction {
       return null;
     }
     if (realFileStateValue == null) {
+      realRootedPath = rootedPath;
       realFileStateValue = fileStateValue;
+    } else if (rootedPath.equals(realRootedPath) && !fileStateValue.equals(realFileStateValue)) {
+      String message = String.format(
+          "Some filesystem operations implied %s was a %s but others made us think it was a %s",
+          rootedPath.asPath().getPathString(),
+          fileStateValue.prettyPrint(),
+          realFileStateValue.prettyPrint());
+      throw new FileFunctionException(new InconsistentFilesystemException(message),
+          Transience.TRANSIENT);
     }
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();
