@@ -50,6 +50,10 @@ gflags.DEFINE_list(
     'volumes', None,
     'Augment the "Volumes" of the previous layer')
 
+gflags.DEFINE_string(
+    'workdir', None,
+    'Set the working directory for the layer')
+
 gflags.DEFINE_list(
     'env', None,
     'Augment the "Env" of the previous layer')
@@ -58,7 +62,8 @@ FLAGS = gflags.FLAGS
 
 _MetadataOptionsT = namedtuple(
     'MetadataOptionsT',
-    ['name', 'parent', 'size', 'entrypoint', 'cmd', 'env', 'ports', 'volumes'])
+    ['name', 'parent', 'size', 'entrypoint', 'cmd', 'env', 'ports', 'volumes',
+     'workdir'])
 
 
 class MetadataOptions(_MetadataOptionsT):
@@ -66,12 +71,12 @@ class MetadataOptions(_MetadataOptionsT):
 
   def __new__(cls, name=None, parent=None, size=None,
               entrypoint=None, cmd=None, env=None,
-              ports=None, volumes=None):
+              ports=None, volumes=None, workdir=None):
     """Constructor."""
     return super(MetadataOptions, cls).__new__(
         cls, name=name, parent=parent, size=size,
         entrypoint=entrypoint, cmd=cmd, env=env,
-        ports=ports, volumes=volumes)
+        ports=ports, volumes=volumes, workdir=workdir)
 
 
 _DOCKER_VERSION = '1.5.0'
@@ -175,6 +180,9 @@ def RewriteMetadata(data, options):
     for p in options.volumes:
       output['config']['Volumes'][p] = {}
 
+  if options.workdir:
+    output['config']['WorkingDir'] = options.workdir
+
   # TODO(mattmoor): comment, created, container_config
 
   # container_config contains information about the container
@@ -263,7 +271,8 @@ def main(unused_argv):
       cmd=FLAGS.command,
       env=FLAGS.env,
       ports=FLAGS.ports,
-      volumes=FLAGS.volumes))
+      volumes=FLAGS.volumes,
+      workdir=FLAGS.workdir))
 
   with open(FLAGS.output, 'w') as fp:
     json.dump(output, fp, sort_keys=True)

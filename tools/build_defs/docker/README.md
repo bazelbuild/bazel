@@ -181,7 +181,7 @@ docker_build(
 ### `docker_build`
 
 `docker_build(name, base, data_path, directory, files, mode, tars,
-debs, symlinks, entrypoint, cmd, env, ports, volumes)`
+debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir)`
 
 <table>
   <thead>
@@ -320,6 +320,17 @@ debs, symlinks, entrypoint, cmd, env, ports, volumes)`
         <code>String list, optional</code>
         <p><a href="https://docs.docker.com/reference/builder/#volumes">List
                of volumes to mount.</a></p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>workdir</code></td>
+      <td>
+        <code>String, optional</code>
+        <p><a href="https://docs.docker.com/reference/builder/#workdir">Initial
+               working directory when running the docker image.</a></p>
+        <p>Because building the image never happen inside a docker container,
+               this working directory does not affect the other actions (e.g.,
+               adding files).</p>
       </td>
     </tr>
   </tbody>

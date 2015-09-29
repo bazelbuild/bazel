@@ -21,6 +21,7 @@ TEST_TARGETS = [
     "generated_tarball",
     "with_env",
     "with_double_env",
+    "workdir_with_tar_base",
     "link_with_files_base",
 ]
 

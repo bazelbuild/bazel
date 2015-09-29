@@ -68,6 +68,12 @@ docker_build(
 )
 
 docker_build(
+    name = "workdir_with_tar_base",
+    base = ":tar_base",
+    workdir = "/tmp",
+)
+
+docker_build(
     name = "files_with_tar_base",
     base = ":tar_base",
     files = ["bar"],
@@ -213,6 +219,12 @@ docker_build(
     base = ":notop_tar_base",
     files = ["bar"],
     mode = "0644",
+)
+
+docker_build(
+    name = "notop_workdir_with_tar_base",
+    base = ":notop_tar_base",
+    workdir = "/tmp",
 )
 
 docker_build(

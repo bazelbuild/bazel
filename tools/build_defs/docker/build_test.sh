@@ -110,6 +110,13 @@ function check_env() {
   check_property Env "notop_${input}" "${@}"
 }
 
+function check_workdir() {
+  input="$1"
+  shift
+  check_property WorkingDir "${input}" "${@}"
+  check_property WorkingDir "notop_${input}" "${@}"
+}
+
 function check_layers_aux() {
   local input=${1}
   shift 1
@@ -210,6 +217,12 @@ function test_files_with_tar_base() {
   check_layers "files_with_tar_base" \
     "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
     "b0fe5685bf89a2c875a93495a4e2b7a3f1fb6f27a9ac5dc2b174e7d74cb6fe27"
+}
+
+function test_workdir_with_tar_base() {
+  check_layers "workdir_with_tar_base" \
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
+    "f24cbe53bd1b78909c6dba0bd47016354f3488b35b85aeee68ecc423062b927e"
 }
 
 function test_tar_with_files_base() {

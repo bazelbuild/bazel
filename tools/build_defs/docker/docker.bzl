@@ -143,6 +143,8 @@ def _metadata_action(ctx, layer, name, output):
       "--ports=%s" % ",".join(ctx.attr.ports),
       "--volumes=%s" % ",".join(ctx.attr.volumes)
       ]
+  if ctx.attr.workdir:
+    args += ["--workdir=" + ctx.attr.workdir]
   inputs = [layer, rewrite_tool, name]
   base = _get_base_artifact(ctx)
   if base:
@@ -248,6 +250,7 @@ docker_build_ = rule(
         "env": attr.string_dict(),
         "ports": attr.string_list(),  # Skylark doesn't support int_list...
         "volumes": attr.string_list(),
+        "workdir": attr.string(),
         # Implicit dependencies.
         "_build_layer": attr.label(
             default=Label("//tools/build_defs/docker:build_layer"),
@@ -337,10 +340,10 @@ docker_build_ = rule(
 #      # https://docs.docker.com/reference/builder/#volume
 #      volumes=[...],
 #
-#      # TODO(mattmoor): NYI
 #      # https://docs.docker.com/reference/builder/#workdir
 #      # NOTE: the normal directive affects subsequent RUN, CMD,
-#      # ENTRYPOINT, ADD, and COPY
+#      # ENTRYPOINT, ADD, and COPY, but this attribute only affects
+#      # the entry point.
 #      workdir="...",
 #
 #      # https://docs.docker.com/reference/builder/#env
