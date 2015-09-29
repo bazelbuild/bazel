@@ -57,10 +57,8 @@ import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -171,7 +169,6 @@ public final class BlazeRuntime {
 
   // Always null in production! Only non-null when tests inject a custom reporter.
   private final Reporter reporter;
-  private final LoadingPhaseRunner loadingPhaseRunner;
   private final PackageFactory packageFactory;
   private final ConfigurationFactory configurationFactory;
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -217,9 +214,6 @@ public final class BlazeRuntime {
     this.projectFileProvider = projectFileProvider;
 
     this.skyframeExecutor = skyframeExecutor;
-    this.loadingPhaseRunner = new LoadingPhaseRunner(
-        skyframeExecutor.getPackageManager(),
-        pkgFactory.getRuleClassNames());
 
     this.blazeModules = blazeModules;
     this.ruleClassProvider = ruleClassProvider;
@@ -532,10 +526,6 @@ public final class BlazeRuntime {
     return ruleClassProvider;
   }
 
-  public LoadingPhaseRunner getLoadingPhaseRunner() {
-    return loadingPhaseRunner;
-  }
-
   public Iterable<BlazeModule> getBlazeModules() {
     return blazeModules;
   }
@@ -553,13 +543,6 @@ public final class BlazeRuntime {
 
   public ConfigurationFactory getConfigurationFactory() {
     return configurationFactory;
-  }
-
-  /**
-   * Returns the target pattern parser.
-   */
-  public TargetPatternEvaluator getTargetPatternEvaluator() {
-    return loadingPhaseRunner.getTargetPatternEvaluator();
   }
 
   /**
@@ -679,7 +662,7 @@ public final class BlazeRuntime {
       workspace = FileSystemUtils.getWorkingDirectory(directories.getFileSystem());
       workingDirectory = workspace;
     }
-    loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
+    env.getLoadingPhaseRunner().updatePatternEvaluator(workingDirectory.relativeTo(workspace));
 
     env.updateClientEnv(options.clientEnv, options.ignoreClientEnv);
 

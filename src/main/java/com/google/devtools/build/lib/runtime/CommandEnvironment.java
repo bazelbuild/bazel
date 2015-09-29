@@ -32,12 +32,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
@@ -61,6 +64,8 @@ public final class CommandEnvironment {
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new HashMap<>();
+
+  private final LoadingPhaseRunner loadingPhaseRunner;
   private final BuildView view;
 
   private String outputFileSystem;
@@ -90,6 +95,10 @@ public final class CommandEnvironment {
     this.reporter = reporter == null ? new Reporter() : reporter;
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
+
+    this.loadingPhaseRunner = new LoadingPhaseRunner(
+        runtime.getSkyframeExecutor().getPackageManager(),
+        runtime.getPackageFactory().getRuleClassNames());
     this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
         runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
   }
@@ -140,6 +149,17 @@ public final class CommandEnvironment {
     return runtime.getPackageManager();
   }
 
+  public LoadingPhaseRunner getLoadingPhaseRunner() {
+    return loadingPhaseRunner;
+  }
+
+  /**
+   * Returns the target pattern parser.
+   */
+  public TargetPatternEvaluator getTargetPatternEvaluator() {
+    return loadingPhaseRunner.getTargetPatternEvaluator();
+  }
+
   public BuildView getView() {
     return view;
   }
@@ -179,7 +199,7 @@ public final class CommandEnvironment {
     BuildOptions buildOptions = runtime.createBuildOptions(optionsProvider);
     boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
     boolean loadingSuccessful =
-        runtime.getLoadingPhaseRunner().loadForConfigurations(reporter,
+        loadingPhaseRunner.loadForConfigurations(reporter,
             ImmutableSet.copyOf(buildOptions.getAllLabels().values()),
             keepGoing);
     if (!loadingSuccessful) {
@@ -239,5 +259,18 @@ public final class CommandEnvironment {
 
   public String getOutputFileSystem() {
     return outputFileSystem;
+  }
+
+  /**
+   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
+   * each command.
+   *
+   * @param options The CommonCommandOptions used by every command.
+   * @throws AbruptExitException if this command is unsuitable to be run as specified
+   */
+  void beforeCommand(Command command, OptionsParser optionsParser,
+      CommonCommandOptions options, long execStartTimeNanos)
+      throws AbruptExitException {
+    runtime.beforeCommand(command, this, optionsParser, options, execStartTimeNanos);
   }
 }
