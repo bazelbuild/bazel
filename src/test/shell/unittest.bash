@@ -426,8 +426,7 @@ function __trap_with_arg() {
 # arguments need to be escaped.
 function __log_to_test_report() {
     local node="$1"
-    # Escape '\', '{' and '}' character, since we are inlining the text in the perl expression.
-    local block=$(echo "$2" | sed -e 's/\([\{\}\\]\)/\\\1/g')
+    local block="$2"
     if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
         echo "$xml_header<testsuites></testsuites>" > $XML_OUTPUT_FILE
@@ -436,7 +435,7 @@ function __log_to_test_report() {
     # replace match on node with block and match
     # replacement expression only needs escaping for quotes
     perl -e "\
-\$input = q{$block}; \
+\$input = @ARGV[0]; \
 \$/=undef; \
 open FILE, '+<$XML_OUTPUT_FILE'; \
 \$content = <FILE>; \
@@ -444,7 +443,7 @@ if (\$content =~ /($node.*)\$/) { \
   seek FILE, 0, 0; \
   print FILE \$\` . \$input . \$1; \
 }; \
-close FILE"
+close FILE" "$block"
 }
 
 # Usage: <total> <passed>
