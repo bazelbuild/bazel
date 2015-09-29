@@ -44,7 +44,6 @@ class SkyframePackageManager implements PackageManager {
 
   private final SkyframePackageLoader packageLoader;
   private final SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader;
-  private final TargetPatternEvaluator patternEvaluator;
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
   private final AtomicReference<PathPackageLocator> pkgLocator;
@@ -53,7 +52,6 @@ class SkyframePackageManager implements PackageManager {
 
   public SkyframePackageManager(SkyframePackageLoader packageLoader,
       SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader,
-      TargetPatternEvaluator patternEvaluator,
       AtomicReference<UnixGlob.FilesystemCalls> syscalls,
       AtomicReference<CyclesReporter> skyframeCyclesReporter,
       AtomicReference<PathPackageLocator> pkgLocator,
@@ -61,7 +59,6 @@ class SkyframePackageManager implements PackageManager {
       SkyframeExecutor skyframeExecutor) {
     this.packageLoader = packageLoader;
     this.transitiveLoader = transitiveLoader;
-    this.patternEvaluator = patternEvaluator;
     this.skyframeCyclesReporter = skyframeCyclesReporter;
     this.pkgLocator = pkgLocator;
     this.syscalls = syscalls;
@@ -142,7 +139,7 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public TargetPatternEvaluator getTargetPatternEvaluator() {
-    return patternEvaluator;
+  public TargetPatternEvaluator newTargetPatternEvaluator() {
+    return new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 }

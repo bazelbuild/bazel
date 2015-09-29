@@ -277,8 +277,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
-        new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
-        numPackagesLoaded, this);
+        syscalls, cyclesReporter, pkgLocator, numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(
         resourceManager, eventBus, statusReporterRef);
@@ -1432,9 +1431,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * a complete graph to work on.
    */
   @Override
-  public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns,
+  public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns, String offset,
       int numThreads, EventHandler eventHandler) throws InterruptedException {
-    SkyKey skyKey = getPrepareDepsKey(patterns);
+    SkyKey skyKey = getPrepareDepsKey(patterns, offset);
     EvaluationResult<SkyValue> evaluationResult =
         buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
     Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
@@ -1445,14 +1444,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
    * underlying evaluation implementation.
    */
-  public String prepareAndGetMetadata(Collection<String> patterns) {
-    return buildDriver.meta(ImmutableList.of(getPrepareDepsKey(patterns)));
+  public String prepareAndGetMetadata(Collection<String> patterns, String offset) {
+    return buildDriver.meta(ImmutableList.of(getPrepareDepsKey(patterns, offset)));
   }
 
-  private SkyKey getPrepareDepsKey(Collection<String> patterns) {
-    SkyframeTargetPatternEvaluator patternEvaluator =
-        (SkyframeTargetPatternEvaluator) packageManager.getTargetPatternEvaluator();
-    String offset = patternEvaluator.getOffset();
+  private SkyKey getPrepareDepsKey(Collection<String> patterns, String offset) {
     return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
   }
 
