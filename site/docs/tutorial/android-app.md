@@ -71,9 +71,10 @@ android_sdk_repository(
 )
 ```
 
-If you want to compile native code into your Android app, you also need download
-the [Android NDK](https://developer.android.com/ndk/downloads/index.html) and
-tell Bazel where to find it by adding the following stanza to your `WORKSPACE`
+**Optional:** This is not required by this tutorial, but if you want to compile
+native code into your Android app, you also need to download the
+[Android NDK](https://developer.android.com/ndk/downloads/index.html) and
+tell Bazel where to find it by adding the following rule to your `WORKSPACE`
 file:
 
 ```python
@@ -86,7 +87,7 @@ android_ndk_repository(
 )
 ```
 
-"API level" is the version of the Android API the SDK and the NDK target
+`api_level` is the version of the Android API the SDK and the NDK target
 (for example, 19 for Android K and 21 for Android L). It's not necessary to set
 the API levels to the same value for the SDK and NDK.
 [This web page](https://developer.android.com/ndk/guides/stable_apis.html)
