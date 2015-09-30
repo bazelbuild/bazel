@@ -3,9 +3,9 @@
 
 ## Descrição do Projecto ##
 
-Basicamente o Bazel é uma maneira fácil e rápida de criar BUILD_files para múltimas linguagens de programação. Estes ficheiros são Python-like_scripts
+Basicamente o Bazel é uma maneira fácil e rápida de criar _BUILD files_ para múltimas linguagens de programação. Estes ficheiros são _Python-like scripts_.
 
-## Software_Process ##
+## _Software Process_ ##
 
 
-## Crítica Pessoal do Software_Process ##
+## Crítica Pessoal do _Software Process_ ##
