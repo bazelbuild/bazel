@@ -20,7 +20,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -30,7 +29,7 @@ import java.util.Set;
  * head of path to the cycle should be the value itself, or, if the value is actually in the cycle,
  * the cycle should start with the value.
  */
-public class CycleInfo implements Serializable {
+public class CycleInfo {
   private final ImmutableList<SkyKey> cycle;
   private final ImmutableList<SkyKey> pathToCycle;
 

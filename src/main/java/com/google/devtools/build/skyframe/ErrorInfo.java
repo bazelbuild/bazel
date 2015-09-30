@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Collection;
 
 import javax.annotation.Nullable;
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public class ErrorInfo implements Serializable {
+public class ErrorInfo {
 
   /** Create an ErrorInfo from a {@link ReifiedSkyFunctionException}. */
   public static ErrorInfo fromException(ReifiedSkyFunctionException skyFunctionException) {
