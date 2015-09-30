@@ -154,6 +154,10 @@ layout: documentation
           java_plugin
         </a>
         <br />
+            <a href="#java_toolchain">
+          java_toolchain
+        </a>
+        <br />
           </td>
       <td>
           </td>
@@ -11896,6 +11900,129 @@ http_jar(
           </td>
         </tr>
                                                               </tbody>
+    </table>
+          <h3 id="java_toolchain">
+      java_toolchain
+    </h3>
+
+    <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="#common.deprecation">deprecation</a>, <a href="#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="#common.features">features</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="#common.testonly">testonly</a>, <a href="#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
+
+    
+
+
+<p>
+Specifies the configuration for the Java compiler. Which toolchain to be used can be changed through
+the --java_toolchain argument. Normally you should not write those kind of rules unless you want to
+tune your Java compiler.
+</p>
+
+
+
+<h4 id="java_binary_examples">Examples</h4>
+
+<p>A simple example would be:
+</p>
+
+<pre class="code">
+java_toolchain(
+    name = "toolchain",
+    source_version = "7",
+    target_version = "7",
+    encoding = "UTF-8",
+    xlint = [ "classfile", "divzero", "empty", "options", "path" ],
+    misc = [ "-g" ],
+)
+</pre>
+
+
+
+    <h4 id="java_toolchain_args">Arguments</h4>
+    <table class="table table-condensed table-bordered table-params">
+      <colgroup>
+        <col class="col-param" />
+        <col class="param-description" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="java_toolchain.name"><code>name</code></td>
+          <td>
+            <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
+            <p>A unique name for this rule.</p>
+            
+          </td>
+        </tr>
+                                                  <tr>
+          <td id="java_toolchain.encoding">
+            <code>encoding</code>
+          </td>
+          <td>
+                        <p><code>String; required</code></p>
+                                The encoding of the java files (e.g., 'UTF-8').
+
+          </td>
+        </tr>
+                                            <tr>
+          <td id="java_toolchain.jvm_opts">
+            <code>jvm_opts</code>
+          </td>
+          <td>
+                        <p><code>List of strings; optional</code></p>
+                                The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
+        virtual machine documentation for the extensive list of possible flags for this option.
+
+          </td>
+        </tr>
+                                            <tr>
+          <td id="java_toolchain.misc">
+            <code>misc</code>
+          </td>
+          <td>
+                        <p><code>List of strings; optional</code></p>
+                                The list of extra arguments for the Java compiler. Please refer to the Java compiler
+        documentation for the extensive list of possible Java compiler flags.
+
+          </td>
+        </tr>
+                              <tr>
+          <td id="java_toolchain.source_version">
+            <code>source_version</code>
+          </td>
+          <td>
+                        <p><code>String; required</code></p>
+                                The Java source version (e.g., '6' or '7'). It specifies which set of code structures
+        are allowed in the Java source code.
+
+          </td>
+        </tr>
+                                            <tr>
+          <td id="java_toolchain.target_version">
+            <code>target_version</code>
+          </td>
+          <td>
+                        <p><code>String; required</code></p>
+                                The Java target version (e.g., '6' or '7'). It specifies for which Java runtime the class
+        should be build.
+
+          </td>
+        </tr>
+                                                          <tr>
+          <td id="java_toolchain.xlint">
+            <code>xlint</code>
+          </td>
+          <td>
+                        <p><code>List of strings; optional</code></p>
+                                The list of warning to add or removes from default list. Precedes it with a dash to
+        removes it. Please see the Javac documentation on the -Xlint options for more information.
+
+          </td>
+        </tr>
+                    </tbody>
     </table>
           <h3 id="local_repository">
       local_repository
