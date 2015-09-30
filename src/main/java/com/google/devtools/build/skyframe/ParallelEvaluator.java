@@ -599,13 +599,19 @@ public final class ParallelEvaluator implements Evaluator {
     if (entry.isDirty() && entry.getDirtyState() != DirtyState.REBUILDING) {
       Collection<SkyKey> depsToRemove = entry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
       Map<SkyKey, NodeEntry> depsToClearFrom = graph.getBatch(depsToRemove);
-      Preconditions.checkState(
-          depsToRemove.size() == depsToClearFrom.size(),
-          "%s %s: %s %s",
-          key,
-          entry,
-          depsToRemove,
-          depsToClearFrom);
+      if (depsToClearFrom.size() != depsToRemove.size()) {
+        throw new IllegalStateException(
+            "At least one dep of a dirty node wasn't present in the graph: "
+                + Sets.difference(ImmutableSet.copyOf(depsToRemove), depsToClearFrom.keySet())
+                + " for "
+                + key
+                + " with entry "
+                + entry
+                + ". Sizes: "
+                + depsToRemove.size()
+                + ", "
+                + depsToClearFrom.size());
+      }
       for (NodeEntry depEntry : depsToClearFrom.values()) {
         depEntry.removeReverseDep(key);
       }
