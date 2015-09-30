@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -23,7 +26,10 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
@@ -32,29 +38,41 @@ import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
 
   @Override
   public void setupMockClient(MockToolsConfig config) throws IOException {
-    config.overwrite("WORKSPACE",
-        "bind(",
-        "  name = 'objc_proto_lib',",
-        "  actual = '//objcproto:ProtocolBuffers_lib',",
-        ")",
-        "bind(",
-        "  name = 'objc_proto_cpp_lib',",
-        "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
-        ")");
+    ArrayList<String> workspaceContents =
+        new ArrayList<>(
+            ImmutableList.of(
+                "bind(",
+                "  name = 'objc_proto_lib',",
+                "  actual = '//objcproto:ProtocolBuffers_lib',",
+                ")",
+                "bind(",
+                "  name = 'objc_proto_cpp_lib',",
+                "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
+                ")",
+                "bind(name = 'android/sdk', actual='//tools/android:sdk')"));
+    ImmutableList<String> tools = AndroidRepositoryRules.toolsForTesting();
+    for (String tool : tools) {
+      workspaceContents.add(
+          "bind(name = 'android/" + tool + "', actual = '//tools/android:" + tool + "')");
+    }
 
+    config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("tools/defaults/BUILD");
     config.create("tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",
@@ -94,19 +112,86 @@ public class BazelAnalysisMock extends AnalysisMock {
         ")",
         "cc_toolchain(name = 'cc-compiler-armeabi-v7a', all_files = ':empty', ",
         "    compiler_files = ':empty',",
+
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
         "    linker_files = ':empty',",
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")");
     config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
-    config.create("tools/android/BUILD",
-        "filegroup(name = 'sdk')",
-        "filegroup(name = 'aar_generator')",
-        "filegroup(name = 'resources_processor')",
-        "filegroup(name = 'incremental_stub_application')",
-        "filegroup(name = 'incremental_split_stub_application')");
+
+    ImmutableList<String> androidBuildContents = createAndroidBuildContents();
+    config.create(
+        "tools/android/BUILD",
+        androidBuildContents.toArray(new String[androidBuildContents.size()]));
+
     config.create("tools/genrule/BUILD",
         "exports_files(['genrule-setup.sh'])");
+    config.create(
+        "third_party/java/jarjar/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "java_binary(name = 'jarjar_bin',",
+        "            srcs = [ 'jarjar.jar' ],",
+        "            main_class = 'com.tonicsystems.jarjar.Main')");
+
+    config.create("tools/test/BUILD", "filegroup(name = 'runtime')");
+  }
+
+  private ImmutableList<String> createAndroidBuildContents() {
+    RuleClass androidSdkRuleClass =
+        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("android_sdk");
+
+    List<Attribute> attrs = androidSdkRuleClass.getAttributes();
+    Builder<String> androidBuildContents = ImmutableList.builder();
+    androidBuildContents
+        .add("android_sdk(")
+        .add("    name = 'sdk',")
+        .add("    android_jack = ':empty',")
+        .add("    jack = ':fail',")
+        .add("    jill = ':fail',")
+        .add("    resource_extractor = ':fail',");
+
+    for (Attribute attr : attrs) {
+      if (attr.getType() == LABEL && attr.isMandatory() && !attr.getName().startsWith(":")) {
+        androidBuildContents.add("    " + attr.getName() + " = ':" + attr.getName() + "',");
+      }
+    }
+    androidBuildContents
+        .add(")")
+        .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'resources_processor', srcs = ['empty.sh'])")
+        .add("android_library(name = 'incremental_stub_application')")
+        .add("android_library(name = 'incremental_split_stub_application')")
+        .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'merge_manifests', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'build_split_manifest', srcs = ['empty.sh'])")
+        .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
+        .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'strip_resources', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'build_incremental_dexmanifest', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'incremental_install', srcs = ['empty.sh'])");
+
+    for (Attribute attr : attrs) {
+      if (attr.getType() == LABEL && attr.isMandatory() && !attr.getName().startsWith(":")) {
+        if (attr.isExecutable()) {
+          androidBuildContents
+              .add("sh_binary(name = '" + attr.getName() + "',")
+              .add("          srcs = ['empty.sh'],")
+              .add(")");
+        } else {
+          androidBuildContents
+              .add("filegroup(name = '" + attr.getName() + "',")
+              .add("          srcs = ['fake.file'])");
+        }
+      }
+    }
+    androidBuildContents
+        .add("java_binary(name = 'IdlClass',")
+        .add("            srcs = [ 'idlclass.jar' ],")
+        .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')");
+
+    return androidBuildContents.build();
   }
 
   @Override
