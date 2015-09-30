@@ -350,8 +350,10 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
   /**
    * Creates the actions that produce the interface jar. Adds the jar artifacts to the given
    * JavaCompilationArtifacts builder.
+   *
+   * @return The ijar (if requested), or class jar (if not)
    */
-  public void createCompileTimeJarAction(Artifact runtimeJar,
+  public Artifact createCompileTimeJarAction(Artifact runtimeJar,
       @Nullable Artifact runtimeDeps, JavaCompilationArtifacts.Builder builder) {
     Artifact jar = getJavaConfiguration().getUseIjars()
         ? createIjarAction(runtimeJar, false)
@@ -360,6 +362,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
 
     builder.addCompileTimeJar(jar);
     builder.setCompileTimeDependencies(deps);
+    return jar;
   }
 
   /**

@@ -144,9 +144,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       provider = providerBuilder.build();
     }
 
-    NestedSet<Artifact> ideBuildFiles = provider.getIdeBuildFiles();
+    NestedSet<Artifact> ideInfoFiles = provider.getIdeBuildFiles();
     builder
-        .addOutputGroup(IDE_BUILD, ideBuildFiles)
+        .addOutputGroup(IDE_BUILD, ideInfoFiles)
         .addProvider(
             AndroidStudioInfoFilesProvider.class,
             provider);
@@ -272,7 +272,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       if (idlSourceJar != null) {
         jarBuilder.setSourceJar(makeArtifactLocation(idlSourceJar));
       }
-      builder.setIdlJar(jarBuilder.build());
+      if (idlClassJar != null) {
+        builder.setIdlJar(jarBuilder.build());
+      }
     }
 
     return builder.build();
@@ -369,11 +371,17 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     if (classJar != null) {
       jarsBuilder.setJar(makeArtifactLocation(classJar));
     }
+    Artifact iJar = outputJarsProvider.getIJar();
+    if (iJar != null) {
+      jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
+    }
     Artifact srcJar = outputJarsProvider.getSrcJar();
     if (srcJar != null) {
       jarsBuilder.setSourceJar(makeArtifactLocation(srcJar));
     }
-    if (jarsBuilder.hasJar() || jarsBuilder.hasSourceJar()) {
+
+    // We don't want to add anything that doesn't have a class jar
+    if (classJar != null) {
       builder.addJars(jarsBuilder.build());
     }
   }
@@ -391,7 +399,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       if (gensrcJar != null) {
         genjarsBuilder.setSourceJar(makeArtifactLocation(gensrcJar));
       }
-      if (genjarsBuilder.hasJar() || genjarsBuilder.hasSourceJar()) {
+      if (genjarsBuilder.hasJar()) {
         builder.addGeneratedJars(genjarsBuilder.build());
       }
     }

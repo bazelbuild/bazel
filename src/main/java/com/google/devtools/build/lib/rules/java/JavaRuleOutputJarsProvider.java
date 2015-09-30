@@ -26,11 +26,13 @@ import javax.annotation.Nullable;
 @Immutable
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
   @Nullable private final Artifact classJar;
-  private final Artifact srcJar;
+  @Nullable private final Artifact iJar;
+  @Nullable private final Artifact srcJar;
 
   public JavaRuleOutputJarsProvider(
-      Artifact classJar, Artifact srcJar) {
+      @Nullable Artifact classJar, @Nullable Artifact iJar, @Nullable Artifact srcJar) {
     this.classJar = classJar;
+    this.iJar = iJar;
     this.srcJar = srcJar;
   }
 
@@ -39,6 +41,12 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     return classJar;
   }
 
+  @Nullable
+  public Artifact getIJar() {
+    return iJar;
+  }
+
+  @Nullable
   public Artifact getSrcJar() {
     return srcJar;
   }
