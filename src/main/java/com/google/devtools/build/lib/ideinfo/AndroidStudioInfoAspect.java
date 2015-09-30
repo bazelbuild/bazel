@@ -22,6 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.Aspect.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -87,6 +88,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   public AspectDefinition getDefinition() {
     return new AspectDefinition.Builder(NAME)
         .attributeAspect("deps", AndroidStudioInfoAspect.class)
+        .attributeAspect("exports", AndroidStudioInfoAspect.class)
         .build();
   }
 
@@ -97,33 +99,31 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     AndroidStudioInfoFilesProvider.Builder providerBuilder =
         new AndroidStudioInfoFilesProvider.Builder();
-    // Collect ide build files and calculate dependencies.
     NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
 
-    // todo(dslomov,tomlu): following current build info logic, this code enumerates dependencies
-    // directly by iterating over deps attribute. The more robust way to do this might be
-    // to iterate classpath as provided to build action.
+    ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-      Iterable<AndroidStudioInfoFilesProvider> androidStudioInfoFilesProviders =
-          ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidStudioInfoFilesProvider.class);
-      for (AndroidStudioInfoFilesProvider depProvider : androidStudioInfoFilesProviders) {
-        providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
-        providerBuilder.transitiveDependenciesBuilder().addTransitive(
-            depProvider.getTransitiveDependencies());
-        providerBuilder.transitiveResourcesBuilder().addTransitive(
-            depProvider.getTransitiveResources());
-      }
-      List<? extends TransitiveInfoCollection> deps =
-          ruleContext.getPrerequisites("deps", Mode.TARGET);
-      for (TransitiveInfoCollection dep : deps) {
-        dependenciesBuilder.add(dep.getLabel());
-      }
+      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
+    }
+    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
+      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
+    }
+    List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
 
-      Iterable<JavaExportsProvider> javaExportsProviders = ruleContext
-          .getPrerequisites("deps", Mode.TARGET, JavaExportsProvider.class);
-      for (JavaExportsProvider javaExportsProvider : javaExportsProviders) {
-        dependenciesBuilder.addTransitive(javaExportsProvider.getTransitiveExports());
-      }
+    for (AndroidStudioInfoFilesProvider depProvider :
+        AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
+      providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
+      providerBuilder.transitiveDependenciesBuilder().addTransitive(
+          depProvider.getTransitiveDependencies());
+      providerBuilder.transitiveResourcesBuilder().addTransitive(
+          depProvider.getTransitiveResources());
+    }
+    for (TransitiveInfoCollection dep : prerequisites) {
+      dependenciesBuilder.add(dep.getLabel());
+    }
+    for (JavaExportsProvider javaExportsProvider :
+        AnalysisUtils.getProviders(prerequisites, JavaExportsProvider.class)) {
+      dependenciesBuilder.addTransitive(javaExportsProvider.getTransitiveExports());
     }
 
     NestedSet<Label> directDependencies = dependenciesBuilder.build();
