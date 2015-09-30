@@ -68,7 +68,7 @@ xcode_version=$(/usr/bin/defaults read "${XCODE_PLIST}" DTXcode)
 /usr/bin/defaults write "${PLIST}" DTSDKBuild -string ${sdk_build:-""}
 /usr/bin/defaults write "${PLIST}" DTPlatformVersion -string ${platform_version:-""}
 /usr/bin/defaults write "${PLIST}" DTXcode -string ${xcode_version:-""}
-/usr/bin/defaults write "${PLIST}" DTXCodeBuild -string ${xcode_build:-""}
+/usr/bin/defaults write "${PLIST}" DTXcodeBuild -string ${xcode_build:-""}
 /usr/bin/defaults write "${PLIST}" DTCompiler -string ${compiler:-""}
 /usr/bin/defaults write "${PLIST}" BuildMachineOSBuild -string ${os_build:-""}
 cat "${PLIST}" > "${OUTPUT}"
