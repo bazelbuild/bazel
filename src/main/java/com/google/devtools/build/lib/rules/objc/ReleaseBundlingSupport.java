@@ -657,7 +657,7 @@ public final class ReleaseBundlingSupport {
               .setShellCommand(String.format(
                   // This sed command replaces the last word of the first line with the application
                   // name.
-                  "sed -r \"1 s/^(MODULE \\w* \\w* \\w*).*$/\\1 %s/\" < %s > %s",
+                  "sed \"1 s/^\\(MODULE \\w* \\w* \\w*\\).*$/\\1 %s/\" < %s > %s",
                   ruleContext.getLabel().getName(), breakpadFiles.getKey().getExecPathString(),
                   breakpadFiles.getValue().getExecPathString()))
               .addInput(breakpadFiles.getKey())
