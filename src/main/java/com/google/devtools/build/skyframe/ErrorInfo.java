@@ -48,7 +48,7 @@ public class ErrorInfo implements Serializable {
   }
 
   /** Create an ErrorInfo from a {@link CycleInfo}. */
-  static ErrorInfo fromCycle(CycleInfo cycleInfo) {
+  public static ErrorInfo fromCycle(CycleInfo cycleInfo) {
     return new ErrorInfo(
         /*rootCauses=*/ NestedSetBuilder.<SkyKey>emptySet(Order.STABLE_ORDER),
         /*exception=*/ null,
