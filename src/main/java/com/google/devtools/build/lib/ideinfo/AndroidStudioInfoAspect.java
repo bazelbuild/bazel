@@ -219,6 +219,8 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     outputBuilder.addAllTransitiveDependencies(
         transform(provider.getTransitiveDependencies(), LABEL_TO_STRING));
 
+    outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
+
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
     ruleContext.registerAction(
         makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideBuildFile));

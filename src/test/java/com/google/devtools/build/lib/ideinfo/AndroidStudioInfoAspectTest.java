@@ -631,6 +631,21 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
         .isEqualTo("bad.package.google.example");
   }
 
+  public void testTags() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "    name = 'lib',",
+        "    srcs = ['Test.java'],",
+        "    tags = ['d', 'b', 'c', 'a'],",
+        ")");
+    String target = "//com/google/example:lib";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(target, ruleIdeInfos);
+    assertThat(ruleIdeInfo.getTagsList())
+        .containsExactly("a", "b", "c", "d");
+  }
+
   private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult =
         update(

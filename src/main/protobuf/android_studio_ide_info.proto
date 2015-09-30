@@ -81,4 +81,6 @@ message RuleIdeInfo {
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
   JavaRuleIdeInfo java_rule_ide_info = 7;
   AndroidRuleIdeInfo android_rule_ide_info = 8;
+
+  repeated string tags = 9;
 }
