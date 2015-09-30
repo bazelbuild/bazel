@@ -37,7 +37,10 @@ import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescr
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.ByteString;
 
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
+import org.apache.http.HttpStatus;
+import org.apache.http.StatusLine;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
@@ -46,7 +49,12 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -56,6 +64,8 @@ import java.util.concurrent.ThreadFactory;
  */
 public class DashModule extends BlazeModule {
   private static final int ONE_MB = 1024 * 1024;
+
+  private static final String DASH_SECRET_HEADER = "bazel-dash-secret";
 
   private Sendable sender;
   private CommandEnvironment env;
@@ -92,9 +102,14 @@ public class DashModule extends BlazeModule {
   @Override
   public void handleOptions(OptionsProvider optionsProvider) {
     DashOptions options = optionsProvider.getOptions(DashOptions.class);
-    sender = (options == null || !options.useDash)
-        ? new NoOpSender()
-        : new Sender(options.url, env, executorService);
+    try {
+      sender = (options == null || !options.useDash)
+          ? new NoOpSender()
+          : new Sender(options.url, options.secret, env, executorService);
+    } catch (SenderException e) {
+      env.getReporter().handle(e.toEvent());
+      sender = new NoOpSender();
+    }
     if (optionsBuildData != null) {
       sender.send("options", optionsBuildData);
     }
@@ -224,19 +239,94 @@ public class DashModule extends BlazeModule {
     void send(final String suffix, final BuildData message);
   }
 
+  private static class SenderException extends Exception {
+    SenderException(String message, Throwable ex) {
+      super(message, ex);
+    }
+
+    SenderException(String message) {
+      super(message);
+    }
+    
+    Event toEvent() {
+      if (getCause() != null) {
+        return Event.error(getMessage() + ": " + getCause().getMessage());
+      } else {
+        return Event.error(getMessage());
+      }
+    }
+  }
+
   private static class Sender implements Sendable {
-    private final String url;
+    private final URL url;
     private final String buildId;
+    private final String secret;
     private final Reporter reporter;
     private final ExecutorService executorService;
 
-    public Sender(String url, CommandEnvironment env, ExecutorService executorService) {
-      this.url = url;
-      this.buildId = env.getCommandId().toString();
+    public Sender(String url, String secret,
+        CommandEnvironment env, ExecutorService executorService) throws SenderException {
       this.reporter = env.getReporter();
+      this.secret = readSecret(secret, reporter);
+      try {
+        this.url = new URL(url);
+        if (!this.secret.isEmpty()) {
+          if (!(this.url.getProtocol().equals("https") || this.url.getHost().equals("localhost")
+                  || this.url.getHost().matches("^127.0.0.[0-9]+$"))) {
+            reporter.handle(Event.warn("Using authentication over unsecure channel, "
+                + "consider using HTTPS."));
+          }
+        }
+      } catch (MalformedURLException e) {
+        throw new SenderException("Invalid server url " + url, e);
+      }
+      this.buildId = env.getCommandId().toString();
       this.executorService = executorService;
-      env.getReporter()
-          .handle(Event.info("Results are being streamed to " + url + "/result/" + buildId));
+      sendMessage("test", null); // test connecting to the server.
+      reporter.handle(Event.info("Results are being streamed to " + url + "/result/" + buildId));
+    }
+
+    private static String readSecret(String secretFile, Reporter reporter) throws SenderException {
+      if (secretFile.isEmpty()) {
+        return "";
+      }
+      Path secretPath = new File(secretFile).toPath();
+      if (!Files.isReadable(secretPath)) {
+        throw new SenderException("Secret file " + secretFile + " doesn't exists or is unreadable");
+      }
+      try {
+        if (Files.getPosixFilePermissions(secretPath).contains(PosixFilePermission.OTHERS_READ)
+            || Files.getPosixFilePermissions(secretPath).contains(PosixFilePermission.GROUP_READ)) {
+          reporter.handle(Event.warn("Secret file " + secretFile + " is readable by non-owner. "
+              + "It is recommended to set its permission to 0600 (read-write only by the owner)."));
+        }
+        return new String(Files.readAllBytes(secretPath), StandardCharsets.UTF_8).trim();
+      } catch (IOException e) {
+        throw new SenderException("Invalid secret file " + secretFile, e);
+      }
+    }
+
+    private void sendMessage(final String suffix, final HttpEntity message)
+        throws SenderException {
+      HttpClient httpClient = new DefaultHttpClient();
+      HttpPost httppost = new HttpPost(url + "/" + suffix + "/" + buildId);
+      if (message != null) {
+        httppost.setHeader(HttpHeaders.CONTENT_TYPE, "application/x-protobuf");
+        httppost.setEntity(message);
+      }
+      if (!secret.isEmpty()) {
+        httppost.setHeader(DASH_SECRET_HEADER, secret);
+      }
+      StatusLine status;
+      try {
+        status = httpClient.execute(httppost).getStatusLine();
+      } catch (IOException e) {
+        throw new SenderException("Error sending results to " + url, e);
+      }
+      if (status.getStatusCode() == HttpStatus.SC_FORBIDDEN) {
+        throw new SenderException("Permission denied while sending results to " + url
+            + ". Did you specified --dash_secret?");
+      }
     }
 
     @Override
@@ -244,25 +334,13 @@ public class DashModule extends BlazeModule {
       executorService.submit(new Runnable() {
         @Override
         public void run() {
-          HttpClient httpClient = new DefaultHttpClient();
-          HttpPost httppost = new HttpPost(url + "/" + suffix + "/" + buildId);
-          httppost.setHeader(HttpHeaders.CONTENT_TYPE, "application/x-protobuf");
-          httppost.setEntity(new ByteArrayEntity(message.toByteArray()));
-
-          // TODO(ulfjack): It's not safe to print directly to out err. The output can be dropped
-          // if the command already returned.
           try {
-            httpClient.execute(httppost);
-          } catch (IOException | IllegalStateException e) {
-            // IllegalStateException is thrown if the URL was invalid (e.g., someone passed
-            // --dash_url=localhost:8080 instead of --dash_url=http://localhost:8080).
-            reporter.getOutErr().printErrLn(
-                "Error sending results to " + url + ": " + e.getMessage());
-          } catch (Exception e) {
-            reporter.getOutErr().printErrLn(
-                "Unknown error sending results to " + url + ": " + e.getMessage());
+            sendMessage(suffix, new ByteArrayEntity(message.toByteArray()));
+          } catch (SenderException ex) {
+            reporter.handle(ex.toEvent());
           }
         }
+
       });
     }
   }

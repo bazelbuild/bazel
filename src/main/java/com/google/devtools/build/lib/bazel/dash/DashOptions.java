@@ -36,4 +36,12 @@ public class DashOptions extends OptionsBase {
   )
   public String url;
 
+  @Option(
+      name = "dash_secret",
+      defaultValue = "",
+      help = "The path to a file containing a secret shared with the dashboard server "
+          + "for writing build results."
+  )
+  public String secret;
+
 }
