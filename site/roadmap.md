@@ -92,13 +92,11 @@ be refined if appropriate.
     </tr>
     <tr><td>P0. Support for testing iOS apps</td></tr>
     <tr><td>P0. Support for testing Android apps</td></tr>
-    <tr><td>P1. Bazel's extension APIs are listed in a document</td></tr>
     <tr>
       <td rowspan="5"><b>0.3</b></td>
       <td rowspan="5"><b>2015-11</b></td>
       <td>P0. Significantly increase test coverage</td>
     </tr>
-    <tr><td>P1. Roadmap to make the Github repository primary</td></tr>
     <tr><td>P2. Go language support (build and tests)</td></tr>
     <tr><td>P2. Native protobuf support</td></tr>
     <tr><td>P2. Bazel can bootstrap itself on Windows without requiring admin priviledge</td></tr>
