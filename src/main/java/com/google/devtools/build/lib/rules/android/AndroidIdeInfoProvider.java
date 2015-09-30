@@ -103,6 +103,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
     private final Set<Artifact> idlSrcs = new LinkedHashSet<>();
+    private final Set<Artifact> idlGeneratedJavaFiles = new LinkedHashSet<>();
     private final Set<Artifact> apksUnderTest = new LinkedHashSet<>();
 
     public AndroidIdeInfoProvider build() {
@@ -116,6 +117,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           ImmutableList.copyOf(resourceDirs),
           ImmutableList.copyOf(idlDirs),
           ImmutableList.copyOf(idlSrcs),
+          ImmutableList.copyOf(idlGeneratedJavaFiles),
           ImmutableList.copyOf(apksUnderTest));
     }
 
@@ -155,6 +157,14 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     public Builder addIdlSrcs(Collection<Artifact> idlSrcs) {
       this.idlSrcs.addAll(idlSrcs);
       addIdlDirs(idlSrcs);
+      return this;
+    }
+
+    /**
+     * Add the java files generated from "idl_srcs".
+     */
+    public Builder addIdlGeneratedJavaFiles(Collection<Artifact> idlGeneratedJavaFiles) {
+      this.idlGeneratedJavaFiles.addAll(idlGeneratedJavaFiles);
       return this;
     }
 
@@ -290,6 +300,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   private final ImmutableCollection<SourceDirectory> assetDirs;
   private final ImmutableCollection<SourceDirectory> idlImports;
   private final ImmutableCollection<Artifact> idlSrcs;
+  private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
 
   AndroidIdeInfoProvider(@Nullable Artifact manifest,
@@ -301,6 +312,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       ImmutableCollection<SourceDirectory> resourceDirs,
       ImmutableCollection<SourceDirectory> idlImports,
       ImmutableCollection<Artifact> idlSrcs,
+      ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest) {
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
@@ -311,6 +323,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.resourceDirs = resourceDirs;
     this.idlImports = idlImports;
     this.idlSrcs = idlSrcs;
+    this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
   }
 
@@ -361,6 +374,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   /** A list of sources from the "idl_srcs" attribute. */
   public ImmutableCollection<Artifact> getIdlSrcs() {
     return idlSrcs;
+  }
+
+  /** A list of java files generated from the "idl_srcs" attribute. */
+  public ImmutableCollection<Artifact> getIdlGeneratedJavaFiles() {
+    return idlGeneratedJavaFiles;
   }
 
   /** A list of the APKs related to the app under test, if any. */

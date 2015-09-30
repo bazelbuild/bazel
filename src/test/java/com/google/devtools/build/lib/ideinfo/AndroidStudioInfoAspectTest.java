@@ -565,8 +565,10 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(LIBRARY_ARTIFACT_TO_STRING.apply(idlRuleInfo.getAndroidRuleIdeInfo().getIdlJar()))
         .isEqualTo(jarString("java/com/google/example",
                 "libhas_idl-idl.jar", null, "libhas_idl-idl.srcjar"));
+    assertThat(relativePathsForSourcesOf(idlRuleInfo))
+        .isEmpty();
   }
-  
+
   public void testJavaLibraryWithoutGeneratedSourcesHasNoGenJars() throws Exception {
     scratch.file(
         "java/com/google/example/BUILD",
@@ -609,6 +611,8 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
                 LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
                 "libtest-gen.jar", null, "libtest-gensrc.jar"));
+    assertThat(relativePathsForSourcesOf(ruleIdeInfo))
+        .isEmpty();
   }
   
   public void testNonConformingPackageName() throws Exception {

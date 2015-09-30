@@ -408,9 +408,21 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   private static Collection<Artifact> getSources(ConfiguredTarget base) {
     // Calculate source files.
     JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
-    return sourceInfoProvider != null
-        ? sourceInfoProvider.getSourceFiles()
-        : ImmutableList.<Artifact>of();
+    if (sourceInfoProvider == null) {
+      return ImmutableList.of();
+    }
+    AndroidIdeInfoProvider androidIdeInfoProvider = base.getProvider(AndroidIdeInfoProvider.class);
+    if (androidIdeInfoProvider == null) {
+      return sourceInfoProvider.getSourceFiles();
+    }
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+    Collection<Artifact> idlGeneratedJavaFiles = androidIdeInfoProvider.getIdlGeneratedJavaFiles();
+    for (Artifact artifact : sourceInfoProvider.getSourceFiles()) {
+      if (!idlGeneratedJavaFiles.contains(artifact)) {
+        builder.add(artifact);
+      }
+    }
+    return builder.build();
   }
 
   private PathFragment getOutputFilePath(ConfiguredTarget base, RuleContext ruleContext) {
