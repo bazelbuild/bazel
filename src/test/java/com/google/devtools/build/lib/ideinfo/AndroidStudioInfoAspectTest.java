@@ -16,78 +16,17 @@ package com.google.devtools.build.lib.ideinfo;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.vfs.Path;
 
-import java.util.Collection;
 import java.util.Map;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for {@link AndroidStudioInfoAspect} validating proto's contents.
  */
-public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
-
-  public static final Function<ArtifactLocation, String> ARTIFACT_TO_RELATIVE_PATH =
-      new Function<ArtifactLocation, String>() {
-        @Nullable
-        @Override
-        public String apply(ArtifactLocation artifactLocation) {
-          return artifactLocation.getRelativePath();
-        }
-      };
-  public static final Function<LibraryArtifact, String> LIBRARY_ARTIFACT_TO_STRING =
-      new Function<LibraryArtifact, String>() {
-        @Override
-        public String apply(LibraryArtifact libraryArtifact) {
-          StringBuilder stringBuilder = new StringBuilder();
-          if (libraryArtifact.hasJar()) {
-            stringBuilder.append("<jar:");
-            stringBuilder.append(libraryArtifact.getJar().getRelativePath());
-            stringBuilder.append(">");
-          }
-          if (libraryArtifact.hasInterfaceJar()) {
-            stringBuilder.append("<ijar:");
-            stringBuilder.append(libraryArtifact.getInterfaceJar().getRelativePath());
-            stringBuilder.append(">");
-          }
-          if (libraryArtifact.hasSourceJar()) {
-            stringBuilder.append("<source:");
-            stringBuilder.append(libraryArtifact.getSourceJar().getRelativePath());
-            stringBuilder.append(">");
-          }
-
-          return stringBuilder.toString();
-        }
-      };
-
-  static String jarString(String base, String jar, String iJar, String sourceJar) {
-    StringBuilder sb = new StringBuilder();
-    if (jar != null) {
-      sb.append("<jar:" + base + "/" + jar + ">");
-    }
-    if (iJar != null) {
-      sb.append("<ijar:" + base + "/" + iJar + ">");
-    }
-    if (sourceJar != null) {
-      sb.append("<source:" + base + "/" + sourceJar + ">");
-    }
-    return sb.toString();
-  }
+public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase {
 
   public void testSimpleJavaLibrary() throws Exception {
     Path buildFilePath =
@@ -115,17 +54,6 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
             transform(ruleIdeInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("com/google/example",
                 "libsimple.jar", "libsimple-ijar.jar", "libsimple-src.jar"));
-  }
-
-  private static Iterable<String> relativePathsForSourcesOf(RuleIdeInfo ruleIdeInfo) {
-    return transform(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList(), ARTIFACT_TO_RELATIVE_PATH);
-  }
-
-  private RuleIdeInfo getRuleInfoAndVerifyLabel(
-      String target, Map<String, RuleIdeInfo> ruleIdeInfos) {
-    RuleIdeInfo ruleIdeInfo = ruleIdeInfos.get(target);
-    assertThat(ruleIdeInfo.getLabel()).isEqualTo(target);
-    return ruleIdeInfo;
   }
 
   public void testJavaLibraryProtoWithDependencies() throws Exception {
@@ -422,7 +350,7 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
         .containsExactly("//java/com/google/example:foobar");
     assertThat(transform(testInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
-                "FooBarTest.jar", null, "FooBarTest-src.jar"));
+            "FooBarTest.jar", null, "FooBarTest-src.jar"));
   }
 
   public void testJavaBinary() throws Exception {
@@ -447,7 +375,7 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(binaryInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
     assertThat(transform(binaryInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("com/google/example",
-                "foobar-exe.jar", null, "foobar-exe-src.jar"));
+            "foobar-exe.jar", null, "foobar-exe-src.jar"));
   }
 
   public void testAndroidLibrary() throws Exception {
@@ -473,7 +401,7 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("com/google/example",
-                "libl.jar", "libl-ijar.jar", "libl-src.jar"));
+            "libl.jar", "libl-ijar.jar", "libl-src.jar"));
     assertThat(
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
@@ -521,6 +449,8 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
         .isEqualTo("com/google/example/Abracadabra.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
+        .isEqualTo("com/google/example/b.apk");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
     assertThat(
@@ -581,7 +511,7 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
     assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getHasIdlSources()).isTrue();
     assertThat(LIBRARY_ARTIFACT_TO_STRING.apply(idlRuleInfo.getAndroidRuleIdeInfo().getIdlJar()))
         .isEqualTo(jarString("java/com/google/example",
-                "libhas_idl-idl.jar", null, "libhas_idl-idl.srcjar"));
+            "libhas_idl-idl.jar", null, "libhas_idl-idl.srcjar"));
     assertThat(relativePathsForSourcesOf(idlRuleInfo))
         .isEmpty();
   }
@@ -624,10 +554,10 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
         "//java/com/google/example:test", ruleIdeInfos);
 
     assertThat(
-            transform(ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList(), 
+            transform(ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList(),
                 LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
-                "libtest-gen.jar", null, "libtest-gensrc.jar"));
+            "libtest-gen.jar", null, "libtest-gensrc.jar"));
     assertThat(relativePathsForSourcesOf(ruleIdeInfo))
         .isEmpty();
   }
@@ -662,29 +592,4 @@ public class AndroidStudioInfoAspectTest extends BuildViewTestCase {
         .containsExactly("a", "b", "c", "d");
   }
 
-  private Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
-    AnalysisResult analysisResult =
-        update(
-            ImmutableList.of(target),
-            ImmutableList.of(AndroidStudioInfoAspect.NAME),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
-    Collection<AspectValue> aspects = analysisResult.getAspects();
-    assertThat(aspects.size()).isEqualTo(1);
-    AspectValue value = aspects.iterator().next();
-    assertThat(value.getAspect().getName()).isEqualTo(AndroidStudioInfoAspect.NAME);
-    AndroidStudioInfoFilesProvider provider =
-        value.getAspect().getProvider(AndroidStudioInfoFilesProvider.class);
-    Iterable<Artifact> artifacts = provider.getIdeBuildFiles();
-    ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
-    for (Artifact artifact : artifacts) {
-      BinaryFileWriteAction generatingAction =
-          (BinaryFileWriteAction) getGeneratingAction(artifact);
-      RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(generatingAction.getSource().openStream());
-      builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
-    }
-    return builder.build();
-  }
 }
