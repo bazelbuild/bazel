@@ -294,7 +294,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      */
     @Override
     public void visitIdent(JCTree.JCIdent tree) {
-      if (tree.sym != null && tree.sym.kind == Kinds.TYP) {
+      if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
       }
     }
@@ -307,7 +307,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     @Override
     public void visitSelect(JCTree.JCFieldAccess tree) {
       scan(tree.selected);
-      if (tree.sym != null && tree.sym.kind == Kinds.TYP) {
+      if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
       }
     }
