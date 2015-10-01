@@ -1,7 +1,7 @@
 # ESOF #
 
 
-## Descrição do Projecto ##
+## Descrição do Projecto ## 
 
 Basicamente o *Bazel* é uma maneira fácil e rápida de criar _BUILD files_ para múltimas linguagens de programação. Estes ficheiros são _Python-like scripts_.
 
