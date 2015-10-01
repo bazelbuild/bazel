@@ -785,6 +785,7 @@ public final class CompilationSupport {
         .addExecPaths(ccLibraries)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)
+        .add(objcProvider.get(ObjcProvider.LINKOPT))
         .build();
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
@@ -1059,7 +1060,7 @@ public final class CompilationSupport {
       Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
       Set<Artifact> srcsSet =
           new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
-      
+
       // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
         String path = header.getRootRelativePath().toString();

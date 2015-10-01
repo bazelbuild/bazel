@@ -35,6 +35,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -55,12 +56,14 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -473,8 +476,25 @@ public final class ObjcCommon {
         objcProvider.addAll(DEFINE, headerProvider.getDefines());
       }
       for (CcLinkParamsProvider linkProvider : depCcLinkProviders) {
-        objcProvider.addTransitiveAndPropagate(
-            CC_LIBRARY, linkProvider.getCcLinkParams(true, false).getLibraries());
+        CcLinkParams params = linkProvider.getCcLinkParams(true, false);
+        ImmutableList<String> linkOpts = params.flattenedLinkopts();
+        ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+        ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
+        // Add any framework flags as frameworks directly, rather than as linkopts.
+        for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
+          String arg = iterator.next();
+          if (arg.equals("-framework") && iterator.hasNext()) {
+            String framework = iterator.next();
+            frameworkLinkOpts.add(new SdkFramework(framework));
+          } else {
+            nonFrameworkLinkOpts.add(arg);
+          }
+        }
+
+        objcProvider
+            .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+            .addAll(LINKOPT, nonFrameworkLinkOpts.build())
+            .addTransitiveAndPropagate(CC_LIBRARY, params.getLibraries());
       }
 
       if (compilationAttributes.isPresent()) {
