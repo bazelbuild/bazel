@@ -186,6 +186,20 @@ function test_gen_image() {
     || fail "'./gen.out' not found in '$TEST_DATA_DIR/gen_image.tar'"
 }
 
+function test_dummy_repository() {
+  local layer="eae4fa9baf743667fbe3f8d76fd598cf9ea5052261bbfaa552780dd2744c47a4"
+  local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
+  check_layers_aux "dummy_repository" "$layer"
+
+
+  local repositories="$(tar xOf "${test_data}" "./repositories")"
+  # This would really need to use `jq` instead.
+  echo "${repositories}" | \
+    grep -Esq -- "\"gcr.io/dummy/[a-zA-Z_]*_docker_testdata\": {" \
+    || fail "Cannot find image in repository gcr.io/dummy in '${repositories}'"
+  EXPECT_CONTAINS "${repositories}" "\"dummy_repository\": \"$layer\""
+}
+
 function test_files_base() {
   check_layers "files_base" \
     "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b"

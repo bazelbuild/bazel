@@ -25,6 +25,12 @@ genrule(
 )
 
 docker_build(
+    name = "dummy_repository",
+    files = ["foo"],
+    repository = "gcr.io/dummy",
+)
+
+docker_build(
     name = "no_data_path_image",
     files = ["//tools/build_defs/docker/testdata/test:test-data"],
     mode = "0644",
