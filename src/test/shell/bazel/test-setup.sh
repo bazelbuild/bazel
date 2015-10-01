@@ -316,7 +316,7 @@ EOF
 # Sets up Objective-C tools. Mac only.
 function setup_objc_test_support() {
   mkdir -p tools/objc
-  [ -e tools/objc/actoolwrapper.jar ] || ln -sv ${actoolwrapper_path} tools/objc/actoolwrapper.sh
+  [ -e tools/objc/actoolwrapper.sh ] || ln -sv ${actoolwrapper_path} tools/objc/actoolwrapper.sh
   [ -e tools/objc/ibtoolwrapper.sh ] || ln -sv ${ibtoolwrapper_path} tools/objc/ibtoolwrapper.sh
   [ -e tools/objc/momcwrapper.sh ] || ln -sv ${momcwrapper_path} tools/objc/momcwrapper.sh
   [ -e tools/objc/precomp_bundlemerge_deploy.jar ] || ln -sv ${bundlemerge_path} tools/objc/precomp_bundlemerge_deploy.jar
