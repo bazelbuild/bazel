@@ -117,7 +117,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("//com/google/example:complex");
 
     assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly("//com/google/example:complex", "//com/google/example:simple");
+        .containsExactly("//com/google/example:simple", "//com/google/example:complex")
+        .inOrder();
   }
 
   public void testJavaLibraryWithDiamondDependencies() throws Exception {
@@ -159,9 +160,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
         .containsExactly(
+            "//com/google/example:simple",
             "//com/google/example:complex",
-            "//com/google/example:complex1",
-            "//com/google/example:simple");
+            "//com/google/example:complex1")
+        .inOrder();
   }
 
   public void testJavaLibraryWithExports() throws Exception {
@@ -198,11 +200,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("//com/google/example:simple");
 
     assertThat(extraComplexRuleIdeInfo.getDependenciesList())
-        .containsExactly("//com/google/example:complex", "//com/google/example:simple");
+        .containsExactly("//com/google/example:simple", "//com/google/example:complex")
+        .inOrder();
     assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
         .containsExactly(
-            "//com/google/example:complex",
-            "//com/google/example:simple");
+            "//com/google/example:simple",
+            "//com/google/example:complex")
+        .inOrder();
   }
 
   public void testJavaLibraryWithTransitiveExports() throws Exception {
@@ -242,15 +246,17 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("com/google/example/megacomplex/MegaComplex.java");
     assertThat(megaComplexRuleIdeInfo.getDependenciesList())
         .containsExactly(
-            "//com/google/example:extracomplex",
+            "//com/google/example:simple",
             "//com/google/example:complex",
-            "//com/google/example:simple");
+            "//com/google/example:extracomplex")
+        .inOrder();
 
     assertThat(megaComplexRuleIdeInfo.getTransitiveDependenciesList())
         .containsExactly(
-            "//com/google/example:extracomplex",
+            "//com/google/example:simple",
             "//com/google/example:complex",
-            "//com/google/example:simple");
+            "//com/google/example:extracomplex")
+        .inOrder();
   }
 
   public void testJavaImport() throws Exception {
@@ -278,7 +284,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(transform(javaRuleIdeInfo.getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(
             jarString("com/google/example", "a.jar", null, "impsrc.jar"),
-            jarString("com/google/example", "b.jar", null, "impsrc.jar"));
+            jarString("com/google/example", "b.jar", null, "impsrc.jar"))
+        .inOrder();
   }
 
   public void testJavaImportWithExports() throws Exception {
@@ -307,7 +314,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
     assertThat(impInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
     assertThat(libInfo.getDependenciesList())
-        .containsExactly("//com/google/example:imp", "//com/google/example:foobar");
+        .containsExactly("//com/google/example:foobar", "//com/google/example:imp")
+        .inOrder();
   }
 
   public void testAspectIsPropagatedAcrossExports() throws Exception {
@@ -415,7 +423,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
                 ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/res", "com/google/example/r1");
+        .containsExactly("com/google/example/r1", "com/google/example/res")
+        .inOrder();
   }
 
   public void testAndroidBinary() throws Exception {
@@ -457,7 +466,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
                 ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/res", "com/google/example/r1");
+        .containsExactly("com/google/example/r1", "com/google/example/res")
+        .inOrder();
   }
 
   public void testAndroidInferredPackage() throws Exception {
