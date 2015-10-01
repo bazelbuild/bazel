@@ -115,7 +115,7 @@ public class GlobCache {
           return true;
         }
 
-        PackageIdentifier subPackageId = new PackageIdentifier(
+        PackageIdentifier subPackageId = PackageIdentifier.create(
             packageId.getRepository(),
             packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory)));
         UnixGlob.FilesystemCalls syscalls = GlobCache.this.syscalls.get();

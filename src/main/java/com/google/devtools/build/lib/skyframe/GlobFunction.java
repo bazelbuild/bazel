@@ -67,7 +67,7 @@ public final class GlobFunction implements SkyFunction {
     PathFragment globSubdir = glob.getSubdir();
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
       PackageLookupValue globSubdirPkgLookupValue = (PackageLookupValue) env.getValue(
-          PackageLookupValue.key(new PackageIdentifier(
+          PackageLookupValue.key(PackageIdentifier.create(
               glob.getPackageId().getRepository(),
               glob.getPackageId().getPackageFragment().getRelative(globSubdir))));
       if (globSubdirPkgLookupValue == null) {
@@ -228,7 +228,7 @@ public final class GlobFunction implements SkyFunction {
         PathFragment directory = glob.getPackageId().getPackageFragment()
             .getRelative(glob.getSubdir()).getRelative(fileName);
         PackageLookupValue pkgLookupValue = (PackageLookupValue)
-            env.getValue(PackageLookupValue.key(new PackageIdentifier(
+            env.getValue(PackageLookupValue.key(PackageIdentifier.create(
                 glob.getPackageId().getRepository(), directory)));
         if (pkgLookupValue == null) {
           return;

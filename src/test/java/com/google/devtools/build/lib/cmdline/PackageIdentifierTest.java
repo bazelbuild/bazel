@@ -91,18 +91,18 @@ public class PackageIdentifierTest {
 
   @Test
   public void testToString() throws Exception {
-    PackageIdentifier local = new PackageIdentifier("", new PathFragment("bar/baz"));
+    PackageIdentifier local = PackageIdentifier.create("", new PathFragment("bar/baz"));
     assertEquals("bar/baz", local.toString());
-    PackageIdentifier external = new PackageIdentifier("@foo", new PathFragment("bar/baz"));
+    PackageIdentifier external = PackageIdentifier.create("@foo", new PathFragment("bar/baz"));
     assertEquals("@foo//bar/baz", external.toString());
   }
 
   @Test
   public void testCompareTo() throws Exception {
-    PackageIdentifier foo1 = new PackageIdentifier("@foo", new PathFragment("bar/baz"));
-    PackageIdentifier foo2 = new PackageIdentifier("@foo", new PathFragment("bar/baz"));
-    PackageIdentifier foo3 = new PackageIdentifier("@foo", new PathFragment("bar/bz"));
-    PackageIdentifier bar = new PackageIdentifier("@bar", new PathFragment("bar/baz"));
+    PackageIdentifier foo1 = PackageIdentifier.create("@foo", new PathFragment("bar/baz"));
+    PackageIdentifier foo2 = PackageIdentifier.create("@foo", new PathFragment("bar/baz"));
+    PackageIdentifier foo3 = PackageIdentifier.create("@foo", new PathFragment("bar/bz"));
+    PackageIdentifier bar = PackageIdentifier.create("@bar", new PathFragment("bar/baz"));
     assertEquals(0, foo1.compareTo(foo2));
     assertThat(foo1.compareTo(foo3)).isLessThan(0);
     assertThat(foo1.compareTo(bar)).isGreaterThan(0);
@@ -111,12 +111,12 @@ public class PackageIdentifierTest {
   @Test
   public void testInvalidPackageName() throws Exception {
     // This shouldn't throw an exception, package names aren't validated.
-    new PackageIdentifier("@foo", new PathFragment("bar.baz"));
+    PackageIdentifier.create("@foo", new PathFragment("bar.baz"));
   }
 
   @Test
   public void testSerialization() throws Exception {
-    PackageIdentifier inId = new PackageIdentifier("@foo", new PathFragment("bar/baz"));
+    PackageIdentifier inId = PackageIdentifier.create("@foo", new PathFragment("bar/baz"));
     ByteArrayOutputStream data = new ByteArrayOutputStream();
     ObjectOutputStream out = new ObjectOutputStream(data);
     out.writeObject(inId);
@@ -128,8 +128,8 @@ public class PackageIdentifierTest {
   @Test
   public void testPackageFragmentEquality() throws Exception {
     // Make sure package fragments are canonicalized.
-    PackageIdentifier p1 = new PackageIdentifier("@whatever", new PathFragment("foo/bar"));
-    PackageIdentifier p2 = new PackageIdentifier("@whatever", new PathFragment("foo/bar"));
+    PackageIdentifier p1 = PackageIdentifier.create("@whatever", new PathFragment("foo/bar"));
+    PackageIdentifier p2 = PackageIdentifier.create("@whatever", new PathFragment("foo/bar"));
     assertSame(p2.getPackageFragment(), p1.getPackageFragment());
   }
 }

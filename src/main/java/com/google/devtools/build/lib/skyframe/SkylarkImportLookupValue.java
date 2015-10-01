@@ -96,6 +96,6 @@ public class SkylarkImportLookupValue implements SkyValue {
     checkInputArgument(fileToImport);
     return new SkyKey(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-        new PackageIdentifier(repo, fileToImport));
+        PackageIdentifier.create(repo, fileToImport));
   }
 }
