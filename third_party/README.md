@@ -90,7 +90,7 @@ a minimal set of extra dependencies.
 [Error Prone](https://github.com/google/error-prone)
 -------------
 
-* Version: 2.0.5-20150630-51ec2fd
+* Version: 2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488
 * License: Apache License 2.0
 
 [jFormatString](https://code.google.com/p/j-format-string/)
@@ -157,7 +157,7 @@ a minimal set of extra dependencies.
 [javac](https://github.com/google/error-prone-javac)
 -------
 
-* Version: 1.9.0-dev-r2644-2
+* Version: 1.9.0-dev-r2973-2
 * License: GNU GPL v2 with Classpath exception
 
 
