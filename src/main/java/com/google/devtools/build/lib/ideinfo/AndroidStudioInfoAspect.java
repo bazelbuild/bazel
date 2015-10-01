@@ -99,37 +99,11 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     AndroidStudioInfoFilesProvider.Builder providerBuilder =
         new AndroidStudioInfoFilesProvider.Builder();
-    NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
-
-    ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
-    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    }
-    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
-    }
-    List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
-
-    for (AndroidStudioInfoFilesProvider depProvider :
-        AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
-      providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
-      providerBuilder.transitiveDependenciesBuilder().addTransitive(
-          depProvider.getTransitiveDependencies());
-      providerBuilder.transitiveResourcesBuilder().addTransitive(
-          depProvider.getTransitiveResources());
-    }
-    for (TransitiveInfoCollection dep : prerequisites) {
-      dependenciesBuilder.add(dep.getLabel());
-    }
-    for (JavaExportsProvider javaExportsProvider :
-        AnalysisUtils.getProviders(prerequisites, JavaExportsProvider.class)) {
-      dependenciesBuilder.addTransitive(javaExportsProvider.getTransitiveExports());
-    }
-
-    NestedSet<Label> directDependencies = dependenciesBuilder.build();
-    providerBuilder.transitiveDependenciesBuilder().addTransitive(directDependencies);
 
     RuleIdeInfo.Kind ruleKind = getRuleKind(ruleContext.getRule(), base);
+
+    NestedSet<Label> directDependencies = processDependencies(
+        base, ruleContext, providerBuilder, ruleKind);
 
     AndroidStudioInfoFilesProvider provider;
     if (ruleKind != RuleIdeInfo.Kind.UNRECOGNIZED) {
@@ -152,6 +126,57 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
             provider);
 
     return builder.build();
+  }
+
+  private NestedSet<Label> processDependencies(
+      ConfiguredTarget base, RuleContext ruleContext,
+      AndroidStudioInfoFilesProvider.Builder providerBuilder, RuleIdeInfo.Kind ruleKind) {
+    NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
+
+    ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
+    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
+      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
+    }
+    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
+      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
+    }
+    List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
+
+    for (AndroidStudioInfoFilesProvider depProvider :
+        AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
+      dependenciesBuilder.addTransitive(depProvider.getExportedDeps());
+
+      providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
+      providerBuilder.transitiveDependenciesBuilder().addTransitive(
+          depProvider.getTransitiveDependencies());
+      providerBuilder.transitiveResourcesBuilder().addTransitive(
+          depProvider.getTransitiveResources());
+    }
+    for (TransitiveInfoCollection dep : prerequisites) {
+      dependenciesBuilder.add(dep.getLabel());
+    }
+
+    JavaExportsProvider javaExportsProvider = base.getProvider(JavaExportsProvider.class);
+    if (javaExportsProvider != null) {
+      providerBuilder.exportedDepsBuilder()
+          .addTransitive(javaExportsProvider.getTransitiveExports());
+    }
+
+    // android_library without sources exports all its deps
+    if (ruleKind == Kind.ANDROID_LIBRARY) {
+      JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
+      boolean hasSources = sourceInfoProvider != null
+          && !sourceInfoProvider.getSourceFiles().isEmpty();
+      if (!hasSources) {
+        for (TransitiveInfoCollection dep : prerequisites) {
+          providerBuilder.exportedDepsBuilder().add(dep.getLabel());
+        }
+      }
+    }
+
+    NestedSet<Label> directDependencies = dependenciesBuilder.build();
+    providerBuilder.transitiveDependenciesBuilder().addTransitive(directDependencies);
+    return directDependencies;
   }
 
   private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(RuleContext ruleContext,

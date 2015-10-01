@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.Source
 public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> ideBuildFiles;
   private final NestedSet<Label> transitiveDependencies;
+  private final NestedSet<Label> exportedDeps;
   private final NestedSet<AndroidIdeInfoProvider.SourceDirectory> transitiveResources;
 
   /**
@@ -38,12 +39,14 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
   public static class Builder {
     private final NestedSetBuilder<Artifact> ideBuildFilesBuilder;
     private final NestedSetBuilder<Label> transitiveDependenciesBuilder;
+    private NestedSetBuilder<Label> exportedDepsBuilder;
     private NestedSetBuilder<AndroidIdeInfoProvider.SourceDirectory> transitiveResourcesBuilder;
     private NestedSet<AndroidIdeInfoProvider.SourceDirectory> transitiveResources;
 
     public Builder() {
       ideBuildFilesBuilder = NestedSetBuilder.stableOrder();
       transitiveDependenciesBuilder = NestedSetBuilder.stableOrder();
+      exportedDepsBuilder = NestedSetBuilder.stableOrder();
       transitiveResourcesBuilder = NestedSetBuilder.stableOrder();
       transitiveResources = null;
     }
@@ -54,6 +57,10 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
 
     public NestedSetBuilder<Label> transitiveDependenciesBuilder() {
       return transitiveDependenciesBuilder;
+    }
+
+    public NestedSetBuilder<Label> exportedDepsBuilder() {
+      return exportedDepsBuilder;
     }
 
     public NestedSetBuilder<SourceDirectory> transitiveResourcesBuilder() {
@@ -77,6 +84,7 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
       return new AndroidStudioInfoFilesProvider(
           ideBuildFilesBuilder.build(),
           transitiveDependenciesBuilder.build(),
+          exportedDepsBuilder.build(),
           getTransitiveResources()
       );
     }
@@ -85,9 +93,11 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
   private AndroidStudioInfoFilesProvider(
       NestedSet<Artifact> ideBuildFiles,
       NestedSet<Label> transitiveDependencies,
+      NestedSet<Label> exportedDeps,
       NestedSet<SourceDirectory> transitiveResources) {
     this.ideBuildFiles = ideBuildFiles;
     this.transitiveDependencies = transitiveDependencies;
+    this.exportedDeps = exportedDeps;
     this.transitiveResources = transitiveResources;
   }
 
@@ -97,6 +107,10 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
 
   public NestedSet<Label> getTransitiveDependencies() {
     return transitiveDependencies;
+  }
+
+  public NestedSet<Label> getExportedDeps() {
+    return exportedDeps;
   }
 
   public NestedSet<SourceDirectory> getTransitiveResources() {

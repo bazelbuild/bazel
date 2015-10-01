@@ -592,4 +592,27 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("a", "b", "c", "d");
   }
 
+  public void testAndroidLibraryWithoutSourcesExportsDependencies() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'lib',",
+        "  srcs = ['Test.java']",
+        ")",
+        "android_library(",
+        "  name = 'forward',",
+        "  deps = [':lib'],",
+        ")",
+        "android_library(",
+        "  name = 'super',",
+        "  deps = [':forward'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:super");
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:super", ruleIdeInfos);
+
+    assertThat(ruleInfo.getDependenciesList()).containsExactly(
+        "//java/com/google/example:forward",
+        "//java/com/google/example:lib");
+  }
 }
