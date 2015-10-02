@@ -135,13 +135,19 @@ function bazel_build() {
   fi
 
   setup_android_repositories
-  ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || exit $?
+  retCode=0
+  ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || retCode=$?
+
+  # Exit for failure except for test failures (exit code 3).
+  if (( $retCode != 3 )); then
+    exit $retCode
+  fi
 
   # Build the packages
   ./output/bazel --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
-      //scripts/packages/...
+      //scripts/packages/... || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
@@ -149,6 +155,10 @@ function bazel_build() {
     cp output/bazel $1/bazel
     cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
+  fi
+
+  if (( $retCode )); then
+    export BUILD_UNSTABLE=1
   fi
 }
 
