@@ -47,7 +47,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
 
-  private static final Interner<PackageIdentifier> INTERNER = Interners.newStrongInterner();
+  private static final Interner<PackageIdentifier> INTERNER = Interners.newWeakInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
       throws LabelSyntaxException {
