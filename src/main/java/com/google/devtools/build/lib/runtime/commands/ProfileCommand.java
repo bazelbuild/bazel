@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.InfoListener;
+import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.output.HtmlCreator;
@@ -41,6 +44,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumMap;
+import java.util.regex.Pattern;
 
 /**
  * Command line wrapper for analyzing Blaze build profiles.
@@ -92,6 +96,24 @@ public final class ProfileCommand implements BlazeCommand {
     )
     public boolean htmlDetails;
 
+    @Option(
+      name = "task_tree",
+      defaultValue = "null",
+      converter = Converters.RegexPatternConverter.class,
+      help =
+          "Print the tree of profiler tasks from all tasks matching the given regular expression."
+    )
+    public Pattern taskTree;
+
+    @Option(
+      name = "task_tree_threshold",
+      defaultValue = "50",
+      help =
+          "When printing a task tree, will skip tasks with a duration that is less than the"
+              + " given threshold in milliseconds."
+    )
+    public long taskTreeThreshold;
+
     @Option(name = "vfs_stats",
         defaultValue = "false",
         help = "If present, include VFS path statistics.")
@@ -132,8 +154,7 @@ public final class ProfileCommand implements BlazeCommand {
       opts.vfsStatsLimit = 0;
     }
 
-    PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
-    try {
+    try (PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream())) {
       env.getReporter().handle(Event.warn(
           null, "This information is intended for consumption by Blaze developers"
               + " only, and may change at any time.  Script against it at your own risk"));
@@ -144,6 +165,11 @@ public final class ProfileCommand implements BlazeCommand {
           ProfileInfo info = ProfileInfo.loadProfileVerbosely(
               profileFile, getInfoListener(env));
           ProfileInfo.aggregateProfile(info, getInfoListener(env));
+
+          if (opts.taskTree != null) {
+            printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
+            continue;
+          }
 
           PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
           EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
@@ -185,10 +211,36 @@ public final class ProfileCommand implements BlazeCommand {
               null, "Failed to process file " + name + ": " + e.getMessage()));
         }
       }
-    } finally {
-      out.flush();
     }
     return ExitCode.SUCCESS;
+  }
+
+  /**
+   * Prints trees rooted at tasks with a description matching a pattern.
+   * @see Task#printTaskTree(PrintStream, long)
+   */
+  private void printTaskTree(
+      PrintStream out,
+      String fileName,
+      ProfileInfo info,
+      Pattern taskPattern,
+      long taskDurationThreshold) {
+    Iterable<Task> tasks = info.findTasksByDescription(taskPattern);
+    if (Iterables.isEmpty(tasks)) {
+      out.printf("No tasks matching %s found in profile file %s.", taskPattern, fileName);
+      out.println();
+    } else {
+      int skipped = 0;
+      for (Task task : tasks) {
+        if (!task.printTaskTree(out, taskDurationThreshold)) {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        out.printf("Skipped %d matching task(s) below the duration threshold.", skipped);
+      }
+      out.println();
+    }
   }
 
   private void dumpProfile(
@@ -212,10 +264,22 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   private void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
-    StringBuilder builder = new StringBuilder(String.format(
-        "\n%s %s\nThread: %-6d  Id: %-6d  Parent: %d\nStart time: %-12s   Duration: %s",
-        task.type, task.getDescription(), task.threadId, task.id, task.parentId,
-        TimeUtilities.prettyTime(task.startTime), TimeUtilities.prettyTime(task.duration)));
+    StringBuilder builder =
+        new StringBuilder(
+            String.format(
+                Joiner.on('\n')
+                    .join(
+                        "",
+                        "%s %s",
+                        "Thread: %-6d  Id: %-6d  Parent: %d",
+                        "Start time: %-12s   Duration: %s"),
+                task.type,
+                task.getDescription(),
+                task.threadId,
+                task.id,
+                task.parentId,
+                TimeUtilities.prettyTime(task.startTime),
+                TimeUtilities.prettyTime(task.durationNanos)));
     if (task.hasStats()) {
       builder.append("\n");
       ProfileInfo.AggregateAttr[] stats = task.getStatAttrArray();
@@ -245,9 +309,15 @@ public final class ProfileCommand implements BlazeCommand {
       }
     }
     out.println(
-        task.threadId + "|" + task.id + "|" + task.parentId + "|"
-        + task.startTime + "|" + task.duration + "|"
-        + aggregateString.toString().trim() + "|"
-        + task.type + "|" + task.getDescription());
+        Joiner.on('|')
+            .join(
+                task.threadId,
+                task.id,
+                task.parentId,
+                task.startTime,
+                task.durationNanos,
+                aggregateString.toString().trim(),
+                task.type,
+                task.getDescription()));
   }
 }

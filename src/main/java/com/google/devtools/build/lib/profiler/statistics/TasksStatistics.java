@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
+import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -91,28 +90,19 @@ public class TasksStatistics {
   }
 
   /**
-   * @param name
-   * @param tasks
    * @return The set of statistics grouped in this class, computed from a list of {@link Task}s.
    */
   public static TasksStatistics create(String name, List<Task> tasks) {
-    Collections.sort(
-        tasks,
-        new Comparator<Task>() {
-          @Override
-          public int compare(Task o1, Task o2) {
-            return Long.compare(o1.duration, o2.duration);
-          }
-        });
+    tasks = ProfileInfo.TASK_DURATION_ORDERING.immutableSortedCopy(tasks);
     int count = tasks.size();
-    long min = tasks.get(0).duration;
-    long max = tasks.get(count - 1).duration;
+    long min = tasks.get(0).durationNanos;
+    long max = tasks.get(count - 1).durationNanos;
 
     int midIndex = count / 2;
     double median =
         tasks.size() % 2 == 0
-            ? (tasks.get(midIndex).duration + tasks.get(midIndex - 1).duration) / 2.0
-            : tasks.get(midIndex).duration;
+            ? (tasks.get(midIndex).durationNanos + tasks.get(midIndex - 1).durationNanos) / 2.0
+            : tasks.get(midIndex).durationNanos;
 
     // Compute standard deviation with a shift to avoid catastrophic cancellation
     // and also do it in milliseconds, as in nanoseconds it overflows
@@ -122,9 +112,9 @@ public class TasksStatistics {
     final long shift = min;
 
     for (Task task : tasks) {
-      sum += task.duration;
-      self += task.duration - task.getInheritedDuration();
-      double taskDurationShiftMillis = toMilliSeconds(task.duration - shift);
+      sum += task.durationNanos;
+      self += task.durationNanos - task.getInheritedDuration();
+      double taskDurationShiftMillis = toMilliSeconds(task.durationNanos - shift);
       sumOfSquaredShiftedMillis += taskDurationShiftMillis * taskDurationShiftMillis;
     }
     double sumShiftedMillis = toMilliSeconds(sum - count * shift);

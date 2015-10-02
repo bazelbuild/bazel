@@ -111,7 +111,7 @@ public final class PhaseVfsStatistics implements Iterable<ProfilerTask> {
         stat = new Stat();
       }
 
-      stat.duration += task.duration;
+      stat.duration += task.durationNanos;
       stat.count++;
       statsForType.put(path, stat);
     }

@@ -142,7 +142,7 @@ public final class SkylarkHtml extends HtmlPrinter {
       lnPrintf("'%s': google.visualization.arrayToDataTable(", function);
       lnPrint("[['duration']");
       for (Task task : tasks.get(function)) {
-        printf(",[%f]", task.duration / 1000000.);
+        printf(",[%f]", task.durationNanos / 1000000.);
       }
       lnPrint("], false),");
     }

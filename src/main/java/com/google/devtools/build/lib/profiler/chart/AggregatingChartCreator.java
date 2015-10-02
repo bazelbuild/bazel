@@ -128,7 +128,7 @@ public class AggregatingChartCreator implements ChartCreator {
    */
   private void createBar(Chart chart, Task task, ChartBarType type) {
     String label = task.type.description + ": " + task.getDescription();
-    chart.addBar(task.threadId, task.startTime, task.startTime + task.duration, type, label);
+    chart.addBar(task.threadId, task.startTime, task.startTime + task.durationNanos, type, label);
   }
 
   /**

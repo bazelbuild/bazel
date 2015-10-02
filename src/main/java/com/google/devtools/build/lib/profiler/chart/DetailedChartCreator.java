@@ -53,7 +53,7 @@ public class DetailedChartCreator implements ChartCreator {
     for (Task task : info.allTasksById) {
       String label = task.type.description + ": " + task.getDescription();
       ChartBarType type = chart.lookUpType(task.type.description);
-      long stop = task.startTime + task.duration;
+      long stop = task.startTime + task.durationNanos;
       CriticalPathEntry entry = null;
 
       // for top level tasks, check if they are on the critical path
