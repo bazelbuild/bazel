@@ -112,6 +112,7 @@ ${relnotes}
 EOF
 
   if [ -f "${changelog_path}" ]; then
+    echo >>${tmpfile}
     cat "${changelog_path}" >>${tmpfile}
   fi
   cat ${tmpfile} > ${changelog_path}
