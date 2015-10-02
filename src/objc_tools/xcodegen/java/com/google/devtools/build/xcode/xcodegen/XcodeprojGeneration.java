@@ -332,6 +332,18 @@ public class XcodeprojGeneration {
   }
 
   /**
+   * Returns the {@code LIBRARY_SEARCH_PATHS} array for a target's imported static libraries.
+   */
+  private static NSArray librarySearchPaths(Iterable<String> importedLibraries) {
+    ImmutableSet.Builder<NSString> result = new ImmutableSet.Builder<>();
+    for (String importedLibrary : importedLibraries) {
+      result.add(new NSString("$(WORKSPACE_ROOT)/" + Paths.get(importedLibrary).getParent()));
+    }
+
+    return (NSArray) NSObject.wrap(result.build().asList());
+  }
+
+  /**
    * Returns the {@code ARCHS} array for a target's build config given the list of architecture
    * strings. If none is given, an array with default architectures "armv7" and "arm64" will be
    * returned.
@@ -364,11 +376,6 @@ public class XcodeprojGeneration {
     Iterable<String> givenFlags = targetControl.getLinkoptList();
     ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     flags.addAll(givenFlags);
-    if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
-      for (String importedLibrary : targetControl.getImportedLibraryList()) {
-        flags.add("$(WORKSPACE_ROOT)/" + importedLibrary);
-      }
-    }
     if (Containing.item(PRODUCT_TYPES_THAT_HAVE_A_BINARY, productType(targetControl))) {
       for (String dylib : targetControl.getSdkDylibList()) {
         if (dylib.startsWith("lib")) {
@@ -513,6 +520,11 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(name, value);
       }
 
+      if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
+        targetBuildConfigMap.put("LIBRARY_SEARCH_PATHS",
+            librarySearchPaths(targetControl.getImportedLibraryList()));
+      }
+
       // Note that HFS+ (the Mac filesystem) is usually case insensitive, so we cast all target
       // names to lower case before checking for duplication because otherwise users may end up
       // having duplicated intermediate build directories that can interfere with the build.
@@ -586,8 +598,17 @@ public class XcodeprojGeneration {
 
     Iterables.addAll(project.getMainGroup().getChildren(), processedProjectFiles);
     for (TargetInfo targetInfo : targetInfoByLabel.values()) {
-      for (DependencyControl dependency : targetInfo.control.getDependencyList()) {
+      TargetControl targetControl = targetInfo.control;
+      for (DependencyControl dependency : targetControl.getDependencyList()) {
         targetInfo.addDependencyInfo(dependency, targetInfoByLabel);
+      }
+
+      if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
+        for (String importedLibrary : targetControl.getImportedLibraryList()) {
+          FileReference fileReference = FileReference.of(importedLibrary, SourceTree.GROUP)
+              .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY);
+          targetInfo.frameworksPhase.getFiles().add(pbxBuildFiles.getStandalone(fileReference));
+        }
       }
     }
 
