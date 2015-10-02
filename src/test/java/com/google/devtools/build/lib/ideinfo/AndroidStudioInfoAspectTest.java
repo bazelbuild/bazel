@@ -35,11 +35,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             "java_library(",
             "    name = 'simple',",
             "    srcs = ['simple/Simple.java']",
-            ")",
-            "java_library(",
-            "    name = 'complex',",
-            "    srcs = ['complex/Complex.java'],",
-            "    deps = [':simple']",
             ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
     assertThat(ruleIdeInfos.size()).isEqualTo(1);
@@ -54,6 +49,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             transform(ruleIdeInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("com/google/example",
                 "libsimple.jar", "libsimple-ijar.jar", "libsimple-src.jar"));
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libsimple.jar",
+        "com/google/example/libsimple-ijar.jar",
+        "com/google/example/libsimple-src.jar"
+    );
   }
 
   public void testJavaLibraryProtoWithDependencies() throws Exception {
@@ -119,6 +120,17 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
         .containsExactly("//com/google/example:simple", "//com/google/example:complex")
         .inOrder();
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libextracomplex.jar",
+        "com/google/example/libextracomplex-ijar.jar",
+        "com/google/example/libextracomplex-src.jar",
+        "com/google/example/libcomplex.jar",
+        "com/google/example/libcomplex-ijar.jar",
+        "com/google/example/libcomplex-src.jar",
+        "com/google/example/libsimple.jar",
+        "com/google/example/libsimple-ijar.jar",
+        "com/google/example/libsimple-src.jar"
+    );
   }
 
   public void testJavaLibraryWithDiamondDependencies() throws Exception {
@@ -207,6 +219,17 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             "//com/google/example:simple",
             "//com/google/example:complex")
         .inOrder();
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libextracomplex.jar",
+        "com/google/example/libextracomplex-ijar.jar",
+        "com/google/example/libextracomplex-src.jar",
+        "com/google/example/libcomplex.jar",
+        "com/google/example/libcomplex-ijar.jar",
+        "com/google/example/libcomplex-src.jar",
+        "com/google/example/libsimple.jar",
+        "com/google/example/libsimple-ijar.jar",
+        "com/google/example/libsimple-src.jar"
+    );
   }
 
   public void testJavaLibraryWithTransitiveExports() throws Exception {
@@ -286,6 +309,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             jarString("com/google/example", "a.jar", null, "impsrc.jar"),
             jarString("com/google/example", "b.jar", null, "impsrc.jar"))
         .inOrder();
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/liblib.jar",
+        "com/google/example/liblib-ijar.jar",
+        "com/google/example/liblib-src.jar"
+    );
   }
 
   public void testJavaImportWithExports() throws Exception {
@@ -316,6 +345,31 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(libInfo.getDependenciesList())
         .containsExactly("//com/google/example:foobar", "//com/google/example:imp")
         .inOrder();
+  }
+
+  public void testGeneratedJavaImportFilesAreAddedToOutputGroup() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_import(",
+        "   name = 'imp',",
+        "   jars = [':gen_jar'],",
+        "   srcjar = ':gen_srcjar',",
+        ")",
+        "genrule(",
+        "   name = 'gen_jar',",
+        "   outs = ['gen_jar.jar'],",
+        "   cmd = '',",
+        ")",
+        "genrule(",
+        "   name = 'gen_srcjar',",
+        "   outs = ['gen_srcjar.jar'],",
+        "   cmd = '',",
+        ")");
+    buildTarget("//com/google/example:imp");
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/gen_jar.jar",
+        "com/google/example/gen_srcjar.jar"
+    );
   }
 
   public void testAspectIsPropagatedAcrossExports() throws Exception {
@@ -359,6 +413,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(transform(testInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
             "FooBarTest.jar", null, "FooBarTest-src.jar"));
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "java/com/google/example/libfoobar.jar",
+        "java/com/google/example/libfoobar-ijar.jar",
+        "java/com/google/example/libfoobar-src.jar",
+        "java/com/google/example/FooBarTest.jar",
+        "java/com/google/example/FooBarTest-src.jar"
+    );
   }
 
   public void testJavaBinary() throws Exception {
@@ -384,6 +446,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(transform(binaryInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("com/google/example",
             "foobar-exe.jar", null, "foobar-exe-src.jar"));
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libfoobar.jar",
+        "com/google/example/libfoobar-ijar.jar",
+        "com/google/example/libfoobar-src.jar",
+        "com/google/example/foobar-exe.jar",
+        "com/google/example/foobar-exe-src.jar"
+    );
   }
 
   public void testAndroidLibrary() throws Exception {
@@ -425,6 +495,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 ARTIFACT_TO_RELATIVE_PATH))
         .containsExactly("com/google/example/r1", "com/google/example/res")
         .inOrder();
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libl.jar",
+        "com/google/example/libl-ijar.jar",
+        "com/google/example/libl-src.jar",
+        "com/google/example/libl1.jar",
+        "com/google/example/libl1-ijar.jar",
+        "com/google/example/libl1-src.jar"
+    );
   }
 
   public void testAndroidBinary() throws Exception {
@@ -468,6 +546,15 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 ARTIFACT_TO_RELATIVE_PATH))
         .containsExactly("com/google/example/r1", "com/google/example/res")
         .inOrder();
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libb.jar",
+        "com/google/example/libb-ijar.jar",
+        "com/google/example/libb-src.jar",
+        "com/google/example/libl1.jar",
+        "com/google/example/libl1-ijar.jar",
+        "com/google/example/libl1-src.jar"
+    );
   }
 
   public void testAndroidInferredPackage() throws Exception {
@@ -524,6 +611,35 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             "libhas_idl-idl.jar", null, "libhas_idl-idl.srcjar"));
     assertThat(relativePathsForSourcesOf(idlRuleInfo))
         .isEmpty();
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "java/com/google/example/libhas_idl.jar",
+        "java/com/google/example/libhas_idl-ijar.jar",
+        "java/com/google/example/libhas_idl-src.jar",
+        "java/com/google/example/libhas_idl-idl.jar",
+        "java/com/google/example/libhas_idl-idl.srcjar"
+    );
+  }
+
+  public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "android_library(",
+        "  name = 'lib',",
+        "  manifest = ':manifest',",
+        "  custom_package = 'com.google.example',",
+        ")",
+        "genrule(",
+        "  name = 'manifest',",
+        "  outs = ['AndroidManifest.xml'],",
+        "  cmd = '',",
+        ")");
+    buildTarget("//com/google/example:lib");
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/liblib.jar",
+        "com/google/example/liblib-ijar.jar",
+        "com/google/example/liblib-src.jar",
+        "com/google/example/AndroidManifest.xml"
+    );
   }
 
   public void testJavaLibraryWithoutGeneratedSourcesHasNoGenJars() throws Exception {
@@ -547,6 +663,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "java/com/google/example/BUILD",
         "java_library(",
         "  name = 'test',",
+        "  srcs = ['Test.java'],",
         "  plugins = [':plugin']",
         ")",
         "java_plugin(",
@@ -563,13 +680,18 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//java/com/google/example:test", ruleIdeInfos);
 
-    assertThat(
-            transform(ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList(),
-                LIBRARY_ARTIFACT_TO_STRING))
+    assertThat(transform(
+        ruleIdeInfo.getJavaRuleIdeInfo().getGeneratedJarsList(),
+        LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
             "libtest-gen.jar", null, "libtest-gensrc.jar"));
-    assertThat(relativePathsForSourcesOf(ruleIdeInfo))
-        .isEmpty();
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "java/com/google/example/libtest.jar",
+        "java/com/google/example/libtest-ijar.jar",
+        "java/com/google/example/libtest-src.jar",
+        "java/com/google/example/libtest-gen.jar",
+        "java/com/google/example/libtest-gensrc.jar"
+    );
   }
   
   public void testNonConformingPackageName() throws Exception {

@@ -28,7 +28,8 @@ import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.Source
  */
 @Immutable
 public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvider {
-  private final NestedSet<Artifact> ideBuildFiles;
+  private final NestedSet<Artifact> ideInfoFiles;
+  private final NestedSet<Artifact> ideResolveFiles;
   private final NestedSet<Label> transitiveDependencies;
   private final NestedSet<Label> exportedDeps;
   private final NestedSet<AndroidIdeInfoProvider.SourceDirectory> transitiveResources;
@@ -37,22 +38,28 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
    * Builder class for {@link AndroidStudioInfoFilesProvider}
    */
   public static class Builder {
-    private final NestedSetBuilder<Artifact> ideBuildFilesBuilder;
+    private final NestedSetBuilder<Artifact> ideInfoFilesBuilder;
+    private final NestedSetBuilder<Artifact> ideResolveFilesBuilder;
     private final NestedSetBuilder<Label> transitiveDependenciesBuilder;
     private NestedSetBuilder<Label> exportedDepsBuilder;
     private NestedSetBuilder<AndroidIdeInfoProvider.SourceDirectory> transitiveResourcesBuilder;
     private NestedSet<AndroidIdeInfoProvider.SourceDirectory> transitiveResources;
 
     public Builder() {
-      ideBuildFilesBuilder = NestedSetBuilder.stableOrder();
+      ideInfoFilesBuilder = NestedSetBuilder.stableOrder();
+      ideResolveFilesBuilder = NestedSetBuilder.stableOrder();
       transitiveDependenciesBuilder = NestedSetBuilder.stableOrder();
       exportedDepsBuilder = NestedSetBuilder.stableOrder();
       transitiveResourcesBuilder = NestedSetBuilder.stableOrder();
       transitiveResources = null;
     }
 
-    public NestedSetBuilder<Artifact> ideBuildFilesBuilder() {
-      return ideBuildFilesBuilder;
+    public NestedSetBuilder<Artifact> ideInfoFilesBuilder() {
+      return ideInfoFilesBuilder;
+    }
+
+    public NestedSetBuilder<Artifact> ideResolveFilesBuilder() {
+      return ideResolveFilesBuilder;
     }
 
     public NestedSetBuilder<Label> transitiveDependenciesBuilder() {
@@ -82,7 +89,8 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
 
     public AndroidStudioInfoFilesProvider build() {
       return new AndroidStudioInfoFilesProvider(
-          ideBuildFilesBuilder.build(),
+          ideInfoFilesBuilder.build(),
+          ideResolveFilesBuilder.build(),
           transitiveDependenciesBuilder.build(),
           exportedDepsBuilder.build(),
           getTransitiveResources()
@@ -91,18 +99,24 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
   }
 
   private AndroidStudioInfoFilesProvider(
-      NestedSet<Artifact> ideBuildFiles,
+      NestedSet<Artifact> ideInfoFiles,
+      NestedSet<Artifact> ideResolveFiles,
       NestedSet<Label> transitiveDependencies,
       NestedSet<Label> exportedDeps,
       NestedSet<SourceDirectory> transitiveResources) {
-    this.ideBuildFiles = ideBuildFiles;
+    this.ideInfoFiles = ideInfoFiles;
+    this.ideResolveFiles = ideResolveFiles;
     this.transitiveDependencies = transitiveDependencies;
     this.exportedDeps = exportedDeps;
     this.transitiveResources = transitiveResources;
   }
 
-  public NestedSet<Artifact> getIdeBuildFiles() {
-    return ideBuildFiles;
+  public NestedSet<Artifact> getIdeInfoFiles() {
+    return ideInfoFiles;
+  }
+
+  public NestedSet<Artifact> getIdeResolveFiles() {
+    return ideResolveFiles;
   }
 
   public NestedSet<Label> getTransitiveDependencies() {

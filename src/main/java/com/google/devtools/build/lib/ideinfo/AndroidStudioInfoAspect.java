@@ -71,8 +71,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   public static final String NAME = "AndroidStudioInfoAspect";
 
   // Output groups.
+
+  public static final String IDE_INFO = "ide-info";
   public static final String IDE_RESOLVE = "ide-resolve";
-  public static final String IDE_BUILD = "ide-build";
 
   // File suffixes.
   public static final String ASWB_BUILD_SUFFIX = ".aswb-build";
@@ -118,9 +119,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       provider = providerBuilder.build();
     }
 
-    NestedSet<Artifact> ideInfoFiles = provider.getIdeBuildFiles();
     builder
-        .addOutputGroup(IDE_BUILD, ideInfoFiles)
+        .addOutputGroup(IDE_INFO, provider.getIdeInfoFiles())
+        .addOutputGroup(IDE_RESOLVE, provider.getIdeResolveFiles())
         .addProvider(
             AndroidStudioInfoFilesProvider.class,
             provider);
@@ -146,7 +147,8 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
       dependenciesBuilder.addTransitive(depProvider.getExportedDeps());
 
-      providerBuilder.ideBuildFilesBuilder().addTransitive(depProvider.getIdeBuildFiles());
+      providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
+      providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
       providerBuilder.transitiveDependenciesBuilder().addTransitive(
           depProvider.getTransitiveDependencies());
       providerBuilder.transitiveResourcesBuilder().addTransitive(
@@ -203,11 +205,12 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
     PathFragment ideBuildFilePath = getOutputFilePath(base, ruleContext);
     Root genfilesDirectory = ruleContext.getConfiguration().getGenfilesDirectory();
-    Artifact ideBuildFile =
+    Artifact ideInfoFile =
         ruleContext
             .getAnalysisEnvironment()
             .getDerivedArtifact(ideBuildFilePath, genfilesDirectory);
-    providerBuilder.ideBuildFilesBuilder().add(ideBuildFile);
+    providerBuilder.ideInfoFilesBuilder().add(ideInfoFile);
+    NestedSetBuilder<Artifact> ideResolveArtifacts = providerBuilder.ideResolveFilesBuilder();
 
     RuleIdeInfo.Builder outputBuilder = RuleIdeInfo.newBuilder();
 
@@ -223,7 +226,6 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     outputBuilder.setKind(ruleKind);
 
-
     if (ruleKind == Kind.JAVA_LIBRARY
         || ruleKind == Kind.JAVA_IMPORT
         || ruleKind == Kind.JAVA_TEST
@@ -232,13 +234,13 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST
         || ruleKind == Kind.ANDROID_ROBOELECTRIC_TEST) {
-      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base));
+      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base, ideResolveArtifacts));
     }
     if (ruleKind == Kind.ANDROID_LIBRARY
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, providerBuilder));
+          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts, providerBuilder));
     }
     if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
@@ -255,7 +257,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
     ruleContext.registerAction(
-        makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideBuildFile));
+        makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideInfoFile));
 
     return provider;
   }
@@ -263,6 +265,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
       RuleContext ruleContext,
       ConfiguredTarget base,
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
     AndroidIdeInfoProvider provider = base.getProvider(AndroidIdeInfoProvider.class);
@@ -270,12 +273,13 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       builder.setApk(makeArtifactLocation(provider.getSignedApk()));
     }
 
-    if (provider.getManifest() != null) {
-      builder.setManifest(makeArtifactLocation(provider.getManifest()));
-    }
+    Artifact manifest = provider.getManifest();
+    if (manifest != null) {
+      builder.setManifest(makeArtifactLocation(manifest));
 
-    if (provider.getGeneratedManifest() != null) {
-      builder.setGeneratedManifest(makeArtifactLocation(provider.getGeneratedManifest()));
+      if (!manifest.isSourceArtifact()) {
+        ideResolveArtifacts.add(manifest);
+      }
     }
 
     for (Artifact artifact : provider.getApksUnderTest()) {
@@ -301,10 +305,12 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       Artifact idlClassJar = provider.getIdlClassJar();
       if (idlClassJar != null) {
         jarBuilder.setJar(makeArtifactLocation(idlClassJar));
+        ideResolveArtifacts.add(idlClassJar);
       }
       Artifact idlSourceJar = provider.getIdlSourceJar();
       if (idlSourceJar != null) {
         jarBuilder.setSourceJar(makeArtifactLocation(idlSourceJar));
+        ideResolveArtifacts.add(idlSourceJar);
       }
       if (idlClassJar != null) {
         builder.setIdlJar(jarBuilder.build());
@@ -342,25 +348,27 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         .build();
   }
 
-  private static JavaRuleIdeInfo makeJavaRuleIdeInfo(ConfiguredTarget base) {
+  private static JavaRuleIdeInfo makeJavaRuleIdeInfo(
+      ConfiguredTarget base,
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
     JavaRuleIdeInfo.Builder builder = JavaRuleIdeInfo.newBuilder();
     JavaRuleOutputJarsProvider outputJarsProvider =
         base.getProvider(JavaRuleOutputJarsProvider.class);
     if (outputJarsProvider != null) {
       // java_library
-      collectJarsFromOutputJarsProvider(builder, outputJarsProvider);
+      collectJarsFromOutputJarsProvider(builder, ideResolveArtifacts, outputJarsProvider);
     } else {
       JavaSourceInfoProvider provider = base.getProvider(JavaSourceInfoProvider.class);
       if (provider != null) {
         // java_import
-        collectJarsFromSourceInfoProvider(builder, provider);
+        collectJarsFromSourceInfoProvider(builder, ideResolveArtifacts, provider);
       }
     }
 
     JavaGenJarsProvider genJarsProvider =
         base.getProvider(JavaGenJarsProvider.class);
     if (genJarsProvider != null) {
-      collectGenJars(builder, genJarsProvider);
+      collectGenJars(builder, ideResolveArtifacts, genJarsProvider);
     }
 
     Collection<Artifact> sourceFiles = getSources(base);
@@ -373,7 +381,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   }
 
   private static void collectJarsFromSourceInfoProvider(
-      JavaRuleIdeInfo.Builder builder, JavaSourceInfoProvider provider) {
+      JavaRuleIdeInfo.Builder builder,
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
+      JavaSourceInfoProvider provider) {
     Collection<Artifact> sourceJarsForJarFiles = provider.getSourceJarsForJarFiles();
     // For java_import rule, we always have only one source jar specified.
     // The intent is that that source jar provides sources for all imported jars,
@@ -391,27 +401,43 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     for (Artifact artifact : provider.getJarFiles()) {
       LibraryArtifact.Builder libraryBuilder = LibraryArtifact.newBuilder();
       libraryBuilder.setJar(makeArtifactLocation(artifact));
+
+      if (!artifact.isSourceArtifact()) {
+        ideResolveArtifacts.add(artifact);
+      }
+
       if (sourceJar != null) {
         libraryBuilder.setSourceJar(makeArtifactLocation(sourceJar));
       }
       builder.addJars(libraryBuilder.build());
     }
+
+    if (sourceJar != null) {
+      if (!sourceJar.isSourceArtifact()) {
+        ideResolveArtifacts.add(sourceJar);
+      }
+    }
   }
 
   private static void collectJarsFromOutputJarsProvider(
-      JavaRuleIdeInfo.Builder builder, JavaRuleOutputJarsProvider outputJarsProvider) {
+      JavaRuleIdeInfo.Builder builder,
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
+      JavaRuleOutputJarsProvider outputJarsProvider) {
     LibraryArtifact.Builder jarsBuilder = LibraryArtifact.newBuilder();
     Artifact classJar = outputJarsProvider.getClassJar();
     if (classJar != null) {
       jarsBuilder.setJar(makeArtifactLocation(classJar));
+      ideResolveArtifacts.add(classJar);
     }
     Artifact iJar = outputJarsProvider.getIJar();
     if (iJar != null) {
       jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
+      ideResolveArtifacts.add(iJar);
     }
     Artifact srcJar = outputJarsProvider.getSrcJar();
     if (srcJar != null) {
       jarsBuilder.setSourceJar(makeArtifactLocation(srcJar));
+      ideResolveArtifacts.add(srcJar);
     }
 
     // We don't want to add anything that doesn't have a class jar
@@ -420,7 +446,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     }
   }
 
-  private static void collectGenJars(JavaRuleIdeInfo.Builder builder,
+  private static void collectGenJars(
+      JavaRuleIdeInfo.Builder builder,
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
       JavaGenJarsProvider genJarsProvider) {
     LibraryArtifact.Builder genjarsBuilder = LibraryArtifact.newBuilder();
 
@@ -428,10 +456,12 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       Artifact genClassJar = genJarsProvider.getGenClassJar();
       if (genClassJar != null) {
         genjarsBuilder.setJar(makeArtifactLocation(genClassJar));
+        ideResolveArtifacts.add(genClassJar);
       }
       Artifact gensrcJar = genJarsProvider.getGenSourceJar();
       if (gensrcJar != null) {
         genjarsBuilder.setSourceJar(makeArtifactLocation(gensrcJar));
+        ideResolveArtifacts.add(gensrcJar);
       }
       if (genjarsBuilder.hasJar()) {
         builder.addGeneratedJars(genjarsBuilder.build());
