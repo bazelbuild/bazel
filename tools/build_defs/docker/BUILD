@@ -36,6 +36,7 @@ TEST_DATA = [
     "//tools/build_defs/docker/testdata:data_path_image",
     "//tools/build_defs/docker/testdata:no_data_path_image",
     "//tools/build_defs/docker/testdata:dummy_repository",
+    "//tools/build_defs/docker/testdata:extras_with_deb",
 ]
 
 sh_test(

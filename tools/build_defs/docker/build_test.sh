@@ -372,4 +372,21 @@ function test_data_path() {
     ./test/test
 }
 
+function test_extras_with_deb() {
+  local test_data="${TEST_DATA_DIR}/extras_with_deb.tar"
+  local sha=$(tar xOf ${test_data} ./top)
+
+  # The content of the layer should have no duplicate
+  local layer_listing="$(get_layer_listing "extras_with_deb" "${sha}" | sort)"
+  check_eq "${layer_listing}" \
+"./
+./etc/
+./etc/nsswitch.conf
+./tmp/
+./usr/
+./usr/bin/
+./usr/bin/java -> /path/to/bin/java
+./usr/titi"
+}
+
 run_suite "build_test"

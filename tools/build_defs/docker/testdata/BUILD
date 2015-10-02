@@ -291,3 +291,25 @@ docker_build(
         "/usr/bin/java": "/bar",
     },
 )
+
+# Generate a dummy debian package with a test/ directory
+py_binary(
+    name = "gen_deb",
+    srcs = ["gen_deb.py"],
+)
+
+genrule(
+    name = "generate_deb",
+    outs = ["gen.deb"],
+    cmd = "$(location :gen_deb) $@",
+    tools = [":gen_deb"],
+)
+
+# Bot gen.deb and test-data has a test directory, it should appear
+# only once in the resulting layer.
+docker_build(
+    name = "extras_with_deb",
+    data_path = ".",
+    debs = [":gen.deb"],
+    tars = ["extras.tar"],
+)

@@ -156,6 +156,9 @@ class TarFileWriter(object):
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
+    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
+      # Enforce the ending / for directories so we correctly deduplicate.
+      info.name += '/'
     if info.name not in self.members:
       self.tar.addfile(info, fileobj)
       self.members.add(info.name)
