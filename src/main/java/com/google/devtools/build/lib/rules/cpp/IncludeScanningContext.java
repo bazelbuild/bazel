@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 
 import java.io.IOException;
@@ -33,9 +34,12 @@ public interface IncludeScanningContext extends ActionContext {
    * @param primaryInput the source file to be include scanned
    * @param primaryOutput the output file where the results should be put
    */
-  void extractIncludes(ActionExecutionContext actionExecutionContext,
-      ActionMetadata resourceOwner, Artifact primaryInput, Artifact primaryOutput)
-      throws IOException, InterruptedException;
+  void extractIncludes(
+      ActionExecutionContext actionExecutionContext,
+      Action resourceOwner,
+      Artifact primaryInput,
+      Artifact primaryOutput)
+      throws IOException, ExecException, InterruptedException;
 
   /**
    * Returns the artifact resolver.
