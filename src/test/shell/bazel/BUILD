@@ -128,7 +128,6 @@ sh_test(
     size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
-    tags = ["manual"],  # flaky
 )
 
 sh_test(
