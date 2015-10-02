@@ -109,8 +109,8 @@ function setup_jdk7() {
   sed -i.bak 's/_version = "8"/_version = "7"/' tools/jdk/BUILD
   rm -f tools/jdk/BUILD.bak
   rm -f third_party/java/jdk/langtools/javac.jar
-  curl -s -o tools/jdk/JavaBuilder_deploy.jar "${javabuilder_url}"
-  curl -s -o third_party/java/jdk/langtools/javac.jar "${javac_url}"
+  curl -Ls -o tools/jdk/JavaBuilder_deploy.jar "${javabuilder_url}"
+  curl -Ls -o third_party/java/jdk/langtools/javac.jar "${javac_url}"
   export BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
       --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
       --ijar_top=//third_party/ijar"

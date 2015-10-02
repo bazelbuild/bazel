@@ -35,8 +35,8 @@ genrule(
 )
 
 # Try to grab the java version from the java_toolchain.
-# Unfortunately, we don't the javac options so we cannot get it from
-# the command-line options.
+# Unfortunately, we don't have access to the javac options
+# so we cannot get it from the command-line options.
 genquery(
     name = "java_toolchain_content",
     expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
@@ -134,16 +134,6 @@ genrule(
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/test:__subpackages__",  # For integration tests
-    ],
-)
-
-filegroup(
-    name = "tools",
-    srcs = [
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//third_party/ijar",
     ],
 )
 
