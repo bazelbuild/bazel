@@ -195,8 +195,8 @@ public final class ParallelEvaluator implements Evaluator {
     private SkyValue value = null;
     private ErrorInfo errorInfo = null;
     private final Map<SkyKey, ValueWithMetadata> bubbleErrorInfo;
-    /** The set of values previously declared as dependencies. */
-    private final Set<SkyKey> directDeps;
+    /** The values previously declared as dependencies. */
+    private final Map<SkyKey, NodeEntry> directDeps;
 
     /**
      * The grouped list of values requested during this build as dependencies. On a subsequent
@@ -234,9 +234,26 @@ public final class ParallelEvaluator implements Evaluator {
     private SkyFunctionEnvironment(SkyKey skyKey, Set<SkyKey> directDeps,
         @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo, ValueVisitor visitor) {
       this.skyKey = skyKey;
-      this.directDeps = Collections.unmodifiableSet(directDeps);
+      this.directDeps = Collections.unmodifiableMap(
+          batchPrefetch(directDeps, /*assertDone=*/bubbleErrorInfo == null, skyKey));
       this.bubbleErrorInfo = bubbleErrorInfo;
       this.visitor = visitor;
+    }
+
+    private Map<SkyKey, NodeEntry> batchPrefetch(
+        Set<SkyKey> keys, boolean assertDone, SkyKey keyForDebugging) {
+      Map<SkyKey, NodeEntry> batchMap = graph.getBatch(keys);
+      if (batchMap.size() != keys.size()) {
+        throw new IllegalStateException("Missing keys for " + keyForDebugging + ": "
+            + Sets.difference(keys, batchMap.keySet()));
+      }
+      if (assertDone) {
+        for (Map.Entry<SkyKey, NodeEntry> entry : batchMap.entrySet()) {
+          Preconditions.checkState(
+              entry.getValue().isDone(), "%s had not done %s", keyForDebugging, entry);
+        }
+      }
+      return batchMap;
     }
 
     private void checkActive() {
@@ -305,6 +322,33 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
+    private Map<SkyKey, ValueWithMetadata> getValuesMaybeFromError(Set<SkyKey> keys,
+        @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
+      ImmutableMap.Builder<SkyKey, ValueWithMetadata> builder = ImmutableMap.builder();
+      ArrayList<SkyKey> missingKeys = new ArrayList<>(keys.size());
+      for (SkyKey key : keys) {
+        NodeEntry entry = directDeps.get(key);
+        if (entry != null) {
+          ValueWithMetadata valueWithMetadata =
+              maybeWrapValueFromError(key, entry, bubbleErrorInfo);
+          if (valueWithMetadata != null) {
+            builder.put(key, valueWithMetadata);
+          }
+        } else {
+          missingKeys.add(key);
+        }
+      }
+      Map<SkyKey, NodeEntry> missingEntries = graph.getBatch(missingKeys);
+      for (SkyKey key : missingKeys) {
+        ValueWithMetadata valueWithMetadata = maybeWrapValueFromError(key, missingEntries.get(key),
+            bubbleErrorInfo);
+        if (valueWithMetadata != null) {
+          builder.put(key, valueWithMetadata);
+        }
+      }
+      return builder.build();
+    }
+
     @Override
     protected ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
         Set<SkyKey> depKeys) {
@@ -329,7 +373,7 @@ public final class ParallelEvaluator implements Evaluator {
             builder.put(depKey, ValueOrExceptionUtils.ofNull());
             continue;
           }
-          if (directDeps.contains(depKey)) {
+          if (directDeps.containsKey(depKey)) {
             throw new IllegalStateException(
                 "Undone key "
                     + depKey
@@ -346,7 +390,7 @@ public final class ParallelEvaluator implements Evaluator {
           continue;
         }
 
-        if (!directDeps.contains(depKey)) {
+        if (!directDeps.containsKey(depKey)) {
           // If this child is done, we will return it, but also record that it was newly requested
           // so that the dependency can be properly registered in the graph.
           addDep(depKey);
@@ -623,20 +667,6 @@ public final class ParallelEvaluator implements Evaluator {
     NEEDS_EVALUATION
   }
 
-  // Take advantage of graphs that cache batch requests and prefetch keys that will be needed.
-  private static void batchPrefetchAndAssertDone(
-      Set<SkyKey> keys, QueryableGraph graph, SkyKey keyForDebugging) {
-    Map<SkyKey, NodeEntry> batchMap = graph.getBatch(keys);
-    if (batchMap.size() != keys.size()) {
-      throw new IllegalStateException(
-          "Missing keys for " + keyForDebugging + ": " + Sets.difference(keys, batchMap.keySet()));
-    }
-    for (Map.Entry<SkyKey, NodeEntry> entry : batchMap.entrySet()) {
-      Preconditions.checkState(
-          entry.getValue().isDone(), "%s had not done %s", keyForDebugging, entry);
-    }
-  }
-
   /**
    * An action that evaluates a value.
    */
@@ -803,7 +833,6 @@ public final class ParallelEvaluator implements Evaluator {
       Set<SkyKey> directDeps = state.getTemporaryDirectDeps();
       Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.key()),
           "%s cannot have a dep on ErrorTransienceValue during building: %s", skyKey, state);
-      batchPrefetchAndAssertDone(directDeps, graph, skyKey);
       // Get the corresponding SkyFunction and call it on this value.
       SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor);
       SkyFunctionName functionName = skyKey.functionName();
@@ -1713,20 +1742,6 @@ public final class ParallelEvaluator implements Evaluator {
   private ValueWithMetadata getValueMaybeFromError(SkyKey key,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
     return maybeWrapValueFromError(key, graph.get(key), bubbleErrorInfo);
-  }
-
-  private Map<SkyKey, ValueWithMetadata> getValuesMaybeFromError(Iterable<SkyKey> keys,
-      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
-    Map<SkyKey, NodeEntry> entries = graph.getBatch(ImmutableSet.copyOf(keys));
-    ImmutableMap.Builder<SkyKey, ValueWithMetadata> builder = ImmutableMap.builder();
-    for (SkyKey key : keys) {
-      ValueWithMetadata valueWithMetadata = maybeWrapValueFromError(key, entries.get(key),
-          bubbleErrorInfo);
-      if (valueWithMetadata != null) {
-        builder.put(key, valueWithMetadata);
-      }
-    }
-    return builder.build();
   }
 
   /**
