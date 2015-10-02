@@ -5,6 +5,7 @@ java_binary(
     srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/main/protobuf:proto_deps",
         "//src/main/protobuf:proto_java_compilation",
         "//src/main/protobuf:proto_worker_protocol",
@@ -151,22 +152,6 @@ java_library(
     deps = [":BazelJavaCompiler"],
 )
 
-# JarHelper library for GenClass so it can create the gen jar.
-java_library(
-    name = "jarhelper",
-    srcs = [
-        "java/com/google/devtools/build/buildjar/JarCreator.java",
-        "java/com/google/devtools/build/buildjar/JarHelper.java",
-    ],
-    visibility = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:__pkg__",
-        "//src/tools/android/java/com/google/devtools/build/android/idlclass:__pkg__",
-    ],
-    deps = [
-        "//third_party:guava",
-    ],
-)
-
 # For the -Xbootclasspath option of the java_test of buildjar
 genrule(
     name = "langtools-test",
@@ -218,7 +203,10 @@ bootstrap_java_library(
 
 bootstrap_java_binary(
     name = "bootstrap",
-    srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]),
+    srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]) + [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:JarCreator.java",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:JarHelper.java",
+    ],
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     visibility = ["//visibility:public"],
     deps = [":skylark-deps"],

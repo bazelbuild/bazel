@@ -9,7 +9,7 @@ java_library(
     name = "genclass_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/java_tools/buildjar:jarhelper",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/main/protobuf:proto_java_compilation",
         "//third_party:guava",
     ],

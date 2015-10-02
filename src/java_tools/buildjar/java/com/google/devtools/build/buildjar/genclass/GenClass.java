@@ -16,7 +16,7 @@ package com.google.devtools.build.buildjar.genclass;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.buildjar.JarCreator;
+import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 

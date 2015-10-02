@@ -1,3 +1,10 @@
+filegroup(
+    name = "srcs",
+    # include this BUILD file for the default android tools repository
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)
+
 java_binary(
     name = "IdlClass",
     main_class = "com.google.devtools.build.android.idlclass.IdlClass",
@@ -13,7 +20,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/android/idlclass:__pkg__",
     ],
     deps = [
-        "//src/java_tools/buildjar:jarhelper",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/main/java:options",
         "//src/main/protobuf:proto_java_compilation",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
