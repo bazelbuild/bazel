@@ -512,7 +512,7 @@ new_http_archive(
     name = "x",
     url = "http://localhost:$nc_port/x.tar.gz",
     sha256 = "$sha256",
-    rm_path_prefix = "x/y/z",
+    strip_prefix = "x/y/z",
     build_file = "x.BUILD",
 )
 EOF
