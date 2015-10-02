@@ -680,17 +680,16 @@ public final class ParallelEvaluator implements Evaluator {
       this.skyKey = skyKey;
     }
 
-    private void enqueueChild(SkyKey skyKey, NodeEntry entry, SkyKey child, boolean dirtyParent) {
+    private void enqueueChild(SkyKey skyKey, NodeEntry entry, SkyKey child, NodeEntry childEntry,
+        boolean dirtyParent) {
       Preconditions.checkState(!entry.isDone(), "%s %s", skyKey, entry);
-
-      NodeEntry depEntry = graph.createIfAbsent(child);
       DependencyState dependencyState =
           dirtyParent
-              ? depEntry.checkIfDoneForDirtyReverseDep(skyKey)
-              : depEntry.addReverseDepAndCheckIfDone(skyKey);
+              ? childEntry.checkIfDoneForDirtyReverseDep(skyKey)
+              : childEntry.addReverseDepAndCheckIfDone(skyKey);
       switch (dependencyState) {
         case DONE:
-          if (entry.signalDep(depEntry.getVersion())) {
+          if (entry.signalDep(childEntry.getVersion())) {
             // This can only happen if there are no more children to be added.
             visitor.enqueueEvaluation(skyKey);
           }
@@ -786,8 +785,11 @@ public final class ParallelEvaluator implements Evaluator {
           // than this node, so we are going to mark it clean (since the error transience node is
           // always the last dep).
           state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
-          for (SkyKey directDep : directDepsToCheck) {
-            enqueueChild(skyKey, state, directDep, /*dirtyParent=*/ true);
+          for (Map.Entry<SkyKey, NodeEntry> e
+              : graph.createIfAbsentBatch(directDepsToCheck).entrySet()) {
+            SkyKey directDep = e.getKey();
+            NodeEntry directDepEntry = e.getValue();
+            enqueueChild(skyKey, state, directDep, directDepEntry, /*dirtyParent=*/ true);
           }
           return DirtyOutcome.ALREADY_PROCESSED;
         case VERIFIED_CLEAN:
@@ -958,8 +960,10 @@ public final class ParallelEvaluator implements Evaluator {
         return;
       }
 
-      for (SkyKey newDirectDep : newDirectDeps) {
-        enqueueChild(skyKey, state, newDirectDep, /*dirtyParent=*/ false);
+      for (Map.Entry<SkyKey, NodeEntry> e : graph.createIfAbsentBatch(newDirectDeps).entrySet()) {
+        SkyKey newDirectDep = e.getKey();
+        NodeEntry newDirectDepEntry = e.getValue();
+        enqueueChild(skyKey, state, newDirectDep, newDirectDepEntry, /*dirtyParent=*/ false);
       }
       // It is critical that there is no code below this point.
     }
@@ -1129,17 +1133,19 @@ public final class ParallelEvaluator implements Evaluator {
     // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
-    NodeEntry errorTransienceEntry = graph.createIfAbsent(ErrorTransienceValue.key());
+    SkyKey errorTransienceKey = ErrorTransienceValue.key();
+    NodeEntry errorTransienceEntry = Iterables.getOnlyElement(
+        graph.createIfAbsentBatch(ImmutableList.of(errorTransienceKey)).values());
     if (!errorTransienceEntry.isDone()) {
-      injectValue(
-          ErrorTransienceValue.key(),
-          new ErrorTransienceValue(),
+      injectValues(
+          ImmutableMap.of(errorTransienceKey, (SkyValue) new ErrorTransienceValue()),
           graphVersion,
           graph,
           dirtyKeyTracker);
     }
-    for (SkyKey skyKey : skyKeys) {
-      NodeEntry entry = graph.createIfAbsent(skyKey);
+    for (Map.Entry<SkyKey, NodeEntry> e : graph.createIfAbsentBatch(skyKeys).entrySet()) {
+      SkyKey skyKey = e.getKey();
+      NodeEntry entry = e.getValue();
       // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
       switch (entry.addReverseDepAndCheckIfDone(null)) {
         case NEEDS_SCHEDULING:
@@ -1753,38 +1759,42 @@ public final class ParallelEvaluator implements Evaluator {
     return entry != null && entry.isDone();
   }
 
-  static void injectValue(
-      SkyKey key,
-      SkyValue value,
+  static void injectValues(
+      Map<SkyKey, SkyValue> injectionMap,
       Version version,
       EvaluableGraph graph,
       DirtyKeyTracker dirtyKeyTracker) {
-    Preconditions.checkNotNull(value, key);
-    NodeEntry prevEntry = graph.createIfAbsent(key);
-    DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
-    Preconditions.checkState(
-        newState != DependencyState.ALREADY_EVALUATING, "%s %s", key, prevEntry);
-    if (prevEntry.isDirty()) {
+    Map<SkyKey, NodeEntry> prevNodeEntries = graph.createIfAbsentBatch(injectionMap.keySet());
+    for (Map.Entry<SkyKey, SkyValue> injectionEntry : injectionMap.entrySet()) {
+      SkyKey key = injectionEntry.getKey();
+      SkyValue value = injectionEntry.getValue();
+      NodeEntry prevEntry = prevNodeEntries.get(key);
+      DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
       Preconditions.checkState(
-          newState == DependencyState.NEEDS_SCHEDULING, "%s %s", key, prevEntry);
-      // There was an existing entry for this key in the graph.
-      // Get the node in the state where it is able to accept a value.
+          newState != DependencyState.ALREADY_EVALUATING, "%s %s", key, prevEntry);
+      if (prevEntry.isDirty()) {
+        Preconditions.checkState(
+            newState == DependencyState.NEEDS_SCHEDULING, "%s %s", key, prevEntry);
+        // There was an existing entry for this key in the graph.
+        // Get the node in the state where it is able to accept a value.
 
-      // Check that the previous node has no dependencies. Overwriting a value with deps with an
-      // injected value (which is by definition deps-free) needs a little additional bookkeeping
-      // (removing reverse deps from the dependencies), but more importantly it's something that
-      // we want to avoid, because it indicates confusion of input values and derived values.
-      Preconditions.checkState(
-          prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
-      // Put the node into a "rebuilding" state and verify that there were no dirty deps remaining.
-      Preconditions.checkState(
-          prevEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps().isEmpty(),
-          "%s %s",
-          key,
-          prevEntry);
+        // Check that the previous node has no dependencies. Overwriting a value with deps with an
+        // injected value (which is by definition deps-free) needs a little additional bookkeeping
+        // (removing reverse deps from the dependencies), but more importantly it's something that
+        // we want to avoid, because it indicates confusion of input values and derived values.
+        Preconditions.checkState(
+            prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
+        // Put the node into a "rebuilding" state and verify that there were no dirty deps
+        // remaining.
+        Preconditions.checkState(
+            prevEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps().isEmpty(),
+            "%s %s",
+            key,
+            prevEntry);
+      }
+      prevEntry.setValue(value, version);
+      // Now that this key's injected value is set, it is no longer dirty.
+      dirtyKeyTracker.notDirty(key);
     }
-    prevEntry.setValue(value, version);
-    // Now that this key's injected value is set, it is no longer dirty.
-    dirtyKeyTracker.notDirty(key);
   }
 }

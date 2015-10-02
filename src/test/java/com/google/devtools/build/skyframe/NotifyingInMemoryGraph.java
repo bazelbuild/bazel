@@ -33,8 +33,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
 
-  @Override
-  public NodeEntry createIfAbsent(SkyKey key) {
+  protected NodeEntry createIfAbsent(SkyKey key) {
     graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
     NodeEntry newval = getEntry(key);
     NodeEntry oldval = getNodeMap().putIfAbsent(key, newval);

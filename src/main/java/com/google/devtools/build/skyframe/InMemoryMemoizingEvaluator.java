@@ -222,10 +222,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     if (valuesToInject.isEmpty()) {
       return;
     }
-    for (Entry<SkyKey, SkyValue> entry : valuesToInject.entrySet()) {
-      ParallelEvaluator.injectValue(
-          entry.getKey(), entry.getValue(), version, graph, dirtyKeyTracker);
-    }
+    ParallelEvaluator.injectValues(valuesToInject, version, graph, dirtyKeyTracker);
     // Start with a new map to avoid bloat since clear() does not downsize the map.
     valuesToInject = new HashMap<>();
   }

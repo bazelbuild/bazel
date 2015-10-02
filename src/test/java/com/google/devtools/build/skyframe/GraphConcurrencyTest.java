@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -74,8 +75,8 @@ public abstract class GraphConcurrencyTest {
   }
 
   @Test
-  public void createIfAbsentSanity() {
-    graph.createIfAbsent(key("cat"));
+  public void createIfAbsentBatchSanity() {
+    graph.createIfAbsentBatch(ImmutableList.of(key("cat"), key("dog")));
   }
 
   // Tests adding and removing Rdeps of a {@link NodeEntry} while a node transitions from
@@ -83,7 +84,8 @@ public abstract class GraphConcurrencyTest {
   @Test
   public void testAddRemoveRdeps() throws Exception {
     SkyKey key = key("foo");
-    final NodeEntry entry = graph.createIfAbsent(key);
+    final NodeEntry entry = Iterables.getOnlyElement(
+        graph.createIfAbsentBatch(ImmutableList.of(key)).values());
     // These numbers are arbitrary.
     int numThreads = 50;
     int numKeys = numThreads;
@@ -164,37 +166,50 @@ public abstract class GraphConcurrencyTest {
     final KeyedLocker<SkyKey> locker = new RefCountedMultisetKeyedLocker<>();
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     final int numKeys = 500;
-    // Add each key 10 times.
+    // Add each pair of keys 10 times.
     final Set<SkyKey> nodeCreated = Sets.newConcurrentHashSet();
     final Set<SkyKey> valuesSet = Sets.newConcurrentHashSet();
     for (int i = 0; i < 10; i++) {
       for (int j = 0; j < numKeys; j++) {
-        final int keyNum = j;
-        final SkyKey key = key("foo" + keyNum);
-        Runnable r =
-            new Runnable() {
-              public void run() {
-                NodeEntry entry;
-                try (KeyedLocker.AutoUnlocker unlocker = locker.lock(key)) {
-                  entry = graph.get(key);
-                  if (entry == null) {
-                    assertTrue(nodeCreated.add(key));
+        for (int k = j + 1; k < numKeys; k++) {
+          final int keyNum1 = j;
+          final int keyNum2 = k;
+          final SkyKey key1 = key("foo" + keyNum1);
+          final SkyKey key2 = key("foo" + keyNum2);
+          final Iterable<SkyKey> keys = ImmutableList.of(key1, key2);
+          Runnable r =
+              new Runnable() {
+                public void run() {
+                  Map<SkyKey, NodeEntry> entries;
+                  try (KeyedLocker.AutoUnlocker unlocker1 = locker.lock(key1)) {
+                    try (KeyedLocker.AutoUnlocker unlocker2 = locker.lock(key2)) {
+                      for (SkyKey key : keys) {
+                        NodeEntry entry = graph.get(key);
+                        if (entry == null) {
+                          assertTrue(nodeCreated.add(key));
+                        }
+                      }
+                      entries = graph.createIfAbsentBatch(keys);
+                    }
                   }
-                  entry = graph.createIfAbsent(key);
+                  for (Integer keyNum : ImmutableList.of(keyNum1, keyNum2)) {
+                    SkyKey key = key("foo" + keyNum);
+                    NodeEntry entry = entries.get(key);
+                    // {@code entry.addReverseDepAndCheckIfDone(null)} should return
+                    // NEEDS_SCHEDULING at most once.
+                    if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
+                      assertTrue(valuesSet.add(key));
+                      // Set to done.
+                      entry.setValue(new StringValue("bar" + keyNum), startingVersion);
+                      assertThat(entry.isDone()).isTrue();
+                    }
+                  }
+                  // This shouldn't cause any problems from the other threads.
+                  graph.createIfAbsentBatch(keys);
                 }
-                // {@code entry.addReverseDepAndCheckIfDone(null)} should return NEEDS_SCHEDULING at
-                // most once.
-                if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
-                  assertTrue(valuesSet.add(key));
-                  // Set to done.
-                  entry.setValue(new StringValue("bar" + keyNum), startingVersion);
-                  assertThat(entry.isDone()).isTrue();
-                }
-                // This shouldn't cause any problems from the other threads.
-                graph.createIfAbsent(key);
-              }
-            };
-        pool.execute(wrapper.wrap(r));
+              };
+          pool.execute(wrapper.wrap(r));
+        }
       }
     }
     wrapper.waitForTasksAndMaybeThrow();
@@ -219,8 +234,13 @@ public abstract class GraphConcurrencyTest {
     int numThreads = 50;
     final int numBatchRequests = 100;
     // Create a bunch of done nodes.
+    ArrayList<SkyKey> keys = new ArrayList<>();
     for (int i = 0; i < numKeys; i++) {
-      NodeEntry entry = graph.createIfAbsent(key("foo" + i));
+      keys.add(key("foo" + i));
+    }
+    Map<SkyKey, NodeEntry> entries = graph.createIfAbsentBatch(keys);
+    for (int i = 0; i < numKeys; i++) {
+      NodeEntry entry = entries.get(key("foo" + i));
       startEvaluation(entry);
       entry.setValue(new StringValue("bar"), startingVersion);
     }
