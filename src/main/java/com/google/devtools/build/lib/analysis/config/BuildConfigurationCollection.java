@@ -174,10 +174,6 @@ public final class BuildConfigurationCollection {
       return transitionTable;
     }
 
-    public ListMultimap<? super SplitTransition<?>, BuildConfiguration> getSplitTransitionTable() {
-      return splitTransitionTable;
-    }
-
     public List<BuildConfiguration> getSplitConfigurations(SplitTransition<?> transition) {
       if (splitTransitionTable.containsKey(transition)) {
         return splitTransitionTable.get(transition);
