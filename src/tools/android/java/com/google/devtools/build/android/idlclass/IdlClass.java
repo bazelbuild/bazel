@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.buildjar.JarCreator;
+import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 import com.google.devtools.common.options.OptionsParser;

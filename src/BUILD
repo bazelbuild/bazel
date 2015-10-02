@@ -66,7 +66,9 @@ genrule(
     srcs = [
         "//tools:srcs",
         "//third_party:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
         "//src/main/protobuf:srcs",

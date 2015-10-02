@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 
 import com.sun.tools.javac.main.Main.Result;
