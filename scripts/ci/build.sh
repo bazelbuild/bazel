@@ -111,10 +111,28 @@ function setup_jdk7() {
   rm -f third_party/java/jdk/langtools/javac.jar
   curl -Ls -o tools/jdk/JavaBuilder_deploy.jar "${javabuilder_url}"
   curl -Ls -o third_party/java/jdk/langtools/javac.jar "${javac_url}"
+  # Do not use the skylark bootstrapped version of JavaBuilder
   export BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
       --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
       --ijar_top=//third_party/ijar"
+  # Skip building JavaBuilder
   export BAZEL_SKIP_TOOL_COMPILATION=tools/jdk/JavaBuilder_deploy.jar
+  # Ignore JDK8 tests
+  export BAZEL_TEST_FILTERS="-jdk8"
+  # And more ugly hack. Overwrite the BUILD file of JavaBuilder
+  # so we use the pre-built version in integration tests.
+  sed -i.bak 's/name = \"JavaBuilder\"/name = \"RealJavaBuilder\"/' \
+      src/java_tools/buildjar/BUILD
+  rm -f src/java_tools/buildjar/BUILD.bak
+  cat >>src/java_tools/buildjar/BUILD <<'EOF'
+genrule(
+    name = "JavaBuilder",
+    outs = ["JavaBuilder_deploy.jar"],
+    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
+EOF
 }
 
 # Main entry point for building bazel.

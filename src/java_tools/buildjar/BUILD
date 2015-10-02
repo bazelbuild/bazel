@@ -185,6 +185,7 @@ java_test(
         # Simulates how Bazel invokes JavaBuilder
         "-Xbootclasspath/p:$${TEST_SRCDIR}/src/java_tools/buildjar/langtools-test.jar",
     ],
+    tags = ["jdk8"],
     deps = [
         ":BazelJavaCompiler",
         ":langtools-test",
