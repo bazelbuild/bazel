@@ -12,3 +12,32 @@ The software process used in Bazel project is "Incremental development and deliv
 Incremental development and delevery process develop the system in increments and evaluate each increment before proceeding to the development of the next increment.
 
 ## Comment about Software Process used ##
+
+Benefits:
+* The cost of accommodating changing customer
+requirements is reduced.
+* Less documentation to change
+* Unstable requirements can be left for later stages of development
+* More frequent and early customer feedback
+* Customer value can be delivered with each increment so
+system functionality is available earlier.
+* Early increments act as a prototype to help elicit
+requirements for later increments.
+* Lower risk of overall project failure.
+* The highest priority system services tend to receive the
+most testing.
+
+Problems:
+* System structure tends to degrade as new increments are
+added.
+* Unless time and money is spent on refactoring to improve the
+software, regular change tends to corrupt its structure. Incorporating
+further software changes becomes increasingly difficult and costly.
+* It can be hard to identify upfront common facilities that are
+needed by all increments, so level of reuse may be suboptimal.
+* Incremental delivery may not be possible for replacement
+systems as increments have less functionality than the system
+being replaced.
+* The nature of incremental development of the specification
+together with the software may be not be adequate for
+establishing a development contract at the begin.
