@@ -3,12 +3,10 @@
 
 ## Descrição do Projecto ##
 
-O Bazel (http://bazel.io/) é um projeto _open source_ da Google com o intuito de acelerar os _builds_ do _software_. Atualmente está numa fase beta, mas existe o objetivo de em maio de 2016 chegar a uma versão estável. O _roadmap_ pode ser consultado aqui http://bazel.io/roadmap.html .
-O objetivo passa ainda por suportar múltplas linguagens de programação (como Java ou C++) em vários sistemas operativos (como Linux ou OSX). As _BUILD files_ são _Python-like scripts_.
-
-Basicamente o *Bazel* é uma maneira fácil e rápida de criar _BUILD files_ para múltimas linguagens de programação. Estes ficheiros são _Python-like scripts_.
+[Bazel] (http://bazel.io/) is an open source project from Google aiming to provide faster _builds_ of software. It is still in _beta_, but the goal is to achieve a stable version in May of 2016. The full detailed roadmap can be checked [here] (http://bazel.io/roadmap.html).
+Everyone is welcome to support the project, but it is required to fulfill all the [requirements] (http://bazel.io/contributing.html). The programming language is [Skylark] (http://bazel.io/docs/skylark/concepts.html) which "is a superset of the core build language and its syntax is a subset of Python". When the project finishes, it will support [multiple programming languages] (http://bazel.io/docs/build-encyclopedia.html#Rules) (such as Java or C++). The _BUILD files_ are Python-like scripts. To get started, please check [here] (http://bazel.io/docs/getting-started.html) how to do it.
 
 ## _Software Process_ ##
 
 
-## Crítica Pessoal do _Software Process_ ##
+## Análise Crítica ##
