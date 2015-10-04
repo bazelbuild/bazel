@@ -61,7 +61,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
       validate(labelParts.getPackageName(), labelParts.getTargetName());
-      return new Label(new PackageIdentifier(repo, new PathFragment(labelParts.getPackageName())),
+      return new Label(
+          PackageIdentifier.create(repo, new PathFragment(labelParts.getPackageName())),
           labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
@@ -357,7 +358,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     } else {
       try {
         return new Label(
-            new PackageIdentifier(packageIdentifier.getRepository(), relative.getPackageFragment()),
+            PackageIdentifier
+                .create(packageIdentifier.getRepository(), relative.getPackageFragment()),
             relative.getName());
       } catch (LabelSyntaxException e) {
         // We are creating the new label from an existing one which is guaranteed to be valid, so

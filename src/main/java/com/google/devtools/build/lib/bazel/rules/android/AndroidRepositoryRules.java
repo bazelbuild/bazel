@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -127,4 +128,13 @@ public class AndroidRepositoryRules {
 
     }
   }
+
+  /**
+   * List of tools for {@link com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock}.
+   */
+  @VisibleForTesting
+  public static ImmutableList<String> toolsForTesting() {
+    return TOOLS;
+  }
+
 }

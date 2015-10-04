@@ -136,8 +136,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         outputDepsProto, javaArtifactsBuilder);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
+    Artifact iJar = null;
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
-      helper.createCompileTimeJarAction(jar, outputDepsProto,
+      iJar = helper.createCompileTimeJarAction(jar, outputDepsProto,
           javaArtifactsBuilder);
     }
 
@@ -225,7 +226,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     common.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
     builder
-        .add(JavaRuleOutputJarsProvider.class, new JavaRuleOutputJarsProvider(classJar, srcJar))
+        .add(JavaRuleOutputJarsProvider.class, new JavaRuleOutputJarsProvider(
+            classJar, iJar, srcJar))
         .add(JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -98,7 +97,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
 
   private SequencedSkyframeExecutor(
-      Reporter reporter,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
@@ -114,7 +112,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     super(
-        reporter,
         evaluatorSupplier,
         pkgFactory,
         tsgm,
@@ -128,12 +125,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         extraSkyFunctions,
         extraPrecomputedValues, /*errorOnExternalFiles=*/
         false);
-    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
+    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
 
   public static SequencedSkyframeExecutor create(
-      Reporter reporter,
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
@@ -149,7 +145,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
-            reporter,
             InMemoryMemoizingEvaluator.SUPPLIER,
             pkgFactory,
             tsgm,
@@ -169,14 +164,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @VisibleForTesting
-  public static SequencedSkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
+  public static SequencedSkyframeExecutor create(PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm, BlazeDirectories directories, BinTools binTools,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Set<Path> immutableDirectories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     return create(
-        reporter,
         pkgFactory,
         tsgm,
         directories,
@@ -300,7 +294,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
     for (Path pathEntry : pkgLocator.get().getPathEntries()) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(pathEntry);
+          diffAwarenessManager.getDiff(eventHandler, pathEntry);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {

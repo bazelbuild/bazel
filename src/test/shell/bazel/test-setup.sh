@@ -115,6 +115,12 @@ java_binary(
 )
 
 sh_binary(
+    name = "IdlClass",
+    srcs = ["idlclass.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
+)
+
+sh_binary(
     name = "merge_manifests",
     srcs = ["fail.sh"],
 )
@@ -183,8 +189,8 @@ EOF
 
   chmod +x third_party/java/jarjar/fail.sh
 
-  mkdir -p src/tools/android/java/com/google/devtools/build/android/idlclass
-  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
+  mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass
+  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
 licenses(["unencumbered"])
 sh_binary(
   name = "IdlClass",
@@ -193,14 +199,14 @@ sh_binary(
 )
 EOF
 
-  cat > src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
+  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
 
 #!/bin/bash
 
 exit 1
 EOF
 
-  chmod +x src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
+  chmod +x ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
 
   ANDROID_NDK=$PWD/android_ndk
   ANDROID_SDK=$PWD/android_sdk
@@ -310,14 +316,14 @@ EOF
 # Sets up Objective-C tools. Mac only.
 function setup_objc_test_support() {
   mkdir -p tools/objc
-  [ -e tools/objc/precomp_actoolzip_deploy.jar ] || ln -sv ${actoolzip_path} tools/objc/precomp_actoolzip_deploy.jar
+  [ -e tools/objc/actoolwrapper.sh ] || ln -sv ${actoolwrapper_path} tools/objc/actoolwrapper.sh
   [ -e tools/objc/ibtoolwrapper.sh ] || ln -sv ${ibtoolwrapper_path} tools/objc/ibtoolwrapper.sh
-  [ -e tools/objc/precomp_swiftstdlibtoolzip_deploy.jar ] || ln -sv ${swiftstdlibtoolzip_path} tools/objc/precomp_swiftstdlibtoolzip_deploy.jar
-  [ -e tools/objc/precomp_momczip_deploy.jar ] || ln -sv ${momczip_path} tools/objc/precomp_momczip_deploy.jar
+  [ -e tools/objc/momcwrapper.sh ] || ln -sv ${momcwrapper_path} tools/objc/momcwrapper.sh
   [ -e tools/objc/precomp_bundlemerge_deploy.jar ] || ln -sv ${bundlemerge_path} tools/objc/precomp_bundlemerge_deploy.jar
   [ -e tools/objc/precomp_plmerge_deploy.jar ] || ln -sv ${plmerge_path} tools/objc/precomp_plmerge_deploy.jar
   [ -e tools/objc/precomp_xcodegen_deploy.jar ] || ln -sv ${xcodegen_path} tools/objc/precomp_xcodegen_deploy.jar
   [ -e tools/objc/StdRedirect.dylib ] || ln -sv ${stdredirect_path} tools/objc/StdRedirect.dylib
+  [ -e tools/objc/swiftstdlibtoolwrapper.sh ] || ln -sv ${swiftstdlibtoolwrapper_path} tools/objc/swiftstdlibtoolwrapper.sh
   [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
   [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
 
@@ -407,7 +413,7 @@ function tear_down() {
 # Simples assert to make the tests more readable
 #
 function assert_build() {
-  bazel build -s $* || fail "Failed to build $*"
+  bazel build -s --verbose_failures $* || fail "Failed to build $*"
 }
 
 function assert_build_output() {

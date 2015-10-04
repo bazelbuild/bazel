@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -53,7 +54,7 @@ public interface LoadedPackageProvider {
     }
 
     @Override
-    public Target getLoadedTarget(final Label label)
+    public Target getLoadedTarget(Label label)
         throws NoSuchPackageException, NoSuchTargetException {
       return getLoadedTarget(packageProvider, eventHandler, label);
     }
@@ -62,6 +63,7 @@ public interface LoadedPackageProvider {
      * Uninterruptible method to convert a label into a target using a given package provider and
      * event handler.
      */
+    @VisibleForTesting
     public static Target getLoadedTarget(
         final PackageProvider packageProvider, final EventHandler eventHandler, final Label label)
             throws NoSuchPackageException, NoSuchTargetException {

@@ -398,7 +398,7 @@ public final class BuildTool {
       }
     };
 
-    LoadingResult result = runtime.getLoadingPhaseRunner().execute(getReporter(),
+    LoadingResult result = env.getLoadingPhaseRunner().execute(getReporter(),
         env.getEventBus(), request.getTargets(), request.getLoadingOptions(),
         runtime.createBuildOptions(request).getAllLabels(), keepGoing,
         isLoadingEnabled(request), request.shouldRunTests(), callback);

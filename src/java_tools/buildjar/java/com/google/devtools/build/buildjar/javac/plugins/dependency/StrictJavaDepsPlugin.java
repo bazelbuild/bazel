@@ -16,8 +16,6 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.getPlatformJars;
-import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.unwrapFileManager;
-import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.unwrapFileObject;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -109,7 +107,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void init(Context context, Log log, JavaCompiler compiler) {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
-    this.fileManager = unwrapFileManager(context.get(JavaFileManager.class));
+    this.fileManager = context.get(JavaFileManager.class);
     implicitDependencyExtractor = new ImplicitDependencyExtractor(
         dependencyModule.getUsedClasspath(), dependencyModule.getImplicitDependenciesMap(),
         fileManager);
@@ -296,7 +294,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      */
     @Override
     public void visitIdent(JCTree.JCIdent tree) {
-      if (tree.sym != null && tree.sym.kind == Kinds.TYP) {
+      if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
       }
     }
@@ -309,7 +307,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     @Override
     public void visitSelect(JCTree.JCFieldAccess tree) {
       scan(tree.selected);
-      if (tree.sym != null && tree.sym.kind == Kinds.TYP) {
+      if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
       }
     }
@@ -410,7 +408,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       return null;
     }
 
-    JavaFileObject classfile = unwrapFileObject(classSymbol.classfile);
+    JavaFileObject classfile = classSymbol.classfile;
 
     String name = ImplicitDependencyExtractor.getJarName(fileManager, classfile);
     if (name == null) {

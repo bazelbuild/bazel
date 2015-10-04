@@ -34,7 +34,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -42,7 +45,6 @@ import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
@@ -201,6 +203,8 @@ public final class ConfiguredTargetFactory {
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+    } else if (target instanceof EnvironmentGroup) {
+      return new EnvironmentGroupConfiguredTarget(targetContext, (EnvironmentGroup) target);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }
@@ -226,14 +230,16 @@ public final class ConfiguredTargetFactory {
     if (ruleContext.hasErrors()) {
       return null;
     }
-    if (!rule.getRuleClassObject().getRequiredConfigurationFragments().isEmpty()) {
+    ConfigurationFragmentPolicy configurationFragmentPolicy =
+        rule.getRuleClassObject().getConfigurationFragmentPolicy();
+    if (!configurationFragmentPolicy.getRequiredConfigurationFragments().isEmpty()) {
       MissingFragmentPolicy missingFragmentPolicy =
-          rule.getRuleClassObject().missingFragmentPolicy();
+          configurationFragmentPolicy.getMissingFragmentPolicy();
       if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
           && !configuration.hasAllFragments(
-              rule.getRuleClassObject().getRequiredConfigurationFragments())) {
+              configurationFragmentPolicy.getRequiredConfigurationFragments())) {
         if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
-          ruleContext.ruleError(missingFragmentError(ruleContext));
+          ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
           return null;
         }
         return createFailConfiguredTarget(ruleContext);
@@ -251,10 +257,11 @@ public final class ConfiguredTargetFactory {
     }
   }
 
-  private String missingFragmentError(RuleContext ruleContext) {
+  private String missingFragmentError(
+      RuleContext ruleContext, ConfigurationFragmentPolicy configurationFragmentPolicy) {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     Set<Class<?>> missingFragments = new LinkedHashSet<>();
-    for (Class<?> fragment : ruleClass.getRequiredConfigurationFragments()) {
+    for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
       if (!ruleContext.getConfiguration().hasFragment(fragment.asSubclass(Fragment.class))) {
         missingFragments.add(fragment);
       }

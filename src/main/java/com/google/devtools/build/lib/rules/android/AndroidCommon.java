@@ -93,6 +93,7 @@ public class AndroidCommon {
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JackCompilationHelper jackCompilationHelper;
   private Artifact classJar;
+  private Artifact iJar;
   private Artifact srcJar;
   private Artifact genClassJar;
   private Artifact genSourceJar;
@@ -216,6 +217,7 @@ public class AndroidCommon {
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
+            .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())
             .addAllApksUnderTest(apksUnderTest);
 
     if (zipAlignedApk != null) {
@@ -556,7 +558,7 @@ public class AndroidCommon {
     filesToBuild = filesBuilder.build();
 
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
-      helper.createCompileTimeJarAction(jar, outputDepsProto, javaArtifactsBuilder);
+      iJar = helper.createCompileTimeJarAction(jar, outputDepsProto, javaArtifactsBuilder);
     }
     javaCommon.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
 
@@ -596,7 +598,8 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .add(JavaRuleOutputJarsProvider.class, new JavaRuleOutputJarsProvider(classJar, srcJar))
+        .add(JavaRuleOutputJarsProvider.class, new JavaRuleOutputJarsProvider(
+            classJar, iJar, srcJar))
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))

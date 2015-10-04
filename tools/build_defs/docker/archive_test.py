@@ -174,11 +174,11 @@ class TarFileWriterTest(unittest.TestCase):
   def testAddDir(self):
     # For some strange reason, ending slash is stripped by the test
     content = [
-        {"name": "."},
-        {"name": "./a"},
-        {"name": "./a/b", "data": "ab"},
-        {"name": "./a/c"},
-        {"name": "./a/c/d", "data": "acd"},
+        {"name": ".", "mode": 0755},
+        {"name": "./a", "mode": 0755},
+        {"name": "./a/b", "data": "ab", "mode": 0644},
+        {"name": "./a/c", "mode": 0755},
+        {"name": "./a/c/d", "data": "acd", "mode": 0644},
         ]
     tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
     # Iterate over the `content` array to create the directory
@@ -190,7 +190,7 @@ class TarFileWriterTest(unittest.TestCase):
         with open(p, "w") as f:
           f.write(c["data"])
     with archive.TarFileWriter(self.tempfile) as f:
-      f.add_dir("./", tempdir)
+      f.add_dir("./", tempdir, mode=0644)
     self.assertTarFileContent(self.tempfile, content)
 
   def testMergeTar(self):

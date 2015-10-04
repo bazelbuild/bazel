@@ -485,6 +485,35 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ideinfo_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/ideinfo/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["ideinfo"],
+    deps = [
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:actions",
+        "//src/main/java:analysis-exec-rules-skyframe",
+        "//src/main/java:bazel-core",
+        "//src/main/java:collect",
+        "//src/main/java:events",
+        "//src/main/java:packages",
+        "//src/main/java:vfs",
+        "//src/main/protobuf:proto_android_studio_ide_info",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 cc_binary(
     name = "com/google/devtools/build/lib/shell/killmyself",
     srcs = ["com/google/devtools/build/lib/shell/killmyself.cc"],
@@ -752,6 +781,7 @@ TEST_SUITES = [
     "foundations",
     "shell",
     "skyframe",
+    "ideinfo",
 ]
 
 [

@@ -25,6 +25,12 @@ genrule(
 )
 
 docker_build(
+    name = "dummy_repository",
+    files = ["foo"],
+    repository = "gcr.io/dummy",
+)
+
+docker_build(
     name = "no_data_path_image",
     files = ["//tools/build_defs/docker/testdata/test:test-data"],
     mode = "0644",
@@ -65,6 +71,12 @@ docker_build(
     name = "tar_with_tar_base",
     base = ":tar_base",
     tars = ["two.tar"],
+)
+
+docker_build(
+    name = "workdir_with_tar_base",
+    base = ":tar_base",
+    workdir = "/tmp",
 )
 
 docker_build(
@@ -216,6 +228,12 @@ docker_build(
 )
 
 docker_build(
+    name = "notop_workdir_with_tar_base",
+    base = ":notop_tar_base",
+    workdir = "/tmp",
+)
+
+docker_build(
     name = "notop_tar_with_files_base",
     base = ":notop_files_base",
     tars = ["two.tar"],
@@ -272,4 +290,26 @@ docker_build(
     symlinks = {
         "/usr/bin/java": "/bar",
     },
+)
+
+# Generate a dummy debian package with a test/ directory
+py_binary(
+    name = "gen_deb",
+    srcs = ["gen_deb.py"],
+)
+
+genrule(
+    name = "generate_deb",
+    outs = ["gen.deb"],
+    cmd = "$(location :gen_deb) $@",
+    tools = [":gen_deb"],
+)
+
+# Bot gen.deb and test-data has a test directory, it should appear
+# only once in the resulting layer.
+docker_build(
+    name = "extras_with_deb",
+    data_path = ".",
+    debs = [":gen.deb"],
+    tars = ["extras.tar"],
 )

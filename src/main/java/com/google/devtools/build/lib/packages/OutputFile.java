@@ -38,6 +38,11 @@ public final class OutputFile extends FileTarget {
     return generatingRule.getVisibility();
   }
 
+  @Override
+  public boolean isConfigurable() {
+    return true;
+  }
+
   /**
    * Returns the rule which generates this output file.
    */

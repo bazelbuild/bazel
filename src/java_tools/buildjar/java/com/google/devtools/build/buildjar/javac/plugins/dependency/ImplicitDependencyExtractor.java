@@ -62,7 +62,7 @@ public class ImplicitDependencyExtractor {
       JavaFileManager fileManager) {
     this.depsSet = depsSet;
     this.depsMap = depsMap;
-    this.fileManager = unwrapFileManager(fileManager);
+    this.fileManager = fileManager;
   }
 
   /**
@@ -158,9 +158,6 @@ public class ImplicitDependencyExtractor {
   }
 
   public static String getJarName(JavaFileManager fileManager, JavaFileObject file) {
-    file = unwrapFileObject(file);
-    fileManager = unwrapFileManager(fileManager);
-    
     if (file == null || fileManager == null) {
       return null;
     }
@@ -188,57 +185,5 @@ public class ImplicitDependencyExtractor {
 
   private static class TypeVisitor extends SimpleTypeVisitor7<Void, Void> {
     // TODO(bazel-team): Override the visitor methods we're interested in.
-  }
-
-  private static final Class<?> WRAPPED_FILE_OBJECT =
-      getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedFileObject");
-
-  private static final java.lang.reflect.Field UNWRAP_FILE_FIELD =
-      getFieldOrDie(WRAPPED_FILE_OBJECT, "clientFileObject");
-
-  private static final Class<?> WRAPPED_JAVA_FILE_MANAGER =
-      getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedJavaFileManager");
-
-  private static final java.lang.reflect.Field UNWRAP_FILE_MANAGER_FIELD =
-      getFieldOrDie(WRAPPED_JAVA_FILE_MANAGER, "clientJavaFileManager");
-
-  private static Class<?> getClassOrDie(String name) {
-    try {
-      return Class.forName(name);
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
-  }
-
-  private static java.lang.reflect.Field getFieldOrDie(Class<?> clazz, String name) {
-    try {
-      java.lang.reflect.Field field = clazz.getDeclaredField(name);
-      field.setAccessible(true);
-      return field;
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
-  }
-
-  public static JavaFileObject unwrapFileObject(JavaFileObject file) {
-    if (!WRAPPED_FILE_OBJECT.isInstance(file)) {
-      return file;
-    }
-    try {
-      return (JavaFileObject) UNWRAP_FILE_FIELD.get(file);
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage());
-    }
-  }
-
-  public static JavaFileManager unwrapFileManager(JavaFileManager fileManager) {
-    if (!WRAPPED_JAVA_FILE_MANAGER.isInstance(fileManager)) {
-      return fileManager;
-    }
-    try {
-      return (JavaFileManager) UNWRAP_FILE_MANAGER_FIELD.get(fileManager);
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage());
-    }
   }
 }

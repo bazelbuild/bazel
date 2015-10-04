@@ -81,9 +81,9 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     try {
       AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
       String prefix = null;
-      if (mapper.has("rm_path_prefix", Type.STRING)
-          && !mapper.get("rm_path_prefix", Type.STRING).isEmpty()) {
-        prefix = mapper.get("rm_path_prefix", Type.STRING);
+      if (mapper.has("strip_prefix", Type.STRING)
+          && !mapper.get("strip_prefix", Type.STRING).isEmpty()) {
+        prefix = mapper.get("strip_prefix", Type.STRING);
       }
       decompressed = (DecompressorValue) env.getValueOrThrow(
           DecompressorValue.key(rule.getTargetKind(), rule.getName(),

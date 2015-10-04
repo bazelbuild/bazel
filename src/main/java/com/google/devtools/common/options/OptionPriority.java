@@ -50,9 +50,13 @@ public enum OptionPriority {
   COMMAND_LINE,
 
   /**
+   * For options coming from invocation policy.
+   */
+  INVOCATION_POLICY,
+
+  /**
    * This priority can be used to unconditionally override any user-provided options.
    * This should be used rarely and with caution!
    */
   SOFTWARE_REQUIREMENT;
-
 }

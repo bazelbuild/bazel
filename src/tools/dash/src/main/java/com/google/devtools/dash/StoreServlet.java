@@ -27,6 +27,9 @@ import javax.servlet.http.HttpServletResponse;
  * Handles storing a test result.
  */
 public class StoreServlet extends HttpServlet {
+  private static final String DASH_SECRET_HEADER = "bazel-dash-secret";
+  private static final String SECRET_PARAMETER = "BAZEL_DASH_SECRET";
+
   private DatastoreService datastore;
 
   public StoreServlet() {
@@ -37,6 +40,9 @@ public class StoreServlet extends HttpServlet {
   @Override
   public void doPost(HttpServletRequest req, HttpServletResponse response) throws IOException {
     DashRequest request;
+    if (!doAuthentication(req, response)) {
+      return;
+    }
     try {
       request = new DashRequest(req);
     } catch (DashRequest.DashRequestException e) {
@@ -50,5 +56,32 @@ public class StoreServlet extends HttpServlet {
 
     response.setContentType("text/json");
     response.getWriter().println("{ \"ok\": true }");
+  }
+
+  private boolean doAuthentication(HttpServletRequest req, HttpServletResponse response)
+      throws IOException {
+    // Authentication using a common secret
+    String secret = System.getenv(SECRET_PARAMETER);
+    if (secret != null && !secret.isEmpty()) {
+      String providedSecret = req.getHeader(DASH_SECRET_HEADER);
+      if (providedSecret == null || !secureCompare(secret, providedSecret)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Constant time string comparison. Assume that v1 and v2 are not null.
+  private boolean secureCompare(String v1, String v2) {
+    if (v1.length() != v2.length()) {
+      return false;
+    }
+
+    int diff = 0;
+    for (int i = 0; i < v1.length(); i++) {
+      diff |= v1.charAt(i) ^ v2.charAt(i);
+    }
+    return diff == 0;
   }
 }

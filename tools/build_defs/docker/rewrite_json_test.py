@@ -646,5 +646,35 @@ class RewriteJsonTest(unittest.TestCase):
         name=name, parent=parent, volumes=[volume]))
     self.assertEquals(expected, actual)
 
+  def testSetWorkingDir(self):
+    in_data = {
+        'config': {
+            'User': 'bleh',
+            'WorkingDir': '/home/bleh',
+            'Volumes': {
+            }
+        }
+    }
+    name = 'deadbeef'
+    parent = 'blah'
+    workdir = '/some/path'
+    expected = {
+        'id': name,
+        'parent': parent,
+        'config': {
+            'User': 'bleh',
+            'WorkingDir': '/some/path',
+            'Volumes': {
+            }
+        },
+        'docker_version': _DOCKER_VERSION,
+        'architecture': _PROCESSOR_ARCHITECTURE,
+        'os': _OPERATING_SYSTEM,
+    }
+
+    actual = RewriteMetadata(in_data, MetadataOptions(
+        name=name, parent=parent, workdir=workdir))
+    self.assertEquals(expected, actual)
+
 if __name__ == '__main__':
   unittest.main()

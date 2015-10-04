@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 
@@ -77,7 +75,7 @@ public final class BuildConfigurationCollection {
 
   public static BuildConfiguration configureTopLevelTarget(BuildConfiguration topLevelConfiguration,
       Target toTarget) {
-    if (toTarget instanceof InputFile || toTarget instanceof PackageGroup) {
+    if (!toTarget.isConfigurable()) {
       return null;
     }
     return topLevelConfiguration.getTransitions().toplevelConfigurationHook(toTarget);

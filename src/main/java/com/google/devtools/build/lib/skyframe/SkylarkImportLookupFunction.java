@@ -183,7 +183,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws SkylarkImportLookupFunctionException {
     ContainingPackageLookupValue containingPackageLookupValue = null;
     try {
-      PackageIdentifier newPkgId = new PackageIdentifier(repo, file.getParentDirectory());
+      PackageIdentifier newPkgId = PackageIdentifier.create(repo, file.getParentDirectory());
       containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
           ContainingPackageLookupValue.key(newPkgId),
           BuildFileNotFoundException.class, InconsistentFilesystemException.class);

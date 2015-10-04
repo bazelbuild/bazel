@@ -35,8 +35,8 @@ import java.util.Set;
 /**
  * This class is like {@link TransitiveTargetFunction}, but the values it returns do not contain
  * {@link NestedSet}s. It should be used only when the side-effects of {@link
- * TransitiveTargetFunction} are desired (i.e., loading transitive targets and their packages, and
- * emitting error events).
+ * TransitiveTargetFunction} on the skyframe graph are desired (i.e., ensuring that transitive
+ * targets and their packages have been loaded).
  */
 public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction<DummyAccumulator> {
 
@@ -55,25 +55,6 @@ public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
           depEntries) {
-    Target target = targetAndErrorIfAny.getTarget();
-    for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
-        depEntries) {
-      Label depLabel = (Label) entry.getKey().argument();
-      TransitiveTraversalValue transitiveTraversalValue;
-      try {
-        transitiveTraversalValue = (TransitiveTraversalValue) entry.getValue().get();
-        if (transitiveTraversalValue == null) {
-          continue;
-        }
-      } catch (NoSuchPackageException | NoSuchTargetException e) {
-        maybeReportErrorAboutMissingEdge(target, depLabel, e, eventHandler);
-        continue;
-      }
-      if (transitiveTraversalValue.getErrorLoadingTarget() != null) {
-        maybeReportErrorAboutMissingEdge(target, depLabel,
-            transitiveTraversalValue.getErrorLoadingTarget(), eventHandler);
-      }
-    }
   }
 
   protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,

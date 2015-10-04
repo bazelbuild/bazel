@@ -49,7 +49,7 @@ public final class TargetMarkerFunction implements SkyFunction {
       PathFragment containingDirectory = label.toPathFragment().getParentDirectory();
       ContainingPackageLookupValue containingPackageLookupValue = null;
       try {
-        PackageIdentifier newPkgId = new PackageIdentifier(
+        PackageIdentifier newPkgId = PackageIdentifier.create(
             label.getPackageIdentifier().getRepository(), containingDirectory);
         containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
             ContainingPackageLookupValue.key(newPkgId),

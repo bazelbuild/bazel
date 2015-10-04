@@ -21,6 +21,7 @@ TEST_TARGETS = [
     "generated_tarball",
     "with_env",
     "with_double_env",
+    "workdir_with_tar_base",
     "link_with_files_base",
 ]
 
@@ -34,6 +35,8 @@ TEST_DATA = [
     "//tools/build_defs/docker/testdata:gen_image",
     "//tools/build_defs/docker/testdata:data_path_image",
     "//tools/build_defs/docker/testdata:no_data_path_image",
+    "//tools/build_defs/docker/testdata:dummy_repository",
+    "//tools/build_defs/docker/testdata:extras_with_deb",
 ]
 
 sh_test(

@@ -19,7 +19,7 @@
 set -eu
 
 # Repositories to push the release branch and the release tag.
-: ${RELEASE_REPOSITORIES:="https://github.com/bazelbuild/bazel"}
+: ${RELEASE_REPOSITORIES:="git@github.com:bazelbuild/bazel"}
 
 # Repositories to push the master branch
 : ${MASTER_REPOSITORIES:="https://bazel.googlesource.com/bazel"}

@@ -72,7 +72,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            reporter,
             new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
             new TimestampGranularityMonitor(BlazeClock.instance()),
             new BlazeDirectories(outputBase, outputBase, rootDirectory),

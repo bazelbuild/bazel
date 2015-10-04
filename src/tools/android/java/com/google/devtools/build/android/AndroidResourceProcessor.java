@@ -58,7 +58,7 @@ public class AndroidResourceProcessor {
   public AndroidResourceProcessor(StdLogger stdLogger) {
     this.stdLogger = stdLogger;
   }
-  
+
   /**
    * Copies the R.txt to the expected place.
    */
@@ -85,7 +85,8 @@ public class AndroidResourceProcessor {
     try {
       Files.createDirectories(srcJar.getParent());
       try (final ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(srcJar))) {
-        Files.walkFileTree(generatedSourcesRoot, new SymbolFileSrcJarBuildingVisitor(zip));
+        Files.walkFileTree(generatedSourcesRoot,
+            new SymbolFileSrcJarBuildingVisitor(zip, generatedSourcesRoot));
       }
     } catch (IOException e) {
       Throwables.propagate(e);
@@ -93,7 +94,7 @@ public class AndroidResourceProcessor {
   }
 
   /**
-   * Processes resources for generated sources, configs and packaging resources. 
+   * Processes resources for generated sources, configs and packaging resources.
    */
   public void processResources(
       AndroidBuilder builder,
@@ -196,7 +197,7 @@ public class AndroidResourceProcessor {
       set.loadFromFiles(stdLogger);
       merger.addDataSet(set);
     }
-    
+
     AssetMerger assetMerger = new AssetMerger();
     for (AssetSet set : assetSets) {
       set.loadFromFiles(stdLogger);
@@ -252,7 +253,7 @@ public class AndroidResourceProcessor {
     }
     return Files.createDirectories(out).toString();
   }
-  
+
   /**
    * A FileVisitor that will add all R.java files to be stored in a zip archive.
    */
@@ -261,16 +262,18 @@ public class AndroidResourceProcessor {
     // The earliest date representable in a zip file, 1-1-1980.
     private static final long ZIP_EPOCH = 315561600000L;
     private final ZipOutputStream zip;
+    private final Path root;
 
-    private SymbolFileSrcJarBuildingVisitor(ZipOutputStream zip) {
+    private SymbolFileSrcJarBuildingVisitor(ZipOutputStream zip, Path root) {
       this.zip = zip;
+      this.root = root;
     }
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       if (file.getFileName().endsWith("R.java")) {
         byte[] content = Files.readAllBytes(file);
-        ZipEntry entry = new ZipEntry(file.toString());
+        ZipEntry entry = new ZipEntry(root.relativize(file).toString());
 
         entry.setMethod(ZipEntry.STORED);
         entry.setTime(ZIP_EPOCH);

@@ -54,7 +54,7 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
       for (Task task : taskList) {
         // Tasks on the phaseTask thread already accounted for in the phaseDuration.
         if (task.threadId != phaseTask.threadId) {
-          duration += task.duration;
+          duration += task.durationNanos;
         }
       }
       totalDurationNanos = duration;

@@ -14,6 +14,7 @@ FILES = [
     "bundlemerge",
     "xcodegen",
     "worker_protocol",
+    "invocation_policy",
 ]
 
 [proto_java_library(

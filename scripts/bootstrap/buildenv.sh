@@ -65,9 +65,13 @@ function run_silent() {
 }
 
 function fail() {
+  local exitCode=$?
+  if [[ "$exitCode" = "0" ]]; then
+    exitCode=1
+  fi
   echo >&2
   echo "$1" >&2
-  exit 1
+  exit $exitCode
 }
 
 function display() {

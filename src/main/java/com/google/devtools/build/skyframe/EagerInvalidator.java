@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ThreadPoolExecutorParams;
+import com.google.devtools.build.lib.concurrent.ThreadPoolExecutorParams;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;

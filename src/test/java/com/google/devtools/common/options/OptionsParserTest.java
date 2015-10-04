@@ -715,11 +715,12 @@ public class OptionsParserTest {
   // in the code.
   @Test
   public void optionPrioritiesAreCorrectlyOrdered() throws Exception {
-    assertEquals(5, OptionPriority.values().length);
-    assertEquals(-1, OptionPriority.DEFAULT.compareTo(OptionPriority.COMPUTED_DEFAULT));
-    assertEquals(-1, OptionPriority.COMPUTED_DEFAULT.compareTo(OptionPriority.RC_FILE));
-    assertEquals(-1, OptionPriority.RC_FILE.compareTo(OptionPriority.COMMAND_LINE));
-    assertEquals(-1, OptionPriority.COMMAND_LINE.compareTo(OptionPriority.SOFTWARE_REQUIREMENT));
+    assertEquals(6, OptionPriority.values().length);
+    assertThat(OptionPriority.DEFAULT).isLessThan(OptionPriority.COMPUTED_DEFAULT);
+    assertThat(OptionPriority.COMPUTED_DEFAULT).isLessThan(OptionPriority.RC_FILE);
+    assertThat(OptionPriority.RC_FILE).isLessThan(OptionPriority.COMMAND_LINE);
+    assertThat(OptionPriority.COMMAND_LINE).isLessThan(OptionPriority.INVOCATION_POLICY);
+    assertThat(OptionPriority.INVOCATION_POLICY).isLessThan(OptionPriority.SOFTWARE_REQUIREMENT);
   }
 
   public static class IntrospectionExample extends OptionsBase {

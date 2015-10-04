@@ -136,7 +136,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private void init() throws InterruptedException {
     long startTime = Profiler.nanoTimeMaybe();
     EvaluationResult<SkyValue> result =
-        graphFactory.prepareAndGet(universeScope, loadingPhaseThreads, eventHandler);
+        graphFactory.prepareAndGet(universeScope, parserPrefix, loadingPhaseThreads, eventHandler);
     graph = result.getWalkableGraph();
     long duration = Profiler.nanoTimeMaybe() - startTime;
     if (duration > 0) {

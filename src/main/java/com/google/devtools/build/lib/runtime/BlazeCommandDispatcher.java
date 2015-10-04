@@ -148,9 +148,10 @@ public class BlazeCommandDispatcher {
     return ExitCode.SUCCESS;
   }
 
-  private CommonCommandOptions checkOptions(OptionsParser optionsParser,
-      Command commandAnnotation, List<String> args, List<String> rcfileNotes, OutErr outErr)
+  private void parseArgsAndConfigs(OptionsParser optionsParser, Command commandAnnotation,
+      List<String> args, List<String> rcfileNotes, OutErr outErr)
           throws OptionsParsingException {
+
     Function<String, String> commandOptionSourceFunction = new Function<String, String>() {
       @Override
       public String apply(String input) {
@@ -187,8 +188,6 @@ public class BlazeCommandDispatcher {
       configsLoaded = commonOptions.configs;
       commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
     }
-
-    return commonOptions;
   }
 
   /**
@@ -270,13 +269,16 @@ public class BlazeCommandDispatcher {
     }
 
     OptionsParser optionsParser;
-    CommonCommandOptions commonOptions;
     // Delay output of notes regarding the parsed rc file, so it's possible to disable this in the
     // rc file.
     List<String> rcfileNotes = new ArrayList<>();
     try {
       optionsParser = createOptionsParser(command);
-      commonOptions = checkOptions(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
+      parseArgsAndConfigs(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
+
+      InvocationPolicyEnforcer optionsPolicyEnforcer =
+          InvocationPolicyEnforcer.create(getRuntime().getStartupOptionsProvider());
+      optionsPolicyEnforcer.enforce(optionsParser, commandName);
     } catch (OptionsParsingException e) {
       for (String note : rcfileNotes) {
         outErr.printErrLn("INFO: " + note);
@@ -299,6 +301,7 @@ public class BlazeCommandDispatcher {
       }
     }
 
+    CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
     BlazeRuntime.setupLogging(commonOptions.verbosity);
 
     // Do this before an actual crash so we don't have to worry about
@@ -341,8 +344,7 @@ public class BlazeCommandDispatcher {
 
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        runtime.beforeCommand(commandAnnotation, env, optionsParser, commonOptions,
-            execStartTimeNanos);
+        env.beforeCommand(commandAnnotation, optionsParser, commonOptions, execStartTimeNanos);
         // Allow the command to edit options after parsing:
         command.editOptions(env, optionsParser);
       } catch (AbruptExitException e) {

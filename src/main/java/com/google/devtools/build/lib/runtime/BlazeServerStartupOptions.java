@@ -235,4 +235,12 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "changes instead of scanning every file for a change.")
   public boolean watchFS;
 
+
+  @Option(name = "invocation_policy",
+      defaultValue = "",
+      category = "undocumented",
+      help = "A base64-encoded-binary-serialized or text-formated "
+          + "invocation_policy.InvocationPolicy proto. Unlike other options, it is an error to "
+          + "specify --invocation_policy multiple times.")
+  public String invocationPolicy;
 }

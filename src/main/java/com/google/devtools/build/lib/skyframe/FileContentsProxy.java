@@ -61,6 +61,10 @@ public final class FileContentsProxy implements Serializable {
 
   @Override
   public String toString() {
-    return "mtime: " + mtime + " valueId: " + valueId;
+    return prettyPrint();
+  }
+
+  public String prettyPrint() {
+    return String.format("mtime of %d and nodeId of %d", mtime, valueId);
   }
 }

@@ -187,6 +187,41 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
+   * The metadata about an option.
+   */
+  public static final class OptionDescription {
+
+    private final String name;
+    private final Object defaultValue;
+    private final Converter<?> converter;
+    private final boolean allowMultiple;
+
+    public OptionDescription(String name, Object defaultValue, Converter<?> converter,
+        boolean allowMultiple) {
+      this.name = name;
+      this.defaultValue = defaultValue;
+      this.converter = converter;
+      this.allowMultiple = allowMultiple;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Object getDefaultValue() {
+      return defaultValue;
+    }
+
+    public Converter<?> getConverter() {
+      return converter;
+    }
+
+    public boolean getAllowMultiple() {
+      return allowMultiple;
+    }
+  }
+  
+  /**
    * The name and value of an option with additional metadata describing its
    * priority, source, whether it was set via an implicit dependency, and if so,
    * by which other option.
@@ -217,10 +252,16 @@ public class OptionsParser implements OptionsProvider {
       return value;
     }
 
+    /**
+     * @return the priority of the thing that set this value for this flag
+     */
     public OptionPriority getPriority() {
       return priority;
     }
 
+    /**
+     * @return the thing that set this value for this flag
+     */
     public String getSource() {
       return source;
     }
@@ -450,10 +491,24 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
+   * Returns a description of the option.
+   *
+   * @return The {@link OptionValueDescription} for the option, or null if there is no option by
+   *        the given name.
+   */
+  public OptionDescription getOptionDescription(String name) {
+    return impl.getOptionDescription(name);
+  }
+
+  /**
    * Returns a description of the option value set by the last previous call to
    * {@link #parse(OptionPriority, String, List)} that successfully set the given
    * option. If the option is of type {@link List}, the description will
    * correspond to any one of the calls, but not necessarily the last.
+   *
+   * @return The {@link OptionValueDescription} for the option, or null if the value has not been
+   *        set.
+   * @throws IllegalArgumentException if there is no option by the given name.
    */
   public OptionValueDescription getOptionValueDescription(String name) {
     return impl.getOptionValueDescription(name);
@@ -518,6 +573,23 @@ public class OptionsParser implements OptionsProvider {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
     }
+  }
+
+  /**
+   * Clears the given option. Also clears expansion arguments and implicit requirements for that
+   * option.
+   *
+   * <p>This will not affect options objects that have already been retrieved from this parser
+   * through {@link #getOptions(Class)}.
+   *
+   * @param optionName The full name of the option to clear.
+   * @return A map of an option name to the old value of the options that were cleared.
+   * @throws IllegalArgumentException If the flag does not exist.
+   */
+  public Map<String, OptionValueDescription> clearValue(String optionName) {
+    Map<String, OptionValueDescription> clearedValues = Maps.newHashMap();
+    impl.clearValue(optionName, clearedValues);
+    return clearedValues;
   }
 
   @Override

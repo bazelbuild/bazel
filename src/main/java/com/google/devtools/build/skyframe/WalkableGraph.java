@@ -77,7 +77,7 @@ public interface WalkableGraph {
 
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
-    EvaluationResult<SkyValue> prepareAndGet(Collection<String> roots,
+    EvaluationResult<SkyValue> prepareAndGet(Collection<String> roots, String offset,
         int numThreads, EventHandler eventHandler) throws InterruptedException;
   }
 }

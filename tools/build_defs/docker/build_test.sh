@@ -110,6 +110,13 @@ function check_env() {
   check_property Env "notop_${input}" "${@}"
 }
 
+function check_workdir() {
+  input="$1"
+  shift
+  check_property WorkingDir "${input}" "${@}"
+  check_property WorkingDir "notop_${input}" "${@}"
+}
+
 function check_layers_aux() {
   local input=${1}
   shift 1
@@ -179,6 +186,20 @@ function test_gen_image() {
     || fail "'./gen.out' not found in '$TEST_DATA_DIR/gen_image.tar'"
 }
 
+function test_dummy_repository() {
+  local layer="eae4fa9baf743667fbe3f8d76fd598cf9ea5052261bbfaa552780dd2744c47a4"
+  local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
+  check_layers_aux "dummy_repository" "$layer"
+
+
+  local repositories="$(tar xOf "${test_data}" "./repositories")"
+  # This would really need to use `jq` instead.
+  echo "${repositories}" | \
+    grep -Esq -- "\"gcr.io/dummy/[a-zA-Z_]*_docker_testdata\": {" \
+    || fail "Cannot find image in repository gcr.io/dummy in '${repositories}'"
+  EXPECT_CONTAINS "${repositories}" "\"dummy_repository\": \"$layer\""
+}
+
 function test_files_base() {
   check_layers "files_base" \
     "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b"
@@ -210,6 +231,12 @@ function test_files_with_tar_base() {
   check_layers "files_with_tar_base" \
     "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
     "b0fe5685bf89a2c875a93495a4e2b7a3f1fb6f27a9ac5dc2b174e7d74cb6fe27"
+}
+
+function test_workdir_with_tar_base() {
+  check_layers "workdir_with_tar_base" \
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
+    "f24cbe53bd1b78909c6dba0bd47016354f3488b35b85aeee68ecc423062b927e"
 }
 
 function test_tar_with_files_base() {
@@ -343,6 +370,23 @@ function test_data_path() {
     ./test
   check_eq $(get_layer_listing "data_path_image" "${data_path_sha}") \
     ./test/test
+}
+
+function test_extras_with_deb() {
+  local test_data="${TEST_DATA_DIR}/extras_with_deb.tar"
+  local sha=$(tar xOf ${test_data} ./top)
+
+  # The content of the layer should have no duplicate
+  local layer_listing="$(get_layer_listing "extras_with_deb" "${sha}" | sort)"
+  check_eq "${layer_listing}" \
+"./
+./etc/
+./etc/nsswitch.conf
+./tmp/
+./usr/
+./usr/bin/
+./usr/bin/java -> /path/to/bin/java
+./usr/titi"
 }
 
 run_suite "build_test"

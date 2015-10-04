@@ -56,6 +56,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -103,6 +104,17 @@ public final class ObjcCommon {
         return ImmutableList.of();
       }
       return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
+    }
+
+    /**
+     * Returns headers that cannot be compiled individually.
+     */
+    ImmutableList<Artifact> textualHdrs() {
+      // Some rules may compile but not have the "textual_hdrs" attribute.
+      if (!ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
+        return ImmutableList.of();
+      }
+      return ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list();
     }
 
     Optional<Artifact> bridgingHeader() {
@@ -465,8 +477,23 @@ public final class ObjcCommon {
       }
       for (CcLinkParamsProvider linkProvider : depCcLinkProviders) {
         CcLinkParams params = linkProvider.getCcLinkParams(true, false);
+        ImmutableList<String> linkOpts = params.flattenedLinkopts();
+        ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+        ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
+        // Add any framework flags as frameworks directly, rather than as linkopts.
+        for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
+          String arg = iterator.next();
+          if (arg.equals("-framework") && iterator.hasNext()) {
+            String framework = iterator.next();
+            frameworkLinkOpts.add(new SdkFramework(framework));
+          } else {
+            nonFrameworkLinkOpts.add(arg);
+          }
+        }
+
         objcProvider
-            .addAll(LINKOPT, params.flattenedLinkopts())
+            .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+            .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(CC_LIBRARY, params.getLibraries());
       }
 
@@ -480,6 +507,7 @@ public final class ObjcCommon {
             TO_PATH_FRAGMENT);
         objcProvider
             .addAll(HEADER, attributes.hdrs())
+            .addAll(HEADER, attributes.textualHdrs())
             .addAll(INCLUDE, attributes.headerSearchPaths())
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())

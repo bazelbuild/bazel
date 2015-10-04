@@ -146,6 +146,11 @@ public class PackageGroup implements Target {
     return ConstantRuleVisibility.PUBLIC;
   }
 
+  @Override
+  public boolean isConfigurable() {
+    return false;
+  }
+
   public static String targetKind() {
     return "package group";
   }

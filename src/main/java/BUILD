@@ -448,10 +448,12 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/protobuf:proto_build",
+        "//src/main/protobuf:proto_invocation_policy",
         "//src/main/protobuf:proto_test_status",
         "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",
+        "//third_party:protobuf",
     ],
 )
 
@@ -500,10 +502,12 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/protobuf:proto_build",
+        "//src/main/protobuf:proto_invocation_policy",
         "//src/main/protobuf:proto_test_status",
         "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",
+        "//third_party:protobuf",
     ],
 )
 

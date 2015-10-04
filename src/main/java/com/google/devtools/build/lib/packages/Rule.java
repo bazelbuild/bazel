@@ -604,6 +604,11 @@ public final class Rule implements Target {
   }
 
   @Override
+  public boolean isConfigurable() {
+    return true;
+  }
+
+  @Override
   @SuppressWarnings("unchecked")
   public Set<DistributionType> getDistributions() {
     if (isAttrDefined("distribs", BuildType.DISTRIBUTIONS)

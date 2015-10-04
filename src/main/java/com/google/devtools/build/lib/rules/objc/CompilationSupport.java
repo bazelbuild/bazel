@@ -430,8 +430,9 @@ public final class CompilationSupport {
       .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile));
 
 
-    ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.builder();
-    inputHeaders.addAll(attributes.hdrs());
+    ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
+        .addAll(attributes.hdrs())
+        .addAll(attributes.textualHdrs());
 
     Optional<Artifact> bridgingHeader = attributes.bridgingHeader();
     if (bridgingHeader.isPresent()) {
@@ -635,6 +636,8 @@ public final class CompilationSupport {
   CompilationSupport registerGenerateModuleMapAction(
       Optional<CompilationArtifacts> compilationArtifacts) {
     if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+      // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
+      // dropped.
       Iterable<Artifact> publicHeaders = attributes.hdrs();
       Iterable<Artifact> privateHeaders = ImmutableList.of();
       if (compilationArtifacts.isPresent()) {
@@ -1029,6 +1032,7 @@ public final class CompilationSupport {
 
     xcodeProviderBuilder
         .addHeaders(attributes.hdrs())
+        .addHeaders(attributes.textualHdrs())
         .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
         .addHeaderSearchPaths("$(WORKSPACE_ROOT)", attributes.headerSearchPaths())
         .addHeaderSearchPaths("$(SDKROOT)/usr/include", attributes.sdkIncludes())
@@ -1056,7 +1060,7 @@ public final class CompilationSupport {
       Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
       Set<Artifact> srcsSet =
           new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
-      
+
       // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
         String path = header.getRootRelativePath().toString();

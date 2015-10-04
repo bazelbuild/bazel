@@ -134,8 +134,11 @@ class TarFileWriter(object):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
         name = name[:-1]
+      # Add the x bit to directories to prevent non-traversable directories.
+      # The x bit is set only to if the read bit is set.
+      dirmode = (mode | ((0444 & mode) >> 2)) if mode else mode
       self.add_file(name + '/', tarfile.DIRTYPE, uid=uid, gid=gid,
-                    uname=uname, gname=gname, mtime=mtime, mode=mode)
+                    uname=uname, gname=gname, mtime=mtime, mode=dirmode)
       if depth <= 0:
         raise self.Error('Recursion depth exceeded, probably in '
                          'an infinite directory loop.')
@@ -153,6 +156,9 @@ class TarFileWriter(object):
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
+    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
+      # Enforce the ending / for directories so we correctly deduplicate.
+      info.name += '/'
     if info.name not in self.members:
       self.tar.addfile(info, fileobj)
       self.members.add(info.name)

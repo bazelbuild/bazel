@@ -66,7 +66,6 @@ public class ObjcRuleClasses {
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
-  static final PathFragment SWIFT_STDLIB_TOOL = new PathFragment(BIN_DIR + "/swift-stdlib-tool");
   static final PathFragment STRIP = new PathFragment(BIN_DIR + "/strip");
 
   private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
@@ -499,16 +498,14 @@ public class ObjcRuleClasses {
       return builder
           .add(attr("$plmerge", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:plmerge")))
-          .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
+          .add(attr("$actoolwrapper", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:actoolwrapper")))
           .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:ibtoolwrapper")))
           // TODO(dmaclach): Adding realpath here should not be required once
           // https://github.com/bazelbuild/bazel/issues/285 is fixed.
           .add(attr("$realpath", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:realpath")))
-          .add(attr("$swiftstdlibtoolzip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:swiftstdlibtoolzip_deploy.jar")))
           .build();
     }
     @Override
@@ -553,10 +550,21 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           included as headers by source files in this rule or by users of this
-          library.
+          library. These will be compiled separately from the source if modules
+          are enabled.
           ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedFileTypes(HDRS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(textual_hdrs) -->
+          The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library. Unlike hdrs, these will not be compiled separately from the
+          sources.
+          ${SYNOPSIS}
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("textual_hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(bridging_header) -->
@@ -881,8 +889,10 @@ public class ObjcRuleClasses {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("families", STRING_LIST)
              .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
-        .add(attr("$momczip_deploy", LABEL).cfg(HOST)
-            .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
+        .add(attr("$momcwrapper", LABEL).cfg(HOST).exec()
+            .value(env.getLabel("//tools/objc:momcwrapper")))
+        .add(attr("$swiftstdlibtoolwrapper", LABEL).cfg(HOST).exec()
+            .value(env.getLabel("//tools/objc:swiftstdlibtoolwrapper")))
         .build();
     }
     @Override

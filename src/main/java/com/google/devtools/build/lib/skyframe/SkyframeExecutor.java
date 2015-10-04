@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.packages.Preprocessor.Result;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -188,7 +187,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
   protected SkyframeBuildView skyframeBuildView;
-  private final EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   protected BuildDriver buildDriver;
@@ -257,7 +255,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
-      Reporter reporter,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
@@ -280,12 +277,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
-        new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
-        numPackagesLoaded, this);
-    this.errorEventListener = Preconditions.checkNotNull(reporter);
+        syscalls, cyclesReporter, pkgLocator, numPackagesLoaded, this);
     this.resourceManager = ResourceManager.instance();
-    this.skyframeActionExecutor = new SkyframeActionExecutor(reporter, resourceManager, eventBus,
-        statusReporterRef);
+    this.skyframeActionExecutor = new SkyframeActionExecutor(
+        resourceManager, eventBus, statusReporterRef);
     this.directories = Preconditions.checkNotNull(directories);
     this.buildInfoFactories = buildInfoFactories;
     this.immutableDirectories = immutableDirectories;
@@ -1031,7 +1026,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * given test targets.
    */
   public EvaluationResult<?> buildArtifacts(
-      EventHandler eventHandler,
+      Reporter reporter,
       Executor executor,
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
@@ -1047,7 +1042,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
-    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, actionCacheChecker);
+    skyframeActionExecutor.prepareForExecution(
+        reporter, executor, keepGoing, explain, actionCacheChecker);
 
     resourceManager.resetResourceUsage();
     try {
@@ -1060,7 +1056,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           Iterables.concat(artifactKeys, targetKeys, aspectKeys, testKeys),
           keepGoing,
           numJobs,
-          eventHandler);
+          reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -1071,9 +1067,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  public void prepareBuildingForTestingOnly(Executor executor, boolean keepGoing, boolean explain,
-                                            ActionCacheChecker checker) {
-    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, checker);
+  public void prepareBuildingForTestingOnly(Reporter reporter, Executor executor, boolean keepGoing,
+      boolean explain, ActionCacheChecker checker) {
+    skyframeActionExecutor.prepareForExecution(reporter, executor, keepGoing, explain, checker);
   }
 
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
@@ -1435,9 +1431,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * a complete graph to work on.
    */
   @Override
-  public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns,
+  public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns, String offset,
       int numThreads, EventHandler eventHandler) throws InterruptedException {
-    SkyKey skyKey = getPrepareDepsKey(patterns);
+    SkyKey skyKey = getPrepareDepsKey(patterns, offset);
     EvaluationResult<SkyValue> evaluationResult =
         buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
     Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
@@ -1448,14 +1444,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
    * underlying evaluation implementation.
    */
-  public String prepareAndGetMetadata(Collection<String> patterns) {
-    return buildDriver.meta(ImmutableList.of(getPrepareDepsKey(patterns)));
+  public String prepareAndGetMetadata(Collection<String> patterns, String offset) {
+    return buildDriver.meta(ImmutableList.of(getPrepareDepsKey(patterns, offset)));
   }
 
-  private SkyKey getPrepareDepsKey(Collection<String> patterns) {
-    SkyframeTargetPatternEvaluator patternEvaluator =
-        (SkyframeTargetPatternEvaluator) packageManager.getTargetPatternEvaluator();
-    String offset = patternEvaluator.getOffset();
+  private SkyKey getPrepareDepsKey(Collection<String> patterns, String offset) {
     return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
   }
 
@@ -1514,10 +1507,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public PackageManager getPackageManager() {
     return packageManager;
-  }
-
-  public LoadedPackageProvider getLoadedPackageProvider() {
-    return new LoadedPackageProvider.Bridge(packageManager, errorEventListener);
   }
 
   class SkyframePackageLoader {

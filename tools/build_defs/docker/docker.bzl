@@ -143,6 +143,8 @@ def _metadata_action(ctx, layer, name, output):
       "--ports=%s" % ",".join(ctx.attr.ports),
       "--volumes=%s" % ",".join(ctx.attr.volumes)
       ]
+  if ctx.attr.workdir:
+    args += ["--workdir=" + ctx.attr.workdir]
   inputs = [layer, rewrite_tool, name]
   base = _get_base_artifact(ctx)
   if base:
@@ -195,11 +197,9 @@ def _create_image(ctx, layer, name, metadata):
       "--layer=" + layer.path,
       "--id=@" + name.path,
       # We label at push time, so we only put a single name in this file:
-      #   bazel/package:target => {the layer being appended}
-      # TODO(dmarting): Does the name makes sense? We could use the
-      #   repositoryName/package instead. (why do we need to replace
-      #   slashes?)
-      "--repository=bazel/" + ctx.label.package.replace("/", "_"),
+      #   repository/package:target => {the layer being appended}
+      "--repository=%s/%s" % (ctx.attr.repository,
+                              ctx.label.package.replace("/", "_")),
       "--name=" + ctx.label.name
       ]
   inputs = [layer, metadata, name]
@@ -248,6 +248,8 @@ docker_build_ = rule(
         "env": attr.string_dict(),
         "ports": attr.string_list(),  # Skylark doesn't support int_list...
         "volumes": attr.string_list(),
+        "workdir": attr.string(),
+        "repository": attr.string(default="bazel"),
         # Implicit dependencies.
         "_build_layer": attr.label(
             default=Label("//tools/build_defs/docker:build_layer"),
@@ -337,10 +339,10 @@ docker_build_ = rule(
 #      # https://docs.docker.com/reference/builder/#volume
 #      volumes=[...],
 #
-#      # TODO(mattmoor): NYI
 #      # https://docs.docker.com/reference/builder/#workdir
 #      # NOTE: the normal directive affects subsequent RUN, CMD,
-#      # ENTRYPOINT, ADD, and COPY
+#      # ENTRYPOINT, ADD, and COPY, but this attribute only affects
+#      # the entry point.
 #      workdir="...",
 #
 #      # https://docs.docker.com/reference/builder/#env
@@ -370,7 +372,7 @@ def docker_build(**kwargs):
   This rule appends a single new layer to the tarball of this form provided
   via the 'base' parameter.
 
-  The images produced by this rule are always named 'blaze/tmp:latest' when
+  The images produced by this rule are always named 'bazel/tmp:latest' when
   loaded (an internal detail).  The expectation is that the images produced
   by these rules will be uploaded using the 'docker_push' rule below.
 

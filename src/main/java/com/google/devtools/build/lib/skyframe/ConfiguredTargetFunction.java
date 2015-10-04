@@ -170,11 +170,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // that doesn't match; we can even have the same value multiple times. However, I think it's
     // only triggered in tests (i.e., in normal operation, the configuration passed in is already
     // null).
-    if (target instanceof InputFile) {
-      // InputFileConfiguredTarget expects its configuration to be null since it's not used.
-      configuration = null;
-    } else if (target instanceof PackageGroup) {
-      // Same for PackageGroupConfiguredTarget.
+    if (!target.isConfigurable()) {
       configuration = null;
     }
     TargetAndConfiguration ctgValue =

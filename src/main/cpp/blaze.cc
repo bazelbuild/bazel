@@ -352,6 +352,13 @@ static vector<string> GetArgumentArray() {
   if (!globals->options.host_jvm_args.empty()) {
     result.push_back("--host_jvm_args=" + globals->options.host_jvm_args);
   }
+
+  if (globals->options.invocation_policy != NULL &&
+      strlen(globals->options.invocation_policy) > 0) {
+    result.push_back(string("--invocation_policy=") +
+                     globals->options.invocation_policy);
+  }
+
   globals->options.AddExtraOptions(&result);
 
   // The option sources are transmitted in the following format:

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -136,8 +137,10 @@ public class TransitiveTargetFunction
 
     // Get configuration fragments directly required by this target.
     if (target instanceof Rule) {
+      ConfigurationFragmentPolicy configurationFragmentPolicy =
+          target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy();
       Set<Class<?>> configFragments =
-          target.getAssociatedRule().getRuleClassObject().getRequiredConfigurationFragments();
+          configurationFragmentPolicy.getRequiredConfigurationFragments();
       // An empty result means this rule requires all fragments (which practically means
       // the rule isn't yet declaring its actually needed fragments). So load everything.
       configFragments = configFragments.isEmpty() ? getAllFragments() : configFragments;

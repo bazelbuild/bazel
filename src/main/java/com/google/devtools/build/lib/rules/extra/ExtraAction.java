@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
@@ -62,7 +61,7 @@ public final class ExtraAction extends SpawnAction {
   @GuardedBy("this")
   private boolean inputsKnown;
 
-  public ExtraAction(ActionOwner owner,
+  public ExtraAction(
       ImmutableSet<Artifact> extraActionInputs,
       Map<PathFragment, Artifact> runfilesManifests,
       Collection<Artifact> outputs,
@@ -73,7 +72,8 @@ public final class ExtraAction extends SpawnAction {
       Map<String, String> executionInfo,
       String progressMessage,
       String mnemonic) {
-    super(owner,
+    super(
+        shadowedAction.getOwner(),
         createInputs(shadowedAction.getInputs(), extraActionInputs),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,

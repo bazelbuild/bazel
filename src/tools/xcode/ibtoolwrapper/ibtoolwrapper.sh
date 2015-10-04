@@ -1,4 +1,5 @@
 #!/bin/bash
+#
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,8 +28,9 @@ set -eu
 OUTZIP=$(tools/objc/realpath "$1")
 ARCHIVEROOT="$2"
 shift 2
-TEMPDIR=$(mktemp -d -t ZippingOutput)
+TEMPDIR=$(mktemp -d -t ibtoolZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
+
 FULLPATH="$TEMPDIR/$ARCHIVEROOT"
 PARENTDIR=$(dirname "$FULLPATH")
 mkdir -p "$PARENTDIR"
@@ -37,12 +39,13 @@ FULLPATH=$(tools/objc/realpath "$FULLPATH")
 # IBTool needs to have absolute paths sent to it, so we call realpaths on
 # on all arguments seeing if we can expand them.
 # Radar 21045660 ibtool has difficulty dealing with relative paths.
-IBTOOLARGS=()
+TOOLARGS=()
 for i in $@; do
   if [ -e "$i" ]; then
-    IBTOOLARGS+=($(tools/objc/realpath "$i"))
+    ARG=$(tools/objc/realpath "$i")
+    TOOLARGS+=("$ARG")
   else
-    IBTOOLARGS+=($i)
+    TOOLARGS+=("$i")
   fi
 done
 
@@ -55,10 +58,13 @@ done
 # helps.
 /usr/bin/xcrun ibtool --errors --warnings --notices \
     --auto-activate-custom-fonts --output-format human-readable-text \
-    --compile "$FULLPATH" ${IBTOOLARGS[@]}
+    --compile "$FULLPATH" "${TOOLARGS[@]}"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.
 pushd "$TEMPDIR" > /dev/null
-zip -y -r -q "$OUTZIP" .
+# Reset all dates to Zip Epoch so that two identical zips created at different
+# times appear the exact same for comparison purposes.
+find . -exec touch -h -t 198001010000 {} \;
+zip --symlinks --recurse-paths --quiet "$OUTZIP" .
 popd > /dev/null

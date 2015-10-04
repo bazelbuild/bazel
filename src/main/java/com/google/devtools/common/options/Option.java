@@ -62,6 +62,9 @@ public @interface Option {
    * be a compile-time constant.)  This special interpretation of the string
    * "null" is only applicable when computing the default value; if specified
    * on the command-line, this string will have its usual literal meaning.
+   *
+   * <p>The default value for flags that set allowMultiple to true is always
+   * the empty list and the value in the annotation is ignored. 
    */
   String defaultValue();
 
@@ -90,6 +93,9 @@ public @interface Option {
    * converter for this option must either match the parameter {@code T} or
    * {@code List<T>}. In the latter case the individual lists are concatenated
    * to form the full options value.
+   *
+   * <p>The {@link #defaultValue()} field of the annotation is ignored for repeatable
+   * flags and the default value will be the empty list.
    */
   boolean allowMultiple() default false;
 

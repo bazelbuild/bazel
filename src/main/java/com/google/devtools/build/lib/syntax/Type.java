@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -544,7 +544,7 @@ public abstract class Type<T> {
       }
       int index = 0;
       Iterable<?> iterable = (Iterable<?>) x;
-      List<ElemT> result = Lists.newArrayListWithExpectedSize(Iterables.size(iterable));
+      List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
       for (Object elem : iterable) {
         ElemT converted = elemType.convert(elem, "element " + index + " of " + what, context);
         if (converted != null) {

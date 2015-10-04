@@ -82,7 +82,7 @@ function bootstrap_test() {
   run_silent ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} build \
       --fetch --nostamp \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-      //src:bazel //src:tools || return $?
+      //src:bazel || return $?
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
     get_outputs_sum >> ${BAZEL_SUM} || return $?

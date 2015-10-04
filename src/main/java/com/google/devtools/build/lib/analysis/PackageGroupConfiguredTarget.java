@@ -73,6 +73,6 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
 
   @Override
   public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    throw new IllegalStateException();
+    throw new UnsupportedOperationException();
   }
 }
