@@ -8,36 +8,26 @@
 
 ## Software Process ##
 
-The software process used in Bazel project is "Incremental development and delivery". After a brief conversation with the contributors of this project, they stated that the [Bazaar model] (https://en.wikipedia.org/wiki/The_Cathedral_and_the_Bazaar) is a good description of the software process used, and that usually falls under the Agile methodology category. They also claimed that Google uses OKRs for planning and expressing what the company, a team and each individual engineer wants to focus on in the next quarter. We can find a good presentation about this process on the [Google Ventures] (http://www.gv.com/lib/how-google-sets-goals-objectives-and-key-results-okrs) website.
+The software process used in Bazel project is "Incremental development and delivery". After a brief conversation with the contributors of this project, they stated that the [Bazaar model] (https://en.wikipedia.org/wiki/The_Cathedral_and_the_Bazaar) is a good description of the software process used, and that usually falls under the Agile methodology category. They also claimed that Google uses OKRs for planning and expressing what the company, a team and each individual engineer wants to focus on in the next quarter. A good presentation about this process can be found on the [Google Ventures] (http://www.gv.com/lib/how-google-sets-goals-objectives-and-key-results-okrs) website.
 Incremental development and delevery process constructs the system in increments and evaluates each increment before proceeding to the development of the next increment.
 
 ## Comment about Software Process used ##
 
+This process seems to be the more adequate and reliable to fullfil a project of this dimension. Since the number of contibutors is significalty high and the size of Google is large enough, some of the problems listed below are surpassed. 
+
 Benefits:
-* The cost of accommodating changing customer
-requirements is reduced.
-* Less documentation to change
-* Unstable requirements can be left for later stages of development
-* More frequent and early customer feedback
-* Customer value can be delivered with each increment so
-system functionality is available earlier.
-* Early increments act as a prototype to help elicit
-requirements for later increments.
-* Lower risk of overall project failure.
-* The highest priority system services tend to receive the
-most testing.
+* The cost of accommodating changing customer requirements is reduced.
+* Less documentation to change.
+* Unstable requirements can be left for later stages of development.
+* More frequent and early customer feedback.
+* Customer value can be delivered with each increment so system functionality is available earlier.
+* Early increments act as a prototype to help elicit requirements for later increments.
+* Low risk of overall project failure.
+* The highest priority system services tend to receive the most testing.
 
 Problems:
-* System structure tends to degrade as new increments are
-added.
-* Unless time and money is spent on refactoring to improve the
-software, regular change tends to corrupt its structure. Incorporating
+* System structure tends to degrade as new increments are added.
+* Unless time and money is spent on refactoring to improve the software, regular change tends to corrupt its structure. Incorporating
 further software changes becomes increasingly difficult and costly.
-* It can be hard to identify upfront common facilities that are
-needed by all increments, so level of reuse may be suboptimal.
-* Incremental delivery may not be possible for replacement
-systems as increments have less functionality than the system
-being replaced.
-* The nature of incremental development of the specification
-together with the software may be not be adequate for
-establishing a development contract at the begin.
+* It can be hard to identify upfront common facilities that are needed by all increments, so level of reuse may be suboptimal.
+* The nature of incremental development of the specification together with the software may be not be adequate for establishing a development contract at the begin.
