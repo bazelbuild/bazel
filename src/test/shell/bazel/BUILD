@@ -92,6 +92,12 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_objc_test",
+    srcs = ["bazel_objc_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],
