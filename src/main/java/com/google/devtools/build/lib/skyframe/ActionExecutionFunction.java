@@ -389,11 +389,15 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // Sadly, even if we discovered inputs, sometimes the action runs and discovers more inputs.
         // Technically, this means our pre-execution input discovery is buggy, but it turns out this
         // is impractical to fix.
-        // Any new inputs should already have been built -- this is a check that our input
-        // discovery code is not missing too much. It may have to be removed if further input
-        // discovery quirks are found.
-        Preconditions.checkState(!env.valuesMissing(), "%s %s %s",
-            action, metadataFoundDuringActionExecution, state);
+        if (env.valuesMissing()) {
+          // Any new inputs should already have been built -- this is a check that our input
+          // discovery code is not missing too much. It may have to be removed if further input
+          // discovery quirks are found.
+          Set<Artifact> missingArtifacts =
+              Maps.filterValues(metadataFoundDuringActionExecution, Predicates.isNull()).keySet();
+          throw new IllegalStateException(
+              "Missing artifacts: " + missingArtifacts + ", " + state + action);
+        }
         Set<FileArtifactValue> knownMetadata =
             ImmutableSet.copyOf(state.inputArtifactData.values());
         ImmutableSet.Builder<Artifact> discoveredInputBuilder =
