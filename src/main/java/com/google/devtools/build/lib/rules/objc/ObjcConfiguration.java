@@ -49,6 +49,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
+  private static final String IOS_SDK_VERSION_ENV_NAME = "IOS_SDK_VERSION_OVERRIDE";
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;
@@ -115,6 +116,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     if (xcodeVersionOverride.isPresent()) {
       builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
     }
+    builder.put(IOS_SDK_VERSION_ENV_NAME, iosSdkVersion);
     return builder.build();
   }
 

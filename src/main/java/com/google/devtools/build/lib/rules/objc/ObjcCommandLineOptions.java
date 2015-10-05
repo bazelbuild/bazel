@@ -48,7 +48,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     }
   }
 
-  // TODO(cparsons): Validate version flag value.
+  // TODO(bazel-team): Validate version flag value.
   @Option(name = "xcode_version",
       defaultValue = "",
       category = "undocumented",
@@ -57,7 +57,9 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       )
   public String xcodeVersion;
 
+  // TODO(bazel-team): Validate version flag value.
   @Option(name = "ios_sdk_version",
+      // TODO(bazel-team): Make this flag optional, and infer SDKROOT based on executor default.
       defaultValue = DEFAULT_SDK_VERSION,
       category = "build",
       help = "Specifies the version of the iOS SDK to use to build iOS applications."
