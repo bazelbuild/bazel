@@ -64,23 +64,29 @@ new_http_archive(
 # android_sdk_repository(
 #     name = "androidsdk",
 #     path = "/path/to/sdk",
+#     # Available versions are under build-tools/.
 #     build_tools_version = "21.1.1",
+#     # Available versions are under platforms/.
 #     api_level = 19,
 # )
 
 # android_ndk_repository(
 #     name = "androidndk",
 #     path = "/path/to/ndk",
-#     api_level = 19,
+#     api_level = 19,  # Set this to the SDK's api_level.
 # )
 
 bind(
     name = "android_sdk_for_testing",
+    # Uncomment and delete the //:dummy line to run integration tests.
+#   actual = "@androidsdk//:files",
     actual = "//:dummy",
 )
 
 bind(
     name = "android_ndk_for_testing",
+    # Uncomment and delete the //:dummy line to run integration tests.
+#   actual = "@androidndk//:files",
     actual = "//:dummy",
 )
 
