@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -170,7 +171,7 @@ public class CppOptions extends FragmentOptions {
   public boolean lipoCollector;
 
   @Option(name = "crosstool_top",
-          defaultValue = CppOptions.DEFAULT_CROSSTOOL_TARGET,
+          defaultValue = "null",
           category = "version",
           converter = LabelConverter.class,
           help = "The label of the crosstool package to be used for compiling C++ code.")
@@ -502,6 +503,12 @@ public class CppOptions extends FragmentOptions {
           + "will be shared among different targets")
   public boolean shareNativeDeps;
 
+  public Label crosstoolTop() {
+    return crosstoolTop == null
+        ? Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + DEFAULT_CROSSTOOL_TARGET)
+        : crosstoolTop;
+  }
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     CppOptions host = (CppOptions) getDefault();
@@ -544,7 +551,7 @@ public class CppOptions extends FragmentOptions {
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {
-    labelMap.put("crosstool", crosstoolTop);
+    labelMap.put("crosstool", crosstoolTop());
     if (hostCrosstoolTop != null) {
       labelMap.put("crosstool", hostCrosstoolTop);
     }
@@ -573,7 +580,7 @@ public class CppOptions extends FragmentOptions {
   @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
     Set<Label> crosstoolLabels = new LinkedHashSet<>();
-    crosstoolLabels.add(crosstoolTop);
+    crosstoolLabels.add(crosstoolTop());
     if (hostCrosstoolTop != null) {
       crosstoolLabels.add(hostCrosstoolTop);
     }

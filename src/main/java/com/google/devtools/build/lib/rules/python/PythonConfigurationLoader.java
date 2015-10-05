@@ -67,7 +67,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
     }
 
     CrosstoolConfig.CToolchain toolchain = getToolchain(
-        env, buildOptions, buildOptions.get(CppOptions.class).crosstoolTop);
+        env, buildOptions, buildOptions.get(CppOptions.class).crosstoolTop());
     if (toolchain == null) {
       return null;
     }

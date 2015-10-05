@@ -62,8 +62,8 @@ public class AndroidRepositoryRules {
           public Map<String, Label> apply(Rule rule) {
             ImmutableMap.Builder<String, Label> result = ImmutableMap.builder();
             for (String tool : TOOLS) {
-              result.put("android/" + tool,
-                  Label.parseAbsoluteUnchecked("@" + rule.getName() + "//tools/android:" + tool));
+              result.put("android/" + tool, Label.parseAbsoluteUnchecked(
+                  "@" + rule.getName() + "//tools/android:" + tool));
             }
 
             return result.build();

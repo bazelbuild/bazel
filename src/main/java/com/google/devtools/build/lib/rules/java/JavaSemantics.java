@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -79,7 +80,8 @@ public interface JavaSemantics {
   /**
    * Label to the Java Toolchain rule. It is resolved from a label given in the java options.
    */
-  static final String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
+  static final String JAVA_TOOLCHAIN_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:java_toolchain";
 
   public static final LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
@@ -106,33 +108,39 @@ public interface JavaSemantics {
    * Label of a pseudo-filegroup that contains all jdk files for all
    * configurations, as specified on the command-line.
    */
-  public static final String JDK_LABEL = "//tools/defaults:jdk";
+  public static final String JDK_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:jdk";
 
   /**
    * Label of a pseudo-filegroup that contains the boot-classpath entries.
    */
-  public static final String JAVAC_BOOTCLASSPATH_LABEL = "//tools/defaults:javac_bootclasspath";
+  public static final String JAVAC_BOOTCLASSPATH_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:javac_bootclasspath";
 
   /**
    * Label of the javac extdir used for compiling Java source code.
    */
-  public static final String JAVAC_EXTDIR_LABEL = "//tools/defaults:javac_extdir";
+  public static final String JAVAC_EXTDIR_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:javac_extdir";
 
   /**
    * Label of the JavaBuilder JAR used for compiling Java source code.
    */
-  public static final String JAVABUILDER_LABEL = "//tools/defaults:javabuilder";
+  public static final String JAVABUILDER_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:javabuilder";
 
   /**
    * Label of the SingleJar JAR used for creating deploy jars.
    */
-  public static final String SINGLEJAR_LABEL = "//tools/defaults:singlejar";
+  public static final String SINGLEJAR_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:singlejar";
 
   /**
    * Label of the GenClass JAR used for creating the jar for classes from sources generated from
    * annotation processors.
    */
-  public static final String GENCLASS_LABEL = "//tools/defaults:genclass";
+  public static final String GENCLASS_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/defaults:genclass";
 
   /**
    * Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be replaced by
@@ -188,7 +196,7 @@ public interface JavaSemantics {
         }
       };
 
-  public static final String IJAR_LABEL = "//tools/defaults:ijar";
+  public static final String IJAR_LABEL = Constants.TOOLS_REPOSITORY + "//tools/defaults:ijar";
 
   /**
    * Verifies if the rule contains and errors.

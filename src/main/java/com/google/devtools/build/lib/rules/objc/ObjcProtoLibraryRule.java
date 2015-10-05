@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -81,11 +82,11 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .singleArtifact()
-            .value(env.getLabel("//tools/objc:compile_protos")))
+            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:compile_protos")))
         .add(attr(PROTO_SUPPORT_ATTR, LABEL)
             .legacyAllowAnyFileType()
             .cfg(HOST)
-            .value(env.getLabel("//tools/objc:proto_support")))
+            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:proto_support")))
         .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
@@ -97,7 +98,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
               }
             }))
         .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-            .value(env.getLabel("//tools/objc:xcodegen")))
+            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:xcodegen")))
         .build();
   }
 

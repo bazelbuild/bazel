@@ -119,7 +119,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       return null;
     }
     Label crosstoolTopLabel = RedirectChaser.followRedirects(env,
-        options.get(CppOptions.class).crosstoolTop, "crosstool_top");
+        options.get(CppOptions.class).crosstoolTop(), "crosstool_top");
     if (crosstoolTopLabel == null) {
       return null;
     }

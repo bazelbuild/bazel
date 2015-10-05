@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -497,15 +498,15 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$plmerge", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:plmerge")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:plmerge")))
           .add(attr("$actoolwrapper", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:actoolwrapper")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:actoolwrapper")))
           .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:ibtoolwrapper")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:ibtoolwrapper")))
           // TODO(dmaclach): Adding realpath here should not be required once
           // https://github.com/bazelbuild/bazel/issues/285 is fixed.
           .add(attr("$realpath", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:realpath")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:realpath")))
           .build();
     }
     @Override
@@ -525,9 +526,9 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:xcodegen")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:xcodegen")))
           .add(attr("$dummy_source", LABEL)
-              .value(env.getLabel("//tools/objc:dummy.c")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:dummy.c")))
           .build();
     }
     @Override
@@ -771,7 +772,8 @@ public class ObjcRuleClasses {
               .cfg(HOST)
               .exec()
               .singleArtifact()
-              .value(env.getLabel("//tools/objc:j2objc_dead_code_pruner")))
+              .value(env.getLabel(
+                  Constants.TOOLS_REPOSITORY + "//tools/objc:j2objc_dead_code_pruner")))
         .build();
     }
     @Override
@@ -818,7 +820,7 @@ public class ObjcRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
-                              ? env.getLabel("//tools/objc:xctest_app")
+                              ? env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:xctest_app")
                               : null;
                         }
                       })
@@ -832,7 +834,8 @@ public class ObjcRuleClasses {
                         @Override
                         public Object getDefault(AttributeMap rule) {
                           return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
-                              ? env.getLabel("//tools/objc:xctest_infoplist")
+                              ? env.getLabel(
+                                  Constants.TOOLS_REPOSITORY + "//tools/objc:xctest_infoplist")
                               : null;
                         }
                       })
@@ -890,9 +893,10 @@ public class ObjcRuleClasses {
         .add(attr("families", STRING_LIST)
              .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
         .add(attr("$momcwrapper", LABEL).cfg(HOST).exec()
-            .value(env.getLabel("//tools/objc:momcwrapper")))
+            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:momcwrapper")))
         .add(attr("$swiftstdlibtoolwrapper", LABEL).cfg(HOST).exec()
-            .value(env.getLabel("//tools/objc:swiftstdlibtoolwrapper")))
+            .value(env.getLabel(
+                Constants.TOOLS_REPOSITORY + "//tools/objc:swiftstdlibtoolwrapper")))
         .build();
     }
     @Override
@@ -997,9 +1001,10 @@ public class ObjcRuleClasses {
                 }
               }))
           .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:bundlemerge")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:bundlemerge")))
           .add(attr("$environment_plist_sh", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:environment_plist.sh")))
+              .value(env.getLabel(
+                  Constants.TOOLS_REPOSITORY + "//tools/objc:environment_plist.sh")))
           .build();
     }
     @Override
@@ -1023,7 +1028,7 @@ public class ObjcRuleClasses {
           .add(attr("$iossim", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//third_party/iossim:iossim")))
           .add(attr("$std_redirect_dylib", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:StdRedirect.dylib")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:StdRedirect.dylib")))
           .build();
     }
     @Override

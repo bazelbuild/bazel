@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.Aspect;
@@ -70,13 +71,13 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
         .requireProvider(JavaSourceInfoProvider.class)
         .requireProvider(JavaCompilationArgsProvider.class)
         .add(attr("$j2objc", LABEL).cfg(HOST).exec()
-            .value(parseLabel("//tools/j2objc:j2objc_deploy.jar")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_deploy.jar")))
         .add(attr("$j2objc_wrapper", LABEL)
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .exec()
             .singleArtifact()
-            .value(parseLabel("//tools/j2objc:j2objc_wrapper")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_wrapper")))
         .build();
   }
 

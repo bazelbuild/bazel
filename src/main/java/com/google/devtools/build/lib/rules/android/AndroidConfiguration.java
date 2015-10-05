@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
@@ -40,6 +41,21 @@ import java.util.List;
  * Configuration fragment for Android rules.
  */
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
+
+  /** Converter for --android_crosstool_top. */
+  public static class AndroidCrosstoolTopConverter extends DefaultLabelConverter {
+    public AndroidCrosstoolTopConverter() {
+      super(Constants.ANDROID_DEFAULT_CROSSTOOL);
+    }
+  }
+
+  /** Converter for --android_sdk. */
+  public static class AndroidSdkConverter extends DefaultLabelConverter {
+    public AndroidSdkConverter() {
+      super(Constants.ANDROID_DEFAULT_SDK);
+    }
+  }
+
   /**
    * Value used to avoid multiple configurations from conflicting.
    *
@@ -92,9 +108,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean incrementalNativeLibs;
 
     @Option(name = "android_crosstool_top",
-        defaultValue = "null",
+        defaultValue = "",
         category = "semantics",
-        converter = LabelConverter.class,
+        converter = AndroidCrosstoolTopConverter.class,
         help = "The location of the C++ compiler used for Android builds.")
     public Label androidCrosstoolTop;
 
@@ -116,9 +132,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
     @Option(name = "android_sdk",
-            defaultValue = "null",
+            defaultValue = "",
             category = "version",
-            converter = LabelConverter.class,
+            converter = AndroidSdkConverter.class,
             help = "Specifies Android SDK/platform that is used to build Android applications.")
     public Label sdk;
 
@@ -177,37 +193,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         labelMap.put("android_proguard", proguard);
       }
 
-      if (realAndroidCrosstoolTop() != null) {
-        labelMap.put("android_crosstool_top", realAndroidCrosstoolTop());
-      }
-
-      labelMap.put("android_sdk", realSdk());
-    }
-
-    // This method is here because Constants.ANDROID_DEFAULT_SDK cannot be a constant, because we
-    // replace the class file in the .jar after compilation. However, that means that we cannot use
-    // it as an attribute value in an annotation.
-    private Label realSdk() {
-      return sdk == null
-          ? Label.parseAbsoluteUnchecked(Constants.ANDROID_DEFAULT_SDK)
-          : sdk;
-    }
-
-    // This method is here because Constants.ANDROID_DEFAULT_CROSSTOOL cannot be a constant, because
-    // we replace the class file in the .jar after compilation. However, that means that we cannot
-    // use it as an attribute value in an annotation.
-    public Label realAndroidCrosstoolTop() {
       if (androidCrosstoolTop != null) {
-        return androidCrosstoolTop;
+        labelMap.put("android_crosstool_top", androidCrosstoolTop);
       }
 
-      if (Constants.ANDROID_DEFAULT_CROSSTOOL.equals("null")) {
-        return null;
-      }
-
-      return Label.parseAbsoluteUnchecked(Constants.ANDROID_DEFAULT_CROSSTOOL);
+      labelMap.put("android_sdk", sdk);
     }
 
+    // This method is here because Constants.ANDROID_DEFAULT_FAT_APK_CPUS cannot be a constant
+    // because we replace the class file in the .jar after compilation. However, that means that we
+    // cannot use it as an attribute value in an annotation.
     public List<String> realFatApkCpus() {
       if (fatApkCpus.isEmpty()) {
         return Constants.ANDROID_DEFAULT_FAT_APK_CPUS;
@@ -260,7 +255,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean jackSanityChecks;
 
   AndroidConfiguration(Options options) {
-    this.sdk = options.realSdk();
+    this.sdk = options.sdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;

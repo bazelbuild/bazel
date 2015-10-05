@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -69,7 +70,8 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$ijar", LABEL).cfg(HOST).exec().value(env.getLabel("//tools/defaults:ijar")))
+          .add(attr("$ijar", LABEL).cfg(HOST).exec().value(env.getLabel(
+              Constants.TOOLS_REPOSITORY + "//tools/defaults:ijar")))
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();
     }
@@ -97,7 +99,7 @@ public class BazelJavaRuleClasses {
           .add(attr("$javac_extdir", LABEL).cfg(HOST)
               .value(env.getLabel(JavaSemantics.JAVAC_EXTDIR_LABEL)))
           .add(attr("$java_langtools", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/defaults:java_langtools")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/defaults:java_langtools")))
           .add(attr("$javac_bootclasspath", LABEL).cfg(HOST)
               .value(env.getLabel(JavaSemantics.JAVAC_BOOTCLASSPATH_LABEL)))
           .add(attr("$javabuilder", LABEL).cfg(HOST)

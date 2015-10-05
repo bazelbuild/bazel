@@ -180,12 +180,12 @@ public final class AndroidRuleClasses {
           output.get(AndroidConfiguration.Options.class);
 
       CppOptions cppOptions = output.get(CppOptions.class);
-      if (inputAndroidOptions.realAndroidCrosstoolTop() != null
-          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.realAndroidCrosstoolTop())) {
+      if (inputAndroidOptions.androidCrosstoolTop != null
+          && !cppOptions.crosstoolTop().equals(inputAndroidOptions.androidCrosstoolTop)) {
         if (cppOptions.hostCrosstoolTop == null) {
           cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
         }
-        cppOptions.crosstoolTop = inputAndroidOptions.realAndroidCrosstoolTop();
+        cppOptions.crosstoolTop = inputAndroidOptions.androidCrosstoolTop;
       }
 
       outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
@@ -196,9 +196,10 @@ public final class AndroidRuleClasses {
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
       CppOptions cppOptions = buildOptions.get(CppOptions.class);
-      Label androidCrosstoolTop = androidOptions.realAndroidCrosstoolTop();
+      Label androidCrosstoolTop = androidOptions.androidCrosstoolTop;
       if (androidOptions.realFatApkCpus().isEmpty()
-          && (androidCrosstoolTop == null || androidCrosstoolTop.equals(cppOptions.crosstoolTop))) {
+          && (androidCrosstoolTop == null
+          || androidCrosstoolTop.equals(cppOptions.crosstoolTop()))) {
         return ImmutableList.of();
       }
 
@@ -330,7 +331,8 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(ANY_FILE)
                   // TODO(bazel-team): Remove defaults and make mandatory when android_sdk targets
                   // have been updated to include manually specified Jack attributes.
-                  .value(environment.getLabel("//tools/android/jack:android_jack")))
+                  .value(environment.getLabel(
+                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:android_jack")))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -340,19 +342,22 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel("//tools/android/jack:jack")))
+                  .value(environment.getLabel(
+                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:jack")))
           .add(
               attr("jill", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel("//tools/android/jack:jill")))
+                  .value(environment.getLabel(
+                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:jill")))
           .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel("//tools/android/jack:resource_extractor")))
+                  .value(environment.getLabel(
+                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:resource_extractor")))
           .build();
     }
 
