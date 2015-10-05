@@ -260,9 +260,7 @@ public abstract class DependencyResolver {
     } else {
       attributes = new ArrayList<>();
       attributes.addAll(rule.getRuleClassObject().getAttributes());
-      if (aspect != null) {
-        attributes.addAll(aspect.getAttributes().values());
-      }
+      attributes.addAll(aspect.getAttributes().values());
     }
 
     ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> result =
