@@ -1244,70 +1244,6 @@ public final class RuleClass {
     rule.checkValidityPredicate(eventHandler);
   }
 
-  static class ParsedAttributeValue {
-    private final boolean explicitlySpecified;
-    private final Object value;
-    private final Location location;
-
-    ParsedAttributeValue(boolean explicitlySpecified, Object value, Location location) {
-      this.explicitlySpecified = explicitlySpecified;
-      this.value = value;
-      this.location = location;
-    }
-
-    public boolean getExplicitlySpecified() {
-      return explicitlySpecified;
-    }
-
-    public Object getValue() {
-      return value;
-    }
-
-    public Location getLocation() {
-      return location;
-    }
-  }
-
-  /**
-   * Creates a rule with the attribute values that are already parsed.
-   *
-   * <p><b>WARNING:</b> This assumes that the attribute values here have the right type and
-   * bypasses some sanity checks. If they are of the wrong type, everything will come down burning.
-   */
-  @SuppressWarnings("unchecked")
-  Rule createRuleWithParsedAttributeValues(Label label,
-      Package.Builder pkgBuilder, Location ruleLocation,
-      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler,
-      AttributeContainer attributeContainer)
-          throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, this, null, ruleLocation,
-        attributeContainer);
-    rule.checkValidityPredicate(eventHandler);
-
-    for (Attribute attribute : rule.getRuleClassObject().getAttributes()) {
-      ParsedAttributeValue value = attributeValues.get(attribute.getName());
-      if (attribute.isMandatory()) {
-        Preconditions.checkState(value != null);
-      }
-
-      if (value == null) {
-        continue;
-      }
-
-      rule.setAttributeValue(attribute, value.getValue(), value.getExplicitlySpecified());
-      checkAllowedValues(rule, attribute, eventHandler);
-
-      if (attribute.getName().equals("visibility")) {
-        // TODO(bazel-team): Verify that this cast works
-        rule.setVisibility(PackageFactory.getVisibility((List<Label>) value.getValue()));
-      }
-    }
-
-    rule.populateOutputFiles(eventHandler, pkgBuilder);
-    Preconditions.checkState(!rule.containsErrors());
-    return rule;
-  }
-
   /**
    * Populates the attributes table of new rule "rule" from the
    * "attributeValues" mapping from attribute names to values in the build
@@ -1597,7 +1533,7 @@ public final class RuleClass {
    * <p>If the rule is configurable, all of its potential values are evaluated, and errors for each
    * of the invalid values are reported.
    */
-  private void checkAllowedValues(Rule rule, Attribute attribute, EventHandler eventHandler) {
+  void checkAllowedValues(Rule rule, Attribute attribute, EventHandler eventHandler) {
     if (attribute.checkAllowedValues()) {
       PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
       Iterable<?> values =

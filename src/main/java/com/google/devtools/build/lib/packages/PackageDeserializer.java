@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Package.Builder.GeneratedLabelConflict;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
@@ -176,7 +176,7 @@ public class PackageDeserializer {
 
     Label ruleLabel = deserializeLabel(rulePb.getName());
     try {
-      Rule rule = ruleClass.createRuleWithParsedAttributeValues(
+      Rule rule = createRuleWithParsedAttributeValues(ruleClass,
           ruleLabel, context.packageBuilder, ruleLocation, attributeValues,
           NullEventHandler.INSTANCE, new AttributeContainerWithoutLocation(ruleClass));
       context.packageBuilder.addRule(rule);
@@ -644,4 +644,55 @@ public class PackageDeserializer {
     }
   }
 
+  /**
+   * Creates a rule with the attribute values that are already parsed.
+   *
+   * <p><b>WARNING:</b> This assumes that the attribute values here have the right type and
+   * bypasses some sanity checks. If they are of the wrong type, everything will come down burning.
+   */
+  @SuppressWarnings("unchecked")
+  private static Rule createRuleWithParsedAttributeValues(RuleClass ruleClass, Label label,
+      Package.Builder pkgBuilder, Location ruleLocation,
+      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler,
+      AttributeContainer attributeContainer)
+      throws LabelSyntaxException, InterruptedException {
+    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, ruleClass, null, ruleLocation,
+        attributeContainer);
+    rule.checkValidityPredicate(eventHandler);
+
+    for (Attribute attribute : rule.getRuleClassObject().getAttributes()) {
+      ParsedAttributeValue value = attributeValues.get(attribute.getName());
+      if (attribute.isMandatory()) {
+        Preconditions.checkState(value != null);
+      }
+
+      if (value == null) {
+        continue;
+      }
+
+      rule.setAttributeValue(attribute, value.value, value.explicitlySpecified);
+      ruleClass.checkAllowedValues(rule, attribute, eventHandler);
+
+      if (attribute.getName().equals("visibility")) {
+        // TODO(bazel-team): Verify that this cast works
+        rule.setVisibility(PackageFactory.getVisibility((List<Label>) value.value));
+      }
+    }
+
+    rule.populateOutputFiles(eventHandler, pkgBuilder);
+    Preconditions.checkState(!rule.containsErrors());
+    return rule;
+  }
+
+  private static class ParsedAttributeValue {
+    private final boolean explicitlySpecified;
+    private final Object value;
+    private final Location location;
+
+    private ParsedAttributeValue(boolean explicitlySpecified, Object value, Location location) {
+      this.explicitlySpecified = explicitlySpecified;
+      this.value = value;
+      this.location = location;
+    }
+  }
 }
