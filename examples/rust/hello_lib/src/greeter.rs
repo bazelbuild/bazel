@@ -60,3 +60,14 @@ impl Greeter {
         println!("{} {}", &self.greeting, thing);
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Greeter;
+
+    #[test]
+    fn test_greeting() {
+        let hello = Greeter::new("Hi");
+        assert_eq!("Hi Rust", hello.greeting("Rust"));
+    }
+}
