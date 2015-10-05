@@ -37,7 +37,7 @@ import java.util.EnumMap;
  */
 public final class HtmlCreator extends HtmlPrinter {
 
-  private final Chart chart;
+  private final Optional<Chart> chart;
   private final HtmlChartVisitor chartVisitor;
   private final Optional<SkylarkHtml> skylarkStats;
   private final String title;
@@ -46,21 +46,32 @@ public final class HtmlCreator extends HtmlPrinter {
   private HtmlCreator(
       PrintStream out,
       String title,
-      Chart chart,
+      Optional<Chart> chart,
       Optional<SkylarkHtml> skylarkStats,
       int htmlPixelsPerSecond,
       PhaseHtml phases) {
     super(out);
     this.title = title;
     this.chart = chart;
-    chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
     this.skylarkStats = skylarkStats;
     this.phases = phases;
+    chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
+  }
+
+  public HtmlCreator(
+      PrintStream out,
+      String title,
+      Optional<SkylarkHtml> skylarkStats,
+      int htmlPixelsPerSecond,
+      PhaseHtml phases) {
+    this(out, title, Optional.<Chart>absent(), skylarkStats, htmlPixelsPerSecond, phases);
   }
 
   private void print() {
     htmlFrontMatter();
-    chart.accept(chartVisitor);
+    if (chart.isPresent()) {
+      chart.get().accept(chartVisitor);
+    }
 
     element("a", "name", "Statistics");
     element("h2", "Statistics");
@@ -76,7 +87,9 @@ public final class HtmlCreator extends HtmlPrinter {
     lnOpen("html");
     lnOpen("head");
     lnElement("title", title);
-    chartVisitor.printCss(chart.getSortedTypes());
+    if (chart.isPresent()) {
+      chartVisitor.printCss(chart.get().getSortedTypes());
+    }
 
     phases.printCss();
 
@@ -106,20 +119,27 @@ public final class HtmlCreator extends HtmlPrinter {
       EnumMap<ProfilePhase, PhaseStatistics> statistics,
       boolean detailed,
       int htmlPixelsPerSecond,
-      int vfsStatsLimit)
+      int vfsStatsLimit,
+      boolean generateChart,
+      boolean generateHistograms)
       throws IOException {
     try (PrintStream out = new PrintStream(new BufferedOutputStream(htmlFile.getOutputStream()))) {
-      ChartCreator chartCreator;
       PhaseHtml phaseHtml = new PhaseHtml(out, phaseSummaryStats, statistics, vfsStatsLimit);
-      Optional<SkylarkHtml> skylarkStats;
+      Optional<SkylarkHtml> skylarkStats = Optional.absent();
+      Optional<Chart> chart = Optional.absent();
       if (detailed) {
-        skylarkStats = Optional.of(new SkylarkHtml(out, new SkylarkStatistics(info)));
-        chartCreator = new DetailedChartCreator(info);
-      } else {
-        chartCreator = new AggregatingChartCreator(info);
-        skylarkStats = Optional.absent();
+        skylarkStats =
+            Optional.of(new SkylarkHtml(out, new SkylarkStatistics(info), generateHistograms));
       }
-      Chart chart = chartCreator.create();
+      if (generateChart) {
+        ChartCreator chartCreator;
+        if (detailed) {
+          chartCreator = new DetailedChartCreator(info);
+        } else {
+          chartCreator = new AggregatingChartCreator(info);
+        }
+        chart = Optional.of(chartCreator.create());
+      }
       new HtmlCreator(out, info.comment, chart, skylarkStats, htmlPixelsPerSecond, phaseHtml)
           .print();
     }

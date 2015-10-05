@@ -65,6 +65,15 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   public static class ProfileOptions extends OptionsBase {
+    @Option(
+      name = "chart",
+      defaultValue = "true",
+      help =
+          "If --nochart is present, do not include the task chart with --html_details."
+              + " The default is --chart."
+    )
+    public boolean chart;
+
     @Option(name = "dump",
         abbrev='d',
         converter = DumpConverter.class,
@@ -95,6 +104,16 @@ public final class ProfileCommand implements BlazeCommand {
               + "is to generate an aggregated diagram."
     )
     public boolean htmlDetails;
+
+    @Option(
+      name = "html_histograms",
+      defaultValue = "false",
+      help =
+          "If --html_histograms and --html_details is present, the HTML output will display"
+              + " histograms for Skylark functions clicked in the statistics table. This will"
+              + " increase file size massively."
+    )
+    public boolean htmlHistograms;
 
     @Option(
       name = "task_tree",
@@ -194,7 +213,9 @@ public final class ProfileCommand implements BlazeCommand {
                 phaseStatistics,
                 opts.htmlDetails,
                 opts.htmlPixelsPerSecond,
-                opts.vfsStatsLimit);
+                opts.vfsStatsLimit,
+                opts.chart,
+                opts.htmlHistograms);
           } else {
             CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
             new PhaseText(

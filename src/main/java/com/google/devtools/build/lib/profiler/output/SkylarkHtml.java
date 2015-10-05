@@ -35,10 +35,16 @@ public final class SkylarkHtml extends HtmlPrinter {
   private static final int NUM_LOCATION_CHARS_UNABBREVIATED = 40;
 
   private final SkylarkStatistics stats;
+  private final boolean printHistograms;
 
   public SkylarkHtml(PrintStream out, SkylarkStatistics stats) {
+    this(out, stats, true);
+  }
+
+  public SkylarkHtml(PrintStream out, SkylarkStatistics stats, boolean printHistograms) {
     super(out);
     this.stats = stats;
+    this.printHistograms = printHistograms;
   }
 
   /**
@@ -80,26 +86,31 @@ public final class SkylarkHtml extends HtmlPrinter {
         tableVar,
         stats.getBuiltinTotalNanos());
 
-    printHistogramData();
+    if (printHistograms) {
+      printHistogramData();
 
-    lnPrint("document.querySelector('#user-close').onclick = function() {");
-    lnPrint("  document.querySelector('#user-histogram').style.display = 'none';");
-    lnPrint("};");
-    lnPrint("document.querySelector('#builtin-close').onclick = function() {");
-    lnPrint("  document.querySelector('#builtin-histogram').style.display = 'none';");
-    lnPrint("};");
+      lnPrint("document.querySelector('#user-close').onclick = function() {");
+      lnPrint("  document.querySelector('#user-histogram').style.display = 'none';");
+      lnPrint("};");
+      lnPrint("document.querySelector('#builtin-close').onclick = function() {");
+      lnPrint("  document.querySelector('#builtin-histogram').style.display = 'none';");
+      lnPrint("};");
+    }
+
     up();
     lnPrint("};");
 
-    lnPrint("var options = {");
-    down();
-    lnPrint("isStacked: true,");
-    lnPrint("legend: { position: 'none' },");
-    lnPrint("hAxis: { },");
-    lnPrint("histogram: { lastBucketPercentile: 5 },");
-    lnPrint("vAxis: { title: '# calls', viewWindowMode: 'pretty', gridlines: { count: -1 } }");
-    up();
-    lnPrint("};");
+    if (printHistograms) {
+      lnPrint("var options = {");
+      down();
+      lnPrint("isStacked: true,");
+      lnPrint("legend: { position: 'none' },");
+      lnPrint("hAxis: { },");
+      lnPrint("histogram: { lastBucketPercentile: 5 },");
+      lnPrint("vAxis: { title: '# calls', viewWindowMode: 'pretty', gridlines: { count: -1 } }");
+      up();
+      lnPrint("};");
+    }
 
     lnPrint("function selectHandler(category) {");
     down();
@@ -110,15 +121,22 @@ public final class SkylarkHtml extends HtmlPrinter {
     lnPrint("var item = selection[0];");
     lnPrintf("var loc = %s[category].getValue(item.row, 0);", dataVar);
     lnPrintf("var func = %s[category].getValue(item.row, 1);", dataVar);
-    lnPrint("var key = loc + '#' + func;");
-    lnPrint("var histData = histogramData[category][key];");
-    lnPrint("var fnOptions = JSON.parse(JSON.stringify(options));");
-    lnPrint("fnOptions.title = loc + ' - ' + func;");
-    lnPrint("var chartDiv = document.getElementById(category+'-chart');");
-    lnPrint("var chart = new google.visualization.Histogram(chartDiv);");
     lnPrint("var histogramDiv = document.getElementById(category+'-histogram');");
-    lnPrint("histogramDiv.style.display = 'block';");
-    lnPrint("chart.draw(histData, fnOptions);");
+    if (printHistograms) {
+      lnPrint("var key = loc + '#' + func;");
+      lnPrint("var histData = histogramData[category][key];");
+      lnPrint("var fnOptions = JSON.parse(JSON.stringify(options));");
+      lnPrint("fnOptions.title = loc + '#' + func;");
+      lnPrint("var chartDiv = document.getElementById(category+'-chart');");
+      lnPrint("var chart = new google.visualization.Histogram(chartDiv);");
+      lnPrint("histogramDiv.style.display = 'block';");
+      lnPrint("chart.draw(histData, fnOptions);");
+    } else {
+      lnPrint("var chartDiv = document.getElementById(category+'-chart');");
+      lnPrint("chartDiv.innerHTML = '<h3>' + loc + '#' + func + '</h3>';");
+      lnPrint("chartDiv.style.height = 'auto';");
+      lnPrint("histogramDiv.style.display = 'block';");
+    }
     up();
     lnPrint("}");
     up();
@@ -228,14 +246,14 @@ public final class SkylarkHtml extends HtmlPrinter {
     lnElement("h4", "User-Defined function execution time");
     lnOpen("div", "class", "skylark-histogram", "id", "user-histogram");
     lnElement("div", "class", "skylark-chart", "id", "user-chart");
-    lnElement("button", "id", "user-close", "Hide histogram");
+    lnElement("button", "id", "user-close", "Hide");
     lnClose(); // div user-histogram
     lnElement("div", "class", "skylark-table", "id", "user_function_stats");
 
     lnElement("h4", "Builtin function execution time");
     lnOpen("div", "class", "skylark-histogram", "id", "builtin-histogram");
     lnElement("div", "class", "skylark-chart", "id", "builtin-chart");
-    lnElement("button", "id", "builtin-close", "Hide histogram");
+    lnElement("button", "id", "builtin-close", "Hide");
     lnClose(); // div builtin-histogram
     lnElement("div", "class", "skylark-table", "id", "builtin_function_stats");
   }
