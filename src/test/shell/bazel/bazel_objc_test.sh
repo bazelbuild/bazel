@@ -61,12 +61,42 @@ EOF
 </plist>
 EOF
 
+  cat >ios/PassTest-Info.plist <<EOF
+<plist version="1.0">
+<dict>
+        <key>CFBundleExecutable</key>
+        <string>PassingXcTest</string>
+</dict>
+</plist>
+EOF
+
+  cat >ios/passtest.m <<EOF
+#import <XCTest/XCTest.h>
+
+@interface PassingXcTest : XCTestCase
+
+@end
+
+@implementation PassingXcTest
+
+- (void)testPass {
+  XCTAssertEqual(1, 1, @"should pass");
+}
+
+@end
+EOF
+
   cat >ios/BUILD <<EOF
 objc_binary(name = "bin",
             non_arc_srcs = ['app.m'])
 ios_application(name = "app",
                 binary = ':bin',
                 infoplist = 'App-Info.plist')
+ios_test(name = 'PassingXcTest',
+         srcs = ['passtest.m'],
+         infoplist = "PassTest-Info.plist",
+         xctest = True,
+         xctest_app = ':app')
 EOF
 }
 
@@ -78,6 +108,18 @@ function test_build_app() {
       //ios:app >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
+}
+
+function test_ios_test() {
+  setup_objc_test_support
+  make_app
+
+  bazel build --test_output=all //ios:PassingXcTest >$TEST_log 2>&1 \
+      || fail "should pass"
+  ls bazel-bin/ios/PassingXcTest.xcodeproj \
+      || fail "should generate PassingXcTest.xcodeproj"
+  ls bazel-bin/ios/PassingXcTest.ipa \
+      || fail "should generate PassingXcTest.ipa"
 }
 
 run_suite "objc/ios test suite"

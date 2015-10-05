@@ -47,11 +47,12 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//tools/objc/sim_devices:BUILD"],
 )
 
 filegroup(
     name = "testrunner",
+    srcs = [":testrunner_stub"],
 )
 
 sh_binary(
