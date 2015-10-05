@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 /**
  * Class which encodes information from the Android NDK makefiles about API levels. 
  */
-class ApiLevel {
+public class ApiLevel {
 
   /**
    * Maps an Android API level to the architectures that that level supports.
@@ -107,7 +107,7 @@ class ApiLevel {
 
   private final String correctedApiLevel;
 
-  ApiLevel(EventHandler eventHandler, String repositoryName, String apiLevel) {
+  public ApiLevel(EventHandler eventHandler, String repositoryName, String apiLevel) {
     this.correctedApiLevel = getCorrectedApiLevel(eventHandler, repositoryName, apiLevel);
   }
 

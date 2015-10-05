@@ -34,7 +34,7 @@ public class AndroidNdkCrosstools {
 
   // TODO(bazel-team): Support future versions of the NDK.
   private static final String KNOWN_NDK_REVISION = "r10e";
-  
+
   /**
    * Exception thrown when there is an error creating the crosstools file.
    */
@@ -43,6 +43,8 @@ public class AndroidNdkCrosstools {
       super(msg);
     }
   }
+
+  private AndroidNdkCrosstools() {}
 
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
@@ -60,9 +62,14 @@ public class AndroidNdkCrosstools {
    * @return A CrosstoolRelease for the Android NDK.
    * @throws NdkCrosstoolsException If the crosstool could not be created.
    */
-  public static CrosstoolRelease createCrosstoolRelease(
-      EventHandler eventHandler, String repositoryName, String apiLevel, NdkRelease ndkRelease)
-          throws NdkCrosstoolsException {
+  public static CrosstoolRelease create(
+      EventHandler eventHandler,
+      NdkPaths ndkPaths,
+      String repositoryName,
+      ApiLevel apiLevel,
+      NdkRelease ndkRelease,
+      StlImpl stlImpl,
+      String hostPlatform) throws NdkCrosstoolsException {
 
     // Check that the Android NDK revision is both valid and one we know about. 
     if (!ndkRelease.isValid) {
@@ -83,26 +90,24 @@ public class AndroidNdkCrosstools {
           KNOWN_NDK_REVISION, repositoryName, ndkRelease.release)));
     }
 
-    return CrosstoolRelease.newBuilder()
+    CrosstoolRelease crosstoolRelease = CrosstoolRelease.newBuilder()
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
-        .addAllDefaultToolchain(getDefaultCpuToolchains())
-        .addAllToolchain(createToolchains(eventHandler, repositoryName, apiLevel, ndkRelease))
+        .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
+        .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
         .build();
+
+    return crosstoolRelease;
   }
 
   private static ImmutableList<CToolchain> createToolchains(
-      EventHandler eventHandler, String repositoryName, String apiLevel, NdkRelease ndkRelease)
-          throws NdkCrosstoolsException {
-
-    String hostPlatform = getHostPlatform(ndkRelease);
-    NdkPaths ndkPaths = new NdkPaths(eventHandler, repositoryName, hostPlatform, apiLevel);
+      NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
 
     List<CToolchain.Builder> toolchainBuilders = new ArrayList<>();
-    toolchainBuilders.addAll(new ArmCrosstools(ndkPaths).createCrosstools());
-    toolchainBuilders.addAll(new MipsCrosstools(ndkPaths).createCrosstools());
-    toolchainBuilders.addAll(new X86Crosstools(ndkPaths).createCrosstools());
+    toolchainBuilders.addAll(new ArmCrosstools(ndkPaths, stlImpl).createCrosstools());
+    toolchainBuilders.addAll(new MipsCrosstools(ndkPaths, stlImpl).createCrosstools());
+    toolchainBuilders.addAll(new X86Crosstools(ndkPaths, stlImpl).createCrosstools());
 
     ImmutableList.Builder<CToolchain> toolchains = new ImmutableList.Builder<>();
 
@@ -117,93 +122,45 @@ public class AndroidNdkCrosstools {
       // builtin_sysroot is set individually on each toolchain.
       toolchainBuilder.addCxxBuiltinIncludeDirectory("%sysroot%/usr/include");
 
-      // Add a toolchain for each available STL implementation.
-      for (CToolchain.Builder builder : createStlImpls(toolchainBuilder, ndkPaths)) {
-        toolchains.add(builder.build());
-      }
+      toolchains.add(toolchainBuilder.build());
     }
 
     return toolchains.build();
   }
 
-  /**
-   * Creates a list of CToolchain builders for each STL implementation available in the NDK based
-   * on the given CToolchain builder. 
-   */
-  private static ImmutableList<CToolchain.Builder> createStlImpls(
-      CToolchain.Builder builder, NdkPaths ndkPaths) {
-    ImmutableList.Builder<CToolchain.Builder> toolchains = ImmutableList.builder();
-    
-    CToolchain baseToolchain = builder.build();
+  private static ImmutableList<DefaultCpuToolchain> getDefaultCpuToolchains(StlImpl stlImpl) {
+    // TODO(bazel-team): It would be better to auto-generate this somehow.
 
-    // Extract the gcc version from the compiler, which should look like "gcc-4.8" or "gcc-4.9".
-    String gccVersion = baseToolchain.getCompiler().split("-")[1];
-
-    toolchains.add(
-        CToolchain.newBuilder(baseToolchain)
-            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-gnu-libstdcpp")
-            .addAllUnfilteredCxxFlag(
-                createIncludeFlags(
-                    ndkPaths.createGnuLibstdcIncludePaths(
-                        gccVersion, baseToolchain.getTargetCpu())))
-            .setStaticRuntimesFilegroup(
-                baseToolchain.getStaticRuntimesFilegroup() + "-gnu-libstdcpp")
-            .setDynamicRuntimesFilegroup(
-                baseToolchain.getDynamicRuntimesFilegroup() + "-gnu-libstdcpp"));
-
-    toolchains.add(
-        CToolchain.newBuilder(baseToolchain)
-            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-libcpp")
-            .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()))
-            .setStaticRuntimesFilegroup(baseToolchain.getStaticRuntimesFilegroup() + "-libcpp")
-            .setDynamicRuntimesFilegroup(baseToolchain.getDynamicRuntimesFilegroup() + "-libcpp"));
-
-    toolchains.add(
-        CToolchain.newBuilder(baseToolchain)
-            .setToolchainIdentifier(baseToolchain.getToolchainIdentifier() + "-stlport")
-            .addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths()))
-            .setStaticRuntimesFilegroup(baseToolchain.getStaticRuntimesFilegroup() + "-stlport")
-            .setDynamicRuntimesFilegroup(baseToolchain.getDynamicRuntimesFilegroup() + "-stlport"));
-
-    return toolchains.build();
-  }
-
-  private static Iterable<String> createIncludeFlags(Iterable<String> includePaths) {
-    ImmutableList.Builder<String> includeFlags = ImmutableList.builder();
-    for (String includePath : includePaths) {
-      includeFlags.add("-isystem");
-      includeFlags.add(includePath);
-    }
-    return includeFlags.build();
-  }
-
-  private static ImmutableList<DefaultCpuToolchain> getDefaultCpuToolchains() {
-    // TODO(bazel-team): It would be better to generate this somehow.
     ImmutableMap<String, String> defaultCpus = ImmutableMap.<String, String>builder()
-        .put("armeabi", "arm-linux-androideabi-4.9-gnu-libstdcpp")
-        .put("armeabi-v7a", "arm-linux-androideabi-4.9-v7a-gnu-libstdcpp")
-        .put("armeabi-v7a-hard", "arm-linux-androideabi-4.9-v7a-hard-gnu-libstdcpp")
-        .put("armeabi-thumb", "arm-linux-androideabi-4.9-thumb-gnu-libstdcpp")
-        .put("armeabi-v7a-thumb", "arm-linux-androideabi-4.9-v7a-thumb-gnu-libstdcpp")
-        .put("armeabi-v7a-hard-thumb", "arm-linux-androideabi-4.9-v7a-hard-thumb-gnu-libstdcpp")
-        .put("arm64-v8a", "aarch64-linux-android-4.9-gnu-libstdcpp")
-        .put("mips", "mipsel-linux-android-4.9-gnu-libstdcpp")
-        .put("mips64", "mips64el-linux-android-4.9-gnu-libstdcpp")
-        .put("x86", "x86-4.9-gnu-libstdcpp")
-        .put("x86_64", "x86_64-4.9-gnu-libstdcpp")
+        // arm
+        .put("armeabi",                "arm-linux-androideabi-4.9")
+        .put("armeabi-v7a",            "arm-linux-androideabi-4.9-v7a")
+        .put("armeabi-v7a-hard",       "arm-linux-androideabi-4.9-v7a-hard")
+        .put("armeabi-thumb",          "arm-linux-androideabi-4.9-thumb")
+        .put("armeabi-v7a-thumb",      "arm-linux-androideabi-4.9-v7a-thumb")
+        .put("armeabi-v7a-hard-thumb", "arm-linux-androideabi-4.9-v7a-hard-thumb")
+        .put("arm64-v8a",              "aarch64-linux-android-4.9")
+
+        // mips
+        .put("mips",                   "mipsel-linux-android-4.9")
+        .put("mips64",                 "mips64el-linux-android-4.9")
+
+        // x86
+        .put("x86",                    "x86-4.9")
+        .put("x86_64",                 "x86_64-4.9")
         .build();
 
     ImmutableList.Builder<DefaultCpuToolchain> defaultCpuToolchains = ImmutableList.builder();
-    for (Entry<String, String> entry : defaultCpus.entrySet()) {
+    for (Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
       defaultCpuToolchains.add(DefaultCpuToolchain.newBuilder()
-          .setCpu(entry.getKey())
-          .setToolchainIdentifier(entry.getValue())
+          .setCpu(defaultCpu.getKey())
+          .setToolchainIdentifier(defaultCpu.getValue() + "-" + stlImpl.getName())
           .build());
     }
     return defaultCpuToolchains.build();
   }
 
-  private static String getHostPlatform(NdkRelease ndkRelease) throws NdkCrosstoolsException {
+  public static String getHostPlatform(NdkRelease ndkRelease) throws NdkCrosstoolsException {
     String hostOs;
     switch (OS.getCurrent()) {
       case DARWIN:
