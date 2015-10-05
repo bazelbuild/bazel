@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
-import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 
@@ -92,9 +91,6 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
   private final long workerWaitTime;
   private final long mainThreadWaitTime;
 
-  /**
-   * Only call this constructor if {@link ProfilePhase#EXECUTE} was actually run.
-   */
   public CriticalPathStatistics(ProfileInfo info) {
     totalPath = info.getCriticalPath(FILTER_NONE);
     info.analyzeCriticalPath(FILTER_NONE, totalPath);
@@ -102,7 +98,7 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
     optimalPath = info.getCriticalPath(DEFAULT_FILTER);
     info.analyzeCriticalPath(DEFAULT_FILTER, optimalPath);
 
-    if (totalPath.isComponent()) {
+    if (totalPath == null || totalPath.isComponent()) {
       this.workerWaitTime = 0;
       this.mainThreadWaitTime = 0;
       criticalPathDurations = Collections.emptyList();

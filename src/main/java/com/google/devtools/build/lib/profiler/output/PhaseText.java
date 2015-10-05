@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
@@ -35,7 +36,7 @@ public final class PhaseText extends TextPrinter {
 
   private final PhaseSummaryStatistics phaseSummaryStats;
   private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
-  private final CriticalPathStatistics criticalPathStatistics;
+  private final Optional<CriticalPathStatistics> criticalPathStatistics;
   private final int vfsStatsLimit;
   private final int missingActionsCount;
 
@@ -46,7 +47,7 @@ public final class PhaseText extends TextPrinter {
       PrintStream out,
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
-      CriticalPathStatistics critPathStats,
+      Optional<CriticalPathStatistics> critPathStats,
       int missingActionsCount,
       int vfsStatsLimit) {
     super(out);
@@ -147,15 +148,20 @@ public final class PhaseText extends TextPrinter {
         TWO_COLUMN_FORMAT, "Action dependency map creation", TimeUtilities.prettyTime(graphTime));
     lnPrintf(TWO_COLUMN_FORMAT, "Actual execution time", TimeUtilities.prettyTime(execTime));
 
-    CriticalPathText criticalPaths = new CriticalPathText(out, criticalPathStatistics, execTime);
-    criticalPaths.printTimingBreakdown();
-    printLn();
+    CriticalPathText criticalPaths = null;
+    if (criticalPathStatistics.isPresent()) {
+      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get(), execTime);
+      criticalPaths.printTimingBreakdown();
+      printLn();
+    }
 
     printTimingDistribution(execPhase);
     printLn();
 
-    criticalPaths.printCriticalPaths();
-    printLn();
+    if (criticalPathStatistics.isPresent()) {
+      criticalPaths.printCriticalPaths();
+      printLn();
+    }
 
     if (missingActionsCount > 0) {
       lnPrint(missingActionsCount);
