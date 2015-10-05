@@ -70,33 +70,11 @@ public final class ListLiteral extends Expression {
     return kind == Kind.TUPLE;
   }
 
-  private static char startChar(Kind kind) {
-    switch(kind) {
-    case LIST:  return '[';
-    case TUPLE: return '(';
-    }
-    return '[';
-  }
-
-  private static char endChar(Kind kind) {
-    switch(kind) {
-    case LIST:  return ']';
-    case TUPLE: return ')';
-    }
-    return ']';
-  }
-
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append(startChar(kind));
-    String sep = "";
-    for (Expression e : exprs) {
-      sb.append(sep);
-      sb.append(e);
-      sep = ", ";
-    }
-    sb.append(endChar(kind));
+    Printer.printList(sb, exprs, isTuple(), '"', Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
+        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
     return sb.toString();
   }
 
