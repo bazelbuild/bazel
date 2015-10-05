@@ -50,6 +50,7 @@ cc_binary(
         "blaze_startup_options.h",
         "blaze_startup_options_common.cc",
         "blaze_util_platform.h",
+        "extra_startup_options.h",
         "option_processor.cc",
         "option_processor.h",
     ],
