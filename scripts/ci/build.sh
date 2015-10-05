@@ -157,7 +157,7 @@ function bazel_build() {
   ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || retCode=$?
 
   # Exit for failure except for test failures (exit code 3).
-  if (( $retCode != 3 )); then
+  if (( $retCode != 0 && $retCode != 3 )); then
     exit $retCode
   fi
 
