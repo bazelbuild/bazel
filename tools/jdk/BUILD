@@ -103,10 +103,34 @@ exports_files([
 
 filegroup(
     name = "srcs",
-    srcs = ["BUILD"],  # Tools are build from the workspace for tests.
+    srcs = [
+        "BUILD",  # Tools are build from the workspace for tests.
+        "proguard_whitelister.py",
+        "proguard_whitelister_test.py",
+        "proguard_whitelister_test_input.cfg",
+    ],
 )
 
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),
+)
+
+py_binary(
+    name = "proguard_whitelister",
+    srcs = [
+        "proguard_whitelister.py",
+    ],
+    deps = [
+        "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "proguard_whitelister_test",
+    srcs = ["proguard_whitelister_test.py"],
+    data = ["proguard_whitelister_test_input.cfg"],
+    deps = [
+        ":proguard_whitelister",
+    ],
 )

@@ -15,8 +15,10 @@
 """Checks for proguard configuration rules that cannot be combined across libs.
 
 The only valid proguard arguments for a library are -keep, -assumenosideeffects,
-and -dontnote and -dontwarn and -checkdiscard when they are provided with
-arguments.
+and -dontnote and -dontwarn when they are provided with arguments.
+Limiting libraries to using these flags prevents drastic, sweeping effects
+(such as obfuscation being disabled) from being inadvertently applied to a
+binary through a library dependency.
 """
 
 import re

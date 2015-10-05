@@ -126,11 +126,6 @@ sh_binary(
 )
 
 sh_binary(
-    name = "proguard_whitelister",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
     name = "build_incremental_dexmanifest",
     srcs = ["fail.sh"],
 )

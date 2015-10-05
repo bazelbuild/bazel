@@ -15,7 +15,7 @@
 import os
 import unittest
 
-from tools.android import proguard_whitelister
+from tools.jdk import proguard_whitelister
 
 
 class ProguardConfigValidatorTest(unittest.TestCase):

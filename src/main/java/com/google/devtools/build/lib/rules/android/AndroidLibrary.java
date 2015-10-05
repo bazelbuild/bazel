@@ -17,13 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,10 +37,11 @@ import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.rules.java.ProguardLibrary;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -69,7 +68,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     NestedSet<LinkerInput> transitiveNativeLibraries =
         AndroidCommon.collectTransitiveNativeLibraries(deps);
     NestedSet<Artifact> transitiveProguardConfigs =
-        collectTransitiveProguardConfigs(ruleContext);
+        new ProguardLibrary(ruleContext).collectProguardSpecs();
     JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
     AndroidCommon androidCommon = new AndroidCommon(ruleContext, javaCommon);
 
@@ -237,47 +236,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       builder.addTransitive(library.getTransitiveAars());
     }
     return builder;
-  }
-
-  private NestedSet<Artifact> collectTransitiveProguardConfigs(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
-
-    for (ProguardSpecProvider dep : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, ProguardSpecProvider.class)) {
-      specsBuilder.addTransitive(dep.getTransitiveProguardSpecs());
-    }
-
-    // Pass our local proguard configs through the validator, which checks a whitelist.
-    if (!getProguardConfigs(ruleContext).isEmpty()) {
-      FilesToRunProvider proguardWhitelister = ruleContext
-        .getExecutablePrerequisite("$proguard_whitelister", Mode.HOST);
-      for (Artifact specToValidate : getProguardConfigs(ruleContext)) {
-        //If we're validating j/a/b/testapp/proguard.cfg, the output will be:
-        //j/a/b/testapp/proguard.cfg_valid
-        Artifact output = ruleContext.getUniqueDirectoryArtifact(
-            "validated_proguard",
-            specToValidate.getRootRelativePath().replaceName(
-                specToValidate.getFilename() + "_valid"),
-            ruleContext.getBinOrGenfilesDirectory());
-        ruleContext.registerAction(new SpawnAction.Builder()
-            .addInput(specToValidate)
-            .setExecutable(proguardWhitelister)
-            .setProgressMessage("Validating proguard configuration")
-            .setMnemonic("ValidateProguard")
-            .addArgument("--path")
-            .addArgument(specToValidate.getExecPathString())
-            .addArgument("--output")
-            .addArgument(output.getExecPathString())
-            .addOutput(output)
-            .build(ruleContext));
-        specsBuilder.add(output);
-      }
-    }
-    return specsBuilder.build();
-  }
-
-  private Collection<Artifact> getProguardConfigs(RuleContext ruleContext) {
-    return ruleContext.getPrerequisiteArtifacts("proguard_specs", Mode.TARGET).list();
   }
 }
 
