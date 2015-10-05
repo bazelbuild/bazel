@@ -957,19 +957,20 @@ $ bazel fetch //...
 
 <h4 id='sandboxing'>Sandboxed execution</h4>
 <p>
-  In order to guarantee hermeticity (i.e. the build does not use input files
-  that are not explicitly listed and does not produce output files that were
-  not expected to be created) and correctness, Bazel runs spawns (i.e. a
-  compiler invocation) in sandboxes that only contain the minimum necessary
-  set of files for the tool to run and do its work. Currently this works on
-  Linux 3.12 or newer with the CONFIG_USER_NS option enabled. Bazel will
-  print a warning if sandboxing cannot be used to alert you to the fact that
-  builds are not guaranteed hermetic and might affect the host system in
-  unknown ways.
+  Bazel uses sandboxes to guarantee that actions run hermetically<sup>1</sup> and correctly.
+  Bazel runs <i>Spawn</i>s (loosely speaking: actions) in sandboxes that only contain the minimal
+  set of files the tool requires to do its job. Currently sandboxing works on Linux 3.12 or newer
+  with the <code>CONFIG_USER_NS</code> option enabled.
 </p>
 <p>
-  To disable the warning about non-sandboxed execution, you can pass the
-  --ignore_unsupported_sandboxing flag to Bazel.
+  Bazel will print a warning if your system does not support sandboxing to alert you to the fact
+  that builds are not guaranteed to be hermetic and might affect the host system in unknown ways.
+  To disable this warning you can pass the <code>--ignore_unsupported_sandboxing</code> flag to
+  Bazel.
+</p>
+<p>
+  <sup>1</sup>: Hermeticity means that the action only uses its declared input files and no other
+  files in the filesystem, and it only produces its declared output files.
 </p>
 
 <h3 id='clean'>Deleting the outputs of a build</h3>
