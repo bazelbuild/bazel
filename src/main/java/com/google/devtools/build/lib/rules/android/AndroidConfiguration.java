@@ -178,15 +178,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Enables sanity checks for Jack and Jill compilation.")
     public boolean jackSanityChecks;
 
-    // TODO(cushon): enable by default, then delete the flag
-    @Option(
-      name = "treat_srcjars_as_srcs_for_strict_deps",
-      defaultValue = "true",
-      category = "undocumented",
-      help = "No-op. Kept here for backwards compatibility."
-    )
-    public boolean treatSrcjarsAsSrcsForStrictDeps;
-
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (proguard != null) {
