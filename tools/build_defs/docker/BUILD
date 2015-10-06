@@ -26,17 +26,17 @@ TEST_TARGETS = [
 ]
 
 TEST_DATA = [
-    "//tools/build_defs/docker/testdata:%s.tar" % t
+    "//tools/build_defs/docker/testdata:" + t
     for t in TEST_TARGETS
 ] + [
-    "//tools/build_defs/docker/testdata:notop_%s.tar" % t
+    "//tools/build_defs/docker/testdata:notop_" + t
     for t in TEST_TARGETS
 ] + [
-    "//tools/build_defs/docker/testdata:gen_image.tar",
-    "//tools/build_defs/docker/testdata:data_path_image.tar",
-    "//tools/build_defs/docker/testdata:no_data_path_image.tar",
-    "//tools/build_defs/docker/testdata:dummy_repository.tar",
-    "//tools/build_defs/docker/testdata:extras_with_deb.tar",
+    "//tools/build_defs/docker/testdata:gen_image",
+    "//tools/build_defs/docker/testdata:data_path_image",
+    "//tools/build_defs/docker/testdata:no_data_path_image",
+    "//tools/build_defs/docker/testdata:dummy_repository",
+    "//tools/build_defs/docker/testdata:extras_with_deb",
 ]
 
 sh_test(
@@ -107,20 +107,4 @@ py_binary(
         ":archive",
         "//third_party/py/gflags",
     ],
-)
-
-py_binary(
-    name = "join_layers",
-    srcs = ["join_layers.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":archive",
-        "//third_party/py/gflags",
-    ],
-)
-
-filegroup(
-    name = "incremental_load_template",
-    srcs = ["incremental_load.sh.tpl"],
-    visibility = ["//visibility:public"],
 )

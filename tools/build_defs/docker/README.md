@@ -98,12 +98,11 @@ docker_build(
 )
 ```
 
-You can build this with `bazel build my/image:helloworld.tar`.
+You can build this with `bazel build my/image:helloworld`.
 This will produce the file `bazel-genfiles/my/image/helloworld.tar`.
 You can load this into my local Docker client by running
 `docker load -i bazel-genfiles/my/image/helloworld.tar`, or simply
-`bazel run my/image:helloworld` (this last command only update the
-changed layers and thus is faster).
+`bazel run my/image:helloworld`.
 
 
 Upon success you should be able to run `docker images` and see:
@@ -116,12 +115,6 @@ bazel/my_image      helloworld          d3440d7f2bde   ...
 You can now use this docker image with the name `bazel/my_image:helloworld` or
 tag it with another name, for example:
 `docker tag bazel/my_image:helloworld gcr.io/my-project/my-awesome-image:v0.9`
-
-You can do all that at once with specifying the tag on the command line of
-`bazel run`:
-```
-bazel run my/image:helloworld gcr.io/my-project/my-awesome-image:v0.9
-```
 
 __Nota Bene:__ the `docker images` command will show a really old timestamp
 because `docker_build` remove all timestamps from the build to make it
@@ -189,52 +182,6 @@ docker_build(
 
 `docker_build(name, base, data_path, directory, files, mode, tars,
 debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)`
-
-<table>
-  <thead>
-    <tr>
-      <th colspan="2">Implicit output targets</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code><i>name</i>.tar</code></td>
-      <td>
-        <code>The full Docker image</code>
-        <p>
-            A full Docker image containing all the layers, identical to
-            what <code>docker save</code> would return. This is
-            only generated on demand.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code><i>name</i>-layer.tar</code></td>
-      <td>
-        <code>An image of the current layer</code>
-        <p>
-            A Docker image containing only the layer corresponding to
-            that target. It is used for incremental loading of the layer.
-        </p>
-        <p>
-            <b>Note:</b> this target is not suitable for direct comsumption.
-            It is used for incremental loading and non-docker rules should
-            depends on the docker image (<i>name</i>.tar) instead.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code><i>name</i></code></td>
-      <td>
-        <code>Incremental image loader</code>
-        <p>
-            The incremental image loader. It will load only changed
-            layers inside the Docker registry.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
 
 <table>
   <thead>
