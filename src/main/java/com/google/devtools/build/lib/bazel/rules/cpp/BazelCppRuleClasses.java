@@ -153,8 +153,7 @@ public class BazelCppRuleClasses {
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for
    * all configurations, as specified on the command-line.
    */
-  public static final String CROSSTOOL_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/defaults:crosstool";
+  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
 
   public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {

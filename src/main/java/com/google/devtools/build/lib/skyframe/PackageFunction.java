@@ -432,7 +432,7 @@ public class PackageFunction implements SkyFunction {
     Path buildFilePath = buildFileRootedPath.asPath();
 
     String replacementContents = null;
-    if (packageName.equals(DEFAULTS_PACKAGE_NAME)) {
+    if (packageName.equals(DEFAULTS_PACKAGE_NAME) && packageId.getRepository().isDefault()) {
       replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
