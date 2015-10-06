@@ -32,6 +32,41 @@ using std::vector;
 
 struct StartupOptions {};
 
+BlazeStartupOptions::BlazeStartupOptions() {
+  Init();
+}
+
+BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
+    : output_base(rhs.output_base),
+      install_base(rhs.install_base),
+      output_root(rhs.output_root),
+      output_user_root(rhs.output_user_root),
+      block_for_lock(rhs.block_for_lock),
+      host_jvm_debug(rhs.host_jvm_debug),
+      host_jvm_profile(rhs.host_jvm_profile),
+      host_jvm_args(rhs.host_jvm_args),
+      batch(rhs.batch),
+      batch_cpu_scheduling(rhs.batch_cpu_scheduling),
+      io_nice_level(rhs.io_nice_level),
+      max_idle_secs(rhs.max_idle_secs),
+      skyframe(rhs.skyframe),
+      blaze_cpu(rhs.blaze_cpu),
+      watchfs(rhs.watchfs),
+      allow_configurable_attributes(rhs.allow_configurable_attributes),
+      option_sources(rhs.option_sources),
+      webstatus_port(rhs.webstatus_port),
+      invocation_policy(rhs.invocation_policy),
+      host_javabase(rhs.host_javabase) {}
+
+BlazeStartupOptions::~BlazeStartupOptions() {
+}
+
+BlazeStartupOptions& BlazeStartupOptions::operator=(
+    const BlazeStartupOptions &rhs) {
+  Copy(rhs, this);
+  return *this;
+}
+
 string BlazeStartupOptions::GetProductName() {
   return "Bazel";
 }

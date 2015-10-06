@@ -15,15 +15,17 @@
 #define BAZEL_SRC_MAIN_CPP_BLAZE_STARTUP_OPTIONS_H_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/extra_startup_options.h"
 #include "src/main/cpp/util/exit_code.h"
 
 namespace blaze {
 
 using std::string;
+
+struct StartupOptions;
 
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those
@@ -38,6 +40,9 @@ using std::string;
 class BlazeStartupOptions {
  public:
   BlazeStartupOptions();
+  BlazeStartupOptions(const BlazeStartupOptions &rhs);
+  ~BlazeStartupOptions();
+  BlazeStartupOptions& operator=(const BlazeStartupOptions &rhs);
 
   // Returns the capitalized name of this binary.
   string GetProductName();
@@ -158,8 +163,9 @@ class BlazeStartupOptions {
   std::map<string, string> option_sources;
 
   // This can be used for site-specific startup options. For Bazel, this is
-  // stubbed out.
-  ExtraStartupOptions extra_options;
+  // stubbed
+  // out.
+  std::unique_ptr<StartupOptions> extra_options;
 
   // Given the working directory, returns the nearest enclosing directory with a
   // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
@@ -197,6 +203,14 @@ class BlazeStartupOptions {
 
  private:
   string host_javabase;
+
+  // Sets default values for members.
+  void Init();
+
+  // Copies member variables from rhs to lhs. This cannot use the compiler-
+  // generated copy constructor because extra_options is a unique_ptr and
+  // unique_ptr deletes its copy constructor.
+  void Copy(const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs);
 
   // Returns the directory to use for storing outputs.
   string GetOutputRoot();

@@ -26,7 +26,7 @@
 
 namespace blaze {
 
-BlazeStartupOptions::BlazeStartupOptions() {
+void BlazeStartupOptions::Init() {
   bool testing = getenv("TEST_TMPDIR") != NULL;
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
@@ -59,6 +59,33 @@ string BlazeStartupOptions::GetHostJavabase() {
     host_javabase = GetDefaultHostJavabase();
   }
   return host_javabase;
+}
+
+void BlazeStartupOptions::Copy(
+    const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs) {
+  assert(lhs);
+
+  lhs->output_base = rhs.output_base;
+  lhs->install_base = rhs.install_base;
+  lhs->output_root = rhs.output_root;
+  lhs->output_user_root = rhs.output_user_root;
+  lhs->block_for_lock = rhs.block_for_lock;
+  lhs->host_jvm_debug = rhs.host_jvm_debug;
+  lhs->host_jvm_profile = rhs.host_jvm_profile;
+  lhs->host_javabase = rhs.host_javabase;
+  lhs->host_jvm_args = rhs.host_jvm_args;
+  lhs->batch = rhs.batch;
+  lhs->batch_cpu_scheduling = rhs.batch_cpu_scheduling;
+  lhs->io_nice_level = rhs.io_nice_level;
+  lhs->max_idle_secs = rhs.max_idle_secs;
+  lhs->skyframe = rhs.skyframe;
+  lhs->blaze_cpu = rhs.blaze_cpu;
+  lhs->webstatus_port = rhs.webstatus_port;
+  lhs->watchfs = rhs.watchfs;
+  lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
+  lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
+  lhs->option_sources = rhs.option_sources;
+  lhs->invocation_policy = rhs.invocation_policy;
 }
 
 blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
