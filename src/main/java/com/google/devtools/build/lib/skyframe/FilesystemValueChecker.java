@@ -63,7 +63,7 @@ import javax.annotation.Nullable;
  */
 class FilesystemValueChecker {
 
-  private static final int DIRTINESS_CHECK_THREADS = 50;
+  private static final int DIRTINESS_CHECK_THREADS = 200;
   private static final Logger LOG = Logger.getLogger(FilesystemValueChecker.class.getName());
 
   private static final Predicate<SkyKey> ACTION_FILTER =
@@ -311,6 +311,10 @@ class FilesystemValueChecker {
     };
     try (AutoProfiler prof = AutoProfiler.create(elapsedTimeReceiver)) {
       for (final SkyKey key : values) {
+        numKeysScanned.incrementAndGet();
+        if (!checker.applies(key)) {
+          continue;
+        }
         final SkyValue value = valuesSupplier.get().get(key);
         executor.execute(
             wrapper.wrap(
@@ -318,13 +322,10 @@ class FilesystemValueChecker {
                   @Override
                   public void run() {
                     if (value != null || checkMissingValues) {
-                      numKeysScanned.incrementAndGet();
-                      DirtyResult result = checker.maybeCheck(key, value, tsgm);
-                      if (result != null) {
-                        numKeysChecked.incrementAndGet();
-                        if (result.isDirty()) {
-                          batchResult.add(key, value, result.getNewValue());
-                        }
+                      numKeysChecked.incrementAndGet();
+                      DirtyResult result = checker.check(key, value, tsgm);
+                      if (result.isDirty()) {
+                        batchResult.add(key, value, result.getNewValue());
                       }
                     }
                   }
