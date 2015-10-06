@@ -223,6 +223,18 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resources", LABEL_LIST).orderIndependent()
               .allowedFileTypes(FileTypeSet.ANY_FILE))
+          /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_strip_prefix) -->
+          The path prefix to strip from Java resources.
+          ${SYNOPSIS}
+          <p>
+            If specified, this path prefix is stripped from every file in the <code>resources</code>
+            attribute. It is an error for a resource file not to be under this directory. If not
+            specified (the default), the path of resource file is determined according to the same
+            logic as the Java package of source files. For example, a source file at
+            <code>stuff/java/foo/bar/a.txt</code> will be located at <code>foo/bar/a.txt</code>.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("resource_strip_prefix", STRING))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           ${SYNOPSIS}

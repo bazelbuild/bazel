@@ -34,10 +34,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -344,7 +347,11 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
     if (gensrcJar != null) {
       resourceJars.add(gensrcJar);
     }
-    createSourceJarAction(semantics, attributes.getSourceFiles(), resourceJars, outputJar);
+    Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
+    for (Artifact sourceFile : attributes.getSourceFiles()) {
+      resources.put(semantics.getDefaultJavaResourcePath(sourceFile.getRootRelativePath()), sourceFile);
+    }
+    createSourceJarAction(resources, resourceJars, outputJar);
   }
 
   /**

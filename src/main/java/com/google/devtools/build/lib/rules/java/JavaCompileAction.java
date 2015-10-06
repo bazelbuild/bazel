@@ -63,8 +63,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Action that represents a Java compilation.
@@ -180,7 +182,7 @@ public class JavaCompileAction extends AbstractAction {
                             Iterable<Artifact> instrumentationJars,
                             List<String> processorNames,
                             Collection<Artifact> messages,
-                            Collection<Artifact> resources,
+                            Map<PathFragment, Artifact> resources,
                             Collection<Artifact> classpathResources,
                             Collection<Artifact> sourceJars,
                             Collection<Artifact> sourceFiles,
@@ -192,7 +194,7 @@ public class JavaCompileAction extends AbstractAction {
             .addTransitive(classpathEntries)
             .addAll(processorPath)
             .addAll(messages)
-            .addAll(resources)
+            .addAll(resources.values())
             .addAll(classpathResources)
             .addAll(sourceJars)
             .addAll(sourceFiles)
@@ -213,7 +215,7 @@ public class JavaCompileAction extends AbstractAction {
     this.processorPath = ImmutableList.copyOf(processorPath);
     this.processorNames = ImmutableList.copyOf(processorNames);
     this.messages = ImmutableList.copyOf(messages);
-    this.resources = ImmutableList.copyOf(resources);
+    this.resources = ImmutableList.copyOf(resources.values());
     this.classpathResources = ImmutableList.copyOf(classpathResources);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.sourceFiles = ImmutableList.copyOf(sourceFiles);
@@ -462,7 +464,7 @@ public class JavaCompileAction extends AbstractAction {
       List<Artifact> processorPath,
       List<String> processorNames,
       Collection<Artifact> messages,
-      Collection<Artifact> resources,
+      Map<PathFragment, Artifact> resources,
       Collection<Artifact> classpathResources,
       Collection<Artifact> sourceJars,
       Collection<Artifact> sourceFiles,
@@ -539,14 +541,15 @@ public class JavaCompileAction extends AbstractAction {
     if (!messages.isEmpty()) {
       result.add("--messages");
       for (Artifact message : messages) {
-        addAsResourcePrefixedExecPath(semantics, message, result);
+        addAsResourcePrefixedExecPath(
+            semantics.getDefaultJavaResourcePath(message.getRootRelativePath()), message, result);
       }
     }
 
     if (!resources.isEmpty()) {
       result.add("--resources");
-      for (Artifact resource : resources) {
-        addAsResourcePrefixedExecPath(semantics, resource, result);
+      for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
+        addAsResourcePrefixedExecPath(resource.getKey(), resource.getValue(), result);
       }
     }
 
@@ -604,10 +607,9 @@ public class JavaCompileAction extends AbstractAction {
     return result;
   }
 
-  private static void addAsResourcePrefixedExecPath(JavaSemantics semantics,
+  private static void addAsResourcePrefixedExecPath(PathFragment resourcePath,
       Artifact artifact, CustomCommandLine.Builder builder) {
     PathFragment execPath = artifact.getExecPath();
-    PathFragment resourcePath = semantics.getJavaResourcePath(artifact.getRootRelativePath());
     if (execPath.equals(resourcePath)) {
       builder.addPaths(":%s", resourcePath);
     } else {
@@ -734,7 +736,7 @@ public class JavaCompileAction extends AbstractAction {
     private Artifact metadata;
     private final Collection<Artifact> sourceFiles = new ArrayList<>();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
-    private final Collection<Artifact> resources = new ArrayList<>();
+    private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final Collection<Artifact> classpathResources = new ArrayList<>();
     private final Collection<Artifact> translations = new LinkedHashSet<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
@@ -966,8 +968,8 @@ public class JavaCompileAction extends AbstractAction {
       return this;
     }
 
-    public Builder addResources(Collection<Artifact> resources) {
-      this.resources.addAll(resources);
+    public Builder addResources(Map<PathFragment, Artifact> resources) {
+      this.resources.putAll(resources);
       return this;
     }
 

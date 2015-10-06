@@ -360,12 +360,14 @@ public interface JavaSemantics {
    * Takes the path of a Java resource and tries to determine the Java
    * root relative path of the resource.
    *
+   * <p>This is only used if the Java rule doesn't have a {@code resource_strip_prefix} attribute.
+   *
    * @param path the root relative path of the resource.
    * @return the Java root relative path of the resource of the root
    *         relative path of the resource if no Java root relative path can be
    *         determined.
    */
-  PathFragment getJavaResourcePath(PathFragment path);
+  PathFragment getDefaultJavaResourcePath(PathFragment path);
 
   /**
    * @return a list of extra arguments to appends to the runfiles support.
