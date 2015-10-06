@@ -25,7 +25,7 @@ genrule(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:namespace-sandbox",
         "//src/main/tools:build_interface_so",
-        ":android_tools_repository_zip",
+        ":embedded_tools",
     ],
     outs = ["install_base_key"],
     cmd = select({
@@ -62,9 +62,9 @@ genrule(
 )
 
 genrule(
-    name = "android_tools_repository_zip",
+    name = "embedded_tools",
     srcs = [
-        "//tools:srcs",
+        "//tools:embedded_tools_srcs",
         "//third_party:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
@@ -74,19 +74,21 @@ genrule(
         "//src/main/protobuf:srcs",
         "//src/main/java:options-srcs",
     ],
-    outs = ["android_tools_repository.zip"],
+    outs = ["embedded_tools.zip"],
     cmd = "\n".join([
-        "mkdir -p $(@D)/android-tools-zip",
+        "mkdir -p $(@D)/embedded-tools-zip",
         "for i in $(SRCS); do",
-        "  mkdir -p $$(dirname $(@D)/android-tools-zip/$$i)",
-        "  cp $$i $$(dirname $(@D)/android-tools-zip/$$i)",
+        "  mkdir -p $$(dirname $(@D)/embedded-tools-zip/$$i)",
+        "  cp $$i $$(dirname $(@D)/embedded-tools-zip/$$i)",
         "done",
-        "touch $(@D)/android-tools-zip/WORKSPACE",
-        "mv $(@D)/android-tools-zip/src/main/java/options.BUILD" +
-        " $(@D)/android-tools-zip/src/main/java/BUILD",
-        "find $(@D)/android-tools-zip -exec touch -t 198001010000.00 '{}' ';'",
-        "P=$$PWD; (cd $(@D)/android-tools-zip && zip -qrD $$P/$@ *)",
-        "rm -fr $(@D)/android-tools-zip",
+        "touch $(@D)/embedded-tools-zip/WORKSPACE",
+        "mkdir -p $(@D)/embedded-tools-zip/tools/defaults",
+        "touch $(@D)/embedded-tools-zip/tools/defaults/BUILD",
+        "mv $(@D)/embedded-tools-zip/src/main/java/options.BUILD" +
+        " $(@D)/embedded-tools-zip/src/main/java/BUILD",
+        "find $(@D)/embedded-tools-zip -exec touch -t 198001010000.00 '{}' ';'",
+        "P=$$PWD; (cd $(@D)/embedded-tools-zip && zip -qrD $$P/$@ *)",
+        "rm -fr $(@D)/embedded-tools-zip",
     ]),
 )
 
@@ -103,7 +105,7 @@ genrule(
         "//src/main/tools:build_interface_so",
         "install_base_key",
         ":java-version",
-        ":android_tools_repository_zip",
+        ":embedded_tools.zip",
     ],
     outs = ["package.zip"],
     # Terrible hack to remove timestamps in the zip file
@@ -114,9 +116,9 @@ genrule(
         # instead of the first binary in the list.
         "mv $(@D)/package-zip/bazel-main_deploy.jar $(@D)/package-zip/A-server.jar",
         "touch -t 198001010000.00 $(@D)/package-zip/*",
-        "mkdir $(@D)/package-zip/android_tools",
-        "(cd $(@D)/package-zip/android_tools && unzip -q ../android_tools_repository.zip)",
-        "rm $(@D)/package-zip/android_tools_repository.zip",
+        "mkdir $(@D)/package-zip/embedded_tools",
+        "(cd $(@D)/package-zip/embedded_tools && unzip -q ../embedded_tools.zip)",
+        "rm $(@D)/package-zip/embedded_tools.zip",
         "P=$$PWD; (cd $(@D)/package-zip && zip -qrD $$P/$@ *)",
         "rm -fr $(@D)/package-zip",
     ]),

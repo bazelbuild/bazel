@@ -341,13 +341,53 @@ cp src/main/tools/build_interface_so ${OUTPUT_DIR}/build_interface_so
 cp src/main/tools/jdk.* ${OUTPUT_DIR}
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} namespace-sandbox${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD"
+ARCHIVE_DIR=${OUTPUT_DIR}/archive
+for i in libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} namespace-sandbox${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
+  mkdir -p $(dirname $ARCHIVE_DIR/$i);
+  cp $OUTPUT_DIR/$i $ARCHIVE_DIR/$i;
+done
 
-(cd ${OUTPUT_DIR}/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
-(cd ${OUTPUT_DIR}/ ; echo "${JAVA_VERSION}" > java.version)
-(cd ${OUTPUT_DIR}/ ; find . -type f | xargs -P 10 touch -t 198001010000)
-(cd ${OUTPUT_DIR}/ ; run_silent zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key java.version)
-cat ${OUTPUT_DIR}/client ${OUTPUT_DIR}/package.zip > ${OUTPUT_DIR}/bazel
+# Build a crude embedded tools directory for the bootstrapped binary.
+# We simple shovel all of third_party and the tools directory into it. It's an
+# over-approximation, but that's fine, because the bootstrap binary is only used
+# for, well, bootstrapping and is never distributed anywhere.
+EMBEDDED_TOOLS=""
+for TOOL_DIR in third_party tools src/tools/android/java/com/google/devtools/build/android \
+  src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper \
+  src/main/protobuf src/main/java/com/google/devtools/common/options; do
+  EMBEDDED_TOOLS="${EMBEDDED_TOOLS} "$(find ${TOOL_DIR} -type f)
+done
+
+for TOOL in ${EMBEDDED_TOOLS}; do
+  mkdir -p $(dirname ${ARCHIVE_DIR}/embedded_tools/${TOOL});
+  cp ${TOOL} ${ARCHIVE_DIR}/embedded_tools/${TOOL}
+done
+
+touch ${ARCHIVE_DIR}/embedded_tools/WORKSPACE
+
+mkdir -p ${ARCHIVE_DIR}/embedded_tools/src/main/java
+cat > ${ARCHIVE_DIR}/embedded_tools/src/main/java/BUILD <<EOF
+java_library(
+    name = "options",
+    srcs = glob([
+        "com/google/devtools/common/options/*.java",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+EOF
+
+cp ${OUTPUT_DIR}/client ${ARCHIVE_DIR}
+cp ${OUTPUT_DIR}/libblaze.jar ${ARCHIVE_DIR}/A-server.jar
+
+(cd ${ARCHIVE_DIR}/ ; find . -type f | xargs cat | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
+(cd ${ARCHIVE_DIR}/ ; echo "${JAVA_VERSION}" > java.version)
+(cd ${ARCHIVE_DIR}/ ; find . -type f | xargs -P 10 touch -t 198001010000)
+(cd ${ARCHIVE_DIR}/ ; run_silent zip $ZIPOPTS -r -q package.zip * install_base_key java.version)
+cat ${OUTPUT_DIR}/client ${ARCHIVE_DIR}/package.zip > ${OUTPUT_DIR}/bazel
 zip -qA ${OUTPUT_DIR}/bazel \
   || echo "(Non-critical error, ignore.)"
 
