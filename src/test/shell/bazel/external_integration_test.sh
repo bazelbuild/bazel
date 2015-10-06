@@ -500,7 +500,7 @@ EOF
   expect_log "bazel fetch //..."
 }
 
-function test_prefix_stripping() {
+function test_prefix_stripping_tar_gz() {
   mkdir -p x/y/z
   echo "abc" > x/y/z/w
   tar czf x.tar.gz x
@@ -511,6 +511,35 @@ function test_prefix_stripping() {
 new_http_archive(
     name = "x",
     url = "http://localhost:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    strip_prefix = "x/y/z",
+    build_file = "x.BUILD",
+)
+EOF
+  cat > x.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["w"],
+)
+EOF
+
+  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/x/catter.out
+}
+
+function test_prefix_stripping_zip() {
+  mkdir -p x/y/z
+  echo "abc" > x/y/z/w
+  zip -r x x
+  local sha256=$(sha256sum x.zip | cut -f 1 -d ' ')
+  serve_file x.zip
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = "x",
+    url = "http://localhost:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
     build_file = "x.BUILD",
