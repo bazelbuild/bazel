@@ -111,7 +111,8 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    AttributesAndLocation generator = generatorAttributesForMacros(attributeValues, env, location);
+    AttributesAndLocation generator =
+        generatorAttributesForMacros(attributeValues, env, location, label);
     try {
       return ruleClass.createRuleWithLabel(
           pkgBuilder, label, generator.attributes, eventHandler, ast, generator.location);
@@ -197,7 +198,7 @@ public class RuleFactory {
    * <p>Otherwise, it returns the given attributes without any changes.
    */
   private static AttributesAndLocation generatorAttributesForMacros(
-      Map<String, Object> args, @Nullable Environment env, Location location) {
+      Map<String, Object> args, @Nullable Environment env, Location location, Label label) {
     // Returns the original arguments if a) there is only the rule itself on the stack
     // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
     if (env == null) {
@@ -218,18 +219,38 @@ public class RuleFactory {
     BaseFunction function = topCall.second;
     String name = generator.getNameArg();
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+
     builder.putAll(args);
     builder.put("generator_name", (name == null) ? args.get("name") : name);
     builder.put("generator_function", function.getName());
+
     if (generator.getLocation() != null) {
       location = generator.getLocation();
+      builder.put("generator_location", getRelativeLocation(location, label));
     }
 
     try {
       return new AttributesAndLocation(builder.build(), location);
     } catch (IllegalArgumentException ex) {
-      // Just to play it safe.
+      // We just fall back to the default case and swallow any messages.
       return new AttributesAndLocation(args, location);
     }
+  }
+
+  /**
+   * Uses the given label to retrieve the workspace-relative path of the given location.
+   */
+  private static String getRelativeLocation(Location location, Label label) {
+    String absolutePath = Location.printPathAndLine(location);
+    // Instead of using this substring-based approach, we would prefer to construct the path from
+    // the label itself, e.g.
+    // buildFileLabel.getPackageFragment().getRelative(buildFileLabel.getName()).getPathString().
+    // However, this seems to conflict with python pre-processing since we had seen cases where the
+    // label of the BUILD file is something like //package:BUILD while the location is actually
+    // /path/to/workspace/package/with/subpackage/BUILD. Consequently, we would lose the
+    // "with/subpackage" part.
+    int pos = absolutePath.indexOf(label.getPackageName());
+    Preconditions.checkArgument(pos > -1, "Cannot retrieve relative path for %s", absolutePath);
+    return absolutePath.substring(pos);
   }
 }
