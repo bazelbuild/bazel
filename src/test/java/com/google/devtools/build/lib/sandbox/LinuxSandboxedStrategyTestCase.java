@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -105,6 +107,12 @@ public class LinuxSandboxedStrategyTestCase {
                     true,
                     false)),
             ImmutableList.<ActionContextProvider>of());
+  }
+
+  protected LinuxSandboxedStrategy getLinuxSandboxedStrategy() {
+    SpawnActionContext spawnActionContext = executor.getSpawnActionContext("");
+    assertThat(spawnActionContext).isInstanceOf(LinuxSandboxedStrategy.class);
+    return (LinuxSandboxedStrategy) spawnActionContext;
   }
 
   private Path createTestRoot() throws IOException {
