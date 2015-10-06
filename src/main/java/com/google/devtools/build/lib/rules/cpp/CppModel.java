@@ -346,6 +346,12 @@ public final class CppModel {
       buildVariables.addVariable("module_name", cppModuleMap.getName());
       buildVariables.addVariable("module_map_file",
           cppModuleMap.getArtifact().getExecPathString());
+      CcToolchainFeatures.Variables.NestedSequence.Builder sequence =
+          new CcToolchainFeatures.Variables.NestedSequence.Builder();
+      for (Artifact artifact : context.getDirectModuleMaps()) {
+        sequence.addValue(artifact.getExecPathString());
+      }
+      buildVariables.addSequence("dependent_module_map_files", sequence.build());
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       buildVariables.addSequenceVariable("module_files", getHeaderModulePaths(builder, usePic));

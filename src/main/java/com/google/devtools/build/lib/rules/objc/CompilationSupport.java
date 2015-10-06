@@ -675,7 +675,8 @@ public final class CompilationSupport {
             ImmutableList.<PathFragment>of(),
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
-            /*generateSubModules=*/ false));
+            /*generateSubModules=*/ false,
+            /*externDependencies=*/ true));
   }
 
   private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
