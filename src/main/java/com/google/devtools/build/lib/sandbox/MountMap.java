@@ -13,26 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.collect.ForwardingMap;
+import com.google.common.collect.ForwardingSortedMap;
+import com.google.devtools.build.lib.vfs.Path;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * A map that throws an exception when trying to replace a key (i.e. once a key gets a value,
  * any additional attempt of putting a value on the same key will throw an exception).
+ *
+ * <p>Returns entries sorted by path depth (shorter paths first) and in lexicographical order.
  */
-final class MountMap<K, V> extends ForwardingMap<K, V> {
-  final LinkedHashMap<K, V> delegate = new LinkedHashMap<>();
+final class MountMap extends ForwardingSortedMap<Path, Path> {
+  final TreeMap<Path, Path> delegate = new TreeMap<>();
 
   @Override
-  protected Map<K, V> delegate() {
+  protected SortedMap<Path, Path> delegate() {
     return delegate;
   }
 
   @Override
-  public V put(K key, V value) {
-    V previousValue = get(key);
+  public Path put(Path key, Path value) {
+    Path previousValue = get(key);
     if (previousValue == null) {
       return super.put(key, value);
     } else if (previousValue.equals(value)) {
@@ -44,8 +48,8 @@ final class MountMap<K, V> extends ForwardingMap<K, V> {
   }
 
   @Override
-  public void putAll(Map<? extends K, ? extends V> map) {
-    for (Entry<? extends K, ? extends V> entry : map.entrySet()) {
+  public void putAll(Map<? extends Path, ? extends Path> map) {
+    for (Entry<? extends Path, ? extends Path> entry : map.entrySet()) {
       put(entry.getKey(), entry.getValue());
     }
   }
