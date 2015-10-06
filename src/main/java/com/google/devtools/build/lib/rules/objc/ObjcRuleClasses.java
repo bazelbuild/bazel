@@ -57,17 +57,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
-
-  // TODO(danielwh): Replace these with actual Artifact references
-  private static final String BIN_DIR =
-      IosSdkCommands.DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/bin";
-  static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
-  static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
-  static final PathFragment SWIFT = new PathFragment(BIN_DIR + "/swift");
-  static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
-  static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
-  static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
-  static final PathFragment STRIP = new PathFragment(BIN_DIR + "/strip");
+  static final String CLANG = "clang";
+  static final String CLANG_PLUSPLUS = "clang++";
+  static final String SWIFT = "swift";
+  static final String LIBTOOL = "libtool";
+  static final String DSYMUTIL = "dsymutil";
+  static final String LIPO = "lipo";
+  static final String STRIP = "strip";
+  static final PathFragment XCRUN = new PathFragment("/usr/bin/xcrun");
 
   private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 
