@@ -125,7 +125,7 @@ ${version_info}
 
 ${relnotes}
 EOF
-  git commit -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
+  git commit --no-verify -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
 }
 
 function apply_cherry_picks() {
@@ -246,7 +246,7 @@ function do_release() {
     trap 'rm -f ${tmpfile}' EXIT
     git_commit_msg ${branch} >${tmpfile}
     git add ${changelog_path}
-    git commit -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
+    git commit --no-verify -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
     rm -f ${tmpfile}
     trap - EXIT
 
