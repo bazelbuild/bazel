@@ -938,15 +938,15 @@ public final class LinkCommandLine extends CommandLine {
           if (ltoMap != null) {
             Artifact backend = ltoMap.remove(member);
 
-            if (backend == null) {
-              System.err.println(
-                  "LTO backend file missing for " + member + " already did: " + options);
-              backend = member;
+            if (backend != null) {
+              // If the backend artifact is missing, we can't print a warning because this may
+              // happen normally, due libraries that list .o files explicitly, or generate .o
+              // files from assembler.
+              member = backend;
             }
-            options.add(backend.getExecPathString());
-          } else {
-            options.add(member.getExecPathString());
           }
+
+          options.add(member.getExecPathString());
         }
         options.add("-Wl,--end-lib");
       }

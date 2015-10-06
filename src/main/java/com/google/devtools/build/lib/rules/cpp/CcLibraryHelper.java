@@ -648,11 +648,13 @@ public final class CcLibraryHelper {
     CcCompilationOutputs ccOutputs = model.createCcCompileActions();
     if (!objectFiles.isEmpty() || !picObjectFiles.isEmpty()) {
       // Merge the pre-compiled object files into the compiler outputs.
-      ccOutputs = new CcCompilationOutputs.Builder()
-          .merge(ccOutputs)
-          .addObjectFiles(objectFiles)
-          .addPicObjectFiles(picObjectFiles)
-          .build();
+      ccOutputs =
+          new CcCompilationOutputs.Builder()
+              .merge(ccOutputs)
+              .addLTOBitcodeFile(ccOutputs.getLtoBitcodeFiles())
+              .addObjectFiles(objectFiles)
+              .addPicObjectFiles(picObjectFiles)
+              .build();
     }
 
     // Create link actions (only if there are object files or if explicitly requested).

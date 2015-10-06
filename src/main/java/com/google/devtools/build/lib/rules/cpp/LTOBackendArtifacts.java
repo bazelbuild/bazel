@@ -120,7 +120,7 @@ public final class LTOBackendArtifacts {
     builder.addTransitiveInputs(CppHelper.getToolchain(ruleContext).getLink());
     builder.addOutput(objectFile);
 
-    builder.setProgressMessage("LTO Backend Compile");
+    builder.setProgressMessage("LTO Backend Compile " + objectFile.getFilename());
     builder.setMnemonic("CcLtoBackendCompile");
 
     // The command-line doesn't specify the full path to clang++, so we set it in the
