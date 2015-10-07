@@ -50,6 +50,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
 
   private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   private static final String IOS_SDK_VERSION_ENV_NAME = "IOS_SDK_VERSION_OVERRIDE";
+  private static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;
@@ -117,6 +118,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
     }
     builder.put(IOS_SDK_VERSION_ENV_NAME, iosSdkVersion);
+    builder.put(APPLE_SDK_PLATFORM_ENV_NAME, IosSdkCommands.getPlatformPlistName(this));
     return builder.build();
   }
 
