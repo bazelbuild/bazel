@@ -937,7 +937,7 @@ public final class CompilationSupport {
         registerCompileAndArchiveActions(
             compilationArtifact,
             intermediateArtifacts,
-            objcProvider,
+            objcProvider.toJ2ObjcOnlyProvider(),
             moduleMap,
             ruleContext.getConfiguration().isCodeCoverageEnabled(),
             false);

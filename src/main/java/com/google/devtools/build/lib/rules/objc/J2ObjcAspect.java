@@ -272,7 +272,7 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
   private J2ObjcSource buildJ2ObjcSource(RuleContext ruleContext,
       Iterable<Artifact> javaInputSourceFiles) {
     PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
-    PathFragment objcFilePath = ruleContext
+    PathFragment objcFileRootExecPath = ruleContext
         .getConfiguration()
         .getBinFragment()
         .getRelative(objcFileRootRelativePath);
@@ -280,8 +280,16 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
         objcFileRootRelativePath, ".m");
     Iterable<Artifact> objcHdrs = getOutputObjcFiles(ruleContext, javaInputSourceFiles,
         objcFileRootRelativePath, ".h");
-    return new J2ObjcSource(ruleContext.getRule().getLabel(), objcSrcs, objcHdrs, objcFilePath,
-        SourceType.JAVA);
+    Iterable<PathFragment> headerSearchPaths = J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
+        ruleContext, objcFileRootExecPath, javaInputSourceFiles);
+
+    return new J2ObjcSource(
+        ruleContext.getRule().getLabel(),
+        objcSrcs,
+        objcHdrs,
+        objcFileRootExecPath,
+        SourceType.JAVA,
+        headerSearchPaths);
   }
 
   private Iterable<Artifact> getOutputObjcFiles(RuleContext ruleContext,

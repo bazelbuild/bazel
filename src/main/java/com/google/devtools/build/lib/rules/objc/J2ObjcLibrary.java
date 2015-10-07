@@ -60,9 +60,9 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder()
-            .addTransitiveAndPropagate(
+            .addJ2ObjcTransitiveAndPropagate(
                 ruleContext.getPrerequisite("$jre_emul_lib", Mode.TARGET, ObjcProvider.class))
-            .addTransitiveAndPropagate(
+            .addJ2ObjcTransitiveAndPropagate(
                 ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
@@ -74,23 +74,17 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     if (j2ObjcSrcsProvider.hasProtos()) {
       // Public J2 in Bazel provides no protobuf_lib, and if OSS users try to sneakily use
       // undocumented functionality to reach here, the below code will error.
-      objcProviderBuilder.addTransitiveAndPropagate(
+      objcProviderBuilder.addJ2ObjcTransitiveAndPropagate(
           ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
       xcodeSupport.addDependencies(
           xcodeProviderBuilder, new Attribute("$protobuf_lib", Mode.TARGET));
     }
 
     for (J2ObjcSource j2objcSource : j2ObjcSrcsProvider.getSrcs()) {
-      PathFragment genDirHeaderSearchPath =
-          new PathFragment(
-              j2objcSource.getObjcFilePath(), ruleContext.getConfiguration().getGenfilesFragment());
-
-      objcProviderBuilder.addAll(ObjcProvider.HEADER, j2objcSource.getObjcHdrs());
-      objcProviderBuilder.add(ObjcProvider.INCLUDE, j2objcSource.getObjcFilePath());
-      objcProviderBuilder.add(ObjcProvider.INCLUDE, genDirHeaderSearchPath);
+      objcProviderBuilder.addJ2ObjcAll(ObjcProvider.HEADER, j2objcSource.getObjcHdrs());
+      objcProviderBuilder.addJ2ObjcAll(ObjcProvider.INCLUDE, j2objcSource.getHeaderSearchPaths());
       xcodeProviderBuilder.addHeaders(j2objcSource.getObjcHdrs());
-      xcodeProviderBuilder.addUserHeaderSearchPaths(
-          ImmutableList.of(j2objcSource.getObjcFilePath(), genDirHeaderSearchPath));
+      xcodeProviderBuilder.addUserHeaderSearchPaths(j2objcSource.getHeaderSearchPaths());
     }
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
@@ -109,6 +103,30 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(ObjcProvider.class, objcProvider)
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
+  }
+
+  /**
+   * Returns header search paths necessary to compile the J2ObjC-generated code from a single
+   * target.
+   *
+   * @param ruleContext the rule context
+   * @param objcFileRootExecPath the exec path under which all J2ObjC-generated file resides
+   * @param sourcesToTranslate the source files to be translated by J2ObjC in a single target
+   */
+  public static Iterable<PathFragment> j2objcSourceHeaderSearchPaths(RuleContext ruleContext,
+      PathFragment objcFileRootExecPath, Iterable<Artifact> sourcesToTranslate) {
+    PathFragment genRoot = ruleContext.getConfiguration().getGenfilesFragment();
+    ImmutableList.Builder<PathFragment> headerSearchPaths = ImmutableList.builder();
+    headerSearchPaths.add(objcFileRootExecPath);
+    // We add another header search path with gen root if we have generated sources to translate.
+    for (Artifact sourceToTranslate : sourcesToTranslate) {
+      if (!sourceToTranslate.isSourceArtifact()) {
+        headerSearchPaths.add(new PathFragment(objcFileRootExecPath, genRoot));
+        return headerSearchPaths.build();
+      }
+    }
+
+    return headerSearchPaths.build();
   }
 
   /**
