@@ -127,7 +127,6 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -205,7 +204,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             getPreprocessorFactorySupplier(),
-            ImmutableMap.<SkyFunctionName, SkyFunction>of(),
+            mock.getSkyFunctions(directories),
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(
