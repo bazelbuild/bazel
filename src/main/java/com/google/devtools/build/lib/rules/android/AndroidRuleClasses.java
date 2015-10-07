@@ -181,7 +181,7 @@ public final class AndroidRuleClasses {
 
       CppOptions cppOptions = output.get(CppOptions.class);
       if (inputAndroidOptions.androidCrosstoolTop != null
-          && !cppOptions.crosstoolTop().equals(inputAndroidOptions.androidCrosstoolTop)) {
+          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.androidCrosstoolTop)) {
         if (cppOptions.hostCrosstoolTop == null) {
           cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
         }
@@ -199,7 +199,7 @@ public final class AndroidRuleClasses {
       Label androidCrosstoolTop = androidOptions.androidCrosstoolTop;
       if (androidOptions.realFatApkCpus().isEmpty()
           && (androidCrosstoolTop == null
-          || androidCrosstoolTop.equals(cppOptions.crosstoolTop()))) {
+          || androidCrosstoolTop.equals(cppOptions.crosstoolTop))) {
         return ImmutableList.of();
       }
 

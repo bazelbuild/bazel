@@ -201,4 +201,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
     useConfiguration("--copt", "-Dbar", "--copt", "-Dfoo");
     assertTrue(getConfigMatchingProvider("//test:match").matches());
   }
+
+  public void testSelectForDefaultCrosstoolTop() throws Exception {
+    scratchConfiguredTarget("a", "a",
+        "config_setting(name='cs', values={'crosstool_top': '//tools/cpp:toolchain'})",
+        "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
+  }
 }
