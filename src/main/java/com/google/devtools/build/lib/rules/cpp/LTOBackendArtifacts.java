@@ -130,8 +130,7 @@ public final class LTOBackendArtifacts {
     PathFragment compiler = cppConfiguration.getCppExecutable();
 
     builder.setShellCommand(beCommandline.getExecPathString());
-    builder.setEnvironment(
-        ImmutableMap.of("CLANGXX", compiler.replaceName("clang++").getPathString()));
+    builder.setEnvironment(ImmutableMap.of("CLANG", compiler.replaceName("clang").getPathString()));
 
     ruleContext.registerAction(builder.build(ruleContext));
   }
