@@ -59,7 +59,7 @@ function check_sandbox_allowed {
 #define _GNU_SOURCE
 #include <sched.h>
 int main() {
-  return unshare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER);
+  return unshare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER | CLONE_NEWNET);
 }
 EOF
   cat <<'EOF' >test/BUILD
@@ -91,6 +91,26 @@ function assert_output() {
 function test_basic_functionality() {
   $WRAPPER $WRAPPER_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/echo hi there || fail
   assert_output "hi there" ""
+}
+
+function test_default_user_is_nobody() {
+  $WRAPPER $WRAPPER_DEFAULT_OPTS -l $OUT -L $ERR -- /usr/bin/id || fail
+  assert_output "uid=65534 gid=65534 groups=65534" ""
+}
+
+function test_user_switched_to_root() {
+  $WRAPPER $WRAPPER_DEFAULT_OPTS -r -l $OUT -L $ERR -- /usr/bin/id || fail
+  assert_output "uid=0 gid=0 groups=65534,0" ""
+}
+
+function test_network_namespace() {
+  $WRAPPER $WRAPPER_DEFAULT_OPTS -n -l $OUT -L $ERR  -- /bin/ip link ls || fail
+  assert_contains "LOOPBACK,UP" "$OUT"
+}
+
+function test_ping_loopback() {
+  $WRAPPER $WRAPPER_DEFAULT_OPTS -n -r -l $OUT -L $ERR  -- /bin/ping -c 1 127.0.0.1 || fail
+  assert_contains "1 received" "$OUT"
 }
 
 function test_to_stderr() {

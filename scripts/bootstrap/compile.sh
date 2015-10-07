@@ -332,7 +332,7 @@ run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/proc
 
 log "Compiling namespace-sandbox..."
 if [[ $PLATFORM == "linux" ]]; then
-  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/process-tools.c -lm
+  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/network-tools.c src/main/tools/process-tools.c -lm
 else
   run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox-dummy.c -lm
 fi

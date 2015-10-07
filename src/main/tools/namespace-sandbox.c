@@ -32,6 +32,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "network-tools.h"
 #include "process-tools.h"
 
 #define PRINT_DEBUG(...)                                        \
@@ -65,6 +66,8 @@ struct Options {
   int num_mounts;            // How many mounts were specified
   char **create_dirs;        // empty dirs to create (-d)
   int num_create_dirs;       // How many empty dirs to create were specified
+  int fake_root;             // Pretend to be root inside the namespace.
+  int create_netns;          // If 1, create a new network namespace.
 };
 
 // Child function used by CheckNamespacesSupported() in call to clone().
@@ -92,7 +95,7 @@ static int CheckNamespacesSupported() {
   // spend time sleeping and retrying here until it eventually works (or not).
   CHECK_CALL(pid = clone(CheckNamespacesSupportedChild, stackTop,
                          CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS |
-                             CLONE_NEWIPC | SIGCHLD,
+                             CLONE_NEWIPC | CLONE_NEWNET | SIGCHLD,
                          NULL));
   CHECK_CALL(waitpid(pid, NULL, 0));
 
@@ -134,9 +137,12 @@ static void Usage(int argc, char *const *argv, const char *fmt, ...) {
       "    The -M option specifies which directory to mount, the -m option "
       "specifies where to\n"
       "    mount it in the sandbox.\n"
+      "  -n if set, a new network namespace will be created\n"
+      "  -r if set, make the uid/gid be root, otherwise use nobody\n"
       "  -D  if set, debug info will be printed\n"
       "  -l <file>  redirect stdout to a file\n"
-      "  -L <file>  redirect stderr to a file\n");
+      "  -L <file>  redirect stderr to a file\n"
+      );
   exit(EXIT_FAILURE);
 }
 
@@ -147,7 +153,7 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt(argc, argv, ":CDS:W:t:T:d:M:m:l:L:")) != -1) {
+  while ((c = getopt(argc, argv, ":CDd:l:L:m:M:nrt:T:S:W:")) != -1) {
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
@@ -222,6 +228,12 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
         }
         opt->mount_targets[opt->num_mounts++] = optarg;
         break;
+      case 'n':
+        opt->create_netns = 1;
+        break;
+      case 'r':
+        opt->fake_root = 1;
+        break;
       case 'D':
         global_debug = true;
         break;
@@ -268,7 +280,7 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
   }
 }
 
-static void CreateNamespaces() {
+static void CreateNamespaces(int create_netns) {
   // This weird workaround is necessary due to unshare seldomly failing with
   // EINVAL due to a race condition in the Linux kernel (see
   // https://lkml.org/lkml/2015/7/28/833). An alternative would be to use
@@ -277,7 +289,8 @@ static void CreateNamespaces() {
   int tries = 0;
   const int max_tries = 100;
   while (tries++ < max_tries) {
-    if (unshare(CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC) ==
+    if (unshare(CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
+                (create_netns ? CLONE_NEWNET : 0)) ==
         0) {
       PRINT_DEBUG("unshare succeeded after %d tries\n", tries);
       return;
@@ -455,7 +468,7 @@ static int WriteFile(const char *filename, const char *fmt, ...) {
   return r;
 }
 
-static void SetupUserNamespace(int uid, int gid) {
+static void SetupUserNamespace(int uid, int gid, int new_uid, int new_gid) {
   // Disable needs for CAP_SETGID
   int r = WriteFile("/proc/self/setgroups", "deny");
   if (r < 0 && errno != ENOENT) {
@@ -471,11 +484,11 @@ static void SetupUserNamespace(int uid, int gid) {
   // We can't be root in the child, because some code may assume that running as
   // root grants it certain capabilities that it doesn't in fact have. It's
   // safer to let the child think that it is just a normal user.
-  CHECK_CALL(WriteFile("/proc/self/uid_map", "%d %d 1\n", kNobodyUid, uid));
-  CHECK_CALL(WriteFile("/proc/self/gid_map", "%d %d 1\n", kNobodyGid, gid));
+  CHECK_CALL(WriteFile("/proc/self/uid_map", "%d %d 1\n", new_uid, uid));
+  CHECK_CALL(WriteFile("/proc/self/gid_map", "%d %d 1\n", new_gid, gid));
 
-  CHECK_CALL(setresuid(kNobodyUid, kNobodyUid, kNobodyUid));
-  CHECK_CALL(setresgid(kNobodyGid, kNobodyGid, kNobodyGid));
+  CHECK_CALL(setresuid(new_uid, new_uid, new_uid));
+  CHECK_CALL(setresgid(new_gid, new_gid, new_gid));
 }
 
 static void ChangeRoot(struct Options *opt) {
@@ -588,14 +601,23 @@ int main(int argc, char *const argv[]) {
   PRINT_DEBUG("working dir is %s\n",
               (opt.working_dir != NULL) ? opt.working_dir : "/ (default)");
 
-  CreateNamespaces();
+  CreateNamespaces(opt.create_netns);
+  if (opt.create_netns) {
+    // Enable the loopback interface because some application may want
+    // to use it.
+    BringupInterface("lo");
+  }
 
   // Make our mount namespace private, so that further mounts do not affect the
   // outside environment.
   CHECK_CALL(mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL));
 
   SetupDirectories(&opt);
-  SetupUserNamespace(uid, gid);
+  if (opt.fake_root) {
+    SetupUserNamespace(uid, gid, 0, 0);
+  } else {
+    SetupUserNamespace(uid, gid, kNobodyUid, kNobodyGid);
+  }
   ChangeRoot(&opt);
 
   SpawnCommand(opt.args, opt.timeout_secs);
