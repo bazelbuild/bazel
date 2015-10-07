@@ -226,7 +226,11 @@ public class RuleFactory {
 
     if (generator.getLocation() != null) {
       location = generator.getLocation();
-      builder.put("generator_location", getRelativeLocation(location, label));
+    }
+
+    String relativePath = maybeGetRelativeLocation(location, label);
+    if (relativePath != null) {
+      builder.put("generator_location", relativePath);
     }
 
     try {
@@ -238,19 +242,27 @@ public class RuleFactory {
   }
 
   /**
-   * Uses the given label to retrieve the workspace-relative path of the given location.
+   * Uses the given label to retrieve the workspace-relative path of the given location (including
+   * the line number).
+   *
+   * <p>For example, the location /usr/local/workspace/my/cool/package/BUILD:3:1 and the label
+   * //my/cool/package:BUILD would lead to "my/cool/package:BUILD:3".
+   *
+   * @return The workspace-relative path of the given location, or null if it could not be computed.
    */
-  private static String getRelativeLocation(Location location, Label label) {
+  @Nullable
+  private static String maybeGetRelativeLocation(@Nullable Location location, Label label) {
+    if (location == null) {
+      return null;
+    }
+    // Determining the workspace root only works reliably if both location and label point to files
+    // in the same package.
+    // It would be preferable to construct the path from the label itself, but this doesn't work for
+    // rules created from function calls in a subincluded file, even if both files share a path
+    // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
+    // We can revert to that approach once subincludes aren't supported anymore.
     String absolutePath = Location.printPathAndLine(location);
-    // Instead of using this substring-based approach, we would prefer to construct the path from
-    // the label itself, e.g.
-    // buildFileLabel.getPackageFragment().getRelative(buildFileLabel.getName()).getPathString().
-    // However, this seems to conflict with python pre-processing since we had seen cases where the
-    // label of the BUILD file is something like //package:BUILD while the location is actually
-    // /path/to/workspace/package/with/subpackage/BUILD. Consequently, we would lose the
-    // "with/subpackage" part.
     int pos = absolutePath.indexOf(label.getPackageName());
-    Preconditions.checkArgument(pos > -1, "Cannot retrieve relative path for %s", absolutePath);
-    return absolutePath.substring(pos);
+    return (pos < 0) ? null : absolutePath.substring(pos);
   }
 }
