@@ -60,9 +60,11 @@ struct Options {
   char *const *args;         // Command to run (--)
   const char *sandbox_root;  // Sandbox root (-S)
   const char *working_dir;   // Working directory (-W)
-  char **mount_sources;      // Map of directories to mount, from
+  char **mount_sources;      // Map of directories to mount, from (-M)
   char **mount_targets;      // sources -> targets (-m)
   int num_mounts;            // How many mounts were specified
+  char **create_dirs;        // empty dirs to create (-d)
+  int num_create_dirs;       // How many empty dirs to create were specified
 };
 
 // Child function used by CheckNamespacesSupported() in call to clone().
@@ -107,34 +109,34 @@ static void Usage(int argc, char *const *argv, const char *fmt, ...) {
   vfprintf(stderr, fmt, ap);
   va_end(ap);
 
-  fprintf(stderr,
-          "\nUsage: %s [-S sandbox-root] [-W working-dir] [-M source -m "
-          "target] -- command arg1\n",
-          argv[0]);
+  fprintf(stderr, "\nUsage: %s [-S sandbox-root] -- command arg1\n", argv[0]);
   fprintf(stderr, "  provided:");
   for (i = 0; i < argc; i++) {
     fprintf(stderr, " %s", argv[i]);
   }
-  fprintf(stderr,
-          "\nMandatory arguments:\n"
-          "  -S directory which will become the root of the sandbox\n"
-          "  -- command to run inside sandbox, followed by arguments\n"
-          "\n"
-          "Optional arguments:\n"
-          "  -W working directory\n"
-          "  -t time to give the child to shutdown cleanly before sending it a "
-          "SIGKILL\n"
-          "  -T timeout after which sandbox will be terminated\n"
-          "  -t in case timeout occurs, how long to wait before killing the "
-          "child with SIGKILL\n"
-          "  -M/-m system directory to mount inside the sandbox\n"
-          "    Multiple directories can be specified and each of them will\n"
-          "    be mounted readonly. The -M option specifies which directory\n"
-          "    to mount, the -m option specifies where to mount it in the\n"
-          "    sandbox.\n"
-          "  -D if set, debug info will be printed\n"
-          "  -l redirect stdout to a file\n"
-          "  -L redirect stderr to a file\n");
+  fprintf(
+      stderr,
+      "\nMandatory arguments:\n"
+      "  -S <sandbox-root>  directory which will become the root of the "
+      "sandbox\n"
+      "  --  command to run inside sandbox, followed by arguments\n"
+      "\n"
+      "Optional arguments:\n"
+      "  -W <working-dir>  working directory\n"
+      "  -T <timeout>  timeout after which the child process will be "
+      "terminated with SIGTERM\n"
+      "  -t <timeout>  in case timeout occurs, how long to wait before killing "
+      "the child with SIGKILL\n"
+      "  -d <dir>  create an empty directory in the sandbox\n"
+      "  -M/-m <source/target>  system directory to mount inside the sandbox\n"
+      "    Multiple directories can be specified and each of them will be "
+      "mounted readonly.\n"
+      "    The -M option specifies which directory to mount, the -m option "
+      "specifies where to\n"
+      "    mount it in the sandbox.\n"
+      "  -D  if set, debug info will be printed\n"
+      "  -l <file>  redirect stdout to a file\n"
+      "  -L <file>  redirect stderr to a file\n");
   exit(EXIT_FAILURE);
 }
 
@@ -145,7 +147,7 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt(argc, argv, ":CDS:W:t:T:M:m:l:L:")) != -1) {
+  while ((c = getopt(argc, argv, ":CDS:W:t:T:d:M:m:l:L:")) != -1) {
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
@@ -189,20 +191,31 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
                 opt->timeout_secs);
         }
         break;
+      case 'd':
+        if (optarg[0] != '/') {
+          Usage(argc, argv,
+                "The -d option must be used with absolute paths only.");
+        }
+        opt->create_dirs[opt->num_create_dirs++] = optarg;
+        break;
       case 'M':
         if (optarg[0] != '/') {
-          Usage(argc, argv, "The -M option must be used with absolute paths only.");
+          Usage(argc, argv,
+                "The -M option must be used with absolute paths only.");
         }
-        // The last -M flag wasn't followed by an -m flag, so assume that the source should be mounted in the sandbox in the same path as outside.
+        // The last -M flag wasn't followed by an -m flag, so assume that the
+        // source should be mounted in the sandbox in the same path as outside.
         if (opt->mount_sources[opt->num_mounts] != NULL) {
-          opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
+          opt->mount_targets[opt->num_mounts] =
+              opt->mount_sources[opt->num_mounts];
           opt->num_mounts++;
         }
         opt->mount_sources[opt->num_mounts] = optarg;
         break;
       case 'm':
         if (optarg[0] != '/') {
-          Usage(argc, argv, "The -m option must be used with absolute paths only.");
+          Usage(argc, argv,
+                "The -m option must be used with absolute paths only.");
         }
         if (opt->mount_sources[opt->num_mounts] == NULL) {
           Usage(argc, argv, "The -m option must be preceded by an -M option.");
@@ -241,7 +254,8 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
     Usage(argc, argv, "Sandbox root (-S) must be specified");
   }
 
-  // The last -M flag wasn't followed by an -m flag, assume that the source should be mounted in the sandbox in the same path as outside.
+  // The last -M flag wasn't followed by an -m flag, assume that the source
+  // should be mounted in the sandbox in the same path as outside.
   if (opt->mount_sources[opt->num_mounts] != NULL &&
       opt->mount_targets[opt->num_mounts] == NULL) {
     opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
@@ -358,38 +372,47 @@ static void SetupDirectories(struct Options *opt) {
   CHECK_CALL(mkdir("proc", 0755));
   CHECK_CALL(mount("/proc", "proc", NULL, MS_REC | MS_BIND, NULL));
 
-  CHECK_CALL(mkdir("tmp", 0755));
-  CHECK_CALL(mount("tmpfs", "tmp", "tmpfs", MS_NOSUID | MS_NODEV,
-                   "size=25%,mode=1777"));
-
-  // Make sure the home directory exists and is writable.
-  const char *homedir;
-  if ((homedir = getenv("HOME")) == NULL) {
-    homedir = getpwuid(getuid())->pw_dir;
+  // Make sure the home directory exists, too.
+  char *homedir_from_env = getenv("HOME");
+  if (homedir_from_env != NULL) {
+    if (homedir_from_env[0] != '/') {
+      DIE(
+          "Home directory specified in $HOME must be an absolute path, but is "
+          "%s",
+          homedir_from_env);
+    }
+    opt->create_dirs[opt->num_create_dirs++] = homedir_from_env;
   }
 
-  if (homedir[0] != '/') {
-    DIE("Home directory of user nobody must be an absolute path, but is %s",
-        homedir);
+  char *homedir = getpwuid(getuid())->pw_dir;
+  if (homedir != NULL &&
+      (homedir_from_env == NULL || strcmp(homedir_from_env, homedir) != 0)) {
+    if (homedir[0] != '/') {
+      DIE("Home directory of user nobody must be an absolute path, but is %s",
+          homedir);
+    }
+    opt->create_dirs[opt->num_create_dirs++] = homedir;
   }
 
-  char *homedir_absolute =
-      malloc(strlen(opt->sandbox_root) + strlen(homedir) + 1);
-  strcpy(homedir_absolute, opt->sandbox_root);
-  strcat(homedir_absolute, homedir);
+  // Create needed directories.
+  for (int i = 0; i < opt->num_create_dirs; i++) {
+    if (global_debug) {
+      PRINT_DEBUG("createdir: %s\n", opt->create_dirs[i]);
+    }
 
-  CreateTarget(homedir_absolute, true);
-  CHECK_CALL(mount("tmpfs", homedir_absolute, "tmpfs", MS_NOSUID | MS_NODEV,
-                   "size=25%,mode=1777"));
+    CHECK_CALL(CreateTarget(opt->create_dirs[i] + 1, true));
+  }
 
-  // Mount directories passed in argv
+  // Mount all mounts.
   for (int i = 0; i < opt->num_mounts; i++) {
     struct stat sb;
     stat(opt->mount_sources[i], &sb);
 
     if (global_debug) {
       if (strcmp(opt->mount_sources[i], opt->mount_targets[i]) == 0) {
-        // The file is mounted to the same path inside the sandbox, as outside (e.g. /home/user -> <sandbox>/home/user), so we'll just show a simplified version of the mount command.
+        // The file is mounted to the same path inside the sandbox, as outside
+        // (e.g. /home/user -> <sandbox>/home/user), so we'll just show a
+        // simplified version of the mount command.
         PRINT_DEBUG("mount: %s\n", opt->mount_sources[i]);
       } else {
         // The file is mounted to a custom location inside the sandbox.
@@ -404,7 +427,8 @@ static void SetupDirectories(struct Options *opt) {
       }
     }
 
-    char *full_sandbox_path = malloc(strlen(opt->sandbox_root) + strlen(opt->mount_targets[i]) + 1);
+    char *full_sandbox_path =
+        malloc(strlen(opt->sandbox_root) + strlen(opt->mount_targets[i]) + 1);
     strcpy(full_sandbox_path, opt->sandbox_root);
     strcat(full_sandbox_path, opt->mount_targets[i]);
     CHECK_CALL(CreateTarget(full_sandbox_path, S_ISDIR(sb.st_mode)));
@@ -548,6 +572,9 @@ int main(int argc, char *const argv[]) {
   opt.mount_sources = calloc(argc, sizeof(char *));
   opt.mount_targets = calloc(argc, sizeof(char *));
 
+  // Reserve two extra slots for homedir_from_env and homedir.
+  opt.create_dirs = calloc(argc + 2, sizeof(char *));
+
   ParseCommandLine(argc, argv, &opt);
   global_kill_delay = opt.kill_delay_secs;
 
@@ -573,6 +600,7 @@ int main(int argc, char *const argv[]) {
 
   SpawnCommand(opt.args, opt.timeout_secs);
 
+  free(opt.create_dirs);
   free(opt.mount_sources);
   free(opt.mount_targets);
 

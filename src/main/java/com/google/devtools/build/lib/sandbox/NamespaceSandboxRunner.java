@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -50,6 +51,7 @@ public class NamespaceSandboxRunner {
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final ImmutableMap<Path, Path> mounts;
+  private final ImmutableSet<Path> createDirs;
   private final boolean verboseFailures;
   private final boolean sandboxDebug;
 
@@ -57,12 +59,14 @@ public class NamespaceSandboxRunner {
       Path execRoot,
       Path sandboxPath,
       ImmutableMap<Path, Path> mounts,
+      ImmutableSet<Path> createDirs,
       boolean verboseFailures,
       boolean sandboxDebug) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxPath.getRelative(execRoot.asFragment().relativeTo("/"));
     this.mounts = mounts;
+    this.createDirs = createDirs;
     this.verboseFailures = verboseFailures;
     this.sandboxDebug = sandboxDebug;
   }
@@ -132,6 +136,12 @@ public class NamespaceSandboxRunner {
     if (timeout != -1) {
       args.add("-T");
       args.add(Integer.toString(timeout));
+    }
+
+    // Create all needed directories.
+    for (Path createDir : createDirs) {
+      args.add("-d");
+      args.add(createDir.getPathString());
     }
 
     // Mount all the inputs.

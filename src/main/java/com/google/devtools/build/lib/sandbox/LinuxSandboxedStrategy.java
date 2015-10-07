@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -118,16 +119,24 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     try {
       // Gather all necessary mounts for the sandbox.
       mounts = getMounts(spawn, actionExecutionContext);
-      createTestTmpDir(spawn, sandboxPath);
     } catch (IllegalArgumentException | IOException e) {
       throw new UserExecException("Could not prepare mounts for sandbox execution", e);
+    }
+
+    ImmutableSet<Path> createDirs;
+    try {
+      createDirs = createImportantDirs(spawn.getEnvironment());
+    } catch (IOException e) {
+      throw new UserExecException(
+          "Could not prepare the set of important directories to create in the sandbox", e);
     }
 
     int timeout = getTimeout(spawn);
 
     try {
       final NamespaceSandboxRunner runner =
-          new NamespaceSandboxRunner(execRoot, sandboxPath, mounts, verboseFailures, sandboxDebug);
+          new NamespaceSandboxRunner(
+              execRoot, sandboxPath, mounts, createDirs, verboseFailures, sandboxDebug);
       try {
         runner.run(
             spawn.getArguments(),
@@ -179,16 +188,19 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   }
 
   /**
-   * Tests are a special case and we have to mount the TEST_SRCDIR where the test expects it to be
-   * and also provide a TEST_TMPDIR to the test where it can store temporary files.
+   * Most programs expect certain directories to be present, e.g. /tmp. Make sure they are.
+   *
+   * <p>Note that $HOME is handled by namespace-sandbox.c, because it changes user to nobody and the
+   * home directory of that user is not known by us.
    */
-  private void createTestTmpDir(Spawn spawn, Path sandboxPath) throws IOException {
-    if (spawn.getEnvironment().containsKey("TEST_TMPDIR")) {
-      FileSystem fs = blazeDirs.getFileSystem();
-      Path source = fs.getPath(spawn.getEnvironment().get("TEST_TMPDIR"));
-      Path target = sandboxPath.getRelative(source.asFragment().relativeTo("/"));
-      FileSystemUtils.createDirectoryAndParents(target);
+  private ImmutableSet<Path> createImportantDirs(Map<String, String> env) throws IOException {
+    ImmutableSet.Builder<Path> dirs = ImmutableSet.builder();
+    FileSystem fs = blazeDirs.getFileSystem();
+    if (env.containsKey("TEST_TMPDIR")) {
+      dirs.add(fs.getPath(env.get("TEST_TMPDIR")));
     }
+    dirs.add(fs.getPath("/tmp"));
+    return dirs.build();
   }
 
   private ImmutableMap<Path, Path> getMounts(
