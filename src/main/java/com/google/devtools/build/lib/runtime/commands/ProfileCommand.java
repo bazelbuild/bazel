@@ -184,10 +184,18 @@ public final class ProfileCommand implements BlazeCommand {
         try {
           ProfileInfo info = ProfileInfo.loadProfileVerbosely(
               profileFile, getInfoListener(env));
-          ProfileInfo.aggregateProfile(info, getInfoListener(env));
+
+          if (opts.dumpMode == null || !opts.dumpMode.contains("unsorted")) {
+            ProfileInfo.aggregateProfile(info, getInfoListener(env));
+          }
 
           if (opts.taskTree != null) {
             printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
+            continue;
+          }
+
+          if (opts.dumpMode != null) {
+            dumpProfile(info, out, opts.dumpMode);
             continue;
           }
 
@@ -199,9 +207,7 @@ public final class ProfileCommand implements BlazeCommand {
                 phase, new PhaseStatistics(phase, info, runtime.getWorkspaceName()));
           }
 
-          if (opts.dumpMode != null) {
-            dumpProfile(env, info, out, opts.dumpMode);
-          } else if (opts.html) {
+          if (opts.html) {
             Path htmlFile =
                 profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
 
@@ -265,11 +271,10 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  private void dumpProfile(
-      CommandEnvironment env, ProfileInfo info, PrintStream out, String dumpMode) {
-    if (!dumpMode.contains("unsorted")) {
-      ProfileInfo.aggregateProfile(info, getInfoListener(env));
-    }
+  /**
+   * Dumps all tasks in the requested format.
+   */
+  private void dumpProfile(ProfileInfo info, PrintStream out, String dumpMode) {
     if (dumpMode.contains("raw")) {
       for (ProfileInfo.Task task : info.allTasksById) {
         dumpRaw(task, out);
@@ -285,6 +290,9 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
+  /**
+   * Dumps the task information and all subtasks.
+   */
   private void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
     StringBuilder builder =
         new StringBuilder(
