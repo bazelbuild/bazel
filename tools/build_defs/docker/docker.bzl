@@ -123,8 +123,9 @@ def _sha256(ctx, artifact):
 
 def _get_base_artifact(ctx):
   if ctx.files.base:
-    if hasattr(ctx.attr.base, "docker_image"):
-      return ctx.attr.base.docker_image
+    if hasattr(ctx.attr.base, "docker_layers"):
+      # The base is the first layer in docker_layers if provided.
+      return ctx.attr.base.docker_layers[0]["layer"]
     if len(ctx.files.base) != 1:
       fail("base attribute should be a single tar file.")
     return ctx.files.base[0]
@@ -192,29 +193,60 @@ def _create_image(ctx, layer, name, metadata):
   """Create the new image."""
   create_image = ctx.executable._create_image
   args = [
-      "--output=" + ctx.outputs.out.path,
+      "--output=" + ctx.outputs.layer.path,
       "--metadata=" + metadata.path,
       "--layer=" + layer.path,
       "--id=@" + name.path,
-      # We label at push time, so we only put a single name in this file:
-      #   repository/package:target => {the layer being appended}
-      "--repository=%s/%s" % (ctx.attr.repository,
-                              ctx.label.package.replace("/", "_")),
-      "--name=" + ctx.label.name
       ]
   inputs = [layer, metadata, name]
   # If we have been provided a base image, add it.
-  base = _get_base_artifact(ctx)
-  if base:
-    args += ["--base=%s" % base.path]
-    inputs += [base]
+  if ctx.attr.base and not hasattr(ctx.attr.base, "docker_layers"):
+    base = _get_base_artifact(ctx)
+    if base:
+      args += ["--base=%s" % base.path]
+      inputs += [base]
   ctx.action(
       executable = create_image,
       arguments = args,
       inputs = inputs,
-      use_default_shell_env = True,
-      outputs = [ctx.outputs.out]
+      outputs = [ctx.outputs.layer],
+      mnemonic = "CreateLayer",
       )
+
+def _assemble_image(ctx, layers, name):
+  """Create the full image from the list of layers."""
+  layers = [l["layer"] for l in layers]
+  args = [
+      "--output=" + ctx.outputs.out.path,
+      "--id=@" + name.path,
+      "--repository=" + _repository_name(ctx),
+      "--name=" + ctx.label.name
+      ] + ["--layer=" + l.path for l in layers]
+  inputs = [name] + layers
+  ctx.action(
+      executable = ctx.executable._join_layers,
+      arguments = args,
+      inputs = inputs,
+      outputs = [ctx.outputs.out],
+      mnemonic = "JoinLayers"
+      )
+
+def _repository_name(ctx):
+  """Compute the repository name for the current rule."""
+  return "%s/%s" % (ctx.attr.repository, ctx.label.package.replace("/", "_"))
+
+def reverse(lst):
+  result = []
+  for el in lst:
+    result = [el] + result
+  return result
+
+def _get_runfile_path(ctx, f):
+  """Return the runfiles relative path of f."""
+  if ctx.workspace_name:
+    return ctx.workspace_name + "/" + f.short_path
+  else:
+    return f.short_path
 
 def _docker_build_impl(ctx):
   """Implementation for the docker_build rule."""
@@ -222,15 +254,35 @@ def _docker_build_impl(ctx):
   name = _compute_layer_name(ctx, layer)
   metadata = _metadata(ctx, layer, name)
   _create_image(ctx, layer, name, metadata)
-  ctx.file_action(
-      content = "\n".join([
-          "#!/bin/bash -eu",
-          "docker load -i " + ctx.outputs.out.short_path
-          ]),
+  # Compute the layers transitive provider.
+  # It includes the current layers, and, if they exists the layer from
+  # base docker_build rules. We do not extract the list of layer in
+  # a base tarball as they probably do not respect the convention on
+  # layer naming that our rules use.
+  layers =  [
+      {"layer": ctx.outputs.layer, "name": name}
+      ] + getattr(ctx.attr.base, "docker_layers", [])
+  # Generate the incremental load statement
+  ctx.template_action(
+      template = ctx.file._incremental_load_template,
+      substitutions = {
+        "%{load_statements}": "\n".join([
+            "incr_load '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
+                                     _get_runfile_path(ctx, l["layer"]))
+            # The last layer is the first in the list of layers.
+            # We reverse to load the layer from the parent to the child.
+            for l in reverse(layers)]),
+        "%{repository}": _repository_name(ctx),
+        "%{tag}" : ctx.label.name,
+        },
       output = ctx.outputs.executable,
       executable = True)
-  return struct(runfiles = ctx.runfiles(files = [ctx.outputs.out]),
-                docker_image = ctx.outputs.out)
+  _assemble_image(ctx, layers, name)
+  runfiles = ctx.runfiles(
+      files = [l["layer"] for l in layers] + [l["name"] for l in layers])
+  return struct(runfiles = runfiles,
+                files = set([ctx.outputs.layer]),
+                docker_layers = layers)
 
 docker_build_ = rule(
     implementation = _docker_build_impl,
@@ -261,6 +313,15 @@ docker_build_ = rule(
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
+        "_incremental_load_template": attr.label(
+            default=Label("//tools/build_defs/docker:incremental_load_template"),
+            single_file=True,
+            allow_files=True),
+        "_join_layers": attr.label(
+            default=Label("//tools/build_defs/docker:join_layers"),
+            cfg=HOST_CFG,
+            executable=True,
+            allow_files=True),
         "_rewrite_tool": attr.label(
             default=Label("//tools/build_defs/docker:rewrite_json"),
             cfg=HOST_CFG,
@@ -274,6 +335,7 @@ docker_build_ = rule(
     },
     outputs = {
         "out": "%{name}.tar",
+        "layer": "%{name}-layer.tar",
     },
     executable = True)
 
