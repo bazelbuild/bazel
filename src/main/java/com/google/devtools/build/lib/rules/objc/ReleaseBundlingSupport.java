@@ -580,7 +580,7 @@ public final class ReleaseBundlingSupport {
     StringBuilder codesignCommandLineBuilder = new StringBuilder();
     for (String dir : dirsToSign.build()) {
       codesignCommandLineBuilder
-          .append(codesignCommand(attributes.provisioningProfile(), entitlements, "${t}/" + dir))
+          .append(codesignCommand(entitlements, "${t}/" + dir))
           .append(" && ");
     }
 
@@ -770,17 +770,28 @@ public final class ReleaseBundlingSupport {
     return "security cms -D -i " + ShellUtils.shellEscape(provisioningProfile.getExecPathString());
   }
 
-  private String codesignCommand(
-      Artifact provisioningProfile, Artifact entitlements, String appDir) {
-    String fingerprintCommand =
-        "PLIST=$(mktemp -t cert.plist) && trap \"rm ${PLIST}\" EXIT && "
-            + extractPlistCommand(provisioningProfile) + " > ${PLIST} && "
-            + "/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' ${PLIST} | "
-            + "openssl x509 -inform DER -noout -fingerprint | "
-            + "cut -d= -f2 | sed -e 's#:##g'";
+  private String codesignCommand(Artifact entitlements, String appDir) {
+    String signingCertName = ObjcRuleClasses.objcConfiguration(ruleContext).getSigningCertName();
+
+    final String identity;
+    if (signingCertName != null) {
+      identity = '"' + signingCertName + '"';
+    } else {
+      // Extracts an identity hash from the configured provisioning profile. Note that this will use
+      // the first certificate identity in the profile, regardless of how many identities are
+      // configured in it (DeveloperCertificates:0).
+      identity =
+          "$(PLIST=$(mktemp -t cert.plist) && trap \"rm ${PLIST}\" EXIT && "
+              + extractPlistCommand(attributes.provisioningProfile())
+              + " > ${PLIST} && "
+              + "/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' ${PLIST} | "
+              + "openssl x509 -inform DER -noout -fingerprint | "
+              + "cut -d= -f2 | sed -e 's#:##g')";
+    }
+
     return String.format(
-        "/usr/bin/codesign --force --sign $(%s) --entitlements %s %s",
-        fingerprintCommand,
+        "/usr/bin/codesign --force --sign %s --entitlements %s %s",
+        identity,
         entitlements.getShellEscapedExecPathString(),
         appDir);
   }

@@ -194,6 +194,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       category = "undocumented")
   public ConfigurationDistinguisher configurationDistinguisher;
 
+  @Option(
+    name = "ios_signing_cert_name",
+    defaultValue = "null",
+    category = "flags",
+    help =
+        "Certificate name to use for iOS signing. If not set will fall back to provisioning "
+            + "profile. May be the certificate's keychain identity preference or (substring) of "
+            + "the certificate's common name, as per codesign's man page (SIGNING IDENTITIES)."
+  )
+  public String iosSigningCertName;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 

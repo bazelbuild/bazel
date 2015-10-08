@@ -69,6 +69,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   private final ConfigurationDistinguisher configurationDistinguisher;
+  @Nullable private final String signingCertName;
   @Nullable private final Path clientWorkspaceRoot;
 
   // We only load these labels if the mode which uses them is enabled. That is known as part of the
@@ -110,6 +111,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
+    this.signingCertName = objcOptions.iosSigningCertName;
   }
 
   public Map<String, String> getEnvironmentForDarwin() {
@@ -325,5 +327,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Path getClientWorkspaceRoot() {
     return this.clientWorkspaceRoot;
+  }
+
+  /**
+   * Returns the flag-supplied certificate name to be used in signing or {@code null} if no such
+   * certificate was specified.
+   */
+  @Nullable
+  public String getSigningCertName() {
+    return this.signingCertName;
   }
 }
