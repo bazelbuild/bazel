@@ -44,3 +44,8 @@ bind(
     name = "javax/servlet/api",
     actual = "//tools/build_rules/appengine:javax.servlet.api",
 )
+
+maven_jar(
+    name = "commons-lang",
+    artifact = "commons-lang:commons-lang:2.6",
+)
