@@ -39,7 +39,7 @@ import java.io.IOException;
 public class WorkspaceFileFunction implements SkyFunction {
 
   private final PackageFactory packageFactory;
-  private final Path installDir;
+  private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
 
   public WorkspaceFileFunction(
@@ -47,7 +47,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       PackageFactory packageFactory,
       BlazeDirectories directories) {
     this.packageFactory = packageFactory;
-    this.installDir = directories.getEmbeddedBinariesRoot();
+    this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
   }
 
@@ -69,8 +69,10 @@ public class WorkspaceFileFunction implements SkyFunction {
           new WorkspaceFactory(
               builder,
               packageFactory.getRuleClassProvider(),
+              packageFactory.getEnvironmentExtensions(),
               mutability,
-              installDir.getPathString());
+              directories.getEmbeddedBinariesRoot(),
+              directories.getWorkspace());
       parser.parse(
           ParserInputSource.create(
               ruleClassProvider.getDefaultWorkspaceFile(), new PathFragment("DEFAULT.WORKSPACE")));

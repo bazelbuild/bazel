@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.workspace;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelMain;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
@@ -48,6 +50,7 @@ import java.util.List;
 public class Resolver {
 
   private final RuleClassProvider ruleClassProvider;
+  private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final EventHandler handler;
   private final com.google.devtools.build.workspace.maven.Resolver resolver;
 
@@ -57,10 +60,13 @@ public class Resolver {
     ConfiguredRuleClassProvider.Builder ruleClassBuilder =
         new ConfiguredRuleClassProvider.Builder();
     List<BlazeModule> blazeModules = BlazeRuntime.createModules(BazelMain.BAZEL_MODULES);
+    ImmutableList.Builder<EnvironmentExtension> environmentExtensions = ImmutableList.builder();
     for (BlazeModule blazeModule : blazeModules) {
       blazeModule.initializeRuleClasses(ruleClassBuilder);
+      environmentExtensions.add(blazeModule.getPackageEnvironmentExtension());
     }
     this.ruleClassProvider = ruleClassBuilder.build();
+    this.environmentExtensions = environmentExtensions.build();
   }
 
   /**
@@ -71,7 +77,7 @@ public class Resolver {
     Package.Builder builder =
         Package.newExternalPackageBuilder(workspacePath, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
-      new WorkspaceFactory(builder, ruleClassProvider, mutability)
+      new WorkspaceFactory(builder, ruleClassProvider, environmentExtensions, mutability)
           .parse(ParserInputSource.create(workspacePath));
     } catch (IOException | InterruptedException e) {
       handler.handle(Event.error(Location.fromFile(workspacePath), e.getMessage()));
