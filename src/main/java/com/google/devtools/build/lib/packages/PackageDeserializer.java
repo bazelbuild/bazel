@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -23,6 +25,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -55,6 +60,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.annotation.Nullable;
+
 /**
  * Functionality to deserialize loaded packages.
  */
@@ -72,7 +79,36 @@ public class PackageDeserializer {
 
     /** Returns a {@link RuleClass} object for the serialized rule. */
     RuleClass getRuleClass(Build.Rule rulePb, Location ruleLocation);
+
+    /** Description of what rule attributes of each rule should be deserialized. */
+    AttributesToDeserialize attributesToDeserialize();
   }
+
+  /**
+   * A class that defines what attributes to keep after deserialization. Note that all attributes of
+   * type label are kept in order to navigate between dependencies.
+   *
+   * <p>If {@code addSyntheticAttributeHash} is {@code true}, a synthetic attribute is added to each
+   * Rule that contains a stable hash of the entire serialized rule for the sake of permitting
+   * equality comparisons that respect the attributes that were dropped according to {@code
+   * attributesToKeep}.
+   */
+  public static class AttributesToDeserialize {
+
+    private final boolean addSyntheticAttributeHash;
+    private final Predicate<String> shouldKeepAttributeWithName;
+
+    public AttributesToDeserialize(boolean addSyntheticAttributeHash,
+        Predicate<String> shouldKeepAttributeWithName) {
+      this.addSyntheticAttributeHash = addSyntheticAttributeHash;
+      this.shouldKeepAttributeWithName = shouldKeepAttributeWithName;
+    }
+
+    public boolean includeAttribute(String attr) { return shouldKeepAttributeWithName.apply(attr); }
+  }
+
+  public static final AttributesToDeserialize DESERIALIZE_ALL_ATTRS =
+      new AttributesToDeserialize(false, Predicates.<String>alwaysTrue());
 
   // Workaround for Java serialization making it tough to pass in a deserialization environment
   // manually.
@@ -101,7 +137,7 @@ public class PackageDeserializer {
   private static class DeserializationContext {
     private final Package.Builder packageBuilder;
 
-    public DeserializationContext(Package.Builder packageBuilder) {
+    private DeserializationContext(Package.Builder packageBuilder) {
       this.packageBuilder = packageBuilder;
     }
   }
@@ -124,11 +160,12 @@ public class PackageDeserializer {
       Type<?> expectedType, Build.Attribute attrPb) throws PackageDeserializationException {
     Object value = deserializeAttributeValue(expectedType, attrPb);
     return new ParsedAttributeValue(
-        attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value,
-        EmptyLocation.INSTANCE);
+        attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value
+    );
   }
 
-  private void deserializeInputFile(DeserializationContext context, Build.SourceFile sourceFile)
+  private static void deserializeInputFile(DeserializationContext context,
+      Build.SourceFile sourceFile)
       throws PackageDeserializationException {
     InputFile inputFile;
     try {
@@ -145,7 +182,7 @@ public class PackageDeserializer {
     }
   }
 
-  private void deserializePackageGroup(DeserializationContext context,
+  private static void deserializePackageGroup(DeserializationContext context,
       Build.PackageGroup packageGroupPb) throws PackageDeserializationException {
     List<String> specifications = new ArrayList<>();
     for (String containedPackage : packageGroupPb.getContainedPackageList()) {
@@ -169,22 +206,45 @@ public class PackageDeserializer {
     Location ruleLocation = EmptyLocation.INSTANCE;
     RuleClass ruleClass = packageDeserializationEnvironment.getRuleClass(rulePb, ruleLocation);
     Map<String, ParsedAttributeValue> attributeValues = new HashMap<>();
+    AttributesToDeserialize attrToDeserialize =
+        packageDeserializationEnvironment.attributesToDeserialize();
+
+    Hasher hasher = Hashing.md5().newHasher();
     for (Build.Attribute attrPb : rulePb.getAttributeList()) {
       Type<?> type = ruleClass.getAttributeByName(attrPb.getName()).getType();
       attributeValues.put(attrPb.getName(), deserializeAttribute(type, attrPb));
+      if (attrToDeserialize.addSyntheticAttributeHash) {
+        // TODO(bazel-team): This might give false positives because of explicit vs implicit.
+        hasher.putBytes(attrPb.toByteArray());
+      }
     }
+    AttributeContainerWithoutLocation attributeContainer =
+        new AttributeContainerWithoutLocation(ruleClass, hasher.hash());
 
     Label ruleLabel = deserializeLabel(rulePb.getName());
     try {
       Rule rule = createRuleWithParsedAttributeValues(ruleClass,
           ruleLabel, context.packageBuilder, ruleLocation, attributeValues,
-          NullEventHandler.INSTANCE, new AttributeContainerWithoutLocation(ruleClass));
+          NullEventHandler.INSTANCE, attributeContainer);
       context.packageBuilder.addRule(rule);
+
+      // Remove the attribute after it is added to package in order to pass the validations
+      // and be able to compute all the outputs.
+      if (attrToDeserialize != DESERIALIZE_ALL_ATTRS) {
+        for (String attrName : attributeValues.keySet()) {
+          Attribute attribute = ruleClass.getAttributeByName(attrName);
+          if (!(attrToDeserialize.shouldKeepAttributeWithName.apply(attrName)
+              || BuildType.isLabelType(attribute.getType()))) {
+            attributeContainer.clearIfNotLabel(attrName);
+          }
+        }
+      }
 
       Preconditions.checkState(!rule.containsErrors());
     } catch (NameConflictException | LabelSyntaxException e) {
       throw new PackageDeserializationException(e);
     }
+
   }
 
   /** "Empty" location implementation, all methods should return non-null, but empty, values. */
@@ -622,10 +682,19 @@ public class PackageDeserializer {
     }
   }
 
-  private static class AttributeContainerWithoutLocation extends AttributeContainer {
+  /**
+   * An special {@code AttributeContainer} implementation that does not keep
+   * the location and can contain a hashcode of the target attributes.
+   */
+  public static class AttributeContainerWithoutLocation extends AttributeContainer {
 
-    private AttributeContainerWithoutLocation(RuleClass ruleClass) {
+    @Nullable
+    private final HashCode syntheticAttrHash;
+
+    private AttributeContainerWithoutLocation(RuleClass ruleClass,
+        @Nullable HashCode syntheticAttrHash) {
       super(ruleClass, null);
+      this.syntheticAttrHash = syntheticAttrHash;
     }
 
     @Override
@@ -641,6 +710,16 @@ public class PackageDeserializer {
     @Override
     void setAttributeLocation(Attribute attribute, Location location) {
       throw new UnsupportedOperationException("Setting location not supported");
+    }
+
+
+    @Nullable
+    public HashCode getSyntheticAttrHash() {
+      return syntheticAttrHash;
+    }
+
+    private void clearIfNotLabel(String attr) {
+      setAttributeValueByName(attr, null);
     }
   }
 
@@ -687,12 +766,10 @@ public class PackageDeserializer {
   private static class ParsedAttributeValue {
     private final boolean explicitlySpecified;
     private final Object value;
-    private final Location location;
 
-    private ParsedAttributeValue(boolean explicitlySpecified, Object value, Location location) {
+    private ParsedAttributeValue(boolean explicitlySpecified, Object value) {
       this.explicitlySpecified = explicitlySpecified;
       this.value = value;
-      this.location = location;
     }
   }
 }
