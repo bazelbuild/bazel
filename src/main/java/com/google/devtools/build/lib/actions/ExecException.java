@@ -54,6 +54,12 @@ public abstract class ExecException extends Exception {
   public ExecException(String message) {
     this(message, false);
   }
+  
+  public ExecException(Throwable cause) {
+    super(cause);
+    this.catastrophe = false;
+    this.timedOut = false;
+  }
 
   public ExecException(String message, Throwable cause, boolean catastrophe) {
     super(message + ": " + cause.getMessage(), cause);

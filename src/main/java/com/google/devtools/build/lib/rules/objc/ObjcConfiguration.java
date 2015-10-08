@@ -49,8 +49,16 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
-  private static final String IOS_SDK_VERSION_ENV_NAME = "IOS_SDK_VERSION_OVERRIDE";
-  private static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
+  /**
+   * Environment variable name for the iOS SDK version. If unset, uses the system default of the
+   * host.
+   **/
+  public static final String IOS_SDK_VERSION_ENV_NAME = "IOS_SDK_VERSION_OVERRIDE";
+  /**
+   * Environment variable name for the apple SDK platform. This should be set for all actions that
+   * require an apple SDK. The valid values consist of {@link Platform} names.
+   **/
+  public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;
