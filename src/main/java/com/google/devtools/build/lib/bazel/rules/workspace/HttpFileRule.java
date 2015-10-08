@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.workspace;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -48,6 +49,12 @@ public class HttpFileRule implements RuleDefinition {
          <p>This must match the SHA-256 of the file downloaded.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING).mandatory())
+        /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(executable) -->
+         If the downloaded file should be made executable. Defaults to False.
+         ${SYNOPSIS}
+
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("executable", BOOLEAN))
         .setWorkspaceOnly()
         .build();
   }

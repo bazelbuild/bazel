@@ -44,8 +44,12 @@ public class HttpJarFunction extends HttpArchiveFunction {
   @Override
   protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
       throws IOException {
-    return DecompressorValue.jarKey(
-        rule.getTargetKind(), rule.getName(), downloadPath, outputDirectory);
+    return DecompressorValue.key(JarFunction.NAME, DecompressorDescriptor.builder()
+        .setTargetKind(rule.getTargetKind())
+        .setTargetName(rule.getName())
+        .setArchivePath(downloadPath)
+        .setRepositoryPath(outputDirectory)
+        .build());
   }
 
   @Override

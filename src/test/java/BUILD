@@ -725,6 +725,28 @@ java_test(
 )
 
 java_test(
+    name = "repository_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/bazel/repository/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["rules"],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/java:collect",
+        "//src/main/java:vfs",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "sandbox-tests",
     srcs = glob(["com/google/devtools/build/lib/sandbox/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],

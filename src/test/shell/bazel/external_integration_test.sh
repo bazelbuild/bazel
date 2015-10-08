@@ -336,14 +336,17 @@ EOF
 # Tests downloading a file and using it as a dependency.
 function test_http_download() {
   local test_file=$TEST_TMPDIR/toto
-  echo "Tra-la!" >$test_file
+  cat > $test_file <<EOF
+#!/bin/bash
+echo "Tra-la!"
+EOF
   local sha256=$(sha256sum $test_file | cut -f 1 -d ' ')
   serve_file $test_file
   cd ${WORKSPACE_DIR}
 
   cat > WORKSPACE <<EOF
 http_file(name = 'toto', url = 'http://localhost:$nc_port/toto',
-    sha256 = '$sha256')
+    sha256 = '$sha256', executable = True)
 EOF
 
   mkdir -p test
@@ -357,11 +360,14 @@ EOF
 
   cat > test/test.sh <<EOF
 #!/bin/bash
-cat external/toto/file/toto
+echo "symlink:"
+ls -l external/toto/file
+echo "dest:"
+ls -l \$(readlink -f external/toto/file/toto)
+external/toto/file/toto
 EOF
 
   chmod +x test/test.sh
-  bazel fetch //test || fail "Fetch failed"
   bazel run //test >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"

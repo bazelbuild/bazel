@@ -86,8 +86,13 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         prefix = mapper.get("strip_prefix", Type.STRING);
       }
       decompressed = (DecompressorValue) env.getValueOrThrow(
-          DecompressorValue.key(rule.getTargetKind(), rule.getName(),
-              downloadedFileValue.getPath(), outputDirectory, prefix), IOException.class);
+          DecompressorValue.key(DecompressorDescriptor.builder()
+              .setTargetKind(rule.getTargetKind())
+              .setTargetName(rule.getName())
+              .setArchivePath(downloadedFileValue.getPath())
+              .setRepositoryPath(outputDirectory)
+              .setPrefix(prefix)
+              .build()), IOException.class);
       if (decompressed == null) {
         return null;
       }

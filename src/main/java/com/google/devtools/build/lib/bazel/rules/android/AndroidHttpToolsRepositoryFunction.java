@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadValue;
@@ -77,8 +78,13 @@ public class AndroidHttpToolsRepositoryFunction extends RepositoryFunction {
         return null;
       }
 
-      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(DecompressorValue.key(
-          rule.getTargetKind(), rule.getName(), downloadValue.getPath(), outputDirectory),
+      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(
+          DecompressorValue.key(DecompressorDescriptor.builder()
+              .setTargetKind(rule.getTargetKind())
+              .setTargetName(rule.getName())
+              .setArchivePath(downloadValue.getPath())
+              .setRepositoryPath(outputDirectory)
+              .build()),
           IOException.class);
       if (value == null) {
         return null;
