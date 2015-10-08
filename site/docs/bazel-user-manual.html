@@ -1881,6 +1881,42 @@ the compilation of binaries during the build.
   speed on the build.
 </p>
 
+<h4 id='flag--spawn_strategy'><code class='flag'>--spawn_strategy <var>strategy</var></code></h4>
+<p>
+  This option controls where and how commands are executed.
+</p>
+<ul>
+
+  <li>
+    <code>standalone</code> causes commands to be executed as local subprocesses.
+  </li>
+  <li>
+    <code>sandboxed</code> causes commands to be executed inside a sandbox on the local machine.
+    This requires that all input files, data dependencies and tools are listed as direct
+    dependencies in the <code>srcs</code>, <code>data</code> and <code>tools</code> attributes.
+    This is the default on systems that support sandboxed execution.
+  </li>
+
+</ul>
+
+<h4 id='flag--genrule_strategy'><code class='flag'>--genrule_strategy <var>strategy</var></code></h4>
+<p>
+  This option controls where and how genrules are executed.
+</p>
+<ul>
+
+  <li>
+    <code>standalone</code> causes genrules to run as local subprocesses.
+  </li>
+  <li>
+    <code>sandboxed</code> causes genrules to run inside a sandbox on the local machine.
+    This requires that all input files are listed as direct dependencies in
+    the <code>srcs</code> attribute, and the program(s) executed are listed
+    in the <code>tools</code> attribute.
+    This is the default for Bazel on systems that support sandboxed execution.
+  </li>
+
+</ul>
 
 <h4 id='flag--local_genrule_timeout_seconds'><code class='flag'>--local_genrule_timeout_seconds <var>seconds</var></code></h4>
 <p>Sets a timeout value for local genrules with the given number of seconds.</p>
