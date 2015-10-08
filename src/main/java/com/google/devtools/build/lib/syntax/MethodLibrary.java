@@ -1458,7 +1458,9 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "print", returnType = Runtime.NoneType.class,
-      doc = "Prints <code>msg</code> to the console.",
+      doc = "Prints a warning with the text <code>msg</code>. It can be used for debugging or "
+          + "for transition (before changing to an error). In other cases, warnings are "
+          + "discouraged.",
       optionalNamedOnly = {
         @Param(name = "sep", type = String.class, defaultValue = "' '",
             doc = "The separator string between the objects, default is space (\" \").")},
