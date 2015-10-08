@@ -844,18 +844,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Creates a FileValue pointing of type directory. No matter that the rootedPath points to a
-   * symlink.
-   *
-   * <p> Use it with caution as it would prevent invalidation when the destination file in the
-   * symlink changes.
-   */
-  protected static FileValue createFileDirValue(RootedPath rootedPath) {
-    return FileValue.value(rootedPath, FileStateValue.DIRECTORY_FILE_STATE_NODE,
-        rootedPath, FileStateValue.DIRECTORY_FILE_STATE_NODE);
-  }
-
-  /**
    * Sets the packages that should be treated as deleted and ignored.
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
