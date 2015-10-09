@@ -127,11 +127,11 @@ pkg_tar(
 pkg_tar(
     name = "debian-data",
     extension = "tar.gz",
-    tars = [
+    deps = [
         ":bazel-bin",
         ":bazel-completion",
-        ":bazel-tools",
         ":bazel-rc",
+        ":bazel-tools",
     ],
 )
 
