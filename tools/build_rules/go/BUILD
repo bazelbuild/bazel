@@ -1,0 +1,3 @@
+package(
+    visibility = ["//visibility:public"],
+)
