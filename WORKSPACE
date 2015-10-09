@@ -86,6 +86,13 @@ bind(name  = "go_prefix",
 )
 
 new_http_archive(
+  name=  "golang-darwin-amd64",
+  url = "https://storage.googleapis.com/golang/go1.5.1.darwin-amd64.tar.gz",
+  build_file = "tools/build_rules/go/toolchain/BUILD.go-toolchain",
+  sha256 = "e94487b8cd2e0239f27dc51e6c6464383b10acb491f753584605e9b28abf48fb"
+)
+
+new_http_archive(
   name=  "golang-linux-amd64",
   url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",
   build_file = "tools/build_rules/go/toolchain/BUILD.go-toolchain",
