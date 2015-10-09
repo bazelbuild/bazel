@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -227,7 +228,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
   }
 
   @Test
-  public void testParseManifestFile() throws IOException {
+  public void testParseManifestFile() throws IOException, UserExecException {
     Path targetDir = workspaceDir.getRelative("runfiles");
     targetDir.createDirectory();
 
@@ -240,7 +241,8 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
         Charset.defaultCharset(),
         String.format("x/testfile %s\nx/emptyfile \n", testFile.getPathString()));
 
-    Map mounts = LinuxSandboxedStrategy.parseManifestFile(targetDir, manifestFile.getPathFile());
+    Map mounts =
+        LinuxSandboxedStrategy.parseManifestFile(targetDir, manifestFile.getPathFile(), false, "");
 
     assertThat(userFriendlyMap(mounts))
         .isEqualTo(
@@ -250,5 +252,28 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
                     testFile,
                     fileSystem.getPath("/runfiles/x/emptyfile"),
                     fileSystem.getPath("/dev/null"))));
+  }
+
+  @Test
+  public void testParseFilesetManifestFile() throws IOException, UserExecException {
+    Path targetDir = workspaceDir.getRelative("fileset");
+    targetDir.createDirectory();
+
+    Path testFile = workspaceDir.getRelative("testfile");
+    FileSystemUtils.createEmptyFile(testFile);
+
+    Path manifestFile = workspaceDir.getRelative("MANIFEST");
+    FileSystemUtils.writeContent(
+        manifestFile,
+        Charset.defaultCharset(),
+        String.format("workspace/x/testfile %s\n0\n", testFile.getPathString()));
+
+    Map mounts =
+        LinuxSandboxedStrategy.parseManifestFile(
+            targetDir, manifestFile.getPathFile(), true, "workspace");
+
+    assertThat(userFriendlyMap(mounts))
+        .isEqualTo(
+            userFriendlyMap(ImmutableMap.of(fileSystem.getPath("/fileset/x/testfile"), testFile)));
   }
 }
