@@ -80,3 +80,14 @@ new_http_archive(
     sha256 = "87494218eea2441a7a24b40f227330877dbba75c5fa9014ac6188711baed53f6",
     build_file = "tools/build_defs/sass/sassc.BUILD",
 )
+
+bind(name  = "go_prefix",
+  actual = "//:go_prefix",
+)
+
+new_http_archive(
+  name=  "golang-linux-amd64",
+  url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",
+  build_file = "tools/build_rules/go/toolchain/BUILD.go-toolchain",
+  sha256 = "2593132ca490b9ee17509d65ee2cd078441ff544899f6afb97a03d08c25524e7"
+)
