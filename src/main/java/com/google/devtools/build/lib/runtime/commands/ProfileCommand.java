@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.output.HtmlCreator;
 import com.google.devtools.build.lib.profiler.output.PhaseText;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
+import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -42,6 +43,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumMap;
@@ -74,6 +76,16 @@ public final class ProfileCommand implements BlazeCommand {
               + " The default is --chart."
     )
     public boolean chart;
+
+    @Option(
+      name = "combine",
+      defaultValue = "null",
+      help =
+          "If present, the statistics of all given profile files will be combined and output"
+              + " in text/--html format to the file named in the argument. Does not output HTML"
+              + " task charts."
+    )
+    public String combine;
 
     @Option(name = "dump",
         abbrev='d',
@@ -178,65 +190,102 @@ public final class ProfileCommand implements BlazeCommand {
       env.getReporter().handle(Event.warn(
           null, "This information is intended for consumption by Blaze developers"
               + " only, and may change at any time.  Script against it at your own risk"));
-
-      for (String name : options.getResidue()) {
-        Path profileFile = runtime.getWorkingDirectory().getRelative(name);
-        try {
-          ProfileInfo info = ProfileInfo.loadProfileVerbosely(
-              profileFile, getInfoListener(env));
-
-          if (opts.dumpMode == null || !opts.dumpMode.contains("unsorted")) {
-            ProfileInfo.aggregateProfile(info, getInfoListener(env));
-          }
-
-          if (opts.taskTree != null) {
-            printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
-            continue;
-          }
-
-          if (opts.dumpMode != null) {
-            dumpProfile(info, out, opts.dumpMode);
-            continue;
-          }
-
-          PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
-          EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
-              new EnumMap<>(ProfilePhase.class);
-          for (ProfilePhase phase : ProfilePhase.values()) {
-            phaseStatistics.put(
-                phase, new PhaseStatistics(phase, info, runtime.getWorkspaceName()));
-          }
-
+      if (opts.combine != null && opts.dumpMode == null) {
+        MultiProfileStatistics statistics =
+            new MultiProfileStatistics(
+                runtime.getWorkingDirectory(),
+                runtime.getWorkspaceName(),
+                options.getResidue(),
+                getInfoListener(env),
+                opts.vfsStatsLimit > 0);
+        Path outputFile = runtime.getWorkingDirectory().getRelative(opts.combine);
+        try (PrintStream output =
+                new PrintStream(new BufferedOutputStream(outputFile.getOutputStream()))) {
           if (opts.html) {
-            Path htmlFile =
-                profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
-
-            env.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
-
+            env.getReporter().handle(Event.info("Creating HTML output in " + outputFile));
             HtmlCreator.create(
-                info,
-                htmlFile,
-                phaseSummaryStatistics,
-                phaseStatistics,
-                opts.htmlDetails,
-                opts.htmlPixelsPerSecond,
-                opts.vfsStatsLimit,
-                opts.chart,
-                opts.htmlHistograms);
+                output, statistics, opts.htmlDetails, opts.htmlPixelsPerSecond, opts.vfsStatsLimit);
           } else {
-            CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
+            env.getReporter().handle(Event.info("Creating text output in " + outputFile));
             new PhaseText(
-                    out,
-                    phaseSummaryStatistics,
-                    phaseStatistics,
-                    Optional.of(critPathStats),
-                    info.getMissingActionsCount(),
+                    output,
+                    statistics.getSummaryStatistics(),
+                    statistics.getSummaryPhaseStatistics(),
+                    Optional.<CriticalPathStatistics>absent(),
+                    statistics.getMissingActionsCount(),
                     opts.vfsStatsLimit)
                 .print();
           }
         } catch (IOException e) {
-          env.getReporter().handle(Event.error(
-              null, "Failed to process file " + name + ": " + e.getMessage()));
+          env
+              .getReporter()
+              .handle(
+                  Event.error(
+                      "Failed to write to output file " + outputFile + ":" + e.getMessage()));
+        }
+      } else {
+        for (String name : options.getResidue()) {
+          Path profileFile = runtime.getWorkingDirectory().getRelative(name);
+          try {
+            ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, getInfoListener(env));
+
+            if (opts.dumpMode == null || !opts.dumpMode.contains("unsorted")) {
+              ProfileInfo.aggregateProfile(info, getInfoListener(env));
+            }
+
+            if (opts.taskTree != null) {
+              printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
+              continue;
+            }
+
+            if (opts.dumpMode != null) {
+              dumpProfile(info, out, opts.dumpMode);
+              continue;
+            }
+
+            PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
+            EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
+                new EnumMap<>(ProfilePhase.class);
+            for (ProfilePhase phase : ProfilePhase.values()) {
+              phaseStatistics.put(
+                  phase,
+                  new PhaseStatistics(
+                      phase, info, runtime.getWorkspaceName(), opts.vfsStatsLimit > 0));
+            }
+
+            if (opts.html) {
+              Path htmlFile =
+                  profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
+
+              env.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
+
+              HtmlCreator.create(
+                  info,
+                  htmlFile,
+                  phaseSummaryStatistics,
+                  phaseStatistics,
+                  opts.htmlDetails,
+                  opts.htmlPixelsPerSecond,
+                  opts.vfsStatsLimit,
+                  opts.chart,
+                  opts.htmlHistograms);
+            } else {
+              CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
+              new PhaseText(
+                      out,
+                      phaseSummaryStatistics,
+                      phaseStatistics,
+                      Optional.of(critPathStats),
+                      info.getMissingActionsCount(),
+                      opts.vfsStatsLimit)
+                  .print();
+            }
+          } catch (IOException e) {
+            System.out.println(e);
+            env
+                .getReporter()
+                .handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+          }
         }
       }
     }

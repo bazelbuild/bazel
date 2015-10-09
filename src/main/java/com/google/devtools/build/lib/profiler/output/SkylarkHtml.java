@@ -33,6 +33,8 @@ public final class SkylarkHtml extends HtmlPrinter {
    * How many characters from the end of the location of a Skylark function to display.
    */
   private static final int NUM_LOCATION_CHARS_UNABBREVIATED = 40;
+  private static final String JS_DATA_VAR = "skylarkData";
+  private static final String JS_TABLE_VAR = JS_DATA_VAR + "Table";
 
   private final SkylarkStatistics stats;
   private final boolean printHistograms;
@@ -64,47 +66,10 @@ public final class SkylarkHtml extends HtmlPrinter {
     lnPrint("-->");
     close(); // style
 
-    lnElement("script", "type", "text/javascript", "src", "https://www.google.com/jsapi");
     lnOpen("script", "type", "text/javascript");
-    lnPrint("google.load(\"visualization\", \"1.1\", {packages:[\"corechart\",\"table\"]});");
-    lnPrint("google.setOnLoadCallback(drawVisualization);");
-
-    String dataVar = "data";
-    String tableVar = dataVar + "Table";
-    lnPrintf("var %s = {};\n", dataVar);
-    lnPrintf("var %s = {};\n", tableVar);
+    lnPrintf("var %s = {};\n", JS_DATA_VAR);
+    lnPrintf("var %s = {};\n", JS_TABLE_VAR);
     lnPrint("var histogramData;");
-
-    lnPrint("function drawVisualization() {");
-    down();
-    printStatsJs(
-        stats.getUserFunctionStatistics(),
-        stats.getUserFunctionSelfStatistics(),
-        "user",
-        dataVar,
-        tableVar,
-        stats.getUserTotalNanos());
-    printStatsJs(
-        stats.getBuiltinFunctionStatistics(),
-        stats.getBuiltinFunctionSelfStatistics(),
-        "builtin",
-        dataVar,
-        tableVar,
-        stats.getBuiltinTotalNanos());
-
-    if (printHistograms) {
-      printHistogramData();
-
-      lnPrint("document.querySelector('#user-close').onclick = function() {");
-      lnPrint("  document.querySelector('#user-histogram').style.display = 'none';");
-      lnPrint("};");
-      lnPrint("document.querySelector('#builtin-close').onclick = function() {");
-      lnPrint("  document.querySelector('#builtin-histogram').style.display = 'none';");
-      lnPrint("};");
-    }
-
-    up();
-    lnPrint("};");
 
     if (printHistograms) {
       lnPrint("var options = {");
@@ -122,11 +87,11 @@ public final class SkylarkHtml extends HtmlPrinter {
     down();
     lnPrint("return function() {");
     down();
-    printf("var selection = %s[category].getSelection();", tableVar);
+    printf("var selection = %s[category].getSelection();", JS_TABLE_VAR);
     lnPrint("if (selection.length < 1) return;");
     lnPrint("var item = selection[0];");
-    lnPrintf("var loc = %s[category].getValue(item.row, 0);", dataVar);
-    lnPrintf("var func = %s[category].getValue(item.row, 1);", dataVar);
+    lnPrintf("var loc = %s[category].getValue(item.row, 0);", JS_DATA_VAR);
+    lnPrintf("var func = %s[category].getValue(item.row, 1);", JS_DATA_VAR);
     lnPrint("var histogramDiv = document.getElementById(category+'-histogram');");
     if (printHistograms) {
       lnPrint("var key = loc + '#' + func;");
@@ -149,6 +114,34 @@ public final class SkylarkHtml extends HtmlPrinter {
     lnPrint("};");
 
     lnClose(); // script
+  }
+
+  /**
+   * Prints the data for the tables of Skylark function statistics and - if needed - the
+   * histogram data.
+   */
+  void printVisualizationCallbackJs() {
+    printStatsJs(
+        stats.getUserFunctionStatistics(),
+        stats.getUserFunctionSelfStatistics(),
+        "user",
+        stats.getUserTotalNanos());
+    printStatsJs(
+        stats.getBuiltinFunctionStatistics(),
+        stats.getBuiltinFunctionSelfStatistics(),
+        "builtin",
+        stats.getBuiltinTotalNanos());
+
+    if (printHistograms) {
+      printHistogramData();
+
+      lnPrint("document.querySelector('#user-close').onclick = function() {");
+      lnPrint("  document.querySelector('#user-histogram').style.display = 'none';");
+      lnPrint("};");
+      lnPrint("document.querySelector('#builtin-close').onclick = function() {");
+      lnPrint("  document.querySelector('#builtin-histogram').style.display = 'none';");
+      lnPrint("};");
+    }
   }
 
   private void printHistogramData() {
@@ -182,10 +175,8 @@ public final class SkylarkHtml extends HtmlPrinter {
       Map<String, TasksStatistics> taskStatistics,
       Map<String, TasksStatistics> taskSelfStatistics,
       String category,
-      String dataVar,
-      String tableVar,
       long totalNanos) {
-    String tmpVar = category + dataVar;
+    String tmpVar = category + JS_DATA_VAR;
     lnPrintf("var statsDiv = document.getElementById('%s_function_stats');", category);
     if (taskStatistics.isEmpty()) {
       lnPrint(
@@ -239,18 +230,18 @@ public final class SkylarkHtml extends HtmlPrinter {
       }
       lnPrint("]);");
       up();
-      lnPrintf("%s.%s = %s;", dataVar, category, tmpVar);
-      lnPrintf("%s.%s = new google.visualization.Table(statsDiv);", tableVar, category);
+      lnPrintf("%s.%s = %s;", JS_DATA_VAR, category, tmpVar);
+      lnPrintf("%s.%s = new google.visualization.Table(statsDiv);", JS_TABLE_VAR, category);
       lnPrintf(
           "google.visualization.events.addListener(%s.%s, 'select', selectHandler('%s'));",
-          tableVar,
+          JS_TABLE_VAR,
           category,
           category);
       lnPrintf(
           "%s.%s.draw(%s.%s, {showRowNumber: true, width: '100%%', height: '100%%'});",
-          tableVar,
+          JS_TABLE_VAR,
           category,
-          dataVar,
+          JS_DATA_VAR,
           category);
     }
   }

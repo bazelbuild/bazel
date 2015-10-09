@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
-import java.util.Map.Entry;
 
 /**
  * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
@@ -88,7 +87,7 @@ public final class PhaseHtml extends HtmlPrinter {
     for (ProfilePhase phase :
         Arrays.asList(ProfilePhase.INIT, ProfilePhase.LOAD, ProfilePhase.ANALYZE)) {
       PhaseStatistics statistics = phaseStatistics.get(phase);
-      if (!statistics.wasExecuted()) {
+      if (statistics == null || !statistics.wasExecuted()) {
         continue;
       }
       printPhaseStatistics(statistics);
@@ -159,7 +158,7 @@ public final class PhaseHtml extends HtmlPrinter {
 
     for (ProfilerTask type : stats) {
       int numPrinted = 0;
-      for (Entry<Stat, String> stat : stats.getSortedStatistics(type)) {
+      for (Stat stat : stats.getSortedStatistics(type)) {
         lnOpen("tr");
         if (vfsStatsLimit != -1 && numPrinted++ == vfsStatsLimit) {
           open("td", "class", "center", "colspan", "4");
@@ -169,9 +168,9 @@ public final class PhaseHtml extends HtmlPrinter {
           break;
         }
         element("td", type.name());
-        element("td", stat.getKey().count);
-        element("td", TimeUtilities.prettyTime(stat.getKey().duration));
-        element("td", "class", "left", stat.getValue());
+        element("td", stat.getCount());
+        element("td", TimeUtilities.prettyTime(stat.getDuration()));
+        element("td", "class", "left", stat.path);
         close(); // tr
       }
     }
