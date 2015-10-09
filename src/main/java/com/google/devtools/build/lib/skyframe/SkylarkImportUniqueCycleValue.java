@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -22,7 +23,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  * once.
  */
 public class SkylarkImportUniqueCycleValue implements SkyValue {
-  static SkyKey key(ImmutableList<SkyKey> cycle) {
+  static SkyKey key(ImmutableList<PackageIdentifier> cycle) {
     return AbstractChainUniquenessValue.key(SkyFunctions.SKYLARK_IMPORT_CYCLE, cycle);
   }
 }

@@ -39,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,22 +62,28 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
-    return computeInternal(skyKey, env, null);
+    return computeInternal((PackageIdentifier) skyKey.argument(), env, null);
   }
 
-  SkyValue computeWithInlineCalls(SkyKey skyKey, Environment env, Set<SkyKey> visitedKeysForCycle)
+  SkyValue computeWithInlineCalls(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    return computeInternal(skyKey, env, Preconditions.checkNotNull(visitedKeysForCycle, skyKey));
+    return computeWithInlineCallsInternal(
+        (PackageIdentifier) skyKey.argument(), env, new LinkedHashSet<PackageIdentifier>());
   }
 
-  SkyValue computeInternal(SkyKey skyKey, Environment env,
-      @Nullable Set<SkyKey> visitedKeysForCycle)
-      throws SkyFunctionException, InterruptedException {
-    PackageIdentifier arg = (PackageIdentifier) skyKey.argument();
-    PathFragment file = arg.getPackageFragment();
+  private SkyValue computeWithInlineCallsInternal(
+      PackageIdentifier pkgId, Environment env, Set<PackageIdentifier> visited)
+          throws SkyFunctionException, InterruptedException {
+    return computeInternal(pkgId, env, Preconditions.checkNotNull(visited, pkgId));
+  }
+
+  SkyValue computeInternal(
+      PackageIdentifier pkgId, Environment env, @Nullable Set<PackageIdentifier> visited)
+          throws SkyFunctionException, InterruptedException {
+    PathFragment file = pkgId.getPackageFragment();
     ASTFileLookupValue astLookupValue = null;
     try {
-      SkyKey astLookupKey = ASTFileLookupValue.key(arg);
+      SkyKey astLookupKey = ASTFileLookupValue.key(pkgId);
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
@@ -99,7 +106,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           SkylarkImportFailedException.skylarkErrors(file));
     }
 
-    Label label = pathFragmentToLabel(arg.getRepository(), file, env);
+    Label label = pathFragmentToLabel(pkgId.getRepository(), file, env);
     if (label == null) {
       Preconditions.checkState(env.valuesMissing(), "null label with no missing %s", file);
       return null;
@@ -112,7 +119,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     for (Map.Entry<Location, PathFragment> entry : ast.getImports().entrySet()) {
       try {
         skylarkImports.put(
-            PackageFunction.getImportKey(entry, ruleClassProvider.getPreludePath(), file, arg),
+            PackageFunction.getImportKey(entry, ruleClassProvider.getPreludePath(), file, pkgId),
             entry.getValue());
       } catch (ASTLookupInputException e) {
         throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
@@ -121,15 +128,15 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     Map<SkyKey, SkyValue> skylarkImportMap;
     boolean valuesMissing = false;
-    if (visitedKeysForCycle == null) {
+    if (visited == null) {
       // Not inlining.
       skylarkImportMap = env.getValues(skylarkImports.keySet());
       valuesMissing = env.valuesMissing();
     } else {
       // inlining calls to SkylarkImportLookupFunction.
-      if (!visitedKeysForCycle.add(skyKey)) {
-        ImmutableList<SkyKey> cycle =
-            CycleUtils.splitIntoPathAndChain(Predicates.equalTo(skyKey), visitedKeysForCycle)
+      if (!visited.add(pkgId)) {
+        ImmutableList<PackageIdentifier> cycle =
+            CycleUtils.splitIntoPathAndChain(Predicates.equalTo(pkgId), visited)
                 .second;
         if (env.getValue(SkylarkImportUniqueCycleValue.key(cycle)) == null) {
           return null;
@@ -139,7 +146,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       }
       skylarkImportMap = Maps.newHashMapWithExpectedSize(astImports.size());
       for (SkyKey skylarkImport : skylarkImports.keySet()) {
-        SkyValue skyValue = this.computeWithInlineCalls(skylarkImport, env, visitedKeysForCycle);
+        SkyValue skyValue =
+            this.computeWithInlineCallsInternal(
+                (PackageIdentifier) skylarkImport.argument(), env, visited);
         if (skyValue == null) {
           Preconditions.checkState(
               env.valuesMissing(), "no skylark import value for %s", skylarkImport);
@@ -151,7 +160,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         }
       }
       // All imports traversed, this key can no longer be part of a cycle.
-      visitedKeysForCycle.remove(skyKey);
+      visited.remove(pkgId);
     }
 
     if (valuesMissing) {
