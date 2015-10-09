@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -209,67 +208,50 @@ public class FileFunction implements SkyFunction {
       symlinkTargetRootedPath = RootedPath.toRootedPathMaybeUnderRoot(symlinkTargetPath,
           pkgLocator.get().getPathEntries());
     }
-    // Suppose we have a symlink chain p -> p1 -> p2 -> ... pK. We want to determine the fully
-    // resolved path, if any, of p. This entails following the chain and noticing if there's a
-    // symlink issue. There three sorts of issues:
-    // (i) Symlink cycle:
-    //   p -> p1 -> p2 -> p1
-    // (ii) Unbounded expansion caused by a symlink to a descendant of a member of the chain:
-    //   p -> a/b -> c/d -> a/b/e
-    // (iii) Unbounded expansion caused by a symlink to an ancestor of a member of the chain:
-    //   p -> a/b -> c/d -> a
-    //
-    // We can detect all three of these symlink issues by following the chain and deciding if each
-    // new element is problematic. Here is our incremental algorithm:
-    //
-    // Suppose we encounter the symlink target p and we have already encountered all the paths in P:
-    //   If p is in P then we have a found a cycle (i).
-    //   If p is a descendant of any path p' in P then we have unbounded expansion (ii).
-    //   If p is an ancestor of any path p' in P then we have unbounded expansion (iii).
-    // We can check for these cases efficiently (read: sublinear time) by finding the extremal
-    // candidate p' for (ii) and (iii).
     Path symlinkTargetPath = symlinkTargetRootedPath.asPath();
-    SkyKey uniquenessKey = null;
-    FileSymlinkException fse = null;
-    Path seenFloorPath = orderedSeenPaths.floor(symlinkTargetPath);
-    Path seenCeilingPath = orderedSeenPaths.ceiling(symlinkTargetPath);
-    if (orderedSeenPaths.contains(symlinkTargetPath)) {
-      // 'rootedPath' is a symlink to a previous element in the symlink chain (i).
-      Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
-          CycleUtils.splitIntoPathAndChain(
-              isPathPredicate(symlinkTargetRootedPath.asPath()), symlinkChain);
-      FileSymlinkCycleException fsce =
-          new FileSymlinkCycleException(pathAndChain.getFirst(), pathAndChain.getSecond());
-      uniquenessKey = FileSymlinkCycleUniquenessValue.key(fsce.getCycle());
-      fse = fsce;
-    } else if (seenFloorPath != null && symlinkTargetPath.startsWith(seenFloorPath)) {
-      // 'rootedPath' is a symlink to a descendant of a previous element in the symlink chain (ii).
-      Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
-          CycleUtils.splitIntoPathAndChain(
-              isPathPredicate(seenFloorPath),
-              ImmutableList.copyOf(
-                  Iterables.concat(symlinkChain, ImmutableList.of(symlinkTargetRootedPath))));
-      uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
-      fse = new FileSymlinkInfiniteExpansionException(
-          pathAndChain.getFirst(), pathAndChain.getSecond());
-    } else if (seenCeilingPath != null && seenCeilingPath.startsWith(symlinkTargetPath)) {
-      // 'rootedPath' is a symlink to an ancestor of a previous element in the symlink chain (iii).
-      Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
-          CycleUtils.splitIntoPathAndChain(
-              isPathPredicate(seenCeilingPath),
-              ImmutableList.copyOf(
-                  Iterables.concat(symlinkChain, ImmutableList.of(symlinkTargetRootedPath))));
-      uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
-      fse = new FileSymlinkInfiniteExpansionException(
-          pathAndChain.getFirst(), pathAndChain.getSecond());
-    }
-    if (uniquenessKey != null) {
+    Path existingFloorPath = orderedSeenPaths.floor(symlinkTargetPath);
+    // Here is a brief argument that the following logic is correct.
+    //
+    // Any path 'p' in the symlink chain that is no larger than 'symlinkTargetPath' is one of:
+    //   (i)   'symlinkTargetPath'
+    //   (ii)   a smaller sibling 's' of 'symlinkTargetPath' or a sibling of an ancestor of
+    //         'symlinkTargetPath'
+    //   (iii)  an ancestor 'a' of 'symlinkTargetPath'
+    //   (iv) something else (e.g. a smaller sibling of an ancestor of 'symlinkTargetPath')
+    // If the largest 'p' is 'symlinkTarget' itself then 'existingFloorPath' will be that and we
+    // have found cycle. Otherwise, if there is such a 's' then 'existingFloorPath' will be the
+    // largest one. But the presence of any such 's' in the symlink chain implies an infinite
+    // expansion, which we would have already noticed. On the other hand, if there is such an 'a'
+    // then 'existingFloorPath' will be the largest one that and we definitely have found an
+    // infinite symlink expansion. Otherwise, if there is no such 'a', then the presence of
+    // 'symlinkTargetPath' doesn't create an infinite symlink expansion.
+    if (existingFloorPath != null && symlinkTargetPath.startsWith(existingFloorPath)) {
+      SkyKey uniquenessKey;
+      FileSymlinkException fse;
+      if (symlinkTargetPath.equals(existingFloorPath)) {
+        Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
+            CycleUtils.splitIntoPathAndChain(
+                isPathPredicate(symlinkTargetRootedPath.asPath()), symlinkChain);
+        FileSymlinkCycleException fsce =
+            new FileSymlinkCycleException(pathAndChain.getFirst(), pathAndChain.getSecond());
+        uniquenessKey = FileSymlinkCycleUniquenessValue.key(fsce.getCycle());
+        fse = fsce;
+      } else {
+        Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
+            CycleUtils.splitIntoPathAndChain(
+                isPathPredicate(existingFloorPath),
+                ImmutableList.copyOf(
+                    Iterables.concat(symlinkChain, ImmutableList.of(symlinkTargetRootedPath))));
+        uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
+        fse = new FileSymlinkInfiniteExpansionException(
+            pathAndChain.getFirst(), pathAndChain.getSecond());
+      }
       if (env.getValue(uniquenessKey) == null) {
         // Note that this dependency is merely to ensure that each unique symlink error gets
         // reported exactly once.
         return null;
       }
-      throw new FileFunctionException(Preconditions.checkNotNull(fse, rootedPath));
+      throw new FileFunctionException(fse);
     }
     return resolveFromAncestors(symlinkTargetRootedPath, env);
   }
