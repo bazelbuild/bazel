@@ -100,7 +100,7 @@ function test_default_user_is_nobody() {
 
 function test_user_switched_to_root() {
   $WRAPPER $WRAPPER_DEFAULT_OPTS -r -l $OUT -L $ERR -- /usr/bin/id || fail
-  assert_output "uid=0 gid=0 groups=65534,0" ""
+  assert_contains "uid=0 gid=0" "$OUT"
 }
 
 function test_network_namespace() {
