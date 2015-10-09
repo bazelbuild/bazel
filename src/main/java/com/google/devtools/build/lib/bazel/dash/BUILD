@@ -17,7 +17,7 @@ java_library(
         "//src/main/java:packages",
         "//src/main/java:runtime",
         "//src/main/java:vfs",
-        "//src/main/protobuf:proto_dash",
+        "//src/main/protobuf:dash_proto",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:guava",

@@ -20,7 +20,7 @@ java_library(
         "//src/main/java:util",
         "//src/main/java:vfs",
         "//src/main/java/com/google/devtools/build/lib/standalone",
-        "//src/main/protobuf:proto_worker_protocol",
+        "//src/main/protobuf:worker_protocol_proto",
         "//third_party:apache_commons_pool2",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -10,7 +10,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/main/protobuf:proto_java_compilation",
+        "//src/main/protobuf:java_compilation_proto",
         "//third_party:guava",
     ],
 )

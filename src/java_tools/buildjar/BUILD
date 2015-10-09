@@ -6,9 +6,9 @@ java_binary(
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/main/protobuf:proto_deps",
-        "//src/main/protobuf:proto_java_compilation",
-        "//src/main/protobuf:proto_worker_protocol",
+        "//src/main/protobuf:deps_proto",
+        "//src/main/protobuf:java_compilation_proto",
+        "//src/main/protobuf:worker_protocol_proto",
         "//third_party:error_prone",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -195,9 +195,9 @@ bootstrap_java_library(
     ],
     neverlink_jars = ["//tools/defaults:java_langtools"],
     srcjars = [
-        "//src/main/protobuf:proto_deps_srcjar",
-        "//src/main/protobuf:proto_worker_protocol_srcjar",
-        "//src/main/protobuf:proto_java_compilation_srcjar",
+        "//src/main/protobuf:deps_proto_srcjar",
+        "//src/main/protobuf:worker_protocol_proto_srcjar",
+        "//src/main/protobuf:java_compilation_proto_srcjar",
     ],
 )
 

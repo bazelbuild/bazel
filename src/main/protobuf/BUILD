@@ -18,7 +18,7 @@ FILES = [
 ]
 
 [proto_java_library(
-    name = "proto_" + s,
+    name = s + "_proto",
     src = s + ".proto",
 ) for s in FILES]
 
