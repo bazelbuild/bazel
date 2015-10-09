@@ -41,6 +41,7 @@ import java.io.Serializable;
 @SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
 public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
+  private static final PathFragment EXTERNAL = new PathFragment("external");
 
   /**
    * Factory for Labels from absolute string form. e.g.
@@ -352,8 +353,21 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * repository would point back to the main repository, which is usually not what is intended.
    */
   public Label resolveRepositoryRelative(Label relative) {
+    if (relative.packageIdentifier.getRepository().getName().equals("@")) {
+      try {
+        return new Label(
+            PackageIdentifier.create(
+                PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+                relative.packageIdentifier.getPackageFragment()),
+            relative.getName());
+      } catch (LabelSyntaxException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
     if (packageIdentifier.getRepository().isDefault()
-        || !relative.packageIdentifier.getRepository().isDefault()) {
+        || !relative.packageIdentifier.getRepository().isDefault()
+        || relative.packageIdentifier.getPackageFragment().equals(EXTERNAL)) {
       return relative;
     } else {
       try {
