@@ -29,6 +29,8 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * AbstractQueueVisitor is a wrapper around {@link ThreadPoolExecutor} which
@@ -145,6 +147,8 @@ public class AbstractQueueVisitor {
    * <p>May only be accessed in a synchronized block.
    */
   private boolean jobsMustBeStopped = false;
+
+  private static final Logger LOG = Logger.getLogger(AbstractQueueVisitor.class.getName());
 
   /**
    * Create the AbstractQueueVisitor.
@@ -600,7 +604,11 @@ public class AbstractQueueVisitor {
   }
 
   private boolean isCriticalErrorInternal(Throwable e) {
-    return isCriticalError(e) || (e instanceof Error);
+    boolean isCritical = isCriticalError(e) || (e instanceof Error);
+    if (isCritical) {
+      LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
+    }
+    return isCritical;
   }
 
   private void setRejectedExecutionHandler() {
