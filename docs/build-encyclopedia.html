@@ -11591,7 +11591,7 @@ http_archive(
       http_file
     </h3>
 
-    <pre class="rule-signature">http_file(<a href="#http_file.name">name</a>, <a href="#http_file.sha256">sha256</a>, <a href="#http_file.url">url</a>)</pre>
+    <pre class="rule-signature">http_file(<a href="#http_file.name">name</a>, <a href="#http_file.executable">executable</a>, <a href="#http_file.sha256">sha256</a>, <a href="#http_file.url">url</a>)</pre>
 
     
  
@@ -11639,6 +11639,18 @@ http_archive(
           </td>
         </tr>
                       <tr>
+          <td id="http_file.executable">
+            <code>executable</code>
+          </td>
+          <td>
+                        <p><code>Boolean; optional; default is 0</code></p>
+                                 If the downloaded file should be made executable. Defaults to False.
+         
+
+
+          </td>
+        </tr>
+                              <tr>
           <td id="http_file.sha256">
             <code>sha256</code>
           </td>
