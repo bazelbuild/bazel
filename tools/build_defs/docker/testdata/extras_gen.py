@@ -16,7 +16,7 @@ import datetime
 import sys
 import tarfile
 
-from tools.build_defs.docker import archive
+from tools.build_defs.pkg import archive
 
 if __name__ == '__main__':
   mtime = int(datetime.datetime.now().strftime('%s'))

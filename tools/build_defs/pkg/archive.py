@@ -34,6 +34,7 @@ class SimpleArFile(object):
 
   Upon error, this class will raise a ArError exception.
   """
+
   # TODO(dmarting): We should use a standard library instead but python 2.7
   #   does not have AR reading library.
 
@@ -98,8 +99,14 @@ class TarFileWriter(object):
   class Error(Exception):
     pass
 
-  def __init__(self, name):
-    self.tar = tarfile.open(name=name, mode='w')
+  def __init__(self, name, compression=''):
+    if compression in ['tgz', 'gz']:
+      mode = 'w:gz'
+    elif compression in ['bzip2', 'bz2']:
+      mode = 'w:bz2'
+    else:
+      mode = 'w:'
+    self.tar = tarfile.open(name=name, mode=mode)
     self.members = set([])
 
   def __enter__(self):
@@ -108,8 +115,16 @@ class TarFileWriter(object):
   def __exit__(self, t, v, traceback):
     self.close()
 
-  def add_dir(self, name, path, uid=0, gid=0, uname='', gname='',
-              mtime=0, mode=None, depth=100):
+  def add_dir(self,
+              name,
+              path,
+              uid=0,
+              gid=0,
+              uname='',
+              gname='',
+              mtime=0,
+              mode=None,
+              depth=100):
     """Recursively add a directory.
 
     Args:
@@ -137,8 +152,14 @@ class TarFileWriter(object):
       # Add the x bit to directories to prevent non-traversable directories.
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0444 & mode) >> 2)) if mode else mode
-      self.add_file(name + '/', tarfile.DIRTYPE, uid=uid, gid=gid,
-                    uname=uname, gname=gname, mtime=mtime, mode=dirmode)
+      self.add_file(name + '/',
+                    tarfile.DIRTYPE,
+                    uid=uid,
+                    gid=gid,
+                    uname=uname,
+                    gname=gname,
+                    mtime=mtime,
+                    mode=dirmode)
       if depth <= 0:
         raise self.Error('Recursion depth exceeded, probably in '
                          'an infinite directory loop.')
@@ -148,11 +169,18 @@ class TarFileWriter(object):
       for f in filelist:
         new_name = os.path.join(name, f)
         new_path = os.path.join(path, f)
-        self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime,
-                     mode, depth-1)
+        self.add_dir(new_name, new_path, uid, gid, uname, gname, mtime, mode,
+                     depth - 1)
     else:
-      self.add_file(name, tarfile.REGTYPE, file_content=path, uid=uid, gid=gid,
-                    uname=uname, gname=gname, mtime=mtime, mode=mode)
+      self.add_file(name,
+                    tarfile.REGTYPE,
+                    file_content=path,
+                    uid=uid,
+                    gid=gid,
+                    uname=uname,
+                    gname=gname,
+                    mtime=mtime,
+                    mode=mode)
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
@@ -166,8 +194,17 @@ class TarFileWriter(object):
       print('Duplicate file in archive: %s, '
             'picking first occurrence' % info.name)
 
-  def add_file(self, name, kind=tarfile.REGTYPE, content=None, link=None,
-               file_content=None, uid=0, gid=0, uname='', gname='', mtime=0,
+  def add_file(self,
+               name,
+               kind=tarfile.REGTYPE,
+               content=None,
+               link=None,
+               file_content=None,
+               uid=0,
+               gid=0,
+               uname='',
+               gname='',
+               mtime=0,
                mode=None):
     """Add a file to the current tar.
 
@@ -214,8 +251,12 @@ class TarFileWriter(object):
     else:
       self._addfile(tarinfo)
 
-  def add_tar(self, tar, rootuid=None, rootgid=None,
-              numeric=False, name_filter=None):
+  def add_tar(self,
+              tar,
+              rootuid=None,
+              rootgid=None,
+              numeric=False,
+              name_filter=None):
     """Merge a tar content into the current tar, stripping timestamp.
 
     Args:

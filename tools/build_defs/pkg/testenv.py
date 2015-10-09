@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A simple cross-platform helper to remove top from a tar file."""
-import sys
+"""Path to the test data."""
 
-from tools.build_defs.pkg import archive
+import os
+import os.path
 
-if __name__ == '__main__':
-  with archive.TarFileWriter(sys.argv[2]) as f:
-    f.add_tar(sys.argv[1], name_filter=lambda x: not x.endswith('top'))
+TESTDATA_PATH = os.path.join(
+    os.getcwd(),
+    "tools/build_defs/pkg/testdata",
+    )

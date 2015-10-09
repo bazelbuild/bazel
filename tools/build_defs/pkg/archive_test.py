@@ -18,8 +18,8 @@ import os.path
 import tarfile
 import unittest
 
-from tools.build_defs.docker import archive
-from tools.build_defs.docker import testenv
+from tools.build_defs.pkg import archive
+from tools.build_defs.pkg import testenv
 
 
 class SimpleArFileTest(unittest.TestCase):
@@ -59,13 +59,11 @@ class SimpleArFileTest(unittest.TestCase):
         self.fail("Missing file %s in archive %s" % (content[i], arfile))
 
   def testEmptyArFile(self):
-    self.assertArFileContent(os.path.join(testenv.TESTDATA_PATH,
-                                          "archive", "empty.ar"),
+    self.assertArFileContent(os.path.join(testenv.TESTDATA_PATH, "empty.ar"),
                              [])
 
   def assertSimpleFileContent(self, names):
-    datafile = os.path.join(testenv.TESTDATA_PATH, "archive",
-                            "_".join(names) + ".ar")
+    datafile = os.path.join(testenv.TESTDATA_PATH, "_".join(names) + ".ar")
     content = [{"filename": n, "size": len(n), "data": n} for n in names]
     self.assertArFileContent(datafile, content)
 
@@ -200,8 +198,7 @@ class TarFileWriterTest(unittest.TestCase):
         ]
     for ext in ["", ".gz", ".bz2", ".xz"]:
       with archive.TarFileWriter(self.tempfile) as f:
-        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "archive",
-                               "tar_test.tar" + ext),
+        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
                   name_filter=lambda n: n != "./b")
       self.assertTarFileContent(self.tempfile, content)
 

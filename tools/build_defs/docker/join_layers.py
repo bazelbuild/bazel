@@ -22,7 +22,7 @@
 import os.path
 import sys
 
-from tools.build_defs.docker import archive
+from tools.build_defs.pkg import archive
 from third_party.py import gflags
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')

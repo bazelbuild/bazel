@@ -304,7 +304,7 @@ docker_build_ = rule(
         "repository": attr.string(default="bazel"),
         # Implicit dependencies.
         "_build_layer": attr.label(
-            default=Label("//tools/build_defs/docker:build_layer"),
+            default=Label("//tools/build_defs/pkg:build_tar"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),

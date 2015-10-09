@@ -52,21 +52,6 @@ sh_test(
 )
 
 # Used by docker_build and friends
-py_library(
-    name = "archive",
-    srcs = ["archive.py"],
-    visibility = ["//tools/build_defs/docker:__subpackages__"],
-)
-
-py_test(
-    name = "archive_test",
-    srcs = [
-        "archive_test.py",
-        "testenv.py",
-    ],
-    data = ["//tools/build_defs/docker/testdata:archive_testdata"],
-    deps = [":archive"],
-)
 
 py_binary(
     name = "rewrite_json",
@@ -84,16 +69,6 @@ py_test(
 )
 
 py_binary(
-    name = "build_layer",
-    srcs = ["build_layer.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":archive",
-        "//third_party/py/gflags",
-    ],
-)
-
-py_binary(
     name = "sha256",
     srcs = ["sha256.py"],
     visibility = ["//visibility:public"],
@@ -104,8 +79,8 @@ py_binary(
     srcs = ["create_image.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":archive",
         "//third_party/py/gflags",
+        "//tools/build_defs/pkg:archive",
     ],
 )
 
@@ -114,8 +89,8 @@ py_binary(
     srcs = ["join_layers.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":archive",
         "//third_party/py/gflags",
+        "//tools/build_defs/pkg:archive",
     ],
 )
 

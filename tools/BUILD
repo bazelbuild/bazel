@@ -23,8 +23,9 @@ filegroup(
     name = "package-srcs",
     srcs = glob(["**"]) + [
         "//tools/build_defs/d:srcs",
-        "//tools/build_defs/jsonnet:srcs",
         "//tools/build_defs/docker:srcs",
+        "//tools/build_defs/jsonnet:srcs",
+        "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/sass:srcs",
         "//tools/build_rules/appengine:srcs",
         "//tools/build_rules/closure:srcs",

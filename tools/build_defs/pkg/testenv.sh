@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,11 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A simple cross-platform helper to remove top from a tar file."""
-import sys
 
-from tools.build_defs.pkg import archive
+# Integration test for docker, test environment.
 
-if __name__ == '__main__':
-  with archive.TarFileWriter(sys.argv[2]) as f:
-    f.add_tar(sys.argv[1], name_filter=lambda x: not x.endswith('top'))
+[ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
+
+# Load the unit-testing framework
+source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
+  { echo "Failed to source unittest.bash" >&2; exit 1; }
+
+readonly TEST_DATA_DIR="${TEST_SRCDIR}/tools/build_defs/pkg"

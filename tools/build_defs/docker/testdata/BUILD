@@ -13,11 +13,6 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "archive_testdata",
-    srcs = glob(["archive/**"]),
-)
-
 genrule(
     name = "gen",
     outs = ["gen.out"],
@@ -144,7 +139,7 @@ docker_build(
 py_binary(
     name = "extras_gen",
     srcs = ["extras_gen.py"],
-    deps = ["//tools/build_defs/docker:archive"],
+    deps = ["//tools/build_defs/pkg:archive"],
 )
 
 genrule(
@@ -190,7 +185,7 @@ docker_build(
 py_binary(
     name = "strip_top",
     srcs = ["strip_top.py"],
-    deps = ["//tools/build_defs/docker:archive"],
+    deps = ["//tools/build_defs/pkg:archive"],
 )
 
 [genrule(
