@@ -1334,7 +1334,14 @@ public final class ParallelEvaluator implements Evaluator {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
         factory.compute(parent, env);
+      } catch (InterruptedException interruptedException) {
+        // Do nothing.
+        // This throw happens if the builder requested the failed node, and then checked the
+        // interrupted state later -- getValueOrThrow sets the interrupted bit after the failed
+        // value is requested, to prevent the builder from doing too much work.
       } catch (SkyFunctionException builderException) {
+        // Clear interrupted status. We're not listening to interrupts here.
+        Thread.interrupted();
         ReifiedSkyFunctionException reifiedBuilderException =
             new ReifiedSkyFunctionException(builderException, parent);
         if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
@@ -1344,11 +1351,6 @@ public final class ParallelEvaluator implements Evaluator {
                   env.buildEvents(/*missingChildren=*/true)));
           continue;
         }
-      } catch (InterruptedException interruptedException) {
-        // Do nothing.
-        // This throw happens if the builder requested the failed node, and then checked the
-        // interrupted state later -- getValueOrThrow sets the interrupted bit after the failed
-        // value is requested, to prevent the builder from doing too much work.
       } finally {
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
