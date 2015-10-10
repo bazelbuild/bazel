@@ -181,18 +181,11 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     return directDependencies;
   }
 
-  private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(RuleContext ruleContext,
-      AndroidSdkProvider provider) {
+  private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
     AndroidSdkRuleInfo.Builder sdkInfoBuilder = AndroidSdkRuleInfo.newBuilder();
 
     Path androidSdkDirectory = provider.getAndroidJar().getPath().getParentDirectory();
     sdkInfoBuilder.setAndroidSdkPath(androidSdkDirectory.toString());
-
-    Root genfilesDirectory = ruleContext.getConfiguration().getGenfilesDirectory();
-    sdkInfoBuilder.setGenfilesPath(genfilesDirectory.getPath().toString());
-
-    Path binfilesPath = ruleContext.getConfiguration().getBinDirectory().getPath();
-    sdkInfoBuilder.setBinPath(binfilesPath.toString());
 
     return sdkInfoBuilder.build();
   }
@@ -244,7 +237,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     }
     if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
-          makeAndroidSdkRuleInfo(ruleContext, base.getProvider(AndroidSdkProvider.class)));
+          makeAndroidSdkRuleInfo(base.getProvider(AndroidSdkProvider.class)));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
@@ -338,6 +331,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     return ArtifactLocation.newBuilder()
         .setRootPath(artifact.getRoot().getPath().toString())
         .setRelativePath(artifact.getRootRelativePathString())
+        .setIsSource(artifact.isSourceArtifact())
         .build();
   }
 
@@ -345,6 +339,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     return ArtifactLocation.newBuilder()
         .setRootPath(resourceDir.getRootPath().toString())
         .setRelativePath(resourceDir.getRelativePath().toString())
+        .setIsSource(resourceDir.isSource())
         .build();
   }
 
