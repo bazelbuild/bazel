@@ -75,11 +75,13 @@ class MergeManifests(object):
   _INTENT_FILTER = 'intent-filter'
   _MANIFEST = 'manifest'
   _USES_PERMISSION = 'uses-permission'
+  _USES_PERMISSION_SDK_23 = 'uses-permission-sdk-23'
   _NODES_TO_COPY_FROM_MERGEE = {
       _MANIFEST: [
           'instrumentation',
           'permission',
           _USES_PERMISSION,
+          _USES_PERMISSION_SDK_23,
           'uses-feature',
           'permission-group',
           ],
@@ -118,7 +120,8 @@ class MergeManifests(object):
     """
     if self._exclude_permissions:
       exclude_all_permissions = EXCLUDE_ALL_ARG in self._exclude_permissions
-      for element in dom.getElementsByTagName(self._USES_PERMISSION):
+      for element in (dom.getElementsByTagName(self._USES_PERMISSION) +
+       dom.getElementsByTagName(self._USES_PERMISSION_SDK_23)):
         if element.hasAttribute(self._ANDROID_NAME):
           attrib = element.getAttribute(self._ANDROID_NAME)
           if exclude_all_permissions or attrib in self._exclude_permissions:
