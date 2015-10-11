@@ -29,7 +29,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +49,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.ParallelEvaluator.EventFilter;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.After;
@@ -101,9 +101,11 @@ public class ParallelEvaluatorTest {
     }
   }
 
-  private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing,
-      Predicate<Event> storedEventFilter) {
+  private ParallelEvaluator makeEvaluator(
+      ProcessableGraph graph,
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders,
+      boolean keepGoing,
+      EventFilter storedEventFilter) {
     Version oldGraphVersion = graphVersion;
     graphVersion = graphVersion.next();
     return new ParallelEvaluator(graph,
@@ -514,14 +516,22 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    ParallelEvaluator evaluator = makeEvaluator(graph,
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
-        /*keepGoing=*/false, new Predicate<Event>() {
-            @Override
-            public boolean apply(Event event) {
-              return event.getKind() == EventKind.ERROR;
-            }
-        });
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
+            /*keepGoing=*/ false,
+            new EventFilter() {
+              @Override
+              public boolean apply(Event event) {
+                return event.getKind() == EventKind.ERROR;
+              }
+
+              @Override
+              public boolean storeEvents() {
+                return true;
+              }
+            });
     evaluator.eval(ImmutableList.of(a));
     assertTrue(evaluated.get());
     assertEventCount(2, eventCollector);

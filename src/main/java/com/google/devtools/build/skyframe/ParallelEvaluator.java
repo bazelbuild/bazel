@@ -94,6 +94,16 @@ import javax.annotation.Nullable;
  * evaluation implementations outside of this package.
  */
 public final class ParallelEvaluator implements Evaluator {
+
+  /** Filters out events which should not be stored. */
+  public interface EventFilter extends Predicate<Event> {
+    /**
+     * Returns true if any events should be stored. Otherwise, optimizations may be made to avoid
+     * doing unnecessary work.
+     */
+    boolean storeEvents();
+  }
+
   private final ProcessableGraph graph;
   private final Version graphVersion;
 
@@ -136,7 +146,7 @@ public final class ParallelEvaluator implements Evaluator {
   @Nullable private final EvaluationProgressReceiver progressReceiver;
   private final DirtyKeyTracker dirtyKeyTracker;
   private final Receiver<Collection<SkyKey>> inflightKeysReceiver;
-  private final Predicate<Event> storedEventFilter;
+  private final EventFilter storedEventFilter;
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
@@ -146,7 +156,7 @@ public final class ParallelEvaluator implements Evaluator {
       ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
       final EventHandler reporter,
       EmittedEventState emittedEventState,
-      Predicate<Event> storedEventFilter,
+      EventFilter storedEventFilter,
       boolean keepGoing,
       int threadCount,
       @Nullable EvaluationProgressReceiver progressReceiver,
@@ -215,17 +225,19 @@ public final class ParallelEvaluator implements Evaluator {
 
     /** The set of errors encountered while fetching children. */
     private final Collection<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
-    private final StoredEventHandler eventHandler = new StoredEventHandler() {
-      @Override
-      public void handle(Event e) {
-        checkActive();
-        if (storedEventFilter.apply(e)) {
-          super.handle(e);
-        } else {
-          reporter.handle(e);
-        }
-      }
-    };
+    private final StoredEventHandler eventHandler =
+        new StoredEventHandler() {
+          @Override
+          @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
+          public void handle(Event e) {
+            checkActive();
+            if (storedEventFilter.apply(e)) {
+              super.handle(e);
+            } else {
+              reporter.handle(e);
+            }
+          }
+        };
 
     private SkyFunctionEnvironment(SkyKey skyKey, Set<SkyKey> directDeps, ValueVisitor visitor) {
       this(skyKey, directDeps, null, visitor);
@@ -268,12 +280,21 @@ public final class ParallelEvaluator implements Evaluator {
       if (!events.isEmpty()) {
         eventBuilder.add(new TaggedEvents(getTagFromKey(), events));
       }
-      for (SkyKey dep : graph.get(skyKey).getTemporaryDirectDeps()) {
-        ValueWithMetadata value = getValueMaybeFromError(dep, bubbleErrorInfo);
-        if (value != null) {
+      if (storedEventFilter.storeEvents()) {
+        // Only do the work of processing children if we're going to store events.
+        Set<SkyKey> depKeys = graph.get(skyKey).getTemporaryDirectDeps();
+        Map<SkyKey, ValueWithMetadata> deps = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
+        if (!missingChildren && depKeys.size() != deps.size()) {
+          throw new IllegalStateException(
+              "Missing keys for "
+                  + skyKey
+                  + ": "
+                  + Sets.difference(depKeys, deps.keySet())
+                  + ", "
+                  + graph.get(skyKey));
+        }
+        for (ValueWithMetadata value : deps.values()) {
           eventBuilder.addTransitive(value.getTransitiveEvents());
-        } else {
-          Preconditions.checkState(missingChildren, "", dep, skyKey);
         }
       }
       return eventBuilder.build();

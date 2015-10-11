@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.ParallelEvaluator.EventFilter;
 import com.google.devtools.build.skyframe.ParallelEvaluator.Receiver;
 
 import java.io.PrintStream;
@@ -311,20 +312,29 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       getSkyFunctionsForTesting() {
     return skyFunctions;
   }
-  public static final Predicate<Event> DEFAULT_STORED_EVENT_FILTER = new Predicate<Event>() {
-    @Override
-    public boolean apply(Event event) {
-      switch (event.getKind()) {
-        case INFO:
-          throw new UnsupportedOperationException("Values should not display INFO messages: "
-              + event.getLocation() + ": " + event.getMessage());
-        case PROGRESS:
-          return false;
-        default:
+  public static final EventFilter DEFAULT_STORED_EVENT_FILTER =
+      new EventFilter() {
+        @Override
+        public boolean apply(Event event) {
+          switch (event.getKind()) {
+            case INFO:
+              throw new UnsupportedOperationException(
+                  "SkyFunctions should not display INFO messages: "
+                      + event.getLocation()
+                      + ": "
+                      + event.getMessage());
+            case PROGRESS:
+              return false;
+            default:
+              return true;
+          }
+        }
+
+        @Override
+        public boolean storeEvents() {
           return true;
-      }
-    }
-  };
+        }
+      };
 
   public static final EvaluatorSupplier SUPPLIER = new EvaluatorSupplier() {
     @Override
