@@ -185,10 +185,10 @@ appengine_war = rule(
     executable = True,
     attrs = {
         "_java": attr.label(
-            default=Label("//tools/jdk:java"),
+            default=Label("@bazel_tools//tools/jdk:java"),
             single_file=True),
         "_zipper": attr.label(
-            default=Label("//third_party/ijar:zipper"),
+            default=Label("@bazel_tools//third_party/ijar:zipper"),
             single_file=True),
         "_runner_template": attr.label(
             default=Label("//tools/build_rules/appengine:runner_template"),

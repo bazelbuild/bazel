@@ -38,7 +38,7 @@ public class Constants {
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =
       ImmutableList.<String>of("armeabi-v7a");
   public static final String ANDROID_DEP_PREFIX = "//external:android/".toString();
-  public static final String TOOLS_REPOSITORY = "".toString();
+  public static final String TOOLS_REPOSITORY = "@bazel_tools".toString();
 
   /**
    * Whether C++ include scanning should be disabled no matter what the --cc_include_scanning flag

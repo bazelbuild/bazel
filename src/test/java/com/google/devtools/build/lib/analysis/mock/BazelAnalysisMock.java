@@ -64,9 +64,11 @@ public class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockClient(MockToolsConfig config) throws IOException {
+    String workspace = config.getPath("").getPathString();
     ArrayList<String> workspaceContents =
         new ArrayList<>(
             ImmutableList.of(
+                "local_repository(name = 'bazel_tools', path = '" + workspace + "')",
                 "bind(",
                 "  name = 'objc_proto_lib',",
                 "  actual = '//objcproto:ProtocolBuffers_lib',",

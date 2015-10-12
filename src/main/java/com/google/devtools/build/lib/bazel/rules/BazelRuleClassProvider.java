@@ -280,6 +280,8 @@ public class BazelRuleClassProvider {
 
     try {
       builder.addWorkspaceFile(
+          ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
+      builder.addWorkspaceFile(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFile(
           ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));

@@ -281,16 +281,16 @@ public final class AndroidRuleClasses {
       new SafeImplicitOutputsFunction() {
         @Override
         public Iterable<String> getImplicitOutputs(AttributeMap attributes) {
-          
+
           ImmutableList.Builder<SafeImplicitOutputsFunction> implicitOutputs =
               ImmutableList.builder();
-          
+
           implicitOutputs.add(
               AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE,
               AndroidRuleClasses.ANDROID_LIBRARY_AAR);
-          
+
           if (LocalResourceContainer.definesAndroidResources(attributes)) {
             implicitOutputs.add(
                 AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
@@ -535,7 +535,8 @@ public final class AndroidRuleClasses {
           // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
           // like all the rest of android tools.
           .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//third_party/java/jarjar:jarjar_bin")))
+              .value(env.getLabel(
+                  Constants.TOOLS_REPOSITORY + "//third_party/java/jarjar:jarjar_bin")))
           .add(attr("$idlclass", LABEL).cfg(HOST).exec()
               .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "IdlClass")))
           .build();
