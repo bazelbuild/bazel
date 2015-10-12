@@ -104,7 +104,7 @@ function test_build_app() {
   setup_objc_test_support
   make_app
 
-  bazel build --verbose_failures \
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
@@ -114,8 +114,8 @@ function test_ios_test() {
   setup_objc_test_support
   make_app
 
-  bazel build --test_output=all //ios:PassingXcTest >$TEST_log 2>&1 \
-      || fail "should pass"
+  bazel build --test_output=all --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:PassingXcTest >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/PassingXcTest.xcodeproj \
       || fail "should generate PassingXcTest.xcodeproj"
   ls bazel-bin/ios/PassingXcTest.ipa \
@@ -126,7 +126,6 @@ function test_valid_ios_sdk_version() {
   setup_objc_test_support
   make_app
 
-  IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"

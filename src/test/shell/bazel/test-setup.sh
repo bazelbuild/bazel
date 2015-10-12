@@ -335,6 +335,8 @@ function setup_objc_test_support() {
   [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
 
   [ -e third_party/iossim/iossim ] || setup_iossim
+
+  IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
 workspaces=()
