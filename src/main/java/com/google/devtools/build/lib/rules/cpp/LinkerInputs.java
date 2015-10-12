@@ -150,7 +150,7 @@ public abstract class LinkerInputs {
 
     @Override
     public Iterable<Artifact> getLTOBitcodeFiles() {
-      return ImmutableList.<Artifact>of();
+      return ImmutableList.of();
     }
 
     @Override
@@ -212,7 +212,9 @@ public abstract class LinkerInputs {
       this.libraryArtifact = Preconditions.checkNotNull(libraryArtifact);
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoBitcodeFiles =
-          (ltoBitcodeFiles == null) ? null : CollectionUtils.makeImmutable(ltoBitcodeFiles);
+          (ltoBitcodeFiles == null)
+              ? ImmutableList.<Artifact>of()
+              : CollectionUtils.makeImmutable(ltoBitcodeFiles);
     }
 
     @Override

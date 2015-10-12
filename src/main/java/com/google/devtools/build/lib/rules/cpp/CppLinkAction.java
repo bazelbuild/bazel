@@ -642,6 +642,9 @@ public final class CppLinkAction extends AbstractAction {
       // this is O(M*N). If we had a nested set of .o files, we could have O(M + N) instead.
       NestedSetBuilder<Artifact> bitcodeBuilder = NestedSetBuilder.stableOrder();
       for (LibraryToLink lib : uniqueLibraries) {
+        if (!lib.containsObjectFiles()) {
+          continue;
+        }
         for (Artifact a : lib.getObjectFiles()) {
           if (compiled.contains(a)) {
             bitcodeBuilder.add(a);
