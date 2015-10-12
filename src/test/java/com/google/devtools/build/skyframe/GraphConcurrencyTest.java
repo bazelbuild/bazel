@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.concurrent.KeyedLocker;
-import com.google.devtools.build.lib.concurrent.RefCountedMultisetKeyedLocker;
 import com.google.devtools.build.lib.testutil.TestRunnableWrapper;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -77,6 +75,26 @@ public abstract class GraphConcurrencyTest {
   @Test
   public void createIfAbsentBatchSanity() {
     graph.createIfAbsentBatch(ImmutableList.of(key("cat"), key("dog")));
+  }
+
+  @Test
+  public void createIfAbsentConcurrentWithGet() {
+    int numIters = 50;
+    final SkyKey key = key("key");
+    for (int i = 0; i < numIters; i++) {
+      Thread t =
+          new Thread(
+              wrapper.wrap(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      graph.get(key);
+                    }
+                  }));
+      t.start();
+      assertThat(graph.createIfAbsentBatch(ImmutableList.of(key))).isNotEmpty();
+      graph.remove(key);
+    }
   }
 
   // Tests adding and removing Rdeps of a {@link NodeEntry} while a node transitions from
@@ -163,7 +181,6 @@ public abstract class GraphConcurrencyTest {
   @Test
   public void testAddingInflightNodes() throws Exception {
     int numThreads = 50;
-    final KeyedLocker<SkyKey> locker = new RefCountedMultisetKeyedLocker<>();
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     final int numKeys = 500;
     // Add each pair of keys 10 times.
@@ -180,18 +197,13 @@ public abstract class GraphConcurrencyTest {
           Runnable r =
               new Runnable() {
                 public void run() {
-                  Map<SkyKey, NodeEntry> entries;
-                  try (KeyedLocker.AutoUnlocker unlocker1 = locker.lock(key1)) {
-                    try (KeyedLocker.AutoUnlocker unlocker2 = locker.lock(key2)) {
-                      for (SkyKey key : keys) {
-                        NodeEntry entry = graph.get(key);
-                        if (entry == null) {
-                          assertTrue(nodeCreated.add(key));
-                        }
-                      }
-                      entries = graph.createIfAbsentBatch(keys);
+                  for (SkyKey key : keys) {
+                    NodeEntry entry = graph.get(key);
+                    if (entry == null) {
+                      nodeCreated.add(key);
                     }
                   }
+                  Map<SkyKey, NodeEntry> entries = graph.createIfAbsentBatch(keys);
                   for (Integer keyNum : ImmutableList.of(keyNum1, keyNum2)) {
                     SkyKey key = key("foo" + keyNum);
                     NodeEntry entry = entries.get(key);
