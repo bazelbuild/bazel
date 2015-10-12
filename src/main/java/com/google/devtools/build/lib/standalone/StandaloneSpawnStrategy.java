@@ -152,12 +152,12 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       throws UserExecException {
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
     newEnvBuilder.putAll(env);
-    if (env.containsKey(ObjcConfiguration.IOS_SDK_VERSION_ENV_NAME)) {
+    if (env.containsKey(ObjcConfiguration.APPLE_SDK_VERSION_ENV_NAME)) {
       // The Apple platform is needed to select the appropriate SDK.
       if (!env.containsKey(ObjcConfiguration.APPLE_SDK_PLATFORM_ENV_NAME)) {
         throw new UserExecException("Could not resolve apple platform for determining SDK");
       }
-      String iosSdkVersion = env.get(ObjcConfiguration.IOS_SDK_VERSION_ENV_NAME);
+      String iosSdkVersion = env.get(ObjcConfiguration.APPLE_SDK_VERSION_ENV_NAME);
       String appleSdkPlatform = env.get(ObjcConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
       // TODO(bazel-team): Determine and set DEVELOPER_DIR.
       addSdkRootEnv(newEnvBuilder, iosSdkVersion, appleSdkPlatform);
