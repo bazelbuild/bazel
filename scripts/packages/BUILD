@@ -141,7 +141,7 @@ genrule(
     outs = [
         "version.txt",
     ],
-    cmd = "find -name stable-status.txt -exec cat '{}' ';' | grep EMBED_LABEL | cut -d ' ' -f 2- > $@\n",
+    cmd = "find . -name stable-status.txt -exec cat '{}' ';' | grep EMBED_LABEL | cut -d ' ' -f 2- > $@\n",
     stamp = 1,
 )
 
