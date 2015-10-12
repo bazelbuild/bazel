@@ -748,6 +748,31 @@ java_test(
 )
 
 java_test(
+    name = "runtime-tests",
+    srcs = glob(["com/google/devtools/build/lib/runtime/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:analysis-exec-rules-skyframe",
+        "//src/main/java:buildtool-runtime",
+        "//src/main/java:clock",
+        "//src/main/java:io",
+        "//src/main/java:options",
+        "//src/main/java:packages",
+        "//src/main/java:util",
+        "//src/main/java:vfs",
+        "//src/main/protobuf:invocation_policy_proto",
+        "//src/main/protobuf:test_status_proto",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "sandbox-tests",
     srcs = glob(["com/google/devtools/build/lib/sandbox/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
