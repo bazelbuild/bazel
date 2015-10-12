@@ -914,14 +914,19 @@ public class PackageFunction implements SkyFunction {
           preprocessCache.put(packageId, preprocessingResult);
         }
 
-        SkylarkImportResult importResult =
-            discoverSkylarkImports(
-                buildFilePath,
-                buildFileFragment,
-                packageId,
-                env,
-                preprocessingResult.result,
-                preludeStatements);
+        SkylarkImportResult importResult;
+        try {
+          importResult = discoverSkylarkImports(
+                  buildFilePath,
+                  buildFileFragment,
+                  packageId,
+                  env,
+                  preprocessingResult.result,
+                  preludeStatements);
+        } catch (PackageFunctionException | InterruptedException e) {
+          preprocessCache.invalidate(packageId);
+          throw e;
+        }
         if (importResult == null) {
           return null;
         }
