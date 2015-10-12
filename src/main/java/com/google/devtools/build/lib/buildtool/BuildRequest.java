@@ -225,15 +225,15 @@ public class BuildRequest implements OptionsClassProvider {
             + "causes printing of the result to occur always.  The default is one.")
     public int maxResultTargets;
 
-    @Option(name = "experimental_detailed_result",
-            defaultValue = "false",
-            category = "undocumented",
-            help = "Detailed format for build results (see --show_results). "
-            + "Output all produced files. Use output format suitable for tool consumption. "
+    @Option(name = "experimental_show_artifacts",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Output a list of all top level artifacts produced by this build."
+            + "Use output format suitable for tool consumption. "
             + "This flag is temporary and intended to facilitate Android Studio integration. "
             + "This output format will likely change in the future or disappear completely."
     )
-    public boolean detailedResult;
+    public boolean showArtifacts;
 
     @Option(name = "announce",
             defaultValue = "false",
