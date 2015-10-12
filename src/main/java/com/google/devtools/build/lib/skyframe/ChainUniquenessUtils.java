@@ -17,15 +17,21 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * A value for ensuring that an error for a cycle/chain is reported exactly once. This is achieved
  * by forcing the same value key for two logically equivalent errors and letting Skyframe do its
  * magic.
  */
-class AbstractChainUniquenessValue implements SkyValue {
-  protected static SkyKey key(SkyFunctionName functionName, ImmutableList<? extends Object> chain) {
+class ChainUniquenessUtils {
+
+  private ChainUniquenessUtils() {}
+
+  /**
+   * Create a SkyKey for {@code functionName} with a canonicalized representation of the cycle
+   * specified by {@code chain} as the argument. {@code chain} must be non-empty.
+   */
+  static SkyKey key(SkyFunctionName functionName, ImmutableList<? extends Object> chain) {
     Preconditions.checkState(!chain.isEmpty());
     return new SkyKey(functionName, canonicalize(chain));
   }
@@ -34,6 +40,7 @@ class AbstractChainUniquenessValue implements SkyValue {
     int minPos = 0;
     String minString = cycle.get(0).toString();
     for (int i = 1; i < cycle.size(); i++) {
+      // TOOD(bazel-team): Is the toString representation stable enough?
       String candidateString = cycle.get(i).toString();
       if (candidateString.compareTo(minString) < 0) {
         minPos = i;

@@ -138,7 +138,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         ImmutableList<PackageIdentifier> cycle =
             CycleUtils.splitIntoPathAndChain(Predicates.equalTo(pkgId), visited)
                 .second;
-        if (env.getValue(SkylarkImportUniqueCycleValue.key(cycle)) == null) {
+        if (env.getValue(SkylarkImportUniqueCycleFunction.key(cycle)) == null) {
           return null;
         }
         throw new SkylarkImportLookupFunctionException(

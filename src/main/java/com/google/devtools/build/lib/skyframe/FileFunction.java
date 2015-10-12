@@ -234,7 +234,7 @@ public class FileFunction implements SkyFunction {
                 isPathPredicate(symlinkTargetRootedPath.asPath()), symlinkChain);
         FileSymlinkCycleException fsce =
             new FileSymlinkCycleException(pathAndChain.getFirst(), pathAndChain.getSecond());
-        uniquenessKey = FileSymlinkCycleUniquenessValue.key(fsce.getCycle());
+        uniquenessKey = FileSymlinkCycleUniquenessFunction.key(fsce.getCycle());
         fse = fsce;
       } else {
         Pair<ImmutableList<RootedPath>, ImmutableList<RootedPath>> pathAndChain =
@@ -242,7 +242,7 @@ public class FileFunction implements SkyFunction {
                 isPathPredicate(existingFloorPath),
                 ImmutableList.copyOf(
                     Iterables.concat(symlinkChain, ImmutableList.of(symlinkTargetRootedPath))));
-        uniquenessKey = FileSymlinkInfiniteExpansionUniquenessValue.key(pathAndChain.getSecond());
+        uniquenessKey = FileSymlinkInfiniteExpansionUniquenessFunction.key(pathAndChain.getSecond());
         fse = new FileSymlinkInfiniteExpansionException(
             pathAndChain.getFirst(), pathAndChain.getSecond());
       }

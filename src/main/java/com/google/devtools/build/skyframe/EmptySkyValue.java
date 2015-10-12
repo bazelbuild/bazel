@@ -11,19 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
-
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
+package com.google.devtools.build.skyframe;
 
 /**
- * If {@link SkylarkImportLookupFunction} is inlined, this is used to emit cycle errors exactly
- * once.
+ * A SkyValue with no attached data. Preferable to a specialized empty value class to minimize
+ * bloat.
  */
-public class SkylarkImportUniqueCycleValue implements SkyValue {
-  static SkyKey key(ImmutableList<PackageIdentifier> cycle) {
-    return AbstractChainUniquenessValue.key(SkyFunctions.SKYLARK_IMPORT_CYCLE, cycle);
-  }
+public final class EmptySkyValue implements SkyValue {
+  public static final EmptySkyValue INSTANCE = new EmptySkyValue();
+
+  private EmptySkyValue() {}
 }
+
