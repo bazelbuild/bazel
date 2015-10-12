@@ -64,6 +64,17 @@ abstract class AbstractFileSystem extends FileSystem {
       try {
         // Replace default FileInputStream instance with the custom one that does profiling.
         return new FileInputStream(name) {
+          @Override public int read() throws IOException {
+            long startTime = Profiler.nanoTimeMaybe();
+            try {
+              // Note that FileInputStream#read() does *not* call any of our overriden methods,
+              // so there's no concern with double counting here.
+              return super.read();
+            } finally {
+              profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+            }
+          }
+
           @Override public int read(byte b[]) throws IOException {
             return read(b, 0, b.length);
           }
