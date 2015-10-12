@@ -120,6 +120,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "The Android target CPU.")
     public String cpu;
 
+    @Option(
+      name = "android_compiler",
+      defaultValue = "null",
+      category = "semantics",
+      help = "The Android target compiler."
+    )
+    public String cppCompiler;
+
     @Option(name = "strict_android_deps",
         allowMultiple = false,
         defaultValue = "default",
