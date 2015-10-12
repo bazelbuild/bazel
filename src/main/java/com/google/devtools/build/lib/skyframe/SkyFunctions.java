@@ -38,7 +38,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName AST_FILE_LOOKUP = SkyFunctionName.create("AST_FILE_LOOKUP");
   public static final SkyFunctionName SKYLARK_IMPORTS_LOOKUP =
       SkyFunctionName.create("SKYLARK_IMPORTS_LOOKUP");
-  static final SkyFunctionName SKYLARK_IMPORT_CYCLE =
+  public static final SkyFunctionName SKYLARK_IMPORT_CYCLE =
       SkyFunctionName.create("SKYLARK_IMPORT_CYCLE");
   public static final SkyFunctionName GLOB = SkyFunctionName.create("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.create("PACKAGE");
