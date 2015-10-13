@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Tests for {@link BuildConfiguration}.
@@ -117,17 +118,18 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertEquals(a.cacheKey(), b.cacheKey());
   }
 
-  private void checkInvalidCpuError(String cpuOption, String expectedMessage) throws Exception {
+  private void checkInvalidCpuError(String cpuOption, Pattern messageRegex) throws Exception {
     try {
       create("--" + cpuOption + "=bogus");
       fail();
     } catch (InvalidConfigurationException e) {
-      assertThat(e).hasMessage(expectedMessage);
+      assertThat(e.getMessage()).matches(messageRegex);
     }
   }
 
   public void testInvalidCpu() throws Exception {
-    checkInvalidCpuError("cpu", "No toolchain found for cpu 'bogus'");
+    checkInvalidCpuError("cpu", Pattern.compile(
+        "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
   }
 
   public void testConfigurationsHaveUniqueOutputDirectories() throws Exception {
