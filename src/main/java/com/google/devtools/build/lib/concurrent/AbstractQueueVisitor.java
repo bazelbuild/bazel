@@ -22,7 +22,6 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -176,11 +175,23 @@ public class AbstractQueueVisitor {
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(boolean concurrent, int parallelism,
-      long keepAliveTime, TimeUnit units, boolean failFastOnException,
-      boolean failFastOnInterrupt, String poolName) {
-    this(concurrent, parallelism, keepAliveTime, units, failFastOnException,
-        failFastOnInterrupt, poolName, EXECUTOR_FACTORY);
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt,
+      String poolName) {
+    this(
+        concurrent,
+        parallelism,
+        keepAliveTime,
+        units,
+        failFastOnException,
+        failFastOnInterrupt,
+        poolName,
+        EXECUTOR_FACTORY);
   }
 
   /**
@@ -219,7 +230,11 @@ public class AbstractQueueVisitor {
         concurrent
             ? executorFactory.apply(
                 new ExecutorParams(
-                    parallelism, keepAliveTime, units, poolName, getWorkQueue()))
+                    parallelism,
+                    keepAliveTime,
+                    units,
+                    poolName,
+                    new LinkedBlockingQueue<Runnable>()))
             : null;
   }
 
@@ -238,10 +253,22 @@ public class AbstractQueueVisitor {
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(boolean concurrent, int parallelism,
-      long keepAliveTime, TimeUnit units, boolean failFastOnException, String poolName) {
-    this(concurrent, parallelism, keepAliveTime, units, failFastOnException, true,
-        poolName);
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      boolean failFastOnException,
+      String poolName) {
+    this(
+        concurrent,
+        parallelism,
+        keepAliveTime,
+        units,
+        failFastOnException,
+        true,
+        poolName,
+        EXECUTOR_FACTORY);
   }
 
   /**
@@ -256,9 +283,16 @@ public class AbstractQueueVisitor {
    *                            an uncaught exception.
    * @param failFastOnInterrupt if true, don't run new actions after interrupt.
    */
-  public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean shutdownOnCompletion,
-                              boolean failFastOnException, boolean failFastOnInterrupt) {
-    this(/*concurrent=*/true, executor, shutdownOnCompletion, failFastOnException,
+  public AbstractQueueVisitor(
+      ThreadPoolExecutor executor,
+      boolean shutdownOnCompletion,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt) {
+    this(
+        /*concurrent=*/ true,
+        executor,
+        shutdownOnCompletion,
+        failFastOnException,
         failFastOnInterrupt);
   }
 
@@ -275,36 +309,21 @@ public class AbstractQueueVisitor {
    *                            an uncaught exception.
    * @param failFastOnInterrupt if true, don't run new actions after interrupt.
    */
-  public AbstractQueueVisitor(boolean concurrent, ThreadPoolExecutor executor,
-                              boolean shutdownOnCompletion, boolean failFastOnException,
-                              boolean failFastOnInterrupt) {
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      ThreadPoolExecutor executor,
+      boolean shutdownOnCompletion,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt) {
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.failFastOnInterrupt = failFastOnInterrupt;
-    this.pool = executor;
     this.ownExecutorService = shutdownOnCompletion;
+    this.pool = executor;
   }
 
   public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean failFastOnException) {
-    this(executor, true, failFastOnException, true);
-  }
-
-  /**
-   * Create the AbstractQueueVisitor.
-   *
-   * @param concurrent true if concurrency should be enabled. Only set to
-   *                   false for debugging.
-   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
-   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
-   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
-   * @param keepAliveTime the keep-alive time for the thread pool.
-   * @param units the time units of keepAliveTime.
-   * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
-   *                    thread naming will be used.
-   */
-  public AbstractQueueVisitor(boolean concurrent, int parallelism,
-      long keepAliveTime, TimeUnit units, String poolName) {
-    this(concurrent, parallelism, keepAliveTime, units, false, poolName);
+    this(/*concurrent=*/ true, executor, true, failFastOnException, true);
   }
 
   /**
@@ -318,13 +337,8 @@ public class AbstractQueueVisitor {
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(int parallelism, long keepAlive, TimeUnit units,
-      String poolName) {
-    this(true, parallelism, keepAlive, units, poolName);
-  }
-
-  protected BlockingQueue<Runnable> getWorkQueue() {
-    return new LinkedBlockingQueue<>();
+  public AbstractQueueVisitor(int parallelism, long keepAlive, TimeUnit units, String poolName) {
+    this(true, parallelism, keepAlive, units, false, true, poolName, EXECUTOR_FACTORY);
   }
 
   /**
@@ -434,14 +448,14 @@ public class AbstractQueueVisitor {
     };
   }
 
-  private final void addJob(Thread thread) {
+  private void addJob(Thread thread) {
     // Note: this looks like a check-then-act race but it isn't, because each
     // key implies thread-locality.
     long count = jobs.containsKey(thread) ? jobs.get(thread) + 1 : 1;
     jobs.put(thread, count);
   }
 
-  private final void removeJob(Thread thread) {
+  private void removeJob(Thread thread) {
     Long boxedCount = Preconditions.checkNotNull(jobs.get(thread),
         "Can't retrieve job after successfully adding it");
     long count = boxedCount - 1;
@@ -459,7 +473,7 @@ public class AbstractQueueVisitor {
     threadInterrupted = true;
   }
 
-  private final void decrementRemainingTasks() {
+  private void decrementRemainingTasks() {
     synchronized (zeroRemainingTasks) {
       if (--remainingTasks == 0) {
         zeroRemainingTasks.notify();
