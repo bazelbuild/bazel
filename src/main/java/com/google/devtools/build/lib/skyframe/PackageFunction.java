@@ -360,7 +360,6 @@ public class PackageFunction implements SkyFunction {
       InterruptedException {
     PackageIdentifier packageId = (PackageIdentifier) key.argument();
     PathFragment packageNameFragment = packageId.getPackageFragment();
-    String packageName = packageNameFragment.getPathString();
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     PackageLookupValue packageLookupValue;
@@ -463,36 +462,13 @@ public class PackageFunction implements SkyFunction {
     }
     List<Statement> preludeStatements = astLookupValue.getAST() == null
         ? ImmutableList.<Statement>of() : astLookupValue.getAST().getStatements();
-
-    ParserInputSource inputSource;
-    if (replacementContents != null) {
-      inputSource = ParserInputSource.create(replacementContents, buildFileFragment);
-    } else {
-      // Load the BUILD file AST and handle Skylark dependencies. This way BUILD files are
-      // only loaded twice if there are unavailable Skylark or package dependencies or an
-      // IOException occurs. Note that the BUILD files are still parsed two times.
-      try {
-        if (showLoadingProgress.get() && packageFunctionCache.getIfPresent(packageId) == null) {
-          // TODO(bazel-team): don't duplicate the loading message if there are unavailable
-          // Skylark dependencies.
-          env.getListener().handle(Event.progress("Loading package: " + packageName));
-        }
-        inputSource = ParserInputSource.create(buildFilePath, buildFileValue.getSize());
-      } catch (IOException e) {
-        env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
-        // Note that we did this work, so we should conservatively report this error as transient.
-        throw new PackageFunctionException(new BuildFileContainsErrorsException(
-            packageId, e.getMessage()), Transience.TRANSIENT);
-      }
-    }
-
     Package.LegacyBuilder legacyPkgBuilder =
         loadPackage(
             externalPkg,
-            inputSource,
             replacementContents,
             packageId,
             buildFilePath,
+            buildFileValue,
             buildFileFragment,
             defaultVisibility,
             preludeStatements,
@@ -872,21 +848,24 @@ public class PackageFunction implements SkyFunction {
    * Note that the returned package may be in error.
    *
    * <p>May return null if the computation has to be restarted.
+   *
+   * <p>Exactly one of {@code replacementContents} and {@link buildFileValue} will be
+   * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
+   * and the latter indicates that we have a legitimate BUILD file and should actually do
+   * preprocessing.
    */
   @Nullable
   private Package.LegacyBuilder loadPackage(
       Package externalPkg,
-      ParserInputSource inputSource,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
+      @Nullable FileValue buildFileValue,
       PathFragment buildFileFragment,
       RuleVisibility defaultVisibility,
       List<Statement> preludeStatements,
       Environment env)
       throws InterruptedException, PackageFunctionException {
-    ParserInputSource replacementSource = replacementContents == null ? null
-        : ParserInputSource.create(replacementContents, buildFilePath.asFragment());
     Package.LegacyBuilder pkgBuilder = packageFunctionCache.getIfPresent(packageId);
     if (pkgBuilder == null) {
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
@@ -895,21 +874,39 @@ public class PackageFunction implements SkyFunction {
             packageId, packageLocator);
         Preprocessor.Result preprocessingResult = preprocessCache.getIfPresent(packageId);
         if (preprocessingResult == null) {
-          try {
-            preprocessingResult =
-                replacementSource == null
-                    ? packageFactory.preprocess(packageId, inputSource, globber)
-                    : Preprocessor.Result.noPreprocessing(replacementSource);
-          } catch (IOException e) {
-            env
-                .getListener()
-                .handle(
-                    Event.error(
-                        Location.fromFile(buildFilePath),
-                        "preprocessing failed: " + e.getMessage()));
-            throw new PackageFunctionException(
-                new BuildFileContainsErrorsException(packageId, "preprocessing failed", e),
-                Transience.TRANSIENT);
+          if (showLoadingProgress.get()) {
+            env.getListener().handle(Event.progress("Loading package: " + packageId));
+          }
+          // Even though we only open and read the file on a cache miss, note that the BUILD is
+          // still parsed two times. Also, the preprocessor may suboptimally open and read it again
+          // anyway.
+          ParserInputSource inputSource;
+          if (replacementContents == null) {
+            long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
+            try {
+              inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
+            } catch (IOException e) {
+              env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
+                  e.getMessage()));
+              // Note that we did this work, so we should conservatively report this error as
+              // transient.
+              throw new PackageFunctionException(new BuildFileContainsErrorsException(
+                  packageId, e.getMessage()), Transience.TRANSIENT);
+            }
+            try {
+              preprocessingResult = packageFactory.preprocess(packageId, inputSource, globber);
+            } catch (IOException e) {
+              env.getListener().handle(Event.error(
+                  Location.fromFile(buildFilePath),
+                  "preprocessing failed: " + e.getMessage()));
+              throw new PackageFunctionException(
+                  new BuildFileContainsErrorsException(packageId, "preprocessing failed", e),
+                  Transience.TRANSIENT);
+            }
+          } else {
+            ParserInputSource replacementSource =
+                ParserInputSource.create(replacementContents, buildFilePath.asFragment());
+            preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
           }
           preprocessCache.put(packageId, preprocessingResult);
         }
