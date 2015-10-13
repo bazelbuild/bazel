@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -116,50 +117,56 @@ public class NamespaceSandboxRunner {
       throws IOException, UserExecException {
     createFileSystem(outputs);
 
-    List<String> args = new ArrayList<>();
+    List<String> fileArgs = new ArrayList<>();
+    List<String> commandLineArgs = new ArrayList<>();
 
-    args.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
+    commandLineArgs.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
 
     if (sandboxDebug) {
-      args.add("-D");
+      fileArgs.add("-D");
     }
 
     // Sandbox directory.
-    args.add("-S");
-    args.add(sandboxPath.getPathString());
+    fileArgs.add("-S");
+    fileArgs.add(sandboxPath.getPathString());
 
     // Working directory of the spawn.
-    args.add("-W");
-    args.add(cwd.toString());
+    fileArgs.add("-W");
+    fileArgs.add(cwd.toString());
 
     // Kill the process after a timeout.
     if (timeout != -1) {
-      args.add("-T");
-      args.add(Integer.toString(timeout));
+      fileArgs.add("-T");
+      fileArgs.add(Integer.toString(timeout));
     }
 
     // Create all needed directories.
     for (Path createDir : createDirs) {
-      args.add("-d");
-      args.add(createDir.getPathString());
+      fileArgs.add("-d");
+      fileArgs.add(createDir.getPathString());
     }
 
     // Mount all the inputs.
     for (ImmutableMap.Entry<Path, Path> mount : mounts.entrySet()) {
-      args.add("-M");
-      args.add(mount.getValue().getPathString());
+      fileArgs.add("-M");
+      fileArgs.add(mount.getValue().getPathString());
 
       // The file is mounted in a custom location inside the sandbox.
       if (!mount.getValue().equals(mount.getKey())) {
-        args.add("-m");
-        args.add(mount.getKey().getPathString());
+        fileArgs.add("-m");
+        fileArgs.add(mount.getKey().getPathString());
       }
     }
 
-    args.add("--");
-    args.addAll(spawnArguments);
+    Path argumentsFilePath =
+        sandboxPath.getParentDirectory().getRelative(sandboxPath.getBaseName() + ".params");
+    FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
+    commandLineArgs.add("@" + argumentsFilePath.getPathString());
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    commandLineArgs.add("--");
+    commandLineArgs.addAll(spawnArguments);
+
+    Command cmd = new Command(commandLineArgs.toArray(new String[0]), env, cwd);
 
     try {
       cmd.execute(

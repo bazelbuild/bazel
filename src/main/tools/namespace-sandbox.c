@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <limits.h>
 #include <pwd.h>
 #include <sched.h>
 #include <signal.h>
@@ -63,6 +64,7 @@ struct Options {
   const char *working_dir;   // Working directory (-W)
   char **mount_sources;      // Map of directories to mount, from (-M)
   char **mount_targets;      // sources -> targets (-m)
+  size_t mount_map_sizes;    // How many elements in mount_{sources,targets}
   int num_mounts;            // How many mounts were specified
   char **create_dirs;        // empty dirs to create (-d)
   int num_create_dirs;       // How many empty dirs to create were specified
@@ -142,8 +144,95 @@ static void Usage(int argc, char *const *argv, const char *fmt, ...) {
       "  -D  if set, debug info will be printed\n"
       "  -l <file>  redirect stdout to a file\n"
       "  -L <file>  redirect stderr to a file\n"
-      );
+      "  @FILE read newline-separated arguments from FILE\n");
   exit(EXIT_FAILURE);
+}
+
+// Deals with an unfinished (source but no target) mapping in opt.
+// Also adds a new unfinished mapping if source is not NULL.
+static void AddMountSource(char *source, struct Options *opt) {
+  // The last -M flag wasn't followed by an -m flag, so assume that the source
+  // should be mounted in the sandbox in the same path as outside.
+  if (opt->mount_sources[opt->num_mounts] != NULL) {
+    opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
+    opt->num_mounts++;
+  }
+  if (source != NULL) {
+    if (opt->num_mounts >= opt->mount_map_sizes - 1) {
+      opt->mount_sources = realloc(opt->mount_sources,
+                                   opt->mount_map_sizes * sizeof(char *) * 2);
+      if (opt->mount_sources == NULL) {
+        DIE("realloc failed\n");
+      }
+      memset(opt->mount_sources + opt->mount_map_sizes, 0,
+             opt->mount_map_sizes * sizeof(char *));
+      opt->mount_targets = realloc(opt->mount_targets,
+                                   opt->mount_map_sizes * sizeof(char *) * 2);
+      if (opt->mount_targets == NULL) {
+        DIE("realloc failed\n");
+      }
+      memset(opt->mount_targets + opt->mount_map_sizes, 0,
+             opt->mount_map_sizes * sizeof(char *));
+      opt->mount_map_sizes *= 2;
+    }
+    opt->mount_sources[opt->num_mounts] = source;
+  }
+}
+
+static void ParseCommandLine(int argc, char *const *argv, struct Options *opt);
+
+// Parses command line flags from a file named filename.
+// Expects optind to be initialized to 0 before being called.
+static void ParseOptionsFile(const char *filename, struct Options *opt) {
+  FILE *const options_file = fopen(filename, "rb");
+  if (options_file == NULL) {
+    DIE("opening argument file %s failed\n", filename);
+  }
+  size_t sub_argv_size = 20;
+  char **sub_argv = malloc(sizeof(char *) * sub_argv_size);
+  sub_argv[0] = "";
+  int sub_argc = 1;
+
+  bool done = false;
+  while (!done) {
+    // This buffer determines the maximum size of arguments we can handle out of
+    // the file. We DIE down below if it's ever too short.
+    // 4096 is a common value for PATH_MAX. However, many filesystems support
+    // arbitrarily long pathnames, so this might not be long enough to handle an
+    // arbitrary filename no matter what. Twice the usual PATH_MAX seems
+    // reasonable for now.
+    char argument[8192];
+    if (fgets(argument, sizeof(argument), options_file) == NULL) {
+      if (feof(options_file)) {
+        done = true;
+        continue;
+      } else {
+        DIE("reading from argument file %s failed\n", filename);
+      }
+    }
+    const size_t length = strlen(argument);
+    if (length == 0) continue;
+    if (length == sizeof(argument)) {
+      DIE("argument from file %s is too long (> %zu)\n", filename,
+          sizeof(argument));
+    }
+    if (argument[length - 1] == '\n') {
+      argument[length - 1] = '\0';
+    } else {
+      done = true;
+    }
+    if (sub_argv_size == sub_argc + 1) {
+      sub_argv_size *= 2;
+      sub_argv = realloc(sub_argv, sizeof(char *) * sub_argv_size);
+    }
+    sub_argv[sub_argc++] = strdup(argument);
+  }
+  if (fclose(options_file) != 0) {
+    DIE("closing options file %s failed\n", filename);
+  }
+  sub_argv[sub_argc] = NULL;
+
+  ParseCommandLine(sub_argc, sub_argv, opt);
 }
 
 // Parse the command line flags and return the result in an Options structure
@@ -209,14 +298,7 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
           Usage(argc, argv,
                 "The -M option must be used with absolute paths only.");
         }
-        // The last -M flag wasn't followed by an -m flag, so assume that the
-        // source should be mounted in the sandbox in the same path as outside.
-        if (opt->mount_sources[opt->num_mounts] != NULL) {
-          opt->mount_targets[opt->num_mounts] =
-              opt->mount_sources[opt->num_mounts];
-          opt->num_mounts++;
-        }
-        opt->mount_sources[opt->num_mounts] = optarg;
+        AddMountSource(optarg, opt);
         break;
       case 'm':
         if (optarg[0] != '/') {
@@ -262,21 +344,22 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
     }
   }
 
-  if (opt->sandbox_root == NULL) {
-    Usage(argc, argv, "Sandbox root (-S) must be specified");
+  AddMountSource(NULL, opt);
+
+  while (optind < argc && argv[optind][0] == '@') {
+    const char *filename = argv[optind] + 1;
+    const int old_optind = optind;
+    optind = 0;
+    ParseOptionsFile(filename, opt);
+    optind = old_optind + 1;
   }
 
-  // The last -M flag wasn't followed by an -m flag, assume that the source
-  // should be mounted in the sandbox in the same path as outside.
-  if (opt->mount_sources[opt->num_mounts] != NULL &&
-      opt->mount_targets[opt->num_mounts] == NULL) {
-    opt->mount_targets[opt->num_mounts] = opt->mount_sources[opt->num_mounts];
-    opt->num_mounts++;
-  }
-
-  opt->args = argv + optind;
-  if (argc <= optind) {
-    Usage(argc, argv, "No command specified.");
+  if (argc > optind) {
+    if (opt->args == NULL) {
+      opt->args = argv + optind;
+    } else {
+      Usage(argc, argv, "Merging commands not supported.");
+    }
   }
 }
 
@@ -290,8 +373,7 @@ static void CreateNamespaces(int create_netns) {
   const int max_tries = 100;
   while (tries++ < max_tries) {
     if (unshare(CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-                (create_netns ? CLONE_NEWNET : 0)) ==
-        0) {
+                (create_netns ? CLONE_NEWNET : 0)) == 0) {
       PRINT_DEBUG("unshare succeeded after %d tries\n", tries);
       return;
     } else {
@@ -584,11 +666,18 @@ int main(int argc, char *const argv[]) {
   memset(&opt, 0, sizeof(opt));
   opt.mount_sources = calloc(argc, sizeof(char *));
   opt.mount_targets = calloc(argc, sizeof(char *));
+  opt.mount_map_sizes = argc;
 
   // Reserve two extra slots for homedir_from_env and homedir.
   opt.create_dirs = calloc(argc + 2, sizeof(char *));
 
   ParseCommandLine(argc, argv, &opt);
+  if (opt.args == NULL) {
+    Usage(argc, argv, "No command specified.");
+  }
+  if (opt.sandbox_root == NULL) {
+    Usage(argc, argv, "Sandbox root (-S) must be specified");
+  }
   global_kill_delay = opt.kill_delay_secs;
 
   int uid = SwitchToEuid();
