@@ -253,6 +253,7 @@ public final class ProfileCommand implements BlazeCommand {
                       phase, info, runtime.getWorkspaceName(), opts.vfsStatsLimit > 0));
             }
 
+            CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
             if (opts.html) {
               Path htmlFile =
                   profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
@@ -264,13 +265,14 @@ public final class ProfileCommand implements BlazeCommand {
                   htmlFile,
                   phaseSummaryStatistics,
                   phaseStatistics,
+                  critPathStats,
+                  info.getMissingActionsCount(),
                   opts.htmlDetails,
                   opts.htmlPixelsPerSecond,
                   opts.vfsStatsLimit,
                   opts.chart,
                   opts.htmlHistograms);
             } else {
-              CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
               new PhaseText(
                       out,
                       phaseSummaryStatistics,

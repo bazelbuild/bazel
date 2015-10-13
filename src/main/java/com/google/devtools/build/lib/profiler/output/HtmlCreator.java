@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.profiler.chart.Chart;
 import com.google.devtools.build.lib.profiler.chart.ChartCreator;
 import com.google.devtools.build.lib.profiler.chart.DetailedChartCreator;
 import com.google.devtools.build.lib.profiler.chart.HtmlChartVisitor;
+import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
@@ -151,6 +152,8 @@ public final class HtmlCreator extends HtmlPrinter {
       Path htmlFile,
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> statistics,
+      CriticalPathStatistics criticalPathStats,
+      int missingActionsCount,
       boolean detailed,
       int htmlPixelsPerSecond,
       int vfsStatsLimit,
@@ -158,7 +161,14 @@ public final class HtmlCreator extends HtmlPrinter {
       boolean generateHistograms)
       throws IOException {
     try (PrintStream out = new PrintStream(new BufferedOutputStream(htmlFile.getOutputStream()))) {
-      PhaseHtml phaseHtml = new PhaseHtml(out, phaseSummaryStats, statistics, vfsStatsLimit);
+      PhaseHtml phaseHtml =
+          new PhaseHtml(
+              out,
+              phaseSummaryStats,
+              statistics,
+              Optional.of(criticalPathStats),
+              Optional.of(missingActionsCount),
+              vfsStatsLimit);
       Optional<SkylarkHtml> skylarkStats = Optional.absent();
       Optional<Chart> chart = Optional.absent();
       if (detailed) {

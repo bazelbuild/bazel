@@ -22,15 +22,15 @@ import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
 
 /**
- * Generate textual output from {@link CriticalPathStatistics}.
+ * Generate HTML output from {@link CriticalPathStatistics}.
  */
 //TODO(bazel-team): Also print remote vs build stats recorded by Logging.CriticalPathStats
-public final class CriticalPathText extends TextPrinter {
+public final class CriticalPathHtml extends HtmlPrinter {
 
   private final CriticalPathStatistics criticalPathStats;
-  private long executionTime;
+  private final long executionTime;
 
-  public CriticalPathText(
+  public CriticalPathHtml(
       PrintStream out, CriticalPathStatistics critPathStats, long executionTime) {
     super(out);
     this.criticalPathStats = critPathStats;
@@ -49,46 +49,60 @@ public final class CriticalPathText extends TextPrinter {
     }
   }
 
+  /**
+   * Print table rows for timing statistics and per path timing percentages.
+   */
   private void printCriticalPathTimingBreakdown(
       CriticalPathEntry totalPath, CriticalPathEntry optimalPath) {
-    lnPrint(totalPath.task.type);
+    lnOpen("tr");
+    element("td", "colspan", "4", totalPath.task.type);
+    close();
 
-    lnPrintf(
-        TWO_COLUMN_FORMAT,
-        "Worker thread scheduling delays",
-        TimeUtilities.prettyTime(criticalPathStats.getWorkerWaitTime()));
-    lnPrintf(
-        TWO_COLUMN_FORMAT,
-        "Main thread scheduling delays",
-        TimeUtilities.prettyTime(criticalPathStats.getMainThreadWaitTime()));
+    lnOpen("tr");
+    element("td", "colspan", "3", "Worker thread scheduling delays");
+    element("td", TimeUtilities.prettyTime(criticalPathStats.getWorkerWaitTime()));
+    close(); // tr
 
-    printLn();
-    lnPrint("Critical path time:");
+    lnOpen("tr");
+    element("td", "colspan", "3", "Main thread scheduling delays");
+    element("td", TimeUtilities.prettyTime(criticalPathStats.getMainThreadWaitTime()));
+    close(); // tr
+
+    lnOpen("tr");
+    element("td", "colspan", "4", "Critical path time:");
+    close();
 
     long totalTime = totalPath.cumulativeDuration;
-    lnPrintf(
-        "%-37s %10s (%s of execution time)",
-        "Actual time",
-        TimeUtilities.prettyTime(totalTime),
-        prettyPercentage((double) totalTime / executionTime));
+    lnOpen("tr");
+    element("td", "Actual time");
+    element("td", TimeUtilities.prettyTime(totalTime));
+    element(
+        "td",
+        String.format(
+            "(%s of execution time)", prettyPercentage((double) totalTime / executionTime)));
+    close(); // tr
 
     long optimalTime = optimalPath.cumulativeDuration;
-    lnPrintf(
-        "%-37s %10s (%s of execution time)",
-        "Time excluding scheduling delays",
-        TimeUtilities.prettyTime(optimalTime),
-        prettyPercentage((double) optimalTime / executionTime));
+    element("td", "colspan", "2", "Time excluding scheduling delays");
+    element("td", TimeUtilities.prettyTime(optimalTime));
+    element(
+        "td",
+        String.format(
+            "(%s of execution time)", prettyPercentage((double) optimalTime / executionTime)));
+    close(); // tr
 
-    printLn();
     // Artificial critical path if we ignore all the time spent in all tasks,
     // except time directly attributed to the ACTION tasks.
-    lnPrint("Time related to:");
+    lnElement("tr");
+    lnOpen("tr");
+    element("td", "colspan", "4", "Time related to:");
+    close();
 
     for (Pair<String, Double> relativePathDuration : criticalPathStats) {
-      lnPrintf(
-          TWO_COLUMN_FORMAT,
-          relativePathDuration.first,
-          prettyPercentage(relativePathDuration.second));
+      lnOpen("tr");
+      element("td", "colspan", "3", relativePathDuration.first);
+      element("td", prettyPercentage(relativePathDuration.second));
+      close();
     }
   }
 
@@ -107,53 +121,54 @@ public final class CriticalPathText extends TextPrinter {
   }
 
   private void printCriticalPath(String title, CriticalPathEntry path) {
-    lnPrintf("%s (%s):", title, TimeUtilities.prettyTime(path.cumulativeDuration));
+    lnOpen("table");
+    lnOpen("tr");
+    element(
+        "td",
+        "colspan",
+        "4",
+        String.format("%s (%s):", title, TimeUtilities.prettyTime(path.cumulativeDuration)));
+    close(); // tr
 
-    boolean isComponent = path.isComponent();
-    if (isComponent) {
-      lnPrintf("%6s %11s %8s   %s", "Id", "Time", "Percentage", "Description");
-    } else {
-      lnPrintf("%6s %11s %8s %8s   %s", "Id", "Time", "Share", "Critical", "Description");
+    lnOpen("tr");
+    boolean pathIsComponent = path.isComponent();
+    element("th", "Id");
+    element("th", "Time");
+    element("th", "Share");
+    if (!pathIsComponent) {
+      element("th", "Critical");
     }
+    element("th", "Description");
+    close(); // tr
 
     long totalPathTime = path.cumulativeDuration;
 
     for (CriticalPathEntry pathEntry : criticalPathStats.getMiddlemanFilteredPath(path)) {
       String desc = pathEntry.task.getDescription().replace(':', ' ');
-      if (isComponent) {
-        lnPrintf(
-            "%6d %11s %8s   %s",
-            pathEntry.task.id,
-            TimeUtilities.prettyTime(pathEntry.duration),
-            prettyPercentage((double) pathEntry.duration / totalPathTime),
-            desc);
-      } else {
-        lnPrintf(
-            "%6d %11s %8s %8s   %s",
-            pathEntry.task.id,
-            TimeUtilities.prettyTime(pathEntry.duration),
-            prettyPercentage((double) pathEntry.duration / totalPathTime),
-            prettyPercentage((double) pathEntry.getCriticalTime() / totalPathTime),
-            desc);
+      lnOpen("tr");
+      element("td", pathEntry.task.id);
+      element("td", "style", "text-align: right",
+          TimeUtilities.prettyTime(pathEntry.duration).replace(" ", "&nbsp;"));
+      element("td", prettyPercentage((double) pathEntry.duration / totalPathTime));
+      if (!pathIsComponent) {
+        element("td", prettyPercentage((double) pathEntry.getCriticalTime() / totalPathTime));
       }
+      element("td", desc);
+      close(); // tr
     }
     MiddleManStatistics middleMan = MiddleManStatistics.create(path);
     if (middleMan.count > 0) {
-      if (isComponent) {
-        lnPrintf(
-            "       %11s %8s   [%d middleman actions]",
-            TimeUtilities.prettyTime(middleMan.duration),
-            prettyPercentage((double) middleMan.duration / totalPathTime),
-            middleMan.count);
-      } else {
-        lnPrintf(
-            "       %11s %8s %8s   [%d middleman actions]",
-            TimeUtilities.prettyTime(middleMan.duration),
-            prettyPercentage((double) middleMan.duration / totalPathTime),
-            prettyPercentage((double) middleMan.criticalTime / totalPathTime),
-            middleMan.count);
+      lnOpen("tr");
+      element("td");
+      element("td", TimeUtilities.prettyTime(middleMan.duration));
+      element("td", prettyPercentage((double) middleMan.duration / totalPathTime));
+      if (!pathIsComponent) {
+        element("td", prettyPercentage((double) middleMan.criticalTime / totalPathTime));
       }
+      element("td", String.format("[%d middleman actions]", middleMan.count));
+      close(); // tr
     }
+    lnClose(); // table
   }
 }
 

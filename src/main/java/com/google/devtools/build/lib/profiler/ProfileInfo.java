@@ -219,6 +219,10 @@ public class ProfileInfo {
       return !stats.isEmpty();
     }
 
+    public boolean isFake() {
+      return id < 0;
+    }
+
     public long getInheritedDuration() {
       return stats.getTotalTime();
     }

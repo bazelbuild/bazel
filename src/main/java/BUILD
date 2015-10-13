@@ -189,6 +189,7 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
