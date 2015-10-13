@@ -9,32 +9,6 @@ java_library(
 )
 
 java_library(
-    name = "actions",
-    srcs = glob([
-        "com/google/devtools/build/lib/actions/**/*.java",
-    ]),
-    deps = [
-        ":base-util",
-        ":clock",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":io",
-        ":options",
-        ":packages",
-        ":shell",
-        ":skyframe-base",
-        ":util",
-        ":vfs",
-        "//src/main/protobuf:extra_actions_base_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:protobuf",
-    ],
-)
-
-java_library(
     name = "cmdline",
     srcs = glob([
         "com/google/devtools/build/lib/cmdline/*.java",
@@ -210,10 +184,10 @@ java_library(
         "com/google/devtools/build/lib/profiler/statistics/*.java",
     ]),
     deps = [
-        ":actions",
         ":collect",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
     ],
 )
@@ -323,13 +297,11 @@ java_library(
         ],
         exclude = [
             "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
-            "com/google/devtools/build/lib/rules/genquery/**",
         ],
     ) + [
         "com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java",
     ],
     deps = [
-        ":actions",
         ":base-util",
         ":collect",
         ":common",
@@ -344,6 +316,7 @@ java_library(
         ":skyframe-base",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:android_studio_ide_info_proto",
         "//src/main/protobuf:bundlemerge_proto",
         "//src/main/protobuf:crosstool_config_proto",
@@ -354,34 +327,6 @@ java_library(
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:guava",
         "//third_party:joda_time",
-        "//third_party:jsr305",
-        "//third_party:protobuf",
-    ],
-)
-
-java_library(
-    name = "genquery",
-    srcs = glob([
-        "com/google/devtools/build/lib/rules/genquery/*.java",
-    ]),
-    deps = [
-        ":actions",
-        ":analysis-exec-rules-skyframe",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":graph",
-        ":options",
-        ":packages",
-        ":query2",
-        ":shell",
-        ":skyframe-base",
-        ":util",
-        ":vfs",
-        "//src/main/protobuf:crosstool_config_proto",
-        "//src/main/protobuf:extra_actions_base_proto",
-        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:protobuf",
     ],
@@ -428,7 +373,6 @@ java_library(
         "com/google/devtools/build/lib/runtime/**/*.java",
     ]),
     deps = [
-        ":actions",
         ":analysis-exec-rules-skyframe",
         ":clock",
         ":collect",
@@ -447,6 +391,7 @@ java_library(
         ":skyframe-base",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
         "//src/main/protobuf:test_status_proto",
@@ -481,7 +426,6 @@ java_library(
         "com/google/devtools/build/lib/server/**/*.java",
     ]),
     deps = [
-        ":actions",
         ":analysis-exec-rules-skyframe",
         ":clock",
         ":cmdline",
@@ -501,6 +445,7 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
         "//src/main/protobuf:test_status_proto",
@@ -564,7 +509,6 @@ java_library(
         "//third_party:plexus_utils",
     ],
     deps = [
-        ":actions",
         ":analysis-exec-rules-skyframe",
         ":buildtool-runtime",
         ":clock",
@@ -572,7 +516,6 @@ java_library(
         ":common",
         ":concurrent",
         ":events",
-        ":genquery",
         ":graph",
         ":io",
         ":maven-connector",
@@ -587,7 +530,9 @@ java_library(
         ":util",
         ":vfs",
         "//src/java_tools/singlejar:zip",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
