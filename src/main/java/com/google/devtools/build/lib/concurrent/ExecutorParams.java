@@ -15,36 +15,32 @@
 package com.google.devtools.build.lib.concurrent;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Configuration parameters for {@link ThreadPoolExecutor} construction.
- */
-public class ThreadPoolExecutorParams {
-  private final int corePoolSize;
-  private final int maxPoolSize;
+/** Configuration parameters for {@link ExecutorService} construction. */
+public class ExecutorParams {
+  private final int parallelism;
   private final long keepAliveTime;
   private final TimeUnit units;
   private final String poolName;
   private final BlockingQueue<Runnable> workQueue;
 
-  public ThreadPoolExecutorParams(int corePoolSize, int maxPoolSize, long keepAliveTime,
-      TimeUnit units, String poolName, BlockingQueue<Runnable> workQueue) {
-    this.corePoolSize = corePoolSize;
-    this.maxPoolSize = maxPoolSize;
+  public ExecutorParams(
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      String poolName,
+      BlockingQueue<Runnable> workQueue) {
+    this.parallelism = parallelism;
     this.keepAliveTime = keepAliveTime;
     this.units = units;
     this.poolName = poolName;
     this.workQueue = workQueue;
   }
 
-  public int getCorePoolSize() {
-    return corePoolSize;
-  }
-
-  public int getMaxPoolSize() {
-    return maxPoolSize;
+  public int getParallelism() {
+    return parallelism;
   }
 
   public long getKeepAliveTime() {

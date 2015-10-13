@@ -600,7 +600,6 @@ public final class ParallelEvaluator implements Evaluator {
     private ValueVisitor(int threadCount) {
       super(/*concurrent*/true,
           threadCount,
-          threadCount,
           1, TimeUnit.SECONDS,
           /*failFastOnException*/true,
           /*failFastOnInterrupt*/true,
