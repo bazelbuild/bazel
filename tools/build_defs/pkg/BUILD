@@ -35,8 +35,8 @@ py_binary(
     srcs = ["build_tar.py"],
     visibility = ["//visibility:public"],
     deps = [
+        "@bazel_tools//third_party/py/gflags",
         ":archive",
-        "//third_party/py/gflags",
     ],
 )
 
@@ -45,8 +45,8 @@ py_binary(
     srcs = ["make_deb.py"],
     visibility = ["//visibility:public"],
     deps = [
+        "@bazel_tools//third_party/py/gflags",
         ":archive",
-        "//third_party/py/gflags",
     ],
 )
 
