@@ -54,6 +54,7 @@ import com.facebook.buck.apple.xcode.xcodeproj.PBXProject;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXShellScriptBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXSourcesBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTargetDependency;
@@ -67,6 +68,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -332,18 +334,6 @@ public class XcodeprojGeneration {
   }
 
   /**
-   * Returns the {@code LIBRARY_SEARCH_PATHS} array for a target's imported static libraries.
-   */
-  private static NSArray librarySearchPaths(Iterable<String> importedLibraries) {
-    ImmutableSet.Builder<NSString> result = new ImmutableSet.Builder<>();
-    for (String importedLibrary : importedLibraries) {
-      result.add(new NSString("$(WORKSPACE_ROOT)/" + Paths.get(importedLibrary).getParent()));
-    }
-
-    return (NSArray) NSObject.wrap(result.build().asList());
-  }
-
-  /**
    * Returns the {@code ARCHS} array for a target's build config given the list of architecture
    * strings. If none is given, an array with default architectures "armv7" and "arm64" will be
    * returned.
@@ -386,6 +376,25 @@ public class XcodeprojGeneration {
     }
 
     return flags.build();
+  }
+
+  /**
+   * Returns a unique name for the given imported library path, scoped by both the base name and
+   * the parent directories. For example, with "foo/bar/lib.a", "lib_bar_foo.a" will be returned.
+   */
+  private static String uniqueImportedLibraryName(String importedLibrary) {
+    String extension = "";
+    String pathWithoutExtension = "";
+    int i = importedLibrary.lastIndexOf('.');
+    if (i > 0) {
+      extension = importedLibrary.substring(i);
+      pathWithoutExtension = importedLibrary.substring(0, i);
+    } else {
+      pathWithoutExtension = importedLibrary;
+    }
+
+    String[] pathFragments = pathWithoutExtension.replace("-", "_").split("/");
+    return Joiner.on("_").join(Lists.reverse(Arrays.asList(pathFragments))) + extension;
   }
 
   /** Generates a project file. */
@@ -520,11 +529,6 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(name, value);
       }
 
-      if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
-        targetBuildConfigMap.put("LIBRARY_SEARCH_PATHS",
-            librarySearchPaths(targetControl.getImportedLibraryList()));
-      }
-
       // Note that HFS+ (the Mac filesystem) is usually case insensitive, so we cast all target
       // names to lower case before checking for duplication because otherwise users may end up
       // having duplicated intermediate build directories that can interfere with the build.
@@ -603,12 +607,40 @@ public class XcodeprojGeneration {
         targetInfo.addDependencyInfo(dependency, targetInfoByLabel);
       }
 
-      if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
+      if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))
+          && !targetControl.getImportedLibraryList().isEmpty()) {
+        // We add a script build phase to copy the imported libraries to BUILT_PRODUCT_DIR with
+        // unique names before linking them to work around an Xcode issue where imported libraries
+        // with duplicated names lead to link errors.
+        //
+        // Internally Xcode uses linker flag -l{LIBRARY_NAME} to link a particular library and
+        // delegates to the linker to locate the actual library using library search paths. So given
+        // two imported libraries with the same name: a/b/libfoo.a, c/d/libfoo.a, Xcode uses
+        // duplicate linker flag -lfoo to link both of the libraries. Depending on the order of
+        // the library search paths, the linker will only be able to locate and link one of the
+        // libraries.
+        //
+        // With this workaround using a script build phase, all imported libraries to link have
+        // unique names. For the previous example with a/b/libfoo.a and c/d/libfoo.a, the script
+        // build phase will copy them to BUILT_PRODUCTS_DIR with unique names libfoo_b_a.a and
+        // libfoo_d_c.a, respectively. The linker flags Xcode uses to link them will be
+        // -lfoo_d_c and -lfoo_b_a, with no duplication.
+        PBXShellScriptBuildPhase scriptBuildPhase = new PBXShellScriptBuildPhase();
+        scriptBuildPhase.setShellScript(
+            "for ((i=0; i < ${SCRIPT_INPUT_FILE_COUNT}; i++)) do\n"
+            + "  INPUT_FILE=\"SCRIPT_INPUT_FILE_${i}\"\n"
+            + "  OUTPUT_FILE=\"SCRIPT_OUTPUT_FILE_${i}\"\n"
+            + "  cp -v -f \"${!INPUT_FILE}\" \"${!OUTPUT_FILE}\"\n"
+            + "done");
         for (String importedLibrary : targetControl.getImportedLibraryList()) {
-          FileReference fileReference = FileReference.of(importedLibrary, SourceTree.GROUP)
-              .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY);
+          String uniqueImportedLibrary = uniqueImportedLibraryName(importedLibrary);
+          scriptBuildPhase.getInputPaths().add("$(WORKSPACE_ROOT)/" + importedLibrary);
+          scriptBuildPhase.getOutputPaths().add("$(BUILT_PRODUCTS_DIR)/" + uniqueImportedLibrary);
+          FileReference fileReference = FileReference.of(uniqueImportedLibrary,
+              SourceTree.BUILT_PRODUCTS_DIR).withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY);
           targetInfo.frameworksPhase.getFiles().add(pbxBuildFiles.getStandalone(fileReference));
         }
+        targetInfo.nativeTarget.getBuildPhases().add(scriptBuildPhase);
       }
     }
 
