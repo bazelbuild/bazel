@@ -347,20 +347,18 @@ public class CrosstoolConfigurationLoader {
         + "corresponding to '" + selectedIdentifier + "' found for cpu '" + config.getCpu() + "'");
   }
 
-  private static String describeToolchainFlags(CrosstoolConfig.CToolchain toolchain) {
-    return CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags();
-  }
-
   /**
    * Appends a series of toolchain descriptions (as the blaze command line flags
    * that would specify that toolchain) to 'message'.
    */
   private static void describeToolchainList(StringBuilder message,
       Collection<CrosstoolConfig.CToolchain> toolchains) {
-    message.append("[");
+    message.append("[\n");
     for (CrosstoolConfig.CToolchain toolchain : toolchains) {
-      message.append(describeToolchainFlags(toolchain));
-      message.append(",");
+      message.append("  ");
+      message.append(
+          CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags().trim());
+      message.append(",\n");
     }
     message.append("]");
   }
