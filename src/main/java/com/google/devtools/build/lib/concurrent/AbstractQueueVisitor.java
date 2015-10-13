@@ -583,14 +583,6 @@ public class AbstractQueueVisitor {
   }
 
   /**
-   * Makes the visitation terminate prematurely.
-   */
-  public void interrupt() {
-    setInterrupted();
-    reallyAwaitTermination(true);
-  }
-
-  /**
    * If this returns true, that means the exception {@code e} is critical
    * and all running actions should be stopped. {@link Error}s are always considered critical.
    *
