@@ -1,3 +1,3 @@
 package(
-    visibility = ["//visibility:public"],
+    default_visibility = ["//visibility:public"],
 )
