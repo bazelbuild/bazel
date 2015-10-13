@@ -57,6 +57,8 @@ def _jsonnet_to_json_impl(ctx):
   """Implementation of the jsonnet_to_json rule."""
   depinfo = _setup_deps(ctx.attr.deps)
   toolchain = _jsonnet_toolchain(ctx)
+  jsonnet_vars = ctx.attr.vars
+  jsonnet_code_vars = ctx.attr.code_vars
   command = (
       [
           "set -e;",
@@ -65,7 +67,11 @@ def _jsonnet_to_json_impl(ctx):
       ["-J %s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
       ["-J %s" % im for im in depinfo.imports] +
       toolchain.imports +
-      ["-J ."])
+      ["-J ."] +
+      ["--var '%s'='%s'"
+          % (var, jsonnet_vars[var]) for var in jsonnet_vars.keys()] +
+      ["--code-var '%s'='%s'"
+          % (var, jsonnet_code_vars[var]) for var in jsonnet_vars.keys()])
 
   outputs = []
   # If multiple_outputs is set to true, then jsonnet will be invoked with the
@@ -119,9 +125,14 @@ jsonnet_library = rule(
     attrs = _jsonnet_library_attrs + _jsonnet_common_attrs,
 )
 
-_jsonnet_to_json_attrs = {
+_jsonnet_compile_attrs = {
     "src": attr.label(allow_files = JSONNET_FILETYPE,
                       single_file = True),
+    "vars": attr.string_dict(),
+    "code_vars": attr.string_dict(),
+}
+
+_jsonnet_to_json_attrs = _jsonnet_compile_attrs + {
     "outs": attr.output_list(mandatory = True),
     "multiple_outputs": attr.bool(),
 }
