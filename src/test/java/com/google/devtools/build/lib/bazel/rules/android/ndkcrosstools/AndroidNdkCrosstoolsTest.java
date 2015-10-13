@@ -15,9 +15,14 @@
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.AndroidNdkCrosstools.NdkCrosstoolsException;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -32,7 +37,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
 
@@ -95,6 +102,30 @@ public class AndroidNdkCrosstoolsTest {
     }
   }
 
+  private static ImmutableSet<String> getFiles(String fileName) {
+
+    String ndkFilesContent;
+    try {
+      ndkFilesContent = ResourceFileLoader.loadResource(
+          AndroidNdkCrosstoolsTest.class, fileName);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+
+    ImmutableSet.Builder<String> ndkFiles = ImmutableSet.builder();
+    Scanner ndkFilesContentScanner = new Scanner(ndkFilesContent);
+    while (ndkFilesContentScanner.hasNext()) {
+      String path = ndkFilesContentScanner.nextLine();
+      // The contents of the NDK are placed at "external/%repositoryName%/ndk".
+      // The "external/%repositoryName%" part is removed using NdkPaths.stripRepositoryPrefix,
+      // but to make it easier the "ndk/" part is added here.
+      path = "ndk/" + path;
+      ndkFiles.add(path);
+    }
+    ndkFilesContentScanner.close();
+    return ndkFiles.build();
+  }
+  
   @Test
   public void testPathsExist() throws Exception {
 
@@ -155,30 +186,6 @@ public class AndroidNdkCrosstoolsTest {
     return false;
   }
 
-  private static ImmutableSet<String> getFiles(String fileName) {
-
-    String ndkFilesContent;
-    try {
-      ndkFilesContent = ResourceFileLoader.loadResource(
-          AndroidNdkCrosstoolsTest.class, fileName);
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-
-    ImmutableSet.Builder<String> ndkFiles = ImmutableSet.builder();
-    Scanner ndkFilesContentScanner = new Scanner(ndkFilesContent);
-    while (ndkFilesContentScanner.hasNext()) {
-      String path = ndkFilesContentScanner.nextLine();
-      // The contents of the NDK are placed at "external/%repositoryName%/ndk".
-      // The "external/%repositoryName%" part is removed using NdkPaths.stripRepositoryPrefix,
-      // but to make it easier the "ndk/" part is added here.
-      path = "ndk/" + path;
-      ndkFiles.add(path);
-    }
-    ndkFilesContentScanner.close();
-    return ndkFiles.build();
-  }
-
   @Test
   public void testAllToolchainsHaveRuntimesFilegroup() {
     for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
@@ -202,6 +209,48 @@ public class AndroidNdkCrosstoolsTest {
       for (DefaultCpuToolchain defaultCpuToolchain : crosstool.getDefaultToolchainList()) {
         assertThat(toolchainNames).contains(defaultCpuToolchain.getToolchainIdentifier());
       }
+    }
+  }
+
+  /**
+   * Tests that each (cpu, compiler, glibc) triple in each crosstool is unique in that crosstool.
+   */
+  @Test
+  public void testCrosstoolTriples() {
+
+    StringBuilder errorBuilder = new StringBuilder();
+    for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
+
+      // Create a map of (cpu, compiler, glibc) triples -> toolchain.
+      ImmutableMultimap.Builder<String, CToolchain> triples = ImmutableMultimap.builder();
+      for (CToolchain toolchain : crosstool.getToolchainList()) {
+        String triple = "(" + Joiner.on(", ").join(
+            toolchain.getTargetCpu(),
+            toolchain.getCompiler(),
+            toolchain.getTargetLibc()) + ")";
+        triples.put(triple, toolchain);
+      }
+
+      // Collect all the duplicate triples.
+      for (Entry<String, Collection<CToolchain>> entry : triples.build().asMap().entrySet()) {
+        if (entry.getValue().size() > 1) {
+          errorBuilder.append(entry.getKey() + ": " + Joiner.on(", ").join(
+              Collections2.transform(entry.getValue(), new Function<CToolchain, String>() {
+                @Override public String apply(CToolchain toolchain) {
+                  return toolchain.getToolchainIdentifier();
+                }
+              })));
+          errorBuilder.append("\n");
+        }
+      }
+      errorBuilder.append("\n");
+    }
+
+    // This is a rather awkward condition to test on, but collecting all the duplicates first is
+    // the only way to make a useful error message rather than finding the errors one by one.
+    String error = errorBuilder.toString().trim();
+    if (!error.isEmpty()) {
+      fail("Toolchains contain duplicate (cpu, compiler, glibc) triples:\n" + error);
     }
   }
 }

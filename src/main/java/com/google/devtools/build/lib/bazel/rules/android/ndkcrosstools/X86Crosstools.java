@@ -51,7 +51,7 @@ class X86Crosstools {
     // Add Clang toolchains. x86 uses gcc-4.8.
     for (String clangVersion : new String[] { "3.5", "3.6" }) {
 
-      CToolchain.Builder x86Clang = createBaseX86ClangToolchain("x86", "i686", "4.8")
+      CToolchain.Builder x86Clang = createBaseX86ClangToolchain("x86", "i686", "4.8", clangVersion)
           .setToolchainIdentifier("x86-clang" + clangVersion)
           .setTargetCpu("x86")
 
@@ -94,17 +94,18 @@ class X86Crosstools {
     // Add Clang toolchains. x86_64 uses gcc-4.9.
     for (String clangVersion : new String[] { "3.5", "3.6" }) {
 
-      CToolchain.Builder x8664Clang = createBaseX86ClangToolchain("x86_64", "x86_64", "4.9")
-            .setToolchainIdentifier("x86_64-clang" + clangVersion)
-            .setTargetCpu("x86_64")
-  
-            .addAllToolPath(ndkPaths.createClangToolpaths(
-                "x86_64-4.9", "x86_64-linux-android", clangVersion))
-  
-            .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-                "x86_64-4.9", "x86_64-linux-android", "4.9"))
-  
-            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
+      CToolchain.Builder x8664Clang =
+          createBaseX86ClangToolchain("x86_64", "x86_64", "4.9", clangVersion)
+              .setToolchainIdentifier("x86_64-clang" + clangVersion)
+              .setTargetCpu("x86_64")
+    
+              .addAllToolPath(ndkPaths.createClangToolpaths(
+                  "x86_64-4.9", "x86_64-linux-android", clangVersion))
+    
+              .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
+                  "x86_64-4.9", "x86_64-linux-android", "4.9"))
+    
+              .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
       stlImpl.addStlImpl(x8664Clang, "4.9");
       toolchains.add(x8664Clang);
@@ -173,7 +174,7 @@ class X86Crosstools {
   }
 
   private CToolchain.Builder createBaseX86ClangToolchain(
-      String x86Arch, String llvmArch, String gccVersion) {
+      String x86Arch, String llvmArch, String gccVersion, String clangVersion) {
 
     String gccToolchain = ndkPaths.createGccToolchainPath(
         String.format("%s-linux-android-%s", x86Arch, gccVersion));
@@ -181,7 +182,7 @@ class X86Crosstools {
     String llvmTriple = llvmArch + "-none-linux-android";
 
     return CToolchain.newBuilder()
-        .setCompiler("gcc-" + gccVersion)
+        .setCompiler("gcc-" + gccVersion + "-clang" + clangVersion)
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")

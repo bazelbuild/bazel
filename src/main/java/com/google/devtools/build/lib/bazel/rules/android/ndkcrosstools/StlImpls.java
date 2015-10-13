@@ -36,8 +36,8 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion, boolean armThumb) {
-      addBaseStlImpl(toolchain, gccVersion, armThumb);
+    public void addStlImpl(Builder toolchain, String gccVersion) {
+      addBaseStlImpl(toolchain, gccVersion);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(
           ndkPaths.createGnuLibstdcIncludePaths(gccVersion, toolchain.getTargetCpu())));
     }
@@ -50,8 +50,8 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion, boolean armThumb) {
-      addBaseStlImpl(toolchain, null, armThumb);
+    public void addStlImpl(Builder toolchain, String gccVersion) {
+      addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()));
     }
   }
@@ -63,8 +63,8 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(Builder toolchain, String gccVersion, boolean armThumb) {
-      addBaseStlImpl(toolchain, null, armThumb);
+    public void addStlImpl(Builder toolchain, String gccVersion) {
+      addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths()));
     }
   }

@@ -160,9 +160,7 @@ public class NdkPaths {
 
   ImmutableList<String> createGnuLibstdcIncludePaths(String gccVersion, String targetCpu) {
 
-    if (targetCpu.equals("arm64")) {
-      targetCpu = "arm64-v8a";
-    }
+    String cpuNoThumb = targetCpu.replaceAll("-thumb$", "");
 
     String prefix = "external/%repositoryName%/ndk/sources/cxx-stl/gnu-libstdc++/%gccVersion%/";
     List<String> includePathTemplates = Arrays.asList(
@@ -176,7 +174,7 @@ public class NdkPaths {
           template
             .replace("%repositoryName%", repositoryName)
             .replace("%gccVersion%", gccVersion)
-            .replace("%targetCpu%", targetCpu));
+            .replace("%targetCpu%", cpuNoThumb));
     }
     return includePaths.build();
   }
@@ -205,20 +203,17 @@ public class NdkPaths {
    * @param stl The STL name as it appears in the NDK path
    * @param gccVersion The GCC version "4.8" or "4.9", applicable only to gnu-libstdc++, or null
    * @param targetCpu Target CPU
-   * @param armThumb Thumb mode for ARM
    * @param fileExtension "a" or "so"
    * @return A glob pattern for the STL runtime libs in the NDK.
    */
   static String createStlRuntimeLibsGlob(
-      String stl, String gccVersion, String targetCpu, boolean armThumb, String fileExtension) {
+      String stl, String gccVersion, String targetCpu, String fileExtension) {
     
     if (gccVersion != null) {
       stl += "/" + gccVersion;
     }
 
-    if (armThumb) {
-      targetCpu += "/thumb";
-    }
+    targetCpu = targetCpu.replaceAll("-thumb$", "/thumb");
 
     String template =
         "ndk/sources/cxx-stl/%stl%/libs/%targetCpu%/*.%fileExtension%";

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -54,15 +55,11 @@ public abstract class StlImpl {
   }
 
   public void addStlImpl(
-      List<CToolchain.Builder> baseToolchains, String gccVersion, boolean armThumb) {
+      List<CToolchain.Builder> baseToolchains, String gccVersion) {
 
     for (CToolchain.Builder baseToolchain : baseToolchains) {
-      addStlImpl(baseToolchain, gccVersion, armThumb);
+      addStlImpl(baseToolchain, gccVersion);
     }    
-  }
-
-  public void addStlImpl(CToolchain.Builder baseToolchain, String gccVersion) {
-    addStlImpl(baseToolchain, gccVersion, false);
   }
 
   /**
@@ -70,26 +67,24 @@ public abstract class StlImpl {
    *
    * @param toolchain the toolchain to add the STL implementation to
    * @param gccVersion the gcc version for the STL impl. Applicable only to gnu-libstdc++
-   * @param armThumb whether in thumb mode, applicable only when creating a CToolchain for ARM
    */
-  public abstract void addStlImpl(
-      CToolchain.Builder toolchain, String gccVersion, boolean armThumb);
+  public abstract void addStlImpl(CToolchain.Builder toolchain, String gccVersion);
 
-  protected void addBaseStlImpl(CToolchain.Builder toolchain, String gccVersion, boolean armThumb) {
+  protected void addBaseStlImpl(CToolchain.Builder toolchain, String gccVersion) {
  
     toolchain
       .setToolchainIdentifier(toolchain.getToolchainIdentifier() + "-" + name)
       .setSupportsEmbeddedRuntimes(true)
       .setDynamicRuntimesFilegroup(
           createRuntimeLibrariesFilegroup(
-              name, gccVersion, toolchain.getTargetCpu(), armThumb, RuntimeType.DYNAMIC))
+              name, gccVersion, toolchain.getTargetCpu(), RuntimeType.DYNAMIC))
       .setStaticRuntimesFilegroup(
           createRuntimeLibrariesFilegroup(
-              name, gccVersion, toolchain.getTargetCpu(), armThumb, RuntimeType.STATIC));
+              name, gccVersion, toolchain.getTargetCpu(), RuntimeType.STATIC));
   }
 
   private String createRuntimeLibrariesFilegroup(
-      String stl, String gccVersion, String targetCpu, boolean armThumb, RuntimeType type) {
+      String stl, String gccVersion, String targetCpu, RuntimeType type) {
 
     // gnu-libstlc++ has separate libraries for 4.8 and 4.9
     String fullStlName = stl;
@@ -97,16 +92,10 @@ public abstract class StlImpl {
       fullStlName += "-" + gccVersion;
     }
 
-    // arm has separate libraries for thumb mode
-    String fullTargetCpu = targetCpu;
-    if (armThumb) {
-      fullTargetCpu += "-thumb";
-    }
-
     String filegroupNameTemplate = "%stl%-%targetCpu%-%type%-runtime-libraries";
     String filegroupName = filegroupNameTemplate
         .replace("%stl%", fullStlName)
-        .replace("%targetCpu%", fullTargetCpu)
+        .replace("%targetCpu%", targetCpu)
         .replace("%type%", type.name);
 
     // At the same time that the filegroup name is created, record a corresponding file glob
@@ -121,9 +110,16 @@ public abstract class StlImpl {
     if (stl.equals("libcpp")) {
       stl = "llvm-libc++";
     }
-    fileGroupNameToFileGlobs.put(filegroupName, NdkPaths.createStlRuntimeLibsGlob(
-        stl, gccVersion, targetCpu, armThumb, type.fileExtension));
 
+    String glob = NdkPaths.createStlRuntimeLibsGlob(stl, gccVersion, targetCpu, type.fileExtension);
+    String previousValue = fileGroupNameToFileGlobs.put(filegroupName, glob);
+
+    // Some STL filegroups will end up being duplicates, but a filegroup should never be registered
+    // with a different glob, otherwise one toolchain would get the wrong glob.
+    Verify.verify(previousValue == null || previousValue.equals(glob),
+        "STL filegroup glob being replaced with a different glob:\nname: %s\n%s\n%s",
+        filegroupName, glob, previousValue);
+    
     return filegroupName;
   }
 
