@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.PackageDeserializer.PackageDeserializationException;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Pair;
@@ -42,11 +41,7 @@ import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.PrintStream;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -65,7 +60,7 @@ import java.util.Set;
  * types are guaranteed immutable we're not applying the {@code @Immutable}
  * annotation here.
  */
-public class Package implements Serializable {
+public class Package {
 
   public static PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER;
 
@@ -213,10 +208,6 @@ public class Package implements Serializable {
 
   private ImmutableList<Event> events;
 
-  // Hack to avoid having to copy every attribute. See #readObject and #readResolve.
-  // This will always be null for externally observable instances.
-  private Package deserializedPkg = null;
-
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
    * given name.
@@ -229,38 +220,11 @@ public class Package implements Serializable {
    * @precondition {@code name} must be a suffix of
    * {@code filename.getParentDirectory())}.
    */
-  protected Package(PackageIdentifier packageId, String runfilesPrefix) {
+  private Package(PackageIdentifier packageId, String runfilesPrefix) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
     this.nameFragment = Canonicalizer.fragments().intern(packageId.getPackageFragment());
     this.name = nameFragment.getPathString();
-  }
-
-  private void writeObject(ObjectOutputStream out) {
-    try {
-      new PackageSerializer().serialize(this, out);
-    } catch (IOException ioe) {
-      throw new IllegalStateException(ioe);
-    }
-  }
-
-  private void readObject(ObjectInputStream in) throws IOException, InterruptedException {
-    try {
-      deserializedPkg = new PackageDeserializer().deserialize(in);
-    } catch (PackageDeserializationException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  protected Object readResolve() {
-    // This method needs to be protected so serialization works for subclasses.
-    return deserializedPkg;
-  }
-
-  // See: http://docs.oracle.com/javase/6/docs/platform/serialization/spec/input.html#6053
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new IllegalStateException();
   }
 
   /** Returns this packages' identifier. */
@@ -769,7 +733,7 @@ public class Package implements Serializable {
     /**
      * The output instance for this builder. Needs to be instantiated and
      * available with name info throughout initialization. All other settings
-     * are applied during {@link #build}. See {@link Package#Package(PackageIdentifier)}
+     * are applied during {@link #build}. See {@link Package#Package}
      * and {@link Package#finishInit} for details.
      */
     protected Package pkg;
