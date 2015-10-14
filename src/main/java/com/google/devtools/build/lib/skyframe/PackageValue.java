@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A Skyframe value representing a package.
  */
@@ -53,6 +56,14 @@ public class PackageValue implements SkyValue {
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
     return new SkyKey(SkyFunctions.PACKAGE, pkgIdentifier);
+  }
+
+  public static List<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {
+    List<SkyKey> keys = new ArrayList<>();
+    for (PackageIdentifier pkgIdentifier : pkgIdentifiers) {
+      keys.add(key(pkgIdentifier));
+    }
+    return keys;
   }
 
   /**

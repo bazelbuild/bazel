@@ -51,6 +51,11 @@ public final class SkyFunctions {
       SkyFunctionName.create("PREPARE_DEPS_OF_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY =
       SkyFunctionName.create("PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY");
+  public static final SkyFunctionName TEST_SUITE_EXPANSION =
+      SkyFunctionName.create("TEST_SUITE_EXPANSION");
+  public static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.create("TESTS_IN_SUITE");
+  public static final SkyFunctionName TARGET_PATTERN_PHASE =
+      SkyFunctionName.create("TARGET_PATTERN_PHASE");
   public static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.create("RECURSIVE_PKG");
   public static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.create("TRANSITIVE_TARGET");
