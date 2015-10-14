@@ -755,7 +755,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertFromSkylark(Object value) {
     if (value instanceof SkylarkList) {
-      return ((SkylarkList) value).getList();
+      return new ArrayList<>(((SkylarkList) value).getList());
     }
     return value;
   }
