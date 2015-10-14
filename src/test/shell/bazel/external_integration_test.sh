@@ -564,4 +564,75 @@ EOF
   assert_contains "abc" bazel-genfiles/external/x/catter.out
 }
 
+function test_moving_build_file() {
+  echo "abc" > w
+  tar czf x.tar.gz w
+  local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
+  serve_file x.tar.gz
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = "x",
+    url = "http://localhost:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    build_file = "x.BUILD",
+)
+EOF
+  cat > x.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["w"],
+)
+EOF
+
+  bazel build @x//:catter || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
+  sed -i 's/x.BUILD/x.BUILD.new/g' WORKSPACE || fail "Editing WORKSPACE failed"
+  bazel build @x//:catter || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/x/catter.out
+}
+
+function test_changing_build_file() {
+  echo "abc" > w
+  echo "def" > w.new
+  tar czf x.tar.gz w w.new
+  local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
+  serve_file x.tar.gz
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = "x",
+    url = "http://localhost:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    build_file = "x.BUILD",
+)
+EOF
+  cat > x.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["w"],
+)
+EOF
+
+  cat > x.BUILD.new <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["w.new"],
+)
+EOF
+
+  bazel build @x//:catter || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  sed -i 's/x.BUILD/x.BUILD.new/g' WORKSPACE || fail "Editing WORKSPACE failed"
+  bazel build @x//:catter || fail "Build failed"
+  assert_contains "def" bazel-genfiles/external/x/catter.out
+}
+
 run_suite "external tests"
