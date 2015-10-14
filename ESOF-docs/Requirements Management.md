@@ -3,7 +3,7 @@
 - [x] send email to bazel developpers
 - [ ] writing the report
 - [ ] use case diagram (see the notes at the end of this document)
-- 
+
 ## Requirements Elicitation ##
 
 ## Requirements analysis and negotiation ##
