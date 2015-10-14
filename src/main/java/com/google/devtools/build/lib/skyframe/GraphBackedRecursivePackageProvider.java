@@ -110,7 +110,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
-      if (isTBD && pattern.containsBelowDirectory(directory.getRelativePath().getPathString())) {
+      PackageIdentifier packageIdentifier = PackageIdentifier.create(
+          repository, directory.getRelativePath());
+      if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
         filteringPolicy =
             pattern.getRulesOnly() ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
         break;
