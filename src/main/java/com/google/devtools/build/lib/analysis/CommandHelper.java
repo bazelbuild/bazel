@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,9 +49,6 @@ import javax.annotation.Nullable;
  *  that will contain the same commands,
  *  at which point the shell script is added to the list of inputs.
  */
-@SkylarkModule(name = "command_helper",
-    doc = "Experimental. The API will change in the future.<br>"
-    + "A helper class to create shell commands.")
 public final class CommandHelper {
 
   /**
@@ -146,12 +141,10 @@ public final class CommandHelper {
     this.labelMap = labelMapBuilder.build();
   }
 
-  @SkylarkCallable(name = "resolved_tools", doc = "Experimental.", structField = true)
   public List<Artifact> getResolvedTools() {
     return resolvedTools;
   }
 
-  @SkylarkCallable(name = "runfiles_manifests", doc = "Experimental.", structField = true)
   public ImmutableMap<PathFragment, Artifact> getRemoteRunfileManifestMap() {
     return remoteRunfileManifestMap;
   }
@@ -195,7 +188,6 @@ public final class CommandHelper {
    * Resolves the 'cmd' attribute, and expands known locations for $(location)
    * variables.
    */
-  @SkylarkCallable(doc = "Experimental.")
   public String resolveCommandAndExpandLabels(
       Boolean supportLegacyExpansion, Boolean allowDataInLabel) {
     return resolveCommandAndExpandLabels(
@@ -292,7 +284,6 @@ public final class CommandHelper {
    * command line is longer than the allowed maximum {@link #maxCommandLength}.
    * Fixes up the input artifact list with the created bash script when required.
    */
-  @SkylarkCallable(doc = "Experimental.")
   public List<String> buildCommandLine(
       String command, List<Artifact> inputs, String scriptPostFix) {
     Pair<List<String>, Artifact> argvAndScriptFile = buildCommandLineMaybeWithScriptFile(
