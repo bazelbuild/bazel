@@ -1,4 +1,4 @@
-# Requirements #
+# Relatório 2 - Gestão de Requesitos #
 ## TASK LIST ##
 - [x] send email to bazel developpers
 - [ ] writing the report
@@ -39,3 +39,28 @@ Projects with a large codebase
 Projects written in (multiple) compiled languages
 Projects that deploy on multiple platforms
 Projects that have extensive tests
+
+## Referências ##
+
+Página oficial: http://bazel.io/ 
+
+## Contribuições ##
+* António Ramadas:
+* João Guarda:
+* Rui Vilares:
+* Trabalhando em grupo:
+
+## Autores ##
+
+### Turma 1 - Grupo 4 ###
+
+* António Manuel Vieira Ramadas
+* João Diogo Trindade Guarda
+* Rui Miguel Teixeira Vilares
+
+Engenharia de Software (ESOF)
+
+Faculdade de Engenharia da Universidade do Porto
+18 de outubro de 2015
+
+
