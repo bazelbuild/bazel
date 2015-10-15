@@ -57,7 +57,7 @@ public class TargetPatternTest {
   @Test
   public void testInvalidPatterns() throws TargetParsingException {
     try {
-      parse("Bar.java");
+      parse("Bar&&&java");
       fail();
     } catch (TargetParsingException expected) {
     }
