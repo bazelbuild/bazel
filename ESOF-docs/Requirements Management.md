@@ -11,3 +11,11 @@ Projects with a large codebase
 Projects written in (multiple) compiled languages
 Projects that deploy on multiple platforms
 Projects that have extensive tests
+
+## Requirements Elicitation ##
+
+## Requirements analysis and negotiation ##
+
+## Requirements specification ##
+
+## Requirements validation ##
