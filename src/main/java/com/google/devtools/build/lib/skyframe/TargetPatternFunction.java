@@ -20,14 +20,11 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -37,10 +34,7 @@ import javax.annotation.Nullable;
  */
 public class TargetPatternFunction implements SkyFunction {
 
-  private final AtomicReference<PathPackageLocator> pkgPath;
-
-  public TargetPatternFunction(AtomicReference<PathPackageLocator> pkgPath) {
-    this.pkgPath = pkgPath;
+  public TargetPatternFunction() {
   }
 
   @Override
@@ -54,7 +48,7 @@ public class TargetPatternFunction implements SkyFunction {
           new EnvironmentBackedRecursivePackageProvider(env);
       RecursivePackageProviderBackedTargetPatternResolver resolver =
           new RecursivePackageProviderBackedTargetPatternResolver(provider, env.getListener(),
-              patternKey.getPolicy(), pkgPath.get());
+              patternKey.getPolicy());
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       ImmutableSet<String> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       resolvedTargets = parsedPattern.eval(resolver, excludedSubdirectories);

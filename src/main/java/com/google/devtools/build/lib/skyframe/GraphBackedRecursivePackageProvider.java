@@ -31,12 +31,17 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by
@@ -46,10 +51,13 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final WalkableGraph graph;
+  private final PathPackageLocator pkgPath;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
   public GraphBackedRecursivePackageProvider(WalkableGraph graph,
-      ImmutableList<TargetPatternKey> universeTargetPatternKeys) {
+      ImmutableList<TargetPatternKey> universeTargetPatternKeys,
+      PathPackageLocator pkgPath) {
+    this.pkgPath = pkgPath;
     this.graph = Preconditions.checkNotNull(graph);
     this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
   }
@@ -100,9 +108,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
-      RepositoryName repository, RootedPath directory,
+      RepositoryName repository, PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories) {
-    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory.getRelativePath());
+    PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
 
     // Find the filtering policy of a TargetsBelowDirectory pattern, if any, in the universe that
     // contains this directory.
@@ -111,7 +119,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(
-          repository, directory.getRelativePath());
+          repository, directory);
       if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
         filteringPolicy =
             pattern.getRulesOnly() ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
@@ -119,12 +127,29 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       }
     }
 
+    List<Path> roots = new ArrayList<>();
+    if (repository.isDefault()) {
+      roots.addAll(pkgPath.getPathEntries());
+    } else {
+      RepositoryValue repositoryValue =
+            (RepositoryValue) graph.getValue(RepositoryValue.key(repository));
+      if (repositoryValue == null) {
+        // If this key doesn't exist, the repository is outside the universe, so we return
+        // "nothing".
+        return ImmutableList.of();
+      }
+      roots.add(repositoryValue.getPath());
+    }
+
     // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
     // then we can look for packages in and under it in the graph. If we didn't find one, then the
     // directory wasn't in the universe, so return an empty list.
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     if (filteringPolicy != null) {
-      collectPackagesUnder(repository, directory, excludedSubdirectories, builder, filteringPolicy);
+      for (Path root : roots) {
+        collectPackagesUnder(repository, RootedPath.toRootedPath(root, directory),
+            excludedSubdirectories, builder, filteringPolicy);
+      }
     }
     return builder.build();
   }

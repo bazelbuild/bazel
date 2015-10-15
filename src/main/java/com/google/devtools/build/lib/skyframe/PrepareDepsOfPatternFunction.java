@@ -42,6 +42,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
@@ -214,9 +216,20 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       ImmutableSet<PathFragment> excludedPathFragments =
           TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
       PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      // TODO(bazel-team): This is where we need to depend on the RepositoryValue of a remote
-      // repository in order figure out its root and thus support recursive package search in them.
-      for (Path root : pkgPath.getPathEntries()) {
+      List<Path> roots = new ArrayList<>();
+      if (repository.isDefault()) {
+        roots.addAll(pkgPath.getPathEntries());
+      } else {
+        RepositoryValue repositoryValue =
+            (RepositoryValue) env.getValue(RepositoryValue.key(repository));
+        if (repositoryValue == null) {
+          throw new MissingDepException();
+        }
+
+        roots.add(repositoryValue.getPath());
+      }
+
+      for (Path root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
         SkyValue token = env.getValue(PrepareDepsOfTargetsUnderDirectoryValue.key(
             repository, rootedPath, excludedPathFragments, policy));

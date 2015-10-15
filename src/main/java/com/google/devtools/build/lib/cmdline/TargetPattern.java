@@ -446,7 +446,7 @@ public abstract class TargetPattern implements Serializable {
         ImmutableSet<String> excludedSubdirectories)
         throws TargetParsingException, InterruptedException {
       return resolver.findTargetsBeneathDirectory(
-          PackageIdentifier.DEFAULT_REPOSITORY_NAME, getOriginalPattern(),
+          directory.getRepository(), getOriginalPattern(),
           directory.getPackageFragment().getPathString(), rulesOnly, excludedSubdirectories);
     }
 
@@ -610,7 +610,8 @@ public abstract class TargetPattern implements Serializable {
         String realPackagePart = removeSuffix(packagePart, "/...");
         PackageIdentifier packageIdentifier;
         try {
-          packageIdentifier = PackageIdentifier.parse("//" + realPackagePart);
+          packageIdentifier = PackageIdentifier.parse(
+              repository.getName() + "//" + realPackagePart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(
               "Invalid package name '" + realPackagePart + "': " + e.getMessage());

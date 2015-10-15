@@ -29,6 +29,6 @@ public interface RecursivePackageProvider extends PackageProvider {
    * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath
    *     {@code directory}, specifying transitive subdirectories to exclude
    */
-  Iterable<PathFragment> getPackagesUnderDirectory(RepositoryName repository, RootedPath directory,
-      ImmutableSet<PathFragment> excludedSubdirectories);
+  Iterable<PathFragment> getPackagesUnderDirectory(RepositoryName repository,
+      PathFragment directory, ImmutableSet<PathFragment> excludedSubdirectories);
 }
