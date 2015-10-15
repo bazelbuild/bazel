@@ -1188,12 +1188,28 @@ static void SendServerRequest(void) {
   int socket = -1;
   while (true) {
     socket = ConnectToServer(true);
-
     // Check for deleted server cwd:
     string server_cwd = GetProcessCWD(globals->server_pid);
-    if (server_cwd.empty() ||  // GetProcessCWD failed
-        server_cwd != globals->workspace ||  // changed
-        server_cwd.find(" (deleted)") != string::npos) {  // deleted.
+    // TODO(bazel-team): Is this check even necessary? If someone deletes or
+    // moves the server directory, the client cannot connect to the server
+    // anymore. IOW, the client finds the server based on the output base,
+    // so if a server is found, it should be by definition at the correct output
+    // base.
+    //
+    // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
+    // running under Docker because then readlink(/proc/[pid]/cwd) returns
+    // EPERM.
+    // Docker issue #6687 (https://github.com/docker/docker/issues/6687) fixed
+    // this, but one still needs the --cap-add SYS_PTRACE command line flag, at
+    // least according to the discussion on Docker issue #6800
+    // (https://github.com/docker/docker/issues/6687), and even then, it's a
+    // non-default Docker flag. Given that this occurs only in very weird
+    // cases, it's better to assume that everything is alright if we can't get
+    // the cwd.
+
+    if (!server_cwd.empty() &&
+        (server_cwd != globals->workspace ||  // changed
+         server_cwd.find(" (deleted)") != string::npos)) {  // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
