@@ -11,8 +11,7 @@ The context of the rule containing helper functions and information about attrib
   <ul>
           <li><a href="#action">action</a></li>
               <li><a href="#attr">attr</a></li>
-                    <li><a href="#command_helper">command_helper</a></li>
-              <li><a href="#configuration">configuration</a></li>
+                    <li><a href="#configuration">configuration</a></li>
               <li><a href="#empty_action">empty_action</a></li>
               <li><a href="#executable">executable</a></li>
                     <li><a href="#expand_location">expand_location</a></li>
@@ -160,47 +159,7 @@ The context of the rule containing helper functions and information about attrib
     A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
 
         
-          <h2 id="command_helper">command_helper</h2>
-        <p><pre><a class="anchor" href="command_helper.html">command_helper</a> ctx.command_helper(tools, label_dict)
-</pre></p>
-    
-    Experimental. Creates a command helper class.
-
-          <h3>Parameters</h3>
-      <table class="table table-bordered table-condensed table-params">
-        <colgroup>
-          <col class="col-param">
-          <col class="param-description">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Parameter</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-                  <tr>
-            <td id="command_helper.tools">
-              <code>tools</code>
-            </td>
-            <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="Target.html">Target</a>s</code></p>
-                          <p>list of tools (list of targets)</p>
-            </td>
-          </tr>
-                  <tr>
-            <td id="command_helper.label_dict">
-              <code>label_dict</code>
-            </td>
-            <td>
-                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
-                          <p>dictionary of resolved labels and the corresponding list of Files (a dict of Label : list of Files)</p>
-            </td>
-          </tr>
-                </tbody>
-      </table>
-        
-        <h2 id="configuration">configuration</h2>
+          <h2 id="configuration">configuration</h2>
         <p><pre><a class="anchor" href="configuration.html">configuration</a> ctx.configuration</pre></p>
     
     Returns the default configuration. See the <a href="configuration.html">configuration</a> type for more details.
