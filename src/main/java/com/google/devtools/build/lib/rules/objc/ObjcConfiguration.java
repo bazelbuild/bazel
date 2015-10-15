@@ -79,6 +79,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final String signingCertName;
   @Nullable private final Path clientWorkspaceRoot;
+  private final String xcodeOverrideWorkspaceRoot;
 
   // We only load these labels if the mode which uses them is enabled. That is known as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -120,6 +121,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
     this.signingCertName = objcOptions.iosSigningCertName;
+    this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
   }
 
   public Map<String, String> getEnvironmentForDarwin() {
@@ -330,11 +332,21 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the absolute path of the root of Bazel client workspace. Null if passed-in
-   * {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
+   * Returns the path to be used for workspace_root (and path of pbxGroup mainGroup) in xcodeproj.
+   * This usually will be the absolute path of the root of Bazel client workspace or null if
+   * passed-in {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
+   * It can also be overridden by the {@code --xcode_override_workspace_root} flag, in which case
+   * the path can be absolute or relative.
    */
-  @Nullable public Path getClientWorkspaceRoot() {
-    return this.clientWorkspaceRoot;
+  @Nullable
+  public String getXcodeWorkspaceRoot() {
+    if (!this.xcodeOverrideWorkspaceRoot.isEmpty()) {
+      return this.xcodeOverrideWorkspaceRoot;
+    }
+    if (this.clientWorkspaceRoot == null) {
+      return null;
+    }
+    return this.clientWorkspaceRoot.getPathString();
   }
 
   /**

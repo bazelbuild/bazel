@@ -205,6 +205,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public String iosSigningCertName;
 
+  @Option(
+    name = "xcode_override_workspace_root",
+    defaultValue = "",
+    category = "xcode",
+    help =
+        "If set, then this path will be used as workspace_root and mainGroup path when "
+            + "generating an .xcodeproj/project.pbxproj file."
+  )
+  public String xcodeOverrideWorkspaceRoot;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
