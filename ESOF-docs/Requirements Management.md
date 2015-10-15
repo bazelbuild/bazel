@@ -30,6 +30,11 @@ A elicitação de requesitos tem por base muitas conversas informais em pessoa e
 
 ## Validação ##
 
+-Não validação de requisitos, mas sim de features
+-Reuniões trimestrais com o chefe///
+-Verificação de cumprimento dos objetivos definidos
+-Não existe propriamente uma validação do cliente, pois os developers também são os clientes
+
 ## Casos de uso ##
 
 ## Informação ##
