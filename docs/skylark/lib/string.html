@@ -27,12 +27,14 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
               <li><a href="#isalpha">isalpha</a></li>
               <li><a href="#join">join</a></li>
               <li><a href="#lower">lower</a></li>
+              <li><a href="#lstrip">lstrip</a></li>
               <li><a href="#partition">partition</a></li>
               <li><a href="#replace">replace</a></li>
               <li><a href="#rfind">rfind</a></li>
               <li><a href="#rindex">rindex</a></li>
               <li><a href="#rpartition">rpartition</a></li>
               <li><a href="#rsplit">rsplit</a></li>
+              <li><a href="#rstrip">rstrip</a></li>
               <li><a href="#split">split</a></li>
               <li><a href="#startswith">startswith</a></li>
               <li><a href="#strip">strip</a></li>
@@ -334,6 +336,37 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
     Returns the lower case version of this string.
 
         
+        <h2 id="lstrip">lstrip</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> string.lstrip(chars=' 	')
+</pre></p>
+    
+    Returns a copy of the string where leading characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".lstrip("ba") == "cba"</pre
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="lstrip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The characters to remove</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
         <h2 id="partition">partition</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.partition(sep=' ')
 </pre></p>
@@ -583,6 +616,37 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
                 </tbody>
       </table>
         
+        <h2 id="rstrip">rstrip</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> string.rstrip(chars=' 	')
+</pre></p>
+    
+    Returns a copy of the string where trailing characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".rstrip("ba") == "abc"</pre
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rstrip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The characters to remove</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+        
         <h2 id="split">split</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.split(sep, maxsplit=None)
 </pre></p>
@@ -673,11 +737,35 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
       </table>
         
         <h2 id="strip">strip</h2>
-        <p><pre><a class="anchor" href="string.html">string</a> string.strip()
+        <p><pre><a class="anchor" href="string.html">string</a> string.strip(chars=' 	')
 </pre></p>
     
-    Returns a copy of the string in which all whitespace characters have been stripped from the beginning and the end of the string.
+    Returns a copy of the string where trailing characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".strip("ba") == "abc"</pre
 
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="strip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The characters to remove</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
         
         <h2 id="title">title</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.title()
