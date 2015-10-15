@@ -1513,8 +1513,8 @@ public final class ParallelEvaluator implements Evaluator {
     // graph stack.
     while (!toVisit.isEmpty()) {
       SkyKey key = toVisit.pop();
-      NodeEntry entry = graph.get(key);
 
+      NodeEntry entry;
       if (key == CHILDREN_FINISHED) {
         // A marker node means we are done with all children of a node. Since all nodes have
         // errors, we must have found errors in the children when that happens.
@@ -1548,6 +1548,8 @@ public final class ParallelEvaluator implements Evaluator {
         SkyFunctionEnvironment env = new SkyFunctionEnvironment(key, directDeps, visitor);
         env.setError(ErrorInfo.fromChildErrors(key, errorDeps));
         env.commit(/*enqueueParents=*/false);
+      } else {
+        entry = graph.get(key);
       }
 
       Preconditions.checkNotNull(entry, key);
