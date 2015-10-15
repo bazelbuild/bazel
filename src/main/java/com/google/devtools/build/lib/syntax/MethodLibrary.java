@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -140,6 +141,113 @@ public class MethodLibrary {
       return self.toUpperCase();
     }
   };
+
+  private static String stringLStrip(String self, String chars) {
+    CharMatcher matcher = CharMatcher.anyOf(chars);
+    for (int i = 0; i < self.length(); i++) {
+      if (!matcher.matches(self.charAt(i))) {
+        return self.substring(i);
+      }
+    }
+    return ""; // All characters were stripped.
+  }
+
+  private static String stringRStrip(String self, String chars) {
+    CharMatcher matcher = CharMatcher.anyOf(chars);
+    for (int i = self.length() - 1; i >= 0; i--) {
+      if (!matcher.matches(self.charAt(i))) {
+        return self.substring(0, i + 1);
+      }
+    }
+    return ""; // All characters were stripped.
+  }
+
+  @SkylarkSignature(
+    name = "lstrip",
+    objectType = StringModule.class,
+    returnType = String.class,
+    doc =
+        "Returns a copy of the string where leading characters that appear in <code>chars</code>"
+            + "are removed."
+            + "<pre class=\"language-python\">"
+            + "\"abcba\".lstrip(\"ba\") == \"cba\""
+            + "</pre",
+    mandatoryPositionals = {
+      @Param(name = "self", type = String.class, doc = "This string"),
+    },
+    optionalPositionals = {
+      @Param(
+        name = "chars",
+        type = String.class,
+        doc = "The characters to remove",
+        defaultValue = "' \t'"
+      )
+    }
+  )
+  private static BuiltinFunction lstrip =
+      new BuiltinFunction("lstrip") {
+        public String invoke(String self, String chars) {
+          return stringLStrip(self, chars);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "rstrip",
+    objectType = StringModule.class,
+    returnType = String.class,
+    doc =
+        "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
+            + "are removed."
+            + "<pre class=\"language-python\">"
+            + "\"abcba\".rstrip(\"ba\") == \"abc\""
+            + "</pre",
+    mandatoryPositionals = {
+      @Param(name = "self", type = String.class, doc = "This string"),
+    },
+    optionalPositionals = {
+      @Param(
+        name = "chars",
+        type = String.class,
+        doc = "The characters to remove",
+        defaultValue = "' \t'"
+      )
+    }
+  )
+  private static BuiltinFunction rstrip =
+      new BuiltinFunction("rstrip") {
+        public String invoke(String self, String chars) {
+          return stringRStrip(self, chars);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "strip",
+    objectType = StringModule.class,
+    returnType = String.class,
+    doc =
+        "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
+            + "are removed."
+            + "<pre class=\"language-python\">"
+            + "\"abcba\".strip(\"ba\") == \"abc\""
+            + "</pre",
+    mandatoryPositionals = {
+      @Param(name = "self", type = String.class, doc = "This string"),
+    },
+    optionalPositionals = {
+      @Param(
+        name = "chars",
+        type = String.class,
+        doc = "The characters to remove",
+        defaultValue = "' \t'"
+      )
+    }
+  )
+  private static BuiltinFunction strip =
+      new BuiltinFunction("strip") {
+        public String invoke(String self, String chars) {
+          return stringLStrip(stringRStrip(self, chars), chars);
+        }
+      };
 
   @SkylarkSignature(name = "replace", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a copy of the string in which the occurrences "
@@ -667,18 +775,6 @@ public class MethodLibrary {
     }
   };
 
-  // TODO(bazel-team): Maybe support an argument to tell the type of the whitespace.
-  @SkylarkSignature(name = "strip", objectType = StringModule.class, returnType = String.class,
-      doc = "Returns a copy of the string in which all whitespace characters "
-          + "have been stripped from the beginning and the end of the string.",
-      mandatoryPositionals = {
-        @Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction strip = new BuiltinFunction("strip") {
-    public String invoke(String self) {
-      return self.trim();
-    }
-  };
-
   // slice operator
   @SkylarkSignature(name = "$slice", objectType = String.class,
       documented = false,
@@ -954,7 +1050,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "values", objectType = Map.class,
       returnType = HackHackEitherList.class,
-      doc = "Return the list of values. Dictionaries are always sorted by their keys:"
+      doc = "Returns the list of values. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
           + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n",
       mandatoryPositionals = {@Param(name = "self", type = Map.class, doc = "This dict.")},
@@ -970,7 +1066,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "items", objectType = Map.class,
       returnType = HackHackEitherList.class,
-      doc = "Return the list of key-value tuples. Dictionaries are always sorted by their keys:"
+      doc = "Returns the list of key-value tuples. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">"
           + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(1, \"c\"), (2, \"a\"), (4, \"b\")]"
           + "</pre>\n",
@@ -993,7 +1089,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "keys", objectType = Map.class,
       returnType = HackHackEitherList.class,
-      doc = "Return the list of keys. Dictionaries are always sorted by their keys:"
+      doc = "Returns the list of keys. Dictionaries are always sorted by their keys:"
           + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [1, 2, 4]"
           + "</pre>\n",
       mandatoryPositionals = {
@@ -1009,7 +1105,7 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "get", objectType = Map.class,
-      doc = "Return the value for <code>key</code> if <code>key</code> is in the dictionary, "
+      doc = "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
           + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
           + "<code>None</code>, so that this method never throws an error.",
       mandatoryPositionals = {
@@ -1253,7 +1349,7 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "enumerate", returnType = HackHackEitherList.class,
-      doc = "Return a list of pairs (two-element tuples), with the index (int) and the item from"
+      doc = "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
           + " the input list.\n<pre class=\"language-python\">"
           + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
       mandatoryPositionals = {

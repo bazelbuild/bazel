@@ -1,4 +1,4 @@
-// Copyright 2006 Google Inc. All Rights Reserved.
+// Copyright 2006 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -977,13 +977,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testStrip() throws Exception {
-    new BothModesTest()
-        .testStatement("' abc\t'.strip()", "abc")
-        .testStatement("'abc  '.strip()", "abc");
-  }
-
-  @Test
   public void testBool() throws Exception {
     new BothModesTest()
         .testStatement("bool(1)", Boolean.TRUE)
@@ -1096,5 +1089,34 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("'a '.isalpha()", false)
         .testStatement("'A'.isalpha()", true)
         .testStatement("'AbZ'.isalpha()", true);
+  }
+
+  @Test
+  public void testLStrip() throws Exception {
+    new BothModesTest()
+        .testStatement("'abc'.lstrip('')", "abc")
+        .testStatement("'abcba'.lstrip('ba')", "cba")
+        .testStatement("'abc'.lstrip('xyz')", "abc")
+        .testStatement("'  abc  '.lstrip()", "abc  ");
+  }
+
+  @Test
+  public void testRStrip() throws Exception {
+    new BothModesTest()
+        .testStatement("'abc'.rstrip('')", "abc")
+        .testStatement("'abcba'.rstrip('ba')", "abc")
+        .testStatement("'abc'.rstrip('xyz')", "abc")
+        .testStatement("'  abc  '.rstrip()", "  abc");
+  }
+
+  @Test
+  public void testStrip() throws Exception {
+    new BothModesTest()
+        .testStatement("'abc'.strip('')", "abc")
+        .testStatement("'abcba'.strip('ba')", "c")
+        .testStatement("'abc'.strip('xyz')", "abc")
+        .testStatement("'  abc  '.strip()", "abc")
+        .testStatement("' abc\t'.strip()", "abc")
+        .testStatement("'abc'.strip('.')", "abc");
   }
 }
