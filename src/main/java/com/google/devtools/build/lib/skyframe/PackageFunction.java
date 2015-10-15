@@ -409,33 +409,29 @@ public class PackageFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    boolean isDefaultsPackage =  packageNameFragment.equals(DEFAULTS_PACKAGE_NAME)
-        && packageId.getRepository().isDefault();
-
     PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
         buildFileFragment);
     FileValue buildFileValue = null;
-    if (!isDefaultsPackage) {
-      try {
-        buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
-            IOException.class, FileSymlinkException.class,
-            InconsistentFilesystemException.class);
-      } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-        throw new IllegalStateException("Package lookup succeeded but encountered error when "
-            + "getting FileValue for BUILD file directly.", e);
-      }
-      if (buildFileValue == null) {
-        return null;
-      }
-      Preconditions.checkState(buildFileValue.exists(),
-          "Package lookup succeeded but BUILD file doesn't exist");
+    try {
+      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
+          IOException.class, FileSymlinkException.class,
+          InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      throw new IllegalStateException("Package lookup succeeded but encountered error when "
+          + "getting FileValue for BUILD file directly.", e);
     }
+    if (buildFileValue == null) {
+      return null;
+    }
+    Preconditions.checkState(buildFileValue.exists(),
+        "Package lookup succeeded but BUILD file doesn't exist");
 
     Path buildFilePath = buildFileRootedPath.asPath();
 
     String replacementContents = null;
-    if (isDefaultsPackage) {
+    if (packageId.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME)
+        && packageId.getRepository().isDefault()) {
       replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
