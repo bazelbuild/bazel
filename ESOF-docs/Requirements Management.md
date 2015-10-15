@@ -1,16 +1,36 @@
 # Relatório 2 - Gestão de Requesitos #
-## TASK LIST ##
-- [x] send email to bazel developpers
-- [ ] writing the report
-- [ ] use case diagram (see the notes at the end of this document)
 
-## Elicitation ##
+## Introdução ##
 
-## Analysis and negotiation ##
+Aoós uma troca de e-mails com os developers do projecto concluímos que o processo de gestão de requesitos é bastante informal. Esta tipo de gestão deve-se essencialmente a duas razões:
+* Um erro no software não tem grandes implicações. Pode ser rápidamente corrigido. (Ex.: Não é necessário enviar técnicos aos "cliente").
+* O software é destinado para software developers, ou seja, os requesitos dos utilizadores são do domínio dos developers (Ex.: Se o software for do ramo finaceiro um método mais formal de gestão de requesitos seria necessário).
 
-## Specification ##
+Com este tipo de getão, é necessário um compromisso muito grande dos contribuidores. Estes têm de programar o melhor que podem.
 
-## Validation ##
+## Requesitos ##
+
+### Requesitos do Sistema ###
+
+Plataformas Suportadas:
+
+* Ubuntu Linux (Utopic 14.10 e Trusty 14.04 LTS)
+* Mac OS X
+
+Java:
+* Java JDK 8 or mais recentes (JDK 7 ainda é suportado mas é preterido)
+
+## Elicitação ##
+
+A elicitação de requesitos tem por base muitas conversas informais em pessoa e em algumas reuniões mais formais. No entanto estas reuniões são mais orientadas em establecer os objectivos do próximo trimestre. Se surgir uma nova necessidade, como por exemplo adicionar uma nova linguagem aceite pela framework, ou o própria pessoa que teve essa necessidade ou através da utilização de um dos canais de comunicação com os core contributors (aqueles que aceitam novas features).
+
+## Análise e negociação ##
+
+## Especificação ##
+
+## Validação ##
+
+## Casos de uso ##
 
 ## Informação ##
 Why would I want to use Bazel?
@@ -20,16 +40,6 @@ Bazel may give you faster build times because it can recompile only the files th
 Bazel produces deterministic results. This eliminates skew between incremental and clean builds, laptop and CI system, etc.
 
 Bazel can build different client and server apps with the same tool from the same workspace. For example, you can change a client/server protocol in a single commit, and test that the updated mobile app works with the updated server, building both with the same tool, reaping all the aforementioned benefits of Bazel.
-
-Can I see examples?
-
-Yes. For a simple example, see:
-
-https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD
-
-The Bazel source code itself provides more complex examples:
-
-https://github.com/bazelbuild/bazel/blob/master/src/main/java/BUILD\ https://github.com/bazelbuild/bazel/blob/master/src/test/java/BUILD
 
 What is Bazel best at?
 
@@ -70,6 +80,7 @@ Well, our quarterly goals go both up and down the management chain: we try to fi
 ## Referências ##
 
 Página oficial: http://bazel.io/ 
+Tópico sobre requesitos: https://groups.google.com/forum/#!topic/bazel-discuss/Wmu4eQyHCH8
 
 ## Contribuições ##
 * António Ramadas:
