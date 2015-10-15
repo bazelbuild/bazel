@@ -32,6 +32,13 @@ A elicitação de requesitos tem por base muitas conversas informais em pessoa e
 
 ## Casos de uso ##
 
+![Bazel use case diagram](http://imgur.com/SigWrcF)
+
+O Bazel é uma "Framework", o que significa que o projecto será sempre produzido e utilizado por "Software developers". Assim, o único ator presente no diagrama de casos de uso será sempre o "Software developer".
+Esta ferramenta recomenda-se para fazer "buil" e testar projectos que usem muito código, escritos em várias linguagens, usados em várias plataformas e com testes extensos. 
+As propriedades enumeradas sofrem especiar enfoque, na medida em que através da utiização do Bazel só os ficheiros que necessitam de ser recompilados, são efetivamente recompilados. Além disso, é possivel fazer "buid" de diferentes applicações cliente-servidor, no mesmo "workspace".
+Na prática, isto traduz-se numa diminuição considerável do tempo de compilação, sem desprezar a performance.    
+
 ## Informação ##
 Why would I want to use Bazel?
 
@@ -86,11 +93,11 @@ Tópico sobre requesitos: https://groups.google.com/forum/#!topic/bazel-discuss/
 * António Ramadas:
 * João Guarda:
 * Rui Vilares:
-* Trabalhando em grupo:
+* Trabalho em grupo: 4 horas.
 
 ## Autores ##
 
-### Turma 1 - Grupo 4 ###
+Turma 1 - Grupo 4
 
 * António Manuel Vieira Ramadas
 * João Diogo Trindade Guarda
@@ -99,4 +106,5 @@ Tópico sobre requesitos: https://groups.google.com/forum/#!topic/bazel-discuss/
 Engenharia de Software (ESOF)
 
 Faculdade de Engenharia da Universidade do Porto
+
 18 de outubro de 2015
