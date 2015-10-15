@@ -105,7 +105,7 @@ jsonnet_library(
 ## jsonnet_to_json
 
 ```python
-jsonnet_to_json(name, src, deps, outs, multiple_outputs, imports)
+jsonnet_to_json(name, src, deps, outs, multiple_outputs, imports, vars, code_vars)
 ```
 
 <table>
@@ -201,6 +201,25 @@ local foo = import "foo.jsonnet";
         <p>
           List of import <code>-J</code> flags to be passed to the
           <code>jsonnet</code> compiler.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>vars</code></td>
+      <td>
+        <code>String dict, optional</code>
+        <p>
+          Map of variables to pass to jsonnet via <code>--var key=value</code>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>code_vars</code></td>
+      <td>
+        <code>String dict, optional</code>
+        <p>
+          Map of code variables to pass to jsonnet via
+          <code>--code-var key=value</code>.
         </p>
       </td>
     </tr>

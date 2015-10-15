@@ -418,7 +418,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       QueryExpression caller, Collection<String> patterns)
       throws QueryException, TargetParsingException {
     GraphBackedRecursivePackageProvider provider =
-        new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys);
+        new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
     Map<String, Set<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
 
     Map<String, SkyKey> keys = new HashMap<>(patterns.size());
@@ -457,7 +457,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
         RecursivePackageProviderBackedTargetPatternResolver resolver =
             new RecursivePackageProviderBackedTargetPatternResolver(provider, eventHandler,
-                targetPatternKey.getPolicy(), pkgPath);
+                targetPatternKey.getPolicy());
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
         try {
           patternsWithTargetsToFilter.put(pattern, parsedPattern.eval(resolver).getTargets());

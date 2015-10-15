@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
+import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics.MiddleManStatistics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TimeUtilities;
 
@@ -49,7 +49,7 @@ public final class CriticalPathText extends TextPrinter {
     }
   }
 
-  void printCriticalPathTimingBreakdown(
+  private void printCriticalPathTimingBreakdown(
       CriticalPathEntry totalPath, CriticalPathEntry optimalPath) {
     lnPrint(totalPath.task.type);
 
@@ -117,54 +117,41 @@ public final class CriticalPathText extends TextPrinter {
     }
 
     long totalPathTime = path.cumulativeDuration;
-    int middlemanCount = 0;
-    long middlemanDuration = 0L;
-    long middlemanCritTime = 0L;
 
-    for (; path != null; path = path.next) {
-      if (path.task.id < 0) {
-        // Ignore fake actions.
-        continue;
-      } else if (path.task.getDescription().startsWith(MiddlemanAction.MIDDLEMAN_MNEMONIC + " ")
-          || path.task.getDescription().startsWith("TargetCompletionMiddleman")) {
-        // Aggregate middleman actions.
-        middlemanCount++;
-        middlemanDuration += path.duration;
-        middlemanCritTime += path.getCriticalTime();
+    for (CriticalPathEntry pathEntry : criticalPathStats.getMiddlemanFilteredPath(path)) {
+      String desc = pathEntry.task.getDescription().replace(':', ' ');
+      if (isComponent) {
+        lnPrintf(
+            "%6d %11s %8s   %s",
+            pathEntry.task.id,
+            TimeUtilities.prettyTime(pathEntry.duration),
+            prettyPercentage((double) pathEntry.duration / totalPathTime),
+            desc);
       } else {
-        String desc = path.task.getDescription().replace(':', ' ');
-        if (isComponent) {
-          lnPrintf(
-              "%6d %11s %8s   %s",
-              path.task.id,
-              TimeUtilities.prettyTime(path.duration),
-              prettyPercentage((double) path.duration / totalPathTime),
-              desc);
-        } else {
-          lnPrintf(
-              "%6d %11s %8s %8s   %s",
-              path.task.id,
-              TimeUtilities.prettyTime(path.duration),
-              prettyPercentage((double) path.duration / totalPathTime),
-              prettyPercentage((double) path.getCriticalTime() / totalPathTime),
-              desc);
-        }
+        lnPrintf(
+            "%6d %11s %8s %8s   %s",
+            pathEntry.task.id,
+            TimeUtilities.prettyTime(pathEntry.duration),
+            prettyPercentage((double) pathEntry.duration / totalPathTime),
+            prettyPercentage((double) pathEntry.getCriticalTime() / totalPathTime),
+            desc);
       }
     }
-    if (middlemanCount > 0) {
+    MiddleManStatistics middleMan = MiddleManStatistics.create(path);
+    if (middleMan.count > 0) {
       if (isComponent) {
         lnPrintf(
             "       %11s %8s   [%d middleman actions]",
-            TimeUtilities.prettyTime(middlemanDuration),
-            prettyPercentage((double) middlemanDuration / totalPathTime),
-            middlemanCount);
+            TimeUtilities.prettyTime(middleMan.duration),
+            prettyPercentage((double) middleMan.duration / totalPathTime),
+            middleMan.count);
       } else {
         lnPrintf(
             "       %11s %8s %8s   [%d middleman actions]",
-            TimeUtilities.prettyTime(middlemanDuration),
-            prettyPercentage((double) middlemanDuration / totalPathTime),
-            prettyPercentage((double) middlemanCritTime / totalPathTime),
-            middlemanCount);
+            TimeUtilities.prettyTime(middleMan.duration),
+            prettyPercentage((double) middleMan.duration / totalPathTime),
+            prettyPercentage((double) middleMan.criticalTime / totalPathTime),
+            middleMan.count);
       }
     }
   }

@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * Emits an error message exactly once when a Skylark import cycle is found when running inlined
  * {@link SkylarkImportLookupFunction}s.
  */
-class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<SkyKey> {
-  private static final SkyValue INSTANCE = new SkyValue() {};
+class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<PackageIdentifier> {
+
+  static SkyKey key(ImmutableList<PackageIdentifier> cycle) {
+    return ChainUniquenessUtils.key(SkyFunctions.SKYLARK_IMPORT_CYCLE, cycle);
+  }
 
   @Override
   protected String getConciseDescription() {
@@ -40,13 +43,7 @@ class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<S
   }
 
   @Override
-  protected SkyValue getDummyValue() {
-    return INSTANCE;
-  }
-
-  @Override
-  protected String elementToString(SkyKey elt) {
-    PackageIdentifier pkgId = (PackageIdentifier) elt.argument();
+  protected String elementToString(PackageIdentifier pkgId) {
     return pkgId.getPathFragment().getPathString();
   }
 }

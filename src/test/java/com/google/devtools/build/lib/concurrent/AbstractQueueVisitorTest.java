@@ -474,7 +474,7 @@ public class AbstractQueueVisitorTest {
     private final Object lock = new Object();
 
     public CountingQueueVisitor() {
-      super(5, 5, 3L, TimeUnit.SECONDS, THREAD_NAME);
+      super(5, 3L, TimeUnit.SECONDS, THREAD_NAME);
     }
 
     public CountingQueueVisitor(ThreadPoolExecutor executor) {
@@ -505,15 +505,15 @@ public class AbstractQueueVisitorTest {
     private final static String THREAD_NAME = "BlazeTest ConcreteQueueVisitor";
 
     public ConcreteQueueVisitor() {
-      super(5, 5, 3L, TimeUnit.SECONDS, THREAD_NAME);
+      super(5, 3L, TimeUnit.SECONDS, THREAD_NAME);
     }
 
     public ConcreteQueueVisitor(boolean failFast) {
-      super(true, 5, 5, 3L, TimeUnit.SECONDS, failFast, THREAD_NAME);
+      super(true, 5, 3L, TimeUnit.SECONDS, failFast, THREAD_NAME);
     }
 
     public ConcreteQueueVisitor(boolean failFast, boolean failFastOnInterrupt) {
-      super(true, 5, 5, 3L, TimeUnit.SECONDS, failFast, failFastOnInterrupt, THREAD_NAME);
+      super(true, 5, 3L, TimeUnit.SECONDS, failFast, failFastOnInterrupt, THREAD_NAME);
     }
 
     public ConcreteQueueVisitor(ThreadPoolExecutor executor, boolean failFast,

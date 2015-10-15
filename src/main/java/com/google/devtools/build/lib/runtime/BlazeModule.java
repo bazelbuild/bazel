@@ -370,8 +370,10 @@ public abstract class BlazeModule {
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
     return new PackageFactory.EnvironmentExtension() {
       @Override
-      public void update(Environment environment, Label buildFileLabel) {}
+      public void update(Environment environment) {}
 
+      @Override
+      public void updateWorkspace(Environment environment) {}
       @Override
       public Iterable<PackageArgument<?>> getPackageArguments() {
         return ImmutableList.of();

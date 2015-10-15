@@ -57,6 +57,8 @@ def _jsonnet_to_json_impl(ctx):
   """Implementation of the jsonnet_to_json rule."""
   depinfo = _setup_deps(ctx.attr.deps)
   toolchain = _jsonnet_toolchain(ctx)
+  jsonnet_vars = ctx.attr.vars
+  jsonnet_code_vars = ctx.attr.code_vars
   command = (
       [
           "set -e;",
@@ -65,7 +67,11 @@ def _jsonnet_to_json_impl(ctx):
       ["-J %s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
       ["-J %s" % im for im in depinfo.imports] +
       toolchain.imports +
-      ["-J ."])
+      ["-J ."] +
+      ["--var '%s'='%s'"
+          % (var, jsonnet_vars[var]) for var in jsonnet_vars.keys()] +
+      ["--code-var '%s'='%s'"
+          % (var, jsonnet_code_vars[var]) for var in jsonnet_vars.keys()])
 
   outputs = []
   # If multiple_outputs is set to true, then jsonnet will be invoked with the
@@ -75,14 +81,7 @@ def _jsonnet_to_json_impl(ctx):
     output_json_files = [ctx.new_file(ctx.configuration.bin_dir, out.name)
                          for out in ctx.attr.outs]
     outputs += output_json_files
-    command += ["-m", ctx.file.src.path]
-    # Currently, jsonnet -m creates the output files in the current working
-    # directory. Append mv commands to move the output files into their
-    # correct output directories.
-    # TODO(dzc): Remove this hack when jsonnet supports a flag for setting
-    # an output directory.
-    for json_file in output_json_files:
-      command += ["; mv %s %s" % (json_file.basename, json_file.path)]
+    command += ["-m", output_json_files[0].dirname, ctx.file.src.path]
   else:
     if len(ctx.attr.outs) > 1:
       fail("Only one file can be specified in outs if multiple_outputs is " +
@@ -91,7 +90,7 @@ def _jsonnet_to_json_impl(ctx):
     compiled_json = ctx.new_file(ctx.configuration.bin_dir,
                                  ctx.attr.outs[0].name)
     outputs += [compiled_json]
-    command += [ctx.file.src.path, "> %s" % compiled_json.path]
+    command += [ctx.file.src.path, "-o", compiled_json.path]
 
   compile_inputs = (
       [ctx.file.src, ctx.file._jsonnet, ctx.file._std] +
@@ -126,9 +125,14 @@ jsonnet_library = rule(
     attrs = _jsonnet_library_attrs + _jsonnet_common_attrs,
 )
 
-_jsonnet_to_json_attrs = {
+_jsonnet_compile_attrs = {
     "src": attr.label(allow_files = JSONNET_FILETYPE,
                       single_file = True),
+    "vars": attr.string_dict(),
+    "code_vars": attr.string_dict(),
+}
+
+_jsonnet_to_json_attrs = _jsonnet_compile_attrs + {
     "outs": attr.output_list(mandatory = True),
     "multiple_outputs": attr.bool(),
 }

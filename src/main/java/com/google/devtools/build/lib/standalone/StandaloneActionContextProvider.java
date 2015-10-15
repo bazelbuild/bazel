@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -49,9 +49,12 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
   @ExecutionStrategy(contextType = IncludeScanningContext.class)
   class DummyIncludeScanningContext implements IncludeScanningContext {
     @Override
-    public void extractIncludes(ActionExecutionContext actionExecutionContext,
-        ActionMetadata resourceOwner, Artifact primaryInput, Artifact primaryOutput)
-        throws IOException, InterruptedException {
+    public void extractIncludes(
+        ActionExecutionContext actionExecutionContext,
+        Action resourceOwner,
+        Artifact primaryInput,
+        Artifact primaryOutput)
+        throws IOException {
       FileSystemUtils.writeContent(primaryOutput.getPath(), new byte[]{});
     }
 

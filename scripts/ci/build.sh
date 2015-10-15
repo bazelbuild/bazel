@@ -157,7 +157,7 @@ function bazel_build() {
   ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || retCode=$?
 
   # Exit for failure except for test failures (exit code 3).
-  if (( $retCode != 3 )); then
+  if (( $retCode != 0 && $retCode != 3 )); then
     exit $retCode
   fi
 
@@ -172,6 +172,9 @@ function bazel_build() {
     mkdir -p $1/packages
     cp output/bazel $1/bazel
     cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
+    if [ "$PLATFORM" = "linux" ]; then
+      cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
+    fi
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
 

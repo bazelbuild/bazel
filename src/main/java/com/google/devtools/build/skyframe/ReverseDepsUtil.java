@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.CompactHashSet;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,132 +50,112 @@ public abstract class ReverseDepsUtil<T> {
 
   abstract void setSingleReverseDep(T container, boolean singleObject);
 
-  abstract void setDataToConsolidate(T container, Object dataToConsolidate);
+  abstract void setDataToConsolidate(T container, @Nullable List<Object> dataToConsolidate);
 
   abstract Object getReverseDepsObject(T container);
 
   abstract boolean isSingleReverseDep(T container);
 
-  abstract Object getDataToConsolidate(T container);
+  abstract List<Object> getDataToConsolidate(T container);
 
-  private enum DataState {
-    NULL,
-    CHECK_ONLY,
-    BOTH
+  private enum ConsolidateOp {
+    CHECK,
+    ADD,
+    REMOVE
   }
 
-  private static class RDepsToCheckAndRemove {
-    // reverseDepstoCheck may be null, but not toRemove, because we store a bare list if
-    // we have only toCheck.
-    @Nullable List<SkyKey> toCheck;
-    List<SkyKey> toRemove;
+  /**
+   * Opaque container for a pending operation on the reverse deps set. We use subclasses to save
+   * 8 bytes of memory instead of keeping a field in this class, and we store
+   * {@link ConsolidateOp#CHECK} operations as the bare {@link SkyKey} in order to save the wrapper
+   * object in that case.
+   */
+  private abstract static class KeyToConsolidate {
+    // Do not access directly -- use the {@link #key} static accessor instead.
+    private final SkyKey key;
 
-    RDepsToCheckAndRemove(List<SkyKey> toCheck, List<SkyKey> toRemove) {
-      this.toCheck = toCheck;
-      this.toRemove = Preconditions.checkNotNull(toRemove);
+    /** Do not call directly -- use the {@link #create} static method instead. */
+    private KeyToConsolidate(SkyKey key) {
+      this.key = key;
     }
 
-    static RDepsToCheckAndRemove justRemove(List<SkyKey> toRemove) {
-      return new RDepsToCheckAndRemove(null, toRemove);
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("key", key).toString();
     }
 
-    static RDepsToCheckAndRemove replaceRemove(
-        RDepsToCheckAndRemove original, List<SkyKey> toRemove) {
-      return new RDepsToCheckAndRemove(original.toCheck, toRemove);
+    /** Gets which operation was delayed for the given object. */
+    static ConsolidateOp op(Object obj) {
+      if (obj instanceof SkyKey) {
+        return ConsolidateOp.CHECK;
+      }
+      if (obj instanceof KeyToRemove) {
+        return ConsolidateOp.REMOVE;
+      }
+      Preconditions.checkState(obj instanceof KeyToAdd, obj);
+      return ConsolidateOp.ADD;
     }
 
-    static RDepsToCheckAndRemove replaceCheck(
-        RDepsToCheckAndRemove original, List<SkyKey> toCheck) {
-      return new RDepsToCheckAndRemove(toCheck, original.toRemove);
+    /** Gets the key whose operation was delayed for the given object. */
+    static SkyKey key(Object obj) {
+      if (obj instanceof SkyKey) {
+        return (SkyKey) obj;
+      }
+      Preconditions.checkState(obj instanceof KeyToConsolidate, obj);
+      return ((KeyToConsolidate) obj).key;
     }
-  }
 
-  private static DataState getDataState(Object reverseDepsToCheckAndRemove) {
-    if (reverseDepsToCheckAndRemove == null) {
-      return DataState.NULL;
-    } else if (reverseDepsToCheckAndRemove instanceof List) {
-      return DataState.CHECK_ONLY;
-    } else {
-      Preconditions.checkState(
-          reverseDepsToCheckAndRemove instanceof RDepsToCheckAndRemove,
-          reverseDepsToCheckAndRemove);
-      return DataState.BOTH;
-    }
-  }
-
-  private void setReverseDepsToRemove(T container, List<SkyKey> toRemove) {
-    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
-    switch (getDataState(reverseDepsToCheckAndRemove)) {
-      case NULL:
-        reverseDepsToCheckAndRemove = RDepsToCheckAndRemove.justRemove(toRemove);
-        break;
-      case CHECK_ONLY:
-        reverseDepsToCheckAndRemove =
-            new RDepsToCheckAndRemove(((List<SkyKey>) reverseDepsToCheckAndRemove), toRemove);
-        break;
-      case BOTH:
-        reverseDepsToCheckAndRemove =
-            RDepsToCheckAndRemove.replaceRemove(
-                (RDepsToCheckAndRemove) reverseDepsToCheckAndRemove, toRemove);
-        break;
-      default:
-        throw new IllegalStateException(container + ", " + toRemove);
-    }
-    setDataToConsolidate(container, reverseDepsToCheckAndRemove);
-  }
-
-  private void setReverseDepsToCheck(T container, List<SkyKey> toCheck) {
-    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
-    switch (getDataState(reverseDepsToCheckAndRemove)) {
-      case NULL:
-      case CHECK_ONLY:
-        reverseDepsToCheckAndRemove = toCheck;
-        break;
-      case BOTH:
-        reverseDepsToCheckAndRemove =
-            RDepsToCheckAndRemove.replaceCheck(
-                (RDepsToCheckAndRemove) reverseDepsToCheckAndRemove, toCheck);
-        break;
-      default:
-        throw new IllegalStateException(container + ", " + toCheck);
-    }
-    setDataToConsolidate(container, reverseDepsToCheckAndRemove);
-  }
-
-  @Nullable
-  private List<SkyKey> getReverseDepsToRemove(T container) {
-    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
-    switch (getDataState(reverseDepsToCheckAndRemove)) {
-      case NULL:
-      case CHECK_ONLY:
-        return null;
-      case BOTH:
-        return ((RDepsToCheckAndRemove) reverseDepsToCheckAndRemove).toRemove;
-      default:
-        throw new IllegalStateException(reverseDepsToCheckAndRemove.toString());
+    static Object create(SkyKey key, ConsolidateOp op) {
+      switch (op) {
+        case CHECK:
+          return key;
+        case REMOVE:
+          return new KeyToRemove(key);
+        case ADD:
+          return new KeyToAdd(key);
+        default:
+          throw new IllegalStateException(op + ", " + key);
+      }
     }
   }
 
-  @Nullable
-  private List<SkyKey> getReverseDepsToCheck(T container) {
-    Object reverseDepsToCheckAndRemove = getDataToConsolidate(container);
-    switch (getDataState(reverseDepsToCheckAndRemove)) {
-      case NULL:
-        return null;
-      case CHECK_ONLY:
-        return (List<SkyKey>) reverseDepsToCheckAndRemove;
-      case BOTH:
-        return ((RDepsToCheckAndRemove) reverseDepsToCheckAndRemove).toCheck;
-      default:
-        throw new IllegalStateException(reverseDepsToCheckAndRemove.toString());
+  private static final class KeyToAdd extends KeyToConsolidate {
+    KeyToAdd(SkyKey key) {
+      super(key);
+    }
+  }
+
+  private static final class KeyToRemove extends KeyToConsolidate {
+    KeyToRemove(SkyKey key) {
+      super(key);
+    }
+  }
+
+  private void maybeDelayReverseDepOp(T container, Iterable<SkyKey> reverseDeps, ConsolidateOp op) {
+    List<Object> consolidations = getDataToConsolidate(container);
+    int currentReverseDepSize = getCurrentReverseDepSize(container);
+    if (consolidations == null) {
+      consolidations = new ArrayList<>(currentReverseDepSize);
+      setDataToConsolidate(container, consolidations);
+    }
+    for (SkyKey reverseDep : reverseDeps) {
+      consolidations.add(KeyToConsolidate.create(reverseDep, op));
+    }
+    // TODO(janakr): Should we consolidate more aggressively? This threshold can be customized.
+    if (consolidations.size() == currentReverseDepSize) {
+      consolidateData(container);
     }
   }
 
   /**
    * We check that the reverse dependency is not already present. We only do that if reverseDeps is
-   * small, so that it does not impact performance.
+   * small, so that it does not impact performance. We do not check if there are delayed data to
+   * consolidate, since then presence or absence is not known.
    */
   void maybeCheckReverseDepNotPresent(T container, SkyKey reverseDep) {
+    if (getDataToConsolidate(container) != null) {
+      return;
+    }
     if (isSingleReverseDep(container)) {
       Preconditions.checkState(
           !getReverseDepsObject(container).equals(reverseDep),
@@ -196,6 +176,12 @@ public abstract class ReverseDepsUtil<T> {
     }
   }
 
+  private int getCurrentReverseDepSize(T container) {
+    return isSingleReverseDep(container)
+        ? 1
+        : ((List<SkyKey>) getReverseDepsObject(container)).size();
+  }
+
   /**
    * We use a memory-efficient trick to keep reverseDeps memory usage low. Edges in Bazel are
    * dominant over the number of nodes.
@@ -211,6 +197,11 @@ public abstract class ReverseDepsUtil<T> {
   @SuppressWarnings("unchecked")
   public void addReverseDeps(T container, Collection<SkyKey> newReverseDeps) {
     if (newReverseDeps.isEmpty()) {
+      return;
+    }
+    List<Object> dataToConsolidate = getDataToConsolidate(container);
+    if (dataToConsolidate != null) {
+      maybeDelayReverseDepOp(container, newReverseDeps, ConsolidateOp.ADD);
       return;
     }
     Object reverseDeps = getReverseDepsObject(container);
@@ -231,54 +222,14 @@ public abstract class ReverseDepsUtil<T> {
   }
 
   void checkReverseDep(T container, SkyKey reverseDep) {
-    Object reverseDepsObject = getReverseDepsObject(container);
-    if (isSingleReverseDep(container)) {
-      Preconditions.checkState(
-          reverseDepsObject.equals(reverseDep),
-          "%s %s %s",
-          reverseDep,
-          reverseDepsObject,
-          container);
-      return;
-    }
-    List<SkyKey> asList = (List<SkyKey>) reverseDepsObject;
-    if (asList.size() < MAYBE_CHECK_THRESHOLD) {
-      Preconditions.checkState(
-          asList.contains(reverseDep), "%s not in %s for %s", reverseDep, asList, container);
-    } else {
-      List<SkyKey> reverseDepsToCheck = getReverseDepsToCheck(container);
-      if (reverseDepsToCheck == null) {
-        reverseDepsToCheck = new ArrayList<>();
-        setReverseDepsToCheck(container, reverseDepsToCheck);
-      }
-      reverseDepsToCheck.add(reverseDep);
-    }
+    maybeDelayReverseDepOp(container, ImmutableList.of(reverseDep), ConsolidateOp.CHECK);
   }
 
   /**
    * See {@code addReverseDeps} method.
    */
   void removeReverseDep(T container, SkyKey reverseDep) {
-    if (isSingleReverseDep(container)) {
-      // This removal is cheap so let's do it and not keep it in reverseDepsToRemove.
-      Preconditions.checkState(
-          getReverseDepsObject(container).equals(reverseDep),
-          "toRemove: %s container: %s",
-          reverseDep,
-          container);
-      overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
-      return;
-    }
-    @SuppressWarnings("unchecked")
-    List<SkyKey> reverseDepsAsList = (List<SkyKey>) getReverseDepsObject(container);
-    Preconditions.checkState(
-        !reverseDepsAsList.isEmpty(), "toRemove: %s container: %s", reverseDep, container);
-    List<SkyKey> reverseDepsToRemove = getReverseDepsToRemove(container);
-    if (reverseDepsToRemove == null) {
-      reverseDepsToRemove = Lists.newArrayListWithExpectedSize(1);
-      setReverseDepsToRemove(container, reverseDepsToRemove);
-    }
-    reverseDepsToRemove.add(reverseDep);
+    maybeDelayReverseDepOp(container, ImmutableList.of(reverseDep), ConsolidateOp.REMOVE);
   }
 
   ImmutableSet<SkyKey> getReverseDeps(T container) {
@@ -299,69 +250,94 @@ public abstract class ReverseDepsUtil<T> {
     }
   }
 
-  void consolidateData(T container) {
-    Object reverseDeps = getReverseDepsObject(container);
-    List<SkyKey> reverseDepsToRemove = getReverseDepsToRemove(container);
-    List<SkyKey> reverseDepsToCheck = getReverseDepsToCheck(container);
-    if (reverseDepsToRemove == null && reverseDepsToCheck == null) {
+  private void consolidateData(T container) {
+    List<Object> dataToConsolidate = getDataToConsolidate(container);
+    if (dataToConsolidate == null) {
       return;
-    }
-    Preconditions.checkState(
-        !isSingleReverseDep(container),
-        "We do not delay removals/checks for single lists: %s %s %s",
-        container,
-        reverseDepsToRemove,
-        reverseDepsToCheck);
-    @SuppressWarnings("unchecked")
-    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
-    // Should not happen, as we only create reverseDepsToRemove/Check in case we have at least one
-    // reverse dep to remove/check.
-    Preconditions.checkState(
-        !reverseDepsAsList.isEmpty(),
-        "Could not do delayed removal/check for %s elements from %s.\n"
-            + "Reverse deps to check: %s. Container: %s",
-        reverseDepsToRemove,
-        reverseDeps,
-        reverseDepsToCheck,
-        container);
-    if (reverseDepsToRemove == null) {
-      Set<SkyKey> reverseDepsAsSet = new HashSet<>(reverseDepsAsList);
-      Preconditions.checkState(
-          reverseDepsAsSet.containsAll(reverseDepsToCheck), "%s %s", reverseDepsToCheck, container);
-      setDataToConsolidate(container, null);
-      return;
-    }
-
-    Set<SkyKey> toRemove = Sets.newHashSet(reverseDepsToRemove);
-    int expectedRemovals = toRemove.size();
-    Preconditions.checkState(expectedRemovals == reverseDepsToRemove.size(),
-        "A reverse dependency tried to remove itself twice: %s. %s", reverseDepsToRemove,
-        container);
-
-    Set<SkyKey> toCheck =
-        reverseDepsToCheck == null ? new HashSet<SkyKey>() : new HashSet<>(reverseDepsToCheck);
-    List<SkyKey> newReverseDeps = Lists
-        .newArrayListWithExpectedSize(Math.max(0, reverseDepsAsList.size() - expectedRemovals));
-
-    for (SkyKey reverseDep : reverseDepsAsList) {
-      toCheck.remove(reverseDep);
-      if (!toRemove.contains(reverseDep)) {
-        newReverseDeps.add(reverseDep);
-      }
-    }
-    Preconditions.checkState(newReverseDeps.size() == reverseDepsAsList.size() - expectedRemovals,
-        "Could not remove some elements from %s.\nReverse deps to remove: %s. %s", reverseDeps,
-        toRemove, container);
-    Preconditions.checkState(toCheck.isEmpty(), "%s %s", toCheck, container);
-
-    if (newReverseDeps.isEmpty()) {
-      overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
-    } else if (newReverseDeps.size() == 1) {
-      overwriteReverseDepsWithObject(container, newReverseDeps.get(0));
-    } else {
-      overwriteReverseDepsList(container, newReverseDeps);
     }
     setDataToConsolidate(container, null);
+    Object reverseDeps = getReverseDepsObject(container);
+    if (isSingleReverseDep(container)) {
+      Preconditions.checkState(
+          dataToConsolidate.size() == 1,
+          "dataToConsolidate not size 1 even though only one rdep: %s %s %s",
+          dataToConsolidate,
+          reverseDeps,
+          container);
+      Object keyToConsolidate = Iterables.getOnlyElement(dataToConsolidate);
+      SkyKey key = KeyToConsolidate.key(keyToConsolidate);
+      switch (KeyToConsolidate.op(keyToConsolidate)) {
+        case REMOVE:
+          overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
+          // Fall through to check.
+        case CHECK:
+          Preconditions.checkState(
+              key.equals(reverseDeps), "%s %s %s", keyToConsolidate, reverseDeps, container);
+          break;
+        case ADD:
+          throw new IllegalStateException(
+              "Shouldn't delay add if only one element: "
+                  + keyToConsolidate
+                  + ", "
+                  + reverseDeps
+                  + ", "
+                  + container);
+        default:
+          throw new IllegalStateException(keyToConsolidate + ", " + reverseDeps + ", " + container);
+      }
+      return;
+    }
+    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
+    Set<SkyKey> reverseDepsAsSet = CompactHashSet.create(reverseDepsAsList);
+
+    if (reverseDepsAsSet.size() != reverseDepsAsList.size()) {
+      // We're about to crash. Try to print an informative error message.
+      Set<SkyKey> seen = new HashSet<>();
+      List<SkyKey> duplicates = new ArrayList<>();
+      for (SkyKey key : reverseDepsAsList) {
+        if (!seen.add(key)) {
+          duplicates.add(key);
+        }
+      }
+      throw new IllegalStateException(
+          (reverseDepsAsList.size() - reverseDepsAsSet.size())
+              + " duplicates: "
+              + duplicates
+              + " for "
+              + container);
+    }
+    for (Object keyToConsolidate : dataToConsolidate) {
+      SkyKey key = KeyToConsolidate.key(keyToConsolidate);
+      switch (KeyToConsolidate.op(keyToConsolidate)) {
+        case CHECK:
+          Preconditions.checkState(
+              reverseDepsAsSet.contains(key),
+              "%s %s %s",
+              keyToConsolidate,
+              reverseDepsAsSet,
+              container);
+          break;
+        case REMOVE:
+          Preconditions.checkState(
+              reverseDepsAsSet.remove(key), "%s %s %s", keyToConsolidate, reverseDeps, container);
+          break;
+        case ADD:
+          Preconditions.checkState(
+              reverseDepsAsSet.add(key), "%s %s %s", keyToConsolidate, reverseDeps, container);
+          break;
+        default:
+          throw new IllegalStateException(
+              keyToConsolidate + ", " + reverseDepsAsSet + ", " + container);
+      }
+    }
+
+    if (reverseDepsAsSet.isEmpty()) {
+      overwriteReverseDepsList(container, ImmutableList.<SkyKey>of());
+    } else if (reverseDepsAsSet.size() == 1) {
+      overwriteReverseDepsWithObject(container, Iterables.getOnlyElement(reverseDepsAsSet));
+    } else {
+      overwriteReverseDepsList(container, new ArrayList<>(reverseDepsAsSet));
+    }
   }
 
   String toString(T container) {

@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -348,6 +349,16 @@ public class MoreAsserts {
   public static Event assertContainsEvent(Iterable<Event> eventCollector,
       String expectedEvent) {
     return assertContainsEvent(eventCollector, expectedEvent, EventKind.ALL_EVENTS);
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event which has
+   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
+   * the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector,
+      String expectedEvent, EventKind kind) {
+    return assertContainsEvent(eventCollector, expectedEvent, ImmutableSet.of(kind));
   }
 
   /**

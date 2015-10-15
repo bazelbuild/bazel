@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.output.HtmlCreator;
 import com.google.devtools.build.lib.profiler.output.PhaseText;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
+import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -41,6 +43,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumMap;
@@ -65,6 +68,25 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   public static class ProfileOptions extends OptionsBase {
+    @Option(
+      name = "chart",
+      defaultValue = "true",
+      help =
+          "If --nochart is present, do not include the task chart with --html_details."
+              + " The default is --chart."
+    )
+    public boolean chart;
+
+    @Option(
+      name = "combine",
+      defaultValue = "null",
+      help =
+          "If present, the statistics of all given profile files will be combined and output"
+              + " in text/--html format to the file named in the argument. Does not output HTML"
+              + " task charts."
+    )
+    public String combine;
+
     @Option(name = "dump",
         abbrev='d',
         converter = DumpConverter.class,
@@ -95,6 +117,16 @@ public final class ProfileCommand implements BlazeCommand {
               + "is to generate an aggregated diagram."
     )
     public boolean htmlDetails;
+
+    @Option(
+      name = "html_histograms",
+      defaultValue = "false",
+      help =
+          "If --html_histograms and --html_details is present, the HTML output will display"
+              + " histograms for Skylark functions clicked in the statistics table. This will"
+              + " increase file size massively."
+    )
+    public boolean htmlHistograms;
 
     @Option(
       name = "task_tree",
@@ -158,57 +190,104 @@ public final class ProfileCommand implements BlazeCommand {
       env.getReporter().handle(Event.warn(
           null, "This information is intended for consumption by Blaze developers"
               + " only, and may change at any time.  Script against it at your own risk"));
-
-      for (String name : options.getResidue()) {
-        Path profileFile = runtime.getWorkingDirectory().getRelative(name);
-        try {
-          ProfileInfo info = ProfileInfo.loadProfileVerbosely(
-              profileFile, getInfoListener(env));
-          ProfileInfo.aggregateProfile(info, getInfoListener(env));
-
-          if (opts.taskTree != null) {
-            printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
-            continue;
-          }
-
-          PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
-          EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
-              new EnumMap<>(ProfilePhase.class);
-          for (ProfilePhase phase : ProfilePhase.values()) {
-            phaseStatistics.put(
-                phase, new PhaseStatistics(phase, info, runtime.getWorkspaceName()));
-          }
-
-          if (opts.dumpMode != null) {
-            dumpProfile(env, info, out, opts.dumpMode);
-          } else if (opts.html) {
-            Path htmlFile =
-                profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
-
-            env.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
-
+      if (opts.combine != null && opts.dumpMode == null) {
+        MultiProfileStatistics statistics =
+            new MultiProfileStatistics(
+                runtime.getWorkingDirectory(),
+                runtime.getWorkspaceName(),
+                options.getResidue(),
+                getInfoListener(env),
+                opts.vfsStatsLimit > 0);
+        Path outputFile = runtime.getWorkingDirectory().getRelative(opts.combine);
+        try (PrintStream output =
+                new PrintStream(new BufferedOutputStream(outputFile.getOutputStream()))) {
+          if (opts.html) {
+            env.getReporter().handle(Event.info("Creating HTML output in " + outputFile));
             HtmlCreator.create(
-                info,
-                htmlFile,
-                phaseSummaryStatistics,
-                phaseStatistics,
-                opts.htmlDetails,
-                opts.htmlPixelsPerSecond,
-                opts.vfsStatsLimit);
+                output, statistics, opts.htmlDetails, opts.htmlPixelsPerSecond, opts.vfsStatsLimit);
           } else {
-            CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
+            env.getReporter().handle(Event.info("Creating text output in " + outputFile));
             new PhaseText(
-                    out,
-                    phaseSummaryStatistics,
-                    phaseStatistics,
-                    critPathStats,
-                    info.getMissingActionsCount(),
+                    output,
+                    statistics.getSummaryStatistics(),
+                    statistics.getSummaryPhaseStatistics(),
+                    Optional.<CriticalPathStatistics>absent(),
+                    statistics.getMissingActionsCount(),
                     opts.vfsStatsLimit)
                 .print();
           }
         } catch (IOException e) {
-          env.getReporter().handle(Event.error(
-              null, "Failed to process file " + name + ": " + e.getMessage()));
+          env
+              .getReporter()
+              .handle(
+                  Event.error(
+                      "Failed to write to output file " + outputFile + ":" + e.getMessage()));
+        }
+      } else {
+        for (String name : options.getResidue()) {
+          Path profileFile = runtime.getWorkingDirectory().getRelative(name);
+          try {
+            ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, getInfoListener(env));
+
+            if (opts.dumpMode == null || !opts.dumpMode.contains("unsorted")) {
+              ProfileInfo.aggregateProfile(info, getInfoListener(env));
+            }
+
+            if (opts.taskTree != null) {
+              printTaskTree(out, name, info, opts.taskTree, opts.taskTreeThreshold);
+              continue;
+            }
+
+            if (opts.dumpMode != null) {
+              dumpProfile(info, out, opts.dumpMode);
+              continue;
+            }
+
+            PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
+            EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
+                new EnumMap<>(ProfilePhase.class);
+            for (ProfilePhase phase : ProfilePhase.values()) {
+              phaseStatistics.put(
+                  phase,
+                  new PhaseStatistics(
+                      phase, info, runtime.getWorkspaceName(), opts.vfsStatsLimit > 0));
+            }
+
+            CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
+            if (opts.html) {
+              Path htmlFile =
+                  profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
+
+              env.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
+
+              HtmlCreator.create(
+                  info,
+                  htmlFile,
+                  phaseSummaryStatistics,
+                  phaseStatistics,
+                  critPathStats,
+                  info.getMissingActionsCount(),
+                  opts.htmlDetails,
+                  opts.htmlPixelsPerSecond,
+                  opts.vfsStatsLimit,
+                  opts.chart,
+                  opts.htmlHistograms);
+            } else {
+              new PhaseText(
+                      out,
+                      phaseSummaryStatistics,
+                      phaseStatistics,
+                      Optional.of(critPathStats),
+                      info.getMissingActionsCount(),
+                      opts.vfsStatsLimit)
+                  .print();
+            }
+          } catch (IOException e) {
+            System.out.println(e);
+            env
+                .getReporter()
+                .handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+          }
         }
       }
     }
@@ -243,11 +322,10 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  private void dumpProfile(
-      CommandEnvironment env, ProfileInfo info, PrintStream out, String dumpMode) {
-    if (!dumpMode.contains("unsorted")) {
-      ProfileInfo.aggregateProfile(info, getInfoListener(env));
-    }
+  /**
+   * Dumps all tasks in the requested format.
+   */
+  private void dumpProfile(ProfileInfo info, PrintStream out, String dumpMode) {
     if (dumpMode.contains("raw")) {
       for (ProfileInfo.Task task : info.allTasksById) {
         dumpRaw(task, out);
@@ -263,6 +341,9 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
+  /**
+   * Dumps the task information and all subtasks.
+   */
   private void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
     StringBuilder builder =
         new StringBuilder(

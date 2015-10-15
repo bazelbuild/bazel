@@ -73,7 +73,8 @@ public final class ListLiteral extends Expression {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    Printer.printList(sb, exprs, isTuple(), '"');
+    Printer.printList(sb, exprs, isTuple(), '"', Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
+        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
     return sb.toString();
   }
 

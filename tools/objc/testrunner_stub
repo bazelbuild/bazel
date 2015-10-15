@@ -1,0 +1,8 @@
+#!/bin/bash
+
+(
+  printf 'Bazel does not support running ios_tests directly.\n'
+  printf 'Use "bazel build (TARGET) to generate an .xcodeproj."\n'
+) >&2
+
+exit 1

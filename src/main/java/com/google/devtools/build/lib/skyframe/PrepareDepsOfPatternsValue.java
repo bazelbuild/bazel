@@ -65,7 +65,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
     private final ImmutableList<String> patterns;
     private final String offset;
 
-    private TargetPatternSequence(ImmutableList<String> patterns, String offset) {
+    public TargetPatternSequence(ImmutableList<String> patterns, String offset) {
       this.patterns = Preconditions.checkNotNull(patterns);
       this.offset = Preconditions.checkNotNull(offset);
     }

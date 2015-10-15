@@ -64,7 +64,11 @@ public class IosSdkCommands {
     throw new UnsupportedOperationException("static-only");
   }
 
-  private static String getPlatformPlistName(ObjcConfiguration configuration) {
+  /**
+   * Returns the platform plist name (for example, iPhoneSimulator) for the platform corresponding
+   * to the value of {@code --ios_cpu} in the given configuration.
+   */
+  public static String getPlatformPlistName(ObjcConfiguration configuration) {
     return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
   }
 

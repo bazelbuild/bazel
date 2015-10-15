@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -50,6 +52,7 @@ public class NamespaceSandboxRunner {
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final ImmutableMap<Path, Path> mounts;
+  private final ImmutableSet<Path> createDirs;
   private final boolean verboseFailures;
   private final boolean sandboxDebug;
 
@@ -57,12 +60,14 @@ public class NamespaceSandboxRunner {
       Path execRoot,
       Path sandboxPath,
       ImmutableMap<Path, Path> mounts,
+      ImmutableSet<Path> createDirs,
       boolean verboseFailures,
       boolean sandboxDebug) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxPath.getRelative(execRoot.asFragment().relativeTo("/"));
     this.mounts = mounts;
+    this.createDirs = createDirs;
     this.verboseFailures = verboseFailures;
     this.sandboxDebug = sandboxDebug;
   }
@@ -112,44 +117,56 @@ public class NamespaceSandboxRunner {
       throws IOException, UserExecException {
     createFileSystem(outputs);
 
-    List<String> args = new ArrayList<>();
+    List<String> fileArgs = new ArrayList<>();
+    List<String> commandLineArgs = new ArrayList<>();
 
-    args.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
+    commandLineArgs.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
 
     if (sandboxDebug) {
-      args.add("-D");
+      fileArgs.add("-D");
     }
 
     // Sandbox directory.
-    args.add("-S");
-    args.add(sandboxPath.getPathString());
+    fileArgs.add("-S");
+    fileArgs.add(sandboxPath.getPathString());
 
     // Working directory of the spawn.
-    args.add("-W");
-    args.add(cwd.toString());
+    fileArgs.add("-W");
+    fileArgs.add(cwd.toString());
 
     // Kill the process after a timeout.
     if (timeout != -1) {
-      args.add("-T");
-      args.add(Integer.toString(timeout));
+      fileArgs.add("-T");
+      fileArgs.add(Integer.toString(timeout));
+    }
+
+    // Create all needed directories.
+    for (Path createDir : createDirs) {
+      fileArgs.add("-d");
+      fileArgs.add(createDir.getPathString());
     }
 
     // Mount all the inputs.
     for (ImmutableMap.Entry<Path, Path> mount : mounts.entrySet()) {
-      args.add("-M");
-      args.add(mount.getValue().getPathString());
+      fileArgs.add("-M");
+      fileArgs.add(mount.getValue().getPathString());
 
       // The file is mounted in a custom location inside the sandbox.
       if (!mount.getValue().equals(mount.getKey())) {
-        args.add("-m");
-        args.add(mount.getKey().getPathString());
+        fileArgs.add("-m");
+        fileArgs.add(mount.getKey().getPathString());
       }
     }
 
-    args.add("--");
-    args.addAll(spawnArguments);
+    Path argumentsFilePath =
+        sandboxPath.getParentDirectory().getRelative(sandboxPath.getBaseName() + ".params");
+    FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
+    commandLineArgs.add("@" + argumentsFilePath.getPathString());
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    commandLineArgs.add("--");
+    commandLineArgs.addAll(spawnArguments);
+
+    Command cmd = new Command(commandLineArgs.toArray(new String[0]), env, cwd);
 
     try {
       cmd.execute(

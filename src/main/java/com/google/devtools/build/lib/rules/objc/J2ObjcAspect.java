@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.Aspect;
@@ -70,13 +71,13 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
         .requireProvider(JavaSourceInfoProvider.class)
         .requireProvider(JavaCompilationArgsProvider.class)
         .add(attr("$j2objc", LABEL).cfg(HOST).exec()
-            .value(parseLabel("//tools/j2objc:j2objc_deploy.jar")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_deploy.jar")))
         .add(attr("$j2objc_wrapper", LABEL)
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .exec()
             .singleArtifact()
-            .value(parseLabel("//tools/j2objc:j2objc_wrapper")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_wrapper")))
         .build();
   }
 
@@ -271,7 +272,7 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
   private J2ObjcSource buildJ2ObjcSource(RuleContext ruleContext,
       Iterable<Artifact> javaInputSourceFiles) {
     PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
-    PathFragment objcFilePath = ruleContext
+    PathFragment objcFileRootExecPath = ruleContext
         .getConfiguration()
         .getBinFragment()
         .getRelative(objcFileRootRelativePath);
@@ -279,8 +280,16 @@ public class J2ObjcAspect implements ConfiguredAspectFactory {
         objcFileRootRelativePath, ".m");
     Iterable<Artifact> objcHdrs = getOutputObjcFiles(ruleContext, javaInputSourceFiles,
         objcFileRootRelativePath, ".h");
-    return new J2ObjcSource(ruleContext.getRule().getLabel(), objcSrcs, objcHdrs, objcFilePath,
-        SourceType.JAVA);
+    Iterable<PathFragment> headerSearchPaths = J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
+        ruleContext, objcFileRootExecPath, javaInputSourceFiles);
+
+    return new J2ObjcSource(
+        ruleContext.getRule().getLabel(),
+        objcSrcs,
+        objcHdrs,
+        objcFileRootExecPath,
+        SourceType.JAVA,
+        headerSearchPaths);
   }
 
   private Iterable<Artifact> getOutputObjcFiles(RuleContext ruleContext,

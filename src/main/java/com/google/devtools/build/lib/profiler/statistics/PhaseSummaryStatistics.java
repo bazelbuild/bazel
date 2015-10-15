@@ -26,21 +26,31 @@ import java.util.NoSuchElementException;
  */
 public final class PhaseSummaryStatistics implements Iterable<ProfilePhase> {
 
-  private final long totalDurationNanos;
+  private long totalDurationNanos;
   private final EnumMap<ProfilePhase, Long> durations;
 
-  public PhaseSummaryStatistics(ProfileInfo info) {
+  public PhaseSummaryStatistics() {
     durations = new EnumMap<>(ProfilePhase.class);
-    long totalDuration = 0;
+    totalDurationNanos = 0;
+  }
+
+  public PhaseSummaryStatistics(ProfileInfo info) {
+    this();
+    addProfileInfo(info);
+  }
+
+  /**
+   * Add a summary of the {@link ProfilePhase}s durations from a {@link ProfileInfo}.
+   */
+  public void addProfileInfo(ProfileInfo info) {
     for (ProfilePhase phase : ProfilePhase.values()) {
       ProfileInfo.Task phaseTask = info.getPhaseTask(phase);
       if (phaseTask != null) {
         long phaseDuration = info.getPhaseDuration(phaseTask);
-        totalDuration += phaseDuration;
+        totalDurationNanos += phaseDuration;
         durations.put(phase, phaseDuration);
       }
     }
-    totalDurationNanos = totalDuration;
   }
 
   /**

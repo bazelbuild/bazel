@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -95,8 +94,7 @@ public class PackageFunction implements SkyFunction {
   // Not final only for testing.
   @Nullable private SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
 
-  static final String DEFAULTS_PACKAGE_NAME = "tools/defaults";
-  public static final String EXTERNAL_PACKAGE_NAME = "external";
+  static final PathFragment DEFAULTS_PACKAGE_NAME = new PathFragment("tools/defaults");
 
   public PackageFunction(
       PackageFactory packageFactory,
@@ -362,7 +360,6 @@ public class PackageFunction implements SkyFunction {
       InterruptedException {
     PackageIdentifier packageId = (PackageIdentifier) key.argument();
     PathFragment packageNameFragment = packageId.getPackageFragment();
-    String packageName = packageNameFragment.getPathString();
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     PackageLookupValue packageLookupValue;
@@ -412,27 +409,33 @@ public class PackageFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
+    boolean isDefaultsPackage =  packageNameFragment.equals(DEFAULTS_PACKAGE_NAME)
+        && packageId.getRepository().isDefault();
+
     PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
         buildFileFragment);
-    FileValue buildFileValue;
-    try {
-      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
-          IOException.class, FileSymlinkException.class,
-          InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-      throw new IllegalStateException("Package lookup succeeded but encountered error when "
-          + "getting FileValue for BUILD file directly.", e);
+    FileValue buildFileValue = null;
+    if (!isDefaultsPackage) {
+      try {
+        buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
+            IOException.class, FileSymlinkException.class,
+            InconsistentFilesystemException.class);
+      } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+        throw new IllegalStateException("Package lookup succeeded but encountered error when "
+            + "getting FileValue for BUILD file directly.", e);
+      }
+      if (buildFileValue == null) {
+        return null;
+      }
+      Preconditions.checkState(buildFileValue.exists(),
+          "Package lookup succeeded but BUILD file doesn't exist");
     }
-    if (buildFileValue == null) {
-      return null;
-    }
-    Preconditions.checkState(buildFileValue.exists(),
-        "Package lookup succeeded but BUILD file doesn't exist");
+
     Path buildFilePath = buildFileRootedPath.asPath();
 
     String replacementContents = null;
-    if (packageName.equals(DEFAULTS_PACKAGE_NAME)) {
+    if (isDefaultsPackage) {
       replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
@@ -459,32 +462,13 @@ public class PackageFunction implements SkyFunction {
     }
     List<Statement> preludeStatements = astLookupValue.getAST() == null
         ? ImmutableList.<Statement>of() : astLookupValue.getAST().getStatements();
-
-    // Load the BUILD file AST and handle Skylark dependencies. This way BUILD files are
-    // only loaded twice if there are unavailable Skylark or package dependencies or an
-    // IOException occurs. Note that the BUILD files are still parsed two times.
-    ParserInputSource inputSource;
-    try {
-      if (showLoadingProgress.get() && packageFunctionCache.getIfPresent(packageId) == null) {
-        // TODO(bazel-team): don't duplicate the loading message if there are unavailable
-        // Skylark dependencies.
-        env.getListener().handle(Event.progress("Loading package: " + packageName));
-      }
-      inputSource = ParserInputSource.create(buildFilePath, buildFileValue.getSize());
-    } catch (IOException e) {
-      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
-      // Note that we did this work, so we should conservatively report this error as transient.
-      throw new PackageFunctionException(new BuildFileContainsErrorsException(
-          packageId, e.getMessage()), Transience.TRANSIENT);
-    }
-
     Package.LegacyBuilder legacyPkgBuilder =
         loadPackage(
             externalPkg,
-            inputSource,
             replacementContents,
             packageId,
             buildFilePath,
+            buildFileValue,
             buildFileFragment,
             defaultVisibility,
             preludeStatements,
@@ -632,11 +616,9 @@ public class PackageFunction implements SkyFunction {
                 SkylarkImportFailedException, InconsistentFilesystemException,
                 ASTLookupInputException, BuildFileNotFoundException>
             lookupResult;
-        Set<SkyKey> visitedKeysForCycle = new LinkedHashSet<>();
         try {
           SkyValue value =
-              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importKey, env,
-                  visitedKeysForCycle);
+              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importKey, env);
           if (value == null) {
             Preconditions.checkState(env.valuesMissing(), importKey);
             // Don't give up on computing. This is against the Skyframe contract, but we don't want
@@ -866,21 +848,24 @@ public class PackageFunction implements SkyFunction {
    * Note that the returned package may be in error.
    *
    * <p>May return null if the computation has to be restarted.
+   *
+   * <p>Exactly one of {@code replacementContents} and {@link buildFileValue} will be
+   * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
+   * and the latter indicates that we have a legitimate BUILD file and should actually do
+   * preprocessing.
    */
   @Nullable
   private Package.LegacyBuilder loadPackage(
       Package externalPkg,
-      ParserInputSource inputSource,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
+      @Nullable FileValue buildFileValue,
       PathFragment buildFileFragment,
       RuleVisibility defaultVisibility,
       List<Statement> preludeStatements,
       Environment env)
       throws InterruptedException, PackageFunctionException {
-    ParserInputSource replacementSource = replacementContents == null ? null
-        : ParserInputSource.create(replacementContents, buildFilePath.asFragment());
     Package.LegacyBuilder pkgBuilder = packageFunctionCache.getIfPresent(packageId);
     if (pkgBuilder == null) {
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
@@ -889,33 +874,56 @@ public class PackageFunction implements SkyFunction {
             packageId, packageLocator);
         Preprocessor.Result preprocessingResult = preprocessCache.getIfPresent(packageId);
         if (preprocessingResult == null) {
-          try {
-            preprocessingResult =
-                replacementSource == null
-                    ? packageFactory.preprocess(packageId, inputSource, globber)
-                    : Preprocessor.Result.noPreprocessing(replacementSource);
-          } catch (IOException e) {
-            env
-                .getListener()
-                .handle(
-                    Event.error(
-                        Location.fromFile(buildFilePath),
-                        "preprocessing failed: " + e.getMessage()));
-            throw new PackageFunctionException(
-                new BuildFileContainsErrorsException(packageId, "preprocessing failed", e),
-                Transience.TRANSIENT);
+          if (showLoadingProgress.get()) {
+            env.getListener().handle(Event.progress("Loading package: " + packageId));
+          }
+          // Even though we only open and read the file on a cache miss, note that the BUILD is
+          // still parsed two times. Also, the preprocessor may suboptimally open and read it again
+          // anyway.
+          ParserInputSource inputSource;
+          if (replacementContents == null) {
+            long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
+            try {
+              inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
+            } catch (IOException e) {
+              env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
+                  e.getMessage()));
+              // Note that we did this work, so we should conservatively report this error as
+              // transient.
+              throw new PackageFunctionException(new BuildFileContainsErrorsException(
+                  packageId, e.getMessage()), Transience.TRANSIENT);
+            }
+            try {
+              preprocessingResult = packageFactory.preprocess(packageId, inputSource, globber);
+            } catch (IOException e) {
+              env.getListener().handle(Event.error(
+                  Location.fromFile(buildFilePath),
+                  "preprocessing failed: " + e.getMessage()));
+              throw new PackageFunctionException(
+                  new BuildFileContainsErrorsException(packageId, "preprocessing failed", e),
+                  Transience.TRANSIENT);
+            }
+          } else {
+            ParserInputSource replacementSource =
+                ParserInputSource.create(replacementContents, buildFilePath.asFragment());
+            preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
           }
           preprocessCache.put(packageId, preprocessingResult);
         }
 
-        SkylarkImportResult importResult =
-            discoverSkylarkImports(
-                buildFilePath,
-                buildFileFragment,
-                packageId,
-                env,
-                preprocessingResult.result,
-                preludeStatements);
+        SkylarkImportResult importResult;
+        try {
+          importResult = discoverSkylarkImports(
+                  buildFilePath,
+                  buildFileFragment,
+                  packageId,
+                  env,
+                  preprocessingResult.result,
+                  preludeStatements);
+        } catch (PackageFunctionException | InterruptedException e) {
+          preprocessCache.invalidate(packageId);
+          throw e;
+        }
         if (importResult == null) {
           return null;
         }

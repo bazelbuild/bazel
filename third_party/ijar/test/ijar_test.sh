@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 #
-# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -66,6 +66,8 @@ TYPEANN2_IJAR=$TEST_TMPDIR/typeannotations2_interface.jar
 TYPEANN2_JAVA=$IJAR_SRCDIR/test/TypeAnnotationTest2.java
 INVOKEDYNAMIC_JAR=$IJAR_SRCDIR/test/libinvokedynamic.jar
 INVOKEDYNAMIC_IJAR=$TEST_TMPDIR/invokedynamic_interface.jar
+METHODPARAM_JAR=$IJAR_SRCDIR/test/libmethodparameters.jar
+METHODPARAM_IJAR=$TEST_TMPDIR/methodparameters_interface.jar
 
 #### Setup
 
@@ -492,6 +494,14 @@ EOF
 
   cmp one/one-ijar.jar two/two-ijar.jar
   cmp one/one-ijar.jar three/three-ijar.jar
+}
+
+function test_method_parameters_attribute() {
+  # Check that Java 8 MethodParameters attributes are preserved
+  $IJAR $METHODPARAM_JAR $METHODPARAM_IJAR || fail "ijar failed"
+  $JAVAP -classpath $METHODPARAM_IJAR -v methodparameters.Test >& $TEST_log \
+    || fail "javap failed"
+  expect_log "MethodParameters" "MethodParameters not preserved!"
 }
 
 run_suite "ijar tests"

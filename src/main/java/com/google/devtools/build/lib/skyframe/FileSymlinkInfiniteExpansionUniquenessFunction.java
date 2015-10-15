@@ -13,16 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyKey;
 
-/** A {@link SkyFunction} that has the side effect of reporting a file symlink expansion error. */
+/**
+ * A {@link SkyFunction} that has the side effect of reporting a file symlink expansion error
+ * exactly once. This is achieved by forcing the same value key for two logically equivalent
+ * expansion errors (e.g. ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b' -> 'c' -> 'a' -> 'a/nope']),
+ * and letting Skyframe do its magic.
+ */
 public class FileSymlinkInfiniteExpansionUniquenessFunction
     extends AbstractChainUniquenessFunction<RootedPath> {
-  @Override
-  protected SkyValue getDummyValue() {
-    return FileSymlinkInfiniteExpansionUniquenessValue.INSTANCE;
+
+  static SkyKey key(ImmutableList<RootedPath> cycle) {
+    return ChainUniquenessUtils.key(
+        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS, cycle);
   }
 
   @Override

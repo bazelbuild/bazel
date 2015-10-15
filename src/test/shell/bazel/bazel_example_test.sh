@@ -107,7 +107,7 @@ if [ "${PLATFORM}" = "darwin" ]; then
     # prevents us from running iOS tests.
     # TODO(bazel-team): Execute iOStests here when this issue is resolved.
     assert_build_output ./bazel-bin/examples/objc/PrenotCalculator.ipa \
-      //examples/objc:PrenotCalculator
+        --ios_sdk_version=$IOS_SDK_VERSION //examples/objc:PrenotCalculator
   }
 fi
 

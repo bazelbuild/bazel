@@ -23,7 +23,7 @@ planning to change them significantly, possibly in ways that are not backwards c
 
 We cannot cover everything that might change, but you can reasonably expect that we provide
 advance notice on the mailing list before a major change happens. We're also happy to provide more
-details, just ask on [bazel-discuss](bazel-discuss@googlegroups.com).
+details, just ask on [bazel-discuss](https://groups.google.com/forum/#!forum/bazel-discuss).
 
 All undocumented features (attributes, rules, "Make" variables, and flags) are subject to change
 at any time without prior notice. Features that are documented but marked *experimental* are also
@@ -40,11 +40,11 @@ reported issues within 2 business days.
 ## Releases
 
 We regularly publish [binary releases of Bazel](https://github.com/bazelbuild/bazel/releases). To
-that end, we announce release candidates on [bazel-discuss](bazel-discuss@googlegroups.com); these
-are binaries that have passed all of our unit tests. Over the next few days, we regression test
-all applicable build targets at Google. If you have a critical project using Bazel, we recommend
-that you establish an automated testing process that tracks the current release candidate, and
-report any regressions.
+that end, we announce release candidates on
+[bazel-discuss](https://groups.google.com/forum/#!forum/bazel-discuss); these are binaries that have
+passed all of our unit tests. Over the next few days, we regression test all applicable build
+targets at Google. If you have a critical project using Bazel, we recommend that you establish an
+automated testing process that tracks the current release candidate, and report any regressions.
 
 If no regressions are discovered, we officially release the candidate after a week. However,
 regressions can delay the release of a release candidate. If regressions are found, we apply

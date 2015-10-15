@@ -273,7 +273,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   /**
    * @return modules maps from direct dependencies.
    */
-  private NestedSet<Artifact> getDirectModuleMaps() {
+  public NestedSet<Artifact> getDirectModuleMaps() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (DepsContext depsContext : depsContexts) {
       builder.addTransitive(depsContext.directModuleMaps);

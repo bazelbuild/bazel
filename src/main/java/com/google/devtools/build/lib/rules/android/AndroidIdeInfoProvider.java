@@ -63,7 +63,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     }
 
     /** Indicates if the directory is in the gen files tree. */
-    boolean isSource() {
+    public boolean isSource() {
       return isSource;
     }
 

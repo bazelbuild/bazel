@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -65,7 +66,8 @@ public class IosApplicationRule implements RuleDefinition {
             .allowedFileTypes()
             .direct_compile_time_input())
         .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getLabel("//tools/objc:ios_runner.sh.mac_template")))
+            .value(env.getLabel(
+                Constants.TOOLS_REPOSITORY + "//tools/objc:ios_runner.sh.mac_template")))
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();

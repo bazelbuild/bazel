@@ -60,25 +60,6 @@ py_test(
 )
 
 py_binary(
-    name = "proguard_whitelister",
-    srcs = [
-        "proguard_whitelister.py",
-    ],
-    deps = [
-        "//third_party/py/gflags",
-    ],
-)
-
-py_test(
-    name = "proguard_whitelister_test",
-    srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.cfg"],
-    deps = [
-        ":proguard_whitelister",
-    ],
-)
-
-py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
     deps = [],

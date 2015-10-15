@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
-import java.util.Map.Entry;
 
 /**
  * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
@@ -35,7 +35,7 @@ public final class PhaseText extends TextPrinter {
 
   private final PhaseSummaryStatistics phaseSummaryStats;
   private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
-  private final CriticalPathStatistics criticalPathStatistics;
+  private final Optional<CriticalPathStatistics> criticalPathStatistics;
   private final int vfsStatsLimit;
   private final int missingActionsCount;
 
@@ -46,7 +46,7 @@ public final class PhaseText extends TextPrinter {
       PrintStream out,
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
-      CriticalPathStatistics critPathStats,
+      Optional<CriticalPathStatistics> critPathStats,
       int missingActionsCount,
       int vfsStatsLimit) {
     super(out);
@@ -147,15 +147,20 @@ public final class PhaseText extends TextPrinter {
         TWO_COLUMN_FORMAT, "Action dependency map creation", TimeUtilities.prettyTime(graphTime));
     lnPrintf(TWO_COLUMN_FORMAT, "Actual execution time", TimeUtilities.prettyTime(execTime));
 
-    CriticalPathText criticalPaths = new CriticalPathText(out, criticalPathStatistics, execTime);
-    criticalPaths.printTimingBreakdown();
-    printLn();
+    CriticalPathText criticalPaths = null;
+    if (criticalPathStatistics.isPresent()) {
+      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get(), execTime);
+      criticalPaths.printTimingBreakdown();
+      printLn();
+    }
 
     printTimingDistribution(execPhase);
     printLn();
 
-    criticalPaths.printCriticalPaths();
-    printLn();
+    if (criticalPathStatistics.isPresent()) {
+      criticalPaths.printCriticalPaths();
+      printLn();
+    }
 
     if (missingActionsCount > 0) {
       lnPrint(missingActionsCount);
@@ -200,7 +205,7 @@ public final class PhaseText extends TextPrinter {
 
     for (ProfilerTask type : stats) {
       int numPrinted = 0;
-      for (Entry<Stat, String> stat : stats.getSortedStatistics(type)) {
+      for (Stat stat : stats.getSortedStatistics(type)) {
         if (vfsStatsLimit != -1 && numPrinted++ == vfsStatsLimit) {
           lnPrintf("... %d more ...", stats.getStatisticsCount(type) - vfsStatsLimit);
           break;
@@ -208,9 +213,9 @@ public final class PhaseText extends TextPrinter {
         lnPrintf(
             "%15s %10d %10s %s",
             type.name(),
-            stat.getKey().count,
-            TimeUtilities.prettyTime(stat.getKey().duration),
-            stat.getValue());
+            stat.getCount(),
+            TimeUtilities.prettyTime(stat.getDuration()),
+            stat.path);
       }
     }
   }

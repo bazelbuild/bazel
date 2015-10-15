@@ -369,6 +369,7 @@ public class LoadingPhaseRunner {
       callback.notifyTargets(targets.getTargets());
     }
     maybeReportDeprecation(eventHandler, targets.getTargets());
+
     if (enableLoading) {
       return doLoadingPhase(eventHandler, eventBus, targets, testsToRun,
           labelsToLoadUnconditionally, keepGoing, options.loadingPhaseThreads, callback);
@@ -635,7 +636,8 @@ public class LoadingPhaseRunner {
    * style warnings for the same target and it is a good thing; <i>depending</i> on a target and
    * <i>wanting</i> to build it are different things.
    */
-  private void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
+  // Public for use by skyframe.TargetPatternPhaseFunction until this class goes away.
+  public static void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
     for (Rule rule : Iterables.filter(targets, Rule.class)) {
       if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
         eventHandler.handle(Event.warn(rule.getLocation(), String.format(

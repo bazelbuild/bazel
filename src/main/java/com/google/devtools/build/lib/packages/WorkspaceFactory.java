@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.File;
 import java.util.Map;
@@ -51,24 +54,30 @@ public class WorkspaceFactory {
    * @param mutability the Mutability for the current evaluation context
    */
   public WorkspaceFactory(
-      Builder builder, RuleClassProvider ruleClassProvider, Mutability mutability) {
-    this(builder, ruleClassProvider, mutability, null);
+      Builder builder, RuleClassProvider ruleClassProvider,
+      ImmutableList<EnvironmentExtension> environmentExtensions, Mutability mutability) {
+    this(builder, ruleClassProvider, environmentExtensions, mutability, null, null);
   }
 
   // TODO(bazel-team): document installDir
   /**
    * @param builder a builder for the Workspace
    * @param ruleClassProvider a provider for known rule classes
+   * @param environmentExtensions the Skylark environment extensions
    * @param mutability the Mutability for the current evaluation context
-   * @param installDir an optional directory into which to install software
+   * @param installDir the install directory
+   * @param workspaceDir the workspace directory
    */
   public WorkspaceFactory(
       Builder builder,
       RuleClassProvider ruleClassProvider,
+      ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
-      @Nullable String installDir) {
+      @Nullable Path installDir,
+      @Nullable Path workspaceDir) {
     this.builder = builder;
-    this.environment = createWorkspaceEnv(builder, ruleClassProvider, mutability, installDir);
+    this.environment = createWorkspaceEnv(builder, ruleClassProvider, environmentExtensions,
+        mutability, installDir, workspaceDir);
   }
 
   public void parse(ParserInputSource source)
@@ -169,8 +178,10 @@ public class WorkspaceFactory {
   private Environment createWorkspaceEnv(
       Builder builder,
       RuleClassProvider ruleClassProvider,
+      ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
-      String installDir) {
+      Path installDir,
+      Path workspaceDir) {
     Environment workspaceEnv = Environment.builder(mutability)
         .setGlobals(Environment.BUILD)
         .setLoadingPhase()
@@ -182,12 +193,20 @@ public class WorkspaceFactory {
         workspaceEnv.update(ruleClass, ruleFunction);
       }
       if (installDir != null) {
-        workspaceEnv.update("__embedded_dir__", installDir);
+        workspaceEnv.update("__embedded_dir__", installDir.getPathString());
+      }
+      if (workspaceDir != null) {
+        workspaceEnv.update("__workspace_dir__", workspaceDir.getPathString());
       }
       File jreDirectory = new File(System.getProperty("java.home"));
       workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
       workspaceEnv.update("bind", newBindFunction(ruleFactory, builder));
       workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));
+
+      for (EnvironmentExtension extension : environmentExtensions) {
+        extension.updateWorkspace(workspaceEnv);
+      }
+
       return workspaceEnv;
     } catch (EvalException e) {
       throw new AssertionError(e);

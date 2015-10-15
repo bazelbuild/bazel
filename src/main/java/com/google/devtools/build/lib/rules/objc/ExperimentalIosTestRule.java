@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -62,7 +63,8 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
             attr(IosTest.TARGET_DEVICE, LABEL)
                 .allowedFileTypes()
                 .allowedRuleClasses("ios_device")
-                .value(env.getLabel("//tools/objc/sim_devices:default")))
+                .value(env.getLabel(
+                    Constants.TOOLS_REPOSITORY + "//tools/objc/sim_devices:default")))
         /* <!-- #BLAZE_RULE(experimental_ios_test).ATTRIBUTE(ios_test_target_device) -->
          The device against how to run the test. If this attribute is defined, the test will run on
          the lab device. Otherwise, the test will run on simulator.
@@ -85,8 +87,10 @@ public final class ExperimentalIosTestRule implements RuleDefinition {
          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("plugins", LABEL_LIST).allowedFileTypes(FileType.of("_deploy.jar")))
         .add(attr("$test_template", LABEL)
-            .value(env.getLabel("//tools/objc:ios_test.sh.bazel_template")))
-        .add(attr("$test_runner", LABEL).value(env.getLabel("//tools/objc:testrunner")))
+            .value(env.getLabel(
+                Constants.TOOLS_REPOSITORY + "//tools/objc:ios_test.sh.bazel_template")))
+        .add(attr("$test_runner", LABEL).value(env.getLabel(
+            Constants.TOOLS_REPOSITORY + "//tools/objc:testrunner")))
         .override(attr(":gcov", LABEL_LIST).cfg(HOST)
             .value(new LateBoundLabelList<BuildConfiguration>() {
               @Override

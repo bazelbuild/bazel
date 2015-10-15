@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
@@ -31,37 +32,90 @@ import java.util.List;
 public final class PhaseStatistics implements Iterable<ProfilerTask> {
 
   private final ProfilePhase phase;
-  private final long phaseDurationNanos;
-  private final long totalDurationNanos;
-  private final EnumMap<ProfilerTask, AggregateAttr> aggregateTaskStatistics;
+  private long phaseDurationNanos;
+  private long totalDurationNanos;
+  private final EnumMap<ProfilerTask, Long> taskDurations;
+  private final EnumMap<ProfilerTask, Long> taskCounts;
   private final PhaseVfsStatistics vfsStatistics;
-  private final boolean wasExecuted;
+  private boolean wasExecuted;
+  private int count;
 
-  public PhaseStatistics(ProfilePhase phase, ProfileInfo info, String workSpaceName) {
+  public PhaseStatistics(ProfilePhase phase, boolean generateVfsStatistics) {
     this.phase = phase;
-    this.aggregateTaskStatistics = new EnumMap<>(ProfilerTask.class);
-    Task phaseTask = info.getPhaseTask(phase);
-    vfsStatistics = new PhaseVfsStatistics(workSpaceName, phase, info);
-    if (phaseTask == null) {
-      wasExecuted = false;
-      totalDurationNanos = 0;
-      phaseDurationNanos = 0;
+    this.taskDurations = new EnumMap<>(ProfilerTask.class);
+    this.taskCounts = new EnumMap<>(ProfilerTask.class);
+    if (generateVfsStatistics) {
+      vfsStatistics = new PhaseVfsStatistics(phase);
     } else {
+      vfsStatistics = null;
+    }
+  }
+
+  public PhaseStatistics(ProfilePhase phase, ProfileInfo info, String workSpaceName, boolean vfs) {
+    this(phase, vfs);
+    addProfileInfo(workSpaceName, info);
+  }
+
+  /**
+   * Add statistics from {@link ProfileInfo} to the ones already accumulated for this phase.
+   */
+  public void addProfileInfo(String workSpaceName, ProfileInfo info) {
+    Task phaseTask = info.getPhaseTask(phase);
+    if (phaseTask != null) {
+      if (vfsStatistics != null) {
+        vfsStatistics.addProfileInfo(workSpaceName, info);
+      }
       wasExecuted = true;
-      phaseDurationNanos = info.getPhaseDuration(phaseTask);
+      long infoPhaseDuration = info.getPhaseDuration(phaseTask);
+      phaseDurationNanos += infoPhaseDuration;
       List<Task> taskList = info.getTasksForPhase(phaseTask);
-      long duration = phaseDurationNanos;
+      long duration = infoPhaseDuration;
       for (Task task : taskList) {
         // Tasks on the phaseTask thread already accounted for in the phaseDuration.
         if (task.threadId != phaseTask.threadId) {
           duration += task.durationNanos;
         }
       }
-      totalDurationNanos = duration;
+      totalDurationNanos += duration;
       for (ProfilerTask type : ProfilerTask.values()) {
-        aggregateTaskStatistics.put(type, info.getStatsForType(type, taskList));
+        AggregateAttr attr = info.getStatsForType(type, taskList);
+        long totalTime = Math.max(0, attr.totalTime);
+        long count = Math.max(0, attr.count);
+        add(taskCounts, type, count);
+        add(taskDurations, type, totalTime);
       }
+      count++;
     }
+  }
+
+  /**
+   * Add statistics accumulated in another PhaseStatistics object to this one.
+   */
+  public void add(PhaseStatistics other) {
+    Preconditions.checkArgument(
+        phase == other.phase, "Should not combine statistics from different phases");
+    if (other.wasExecuted) {
+      if (vfsStatistics != null && other.vfsStatistics != null) {
+        vfsStatistics.add(other.vfsStatistics);
+      }
+      wasExecuted = true;
+      phaseDurationNanos += other.phaseDurationNanos;
+      totalDurationNanos += other.totalDurationNanos;
+      for (ProfilerTask type : other) {
+        long otherCount = other.getCount(type);
+        long otherDuration = other.getTotalDurationNanos(type);
+        add(taskCounts, type, otherCount);
+        add(taskDurations, type, otherDuration);
+      }
+      count++;
+    }
+  }
+
+  /**
+   * @return how many executions of this phase were accumulated
+   */
+  public int getPhaseCount() {
+    return count;
   }
 
   public ProfilePhase getProfilePhase() {
@@ -76,7 +130,7 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
    * @return true if no {@link ProfilerTask}s have been executed in this phase, false otherwise
    */
   public boolean isEmpty() {
-    return aggregateTaskStatistics.isEmpty();
+    return taskCounts.isEmpty();
   }
 
   /**
@@ -98,14 +152,19 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
    * @return true if a task of the given {@link ProfilerTask} type was executed in this phase
    */
   public boolean wasExecuted(ProfilerTask taskType) {
-    return aggregateTaskStatistics.get(taskType).count != 0;
+    Long count = taskCounts.get(taskType);
+    return count != null && count != 0;
   }
 
   /**
    * @return the sum of all task durations of the given type
    */
   public long getTotalDurationNanos(ProfilerTask taskType) {
-    return aggregateTaskStatistics.get(taskType).totalTime;
+    Long duration = taskDurations.get(taskType);
+    if (duration == null) {
+      return 0;
+    }
+    return duration;
   }
 
   /**
@@ -113,8 +172,9 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
    */
   public double getMeanDuration(ProfilerTask taskType) {
     if (wasExecuted(taskType)) {
-      AggregateAttr stats = aggregateTaskStatistics.get(taskType);
-      return (double) stats.totalTime / stats.count;
+      double duration = taskDurations.get(taskType);
+      long count = taskCounts.get(taskType);
+      return duration / count;
     }
     return 0;
   }
@@ -124,17 +184,30 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
    *    phase duration
    */
   public double getTotalRelativeDuration(ProfilerTask taskType) {
-    if (wasExecuted(taskType)) {
-      return (double) aggregateTaskStatistics.get(taskType).totalTime / totalDurationNanos;
+    Long duration = taskDurations.get(taskType);
+    if (duration == null || duration == 0) {
+      return 0;
     }
-    return 0;
+    // sanity check for broken profile files
+    Preconditions.checkState(
+        totalDurationNanos != 0,
+        "Profiler tasks of type %s have non-zero duration %s in phase %s but the phase itself has"
+        + " zero duration. Most likely the profile file is broken.",
+        taskType,
+        duration,
+        phase);
+    return (double) duration / totalDurationNanos;
   }
 
   /**
    * @return how many tasks of the given type were executed in this phase
    */
-  public int getCount(ProfilerTask taskType) {
-    return aggregateTaskStatistics.get(taskType).count;
+  public long getCount(ProfilerTask taskType) {
+    Long count = taskCounts.get(taskType);
+    if (count == null) {
+      return 0;
+    }
+    return count;
   }
 
   /**
@@ -144,14 +217,26 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
   @Override
   public Iterator<ProfilerTask> iterator() {
     return Iterators.filter(
-        aggregateTaskStatistics.keySet().iterator(),
+        taskCounts.keySet().iterator(),
         new Predicate<ProfilerTask>() {
           @Override
           public boolean apply(ProfilerTask taskType) {
-
-            return getTotalDurationNanos(taskType) != 0 && getCount(taskType) != 0;
+            return getTotalDurationNanos(taskType) > 0 && wasExecuted(taskType);
           }
         });
+  }
+
+  /**
+   * Helper method to sum up long values within an {@link EnumMap}.
+   */
+  private static <T extends Enum<T>> void add(EnumMap<T, Long> map, T key, long value) {
+    long previous;
+    if (map.containsKey(key)) {
+      previous = map.get(key);
+    } else {
+      previous = 0;
+    }
+    map.put(key, previous + value);
   }
 }
 

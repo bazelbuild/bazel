@@ -8,17 +8,17 @@ cc_toolchain(
     compiler_files = ":%toolchainName%-toolchain_files",
     cpu = "%cpu%",
     dwp_files = ":%toolchainName%-toolchain_files",
-    dynamic_runtime_libs = [":dynamic-runtime-libs-%toolchainName%"],
+    dynamic_runtime_libs = [":%dynamicRuntimeLibs%"],
     linker_files = ":%toolchainName%-toolchain_files",
     objcopy_files = ":%toolchainName%-toolchain_files",
-    static_runtime_libs = [":static-runtime-libs-%toolchainName%"],
+    static_runtime_libs = [":%staticRuntimeLibs%"],
     strip_files = ":%toolchainName%-toolchain_files",
     supports_param_files = 0,
 )
 
 filegroup(
     name = "%toolchainName%-toolchain_files",
-    srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]),
+    srcs = glob(["toolchains/%toolchainDirectory%/**"]),
     output_licenses = ["unencumbered"],
 )
 
@@ -31,12 +31,3 @@ filegroup(
     ]),
 )
 
-filegroup(
-    name = "static-runtime-libs-%toolchainName%",
-    srcs = glob(["ndk/sources/cxx-stl/gnu-libstdc++/4.9/libs/%cpu%/*.a"]),
-)
-
-filegroup(
-    name = "dynamic-runtime-libs-%toolchainName%",
-    srcs = glob(["ndk/sources/cxx-stl/gnu-libstdc++/4.9/libs/%cpu%/*.so"]),
-)

@@ -232,9 +232,9 @@ public final class XcodeSupport {
       @Override
       public InputStream openStream() {
         XcodeGenProtos.Control.Builder builder = XcodeGenProtos.Control.newBuilder();
-        Path workspaceRoot = objcConfiguration.getClientWorkspaceRoot();
+        String workspaceRoot = objcConfiguration.getXcodeWorkspaceRoot();
         if (workspaceRoot != null) {
-          builder.setWorkspaceRoot(workspaceRoot.getPathString());
+          builder.setWorkspaceRoot(workspaceRoot);
         }
 
         List<String> multiCpus = objcConfiguration.getIosMultiCpus();

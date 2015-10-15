@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.AndroidNdkCrosstools;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.AndroidNdkCrosstools.NdkCrosstoolsException;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkRelease;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -44,14 +48,29 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation of the {@code android_ndk_repository} rule.
  */
 public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
+  private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-"; 
+  
+  private static final class CrosstoolStlPair {
+
+    private final CrosstoolRelease crosstoolRelease;
+    private final StlImpl stlImpl;
+
+    private CrosstoolStlPair(CrosstoolRelease crosstoolRelease, StlImpl stlImpl) {
+      this.crosstoolRelease = crosstoolRelease;
+      this.stlImpl = stlImpl;
+    }
+  }
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     Rule rule = getRule(repositoryName, AndroidNdkRepositoryRule.NAME, env);
     if (rule == null) {
@@ -78,17 +97,36 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
     String ruleName = rule.getName();
-    String apiLevel = attributes.get("api_level", Type.INTEGER).toString();
+    String apiLevelAttr = attributes.get("api_level", Type.INTEGER).toString();
+    ApiLevel apiLevel = new ApiLevel(env.getListener(), ruleName, apiLevelAttr);
 
-    CrosstoolRelease androidCrosstoolRelease;
+    NdkRelease ndkRelease = getNdkRelease(directoryValue, env);
+
+    ImmutableList.Builder<CrosstoolStlPair> crosstoolsAndStls = ImmutableList.builder();
     try {
-      androidCrosstoolRelease = AndroidNdkCrosstools.createCrosstoolRelease(
-          env.getListener(), ruleName, apiLevel, getNdkRelease(directoryValue, env));
+
+      String hostPlatform = AndroidNdkCrosstools.getHostPlatform(ndkRelease);
+      NdkPaths ndkPaths = new NdkPaths(ruleName, hostPlatform, apiLevel);
+
+      for (StlImpl stlImpl : StlImpls.get(ndkPaths)) {
+
+        CrosstoolRelease crosstoolRelease = AndroidNdkCrosstools.create(
+            env.getListener(),
+            ndkPaths,
+            ruleName,
+            apiLevel,
+            ndkRelease,
+            stlImpl,
+            hostPlatform);
+
+        crosstoolsAndStls.add(new CrosstoolStlPair(crosstoolRelease, stlImpl));
+      }
+
     } catch (NdkCrosstoolsException e) {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
 
-    String buildFile = createBuildFile(androidCrosstoolRelease, ruleName);
+    String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
     return writeBuildFile(directoryValue, buildFile);
   }
 
@@ -102,31 +140,60 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     return AndroidNdkRepositoryRule.class;
   }
 
-  private static String createBuildFile(CrosstoolRelease androidCrosstoolRelease, String ruleName) {
+  private static String createBuildFile(String ruleName, List<CrosstoolStlPair> crosstools) {
 
+    String buildFileTemplate = getTemplate("android_ndk_build_file_template.txt");
     String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
     String ccToolchainTemplate = getTemplate("android_ndk_cc_toolchain_template.txt");
+    String stlFilegroupTemplate = getTemplate("android_ndk_stl_filegroup_template.txt");
 
-    StringBuilder toolchainMap = new StringBuilder();
-    for (DefaultCpuToolchain defaultToolchain : androidCrosstoolRelease.getDefaultToolchainList()) {
-      toolchainMap.append(String.format("      \"%s\": \":%s\",\n",
-          defaultToolchain.getCpu(), defaultToolchain.getToolchainIdentifier()));
-    }
-
+    StringBuilder ccToolchainSuites = new StringBuilder();
     StringBuilder ccToolchainRules = new StringBuilder();
-    for (CToolchain toolchain : androidCrosstoolRelease.getToolchainList()) {
-      ccToolchainRules.append(createCcToolchainRule(ccToolchainTemplate, toolchain));
+    StringBuilder stlFilegroups = new StringBuilder();
+    for (CrosstoolStlPair crosstoolStlPair : crosstools) {
+
+      // Create the cc_toolchain_suite rule
+      CrosstoolRelease crosstool = crosstoolStlPair.crosstoolRelease;
+
+      StringBuilder toolchainMap = new StringBuilder();
+      for (DefaultCpuToolchain defaultToolchain : crosstool.getDefaultToolchainList()) {
+        toolchainMap.append(String.format("      \"%s\": \":%s\",\n",
+            defaultToolchain.getCpu(), defaultToolchain.getToolchainIdentifier()));
+      }
+
+      String toolchainName = createToolchainName(crosstoolStlPair.stlImpl.getName());
+      
+      ccToolchainSuites.append(ccToolchainSuiteTemplate
+          .replace("%toolchainName%", toolchainName)
+          .replace("%toolchainMap%", toolchainMap.toString().trim())
+          .replace("%crosstoolReleaseProto%", crosstool.toString()));
+
+      // Create the cc_toolchain rules
+      for (CToolchain toolchain : crosstool.getToolchainList()) {
+        ccToolchainRules.append(createCcToolchainRule(ccToolchainTemplate, toolchain));
+      }
+
+      // Create the STL file group rules
+      for (Map.Entry<String, String> entry :
+        crosstoolStlPair.stlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns().entrySet()) {
+
+        stlFilegroups.append(stlFilegroupTemplate
+            .replace("%name%", entry.getKey())
+            .replace("%fileGlobPattern%", entry.getValue()));
+      }
     }
 
-    String crosstoolReleaseProto = androidCrosstoolRelease.toString();
-
-    return ccToolchainSuiteTemplate
+    return buildFileTemplate
         .replace("%ruleName%", ruleName)
-        .replace("%toolchainMap%", toolchainMap.toString().trim())
-        .replace("%crosstoolReleaseProto%", crosstoolReleaseProto)
-        .replace("%ccToolchainRules%", ccToolchainRules);
+        .replace("%ccToolchainSuites%", ccToolchainSuites)
+        .replace("%ccToolchainRules%", ccToolchainRules)
+        .replace("%stlFilegroups%", stlFilegroups);
   }
 
+  static String createToolchainName(String stlName) {
+    return TOOLCHAIN_NAME_PREFIX + stlName;
+  }
+  
   private static String createCcToolchainRule(String ccToolchainTemplate, CToolchain toolchain) {
 
     // TODO(bazel-team): It's unfortunate to have to extract data from a CToolchain proto like this.
@@ -164,6 +231,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     return ccToolchainTemplate
         .replace("%toolchainName%", toolchain.getToolchainIdentifier())
         .replace("%cpu%", toolchain.getTargetCpu())
+        .replace("%dynamicRuntimeLibs%", toolchain.getDynamicRuntimesFilegroup())
+        .replace("%staticRuntimeLibs%", toolchain.getStaticRuntimesFilegroup())
         .replace("%toolchainDirectory%", toolchainDirectory)
         .replace("%toolchainFileGlobs%", toolchainFileGlobs.toString().trim());
   }

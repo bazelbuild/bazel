@@ -327,11 +327,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         newSkylarkImportLookupFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.SKYLARK_IMPORT_CYCLE, new SkylarkImportUniqueCycleFunction());
     map.put(SkyFunctions.GLOB, newGlobFunction());
-    map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
+    map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
     map.put(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryFunction());
+    map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
+    map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());
+    map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction());
     map.put(
         SkyFunctions.PACKAGE,
@@ -841,18 +844,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected static SkyKey createDirectoryListingStateKey(RootedPath rootedPath) {
     return DirectoryListingStateValue.key(rootedPath);
-  }
-
-  /**
-   * Creates a FileValue pointing of type directory. No matter that the rootedPath points to a
-   * symlink.
-   *
-   * <p> Use it with caution as it would prevent invalidation when the destination file in the
-   * symlink changes.
-   */
-  protected static FileValue createFileDirValue(RootedPath rootedPath) {
-    return FileValue.value(rootedPath, FileStateValue.DIRECTORY_FILE_STATE_NODE,
-        rootedPath, FileStateValue.DIRECTORY_FILE_STATE_NODE);
   }
 
   /**

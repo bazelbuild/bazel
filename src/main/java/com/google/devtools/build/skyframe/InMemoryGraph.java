@@ -69,11 +69,19 @@ public class InMemoryGraph implements ProcessableGraph {
     return builder.build();
   }
 
-  @Override
-  public NodeEntry createIfAbsent(SkyKey key) {
+  protected NodeEntry createIfAbsent(SkyKey key) {
     NodeEntry newval = keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
     NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
+  }
+
+  @Override
+  public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
+    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
+    for (SkyKey key : keys) {
+      builder.put(key, createIfAbsent(key));
+    }
+    return builder.build();
   }
 
   /** Only done nodes exist to the outside world. */

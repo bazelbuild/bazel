@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * J2ObjC aspect for the proto_library rule.
@@ -132,13 +133,18 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredAspectFacto
     Iterable<Artifact> generatedSourceFiles = checkShouldCreateSources(ruleContext)
         ? ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m")
         : ImmutableList.<Artifact>of();
+    PathFragment objcFileRootExecPath = ruleContext.getConfiguration().getGenfilesDirectory()
+        .getExecPath();
+    Iterable<PathFragment> headerSearchPaths = J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
+        ruleContext, objcFileRootExecPath, protoSources);
 
     return new J2ObjcSource(
         ruleContext.getTarget().getLabel(),
         generatedSourceFiles,
         ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
-        ruleContext.getConfiguration().getGenfilesDirectory().getExecPath(),
-        SourceType.PROTO);
+        objcFileRootExecPath,
+        SourceType.PROTO,
+        headerSearchPaths);
   }
 
   private static Iterable<Artifact> headerMappingFiles(RuleContext ruleContext,

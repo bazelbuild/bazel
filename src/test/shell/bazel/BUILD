@@ -92,6 +92,12 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_objc_test",
+    srcs = ["bazel_objc_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],
@@ -106,6 +112,11 @@ genrule(
         "//src/java_tools/singlejar:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/java:srcs",
+        "//src/main/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
+        "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/tools/xcode-common:srcs",
         "//third_party:srcs",
     ],

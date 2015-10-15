@@ -89,16 +89,6 @@ if [ "${EMBED_LABEL-x}" = "x" ]; then
 fi
 
 source scripts/bootstrap/bootstrap.sh
-if [ $DO_COMPILE ]; then
-  new_step 'Building Bazel with Bazel'
-  display "."
-  bazel_bootstrap //src:bazel output/bazel 0755 1
-  BAZEL=$(pwd)/output/bazel
-fi
-
-#
-# Bootstrap tools using the release binary
-#
 if [ $DO_TOOLS_COMPILATION ]; then
   new_step 'Building Bazel tools'
   bazel_bootstrap //third_party/ijar:ijar tools/jdk/ijar 0755
@@ -127,6 +117,13 @@ if [ $DO_TOOLS_COMPILATION ]; then
     bazel_bootstrap //src/tools/xcode/environment:environment_plist \
         tools/objc/environment_plist.sh 0755
   fi
+fi
+
+if [ $DO_COMPILE ]; then
+  new_step 'Building Bazel with Bazel'
+  display "."
+  bazel_bootstrap //src:bazel output/bazel 0755 1
+  BAZEL=$(pwd)/output/bazel
 fi
 
 #

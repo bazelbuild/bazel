@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.profiler.chart.Chart;
 import com.google.devtools.build.lib.profiler.chart.ChartCreator;
 import com.google.devtools.build.lib.profiler.chart.DetailedChartCreator;
 import com.google.devtools.build.lib.profiler.chart.HtmlChartVisitor;
+import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
+import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.profiler.statistics.SkylarkStatistics;
@@ -37,49 +39,71 @@ import java.util.EnumMap;
  */
 public final class HtmlCreator extends HtmlPrinter {
 
-  private final Chart chart;
+  private final Optional<Chart> chart;
   private final HtmlChartVisitor chartVisitor;
   private final Optional<SkylarkHtml> skylarkStats;
+  private final Optional<MultiProfilePhaseHtml> multiFileStats;
   private final String title;
   private final PhaseHtml phases;
 
   private HtmlCreator(
       PrintStream out,
       String title,
-      Chart chart,
+      Optional<Chart> chart,
       Optional<SkylarkHtml> skylarkStats,
-      int htmlPixelsPerSecond,
-      PhaseHtml phases) {
+      Optional<MultiProfilePhaseHtml> multiFileStats,
+      PhaseHtml phases,
+      int htmlPixelsPerSecond) {
     super(out);
     this.title = title;
     this.chart = chart;
-    chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
     this.skylarkStats = skylarkStats;
     this.phases = phases;
+    this.multiFileStats = multiFileStats;
+    chartVisitor = new HtmlChartVisitor(out, htmlPixelsPerSecond);
   }
 
+  /**
+   * Output the HTML depending on which statistics should be printed.
+   */
   private void print() {
     htmlFrontMatter();
-    chart.accept(chartVisitor);
+    if (chart.isPresent()) {
+      chart.get().accept(chartVisitor);
+    }
 
     element("a", "name", "Statistics");
     element("h2", "Statistics");
     phases.print();
 
+    if (multiFileStats.isPresent()) {
+      multiFileStats.get().printHtmlBody();
+    }
     if (skylarkStats.isPresent()) {
       skylarkStats.get().printHtmlBody();
     }
     htmlBackMatter();
   }
 
+  /**
+   * Print opening tags, CSS and JavaScript
+   */
   private void htmlFrontMatter() {
     lnOpen("html");
     lnOpen("head");
     lnElement("title", title);
-    chartVisitor.printCss(chart.getSortedTypes());
+
+    printVisualizationJs();
+
+    if (chart.isPresent()) {
+      chartVisitor.printCss(chart.get().getSortedTypes());
+    }
 
     phases.printCss();
 
+    if (multiFileStats.isPresent()) {
+      multiFileStats.get().printHtmlHead();
+    }
     if (skylarkStats.isPresent()) {
       skylarkStats.get().printHtmlHead();
     }
@@ -95,6 +119,30 @@ public final class HtmlCreator extends HtmlPrinter {
   }
 
   /**
+   * Print code for loading the Google Visualization JS library.
+   *
+   * <p>Used for the charts and tables for {@link SkylarkHtml} and {@link MultiProfilePhaseHtml}.
+   * Also adds a callback on load of the library which draws the charts and tables.
+   */
+  private void printVisualizationJs() {
+    lnElement("script", "type", "text/javascript", "src", "https://www.google.com/jsapi");
+    lnOpen("script", "type", "text/javascript");
+    lnPrint("google.load(\"visualization\", \"1.1\", {packages:[\"corechart\",\"table\"]});");
+    lnPrint("google.setOnLoadCallback(drawVisualization);");
+    lnPrint("function drawVisualization() {");
+    down();
+    if (skylarkStats.isPresent()) {
+      skylarkStats.get().printVisualizationCallbackJs();
+    }
+    if (multiFileStats.isPresent()) {
+      multiFileStats.get().printVisualizationCallbackJs();
+    }
+    up();
+    lnPrint("}");
+    lnClose(); // script
+  }
+
+  /**
    * Writes the HTML profiling information.
    *
    * @throws IOException
@@ -104,24 +152,81 @@ public final class HtmlCreator extends HtmlPrinter {
       Path htmlFile,
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> statistics,
+      CriticalPathStatistics criticalPathStats,
+      int missingActionsCount,
       boolean detailed,
       int htmlPixelsPerSecond,
-      int vfsStatsLimit)
+      int vfsStatsLimit,
+      boolean generateChart,
+      boolean generateHistograms)
       throws IOException {
     try (PrintStream out = new PrintStream(new BufferedOutputStream(htmlFile.getOutputStream()))) {
-      ChartCreator chartCreator;
-      PhaseHtml phaseHtml = new PhaseHtml(out, phaseSummaryStats, statistics, vfsStatsLimit);
-      Optional<SkylarkHtml> skylarkStats;
+      PhaseHtml phaseHtml =
+          new PhaseHtml(
+              out,
+              phaseSummaryStats,
+              statistics,
+              Optional.of(criticalPathStats),
+              Optional.of(missingActionsCount),
+              vfsStatsLimit);
+      Optional<SkylarkHtml> skylarkStats = Optional.absent();
+      Optional<Chart> chart = Optional.absent();
       if (detailed) {
-        skylarkStats = Optional.of(new SkylarkHtml(out, new SkylarkStatistics(info)));
-        chartCreator = new DetailedChartCreator(info);
-      } else {
-        chartCreator = new AggregatingChartCreator(info);
-        skylarkStats = Optional.absent();
+        skylarkStats =
+            Optional.of(new SkylarkHtml(out, new SkylarkStatistics(info), generateHistograms));
       }
-      Chart chart = chartCreator.create();
-      new HtmlCreator(out, info.comment, chart, skylarkStats, htmlPixelsPerSecond, phaseHtml)
+      if (generateChart) {
+        ChartCreator chartCreator;
+        if (detailed) {
+          chartCreator = new DetailedChartCreator(info);
+        } else {
+          chartCreator = new AggregatingChartCreator(info);
+        }
+        chart = Optional.of(chartCreator.create());
+      }
+      new HtmlCreator(
+              out,
+              info.comment,
+              chart,
+              skylarkStats,
+              Optional.<MultiProfilePhaseHtml>absent(),
+              phaseHtml,
+              htmlPixelsPerSecond)
           .print();
     }
+  }
+
+  /**
+   * Writes the HTML profiling information for multiple files.
+   *
+   * <p>Does not print a {@link Chart} or even multiple charts and no Skylark histograms.
+   */
+  public static void create(
+      PrintStream out,
+      MultiProfileStatistics statistics,
+      boolean detailed,
+      int htmlPixelsPerSecond,
+      int vfsStatsLimit) {
+    PhaseHtml phaseHtml =
+        new PhaseHtml(
+            out,
+            statistics.getSummaryStatistics(),
+            statistics.getSummaryPhaseStatistics(),
+            vfsStatsLimit);
+    Optional<SkylarkHtml> skylarkStats;
+    if (detailed) {
+      skylarkStats = Optional.of(new SkylarkHtml(out, statistics.getSkylarkStatistics(), false));
+    } else {
+      skylarkStats = Optional.absent();
+    }
+    new HtmlCreator(
+            out,
+            "Statistics from multiple profile files",
+            Optional.<Chart>absent(),
+            skylarkStats,
+            Optional.of(new MultiProfilePhaseHtml(out, statistics)),
+            phaseHtml,
+            htmlPixelsPerSecond)
+        .print();
   }
 }

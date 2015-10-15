@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
  * Common attributes for Java rules.
@@ -158,7 +159,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_library")
-        .ancestors(JavaRule.class)
+        .ancestors(JavaRule.class, ProguardLibraryRule.class)
         .factoryClass(BazelJavaLibrary.class)
         .build();
   }

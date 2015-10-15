@@ -26,17 +26,17 @@ TEST_TARGETS = [
 ]
 
 TEST_DATA = [
-    "//tools/build_defs/docker/testdata:" + t
+    "//tools/build_defs/docker/testdata:%s.tar" % t
     for t in TEST_TARGETS
 ] + [
-    "//tools/build_defs/docker/testdata:notop_" + t
+    "//tools/build_defs/docker/testdata:notop_%s.tar" % t
     for t in TEST_TARGETS
 ] + [
-    "//tools/build_defs/docker/testdata:gen_image",
-    "//tools/build_defs/docker/testdata:data_path_image",
-    "//tools/build_defs/docker/testdata:no_data_path_image",
-    "//tools/build_defs/docker/testdata:dummy_repository",
-    "//tools/build_defs/docker/testdata:extras_with_deb",
+    "//tools/build_defs/docker/testdata:gen_image.tar",
+    "//tools/build_defs/docker/testdata:data_path_image.tar",
+    "//tools/build_defs/docker/testdata:no_data_path_image.tar",
+    "//tools/build_defs/docker/testdata:dummy_repository.tar",
+    "//tools/build_defs/docker/testdata:extras_with_deb.tar",
 ]
 
 sh_test(
@@ -52,21 +52,6 @@ sh_test(
 )
 
 # Used by docker_build and friends
-py_library(
-    name = "archive",
-    srcs = ["archive.py"],
-    visibility = ["//tools/build_defs/docker:__subpackages__"],
-)
-
-py_test(
-    name = "archive_test",
-    srcs = [
-        "archive_test.py",
-        "testenv.py",
-    ],
-    data = ["//tools/build_defs/docker/testdata:archive_testdata"],
-    deps = [":archive"],
-)
 
 py_binary(
     name = "rewrite_json",
@@ -84,16 +69,6 @@ py_test(
 )
 
 py_binary(
-    name = "build_layer",
-    srcs = ["build_layer.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":archive",
-        "//third_party/py/gflags",
-    ],
-)
-
-py_binary(
     name = "sha256",
     srcs = ["sha256.py"],
     visibility = ["//visibility:public"],
@@ -104,7 +79,23 @@ py_binary(
     srcs = ["create_image.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":archive",
         "//third_party/py/gflags",
+        "//tools/build_defs/pkg:archive",
     ],
+)
+
+py_binary(
+    name = "join_layers",
+    srcs = ["join_layers.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party/py/gflags",
+        "//tools/build_defs/pkg:archive",
+    ],
+)
+
+filegroup(
+    name = "incremental_load_template",
+    srcs = ["incremental_load.sh.tpl"],
+    visibility = ["//visibility:public"],
 )

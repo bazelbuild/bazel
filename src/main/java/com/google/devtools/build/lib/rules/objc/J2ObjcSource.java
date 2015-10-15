@@ -50,6 +50,7 @@ public class J2ObjcSource {
   private final Iterable<Artifact> objcHdrs;
   private final PathFragment objcFilePath;
   private final SourceType sourceType;
+  private final Iterable<PathFragment> headerSearchPaths;
 
   /**
    * Constructs a J2ObjcSource containing target information for j2objc transpilation.
@@ -60,14 +61,18 @@ public class J2ObjcSource {
    * @param objcFilePath the {@code PathFragment} under which all the generated objc files are. It
    *     can be used as header search path for objc compilations.
    * @param sourceType the type of files from which the ObjC files are generated.
+   * @param headerSearchPaths the {@code Iterable} of header search paths necessary for compiling
+   *     the generated J2ObjC sources in {@link objcSrcs}
    */
   public J2ObjcSource(Label targetLabel, Iterable<Artifact> objcSrcs,
-      Iterable<Artifact> objcHdrs, PathFragment objcFilePath, SourceType sourceType) {
+      Iterable<Artifact> objcHdrs, PathFragment objcFilePath, SourceType sourceType,
+      Iterable<PathFragment> headerSearchPaths) {
     this.targetLabel = targetLabel;
     this.objcSrcs = objcSrcs;
     this.objcHdrs = objcHdrs;
     this.objcFilePath = objcFilePath;
     this.sourceType = sourceType;
+    this.headerSearchPaths = headerSearchPaths;
   }
 
   /**
@@ -99,7 +104,8 @@ public class J2ObjcSource {
         prunedSourceArtifacts.build(),
         getObjcHdrs(),
         getObjcFilePath(),
-        getSourceType());
+        getSourceType(),
+        getHeaderSearchPaths());
   }
 
   /**
@@ -125,10 +131,17 @@ public class J2ObjcSource {
 
   /**
    * Returns the {@code PathFragment} which represents a directory where the generated ObjC files
-   * reside and which can also be used as header search path in ObjC compilation.
+   * reside.
    */
   public PathFragment getObjcFilePath() {
     return objcFilePath;
+  }
+
+  /**
+   * Returns a list of header search paths necessary for compiling the generated J2ObjC sources.
+   */
+  public Iterable<PathFragment> getHeaderSearchPaths() {
+    return headerSearchPaths;
   }
 
   /**
@@ -156,12 +169,15 @@ public class J2ObjcSource {
         && Iterators.elementsEqual(this.objcSrcs.iterator(), that.objcSrcs.iterator())
         && Iterators.elementsEqual(this.objcHdrs.iterator(), that.objcHdrs.iterator())
         && Objects.equal(this.objcFilePath, that.objcFilePath)
-        && this.sourceType == that.sourceType;
+        && this.sourceType == that.sourceType
+        && Iterators.elementsEqual(
+            this.headerSearchPaths.iterator(), that.headerSearchPaths.iterator());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(targetLabel, objcSrcs, objcHdrs, objcFilePath, sourceType);
+    return Objects.hashCode(targetLabel, objcSrcs, objcHdrs, objcFilePath, sourceType,
+        headerSearchPaths);
   }
 }
 

@@ -58,7 +58,7 @@ be refined if appropriate.
     <tr>
       <td rowspan="9"><b><a name="alpha"></a>Alpha</b></td>
       <td rowspan="9"><b>Alpha</b></td>
-      <td rowspan="9"><b>2015-03</b></td>
+      <td rowspan="9"><b>2015&#8209;03</b></td>
       <td>Linux &amp; OS X Support</td>
     </tr>
     <tr><td>C++ (<a href="http://bazel.io/docs/build-encyclopedia.html#cc_binary">build</a> and <a href="http://bazel.io/docs/build-encyclopedia.html#cc_test">test</a>)</td></tr>
@@ -71,9 +71,9 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/build-encyclopedia.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/build-encyclopedia.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="25"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="23"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9"><b>0.1</b></td>
-      <td rowspan="9"><b>2015-09</b></td>
+      <td rowspan="9"><b>2015&#8209;09</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
     </tr>
     <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>
@@ -86,15 +86,15 @@ be refined if appropriate.
     <tr><td>P2. AppEngine (<a href="https://github.com/google/bazel/blob/master/tools/build_rules/appengine/README.md">build and load</a>)</td></tr>
     <tr><td>P2. <a href="http://bazel.io/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
     <tr>
-      <td rowspan="4"><b>0.2</b></td>
-      <td rowspan="4"><b>2015-10</b></td>
+      <td rowspan="3"><b>0.2</b></td>
+      <td rowspan="3"><b>2015&#8209;10</b></td>
       <td>P0. Support for fetching remote Skylark rules</td>
     </tr>
     <tr><td>P0. Support for testing iOS apps</td></tr>
     <tr><td>P0. Support for testing Android apps</td></tr>
     <tr>
-      <td rowspan="5"><b>0.3</b></td>
-      <td rowspan="5"><b>2015-11</b></td>
+      <td rowspan="4"><b>0.3</b></td>
+      <td rowspan="4"><b>2015&#8209;11</b></td>
       <td>P0. Significantly increase test coverage</td>
     </tr>
     <tr><td>P2. Go language support (build and tests)</td></tr>
@@ -102,7 +102,7 @@ be refined if appropriate.
     <tr><td>P2. Bazel can bootstrap itself on Windows without requiring admin priviledge</td></tr>
     <tr>
       <td rowspan="7"><b>0.5</b></td>
-      <td rowspan="7"><b>2015-12</b></td>
+      <td rowspan="7"><b>2015&#8209;12</b></td>
       <td>P0. Bazel can build android applications on Windows</td>
     </tr>
     <tr><td>P1. <a href="https://docs.google.com/document/d/1jKbNXOVp2T1zJD_iRnVr8k5D0xZKgO8blMVDlXOksJg">Custom remote repositories using Skylark</a></td></tr>
@@ -114,7 +114,7 @@ be refined if appropriate.
     <tr>
       <td rowspan="7"><b><a name="stable"></a>Stable</b></td>
       <td rowspan="7"><b>1.0</b></td>
-      <td rowspan="7"><b>2016-05</b></td>
+      <td rowspan="7"><b>2016&#8209;05</b></td>
       <td>P0. Extension APIs are stable and versioned</td>
     </tr>
     <tr><td>P0. Github repository is primary</td></tr>

@@ -15,18 +15,22 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -34,7 +38,6 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Package.Builder.GeneratedLabelConflict;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
@@ -51,9 +54,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.annotation.Nullable;
 
 /**
  * Functionality to deserialize loaded packages.
@@ -72,7 +76,36 @@ public class PackageDeserializer {
 
     /** Returns a {@link RuleClass} object for the serialized rule. */
     RuleClass getRuleClass(Build.Rule rulePb, Location ruleLocation);
+
+    /** Description of what rule attributes of each rule should be deserialized. */
+    AttributesToDeserialize attributesToDeserialize();
   }
+
+  /**
+   * A class that defines what attributes to keep after deserialization. Note that all attributes of
+   * type label are kept in order to navigate between dependencies.
+   *
+   * <p>If {@code addSyntheticAttributeHash} is {@code true}, a synthetic attribute is added to each
+   * Rule that contains a stable hash of the entire serialized rule for the sake of permitting
+   * equality comparisons that respect the attributes that were dropped according to {@code
+   * attributesToKeep}.
+   */
+  public static class AttributesToDeserialize {
+
+    private final boolean addSyntheticAttributeHash;
+    private final Predicate<String> shouldKeepAttributeWithName;
+
+    public AttributesToDeserialize(boolean addSyntheticAttributeHash,
+        Predicate<String> shouldKeepAttributeWithName) {
+      this.addSyntheticAttributeHash = addSyntheticAttributeHash;
+      this.shouldKeepAttributeWithName = shouldKeepAttributeWithName;
+    }
+
+    public boolean includeAttribute(String attr) { return shouldKeepAttributeWithName.apply(attr); }
+  }
+
+  public static final AttributesToDeserialize DESERIALIZE_ALL_ATTRS =
+      new AttributesToDeserialize(false, Predicates.<String>alwaysTrue());
 
   // Workaround for Java serialization making it tough to pass in a deserialization environment
   // manually.
@@ -82,26 +115,13 @@ public class PackageDeserializer {
 
   // Cache label deserialization across all instances- PackgeDeserializers need to be created on
   // demand due to initialiation constraints wrt the setting of static members.
-  private static final LoadingCache<String, Label> labelCache =
-      CacheBuilder.newBuilder()
-        .weakValues()
-        .build(
-            new CacheLoader<String, Label>() {
-              @Override
-              public Label load(String labelString) throws PackageDeserializationException {
-                try {
-                  return Label.parseAbsolute(labelString);
-                } catch (LabelSyntaxException e) {
-                  throw new PackageDeserializationException("Invalid label: " + e.getMessage(), e);
-                }
-              }
-            });
+  private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
 
   /** Class encapsulating state for a single package deserialization. */
   private static class DeserializationContext {
     private final Package.Builder packageBuilder;
 
-    public DeserializationContext(Package.Builder packageBuilder) {
+    private DeserializationContext(Package.Builder packageBuilder) {
       this.packageBuilder = packageBuilder;
     }
   }
@@ -124,11 +144,12 @@ public class PackageDeserializer {
       Type<?> expectedType, Build.Attribute attrPb) throws PackageDeserializationException {
     Object value = deserializeAttributeValue(expectedType, attrPb);
     return new ParsedAttributeValue(
-        attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value,
-        EmptyLocation.INSTANCE);
+        attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value
+    );
   }
 
-  private void deserializeInputFile(DeserializationContext context, Build.SourceFile sourceFile)
+  private static void deserializeInputFile(DeserializationContext context,
+      Build.SourceFile sourceFile)
       throws PackageDeserializationException {
     InputFile inputFile;
     try {
@@ -145,7 +166,7 @@ public class PackageDeserializer {
     }
   }
 
-  private void deserializePackageGroup(DeserializationContext context,
+  private static void deserializePackageGroup(DeserializationContext context,
       Build.PackageGroup packageGroupPb) throws PackageDeserializationException {
     List<String> specifications = new ArrayList<>();
     for (String containedPackage : packageGroupPb.getContainedPackageList()) {
@@ -169,22 +190,45 @@ public class PackageDeserializer {
     Location ruleLocation = EmptyLocation.INSTANCE;
     RuleClass ruleClass = packageDeserializationEnvironment.getRuleClass(rulePb, ruleLocation);
     Map<String, ParsedAttributeValue> attributeValues = new HashMap<>();
+    AttributesToDeserialize attrToDeserialize =
+        packageDeserializationEnvironment.attributesToDeserialize();
+
+    Hasher hasher = Hashing.md5().newHasher();
     for (Build.Attribute attrPb : rulePb.getAttributeList()) {
       Type<?> type = ruleClass.getAttributeByName(attrPb.getName()).getType();
       attributeValues.put(attrPb.getName(), deserializeAttribute(type, attrPb));
+      if (attrToDeserialize.addSyntheticAttributeHash) {
+        // TODO(bazel-team): This might give false positives because of explicit vs implicit.
+        hasher.putBytes(attrPb.toByteArray());
+      }
     }
+    AttributeContainerWithoutLocation attributeContainer =
+        new AttributeContainerWithoutLocation(ruleClass, hasher.hash());
 
     Label ruleLabel = deserializeLabel(rulePb.getName());
     try {
-      Rule rule = ruleClass.createRuleWithParsedAttributeValues(
+      Rule rule = createRuleWithParsedAttributeValues(ruleClass,
           ruleLabel, context.packageBuilder, ruleLocation, attributeValues,
-          NullEventHandler.INSTANCE, new AttributeContainerWithoutLocation(ruleClass));
+          NullEventHandler.INSTANCE, attributeContainer);
       context.packageBuilder.addRule(rule);
+
+      // Remove the attribute after it is added to package in order to pass the validations
+      // and be able to compute all the outputs.
+      if (attrToDeserialize != DESERIALIZE_ALL_ATTRS) {
+        for (String attrName : attributeValues.keySet()) {
+          Attribute attribute = ruleClass.getAttributeByName(attrName);
+          if (!(attrToDeserialize.shouldKeepAttributeWithName.apply(attrName)
+              || BuildType.isLabelType(attribute.getType()))) {
+            attributeContainer.clearIfNotLabel(attrName);
+          }
+        }
+      }
 
       Preconditions.checkState(!rule.containsErrors());
     } catch (NameConflictException | LabelSyntaxException e) {
       throw new PackageDeserializationException(e);
     }
+
   }
 
   /** "Empty" location implementation, all methods should return non-null, but empty, values. */
@@ -243,10 +287,10 @@ public class PackageDeserializer {
 
   private static Label deserializeLabel(String labelName) throws PackageDeserializationException {
     try {
-      return labelCache.get(labelName);
-    } catch (ExecutionException e) {
-      Throwables.propagateIfInstanceOf(e.getCause(), PackageDeserializationException.class);
-      throw new IllegalStateException("Failed to decode label: " + labelName, e);
+      return LABEL_INTERNER.intern(Label.parseAbsolute(labelName));
+    } catch (LabelSyntaxException e) {
+      throw new PackageDeserializationException(
+          "Invalid label '" + labelName + "':" + e.getMessage(), e);
     }
   }
 
@@ -622,10 +666,19 @@ public class PackageDeserializer {
     }
   }
 
-  private static class AttributeContainerWithoutLocation extends AttributeContainer {
+  /**
+   * An special {@code AttributeContainer} implementation that does not keep
+   * the location and can contain a hashcode of the target attributes.
+   */
+  public static class AttributeContainerWithoutLocation extends AttributeContainer {
 
-    private AttributeContainerWithoutLocation(RuleClass ruleClass) {
+    @Nullable
+    private final HashCode syntheticAttrHash;
+
+    private AttributeContainerWithoutLocation(RuleClass ruleClass,
+        @Nullable HashCode syntheticAttrHash) {
       super(ruleClass, null);
+      this.syntheticAttrHash = syntheticAttrHash;
     }
 
     @Override
@@ -642,6 +695,65 @@ public class PackageDeserializer {
     void setAttributeLocation(Attribute attribute, Location location) {
       throw new UnsupportedOperationException("Setting location not supported");
     }
+
+
+    @Nullable
+    public HashCode getSyntheticAttrHash() {
+      return syntheticAttrHash;
+    }
+
+    private void clearIfNotLabel(String attr) {
+      setAttributeValueByName(attr, null);
+    }
   }
 
+  /**
+   * Creates a rule with the attribute values that are already parsed.
+   *
+   * <p><b>WARNING:</b> This assumes that the attribute values here have the right type and
+   * bypasses some sanity checks. If they are of the wrong type, everything will come down burning.
+   */
+  @SuppressWarnings("unchecked")
+  private static Rule createRuleWithParsedAttributeValues(RuleClass ruleClass, Label label,
+      Package.Builder pkgBuilder, Location ruleLocation,
+      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler,
+      AttributeContainer attributeContainer)
+      throws LabelSyntaxException, InterruptedException {
+    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, ruleClass, null, ruleLocation,
+        attributeContainer);
+    rule.checkValidityPredicate(eventHandler);
+
+    for (Attribute attribute : rule.getRuleClassObject().getAttributes()) {
+      ParsedAttributeValue value = attributeValues.get(attribute.getName());
+      if (attribute.isMandatory()) {
+        Preconditions.checkState(value != null);
+      }
+
+      if (value == null) {
+        continue;
+      }
+
+      rule.setAttributeValue(attribute, value.value, value.explicitlySpecified);
+      ruleClass.checkAllowedValues(rule, attribute, eventHandler);
+
+      if (attribute.getName().equals("visibility")) {
+        // TODO(bazel-team): Verify that this cast works
+        rule.setVisibility(PackageFactory.getVisibility((List<Label>) value.value));
+      }
+    }
+
+    rule.populateOutputFiles(eventHandler, pkgBuilder);
+    Preconditions.checkState(!rule.containsErrors());
+    return rule;
+  }
+
+  private static class ParsedAttributeValue {
+    private final boolean explicitlySpecified;
+    private final Object value;
+
+    private ParsedAttributeValue(boolean explicitlySpecified, Object value) {
+      this.explicitlySpecified = explicitlySpecified;
+      this.value = value;
+    }
+  }
 }

@@ -67,7 +67,8 @@ public final class ResolvedTargets<T> {
 
   @Override
   public String toString() {
-    return "ResolvedTargets(" + targets + ", hasError=" + hasError + ")";
+    return "ResolvedTargets(" + targets + ", filtered=" + filteredTargets
+        + ", hasError=" + hasError + ")";
   }
 
   public boolean hasError() {

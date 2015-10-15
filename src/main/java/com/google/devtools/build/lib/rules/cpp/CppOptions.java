@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -47,12 +48,12 @@ import java.util.Set;
  * Command-line options for C++.
  */
 public class CppOptions extends FragmentOptions {
-  /**
-   * Label of a filegroup that contains all crosstool files for all configurations.
-   */
-  @VisibleForTesting
-  public static final String DEFAULT_CROSSTOOL_TARGET = "//tools/cpp:toolchain";
-
+  /** Custom converter for {@code --crosstool_top}. */
+  public static class CrosstoolTopConverter extends DefaultLabelConverter {
+    public CrosstoolTopConverter() {
+      super(Constants.TOOLS_REPOSITORY + "//tools/cpp:toolchain");
+    }
+  }
 
   /**
    * Converter for --cwarn flag
@@ -170,9 +171,9 @@ public class CppOptions extends FragmentOptions {
   public boolean lipoCollector;
 
   @Option(name = "crosstool_top",
-          defaultValue = CppOptions.DEFAULT_CROSSTOOL_TARGET,
+          defaultValue = "",
           category = "version",
-          converter = LabelConverter.class,
+          converter = CrosstoolTopConverter.class,
           help = "The label of the crosstool package to be used for compiling C++ code.")
   public Label crosstoolTop;
 
