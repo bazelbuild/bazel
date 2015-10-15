@@ -26,9 +26,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.LocalResourceContainer.Builder.InvalidAssetPath;
@@ -48,7 +45,7 @@ public final class ApplicationManifest {
       throw new RuleConfigurationException();
     }
     return new ApplicationManifest(Iterables.getOnlyElement(
-        resources.getTransitiveAndroidResources())
+        resources.getDirectAndroidResources())
         .getManifest());
   }
 
@@ -91,7 +88,7 @@ public final class ApplicationManifest {
     AndroidResourcesProvider resourcesProvider = AndroidCommon.getAndroidResources(ruleContext);
     if (resourcesProvider != null) {
       ResourceContainer resourceContainer = Iterables.getOnlyElement(
-          resourcesProvider.getTransitiveAndroidResources());
+          resourcesProvider.getDirectAndroidResources());
       return resourceContainer.getRenameManifestPackage();
     } else {
       return null;
@@ -168,9 +165,10 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest mergeWith(RuleContext ruleContext,
-      Iterable<ResourceContainer> resourceContainers) {
-    if (!Iterables.isEmpty(getMergeeManifests(resourceContainers))) {
-      Iterable<Artifact> exportedManifests = getMergeeManifests(resourceContainers);
+      ResourceDependencies resourceDeps) {
+    Iterable<Artifact> mergeeManifests = getMergeeManifests(resourceDeps.getResources()); 
+    if (!Iterables.isEmpty(mergeeManifests)) {
+      Iterable<Artifact> exportedManifests = mergeeManifests;
       Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
           ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
           ruleContext.getBinOrGenfilesDirectory());
@@ -198,7 +196,7 @@ public final class ApplicationManifest {
   public ResourceApk packWithAssets(
       Artifact resourceApk,
       RuleContext ruleContext,
-      NestedSet<ResourceContainer> resourceContainers,
+      ResourceDependencies resourceDeps,
       Artifact rTxt,
       boolean incremental,
       Artifact proguardCfg) throws InterruptedException {
@@ -214,7 +212,7 @@ public final class ApplicationManifest {
 
       return createApk(resourceApk,
           ruleContext,
-          resourceContainers,
+          resourceDeps,
           rTxt,
           null, /* configurationFilters */
           ImmutableList.<String>of(), /* uncompressedExtensions */
@@ -237,7 +235,7 @@ public final class ApplicationManifest {
   public ResourceApk packWithDataAndResources(
       Artifact resourceApk,
       RuleContext ruleContext,
-      NestedSet<ResourceContainer> resourceContainers,
+      ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbolsTxt,
       List<String> configurationFilters,
@@ -264,7 +262,7 @@ public final class ApplicationManifest {
 
       return createApk(resourceApk,
           ruleContext,
-          resourceContainers,
+          resourceDeps,
           rTxt,
           symbolsTxt,
           configurationFilters,
@@ -287,7 +285,7 @@ public final class ApplicationManifest {
 
   private ResourceApk createApk(Artifact resourceApk,
       RuleContext ruleContext,
-      NestedSet<ResourceContainer> resourceContainers,
+      ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbolsTxt,
       List<String> configurationFilters,
@@ -305,7 +303,10 @@ public final class ApplicationManifest {
             .withROutput(rTxt)
             .withSymbolsFile(symbolsTxt)
             .buildFromRule(ruleContext, resourceApk),
-        resourceContainers,
+        resourceDeps.getResources(),  // TODO(bazel-team): Figure out if we really need to check
+        // the ENTIRE transitive closure, or just the direct dependencies. Given that each rule with
+        // resources would check for inline resources, we can rely on the previous rule to have
+        // checked its dependencies.
         ruleContext);
 
     AndroidResourcesProcessorBuilder builder =
@@ -316,7 +317,7 @@ public final class ApplicationManifest {
             .setJavaPackage(resourceContainer.getJavaPackage())
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
             .withPrimary(resourceContainer)
-            .withDependencies(resourceContainers)
+            .withDependencies(resourceDeps)
             .setDensities(densities)
             .setProguardOut(proguardCfg)
             .setApplicationId(applicationId)
@@ -331,16 +332,9 @@ public final class ApplicationManifest {
     }
 
     ResourceContainer processed = builder.build(ruleContext);
-    NestedSet<ResourceContainer> transitiveResources =
-        NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
-            // TODO(bazel-team): If this is replaced with .addTransitive(), a few tests fail.
-            // Investigate.
-            .addAll(resourceContainers)
-            .add(processed)
-            .build();
 
     return new ResourceApk(
-        resourceApk, processed.getJavaSourceJar(), transitiveResources, processed, manifest,
+        resourceApk, processed.getJavaSourceJar(), resourceDeps, processed, manifest,
         proguardCfg, false);
   }
 
@@ -363,15 +357,7 @@ public final class ApplicationManifest {
   /** Uses the resource apk from the resources attribute, as opposed to recompiling. */
   public ResourceApk useCurrentResources(RuleContext ruleContext, Artifact proguardCfg) {
     ResourceContainer resourceContainer = Iterables.getOnlyElement(
-        AndroidCommon.getAndroidResources(ruleContext).getTransitiveAndroidResources());
-    NestedSet<ResourceContainer> resourceContainers =
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-
-    NestedSet<ResourceContainer> transitiveResources =
-        NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
-            .addAll(resourceContainers)
-            .add(resourceContainer)
-            .build();
+        AndroidCommon.getAndroidResources(ruleContext).getDirectAndroidResources());
 
     new AndroidAaptActionHelper(
         ruleContext,
@@ -381,7 +367,7 @@ public final class ApplicationManifest {
     return new ResourceApk(
         resourceContainer.getApk(),
         null /* javaSrcJar */,
-        transitiveResources,
+        ResourceDependencies.empty(),
         resourceContainer,
         manifest,
         proguardCfg,
@@ -398,7 +384,7 @@ public final class ApplicationManifest {
   public ResourceApk packWithResources(
       Artifact resourceApk,
       RuleContext ruleContext,
-      NestedSet<ResourceContainer> resourceContainers,
+      ResourceDependencies resourceDeps,
       boolean createSource,
       Artifact proguardCfg) throws InterruptedException {
 
@@ -406,10 +392,15 @@ public final class ApplicationManifest {
         ruleContext.getPrerequisite("resources", Mode.TARGET);
     ResourceContainer resourceContainer = Iterables.getOnlyElement(
         resourcesPrerequisite.getProvider(AndroidResourcesProvider.class)
-            .getTransitiveAndroidResources());
+        .getDirectAndroidResources());
+    // It's ugly, but flattening now is more performant given the rest of the checks.
+    List<ResourceContainer> resourceContainers =
+        ImmutableList.<ResourceContainer>builder()
+        //.add(resourceContainer)
+        .addAll(resourceDeps.getResources()).build();
 
     // Dealing with Android library projects
-    if (Iterables.size(resourceContainers) > 1) {
+    if (Iterables.size(resourceDeps.getResources()) > 1) {
       if (resourceContainer.getConstantsInlined()
           && !resourceContainer.getArtifacts(ResourceType.RESOURCES).isEmpty()) {
         ruleContext.ruleError("This android_binary depends on an android_library, so the"
@@ -470,7 +461,7 @@ public final class ApplicationManifest {
     aaptActionHelper.createGenerateProguardAction(proguardCfg);
 
     return new ResourceApk(resourceApk, updatedResources.getJavaSourceJar(),
-        resourceContainers, updatedResources, manifest, proguardCfg, true);
+        resourceDeps, updatedResources, manifest, proguardCfg, true);
   }
 
   public Artifact getManifest() {

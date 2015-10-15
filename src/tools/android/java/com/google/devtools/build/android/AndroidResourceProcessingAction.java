@@ -137,11 +137,21 @@ public class AndroidResourceProcessingAction {
         defaultValue = "",
         converter = DependencyAndroidDataListConverter.class,
         category = "input",
-        help = "Additional Data dependencies. These values will be used if not defined in the "
+        help = "Transitive Data dependencies. These values will be used if not defined in the "
             + "primary resources. The expected format is "
-            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.txt"
-            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.txt]")
-    public List<DependencyAndroidData> data;
+            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
+            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+    public List<DependencyAndroidData> transitiveData;
+
+    @Option(name = "directData",
+        defaultValue = "",
+        converter = DependencyAndroidDataListConverter.class,
+        category = "input",
+        help = "Direct Data dependencies. These values will be used if not defined in the "
+            + "primary resources. The expected format is "
+            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
+            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+    public List<DependencyAndroidData> directData;
 
     @Option(name = "rOutput",
         defaultValue = "null",
@@ -298,11 +308,15 @@ public class AndroidResourceProcessingAction {
           new PackedResourceTarExpander(expandedOut, working),
           new FileDeDuplicator(Hashing.murmur3_128(), deduplicatedOut, working));
 
+      List<DependencyAndroidData> data = ImmutableList.<DependencyAndroidData>builder()
+          .addAll(options.directData)
+          .addAll(options.transitiveData)
+          .build();
       final AndroidBuilder builder = sdkTools.createAndroidBuilder();
 
       final MergedAndroidData mergedData = resourceProcessor.mergeData(
           options.primaryData,
-          options.data,
+          data,
           mergedResources,
           mergedAssets,
           modifiers,
@@ -329,7 +343,7 @@ public class AndroidResourceProcessingAction {
           options.versionCode,
           options.versionName,
           filteredData,
-          options.data,
+          data,
           working.resolve("manifest"),
           generatedSources,
           options.packagePath,
