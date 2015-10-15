@@ -132,15 +132,17 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
           .setName(rule.getLabel().toString())
           .setRuleClass(rule.getRuleClass())
           .setLocation(location);
-
       for (Attribute attr : rule.getAttributes()) {
-        if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)) {
+        if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)
+            || !includeAttribute(attr)) {
           continue;
         }
         rulePb.addAttribute(PackageSerializer.getAttributeProto(attr,
             PackageSerializer.getAttributeValues(rule, attr),
             rule.isAttributeValueExplicitlySpecified(attr)));
       }
+
+      postProcess(rule, rulePb);
 
       Environment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
       if (env != null) {
@@ -278,5 +280,13 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
     }
 
     return targetPb.build();
+  }
+
+  /** Further customize the proto output */
+  protected void postProcess(Rule rule, Build.Rule.Builder rulePb) { }
+
+  /** Filter out some attributes */
+  protected boolean includeAttribute(Attribute attr) {
+    return true;
   }
 }

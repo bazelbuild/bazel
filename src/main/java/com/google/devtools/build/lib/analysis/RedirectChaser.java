@@ -92,6 +92,7 @@ public final class RedirectChaser {
           return label;
         }
 
+        newLabel = label.resolveRepositoryRelative(newLabel);
         label = newLabel;
         if (!visitedLabels.add(label)) {
           throw new InvalidConfigurationException("The " + name + " points to a filegroup which "

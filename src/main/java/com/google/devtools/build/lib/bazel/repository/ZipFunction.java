@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -73,8 +72,7 @@ public class ZipFunction implements SkyFunction {
         if (entryPath.skip()) {
           continue;
         }
-        entry.setName(entryPath.getPathFragment().getPathString());
-        extractZipEntry(reader, entry, destinationDirectory);
+        extractZipEntry(reader, entry, destinationDirectory, entryPath.getPathFragment());
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException(
@@ -92,16 +90,19 @@ public class ZipFunction implements SkyFunction {
     return new DecompressorValue(destinationDirectory);
   }
 
-  private void extractZipEntry(ZipReader reader, ZipFileEntry entry, Path destinationDirectory)
+  private void extractZipEntry(
+      ZipReader reader,
+      ZipFileEntry entry,
+      Path destinationDirectory,
+      PathFragment strippedRelativePath)
       throws IOException {
-    String relativeString = entry.getName();
-    PathFragment relativePath = new PathFragment(relativeString);
-    if (relativePath.isAbsolute()) {
+    if (strippedRelativePath.isAbsolute()) {
       throw new IOException(
-          String.format("Failed to extract %s, zipped paths cannot be absolute", relativePath));
+          String.format(
+              "Failed to extract %s, zipped paths cannot be absolute", strippedRelativePath));
     }
-    Path outputPath = destinationDirectory.getRelative(relativePath);
-    int permissions = getPermissions(entry.getExternalAttributes(), relativeString);
+    Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
+    int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
     FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
     boolean isDirectory = (permissions & 040000) == 040000;
     if (isDirectory) {

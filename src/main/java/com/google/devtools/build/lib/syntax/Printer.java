@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -41,17 +40,17 @@ public final class Printer {
   private static final char SKYLARK_QUOTATION_MARK = '"';
 
   /*
-   * Maximum number of list elements that should be printed via printList().
+   * Suggested maximum number of list elements that should be printed via printList().
+   * By default, this setting is not considered and no limitation takes place.
    */
-  @VisibleForTesting
-  static final int CRITICAL_LIST_ELEMENTS_COUNT = 10;
+  static final int SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT = 4;
 
   /*
-   * printList() will start to shorten the values of list elements when their string length reaches
-   * this value.
+   * Suggested limit for printList() to shorten the values of list elements when their combined
+   * string length reaches this value.
+   * By default, this setting is not considered and no limitation takes place.
    */
-  @VisibleForTesting
-  static final int CRITICAL_LIST_ELEMENTS_STRING_LENGTH = 128;
+  static final int SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH = 32;
 
   private Printer() {
   }
@@ -275,20 +274,81 @@ public final class Printer {
       String after,
       String singletonTerminator,
       char quotationMark) {
-    return printList(buffer, list, before, separator, after, singletonTerminator, quotationMark,
-        CRITICAL_LIST_ELEMENTS_COUNT, CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
+    return printList(
+        buffer, list, before, separator, after, singletonTerminator, quotationMark, -1, -1);
   }
 
-  private static Appendable printList(
-      Appendable buffer,
-      Iterable<?> list,
-      String before,
-      String separator,
-      String after,
-      String singletonTerminator,
-      char quotationMark,
-      int maxItemsToPrint,
+  /**
+   * Print a list of object representations.
+   *
+   * <p>The length of the output will be limited when both {@code maxItemsToPrint} and {@code
+   * criticalItemsStringLength} have values greater than zero.
+   *
+   * @param buffer an appendable buffer onto which to write the list.
+   * @param list the list of objects to write (each as with repr)
+   * @param before a string to print before the list
+   * @param separator a separator to print between each object
+   * @param after a string to print after the list
+   * @param singletonTerminator null or a string to print after the list if it is a singleton
+   * The singleton case is notably relied upon in python syntax to distinguish
+   *    a tuple of size one such as ("foo",) from a merely parenthesized object such as ("foo").
+   * @param quotationMark The quotation mark to be used (' or ")
+   * @param maxItemsToPrint the maximum number of elements to be printed.
+   * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
+   *    'Soft' means that this limit may be exceeded because of formatting.
+   * @return the Appendable, in fluent style.
+   */
+  public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
+      String separator, String after, String singletonTerminator, char quotationMark,
+      int maxItemsToPrint, int criticalItemsStringLength) {
+    append(buffer, before);
+    int len = 0;
+    // Limits the total length of the string representation of the elements, if specified.
+    if (maxItemsToPrint > 0 && criticalItemsStringLength > 0) {
+      len = appendListElements(LengthLimitedAppendable.create(buffer, criticalItemsStringLength),
+          list, separator, quotationMark, maxItemsToPrint);
+    } else {
+      len = appendListElements(buffer, list, separator, quotationMark);
+    }
+    if (singletonTerminator != null && len == 1) {
+      append(buffer, singletonTerminator);
+    }
+    return append(buffer, after);
+  }
+
+  public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
+      String separator, String after, String singletonTerminator, int maxItemsToPrint,
       int criticalItemsStringLength) {
+    return printList(buffer, list, before, separator, after, singletonTerminator,
+        SKYLARK_QUOTATION_MARK, maxItemsToPrint, criticalItemsStringLength);
+  }
+
+  /**
+   * Appends the given elements to the specified {@link Appendable} and returns the number of
+   * elements.
+   */
+  private static int appendListElements(
+      Appendable appendable, Iterable<?> list, String separator, char quotationMark) {
+    boolean printSeparator = false; // don't print the separator before the first element
+    int len = 0;
+    for (Object o : list) {
+      if (printSeparator) {
+        append(appendable, separator);
+      }
+      write(appendable, o, quotationMark);
+      printSeparator = true;
+      len++;
+    }
+    return len;
+  }
+
+  /**
+   * Tries to append the given elements to the specified {@link Appendable} until specific limits
+   * are reached.
+   * @return the number of appended elements.
+   */
+  private static int appendListElements(LengthLimitedAppendable appendable, Iterable<?> list,
+      String separator, char quotationMark, int maxItemsToPrint) {
     boolean printSeparator = false; // don't print the separator before the first element
     boolean skipArgs = false;
     int items = Iterables.size(list);
@@ -296,10 +356,6 @@ public final class Printer {
     // We don't want to print "1 more arguments", hence we don't skip arguments if there is only one
     // above the limit.
     int itemsToPrint = (items - maxItemsToPrint == 1) ? items : maxItemsToPrint;
-
-    LengthLimitedAppendable appendable =
-        LengthLimitedAppendable.create(buffer, criticalItemsStringLength);
-    append(appendable, before);
     appendable.enforceLimit();
     for (Object o : list) {
       // We don't want to print "1 more arguments", even if we hit the string limit.
@@ -319,10 +375,7 @@ public final class Printer {
       append(appendable, separator);
       append(appendable, String.format("<%d more arguments>", items - len));
     }
-    if (singletonTerminator != null && len == 1) {
-      append(appendable, singletonTerminator);
-    }
-    return append(appendable, after);
+    return len;
   }
 
   public static Appendable printList(Appendable buffer, Iterable<?> list, String before,
@@ -337,15 +390,25 @@ public final class Printer {
    * @param list the contents of the list or tuple
    * @param isTuple is it a tuple or a list?
    * @param quotationMark The quotation mark to be used (' or ")
+   * @param maxItemsToPrint the maximum number of elements to be printed.
+   * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
+   * 'Soft' means that this limit may be exceeded because of formatting.
    * @return the Appendable, in fluent style.
    */
+  public static Appendable printList(Appendable buffer, Iterable<?> list, boolean isTuple,
+      char quotationMark, int maxItemsToPrint, int criticalItemsStringLength) {
+    if (isTuple) {
+      return printList(buffer, list, "(", ", ", ")", ",", quotationMark, maxItemsToPrint,
+          criticalItemsStringLength);
+    } else {
+      return printList(buffer, list, "[", ", ", "]", null, quotationMark, maxItemsToPrint,
+          criticalItemsStringLength);
+    }
+  }
+
   public static Appendable printList(
       Appendable buffer, Iterable<?> list, boolean isTuple, char quotationMark) {
-    if (isTuple) {
-      return printList(buffer, list, "(", ", ", ")", ",", quotationMark);
-    } else {
-      return printList(buffer, list, "[", ", ", "]", null, quotationMark);
-    }
+    return printList(buffer, list, isTuple, quotationMark, -1, -1);
   }
 
   /**

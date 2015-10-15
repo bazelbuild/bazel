@@ -153,10 +153,10 @@ function create_release_notes() {
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
 function create_revision_information() {
-  echo "Baseline: $1"
+  echo "Baseline: $(git rev-parse --short "${1}")"
   shift
   while [ -n "${1-}" ]; do
-    local hash="$1"
+    local hash="$(git rev-parse --short "${1}")"
     local subject=$(git show -s --pretty=format:%s $hash)
     local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
     echo "   + $hash: $lines" | head -1

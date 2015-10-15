@@ -15,6 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
+import java.util.Map;
+
 /**
  * Interface between a single version of the graph and the evaluator. Supports mutation of that
  * single version of the graph.
@@ -22,8 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 @ThreadSafe
 interface EvaluableGraph extends QueryableGraph {
   /**
-   * Creates a new node with the specified key if it does not exist yet. Returns the node entry
-   * (either the existing one or the one just created), never {@code null}.
+   * Like {@link QueryableGraph#getBatch}, except it creates a new node for each key not already
+   * present in the graph. Thus, the returned map will have an entry for each key in {@code keys}.
    */
-  NodeEntry createIfAbsent(SkyKey key);
+  Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys);
 }

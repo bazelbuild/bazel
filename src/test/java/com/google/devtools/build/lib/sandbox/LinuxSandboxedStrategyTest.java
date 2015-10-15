@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -227,7 +228,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
   }
 
   @Test
-  public void testParseManifestFile() throws IOException {
+  public void testParseManifestFile() throws IOException, UserExecException {
     Path targetDir = workspaceDir.getRelative("runfiles");
     targetDir.createDirectory();
 
@@ -240,9 +241,8 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
         Charset.defaultCharset(),
         String.format("x/testfile %s\nx/emptyfile \n", testFile.getPathString()));
 
-    MountMap<Path, Path> mounts =
-        LinuxSandboxedStrategy.parseManifestFile(
-            targetDir, manifestFile.getPathFile());
+    Map mounts =
+        LinuxSandboxedStrategy.parseManifestFile(targetDir, manifestFile.getPathFile(), false, "");
 
     assertThat(userFriendlyMap(mounts))
         .isEqualTo(
@@ -255,62 +255,25 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
   }
 
   @Test
-  public void testMountMapWithNormalMounts() throws IOException {
-    // Allowed: Just two normal mounts (a -> sandbox/a, b -> sandbox/b)
-    MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
-    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("b"));
-    assertThat(mounts)
+  public void testParseFilesetManifestFile() throws IOException, UserExecException {
+    Path targetDir = workspaceDir.getRelative("fileset");
+    targetDir.createDirectory();
+
+    Path testFile = workspaceDir.getRelative("testfile");
+    FileSystemUtils.createEmptyFile(testFile);
+
+    Path manifestFile = workspaceDir.getRelative("MANIFEST");
+    FileSystemUtils.writeContent(
+        manifestFile,
+        Charset.defaultCharset(),
+        String.format("workspace/x/testfile %s\n0\n", testFile.getPathString()));
+
+    Map mounts =
+        LinuxSandboxedStrategy.parseManifestFile(
+            targetDir, manifestFile.getPathFile(), true, "workspace");
+
+    assertThat(userFriendlyMap(mounts))
         .isEqualTo(
-            ImmutableMap.of(
-                fileSystem.getPath("/a"), workspaceDir.getRelative("a"),
-                fileSystem.getPath("/b"), workspaceDir.getRelative("b")));
+            userFriendlyMap(ImmutableMap.of(fileSystem.getPath("/fileset/x/testfile"), testFile)));
   }
-
-  @Test
-  public void testMountMapWithSameMountTwice() throws IOException {
-    // Allowed: Mount same thing twice (a -> sandbox/a, a -> sandbox/a, b -> sandbox/b)
-    MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
-    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("a"));
-    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("b"));
-    assertThat(mounts)
-        .isEqualTo(
-            ImmutableMap.of(
-                fileSystem.getPath("/a"), workspaceDir.getRelative("a"),
-                fileSystem.getPath("/b"), workspaceDir.getRelative("b")));
-  }
-
-  @Test
-  public void testMountMapWithOneThingTwoTargets() throws IOException {
-    // Allowed: Mount one thing in two targets (x -> sandbox/a, x -> sandbox/b)
-    MountMap<Path, Path> mounts = new MountMap<>();
-    mounts.put(fileSystem.getPath("/a"), workspaceDir.getRelative("x"));
-    mounts.put(fileSystem.getPath("/b"), workspaceDir.getRelative("x"));
-    assertThat(mounts)
-        .isEqualTo(
-            ImmutableMap.of(
-                fileSystem.getPath("/a"), workspaceDir.getRelative("x"),
-                fileSystem.getPath("/b"), workspaceDir.getRelative("x")));
-  }
-
-  @Test
-  public void testMountMapWithTwoThingsOneTarget() throws IOException {
-    // Forbidden: Mount two things onto the same target (x -> sandbox/a, y -> sandbox/a)
-    try {
-      MountMap<Path, Path> mounts = new MountMap<>();
-      mounts.put(fileSystem.getPath("/x"), workspaceDir.getRelative("a"));
-      mounts.put(fileSystem.getPath("/x"), workspaceDir.getRelative("b"));
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e)
-          .hasMessage(
-              String.format(
-                  "Cannot mount both '%s' and '%s' onto '%s'",
-                  workspaceDir.getRelative("a"),
-                  workspaceDir.getRelative("b"),
-                  fileSystem.getPath("/x")));
-    }
-  }
-
 }

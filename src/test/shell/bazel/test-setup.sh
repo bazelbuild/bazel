@@ -126,11 +126,6 @@ sh_binary(
 )
 
 sh_binary(
-    name = "proguard_whitelister",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
     name = "build_incremental_dexmanifest",
     srcs = ["fail.sh"],
 )
@@ -313,6 +308,18 @@ filegroup(
 EOF
 }
 
+function setup_iossim() {
+  mkdir -p third_party/iossim
+  ln -sv ${iossim_path} third_party/iossim/iossim
+
+  cat <<EOF >>third_party/iossim/BUILD
+licenses(["unencumbered"])
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["iossim"])
+EOF
+}
+
 # Sets up Objective-C tools. Mac only.
 function setup_objc_test_support() {
   mkdir -p tools/objc
@@ -327,15 +334,9 @@ function setup_objc_test_support() {
   [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
   [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
 
-  mkdir -p third_party/iossim
-  [ -e third_party/iossim/iossim ] || ln -sv ${iossim_path} third_party/iossim/iossim
+  [ -e third_party/iossim/iossim ] || setup_iossim
 
-  cat <<EOF >>third_party/iossim/BUILD
-licenses(["unencumbered"])
-package(default_visibility = ["//visibility:public"])
-
-exports_files(["iossim"])
-EOF
+  IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
 workspaces=()

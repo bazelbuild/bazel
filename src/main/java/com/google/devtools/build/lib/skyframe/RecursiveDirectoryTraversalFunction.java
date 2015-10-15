@@ -130,11 +130,6 @@ abstract class RecursiveDirectoryTraversalFunction
       return getEmptyReturn();
     }
 
-    if (fileValue.isSymlink()) {
-      // We do not follow directory symlinks. It prevents symlink loops.
-      return getEmptyReturn();
-    }
-
     PackageIdentifier packageId = PackageIdentifier.create(
         recursivePkgKey.getRepository(), rootRelativePath);
     PackageLookupValue pkgLookupValue;
@@ -213,8 +208,15 @@ abstract class RecursiveDirectoryTraversalFunction
 
     List<SkyKey> childDeps = Lists.newArrayList();
     for (Dirent dirent : dirValue.getDirents()) {
-      if (dirent.getType() != Type.DIRECTORY) {
-        // Non-directories can never host packages, and we do not follow symlinks (see above).
+      if (dirent.getType() != Type.DIRECTORY && dirent.getType() != Type.SYMLINK) {
+        // Non-directories can never host packages. Symlinks to non-directories are weeded out at
+        // the next level of recursion when we check if its FileValue is a directory. This is slower
+        // if there are a lot of symlinks in the tree, but faster if there are only a few, which is
+        // the case most of the time.
+        //
+        // We are not afraid of weird symlink structure here: cyclical ones are diagnosed by
+        // FileValue and ones that give rise to infinite directory trees work just like they do with
+        // globbing: they work until a certain level of nesting, after which they fail.
         continue;
       }
       String basename = dirent.getName();

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.devtools.build.lib.bazel.repository.HttpDownloader.getHash;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -143,19 +142,19 @@ public class BazelRepositoryModule extends BlazeModule {
   private static final SkyValueDirtinessChecker HTTP_DOWNLOAD_CHECKER =
       new SkyValueDirtinessChecker() {
         @Override
-        @Nullable
-        public Optional<SkyValue> maybeCreateNewValue(SkyKey key,
-            TimestampGranularityMonitor tsgm) {
+        public boolean applies(SkyKey skyKey) {
+          return skyKey.functionName().equals(HttpDownloadFunction.NAME);
+        }
+
+        @Override
+        public SkyValue createNewValue(SkyKey key, TimestampGranularityMonitor tsgm) {
           throw new UnsupportedOperationException();
         }
 
         @Override
         @Nullable
-        public DirtyResult maybeCheck(
+        public DirtyResult check(
             SkyKey skyKey, SkyValue skyValue, TimestampGranularityMonitor tsgm) {
-          if (!skyKey.functionName().equals(HttpDownloadFunction.NAME)) {
-            return null;
-          }
           HttpDownloadValue httpDownloadValue = (HttpDownloadValue) skyValue;
           Path path = httpDownloadValue.getPath();
           try {

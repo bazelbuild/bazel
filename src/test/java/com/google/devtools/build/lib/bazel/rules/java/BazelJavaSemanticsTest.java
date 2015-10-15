@@ -31,14 +31,14 @@ public class BazelJavaSemanticsTest {
   public void testFindingResources() {
     BazelJavaSemantics semantics = BazelJavaSemantics.INSTANCE;
     assertEquals(PathFragment.EMPTY_FRAGMENT,
-        semantics.getJavaResourcePath(new PathFragment("x/y/src/main/resources")));
+        semantics.getDefaultJavaResourcePath(new PathFragment("x/y/src/main/resources")));
     assertEquals(new PathFragment("foo"),
-        semantics.getJavaResourcePath(new PathFragment("x/y/src/main/resources/foo")));
+        semantics.getDefaultJavaResourcePath(new PathFragment("x/y/src/main/resources/foo")));
     assertEquals(new PathFragment("foo"),
-        semantics.getJavaResourcePath(new PathFragment("java/x/y/src/main/resources/foo")));
+        semantics.getDefaultJavaResourcePath(new PathFragment("java/x/y/src/main/resources/foo")));
     assertEquals(new PathFragment("foo/java/bar"),
-        semantics.getJavaResourcePath(new PathFragment("java/foo/java/bar")));
+        semantics.getDefaultJavaResourcePath(new PathFragment("java/foo/java/bar")));
     assertEquals(new PathFragment("foo/java/bar"),
-        semantics.getJavaResourcePath(new PathFragment("javatests/foo/java/bar")));
+        semantics.getDefaultJavaResourcePath(new PathFragment("javatests/foo/java/bar")));
   }
 }

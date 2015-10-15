@@ -23,6 +23,10 @@ public class UserExecException extends ExecException {
   public UserExecException(String message) {
     super(message);
   }
+  
+  public UserExecException(Throwable cause) {
+    super(cause);
+  }
 
   public UserExecException(String message, boolean timedOut) {
     super(message, false, timedOut);

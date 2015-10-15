@@ -21,13 +21,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ThreadPoolExecutorParams;
+import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
@@ -80,10 +80,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       @Nullable EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
+      Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     super(/*concurrent=*/true,
-        /*corePoolSize=*/DEFAULT_THREAD_COUNT,
-        /*maxPoolSize=*/DEFAULT_THREAD_COUNT,
+        /*parallelism=*/DEFAULT_THREAD_COUNT,
         /*keepAliveTime=*/1,
         /*units=*/TimeUnit.SECONDS,
         /*failFastOnException=*/true,
@@ -298,7 +297,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
         EvaluationProgressReceiver invalidationReceiver,
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
-        Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
+        Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
       super(graph, invalidationReceiver, state, dirtyKeyTracker, executorFactory);
     }
 

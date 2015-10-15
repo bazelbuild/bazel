@@ -1,0 +1,492 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.runtime;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.AdditionalMatchers.find;
+import static org.mockito.AdditionalMatchers.not;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Matchers.contains;
+import static org.mockito.Mockito.when;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.InOrder;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+@RunWith(JUnit4.class)
+public class TestSummaryTest {
+
+  private static final String ANY_STRING = ".*?";
+  private static final String PATH = "package";
+  private static final String TARGET_NAME = "name";
+  private ConfiguredTarget stubTarget;
+  private static final List<Long> SMALL_TIMING = ImmutableList.of(1L, 2L, 3L, 4L);
+
+  private static final int CACHED = SMALL_TIMING.size();
+  private static final int NOT_CACHED = 0;
+
+  private FileSystem fs;
+  private TestSummary.Builder basicBuilder;
+
+  @Before
+  public void setUp() throws Exception {
+    fs = new InMemoryFileSystem(BlazeClock.instance());
+    stubTarget = stubTarget();
+    basicBuilder = getTemplateBuilder();
+  }
+
+  private TestSummary.Builder getTemplateBuilder() {
+    return TestSummary.newBuilder()
+        .setTarget(stubTarget)
+        .setStatus(BlazeTestStatus.PASSED)
+        .setNumCached(NOT_CACHED)
+        .setActionRan(true)
+        .setRanRemotely(false)
+        .setWasUnreportedWrongSize(false);
+  }
+
+  private List<Path> getPathList(String... names) {
+    List<Path> list = new ArrayList<>();
+    for (String name : names) {
+      list.add(fs.getPath(name));
+    }
+    return list;
+  }
+
+  @Test
+  public void testShouldProperlyTestLabels() throws Exception {
+    ConfiguredTarget target = target("somepath", "MyTarget");
+    String expectedString = ANY_STRING + "//somepath:MyTarget" + ANY_STRING;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summaryStatus = createTestSummary(target, BlazeTestStatus.PASSED, CACHED);
+    TestSummaryPrinter.print(summaryStatus, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testShouldPrintPassedStatus() throws Exception {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED + ANY_STRING;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, NOT_CACHED);
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testShouldPrintFailedStatus() throws Exception {
+    String expectedString = ANY_STRING + "ERROR" + ANY_STRING + BlazeTestStatus.FAILED + ANY_STRING;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.FAILED, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testShouldPrintCachedStatus() throws Exception {
+    String expectedString = ANY_STRING + "\\(cached" + ANY_STRING;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testPartialCachedStatus() throws Exception {
+    String expectedString = ANY_STRING + "\\(3/4 cached" + ANY_STRING;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, CACHED - 1);
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testIncompleteCached() throws Exception {
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.INCOMPLETE, CACHED - 1);
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    verify(terminalPrinter).print(not(contains("cached")));
+  }
+
+  @Test
+  public void testShouldPrintUncachedStatus() throws Exception {
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, NOT_CACHED);
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    verify(terminalPrinter).print(not(contains("cached")));
+  }
+
+  @Test
+  public void testNoTiming() throws Exception {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testBuilder() throws Exception {
+    // No need to copy if built twice in a row; no direct setters on the object.
+    TestSummary summary = basicBuilder.build();
+    TestSummary sameSummary = basicBuilder.build();
+    assertSame(summary, sameSummary);
+
+    basicBuilder.addTestTimes(ImmutableList.of(40L));
+
+    TestSummary summaryCopy = basicBuilder.build();
+    assertEquals(summary.getTarget(), summaryCopy.getTarget());
+    assertEquals(summary.getStatus(), summaryCopy.getStatus());
+    assertEquals(summary.numCached(), summaryCopy.numCached());
+    assertNotSame(summary, summaryCopy);
+    assertEquals(0, summary.totalRuns());
+    assertEquals(1, summaryCopy.totalRuns());
+
+    // Check that the builder can add a new warning to the copy,
+    // despite the immutability of the original.
+    basicBuilder.addTestTimes(ImmutableList.of(60L));
+
+    TestSummary fiftyCached = basicBuilder.setNumCached(50).build();
+    assertEquals(summary.getStatus(), fiftyCached.getStatus());
+    assertEquals(50, fiftyCached.numCached());
+    assertEquals(2, fiftyCached.totalRuns());
+
+    TestSummary sixtyCached = basicBuilder.setNumCached(60).build();
+    assertEquals(60, sixtyCached.numCached());
+    assertEquals(50, fiftyCached.numCached());
+
+    TestSummary failedCacheTemplate = TestSummary.newBuilderFromExisting(fiftyCached)
+        .setStatus(BlazeTestStatus.FAILED)
+        .build();
+    assertEquals(50, failedCacheTemplate.numCached());
+    assertEquals(BlazeTestStatus.FAILED, failedCacheTemplate.getStatus());
+  }
+
+  @Test
+  public void testSingleTime() throws Exception {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED + ANY_STRING +
+                            "in 3.4s";
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = basicBuilder.addTestTimes(ImmutableList.of(3412L)).build();
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testNoTime() throws Exception {
+    // The last part matches anything not containing "in".
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED + "(?!in)*";
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = basicBuilder.addTestTimes(ImmutableList.of(3412L)).build();
+    TestSummaryPrinter.print(summary, terminalPrinter, false, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testMultipleTimes() throws Exception {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED + ANY_STRING +
+                            "\n  Stats over 3 runs: max = 3.0s, min = 1.0s, " +
+                            "avg = 2.0s, dev = 0.8s";
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummary summary = basicBuilder
+        .addTestTimes(ImmutableList.of(1000L, 2000L, 3000L))
+        .build();
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testCoverageDataReferences() throws Exception {
+    List<Path> paths = getPathList("/cov1.dat", "/cov2.dat", "/cov3.dat", "/cov4.dat");
+    FileSystemUtils.writeContentAsLatin1(paths.get(1), "something");
+    FileSystemUtils.writeContentAsLatin1(paths.get(3), "");
+    FileSystemUtils.writeContentAsLatin1(paths.get(3), "something else");
+    TestSummary summary = basicBuilder.addCoverageFiles(paths).build();
+
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    verify(terminalPrinter).print(find(ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.PASSED));
+    verify(terminalPrinter).print(find("  /cov2.dat"));
+    verify(terminalPrinter).print(find("  /cov4.dat"));
+  }
+
+  @Test
+  public void testFlakyAttempts() throws Exception {
+    String expectedString = ANY_STRING + "WARNING" + ANY_STRING + BlazeTestStatus.FLAKY +
+        ANY_STRING + ", failed in 2 out of 3";
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = basicBuilder
+        .setStatus(BlazeTestStatus.FLAKY)
+        .addPassedLogs(getPathList("/a"))
+        .addFailedLogs(getPathList("/b", "/c"))
+        .build();
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testNumberOfFailedRuns() throws Exception {
+    String expectedString = ANY_STRING + "ERROR" + ANY_STRING + BlazeTestStatus.FAILED +
+    ANY_STRING + "in 2 out of 3";
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = basicBuilder
+        .setStatus(BlazeTestStatus.FAILED)
+        .addPassedLogs(getPathList("/a"))
+        .addFailedLogs(getPathList("/b", "/c"))
+        .build();
+    TestSummaryPrinter.print(summary, terminalPrinter, true, false);
+    terminalPrinter.print(find(expectedString));
+  }
+
+  @Test
+  public void testFileNamesNotShown() throws Exception {
+    List<TestCase> emptyDetails = ImmutableList.of();
+    TestSummary summary = basicBuilder
+        .setStatus(BlazeTestStatus.FAILED)
+        .addPassedLogs(getPathList("/apple"))
+        .addFailedLogs(getPathList("/pear"))
+        .addCoverageFiles(getPathList("/maracuja"))
+        .addFailedTestCases(emptyDetails, FailedTestCasesStatus.FULL)
+        .build();
+
+    // Check that only //package:name is printed.
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, true, true);
+    verify(printer).print(contains("//package:name"));
+  }
+
+  @Test
+  public void testMessageShownWhenTestCasesMissing() throws Exception {
+    ImmutableList<TestCase> emptyList = ImmutableList.of();
+    TestSummary summary = createTestSummaryWithDetails(
+        BlazeTestStatus.FAILED, emptyList, FailedTestCasesStatus.NOT_AVAILABLE);
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(contains("not available"));
+  }
+
+  @Test
+  public void testMessageShownForPartialResults() throws Exception {
+    ImmutableList<TestCase> testCases =
+        ImmutableList.of(newDetail("orange", TestCase.Status.FAILED, 1500L));
+    TestSummary summary = createTestSummaryWithDetails(BlazeTestStatus.FAILED, testCases,
+        FailedTestCasesStatus.PARTIAL);
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("FAILED.*orange"));
+    verify(printer).print(contains("incomplete"));
+  }
+
+  private TestCase newDetail(String name,  TestCase.Status status, long duration) {
+    return TestCase.newBuilder()
+        .setName(name)
+        .setStatus(status)
+        .setRunDurationMillis(duration).build();
+  }
+
+  @Test
+  public void testTestCaseNamesShownWhenNeeded() throws Exception {
+    TestCase detailPassed =
+        newDetail("strawberry", TestCase.Status.PASSED, 1000L);
+    TestCase detailFailed =
+        newDetail("orange", TestCase.Status.FAILED, 1500L);
+
+    TestSummary summaryPassed = createTestSummaryWithDetails(
+        BlazeTestStatus.PASSED, Arrays.asList(detailPassed));
+
+    TestSummary summaryFailed = createTestSummaryWithDetails(
+        BlazeTestStatus.FAILED, Arrays.asList(detailPassed, detailFailed));
+    assertEquals(BlazeTestStatus.FAILED, summaryFailed.getStatus());
+
+    AnsiTerminalPrinter printerPassed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryPassed, printerPassed, true, true);
+    verify(printerPassed).print(contains("//package:name"));
+
+    AnsiTerminalPrinter printerFailed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryFailed, printerFailed, true, true);
+    verify(printerFailed).print(contains("//package:name"));
+    verify(printerFailed).print(find("FAILED.*orange *\\(1\\.5"));
+  }
+
+  @Test
+  public void testTestCaseNamesOrdered() throws Exception {
+    TestCase[] details = {
+      newDetail("apple", TestCase.Status.FAILED, 1000L),
+      newDetail("banana", TestCase.Status.FAILED, 1000L),
+      newDetail("cranberry", TestCase.Status.FAILED, 1000L)
+    };
+
+    // The exceedingly dumb approach: writing all the permutations down manually
+    // is simply easier than any way of generating them.
+    int[][] permutations = {
+        { 0, 1, 2 },
+        { 0, 2, 1 },
+        { 1, 0, 2 },
+        { 1, 2, 0 },
+        { 2, 0, 1 },
+        { 2, 1, 0 }
+    };
+
+    for (int[] permutation : permutations) {
+      List<TestCase> permutatedDetails = new ArrayList<>();
+
+      for (int element : permutation) {
+        permutatedDetails.add(details[element]);
+      }
+
+      TestSummary summary = createTestSummaryWithDetails(BlazeTestStatus.FAILED, permutatedDetails);
+
+      // A mock that checks the ordering of method calls
+      AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+      TestSummaryPrinter.print(summary, printer, true, true);
+      InOrder order = Mockito.inOrder(printer);
+      order.verify(printer).print(contains("//package:name"));
+      order.verify(printer).print(find("FAILED.*apple"));
+      order.verify(printer).print(find("FAILED.*banana"));
+      order.verify(printer).print(find("FAILED.*cranberry"));
+    }
+  }
+
+  @Test
+  public void testCachedResultsFirstInSort() throws Exception {
+    TestSummary summaryFailedCached = createTestSummary(BlazeTestStatus.FAILED, CACHED);
+    TestSummary summaryFailedNotCached = createTestSummary(BlazeTestStatus.FAILED, NOT_CACHED);
+    TestSummary summaryPassedCached = createTestSummary(BlazeTestStatus.PASSED, CACHED);
+    TestSummary summaryPassedNotCached = createTestSummary(BlazeTestStatus.PASSED, NOT_CACHED);
+
+    // This way we can make the test independent from the sort order of FAILEd
+    // and PASSED.
+
+    assertTrue(summaryFailedCached.compareTo(summaryPassedNotCached) < 0);
+    assertTrue(summaryPassedCached.compareTo(summaryFailedNotCached) < 0);
+  }
+
+  @Test
+  public void testCollectingFailedDetails() throws Exception {
+    TestCase rootCase = TestCase.newBuilder()
+        .setName("tests")
+        .setRunDurationMillis(5000L)
+        .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+        .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+        .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+        .build();
+
+    TestSummary summary = getTemplateBuilder()
+        .collectFailedTests(rootCase)
+        .setStatus(BlazeTestStatus.FAILED)
+        .build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("FAILED.*apple"));
+    verify(printer).print(find("ERROR.*cherry"));
+  }
+
+  private ConfiguredTarget target(String path, String targetName) throws Exception {
+    ConfiguredTarget target = Mockito.mock(ConfiguredTarget.class);
+    when(target.getLabel()).thenReturn(Label.create(path, targetName));
+    return target;
+  }
+
+  private ConfiguredTarget stubTarget() throws Exception {
+    return target(PATH, TARGET_NAME);
+  }
+
+  private TestSummary createTestSummaryWithDetails(BlazeTestStatus status,
+      List<TestCase> details) {
+    TestSummary summary = getTemplateBuilder()
+        .setStatus(status)
+        .addFailedTestCases(details, FailedTestCasesStatus.FULL)
+        .build();
+    return summary;
+  }
+
+  private TestSummary createTestSummaryWithDetails(
+      BlazeTestStatus status, List<TestCase> testCaseList,
+      FailedTestCasesStatus detailsStatus) {
+    TestSummary summary = getTemplateBuilder()
+        .setStatus(status)
+        .addFailedTestCases(testCaseList, detailsStatus)
+        .build();
+    return summary;
+  }
+
+  private static TestSummary createTestSummary(ConfiguredTarget target, BlazeTestStatus status,
+                                               int numCached) {
+    ImmutableList<TestCase> emptyList = ImmutableList.of();
+    TestSummary summary = TestSummary.newBuilder()
+        .setTarget(target)
+        .setStatus(status)
+        .setNumCached(numCached)
+        .setActionRan(true)
+        .setRanRemotely(false)
+        .setWasUnreportedWrongSize(false)
+        .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
+        .addTestTimes(SMALL_TIMING)
+        .build();
+    return summary;
+  }
+
+  private TestSummary createTestSummary(BlazeTestStatus status, int numCached) {
+    TestSummary summary = getTemplateBuilder()
+        .setStatus(status)
+        .setNumCached(numCached)
+        .addTestTimes(SMALL_TIMING)
+        .build();
+    return summary;
+  }
+}

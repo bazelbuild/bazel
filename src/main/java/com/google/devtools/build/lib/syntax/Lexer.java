@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +77,7 @@ public final class Lexer {
   // bottom.
   private final Stack<Integer> indentStack = new Stack<>();
 
-  private final List<Token> tokens = new ArrayList<>();
+  private final List<Token> tokens;
 
   // The number of unclosed open-parens ("(", '{', '[') at the current point in
   // the stream. Whitespace is handled differently when this is nonzero.
@@ -94,6 +94,8 @@ public final class Lexer {
   public Lexer(ParserInputSource input, EventHandler eventHandler, boolean parsePython,
       LineNumberTable lineNumberTable) {
     this.buffer = input.getContent();
+    // Empirical measurements show roughly 1 token per 8 characters in buffer.
+    this.tokens = Lists.newArrayListWithExpectedSize(buffer.length / 8);
     this.pos = 0;
     this.parsePython = parsePython;
     this.eventHandler = eventHandler;

@@ -145,7 +145,7 @@ cc_library(
     name = "some_lib",
     srcs = ["some_lib.cc"],
     hdrs = ["some_lib.h"],
-    includes = ["."],
+    copts = ["-Ithird_party/some_lib"],
 )
 ```
 
@@ -176,9 +176,9 @@ more complicated:
   `gtest-1.7.0/src/`, so we need to exclude it from the compile or we'll get
   link errors for duplicate symbols.
 * It uses header files that relative to the `gtest-1.7.0/include/` directory
-  (`"gtest/gtest.h"`), so we must add that directory the includes.
-* It uses "private" header files in `src/`, so we add `.` to the includes so it
-  can `#include "src/gtest-internal-inl.h"`.
+  (`"gtest/gtest.h"`), so we must add that directory the include paths.
+* It uses "private" header files in `src/`, so we add that to the include pahs,
+  too, so it can `#include "src/gtest-internal-inl.h"`.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
 The final rule looks like this:
@@ -191,9 +191,9 @@ cc_library(
         exclude = ["gtest-1.7.0/src/gtest-all.cc"]
     ),
     hdrs = glob(["gtest-1.7.0/include/**/*.h"]),
-    includes = [
-        "gtest-1.7.0",
-        "gtest-1.7.0/include"
+    copts = [
+        "-Iexternal/gtest/gtest-1.7.0",
+        "-Iexternal/gtest/gtest-1.7.0/include"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -224,9 +224,9 @@ cc_library(
         exclude = ["src/gtest-all.cc"]
     ),
     hdrs = glob(["include/**/*.h"]),
-    includes = [
-        ".",
-        "include"
+    copts = [
+        "-Iexternal/gtest",
+        "-Iexternal/gtest/include"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -251,6 +251,7 @@ Then create a BUILD file for your tests:
 cc_test(
     name = "my_test",
     srcs = ["my_test.cc"],
+    copts = ["-Iexternal/gtest"],
     deps = ["@gtest//:main"],
 )
 ```

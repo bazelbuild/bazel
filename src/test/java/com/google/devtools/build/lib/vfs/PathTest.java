@@ -291,6 +291,14 @@ public class PathTest {
       assertTrue(p2.startsWith(dsP1));
       assertTrue(dsP2.startsWith(p1));
       assertTrue(dsP2.startsWith(dsP1));
+
+      // Regression test for a very specific bug in compareTo involving our incorrect usage of
+      // reference equality rather than logical equality.
+      String relativePathStringA = "child/grandchildA";
+      String relativePathStringB = "child/grandchildB";
+      assertEquals(
+          p1.getRelative(relativePathStringA).compareTo(p1.getRelative(relativePathStringB)),
+          p1.getRelative(relativePathStringA).compareTo(dsP1.getRelative(relativePathStringB)));
     } finally {
       Path.setFileSystemForSerialization(oldFileSystem);
     }

@@ -1142,6 +1142,41 @@ struct TypeAnnotationsAttribute : Attribute {
   std::vector<TypeAnnotation*> type_annotations_;
 };
 
+// See JVMS §4.7.24
+struct MethodParametersAttribute : Attribute {
+  static MethodParametersAttribute *Read(const u1 *&p, Constant *attribute_name,
+                                         u4 attribute_length) {
+    auto attr = new MethodParametersAttribute;
+    attr->attribute_name_ = attribute_name;
+    u1 parameters_count = get_u1(p);
+    for (int ii = 0; ii < parameters_count; ++ii) {
+      MethodParameter* parameter = new MethodParameter;
+      parameter->name_ = constant(get_u2be(p));
+      parameter->access_flags_ = get_u2be(p);
+      attr->parameters_.push_back(parameter);
+    }
+    return attr;
+  }
+
+  void Write(u1 *&p) {
+    WriteProlog(p, -1);
+    u1 *payload_start = p - 4;
+    put_u1(p, parameters_.size());
+    for (MethodParameter* parameter : parameters_) {
+      put_u2be(p, parameter->name_->slot());
+      put_u2be(p, parameter->access_flags_);
+    }
+    put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
+  }
+
+  struct MethodParameter {
+    Constant *name_;
+    u2 access_flags_;
+  };
+
+  std::vector<MethodParameter*> parameters_;
+};
+
 struct GeneralAttribute : Attribute {
   static GeneralAttribute* Read(const u1 *&p, Constant *attribute_name,
                                 u4 attribute_length) {
@@ -1344,10 +1379,11 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
                                                   attribute_length));
     } else if (attr_name == "RuntimeVisibleTypeAnnotations" ||
                attr_name == "RuntimeInvisibleTypeAnnotations") {
-      // JSR 308: annotations on types. JDK 7 has no use for these yet, but the
-      // Checkers Framework relies on them.
       attributes.push_back(TypeAnnotationsAttribute::Read(p, attribute_name,
                                                           attribute_length));
+    } else if (attr_name == "MethodParameters") {
+      attributes.push_back(
+          MethodParametersAttribute::Read(p, attribute_name, attribute_length));
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.

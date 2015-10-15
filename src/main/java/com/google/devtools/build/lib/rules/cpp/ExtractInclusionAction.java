@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 
@@ -83,6 +84,8 @@ final class ExtractInclusionAction extends AbstractAction {
           getPrimaryOutput());
     } catch (IOException e) {
       throw new ActionExecutionException(e, this, false);
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(this);
     }
   }
 }

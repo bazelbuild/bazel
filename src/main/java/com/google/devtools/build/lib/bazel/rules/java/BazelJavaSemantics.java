@@ -295,7 +295,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public PathFragment getJavaResourcePath(PathFragment path) {
+  public PathFragment getDefaultJavaResourcePath(PathFragment path) {
     // Look for src/.../resources to match Maven repository structure.
     for (int i = 0; i < path.segmentCount() - 2; ++i) {
       if (path.getSegment(i).equals("src") && path.getSegment(i + 2).equals("resources")) {

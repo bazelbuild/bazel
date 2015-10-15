@@ -1,52 +1,9 @@
-# For src/tools/dash support.
-
-new_http_archive(
-    name = "appengine-java",
-    url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
-    sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
-    build_file = "tools/build_rules/appengine/appengine.BUILD",
-)
-
-bind(
-    name = "appengine/java/sdk",
-    actual = "@appengine-java//:sdk",
-)
-
-bind(
-    name = "appengine/java/api",
-    actual = "@appengine-java//:api",
-)
-
-bind(
-    name = "appengine/java/jars",
-    actual = "@appengine-java//:jars",
-)
-
-maven_jar(
-    name = "javax-servlet-api",
-    artifact = "javax.servlet:servlet-api:2.5",
-)
-
-maven_jar(
-    name = "commons-lang",
-    artifact = "commons-lang:commons-lang:2.6",
-)
-
-bind(
-    name = "javax/servlet/api",
-    actual = "//tools/build_rules/appengine:javax.servlet.api",
-)
-
-maven_jar(
-    name = "easymock",
-    artifact = "org.easymock:easymock:3.1",
-)
-
 new_http_archive(
     name = "rust-linux-x86_64",
     url = "https://static.rust-lang.org/dist/rust-1.3.0-x86_64-unknown-linux-gnu.tar.gz",
     sha256 = "fa755b6331ff7554e6e8545ee20af7897b0adc65f471dd24ae8a467a944755b4",
     build_file = "tools/build_rules/rust/rust.BUILD",
+    strip_prefix = "rust-1.3.0-x86_64-unknown-linux-gnu",
 )
 
 new_http_archive(
@@ -54,6 +11,7 @@ new_http_archive(
     url = "https://static.rust-lang.org/dist/rust-1.3.0-x86_64-apple-darwin.tar.gz",
     sha256 = "bfeac876e22cc5fe63a250644ce1a6f3892c13a5461131a881419bd06fcb2011",
     build_file = "tools/build_rules/rust/rust.BUILD",
+    strip_prefix = "rust-1.3.0-x86_64-apple-darwin",
 )
 
 # In order to run the Android integration tests, uncomment these rules, point
@@ -62,23 +20,29 @@ new_http_archive(
 # android_sdk_repository(
 #     name = "androidsdk",
 #     path = "/path/to/sdk",
+#     # Available versions are under build-tools/.
 #     build_tools_version = "21.1.1",
+#     # Available versions are under platforms/.
 #     api_level = 19,
 # )
 
 # android_ndk_repository(
 #     name = "androidndk",
 #     path = "/path/to/ndk",
-#     api_level = 19,
+#     api_level = 19,  # Set this to the SDK's api_level.
 # )
 
 bind(
     name = "android_sdk_for_testing",
+    # Uncomment and delete the //:dummy line to run integration tests.
+#   actual = "@androidsdk//:files",
     actual = "//:dummy",
 )
 
 bind(
     name = "android_ndk_for_testing",
+    # Uncomment and delete the //:dummy line to run integration tests.
+#   actual = "@androidndk//:files",
     actual = "//:dummy",
 )
 
@@ -99,7 +63,7 @@ new_http_archive(
 new_git_repository(
     name = "jsonnet",
     remote = "https://github.com/google/jsonnet.git",
-    tag = "v0.8.0",
+    tag = "v0.8.1",
     build_file = "tools/build_defs/jsonnet/jsonnet.BUILD",
 )
 
@@ -115,4 +79,22 @@ new_http_archive(
     url = "https://github.com/sass/sassc/archive/3.3.0-beta1.tar.gz",
     sha256 = "87494218eea2441a7a24b40f227330877dbba75c5fa9014ac6188711baed53f6",
     build_file = "tools/build_defs/sass/sassc.BUILD",
+)
+
+bind(name  = "go_prefix",
+  actual = "//:go_prefix",
+)
+
+new_http_archive(
+  name=  "golang-darwin-amd64",
+  url = "https://storage.googleapis.com/golang/go1.5.1.darwin-amd64.tar.gz",
+  build_file = "tools/build_rules/go/toolchain/BUILD.go-toolchain",
+  sha256 = "e94487b8cd2e0239f27dc51e6c6464383b10acb491f753584605e9b28abf48fb"
+)
+
+new_http_archive(
+  name=  "golang-linux-amd64",
+  url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",
+  build_file = "tools/build_rules/go/toolchain/BUILD.go-toolchain",
+  sha256 = "2593132ca490b9ee17509d65ee2cd078441ff544899f6afb97a03d08c25524e7"
 )

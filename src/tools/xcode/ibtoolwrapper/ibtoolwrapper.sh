@@ -66,5 +66,8 @@ pushd "$TEMPDIR" > /dev/null
 # Reset all dates to Zip Epoch so that two identical zips created at different
 # times appear the exact same for comparison purposes.
 find . -exec touch -h -t 198001010000 {} \;
-zip --symlinks --recurse-paths --quiet "$OUTZIP" .
+
+# Added include "*" to fix case where we may want an empty zip file because
+# there is no data.
+zip --symlinks --recurse-paths --quiet "$OUTZIP" . --include "*"
 popd > /dev/null

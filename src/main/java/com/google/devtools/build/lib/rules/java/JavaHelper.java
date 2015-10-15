@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -100,5 +102,25 @@ public abstract class JavaHelper {
       }
     }
     return result;
+  }
+
+  public static PathFragment getJavaResourcePath(
+      JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
+    PathFragment rootRelativePath = resource.getRootRelativePath();
+    if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)
+        || !ruleContext.attributes().isAttributeValueExplicitlySpecified("resource_strip_prefix")) {
+      return semantics.getDefaultJavaResourcePath(rootRelativePath);
+    }
+
+    PathFragment prefix = new PathFragment(
+        ruleContext.attributes().get("resource_strip_prefix", Type.STRING));
+
+    if (!rootRelativePath.startsWith(prefix)) {
+      ruleContext.attributeError("resource_strip_prefix", String.format(
+          "Resource file '%s' is not under the specified prefix to strip", rootRelativePath));
+      return rootRelativePath;
+    }
+
+    return rootRelativePath.relativeTo(prefix);
   }
 }

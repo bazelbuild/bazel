@@ -101,6 +101,18 @@ public class CppRuleClasses {
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
 
   /**
+   * A string constant for the module_map_without_extern_module feature.
+   *
+   * <p>This features is a transitional feature; enabling it means that generated module maps
+   * will not have "extern module" declarations inside them; instead, the module maps need
+   * to be passed via the dependent_module_map_files build variable.
+   *
+   * <p>This variable is phrased negatively to aid the roll-out: currently, the default is that
+   * "extern module" declarations are generated.
+   */
+  public static final String MODULE_MAP_WITHOUT_EXTERN_MODULE = "module_map_without_extern_module";
+
+  /**
    * A string constant for the layering_check feature.
    */
   public static final String LAYERING_CHECK = "layering_check";

@@ -1113,7 +1113,7 @@ public class Path implements Comparable<Path>, Serializable {
       previousb = b;
       a = a.getParentDirectory();
       b = b.getParentDirectory();
-    } while (a != b); // This has to happen eventually.
+    } while (!a.equals(b)); // This has to happen eventually.
     return previousa.name.compareTo(previousb.name);
   }
 }

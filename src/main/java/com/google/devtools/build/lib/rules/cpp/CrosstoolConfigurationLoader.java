@@ -337,18 +337,26 @@ public class CrosstoolConfigurationLoader {
         break;
       }
     }
+
+    if (selectedIdentifier == null) {
+      StringBuilder cpuBuilder = new StringBuilder();
+      for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
+        cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
+      }
+      throw new InvalidConfigurationException(
+          "No toolchain found for cpu '" + desiredCpu
+          + "'. Valid cpus are: [\n" + cpuBuilder + "]");
+    }
     checkToolChain(selectedIdentifier, desiredCpu);
+
     for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
       if (toolchain.getToolchainIdentifier().equals(selectedIdentifier)) {
         return toolchain;
       }
     }
+
     throw new InvalidConfigurationException("Inconsistent crosstool configuration; no toolchain "
         + "corresponding to '" + selectedIdentifier + "' found for cpu '" + config.getCpu() + "'");
-  }
-
-  private static String describeToolchainFlags(CrosstoolConfig.CToolchain toolchain) {
-    return CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags();
   }
 
   /**
@@ -357,10 +365,12 @@ public class CrosstoolConfigurationLoader {
    */
   private static void describeToolchainList(StringBuilder message,
       Collection<CrosstoolConfig.CToolchain> toolchains) {
-    message.append("[");
+    message.append("[\n");
     for (CrosstoolConfig.CToolchain toolchain : toolchains) {
-      message.append(describeToolchainFlags(toolchain));
-      message.append(",");
+      message.append("  ");
+      message.append(
+          CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags().trim());
+      message.append(",\n");
     }
     message.append("]");
   }
@@ -371,14 +381,11 @@ public class CrosstoolConfigurationLoader {
    * spaces, letters, digits or underscores (i.e. matches the following regular expression:
    * "[a-zA-Z_][\.\- \w]*").
    *
-   * @throws InvalidConfigurationException if selectedIdentifier is null or does not match the
+   * @throws InvalidConfigurationException if selectedIdentifier does not match the
    *         aforementioned regular expression.
    */
   private static void checkToolChain(String selectedIdentifier, String cpu)
       throws InvalidConfigurationException {
-    if (selectedIdentifier == null) {
-      throw new InvalidConfigurationException("No toolchain found for cpu '" + cpu + "'");
-    }
     // If you update this regex, please do so in the javadoc comment too, and also in the
     // crosstool_config.proto file.
     String rx = "[a-zA-Z_][\\.\\- \\w]*";

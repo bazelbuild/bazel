@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionsBase;
@@ -200,5 +201,12 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertTrue(getConfigMatchingProvider("//test:match").matches());
     useConfiguration("--copt", "-Dbar", "--copt", "-Dfoo");
     assertTrue(getConfigMatchingProvider("//test:match").matches());
+  }
+
+  public void testSelectForDefaultCrosstoolTop() throws Exception {
+    String crosstoolTop = Constants.TOOLS_REPOSITORY + "//tools/cpp:toolchain";
+    scratchConfiguredTarget("a", "a",
+        "config_setting(name='cs', values={'crosstool_top': '" + crosstoolTop + "'})",
+        "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
   }
 }

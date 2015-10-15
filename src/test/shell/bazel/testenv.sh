@@ -110,6 +110,16 @@ EOF
   chmod -R +w .
   mkdir -p tools/defaults
   touch tools/defaults/BUILD
+
+  mkdir -p third_party/py/gflags
+  cat > third_party/py/gflags/BUILD <<EOF
+licenses(["notice"])
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "gflags",
+)
+EOF
 }
 
 # Report whether a given directory name corresponds to a tools directory.

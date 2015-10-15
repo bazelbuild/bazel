@@ -337,7 +337,9 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
-      assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      if (i == 0 || rootCausesStored()) {
+        assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       if (i == 0 || eventsStored()) {
@@ -355,7 +357,9 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
-      assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      if (i == 0 || rootCausesStored()) {
+        assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
+      }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
       assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       if (i == 0 || eventsStored()) {
@@ -2662,8 +2666,10 @@ public class MemoizingEvaluatorTest {
     assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
     // Do it again with keepGoing.  We should also see an error for the top key this time.
     result = tester.eval(/*keepGoing=*/ true, topKey, midKey);
-    assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
-    assertThat(result.getError(topKey).getRootCauses()).containsExactly(badKey);
+    if (rootCausesStored()) {
+      assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
+      assertThat(result.getError(topKey).getRootCauses()).containsExactly(badKey);
+    }
   }
 
   @Test

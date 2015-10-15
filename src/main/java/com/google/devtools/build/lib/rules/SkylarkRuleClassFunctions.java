@@ -35,6 +35,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -167,7 +168,7 @@ public class SkylarkRuleClassFunctions {
           .add(attr("args", STRING_LIST)
               .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              labelCache.getUnchecked("//tools/test:runtime"))))
+              labelCache.getUnchecked(Constants.TOOLS_REPOSITORY + "//tools/test:runtime"))))
           .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
           .build();
 

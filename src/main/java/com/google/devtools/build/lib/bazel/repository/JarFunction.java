@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -76,6 +75,9 @@ public class JarFunction implements SkyFunction {
               + " rule "
               + descriptor.targetName(),
           createBuildFile(baseName));
+      if (descriptor.executable()) {
+        descriptor.archivePath().chmod(0755);
+      }
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException(
           "Error auto-creating jar repo structure: " + e.getMessage()), Transience.TRANSIENT);

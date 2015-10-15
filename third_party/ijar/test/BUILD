@@ -29,6 +29,7 @@ sh_test(
         "WellCompressed1.java",
         "WellCompressed2.java",
         ":libtypeannotations2.jar",
+        ":libmethodparameters.jar",
         "TypeAnnotationTest2.java",
         # invokedynamic/ClassWithLambda.java, compiled with javac8
         ":libinvokedynamic.jar",
@@ -98,6 +99,12 @@ java_library(
     srcs = glob(["typeannotations2/**/*.java"]),
     javacopts = ["-source 8 -target 8"],
     tags = ["jdk8"],
+)
+
+java_library(
+    name = "methodparameters",
+    srcs = ["methodparameters/Test.java"],
+    javacopts = ["-source 8 -target 8 -parameters"],
 )
 
 java_test(

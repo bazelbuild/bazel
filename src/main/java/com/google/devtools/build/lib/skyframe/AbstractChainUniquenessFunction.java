@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.skyframe.EmptySkyValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -35,8 +36,6 @@ abstract class AbstractChainUniquenessFunction<S> implements SkyFunction {
 
   protected abstract String getFooterMessage();
 
-  protected abstract SkyValue getDummyValue();
-
   protected abstract String elementToString(S elt);
 
   @Override
@@ -53,7 +52,7 @@ abstract class AbstractChainUniquenessFunction<S> implements SkyFunction {
     // The purpose of this SkyFunction is the side effect of emitting an error message exactly
     // once per build per unique error.
     env.getListener().handle(Event.error(errorMessage.toString()));
-    return getDummyValue();
+    return EmptySkyValue.INSTANCE;
   }
 
   @Override

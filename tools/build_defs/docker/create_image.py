@@ -16,7 +16,7 @@
 import sys
 import tarfile
 
-from tools.build_defs.docker import archive
+from tools.build_defs.pkg import archive
 from third_party.py import gflags
 
 # Hardcoded docker versions that we are claiming to be.

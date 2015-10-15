@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.bazel.rules.workspace.WorkspaceBaseRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.WorkspaceConfiguredTargetFactory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,9 +45,13 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
         @Nullable
         @Override
         public Map<String, Label> apply(Rule rule) {
+
+          String defaultToolchainName =
+              AndroidNdkRepositoryFunction.createToolchainName(StlImpls.DEFAULT_STL_NAME);
+
           return ImmutableMap.of(
               "android/crosstool",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:toolchain"));
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName));
         }
       };
 

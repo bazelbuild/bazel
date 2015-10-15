@@ -215,7 +215,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
   }
 
   private static void visitRule(Target target, Set<Label> labels) {
-    labels.addAll(((Rule) target).getLabels(Rule.NO_NODEP_ATTRIBUTES));
+    labels.addAll(((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES).values());
   }
 
   private static void visitTargetVisibility(Target target, Set<Label> labels) {

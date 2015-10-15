@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -47,6 +51,9 @@ public abstract class AnalysisMock {
   public abstract Collection<String> getOptionOverrides();
 
   public abstract ImmutableList<Class<? extends FragmentOptions>> getBuildOptions();
+
+  public abstract ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+      BlazeDirectories directories);
 
   public static class Delegate extends AnalysisMock {
     private final AnalysisMock delegate;
@@ -83,6 +90,12 @@ public abstract class AnalysisMock {
     @Override
     public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
       return delegate.getBuildOptions();
+    }
+
+    @Override
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+        BlazeDirectories directories) {
+      return delegate.getSkyFunctions(directories);
     }
   }
 }

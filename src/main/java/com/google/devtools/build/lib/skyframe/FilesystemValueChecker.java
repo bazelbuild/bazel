@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -48,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -60,7 +63,7 @@ import javax.annotation.Nullable;
  */
 class FilesystemValueChecker {
 
-  private static final int DIRTINESS_CHECK_THREADS = 50;
+  private static final int DIRTINESS_CHECK_THREADS = 200;
   private static final Logger LOG = Logger.getLogger(FilesystemValueChecker.class.getName());
 
   private static final Predicate<SkyKey> ACTION_FILTER =
@@ -293,27 +296,47 @@ class FilesystemValueChecker {
     final BatchDirtyResult batchResult = new BatchDirtyResult();
     ThrowableRecordingRunnableWrapper wrapper =
         new ThrowableRecordingRunnableWrapper("FilesystemValueChecker#getDirtyValues");
-    for (final SkyKey key : values) {
-      final SkyValue value = valuesSupplier.get().get(key);
-      executor.execute(
-          wrapper.wrap(
-              new Runnable() {
-                @Override
-                public void run() {
-                  if (value != null || checkMissingValues) {
-                    DirtyResult result = checker.maybeCheck(key, value, tsgm);
-                    if (result != null && result.isDirty()) {
-                      batchResult.add(key, value, result.getNewValue());
+    final AtomicInteger numKeysScanned = new AtomicInteger(0);
+    final AtomicInteger numKeysChecked = new AtomicInteger(0);
+    ElapsedTimeReceiver elapsedTimeReceiver = new ElapsedTimeReceiver() {
+        @Override
+        public void accept(long elapsedTimeNanos) {
+          if (elapsedTimeNanos > 0) {
+            LOG.info(String.format("Spent %d ms checking %d filesystem nodes (%d scanned)",
+                TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
+                numKeysChecked.get(),
+                numKeysScanned.get()));
+          }
+        }
+    };
+    try (AutoProfiler prof = AutoProfiler.create(elapsedTimeReceiver)) {
+      for (final SkyKey key : values) {
+        numKeysScanned.incrementAndGet();
+        if (!checker.applies(key)) {
+          continue;
+        }
+        final SkyValue value = valuesSupplier.get().get(key);
+        executor.execute(
+            wrapper.wrap(
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    if (value != null || checkMissingValues) {
+                      numKeysChecked.incrementAndGet();
+                      DirtyResult result = checker.check(key, value, tsgm);
+                      if (result.isDirty()) {
+                        batchResult.add(key, value, result.getNewValue());
+                      }
                     }
                   }
-                }
-              }));
-    }
+                }));
+      }
 
-    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
-    Throwables.propagateIfPossible(wrapper.getFirstThrownError());
-    if (interrupted) {
-      throw new InterruptedException();
+      boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
+      Throwables.propagateIfPossible(wrapper.getFirstThrownError());
+      if (interrupted) {
+        throw new InterruptedException();
+      }
     }
     return batchResult;
   }

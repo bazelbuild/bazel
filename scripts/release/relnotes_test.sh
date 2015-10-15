@@ -80,9 +80,9 @@ TEST_CHANGE='Important changes:
 
 function test_release_notes() {
   assert_equals "$TEST_INC_CHANGE$(echo)$TEST_NEW_CHANGE$(echo)$TEST_CHANGE" \
-      "$(release_notes 965c392)"
+      "$(release_notes 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e)"
   assert_equals "$TEST_NEW_CHANGE$(echo)$TEST_CHANGE" \
-      "$(release_notes 965c392 bb59d88)"
+      "$(release_notes 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e bb59d88)"
 }
 
 function test_get_last_release() {
@@ -198,7 +198,7 @@ function test_create_revision_information() {
               should produce additional information about aspect
               dependencies when --output is set to {xml, proto}.'
    assert_equals "$expected" \
-              "$(create_revision_information 965c392 bb59d88 14d905b)"
+              "$(create_revision_information 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e bb59d88 14d905b5cce9a1bbc2911331809b03679b23dad1)"
 }
 
 run_suite "Release notes generation tests"

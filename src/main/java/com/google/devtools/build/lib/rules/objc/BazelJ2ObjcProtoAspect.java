@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -42,11 +43,11 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
         .add(attr("$protoc_darwin", LABEL)
             .cfg(HOST)
             .exec()
-            .value(parseLabel("//tools/objc:compile_protos")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:compile_protos")))
         .add(attr("$protoc_support_darwin", LABEL)
             .cfg(HOST)
             .exec()
-            .value(parseLabel("//tools/objc:proto_support")))
+            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:proto_support")))
         .add(attr("$j2objc_plugin", LABEL)
             .cfg(HOST)
             .exec()
@@ -84,7 +85,7 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
         .setCommandLine(new CustomCommandLine.Builder()
             .add(compiler.getPath().toString())
             .add("-w")
-            .add(compiler.getRoot().getPath().toString())
+            .add(".")  // Actions are always run with the exec root as cwd
             .add("--generate-j2objc")
             .add("--generator-param=file_dir_mapping")
             .add("--generator-param=generate_class_mappings")

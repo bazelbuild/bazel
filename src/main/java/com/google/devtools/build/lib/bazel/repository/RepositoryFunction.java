@@ -223,9 +223,11 @@ public abstract class RepositoryFunction implements SkyFunction {
   private static FileValue createSymbolicLink(Path from, Path to, Environment env)
       throws RepositoryFunctionException {
     try {
-      if (!from.exists()) {
-        from.createSymbolicLink(to);
+      // Remove not-symlinks that are already there.
+      if (from.exists()) {
+        from.delete();
       }
+      FileSystemUtils.ensureSymbolicLink(from, to);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(String.format("Error creating symbolic link from %s to %s: %s",

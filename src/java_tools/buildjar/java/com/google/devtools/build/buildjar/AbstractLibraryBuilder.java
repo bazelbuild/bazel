@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 
 import java.io.File;
 import java.io.FileOutputStream;

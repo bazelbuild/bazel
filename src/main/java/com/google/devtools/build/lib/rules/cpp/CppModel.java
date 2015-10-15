@@ -346,6 +346,12 @@ public final class CppModel {
       buildVariables.addVariable("module_name", cppModuleMap.getName());
       buildVariables.addVariable("module_map_file",
           cppModuleMap.getArtifact().getExecPathString());
+      CcToolchainFeatures.Variables.NestedSequence.Builder sequence =
+          new CcToolchainFeatures.Variables.NestedSequence.Builder();
+      for (Artifact artifact : context.getDirectModuleMaps()) {
+        sequence.addValue(artifact.getExecPathString());
+      }
+      buildVariables.addSequence("dependent_module_map_files", sequence.build());
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       buildVariables.addSequenceVariable("module_files", getHeaderModulePaths(builder, usePic));
@@ -478,7 +484,12 @@ public final class CppModel {
         CppCompileAction picAction = picBuilder.build();
         env.registerAction(picAction);
         if (addObject) {
-          result.addPicObjectFile(picAction.getOutputFile());          
+          result.addPicObjectFile(picAction.getOutputFile());
+
+          if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename())) {
+            result.addLTOBitcodeFile(picAction.getOutputFile());
+          }
         }
         if (picAction.getDwoFile() != null) {
           // Host targets don't produce .dwo files.
@@ -505,8 +516,12 @@ public final class CppModel {
 
         if (maySaveTemps) {
           result.addTemps(
-              createTempsActions(sourceArtifact, outputName, builder, /*usePic=*/false,
-                ccRelativeName));
+              createTempsActions(
+                  sourceArtifact,
+                  outputName,
+                  builder,
+                  /*usePic=*/ false,
+                  ccRelativeName));
         }
 
         semantics.finalizeCompileActionBuilder(ruleContext, builder);
@@ -515,6 +530,10 @@ public final class CppModel {
         Artifact objectFile = compileAction.getOutputFile();
         if (addObject) {
           result.addObjectFile(objectFile);
+          if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename())) {
+            result.addLTOBitcodeFile(objectFile);
+          }
         }
         if (compileAction.getDwoFile() != null) {
           // Host targets don't produce .dwo files.
@@ -597,12 +616,14 @@ public final class CppModel {
     // Presumably, it is done this way because the .a file is an implicit output of every cc_library
     // rule, so we can't use ".pic.a" that in the always-PIC case.
     Artifact linkedArtifact = CppHelper.getLinkedArtifact(ruleContext, linkType);
-    CppLinkAction maybePicAction = newLinkActionBuilder(linkedArtifact)
-        .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForBinaries))
-        .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
-        .setLinkType(linkType)
-        .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-        .build();
+    CppLinkAction maybePicAction =
+        newLinkActionBuilder(linkedArtifact)
+            .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForBinaries))
+            .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+            .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
+            .setLinkType(linkType)
+            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .build();
     env.registerAction(maybePicAction);
     result.addStaticLibrary(maybePicAction.getOutputLibrary());
 
@@ -615,12 +636,14 @@ public final class CppModel {
           : LinkTargetType.PIC_STATIC_LIBRARY;
 
       Artifact picArtifact = CppHelper.getLinkedArtifact(ruleContext, picLinkType);
-      CppLinkAction picAction = newLinkActionBuilder(picArtifact)
-          .addNonLibraryInputs(ccOutputs.getObjectFiles(true))
-          .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
-          .setLinkType(picLinkType)
-          .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-          .build();
+      CppLinkAction picAction =
+          newLinkActionBuilder(picArtifact)
+              .addNonLibraryInputs(ccOutputs.getObjectFiles(true))
+              .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+              .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
+              .setLinkType(picLinkType)
+              .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+              .build();
       env.registerAction(picAction);
       result.addPicStaticLibrary(picAction.getOutputLibrary());
     }

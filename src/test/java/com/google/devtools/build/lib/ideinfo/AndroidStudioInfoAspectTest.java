@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.ideinfo;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
@@ -746,5 +747,32 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleInfo.getDependenciesList()).containsExactly(
         "//java/com/google/example:forward",
         "//java/com/google/example:lib");
+  }
+
+  public void testSourceFilesAreCorrectlyMarkedAsSourceOrGenerated() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "genrule(",
+        "   name = 'gen',",
+        "   outs = ['gen.java'],",
+        "   cmd = '',",
+        ")",
+        "java_library(",
+        "    name = 'lib',",
+        "    srcs = ['Test.java', ':gen'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList()).containsExactly(
+        ArtifactLocation.newBuilder()
+            .setRootPath(targetConfig.getGenfilesDirectory().getPath().getPathString())
+            .setRelativePath("com/google/example/gen.java")
+            .setIsSource(false)
+            .build(),
+        ArtifactLocation.newBuilder()
+            .setRootPath(directories.getWorkspace().getPathString())
+            .setRelativePath("com/google/example/Test.java")
+            .setIsSource(true)
+            .build());
   }
 }

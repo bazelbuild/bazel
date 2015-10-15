@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
@@ -162,7 +163,7 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST)
               .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getLabel("//tools/test:runtime"))))
+              env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/test:runtime"))))
 
           // TODO(bazel-team): TestActions may need to be run with coverage, so all tests
           // implicitly depend on crosstool, which provides gcov.  We could add gcov to
@@ -206,6 +207,7 @@ public class BaseRuleClasses {
             .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
         .add(attr("generator_name", STRING).undocumented("internal"))
         .add(attr("generator_function", STRING).undocumented("internal"))
+        .add(attr("generator_location", STRING).undocumented("internal"))
         .add(attr("testonly", BOOLEAN).value(testonlyDefault)
             .nonconfigurable("policy decision: rules testability should be consistent"))
         .add(attr("features", STRING_LIST).orderIndependent())

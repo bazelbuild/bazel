@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.io.Flushables;
@@ -45,10 +47,14 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+
+import javax.annotation.Nullable;
 
 /**
  * Dispatches to the Blaze commands; that is, given a command line, this
@@ -175,18 +181,23 @@ public class BlazeCommandDispatcher {
         getOptionsMap(outErr, rcFileOptions.rcSource, rcFileOptions.optionsOverrides,
             runtime.getCommandMap().keySet());
 
-    parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null);
+    parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
 
     // Fix-point iteration until all configs are loaded.
     List<String> configsLoaded = ImmutableList.of();
+    Set<String> unknownConfigs = new LinkedHashSet<>();
     CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
     while (!commonOptions.configs.equals(configsLoaded)) {
       Set<String> missingConfigs = new LinkedHashSet<>(commonOptions.configs);
       missingConfigs.removeAll(configsLoaded);
       parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap,
-          missingConfigs);
+          missingConfigs, unknownConfigs);
       configsLoaded = commonOptions.configs;
       commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+    }
+    if (!unknownConfigs.isEmpty()) {
+      outErr.printErrLn("WARNING: Config values are not defined in any .rc file: "
+          + Joiner.on(", ").join(unknownConfigs));
     }
   }
 
@@ -422,11 +433,15 @@ public class BlazeCommandDispatcher {
    *     present) to the list of options for that command
    * @param configs the configs for which to parse options; if {@code null}, non-config options are
    *     parsed
+   * @param unknownConfigs optional; a collection that the method will populate with the config
+   *     values in {@code configs} that none of the .rc files had entries for
    * @throws OptionsParsingException
    */
   protected static void parseOptionsForCommand(List<String> rcfileNotes, Command commandAnnotation,
       OptionsParser optionsParser, List<Pair<String, ListMultimap<String, String>>> optionsMap,
-      Iterable<String> configs) throws OptionsParsingException {
+      @Nullable Collection<String> configs, @Nullable Collection<String> unknownConfigs)
+      throws OptionsParsingException {
+    Set<String> knownConfigs = new HashSet<>();
     for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
       for (Pair<String, ListMultimap<String, String>> entry : optionsMap) {
         List<String> allOptions = new ArrayList<>();
@@ -434,15 +449,21 @@ public class BlazeCommandDispatcher {
           allOptions.addAll(entry.second.get(commandToParse));
         } else {
           for (String config : configs) {
-            allOptions.addAll(entry.second.get(commandToParse + ":" + config));
+            Collection<String> values = entry.second.get(commandToParse + ":" + config);
+            if (!values.isEmpty()) {
+              allOptions.addAll(values);
+              knownConfigs.add(config);
+            }
           }
         }
         processOptionList(optionsParser, commandToParse,
             commandAnnotation.name(), rcfileNotes, entry.first, allOptions);
-        if (allOptions.isEmpty()) {
-          continue;
-        }
       }
+    }
+    if (unknownConfigs != null && configs != null && configs.size() > knownConfigs.size()) {
+      Iterables.addAll(
+          unknownConfigs,
+          Iterables.filter(configs, Predicates.not(Predicates.in(knownConfigs))));
     }
   }
 

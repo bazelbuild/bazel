@@ -119,7 +119,7 @@ public class BuildingState {
   // node will be removed by the time evaluation starts, so reverse deps to signal can just be
   // reverse deps in the main ValueEntry object.
   private Object reverseDepsToSignal = ImmutableList.of();
-  private Object reverseDepsDataToConsolidate = null;
+  private List<Object> reverseDepsDataToConsolidate = null;
   private boolean reverseDepIsSingleObject = false;
 
   private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
@@ -135,7 +135,7 @@ public class BuildingState {
         }
 
         @Override
-        void setDataToConsolidate(BuildingState container, Object dataToConsolidate) {
+        void setDataToConsolidate(BuildingState container, List<Object> dataToConsolidate) {
           container.reverseDepsDataToConsolidate = dataToConsolidate;
         }
 
@@ -150,7 +150,7 @@ public class BuildingState {
         }
 
         @Override
-        Object getDataToConsolidate(BuildingState container) {
+        List<Object> getDataToConsolidate(BuildingState container) {
           return container.reverseDepsDataToConsolidate;
         }
       };
@@ -404,7 +404,6 @@ public class BuildingState {
    * @see NodeEntry#addReverseDepAndCheckIfDone(SkyKey)
    */
   void addReverseDepToSignal(SkyKey newReverseDep) {
-    REVERSE_DEPS_UTIL.consolidateData(this);
     REVERSE_DEPS_UTIL.addReverseDeps(this, Collections.singleton(newReverseDep));
   }
 

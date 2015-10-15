@@ -49,6 +49,16 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
+  /**
+   * Environment variable name for the apple SDK version. If unset, uses the system default of the
+   * host for the platform in the value of {@link #APPLE_SDK_PLATFORM_ENV_NAME}.
+   **/
+  public static final String APPLE_SDK_VERSION_ENV_NAME = "APPLE_SDK_VERSION_OVERRIDE";
+  /**
+   * Environment variable name for the apple SDK platform. This should be set for all actions that
+   * require an apple SDK. The valid values consist of {@link Platform} names.
+   **/
+  public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
   private final String iosSdkVersion;
   private final String iosMinimumOs;
@@ -67,7 +77,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   private final ConfigurationDistinguisher configurationDistinguisher;
+  @Nullable private final String signingCertName;
   @Nullable private final Path clientWorkspaceRoot;
+  private final String xcodeOverrideWorkspaceRoot;
 
   // We only load these labels if the mode which uses them is enabled. That is known as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -108,6 +120,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
+    this.signingCertName = objcOptions.iosSigningCertName;
+    this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
   }
 
   public Map<String, String> getEnvironmentForDarwin() {
@@ -115,6 +129,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     if (xcodeVersionOverride.isPresent()) {
       builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
     }
+    builder.put(APPLE_SDK_VERSION_ENV_NAME, iosSdkVersion);
+    builder.put(APPLE_SDK_PLATFORM_ENV_NAME, IosSdkCommands.getPlatformPlistName(this));
     return builder.build();
   }
 
@@ -316,10 +332,29 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the absolute path of the root of Bazel client workspace. Null if passed-in
-   * {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
+   * Returns the path to be used for workspace_root (and path of pbxGroup mainGroup) in xcodeproj.
+   * This usually will be the absolute path of the root of Bazel client workspace or null if
+   * passed-in {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
+   * It can also be overridden by the {@code --xcode_override_workspace_root} flag, in which case
+   * the path can be absolute or relative.
    */
-  @Nullable public Path getClientWorkspaceRoot() {
-    return this.clientWorkspaceRoot;
+  @Nullable
+  public String getXcodeWorkspaceRoot() {
+    if (!this.xcodeOverrideWorkspaceRoot.isEmpty()) {
+      return this.xcodeOverrideWorkspaceRoot;
+    }
+    if (this.clientWorkspaceRoot == null) {
+      return null;
+    }
+    return this.clientWorkspaceRoot.getPathString();
+  }
+
+  /**
+   * Returns the flag-supplied certificate name to be used in signing or {@code null} if no such
+   * certificate was specified.
+   */
+  @Nullable
+  public String getSigningCertName() {
+    return this.signingCertName;
   }
 }

@@ -1,6 +1,14 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 cc_library(
+    name = "network-tools",
+    srcs = ["network-tools.c"],
+    hdrs = ["network-tools.h"],
+    copts = ["-std=c99"],
+    deps = [":process-tools"],
+)
+
+cc_library(
     name = "process-tools",
     srcs = ["process-tools.c"],
     hdrs = ["process-tools.h"],
@@ -29,7 +37,14 @@ cc_binary(
     }),
     copts = ["-std=c99"],
     linkopts = ["-lm"],
-    deps = [":process-tools"],
+    deps = select({
+        "//src:darwin": [],
+        "//src:freebsd": [],
+        "//conditions:default": [
+            ":process-tools",
+            ":network-tools",
+        ],
+    }),
 )
 
 filegroup(

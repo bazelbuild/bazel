@@ -278,10 +278,12 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         // not necessarily the configuration actually applied to the rule. We should correlate the
         // two. However, doing so requires faithfully reflecting the configuration transitions that
         // might happen as we traverse the dependency chain.
+        // TODO(bazel-team): Why don't we use AbstractAttributeMapper#visitLabels() here?
         for (List<Label> labelsForConfiguration :
             AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST)) {
           for (Label label : labelsForConfiguration) {
-            collectTransitiveClosure(packageProvider, reachableLabels, label);
+            collectTransitiveClosure(packageProvider, reachableLabels,
+                from.resolveRepositoryRelative(label));
           }
         }
       }

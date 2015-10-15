@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.testing.GcFinalization;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -639,8 +640,15 @@ public class EagerInvalidatorTest {
       // Dirty the node, and ensure that the tracker is aware of it:
       Iterable<SkyKey> diff1 = ImmutableList.of(skyKey("a"));
       InvalidationState state1 = new DirtyingInvalidationState();
-      Preconditions.checkNotNull(EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff1,
-          receiver, state1, dirtyKeyTracker)).run();
+      Preconditions.checkNotNull(
+              EagerInvalidator.createInvalidatingVisitorIfNeeded(
+                  graph,
+                  diff1,
+                  receiver,
+                  state1,
+                  dirtyKeyTracker,
+                  AbstractQueueVisitor.EXECUTOR_FACTORY))
+          .run();
       assertThat(dirtyKeyTracker.getDirtyKeys()).containsExactly(skyKey("a"), skyKey("ab"));
 
       // Delete the node, and ensure that the tracker is no longer tracking it:
@@ -662,7 +670,12 @@ public class EagerInvalidatorTest {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       DirtyingNodeVisitor dirtyingNodeVisitor =
           EagerInvalidator.createInvalidatingVisitorIfNeeded(
-              graph, diff, invalidationReceiver, state, dirtyKeyTracker);
+              graph,
+              diff,
+              invalidationReceiver,
+              state,
+              dirtyKeyTracker,
+              AbstractQueueVisitor.EXECUTOR_FACTORY);
       if (dirtyingNodeVisitor != null) {
         visitor.set(dirtyingNodeVisitor);
         dirtyingNodeVisitor.run();

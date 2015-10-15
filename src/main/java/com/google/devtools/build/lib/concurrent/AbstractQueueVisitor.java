@@ -22,18 +22,21 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * AbstractQueueVisitor is a wrapper around {@link ThreadPoolExecutor} which
- * delays thread pool shutdown until entire visitation is complete.
- * This is useful for cases in which worker tasks may submit additional tasks.
+ * AbstractQueueVisitor is a wrapper around {@link ExecutorService} which delays service shutdown
+ * until entire visitation is complete. This is useful for cases in which worker tasks may submit
+ * additional tasks.
  *
  * <p>Consider the following example:
  * <pre>
@@ -54,14 +57,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AbstractQueueVisitor {
 
   /**
-   * Default factory function for constructing {@link ThreadPoolExecutor}s.
+   * Default factory function for constructing {@link ThreadPoolExecutor}s. The {@link
+   * ThreadPoolExecutor}s this creates have the same value for {@code corePoolSize} and {@code
+   * maximumPoolSize} because that results in a fixed-size thread pool, and the current use cases
+   * for {@link AbstractQueueVisitor} don't require any more sophisticated thread pool size
+   * management.
+   *
+   * <p>If client use cases change, they may invoke one of the {@link
+   * AbstractQueueVisitor#AbstractQueueVisitor} constructors that accepts a pre-constructed {@link
+   * ThreadPoolExecutor}.
    */
-  public static final Function<ThreadPoolExecutorParams, ThreadPoolExecutor> EXECUTOR_FACTORY =
-      new Function<ThreadPoolExecutorParams, ThreadPoolExecutor>() {
+  public static final Function<ExecutorParams, ThreadPoolExecutor> EXECUTOR_FACTORY =
+      new Function<ExecutorParams, ThreadPoolExecutor>() {
         @Override
-        public ThreadPoolExecutor apply(ThreadPoolExecutorParams p) {
-          return new ThreadPoolExecutor(p.getCorePoolSize(), p.getMaxPoolSize(),
-              p.getKeepAliveTime(), p.getUnits(), p.getWorkQueue(),
+        public ThreadPoolExecutor apply(ExecutorParams p) {
+          return new ThreadPoolExecutor(
+              /*corePoolSize=*/ p.getParallelism(),
+              /*maximumPoolSize=*/ p.getParallelism(),
+              p.getKeepAliveTime(),
+              p.getUnits(),
+              p.getWorkQueue(),
               new ThreadFactoryBuilder().setNameFormat(p.getPoolName() + " %d").build());
         }
       };
@@ -78,10 +93,10 @@ public class AbstractQueueVisitor {
   private volatile Throwable unhandled = null;
 
   /**
-   * An uncaught exception when submitting a job to the ThreadPool is catastrophic, and usually
-   * indicates a lack of stack space on which to allocate a native thread. The JDK
-   * ThreadPoolExecutor may reach an inconsistent state in such circumstances, so we avoid blocking
-   * on its termination when this field is non-null.
+   * An uncaught exception when submitting a job to the {@link ExecutorService} is catastrophic,
+   * and usually indicates a lack of stack space on which to allocate a native thread. The {@link
+   * ExecutorService} may reach an inconsistent state in such circumstances, so we avoid blocking
+   * on its termination when this field is non-{@code null}.
    */
   private volatile Throwable catastrophe;
 
@@ -92,20 +107,28 @@ public class AbstractQueueVisitor {
    */
   private final boolean concurrent;
 
-  // Condition variable for remainingTasks==0, and a lock for it.
+  /**
+   * An object used in the manner of a {@link java.util.concurrent.locks.Condition} object, for the
+   * condition {@code remainingTasks.get() == 0}.
+   * TODO(bazel-team): Replace with an actual {@link java.util.concurrent.locks.Condition} object.
+   */
   private final Object zeroRemainingTasks = new Object();
-  private long remainingTasks = 0;
+
+  /**
+   * If {@link #concurrent} is {@code true}, then this is a counter of the number of {@link
+   * Runnable}s {@link #enqueue}-d that have not finished evaluation.
+   */
+  private final AtomicLong remainingTasks = new AtomicLong(0);
 
   // Map of thread ==> number of jobs executing in the thread.
   // Currently used only for interrupt handling.
   private final Map<Thread, Long> jobs = Maps.newConcurrentMap();
 
   /**
-   * The thread pool. If !concurrent, always null. Created lazily on first
-   * call to {@link #enqueue(Runnable)}, and removed after call to
-   * {@link #work(boolean)}.
+   * The {@link ExecutorService}. If !{@code concurrent}, always {@code null}. Created lazily on
+   * first call to {@link #enqueue(Runnable)}, and removed after call to {@link #work(boolean)}.
    */
-  private final ThreadPoolExecutor pool;
+  private final ExecutorService pool;
 
   /**
    * Flag used to record when the main thread (the thread which called
@@ -134,10 +157,8 @@ public class AbstractQueueVisitor {
    */
   private final boolean failFastOnInterrupt;
 
-  /**
-   * If true, we must shut down the thread pool on completion.
-   */
-  private final boolean ownThreadPool;
+  /** If true, we must shut down the {@link ExecutorService} on completion. */
+  private final boolean ownExecutorService;
 
   /**
    * Flag used to record when all threads were killed by failed action execution.
@@ -146,15 +167,16 @@ public class AbstractQueueVisitor {
    */
   private boolean jobsMustBeStopped = false;
 
+  private static final Logger LOG = Logger.getLogger(AbstractQueueVisitor.class.getName());
+
   /**
    * Create the AbstractQueueVisitor.
    *
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
-   * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
-   *                     BlockingQueue)}
-   * @param maxPoolSize the max number of threads in the pool.
+   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
+   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
+   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if true, don't run new actions after
@@ -163,11 +185,23 @@ public class AbstractQueueVisitor {
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
-      long keepAliveTime, TimeUnit units, boolean failFastOnException,
-      boolean failFastOnInterrupt, String poolName) {
-    this(concurrent, corePoolSize, maxPoolSize, keepAliveTime, units, failFastOnException,
-        failFastOnInterrupt, poolName, EXECUTOR_FACTORY);
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt,
+      String poolName) {
+    this(
+        concurrent,
+        parallelism,
+        keepAliveTime,
+        units,
+        failFastOnException,
+        failFastOnInterrupt,
+        poolName,
+        EXECUTOR_FACTORY);
   }
 
   /**
@@ -175,33 +209,43 @@ public class AbstractQueueVisitor {
    *
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
-   * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
-   *                     BlockingQueue)}
-   * @param maxPoolSize the max number of threads in the pool.
+   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
+   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
+   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if true, don't run new actions after an uncaught exception.
    * @param failFastOnInterrupt if true, don't run new actions after interrupt.
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
-   * @param executorFactory the factory for constructing the thread pool if {@code concurrent} is
-   *                        true.
+   * @param executorFactory the factory for constructing the executor service if {@code concurrent}
+   *                        is true.
    */
-  public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
-      long keepAliveTime, TimeUnit units, boolean failFastOnException,
-      boolean failFastOnInterrupt, String poolName,
-      Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt,
+      String poolName,
+      Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     Preconditions.checkNotNull(poolName);
     Preconditions.checkNotNull(executorFactory);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.failFastOnInterrupt = failFastOnInterrupt;
-    this.ownThreadPool = true;
-    this.pool = concurrent
-      ? executorFactory.apply(new ThreadPoolExecutorParams(corePoolSize, maxPoolSize,
-        keepAliveTime, units, poolName, getWorkQueue()))
-      : null;
+    this.ownExecutorService = true;
+    this.pool =
+        concurrent
+            ? executorFactory.apply(
+                new ExecutorParams(
+                    parallelism,
+                    keepAliveTime,
+                    units,
+                    poolName,
+                    new LinkedBlockingQueue<Runnable>()))
+            : null;
   }
 
   /**
@@ -209,10 +253,9 @@ public class AbstractQueueVisitor {
    *
    * @param concurrent true if concurrency should be enabled. Only set to
    *                   false for debugging.
-   * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
-   *                     BlockingQueue)}
-   * @param maxPoolSize the max number of threads in the pool.
+   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
+   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
+   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if true, don't run new actions after
@@ -220,10 +263,22 @@ public class AbstractQueueVisitor {
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
-      long keepAliveTime, TimeUnit units, boolean failFastOnException, String poolName) {
-    this(concurrent, corePoolSize, maxPoolSize, keepAliveTime, units, failFastOnException, true,
-        poolName);
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      int parallelism,
+      long keepAliveTime,
+      TimeUnit units,
+      boolean failFastOnException,
+      String poolName) {
+    this(
+        concurrent,
+        parallelism,
+        keepAliveTime,
+        units,
+        failFastOnException,
+        true,
+        poolName,
+        EXECUTOR_FACTORY);
   }
 
   /**
@@ -238,9 +293,16 @@ public class AbstractQueueVisitor {
    *                            an uncaught exception.
    * @param failFastOnInterrupt if true, don't run new actions after interrupt.
    */
-  public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean shutdownOnCompletion,
-                              boolean failFastOnException, boolean failFastOnInterrupt) {
-    this(/*concurrent=*/true, executor, shutdownOnCompletion, failFastOnException,
+  public AbstractQueueVisitor(
+      ThreadPoolExecutor executor,
+      boolean shutdownOnCompletion,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt) {
+    this(
+        /*concurrent=*/ true,
+        executor,
+        shutdownOnCompletion,
+        failFastOnException,
         failFastOnInterrupt);
   }
 
@@ -257,58 +319,36 @@ public class AbstractQueueVisitor {
    *                            an uncaught exception.
    * @param failFastOnInterrupt if true, don't run new actions after interrupt.
    */
-  public AbstractQueueVisitor(boolean concurrent, ThreadPoolExecutor executor,
-                              boolean shutdownOnCompletion, boolean failFastOnException,
-                              boolean failFastOnInterrupt) {
+  public AbstractQueueVisitor(
+      boolean concurrent,
+      ThreadPoolExecutor executor,
+      boolean shutdownOnCompletion,
+      boolean failFastOnException,
+      boolean failFastOnInterrupt) {
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.failFastOnInterrupt = failFastOnInterrupt;
+    this.ownExecutorService = shutdownOnCompletion;
     this.pool = executor;
-    this.ownThreadPool = shutdownOnCompletion;
   }
 
   public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean failFastOnException) {
-    this(executor, true, failFastOnException, true);
-  }
-
-  /**
-   * Create the AbstractQueueVisitor.
-   *
-   * @param concurrent true if concurrency should be enabled. Only set to
-   *                   false for debugging.
-   * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
-   *                     BlockingQueue)}
-   * @param maxPoolSize the max number of threads in the pool.
-   * @param keepAliveTime the keep-alive time for the thread pool.
-   * @param units the time units of keepAliveTime.
-   * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
-   *                    thread naming will be used.
-   */
-  public AbstractQueueVisitor(boolean concurrent, int corePoolSize, int maxPoolSize,
-      long keepAliveTime, TimeUnit units, String poolName) {
-    this(concurrent, corePoolSize, maxPoolSize, keepAliveTime, units, false, poolName);
+    this(/*concurrent=*/ true, executor, true, failFastOnException, true);
   }
 
   /**
    * Create the AbstractQueueVisitor with concurrency enabled.
    *
-   * @param corePoolSize the core pool size of the thread pool. See
-   *                     {@link ThreadPoolExecutor#ThreadPoolExecutor(int, int, long, TimeUnit,
-   *                     BlockingQueue)}
-   * @param maxPoolSize the max number of threads in the pool.
+   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
+   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
+   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAlive the keep-alive time for the thread pool.
    * @param units the time units of keepAliveTime.
    * @param poolName sets the name of threads spawn by this thread pool. If {@code null}, default
    *                    thread naming will be used.
    */
-  public AbstractQueueVisitor(int corePoolSize, int maxPoolSize, long keepAlive, TimeUnit units,
-      String poolName) {
-    this(true, corePoolSize, maxPoolSize, keepAlive, units, poolName);
-  }
-
-  protected BlockingQueue<Runnable> getWorkQueue() {
-    return new LinkedBlockingQueue<>();
+  public AbstractQueueVisitor(int parallelism, long keepAlive, TimeUnit units, String poolName) {
+    this(true, parallelism, keepAlive, units, false, true, poolName, EXECUTOR_FACTORY);
   }
 
   /**
@@ -323,7 +363,7 @@ public class AbstractQueueVisitor {
    *        if a worker throws a critical error (see {@link #isCriticalError(Throwable)}). If
    *        false, just wait for them to terminate normally.
    */
-  protected void work(boolean interruptWorkers) throws InterruptedException {
+  protected final void work(boolean interruptWorkers) throws InterruptedException {
     if (concurrent) {
       awaitTermination(interruptWorkers);
     } else {
@@ -337,10 +377,18 @@ public class AbstractQueueVisitor {
    * Schedules a call.
    * Called in a worker thread if concurrent.
    */
-  protected void enqueue(Runnable runnable) {
+  protected final void enqueue(Runnable runnable) {
     if (concurrent) {
       AtomicBoolean ranTask = new AtomicBoolean(false);
       try {
+        // It's impossible for this increment to result in remainingTasks.get <= 0 because
+        // remainingTasks is never negative. Therefore it isn't necessary to check its value for
+        // the purpose of updating zeroRemainingTasks.
+        long tasks = remainingTasks.incrementAndGet();
+        Preconditions.checkState(
+            tasks > 0,
+            "Incrementing remaining tasks counter resulted in impossible non-positive number %s",
+            tasks);
         pool.execute(wrapRunnable(runnable, ranTask));
       } catch (Throwable e) {
         if (!ranTask.get()) {
@@ -357,8 +405,14 @@ public class AbstractQueueVisitor {
   }
 
   private void recordError(Throwable e) {
-    catastrophe = e;
     try {
+      // If threadInterrupted is true, then RejectedExecutionExceptions are expected. There's no
+      // need to remember them, but there is a need to call decrementRemainingTasks, which is
+      // satisfied by the finally block below.
+      if (e instanceof RejectedExecutionException && threadInterrupted) {
+        return;
+      }
+      catastrophe = e;
       synchronized (this) {
         if (unhandled == null) { // save only the first one.
           unhandled = e;
@@ -370,10 +424,22 @@ public class AbstractQueueVisitor {
     }
   }
 
+  /**
+   * Wraps {@param runnable} in a newly constructed {@link Runnable} {@code r} that:
+   * <ul>
+   *   <li>Sets {@param ranTask} to {@code true} as soon as {@code r} starts to be evaluated,
+   *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
+   *   <li>Prevents {@param runnable} from being invoked if {@link #blockNewActions} returns
+   *   {@code true},
+   *   <li>Synchronously invokes {@code runnable.run()},
+   *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the first
+   *   {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to {@link
+   *   #unhandled}, and calls {@link #markToStopAllJobsIfNeeded} to set {@link #jobsMustBeStopped}
+   *   if necessary,
+   *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
+   * </ul>
+   */
   private Runnable wrapRunnable(final Runnable runnable, final AtomicBoolean ranTask) {
-    synchronized (zeroRemainingTasks) {
-      remainingTasks++;
-    }
     return new Runnable() {
       @Override
       public void run() {
@@ -412,14 +478,14 @@ public class AbstractQueueVisitor {
     };
   }
 
-  private final void addJob(Thread thread) {
+  private void addJob(Thread thread) {
     // Note: this looks like a check-then-act race but it isn't, because each
     // key implies thread-locality.
     long count = jobs.containsKey(thread) ? jobs.get(thread) + 1 : 1;
     jobs.put(thread, count);
   }
 
-  private final void removeJob(Thread thread) {
+  private void removeJob(Thread thread) {
     Long boxedCount = Preconditions.checkNotNull(jobs.get(thread),
         "Can't retrieve job after successfully adding it");
     long count = boxedCount - 1;
@@ -435,12 +501,18 @@ public class AbstractQueueVisitor {
    */
   private void setInterrupted() {
     threadInterrupted = true;
-    setRejectedExecutionHandler();
   }
 
-  private final void decrementRemainingTasks() {
-    synchronized (zeroRemainingTasks) {
-      if (--remainingTasks == 0) {
+  private void decrementRemainingTasks() {
+    // This decrement statement may result in remainingTasks.get() == 0, so it must be checked
+    // and the zeroRemainingTasks condition object notified if that condition is obtained.
+    long tasks = remainingTasks.decrementAndGet();
+    Preconditions.checkState(
+        tasks >= 0,
+        "Decrementing remaining tasks counter resulted in impossible negative number %s",
+        tasks);
+    if (tasks == 0) {
+      synchronized (zeroRemainingTasks) {
         zeroRemainingTasks.notify();
       }
     }
@@ -478,7 +550,7 @@ public class AbstractQueueVisitor {
    * Get the value of the interrupted flag.
    */
   @ThreadSafety.ThreadSafe
-  protected boolean isInterrupted() {
+  protected final boolean isInterrupted() {
     return threadInterrupted;
   }
 
@@ -487,10 +559,8 @@ public class AbstractQueueVisitor {
    * if running tasks submit further jobs.
    */
   @VisibleForTesting
-  protected long getTaskCount() {
-    synchronized (zeroRemainingTasks) {
-      return remainingTasks;
-    }
+  protected final long getTaskCount() {
+    return remainingTasks.get();
   }
 
   /**
@@ -503,7 +573,7 @@ public class AbstractQueueVisitor {
     Throwables.propagateIfPossible(catastrophe);
     try {
       synchronized (zeroRemainingTasks) {
-        while (remainingTasks != 0 && !jobsMustBeStopped) {
+        while (remainingTasks.get() != 0 && !jobsMustBeStopped) {
           zeroRemainingTasks.wait();
         }
       }
@@ -546,7 +616,7 @@ public class AbstractQueueVisitor {
 
     Throwables.propagateIfPossible(catastrophe);
     synchronized (zeroRemainingTasks) {
-      while (remainingTasks != 0) {
+      while (remainingTasks.get() != 0) {
         try {
           zeroRemainingTasks.wait();
         } catch (InterruptedException e) {
@@ -555,7 +625,7 @@ public class AbstractQueueVisitor {
       }
     }
 
-    if (ownThreadPool) {
+    if (ownExecutorService) {
       pool.shutdown();
       for (;;) {
         try {
@@ -579,14 +649,6 @@ public class AbstractQueueVisitor {
   }
 
   /**
-   * Makes the visitation terminate prematurely.
-   */
-  public void interrupt() {
-    setInterrupted();
-    reallyAwaitTermination(true);
-  }
-
-  /**
    * If this returns true, that means the exception {@code e} is critical
    * and all running actions should be stopped. {@link Error}s are always considered critical.
    *
@@ -600,18 +662,11 @@ public class AbstractQueueVisitor {
   }
 
   private boolean isCriticalErrorInternal(Throwable e) {
-    return isCriticalError(e) || (e instanceof Error);
-  }
-
-  private void setRejectedExecutionHandler() {
-    if (ownThreadPool) {
-      pool.setRejectedExecutionHandler(new RejectedExecutionHandler() {
-        @Override
-        public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-          decrementRemainingTasks();
-        }
-      });
+    boolean isCritical = isCriticalError(e) || (e instanceof Error);
+    if (isCritical) {
+      LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
     }
+    return isCritical;
   }
 
   /**

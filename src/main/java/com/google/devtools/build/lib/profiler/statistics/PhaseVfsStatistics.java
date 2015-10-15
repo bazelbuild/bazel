@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.TreeMultimap;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Table;
+import com.google.common.collect.Table.Cell;
+import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -28,7 +30,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.SortedSet;
 
 /**
  * Compute and store statistics of all {@link ProfilerTask}s that begin with VFS_ in sorted order.
@@ -36,34 +39,98 @@ import java.util.Map.Entry;
 public final class PhaseVfsStatistics implements Iterable<ProfilerTask> {
 
   /**
-   * Pair of duration and count for sorting by duration first and count in case of tie
+   * Duration, count and path for sorting by duration first and count in case of tie. Path for
+   * easy returning of a {@link SortedSet}.
    */
-  public static class Stat implements Comparable<Stat> {
-    public long duration;
-    public long count;
+  public static final class Stat implements Comparable<Stat> {
+    private long duration;
+    private long count;
+    public final String path;
 
+    public Stat(String path) {
+      this.path = path;
+    }
+
+    public Stat(Stat other) {
+      this.duration = other.duration;
+      this.count = other.count;
+      this.path = other.path;
+    }
+
+    public long getDuration() {
+      return duration;
+    }
+
+    public long getCount() {
+      return count;
+    }
+
+    private void add(Stat other) {
+      this.duration += other.duration;
+      this.count += other.count;
+    }
+
+    private void add(long duration) {
+      this.duration += duration;
+      this.count++;
+    }
+
+    /**
+     * Order first by duration, then count, then path
+     */
     @Override
     public int compareTo(Stat o) {
-      return this.duration == o.duration
-          ? Long.compare(this.count, o.count)
-          : Long.compare(this.duration, o.duration);
+      return ComparisonChain.start()
+          .compare(duration, o.duration)
+          .compare(count, o.count)
+          .compare(path, o.path)
+          .result();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof Stat) {
+        return compareTo((Stat) obj) == 0;
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(duration, count, path);
     }
   }
 
   private final ProfilePhase phase;
-  private final EnumMap<ProfilerTask, TreeMultimap<Stat, String>> sortedStatistics;
-  private final String workSpaceName;
+  private final Table<ProfilerTask, String, Stat> statistics;
+
+  public PhaseVfsStatistics(ProfilePhase phase) {
+    this.phase = phase;
+    this.statistics =
+        Tables.newCustomTable(
+            new EnumMap<ProfilerTask, Map<String, Stat>>(ProfilerTask.class),
+            new Supplier<Map<String, Stat>>() {
+              @Override
+              public Map<String, Stat> get() {
+                return new HashMap<>();
+              }
+            });
+  }
 
   public PhaseVfsStatistics(final String workSpaceName, ProfilePhase phase, ProfileInfo info) {
-    this.workSpaceName = workSpaceName;
-    this.phase = phase;
-    this.sortedStatistics = Maps.newEnumMap(ProfilerTask.class);
+    this(phase);
+    addProfileInfo(workSpaceName, info);
+  }
 
+  /**
+   * Accumulate statistics from another {@link ProfileInfo} in this object.
+   */
+  public void addProfileInfo(final String workSpaceName, ProfileInfo info) {
     Task phaseTask = info.getPhaseTask(phase);
     if (phaseTask == null) {
       return;
     }
-    collectVfsEntries(info.getTasksForPhase(phaseTask));
+    collectVfsEntries(workSpaceName, info.getTasksForPhase(phaseTask));
   }
 
   public ProfilePhase getProfilePhase() {
@@ -71,63 +138,66 @@ public final class PhaseVfsStatistics implements Iterable<ProfilerTask> {
   }
 
   public boolean isEmpty() {
-    return sortedStatistics.isEmpty();
+    return statistics.isEmpty();
   }
 
-  public Iterable<Entry<Stat, String>> getSortedStatistics(ProfilerTask taskType) {
-    return sortedStatistics.get(taskType).entries();
+  /**
+   * Builds a new {@link ImmutableSortedSet} of the path statistics for the given
+   * {@link ProfilerTask}.
+   *
+   * <p>{@link Stat}s are sorted by their natural order.
+   */
+  public ImmutableSortedSet<Stat> getSortedStatistics(ProfilerTask taskType) {
+    return ImmutableSortedSet.copyOf(statistics.row(taskType).values());
   }
 
   public int getStatisticsCount(ProfilerTask taskType) {
-    return sortedStatistics.get(taskType).size();
+    return statistics.row(taskType).size();
   }
 
   @Override
   public Iterator<ProfilerTask> iterator() {
-    return sortedStatistics.keySet().iterator();
+    return statistics.rowKeySet().iterator();
   }
 
   /**
-   * Group into VFS operations and build maps from path to duration.
+   * Add statistics from another PhaseVfsStatistics aggregation to this one.
    */
-  private void collectVfsEntries(List<Task> taskList) {
-    EnumMap<ProfilerTask, Map<String, Stat>> stats = Maps.newEnumMap(ProfilerTask.class);
+  public void add(PhaseVfsStatistics other) {
+    for (Cell<ProfilerTask, String, Stat> cell : other.statistics.cellSet()) {
+      Stat stat = statistics.get(cell.getRowKey(), cell.getColumnKey());
+      if (stat == null) {
+        stat = new Stat(cell.getValue());
+        statistics.put(cell.getRowKey(), stat.path, stat);
+      } else {
+        stat.add(cell.getValue());
+      }
+    }
+  }
+
+  /**
+   * Add the VFS operations from the list of tasks to the {@link #statistics} table
+   */
+  private void collectVfsEntries(String workSpaceName, List<Task> taskList) {
     for (Task task : taskList) {
-      collectVfsEntries(Arrays.asList(task.subtasks));
+      collectVfsEntries(workSpaceName, Arrays.asList(task.subtasks));
       if (!task.type.name().startsWith("VFS_")) {
         continue;
       }
 
-      Map<String, Stat> statsForType = stats.get(task.type);
-      if (statsForType == null) {
-        statsForType = new HashMap<>();
-        stats.put(task.type, statsForType);
-      }
+      String path = pathMapping(workSpaceName, task.getDescription());
 
-      String path = currentPathMapping(task.getDescription());
-
-      Stat stat = statsForType.get(path);
+      Stat stat = statistics.get(task.type, path);
       if (stat == null) {
-        stat = new Stat();
+        stat = new Stat(path);
+        statistics.put(task.type, path, stat);
       }
 
-      stat.duration += task.durationNanos;
-      stat.count++;
-      statsForType.put(path, stat);
-    }
-    // Reverse the maps to get maps from duration to path. We use a TreeMultimap to sort by
-    // duration and because durations are not unique.
-    for (ProfilerTask type : stats.keySet()) {
-      Map<String, Stat> statsForType = stats.get(type);
-      TreeMultimap<Stat, String> sortedStats =
-          TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
-
-      Multimaps.invertFrom(Multimaps.forMap(statsForType), sortedStats);
-      sortedStatistics.put(type, sortedStats);
+      stat.add(task.durationNanos);
     }
   }
 
-  private String currentPathMapping(String input) {
+  private String pathMapping(String workSpaceName, String input) {
     if (workSpaceName.isEmpty()) {
       return input;
     } else {

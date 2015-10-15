@@ -14,7 +14,7 @@
 """A simple cross-platform helper to remove top from a tar file."""
 import sys
 
-from tools.build_defs.docker import archive
+from tools.build_defs.pkg import archive
 
 if __name__ == '__main__':
   with archive.TarFileWriter(sys.argv[2]) as f:

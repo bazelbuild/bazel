@@ -111,7 +111,8 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    AttributesAndLocation generator = generatorAttributesForMacros(attributeValues, env, location);
+    AttributesAndLocation generator =
+        generatorAttributesForMacros(attributeValues, env, location, label);
     try {
       return ruleClass.createRuleWithLabel(
           pkgBuilder, label, generator.attributes, eventHandler, ast, generator.location);
@@ -197,7 +198,7 @@ public class RuleFactory {
    * <p>Otherwise, it returns the given attributes without any changes.
    */
   private static AttributesAndLocation generatorAttributesForMacros(
-      Map<String, Object> args, @Nullable Environment env, Location location) {
+      Map<String, Object> args, @Nullable Environment env, Location location, Label label) {
     // Returns the original arguments if a) there is only the rule itself on the stack
     // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
     if (env == null) {
@@ -218,18 +219,50 @@ public class RuleFactory {
     BaseFunction function = topCall.second;
     String name = generator.getNameArg();
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+
     builder.putAll(args);
     builder.put("generator_name", (name == null) ? args.get("name") : name);
     builder.put("generator_function", function.getName());
+
     if (generator.getLocation() != null) {
       location = generator.getLocation();
+    }
+
+    String relativePath = maybeGetRelativeLocation(location, label);
+    if (relativePath != null) {
+      builder.put("generator_location", relativePath);
     }
 
     try {
       return new AttributesAndLocation(builder.build(), location);
     } catch (IllegalArgumentException ex) {
-      // Just to play it safe.
+      // We just fall back to the default case and swallow any messages.
       return new AttributesAndLocation(args, location);
     }
+  }
+
+  /**
+   * Uses the given label to retrieve the workspace-relative path of the given location (including
+   * the line number).
+   *
+   * <p>For example, the location /usr/local/workspace/my/cool/package/BUILD:3:1 and the label
+   * //my/cool/package:BUILD would lead to "my/cool/package:BUILD:3".
+   *
+   * @return The workspace-relative path of the given location, or null if it could not be computed.
+   */
+  @Nullable
+  private static String maybeGetRelativeLocation(@Nullable Location location, Label label) {
+    if (location == null) {
+      return null;
+    }
+    // Determining the workspace root only works reliably if both location and label point to files
+    // in the same package.
+    // It would be preferable to construct the path from the label itself, but this doesn't work for
+    // rules created from function calls in a subincluded file, even if both files share a path
+    // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
+    // We can revert to that approach once subincludes aren't supported anymore.
+    String absolutePath = Location.printPathAndLine(location);
+    int pos = absolutePath.indexOf(label.getPackageName());
+    return (pos < 0) ? null : absolutePath.substring(pos);
   }
 }

@@ -30,13 +30,19 @@ import com.google.devtools.build.skyframe.SkyValue;
 @ThreadSafe
 public final class GlobValue implements SkyValue {
 
-  static final GlobValue EMPTY = new GlobValue(
+  public static final GlobValue EMPTY = new GlobValue(
       NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<PathFragment> matches;
 
-  GlobValue(NestedSet<PathFragment> matches) {
+  /**
+   * Create a GlobValue wrapping {@code matches}. {@code matches} must have order
+   * {@link Order#STABLE_ORDER}.
+   */
+  public GlobValue(NestedSet<PathFragment> matches) {
     this.matches = Preconditions.checkNotNull(matches);
+    Preconditions.checkState(matches.getOrder() == Order.STABLE_ORDER,
+        "Only STABLE_ORDER is supported, but got %s", matches.getOrder());
   }
 
   /**

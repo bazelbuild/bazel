@@ -28,12 +28,9 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 
 /**
  * A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}.
@@ -44,17 +41,14 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private final RecursivePackageProvider recursivePackageProvider;
   private final EventHandler eventHandler;
   private final FilteringPolicy policy;
-  private final PathPackageLocator pkgPath;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
       RecursivePackageProvider recursivePackageProvider,
       EventHandler eventHandler,
-      FilteringPolicy policy,
-      PathPackageLocator pkgPath) {
+      FilteringPolicy policy) {
     this.recursivePackageProvider = recursivePackageProvider;
     this.eventHandler = eventHandler;
     this.policy = policy;
-    this.pkgPath = pkgPath;
   }
 
   @Override
@@ -141,18 +135,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
     PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
     ResolvedTargets.Builder<Target> targetBuilder = ResolvedTargets.builder();
-    // TODO(bazel-team): This is where we need to depend on the RepositoryValue of a remote
-    // repository in order figure out its root and thus support recursive package search in them.
-    for (Path root : pkgPath.getPathEntries()) {
-      RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
-      Iterable<PathFragment> packagesUnderDirectory =
-          recursivePackageProvider.getPackagesUnderDirectory(
-              repository, rootedPath, excludedPathFragments);
-      for (PathFragment pkg : packagesUnderDirectory) {
-        targetBuilder.merge(getTargetsInPackage(originalPattern,
-            PackageIdentifier.createInDefaultRepo(pkg),
-            FilteringPolicies.NO_FILTER));
-      }
+    Iterable<PathFragment> packagesUnderDirectory =
+        recursivePackageProvider.getPackagesUnderDirectory(
+            repository, pathFragment, excludedPathFragments);
+    for (PathFragment pkg : packagesUnderDirectory) {
+      targetBuilder.merge(getTargetsInPackage(originalPattern,
+          PackageIdentifier.create(repository, pkg),
+          FilteringPolicies.NO_FILTER));
     }
 
     // Perform the no-targets-found check before applying the filtering policy so we only return the

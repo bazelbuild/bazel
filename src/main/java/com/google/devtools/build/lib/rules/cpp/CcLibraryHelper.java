@@ -648,11 +648,13 @@ public final class CcLibraryHelper {
     CcCompilationOutputs ccOutputs = model.createCcCompileActions();
     if (!objectFiles.isEmpty() || !picObjectFiles.isEmpty()) {
       // Merge the pre-compiled object files into the compiler outputs.
-      ccOutputs = new CcCompilationOutputs.Builder()
-          .merge(ccOutputs)
-          .addObjectFiles(objectFiles)
-          .addPicObjectFiles(picObjectFiles)
-          .build();
+      ccOutputs =
+          new CcCompilationOutputs.Builder()
+              .merge(ccOutputs)
+              .addLTOBitcodeFile(ccOutputs.getLtoBitcodeFiles())
+              .addObjectFiles(objectFiles)
+              .addPicObjectFiles(picObjectFiles)
+              .build();
     }
 
     // Create link actions (only if there are object files or if explicitly requested).
@@ -789,15 +791,18 @@ public final class CcLibraryHelper {
       // TODO(bazel-team): addCppModuleMapToContext second-guesses whether module maps should
       // actually be enabled, so we need to double-check here. Who would write code like this?
       if (cppModuleMap != null) {
-        CppModuleMapAction action = new CppModuleMapAction(ruleContext.getActionOwner(),
-            cppModuleMap,
-            privateHeaders,
-            publicHeaders,
-            collectModuleMaps(),
-            additionalExportedHeaders,
-            featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
-            featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-            featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES));
+        CppModuleMapAction action =
+            new CppModuleMapAction(
+                ruleContext.getActionOwner(),
+                cppModuleMap,
+                privateHeaders,
+                publicHeaders,
+                collectModuleMaps(),
+                additionalExportedHeaders,
+                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
+                featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
+                featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
+                !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
         ruleContext.registerAction(action);
       }
       if (model.getGeneratesPicHeaderModule()) {

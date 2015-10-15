@@ -848,4 +848,27 @@ EOF
   expect_log "@r//a:h"
 }
 
+function test_recursive_wildcard_in_remote_repository() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a/{x,y/z}
+  touch $r/a/{x,y/z}/{m,n}
+
+  echo 'exports_files(["m", "n"])' > $r/a/x/BUILD
+  echo 'exports_files(["m", "n"])' > $r/a/y/z/BUILD
+
+  echo "local_repository(name='r', path='$r')" > WORKSPACE
+  bazel query @r//...:all-targets >& $TEST_log || fail "query failed"
+  expect_log "@r//a/x:m"
+  expect_log "@r//a/x:n"
+  expect_log "@r//a/y/z:m"
+  expect_log "@r//a/y/z:n"
+
+  bazel query @r//a/x:all-targets >& $TEST_log || fail "query failed"
+  expect_log "@r//a/x:m"
+  expect_log "@r//a/x:n"
+  expect_not_log "@r//a/y/z:m"
+  expect_not_log "@r//a/y/z:n"
+}
+
 run_suite "local repository tests"

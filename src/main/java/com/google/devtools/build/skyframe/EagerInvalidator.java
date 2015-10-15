@@ -15,12 +15,12 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ThreadPoolExecutorParams;
+import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ExecutorService;
 
 import javax.annotation.Nullable;
 
@@ -73,22 +73,11 @@ public final class EagerInvalidator {
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory) {
+      Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     state.update(diff);
     return state.isEmpty() ? null
         : new DirtyingNodeVisitor(graph, invalidationReceiver, state, dirtyKeyTracker,
             executorFactory);
-  }
-
-  @Nullable
-  static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
-      DirtiableGraph graph,
-      Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state,
-      DirtyKeyTracker dirtyKeyTracker) {
-    return createInvalidatingVisitorIfNeeded(graph, diff, invalidationReceiver, state,
-        dirtyKeyTracker, AbstractQueueVisitor.EXECUTOR_FACTORY);
   }
 
   /**
@@ -101,7 +90,7 @@ public final class EagerInvalidator {
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      Function<ThreadPoolExecutorParams, ThreadPoolExecutor> executorFactory)
+      Function<ExecutorParams, ? extends ExecutorService> executorFactory)
       throws InterruptedException {
     // If we are invalidating, we must be in an incremental build by definition, so we must
     // maintain a consistent graph state by traversing the graph and invalidating transitive

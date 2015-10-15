@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,7 +34,21 @@ import java.util.List;
  * Command-line options for building Objective-C targets.
  */
 public class ObjcCommandLineOptions extends FragmentOptions {
-  // TODO(cparsons): Validate version flag value.
+  /** Converter for --objc_dump_syms_binary. */
+  public static class DumpSymsConverter extends DefaultLabelConverter {
+    public DumpSymsConverter() {
+      super(Constants.TOOLS_REPOSITORY + "//tools/objc:dump_syms");
+    }
+  }
+
+  /** Converter for --default_ios_provisioning_profile. */
+  public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
+    public DefaultProvisioningProfileConverter() {
+      super(Constants.TOOLS_REPOSITORY + "//tools/objc:default_provisioning_profile");
+    }
+  }
+
+  // TODO(bazel-team): Validate version flag value.
   @Option(name = "xcode_version",
       defaultValue = "",
       category = "undocumented",
@@ -42,7 +57,9 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       )
   public String xcodeVersion;
 
+  // TODO(bazel-team): Validate version flag value.
   @Option(name = "ios_sdk_version",
+      // TODO(bazel-team): Make this flag optional, and infer SDKROOT based on executor default.
       defaultValue = DEFAULT_SDK_VERSION,
       category = "build",
       help = "Specifies the version of the iOS SDK to use to build iOS applications."
@@ -75,7 +92,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(name = "objc_generate_debug_symbols",
       defaultValue = "false",
-      category = "undocumented",
+      category = "flags",
       help = "Specifies whether to generate debug symbol(.dSYM) file.")
   public boolean generateDebugSymbols;
 
@@ -114,15 +131,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSplitCpu;
 
   @Option(name = "objc_dump_syms_binary",
-      defaultValue = "//tools/objc:dump_syms",
+      defaultValue = "",
       category = "undocumented",
-      converter = LabelConverter.class)
+      converter = DumpSymsConverter.class)
   public Label dumpSyms;
 
   @Option(name = "default_ios_provisiong_profile",
-      defaultValue = "//tools/objc:default_provisioning_profile",
+      defaultValue = "",
       category = "undocumented",
-      converter = LabelConverter.class)
+      converter = DefaultProvisioningProfileConverter.class)
   public Label defaultProvisioningProfile;
 
   @Option(name = "objc_per_proto_includes",
@@ -177,6 +194,27 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       category = "undocumented")
   public ConfigurationDistinguisher configurationDistinguisher;
 
+  @Option(
+    name = "ios_signing_cert_name",
+    defaultValue = "null",
+    category = "flags",
+    help =
+        "Certificate name to use for iOS signing. If not set will fall back to provisioning "
+            + "profile. May be the certificate's keychain identity preference or (substring) of "
+            + "the certificate's common name, as per codesign's man page (SIGNING IDENTITIES)."
+  )
+  public String iosSigningCertName;
+
+  @Option(
+    name = "xcode_override_workspace_root",
+    defaultValue = "",
+    category = "xcode",
+    help =
+        "If set, then this path will be used as workspace_root and mainGroup path when "
+            + "generating an .xcodeproj/project.pbxproj file."
+  )
+  public String xcodeOverrideWorkspaceRoot;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
@@ -206,6 +244,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION);
   }
 
+  /** Converter for the iOS configuration distinguisher. */
   public static final class ConfigurationDistinguisherConverter
       extends EnumConverter<ConfigurationDistinguisher> {
     public ConfigurationDistinguisherConverter() {

@@ -178,6 +178,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path testLogPath = action.getTestLog().getPath();
     TestResultData.Builder builder = TestResultData.newBuilder();
 
+    long startTime = executor.getClock().currentTimeMillis();
     try {
       try {
         if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
@@ -199,6 +200,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
       } finally {
+        long duration = executor.getClock().currentTimeMillis() - startTime;
+        builder.addTestTimes(duration);
+        builder.setRunDurationMillis(duration);
         if (streamed != null) {
           streamed.close();
         }

@@ -280,23 +280,50 @@ public final class BuildConfiguration {
     }
   }
 
+  private static final Label convertLabel(String input) throws OptionsParsingException {
+    try {
+      // Check if the input starts with '/'. We don't check for "//" so that
+      // we get a better error message if the user accidentally tries to use
+      // an absolute path (starting with '/') for a label.
+      if (!input.startsWith("/") && !input.startsWith("@")) {
+        input = "//" + input;
+      }
+      return Label.parseAbsolute(input);
+    } catch (LabelSyntaxException e) {
+      throw new OptionsParsingException(e.getMessage());
+    }
+  }
+
   /**
    * A converter from strings to Labels.
    */
   public static class LabelConverter implements Converter<Label> {
     @Override
     public Label convert(String input) throws OptionsParsingException {
-      try {
-        // Check if the input starts with '/'. We don't check for "//" so that
-        // we get a better error message if the user accidentally tries to use
-        // an absolute path (starting with '/') for a label.
-        if (!input.startsWith("/") && !input.startsWith("@")) {
-          input = "//" + input;
-        }
-        return Label.parseAbsolute(input);
-      } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException(e.getMessage());
-      }
+      return convertLabel(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a build target label";
+    }
+  }
+
+  /**
+   * A label converter that returns a default value if the input string is empty.
+   */
+  public static class DefaultLabelConverter implements Converter<Label> {
+    private final Label defaultValue;
+
+    protected DefaultLabelConverter(String defaultValue) {
+      this.defaultValue = defaultValue.equals("null")
+          ? null
+          : Label.parseAbsoluteUnchecked(defaultValue);
+    }
+
+    @Override
+    public Label convert(String input) throws OptionsParsingException {
+      return input.isEmpty() ? defaultValue : convertLabel(input);
     }
 
     @Override

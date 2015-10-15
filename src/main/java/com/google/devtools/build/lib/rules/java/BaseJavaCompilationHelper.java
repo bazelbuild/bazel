@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * A helper class for compiling Java targets. This helper does not rely on the
@@ -66,16 +67,15 @@ public class BaseJavaCompilationHelper {
       "--exclude_build_data",
       "--warn_duplicate_resources");
 
-  private CommandLine sourceJarCommandLine(JavaSemantics semantics, Artifact outputJar,
-      Iterable<Artifact> resources, Iterable<Artifact> resourceJars) {
+  private CommandLine sourceJarCommandLine(Artifact outputJar,
+      Map<PathFragment, Artifact> resources, Iterable<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
     args.add(SOURCE_JAR_COMMAND_LINE_ARGS);
     args.addExecPaths("--sources", resourceJars);
     args.add("--resources");
-    for (Artifact resource : resources) {
-      args.addPaths("%s:%s", resource.getExecPath(),
-          semantics.getJavaResourcePath(resource.getRootRelativePath()));
+    for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
+      args.addPaths("%s:%s", resource.getValue().getExecPath(), resource.getKey());
     }
     return args.build();
   }
@@ -83,23 +83,22 @@ public class BaseJavaCompilationHelper {
   /**
    * Creates an Action that packages files into a Jar file.
    *
-   * @param semantics delegate semantics for java.
    * @param resources the resources to put into the Jar.
    * @param resourceJars the resource jars to merge into the jar
    * @param outputJar the Jar to create
    */
-  public void createSourceJarAction(JavaSemantics semantics, Collection<Artifact> resources,
+  public void createSourceJarAction(Map<PathFragment, Artifact> resources,
       Collection<Artifact> resourceJars, Artifact outputJar) {
     ruleContext.registerAction(new SpawnAction.Builder()
         .addOutput(outputJar)
-        .addInputs(resources)
+        .addInputs(resources.values())
         .addInputs(resourceJars)
         .addTransitiveInputs(JavaCompilationHelper.getHostJavabaseInputs(ruleContext))
         .setJarExecutable(
             ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
             ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST),
             ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY))
-        .setCommandLine(sourceJarCommandLine(semantics, outputJar, resources, resourceJars))
+        .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
         .useParameterFile(ParameterFileType.SHELL_QUOTED)
         .setProgressMessage("Building source jar " + outputJar.prettyPrint())
         .setMnemonic("JavaSourceJar")

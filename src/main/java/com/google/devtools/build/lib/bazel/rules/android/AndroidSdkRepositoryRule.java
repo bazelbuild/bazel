@@ -40,17 +40,29 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_sdk_repository";
 
   private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      new Function< Rule, Map<String, Label>>() {
+      new Function<Rule, Map<String, Label>>() {
         @Nullable
         @Override
         public Map<String, Label> apply(Rule rule) {
           String prefix = "@" + rule.getName() + "//:";
-          return ImmutableMap.of(
-              "android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"),
+          ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
+          builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
+          builder.put(
               "android/google_play_services",
-              Label.parseAbsoluteUnchecked(prefix + "google_play_services"),
-              "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"),
+              Label.parseAbsoluteUnchecked(prefix + "google_play_services"));
+          builder.put(
+              "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"));
+          builder.put(
               "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
+          builder.put(
+              "android/mediarouter_v7", Label.parseAbsoluteUnchecked(prefix + "mediarouter_v7"));
+          builder.put("android/cardview_v7", Label.parseAbsoluteUnchecked(prefix + "cardview_v7"));
+          builder.put(
+              "android/gridlayout_v7", Label.parseAbsoluteUnchecked(prefix + "gridlayout_v7"));
+          builder.put("android/palette_v7", Label.parseAbsoluteUnchecked(prefix + "palette_v7"));
+          builder.put(
+              "android/recyclerview_v7", Label.parseAbsoluteUnchecked(prefix + "recyclerview_v7"));
+          return builder.build();
         }
       };
 

@@ -152,13 +152,21 @@ public final class PackageFactory {
     /**
      * Update the global environment with the identifiers this extension contributes.
      */
-    void update(Environment environment, Label buildFileLabel);
+    void update(Environment environment);
+
+    /**
+     * Update the global environment of WORKSPACE files.
+     */
+    void updateWorkspace(Environment environment);
 
     /**
      * Returns the extra functions needed to be added to the Skylark native module.
      */
     ImmutableList<BaseFunction> nativeModuleFunctions();
 
+    /**
+     * Returns the extra arguments to the {@code package()} statement.
+     */
     Iterable<PackageArgument<?>> getPackageArguments();
   }
 
@@ -424,6 +432,10 @@ public final class PackageFactory {
    */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
+  }
+
+  public ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
+    return environmentExtensions;
   }
 
   /**
@@ -1229,7 +1241,7 @@ public final class PackageFactory {
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
-      extension.update(pkgEnv, context.pkgBuilder.getBuildFileLabel());
+      extension.update(pkgEnv);
     }
   }
 
