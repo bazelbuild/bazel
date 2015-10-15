@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.Preprocessor.Result;
+import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -84,7 +84,7 @@ public class PackageFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
-  private final Cache<PackageIdentifier, Preprocessor.Result> preprocessCache;
+  private final Cache<PackageIdentifier, Preprocessor.AstAfterPreprocessing> astCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
@@ -101,7 +101,7 @@ public class PackageFunction implements SkyFunction {
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
       Cache<PackageIdentifier, LegacyBuilder> packageFunctionCache,
-      Cache<PackageIdentifier, Result> preprocessCache,
+      Cache<PackageIdentifier, AstAfterPreprocessing> astCache,
       AtomicInteger numPackagesLoaded,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
@@ -113,7 +113,7 @@ public class PackageFunction implements SkyFunction {
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
     this.packageFunctionCache = packageFunctionCache;
-    this.preprocessCache = preprocessCache;
+    this.astCache = astCache;
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
@@ -515,32 +515,24 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  // TODO(bazel-team): this should take the AST so we don't parse the file twice.
   @Nullable
   private SkylarkImportResult discoverSkylarkImports(
       Path buildFilePath,
       PathFragment buildFileFragment,
       PackageIdentifier packageId,
-      Environment env,
-      ParserInputSource inputSource,
-      List<Statement> preludeStatements)
+      AstAfterPreprocessing astAfterPreprocessing,
+      Environment env)
       throws PackageFunctionException, InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    BuildFileAST buildFileAST =
-        BuildFileAST.parseBuildFile(
-            inputSource,
-            preludeStatements,
-            eventHandler,
-            /* parse python */ false);
     SkylarkImportResult importResult;
-    if (eventHandler.hasErrors()) {
+    if (astAfterPreprocessing.containsAstParsingErrors) {
       importResult =
           new SkylarkImportResult(
               ImmutableMap.<PathFragment, Extension>of(),
               ImmutableList.<Label>of());
     } else {
       importResult =
-          fetchImportsFromBuildFile(buildFilePath, buildFileFragment, packageId, buildFileAST, env);
+          fetchImportsFromBuildFile(buildFilePath, buildFileFragment, packageId,
+              astAfterPreprocessing.ast, env);
     }
 
     return importResult;
@@ -868,17 +860,18 @@ public class PackageFunction implements SkyFunction {
       try {
         Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
             packageId, packageLocator);
-        Preprocessor.Result preprocessingResult = preprocessCache.getIfPresent(packageId);
-        if (preprocessingResult == null) {
+        AstAfterPreprocessing astAfterPreprocessing = astCache.getIfPresent(packageId);
+        if (astAfterPreprocessing == null) {
           if (showLoadingProgress.get()) {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
           }
-          // Even though we only open and read the file on a cache miss, note that the BUILD is
-          // still parsed two times. Also, the preprocessor may suboptimally open and read it again
-          // anyway.
-          ParserInputSource inputSource;
+          Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
             long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
+            // Even though we only open and read the file on a cache miss, note that the BUILD is
+            // still parsed two times. Also, the preprocessor may suboptimally open and read it
+            // again anyway.
+            ParserInputSource inputSource;
             try {
               inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
             } catch (IOException e) {
@@ -904,31 +897,32 @@ public class PackageFunction implements SkyFunction {
                 ParserInputSource.create(replacementContents, buildFilePath.asFragment());
             preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
           }
-          preprocessCache.put(packageId, preprocessingResult);
+          StoredEventHandler astParsingEventHandler = new StoredEventHandler();
+          BuildFileAST ast = PackageFactory.parseBuildFile(packageId, preprocessingResult.result,
+              preludeStatements, astParsingEventHandler);
+          astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult, ast,
+              astParsingEventHandler);
+          astCache.put(packageId, astAfterPreprocessing);
         }
-
         SkylarkImportResult importResult;
         try {
           importResult = discoverSkylarkImports(
-                  buildFilePath,
-                  buildFileFragment,
-                  packageId,
-                  env,
-                  preprocessingResult.result,
-                  preludeStatements);
+              buildFilePath,
+              buildFileFragment,
+              packageId,
+              astAfterPreprocessing,
+              env);
         } catch (PackageFunctionException | InterruptedException e) {
-          preprocessCache.invalidate(packageId);
+          astCache.invalidate(packageId);
           throw e;
         }
         if (importResult == null) {
           return null;
         }
-        preprocessCache.invalidate(packageId);
-
-        pkgBuilder = packageFactory.createPackageFromPreprocessingResult(externalPkg, packageId,
-            buildFilePath, preprocessingResult, preprocessingResult.events, preludeStatements,
-            importResult.importMap, importResult.fileDependencies, packageLocator,
-            defaultVisibility, globber);
+        astCache.invalidate(packageId);
+        pkgBuilder = packageFactory.createPackageFromPreprocessingAst(externalPkg, packageId,
+            buildFilePath, astAfterPreprocessing, importResult.importMap,
+            importResult.fileDependencies, defaultVisibility, globber);
         numPackagesLoaded.incrementAndGet();
         packageFunctionCache.put(packageId, pkgBuilder);
       } finally {
