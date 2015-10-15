@@ -36,7 +36,8 @@ void BringupInterface(const char *name) {
   memset(&ifr, 0, sizeof(ifr));
   strncpy(ifr.ifr_name, name, IF_NAMESIZE);
 
-  CHECK_CALL(ioctl(fd, SIOCGIFINDEX, &ifr));
+  // Verify that name is valid.
+  CHECK_CALL(if_nametoindex(ifr.ifr_name));
 
   // Enable the interface
   ifr.ifr_flags |= IFF_UP;
