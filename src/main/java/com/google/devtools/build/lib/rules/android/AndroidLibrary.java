@@ -62,6 +62,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     List<? extends TransitiveInfoCollection> deps =
         ruleContext.getPrerequisites("deps", Mode.TARGET);
     checkResourceInlining(ruleContext);
+    NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources =
+        AndroidCommon.getTransitiveResourceContainers(ruleContext, true);
     NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
     NestedSet<LinkerInput> transitiveNativeLibraries =
         AndroidCommon.collectTransitiveNativeLibraries(deps);
@@ -82,8 +84,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       try {
         resourceApk = applicationManifest.packWithDataAndResources(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
-            ruleContext,
-            ResourceDependencies.fromRuleDeps(ruleContext),
+            ruleContext, transitiveResources,
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
             ImmutableList.<String>of(), /* configurationFilters */
@@ -101,8 +102,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         return null;
       }
     } else {
-      resourceApk = ResourceApk.fromTransitiveResources(
-          ResourceDependencies.fromRuleResourceAndDeps(ruleContext));
+      resourceApk = ResourceApk.fromTransitiveResources(transitiveResources);
     }
 
     JavaTargetAttributes javaTargetAttributes = androidCommon.init(
@@ -129,7 +129,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       transitiveAars.add(aar);
     } else if (AndroidCommon.getAndroidResources(ruleContext) != null) {
       primaryResources = Iterables.getOnlyElement(
-          AndroidCommon.getAndroidResources(ruleContext).getDirectAndroidResources());
+          AndroidCommon.getAndroidResources(ruleContext).getTransitiveAndroidResources());
       aar = new Aar(aarOut, primaryResources.getManifest());
       transitiveAars.add(aar);
     } else {
@@ -157,7 +157,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
               .setSourceJarOut(resourceContainer.getJavaSourceJar())
               .setJavaPackage(resourceContainer.getJavaPackage())
               .withPrimary(resourceContainer)
-              .withDependencies(resourceApk.getResourceDependencies())
+              .withDependencies(transitiveResources)
               .setDebug(
                   ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .build(ruleContext);
@@ -172,8 +172,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .build(ruleContext);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    androidCommon.addTransitiveInfoProviders(builder, androidSemantics, resourceApk, null,
-        ImmutableList.<Artifact>of());
+    androidCommon.addTransitiveInfoProviders(builder, androidSemantics,
+        definesLocalResources ? resourceApk : null, null, ImmutableList.<Artifact>of());
     androidSemantics.addTransitiveInfoProviders(
         builder, ruleContext, javaCommon, androidCommon, null);
 
@@ -220,7 +220,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
 
     ResourceContainer container = Iterables.getOnlyElement(
-        resources.getDirectAndroidResources());
+        resources.getTransitiveAndroidResources());
 
     if (container.getConstantsInlined()
         && !container.getArtifacts(ResourceType.RESOURCES).isEmpty()) {
