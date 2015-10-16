@@ -25,6 +25,9 @@ import com.google.devtools.build.skyframe.SkyValue;
  * a specific package.
  */
 public abstract class ContainingPackageLookupValue implements SkyValue {
+
+  public static final NoContainingPackage NONE = new NoContainingPackage();
+
   /** Returns whether there is a containing package. */
   public abstract boolean hasContainingPackage();
 
@@ -39,16 +42,14 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return new SkyKey(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
   }
 
-  static ContainingPackageLookupValue noContainingPackage() {
-    return NoContainingPackage.INSTANCE;
-  }
-
   static ContainingPackageLookupValue withContainingPackage(PackageIdentifier pkgId, Path root) {
     return new ContainingPackage(pkgId, root);
   }
 
-  private static class NoContainingPackage extends ContainingPackageLookupValue {
-    private static final NoContainingPackage INSTANCE = new NoContainingPackage();
+  /** Value indicating there is no containing package. */
+  public static class NoContainingPackage extends ContainingPackageLookupValue {
+
+    private NoContainingPackage() {}
 
     @Override
     public boolean hasContainingPackage() {
@@ -66,7 +67,8 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     }
   }
 
-  private static class ContainingPackage extends ContainingPackageLookupValue {
+  /** A successful lookup value. */
+  public static class ContainingPackage extends ContainingPackageLookupValue {
     private final PackageIdentifier containingPackage;
     private final Path containingPackageRoot;
 

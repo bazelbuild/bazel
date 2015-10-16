@@ -382,7 +382,6 @@ public class PackageFunction implements SkyFunction {
       switch (packageLookupValue.getErrorReason()) {
         case NO_BUILD_FILE:
         case DELETED_PACKAGE:
-        case NO_EXTERNAL_PACKAGE:
           throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
