@@ -1,4 +1,4 @@
-// Copyright 2005 Google Inc. All Rights Reserved.
+// Copyright 2015 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,11 +34,9 @@ import java.util.regex.Pattern;
 @RunWith(JUnit4.class)
 public class LabelTest {
 
-  private static final String BAD_PACKAGE_CHARS =
-      "package names may contain only A-Z, a-z, 0-9, '/', '-' and '_'";
-
-  private static final String TARGET_UPLEVEL =
-      "target names may not contain up-level references '..'";
+  private static final String BAD_PACKAGE_CHARS = "package names may contain only";
+  private static final String INVALID_TARGET_NAME = "invalid target name";
+  private static final String INVALID_PACKAGE_NAME = "invalid package name";
 
   @Test
   public void testAbsolute() throws Exception {
@@ -213,41 +211,28 @@ public class LabelTest {
 
   @Test
   public void testUplevelReferences() throws Exception {
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//foo/bar/..:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//foo/../baz:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//../bar/baz:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//..:foo");
-    assertSyntaxError(TARGET_UPLEVEL,
-                      "//foo:bar/../baz");
-    assertSyntaxError(TARGET_UPLEVEL,
-                      "//foo:../bar/baz");
-    assertSyntaxError(TARGET_UPLEVEL,
-                      "//foo:bar/baz/..");
-    assertSyntaxError(TARGET_UPLEVEL,
-                      "//foo:..");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//foo/bar/..:baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//foo/../baz:baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//../bar/baz:baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//..:foo");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:bar/../baz");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:../bar/baz");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:bar/baz/..");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:..");
   }
 
   @Test
   public void testDotAsAPathSegment() throws Exception {
-    assertSyntaxError("package names may contain only A-Z, a-z, 0-9, '/', '-' and '_'",
-                      "//foo/bar/.:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//foo/./baz:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//./bar/baz:baz");
-    assertSyntaxError("target names may not contain '.' as a path segment",
-                      "//foo:bar/./baz");
-    assertSyntaxError("target names may not contain '.' as a path segment",
-                      "//foo:./bar/baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//foo/bar/.:baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//foo/./baz:baz");
+    assertSyntaxError(INVALID_PACKAGE_NAME, "//./bar/baz:baz");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:bar/./baz");
+    assertSyntaxError(INVALID_TARGET_NAME, "//foo:./bar/baz");
     // TODO(bazel-team): enable when we have removed the "Workaround" in Label
     // that rewrites broken Labels by removing the trailing '.'
-    //assertSyntaxError(TARGET_UPLEVEL,
+    //assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:bar/baz/.");
-    //assertSyntaxError(TARGET_UPLEVEL,
+    //assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:.");
   }
 
