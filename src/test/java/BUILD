@@ -644,6 +644,7 @@ java_test(
         "com/google/devtools/build/lib/skylark/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["skylark"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -829,6 +830,7 @@ TEST_SUITES = [
     "foundations",
     "shell",
     "skyframe",
+    "skylark",
     "ideinfo",
 ]
 
