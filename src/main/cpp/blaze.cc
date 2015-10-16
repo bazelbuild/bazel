@@ -189,9 +189,10 @@ class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
                        const devtools_ijar::u1 *data, const size_t size) {
     string str(reinterpret_cast<const char *>(data), size);
     blaze_util::StripWhitespace(&str);
-    if (str.size() < 32) {
+    if (str.size() != 32) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nFailed to extract install_base_key: file too short");
+          "\nFailed to extract install_base_key: file size mismatch "
+          "(should be 32, is %zd)", str.size());
     }
     *install_base_key_ = str;
   }
