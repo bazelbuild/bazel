@@ -258,10 +258,10 @@ Testing
 * License: New BSD License
 
 
-[iossim](https://code.google.com/p/google-toolbox-for-mac/source/browse/trunk/UnitTesting/iossim?r=701)
+[iossim](https://code.google.com/p/chromium/codesearch#chromium/src/testing/iossim/)
 --------
 
-* Version: Revision 701
+* Version: latest as of 2015-10-09
 * License: 3-clause BSD
 
 
