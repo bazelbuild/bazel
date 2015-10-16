@@ -1226,8 +1226,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
+  @SkylarkCallable(name = "fully_static_link_options",
+      doc = "Returns the immutable list of linker options for fully statically linked "
+      + "outputs. Does not include command-line options passed via --linkopt or "
+      + "--linkopts.")
   public List<String> getFullyStaticLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+      Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(mostlyStaticLinkFlags, features);
     } else {
@@ -1243,8 +1247,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
+  @SkylarkCallable(name = "mostly_static_link_options",
+      doc = "Returns the immutable list of linker options for mostly statically linked "
+      + "outputs. Does not include command-line options passed via --linkopt or "
+      + "--linkopts.")
   public List<String> getMostlyStaticLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+      Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(
           supportsEmbeddedRuntimes ? mostlyStaticSharedLinkFlags : dynamicLinkFlags,
@@ -1262,8 +1270,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
+  @SkylarkCallable(name = "dynamic_link_options",
+      doc = "Returns the immutable list of linker options for artifacts that are not "
+      + "fully or mostly statically linked. Does not include command-line options "
+      + "passed via --linkopt or --linkopts.")
   public List<String> getDynamicLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+      Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(dynamicLinkFlags, features);
     } else {
