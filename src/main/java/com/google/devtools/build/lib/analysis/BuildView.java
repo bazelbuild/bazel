@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Option;
@@ -450,18 +452,43 @@ public class BuildView {
 
     List<AspectKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
-      @SuppressWarnings("unchecked")
-      final Class<? extends ConfiguredAspectFactory> aspectFactoryClass =
-          (Class<? extends ConfiguredAspectFactory>)
-              ruleClassProvider.getAspectFactoryMap().get(aspect);
-      if (aspectFactoryClass != null) {
+
+      // Syntax: label%aspect
+      int delimiterPosition = aspect.indexOf('%');
+      if (delimiterPosition >= 0) {
+        PackageIdentifier bzlFile;
+        try {
+          bzlFile =
+              PackageIdentifier.create(
+                  PackageIdentifier.DEFAULT_REPOSITORY,
+                  new PathFragment(aspect.substring(0, delimiterPosition)));
+        } catch (LabelSyntaxException e) {
+          throw new ViewCreationFailedException("Error", e);
+        }
+
+        String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (ConfiguredTargetKey targetSpec : targetSpecs) {
           aspectKeys.add(
-              AspectValue.createAspectKey(
-                  targetSpec.getLabel(), targetSpec.getConfiguration(), aspectFactoryClass));
+              AspectValue.createSkylarkAspectKey(
+                  targetSpec.getLabel(),
+                  targetSpec.getConfiguration(),
+                  bzlFile,
+                  skylarkFunctionName));
         }
       } else {
-        throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
+        @SuppressWarnings("unchecked")
+        final Class<? extends ConfiguredAspectFactory> aspectFactoryClass =
+            (Class<? extends ConfiguredAspectFactory>)
+                ruleClassProvider.getAspectFactoryMap().get(aspect);
+        if (aspectFactoryClass != null) {
+          for (ConfiguredTargetKey targetSpec : targetSpecs) {
+            aspectKeys.add(
+                AspectValue.createAspectKey(
+                    targetSpec.getLabel(), targetSpec.getConfiguration(), aspectFactoryClass));
+          }
+        } else {
+          throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
+        }
       }
     }
 
