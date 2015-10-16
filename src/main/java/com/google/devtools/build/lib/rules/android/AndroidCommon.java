@@ -95,7 +95,6 @@ public class AndroidCommon {
   private Artifact genClassJar;
   private Artifact genSourceJar;
 
-  private NestedSet<ResourceContainer> transitiveResources;
   private boolean asNeverLink;
   private boolean exportDeps;
   private Artifact manifestProtoOutput;
@@ -259,36 +258,11 @@ public class AndroidCommon {
     return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
   }
 
-  public static NestedSet<ResourceContainer> getTransitiveResourceContainers(
-      RuleContext ruleContext, boolean withDeps) {
-    // Traverse through all android_library targets looking for resources
-    NestedSetBuilder<ResourceContainer> resourcesBuilder = NestedSetBuilder.naiveLinkOrder();
-    List<String> attributes = new ArrayList<>();
-    attributes.add("resources");
-    if (withDeps) {
-      attributes.add("deps");
-    }
-
-    for (String attribute : attributes) {
-      if (!ruleContext.attributes().has(attribute, BuildType.LABEL)
-          && !ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-        continue;
-      }
-
-      for (AndroidResourcesProvider resources :
-          ruleContext.getPrerequisites(attribute, Mode.TARGET, AndroidResourcesProvider.class)) {
-        resourcesBuilder.addTransitive(resources.getTransitiveAndroidResources());
-      }
-    }
-
-    return resourcesBuilder.build();
-  }
-
   private void compileResources(
       JavaSemantics javaSemantics,
       JavaCompilationArtifacts.Builder artifactsBuilder,
       JavaTargetAttributes.Builder attributes,
-      NestedSet<ResourceContainer> resourceContainers,
+      ResourceDependencies resourceDeps,
       ResourceContainer updatedResources) throws InterruptedException {
       Artifact binaryResourcesJar =
           ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
@@ -299,7 +273,7 @@ public class AndroidCommon {
       // Repackages the R.java for each dependency package and places the resultant jars
       // before the dependency libraries to ensure that the generated resource ids are
       // correct.
-      createJarJarActions(attributes, resourceContainers,
+      createJarJarActions(attributes, resourceDeps.getResources(),
           updatedResources.getJavaPackage(),
           binaryResourcesJar);
   }
@@ -395,12 +369,11 @@ public class AndroidCommon {
 
     JavaTargetAttributes.Builder attributes = init(
         androidSemantics,
-        resourceApk.getTransitiveResources(),
         extraSourcesBuilder.build());
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     if (resourceApk.isLegacy()) {
       compileResources(javaSemantics, artifactsBuilder, attributes,
-          resourceApk.getTransitiveResources(), resourceApk.getPrimaryResource());
+          resourceApk.getResourceDependencies(), resourceApk.getPrimaryResource());
     }
 
     JavaCompilationHelper helper = initAttributes(attributes, javaSemantics);
@@ -431,12 +404,9 @@ public class AndroidCommon {
 
   private JavaTargetAttributes.Builder init(
       AndroidSemantics androidSemantics,
-      NestedSet<AndroidResourcesProvider.ResourceContainer> transitiveResources,
       Collection<Artifact> extraArtifacts) {
-    this.transitiveResources = transitiveResources;
     javaCommon.initializeJavacOpts(androidSemantics.getJavacArguments());
     JavaTargetAttributes.Builder attributes = javaCommon.initCommon(extraArtifacts);
-
     attributes.setBootClassPath(ImmutableList.of(
         AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
     return attributes;
@@ -598,8 +568,7 @@ public class AndroidCommon {
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(
-            AndroidResourcesProvider.class,
-            new AndroidResourcesProvider(ruleContext.getLabel(), transitiveResources))
+            AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
         .add(
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(ruleContext, androidSemantics, idlHelper,
