@@ -7,6 +7,7 @@ java_library(
         "//src/main/java:bazel-core",
         "//src/main/java:buildtool-runtime",
         "//src/main/java:events",
+        "//src/main/java:os_util",
         "//src/main/java:packages",
         "//src/main/java:vfs",
         "//src/main/java/com/google/devtools/common/options",
