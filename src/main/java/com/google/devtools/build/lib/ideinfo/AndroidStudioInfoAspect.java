@@ -232,7 +232,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST
         || ruleKind == Kind.ANDROID_ROBOELECTRIC_TEST) {
-      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base, ideResolveArtifacts));
+      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base, ruleContext, ideResolveArtifacts));
     }
     if (ruleKind == Kind.ANDROID_LIBRARY
         || ruleKind == Kind.ANDROID_BINARY
@@ -375,6 +375,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
   private static JavaRuleIdeInfo makeJavaRuleIdeInfo(
       ConfiguredTarget base,
+      RuleContext ruleContext,
       NestedSetBuilder<Artifact> ideResolveArtifacts) {
     JavaRuleIdeInfo.Builder builder = JavaRuleIdeInfo.newBuilder();
     JavaRuleOutputJarsProvider outputJarsProvider =
@@ -396,7 +397,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       collectGenJars(builder, ideResolveArtifacts, genJarsProvider);
     }
 
-    Collection<Artifact> sourceFiles = getSources(base);
+    Collection<Artifact> sourceFiles = getSources(ruleContext);
 
     for (Artifact sourceFile : sourceFiles) {
       builder.addSources(makeArtifactLocation(sourceFile));
@@ -494,24 +495,10 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     }
   }
 
-  private static Collection<Artifact> getSources(ConfiguredTarget base) {
-    // Calculate source files.
-    JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
-    if (sourceInfoProvider == null) {
-      return ImmutableList.of();
-    }
-    AndroidIdeInfoProvider androidIdeInfoProvider = base.getProvider(AndroidIdeInfoProvider.class);
-    if (androidIdeInfoProvider == null) {
-      return sourceInfoProvider.getSourceFiles();
-    }
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    Collection<Artifact> idlGeneratedJavaFiles = androidIdeInfoProvider.getIdlGeneratedJavaFiles();
-    for (Artifact artifact : sourceInfoProvider.getSourceFiles()) {
-      if (!idlGeneratedJavaFiles.contains(artifact)) {
-        builder.add(artifact);
-      }
-    }
-    return builder.build();
+  private static Collection<Artifact> getSources(RuleContext ruleContext) {
+    return ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)
+        ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
+        : ImmutableList.<Artifact>of();
   }
 
   private static PathFragment getOutputFilePath(ConfiguredTarget base, RuleContext ruleContext,
