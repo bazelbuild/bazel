@@ -473,6 +473,12 @@ public class PackageFunction implements SkyFunction {
     }
     legacyPkgBuilder.buildPartial();
     try {
+      // Since the Skyframe dependencies we request below in
+      // markDependenciesAndPropagateInconsistentFilesystemExceptions are requested independently of
+      // the ones requested here in
+      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
+      // bother checking for missing values and instead piggyback on the env.missingValues() call
+      // for the former. This avoids a Skyframe restart.
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
           packageLookupValue.getRoot(), packageId, legacyPkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
@@ -480,14 +486,8 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-    if (env.valuesMissing()) {
-      // The package we just loaded will be in the {@code packageFunctionCache} next when this
-      // SkyFunction is called again.
-      return null;
-    }
     Collection<Pair<String, Boolean>> globPatterns = legacyPkgBuilder.getGlobPatterns();
     Map<Label, Path> subincludes = legacyPkgBuilder.getSubincludes();
-    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
     boolean packageShouldBeConsideredInError;
     try {
       packageShouldBeConsideredInError =
@@ -498,10 +498,11 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-
     if (env.valuesMissing()) {
       return null;
     }
+
+    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
 
     if (packageShouldBeConsideredInError) {
       legacyPkgBuilder.setContainsErrors();
