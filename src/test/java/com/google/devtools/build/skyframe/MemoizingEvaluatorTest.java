@@ -654,7 +654,7 @@ public class MemoizingEvaluatorTest {
 
     EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, values);
     for (int i = 0; i < values.length; i++) {
-      SkyValue actual = result.get(new SkyKey(GraphTester.NODE_TYPE, values[i]));
+      SkyValue actual = result.get(toSkyKey(values[i]));
       assertEquals(new StringValue("leaf"), actual);
     }
 
@@ -663,7 +663,7 @@ public class MemoizingEvaluatorTest {
       tester.invalidate();
       result = tester.eval(/*keep_going=*/false, values);
       for (int i = 0; i < values.length; i++) {
-        SkyValue actual = result.get(new SkyKey(GraphTester.NODE_TYPE, values[i]));
+        SkyValue actual = result.get(toSkyKey(values[i]));
         assertEquals("Run " + j + ", value " + i, new StringValue("other" + j), actual);
       }
     }
@@ -679,7 +679,7 @@ public class MemoizingEvaluatorTest {
       tester.set(values[i], new StringValue(values[i]));
       expected.append(values[i]);
     }
-    SkyKey rootKey = new SkyKey(GraphTester.NODE_TYPE, "root");
+    SkyKey rootKey = toSkyKey("root");
     TestFunction value = tester.getOrCreate(rootKey)
         .setComputedValue(CONCATENATE);
     for (int i = 0; i < values.length; i++) {
@@ -928,7 +928,7 @@ public class MemoizingEvaluatorTest {
         .that(errorInfo.getCycleInfo())
         .containsExactly(
             new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
-    assertThat(errorInfo.getException()).hasMessage("Type:errorKey");
+    assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
     assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
   }
 
@@ -1895,7 +1895,7 @@ public class MemoizingEvaluatorTest {
       tester.set(values[i], new StringValue(valueName));
       expected.append(valueName);
     }
-    SkyKey topKey = new SkyKey(GraphTester.NODE_TYPE, "top");
+    SkyKey topKey = toSkyKey("top");
     TestFunction value = tester.getOrCreate(topKey)
         .setComputedValue(CONCATENATE);
     for (int i = 0; i < values.length; i++) {
@@ -3145,7 +3145,9 @@ public class MemoizingEvaluatorTest {
       tester.evalAndGet("value");
       Assert.fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
-      assertEquals("existing entry for Type:value has deps: [Type:other]", e.getMessage());
+      assertThat(e).hasMessage(
+          "existing entry for " + NODE_TYPE.getName() + ":value has deps: "
+              + "[" + NODE_TYPE.getName() + ":other]");
     }
   }
 
@@ -3162,7 +3164,9 @@ public class MemoizingEvaluatorTest {
       tester.evalAndGet("value");
       Assert.fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
-      assertEquals("existing entry for Type:value has deps: [Type:other]", e.getMessage());
+      assertThat(e).hasMessage(
+          "existing entry for " + NODE_TYPE.getName() + ":value has deps: "
+              + "[" + NODE_TYPE.getName() + ":other]");
     }
   }
 
@@ -3648,7 +3652,7 @@ public class MemoizingEvaluatorTest {
 
     public SkyValue evalAndGet(boolean keepGoing, String key)
         throws InterruptedException {
-      return evalAndGet(keepGoing, new SkyKey(NODE_TYPE, key));
+      return evalAndGet(keepGoing, toSkyKey(key));
     }
 
     public SkyValue evalAndGet(String key) throws InterruptedException {
@@ -3671,7 +3675,7 @@ public class MemoizingEvaluatorTest {
     }
 
     public ErrorInfo evalAndGetError(String key) throws InterruptedException {
-      return evalAndGetError(new SkyKey(NODE_TYPE, key));
+      return evalAndGetError(toSkyKey(key));
     }
 
     @Nullable
@@ -3681,7 +3685,7 @@ public class MemoizingEvaluatorTest {
 
     @Nullable
     public SkyValue getExistingValue(String key) {
-      return getExistingValue(new SkyKey(NODE_TYPE, key));
+      return getExistingValue(toSkyKey(key));
     }
   }
 }

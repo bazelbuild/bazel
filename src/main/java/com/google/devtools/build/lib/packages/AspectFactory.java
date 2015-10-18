@@ -29,7 +29,8 @@ public interface AspectFactory<TConfiguredTarget, TRuleContext, TAspect> {
    * @param parameters information from attributes of the rule that have requested this
    *     aspect
    */
-  TAspect create(TConfiguredTarget base, TRuleContext context, AspectParameters parameters);
+  TAspect create(TConfiguredTarget base, TRuleContext context, AspectParameters parameters)
+      throws InterruptedException;
 
   /**
    * Returns the definition of the aspect.

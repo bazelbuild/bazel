@@ -38,6 +38,13 @@ public final class SkyFunctionName implements Serializable {
               }
             });
 
+  /**
+   * A well-known key type intended for testing only. The associated SkyKey should have a String
+   * argument.
+   */
+  // Needs to be after the cache is initialized.
+  public static final SkyFunctionName FOR_TESTING = SkyFunctionName.create("FOR_TESTING");
+
   /** Create a SkyFunctionName identified by {@code name}. */
   public static SkyFunctionName create(String name) {
     try {

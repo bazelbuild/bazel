@@ -1248,11 +1248,13 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "set", returnType = SkylarkNestedSet.class,
-      doc = "Creates a <a href=\"set.html\">set</a> from the <code>items</code>."
-      + " The set supports nesting other sets of the same element"
-      + " type in it. A desired iteration order can also be specified.<br>"
-      + " Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
+  @SkylarkSignature(
+      name = "set",
+      returnType = SkylarkNestedSet.class,
+      doc = "Creates a <a href=\"set.html\">set</a> from the <code>items</code>. "
+      + "The set supports nesting other sets of the same element type in it. "
+      + "A desired <a href=\"set.html\">iteration order</a> can also be specified.<br>"
+      + "Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
       + "set([1, 2, 3], order=\"compile\")</pre>",
       optionalPositionals = {
         @Param(name = "items", type = Object.class, defaultValue = "[]",
