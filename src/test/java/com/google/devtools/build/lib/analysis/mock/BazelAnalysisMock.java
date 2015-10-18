@@ -85,6 +85,7 @@ public class BazelAnalysisMock extends AnalysisMock {
     }
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
+    config.create("tools/defaults/BUILD");
     config.create("tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_toolchain(name = 'toolchain', encoding = 'UTF-8', source_version = '8', ",

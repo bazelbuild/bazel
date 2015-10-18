@@ -21,7 +21,7 @@ java_library(
     ],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:java_compilation_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",

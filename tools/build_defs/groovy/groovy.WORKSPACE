@@ -17,3 +17,12 @@ bind(
   name = "junit",
   actual = "@junit-artifact//jar",
 )
+
+maven_jar(
+  name = "spock-artifact",
+  artifact = "org.spockframework:spock-core:0.7-groovy-2.0",
+)
+bind(
+  name = "spock",
+  actual = "@spock-artifact//jar",
+)

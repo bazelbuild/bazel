@@ -83,7 +83,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.Preprocessor.Result;
+import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -181,8 +181,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // [skyframe-loading]
   private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache =
       newPkgFunctionCache();
-  private final Cache<PackageIdentifier, Preprocessor.Result> preprocessCache =
-      newPreprocessCache();
+  private final Cache<PackageIdentifier, AstAfterPreprocessing> astCache = newAstCache();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
@@ -343,7 +342,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             packageManager,
             showLoadingProgress,
             packageFunctionCache,
-            preprocessCache,
+            astCache,
             numPackagesLoaded,
             ruleClassProvider));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
@@ -352,7 +351,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
     map.put(SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
-    map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(
+        SkyFunctions.NATIVE_ASPECT,
+        AspectFunction.createNativeAspectFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(
+        SkyFunctions.SKYLARK_ASPECT,
+        AspectFunction.createSkylarkAspectFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.BUILD_CONFIGURATION,
@@ -392,7 +396,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageManager packageManager,
       AtomicBoolean showLoadingProgress,
       Cache<PackageIdentifier, LegacyBuilder> packageFunctionCache,
-      Cache<PackageIdentifier, Result> preprocessCache,
+      Cache<PackageIdentifier, AstAfterPreprocessing> astCache,
       AtomicInteger numPackagesLoaded,
       RuleClassProvider ruleClassProvider) {
     return new PackageFunction(
@@ -400,7 +404,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         packageManager,
         showLoadingProgress,
         packageFunctionCache,
-        preprocessCache,
+        astCache,
         numPackagesLoaded,
         null);
   }
@@ -636,7 +640,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return CacheBuilder.newBuilder().build();
   }
 
-  protected Cache<PackageIdentifier, Preprocessor.Result> newPreprocessCache() {
+  protected Cache<PackageIdentifier, Preprocessor.AstAfterPreprocessing> newAstCache() {
     return CacheBuilder.newBuilder().build();
   }
 
@@ -878,7 +882,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // If the PackageFunction was interrupted, there may be stale entries here.
     packageFunctionCache.invalidateAll();
-    preprocessCache.invalidateAll();
+    astCache.invalidateAll();
     numPackagesLoaded.set(0);
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
