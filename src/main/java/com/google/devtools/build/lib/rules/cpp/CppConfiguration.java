@@ -849,6 +849,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   private static final PathFragment SYSROOT_FRAGMENT = new PathFragment("%sysroot%");
+  private static final PathFragment WORKSPACE_FRAGMENT = new PathFragment("%workspace%");
 
   /**
    * Resolve the given include directory. If it is not absolute, it is
@@ -867,6 +868,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "default_sysroot option is set");
       }
       return sysroot.getRelative(path.relativeTo(SYSROOT_FRAGMENT));
+    } else if (path.startsWith(WORKSPACE_FRAGMENT)) {
+      return path.subFragment(1, path.segmentCount());
     } else {
       return crosstoolTopPathFragment.getRelative(path);
     }
