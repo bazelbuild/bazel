@@ -1341,12 +1341,14 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
 
     std::string attr_name = attribute_name->Display();
     if (attr_name == "SourceFile" ||
+        attr_name == "StackMapTable" ||
         attr_name == "LineNumberTable" ||
         attr_name == "LocalVariableTable" ||
         attr_name == "LocalVariableTypeTable" ||
         attr_name == "Code" ||
         attr_name == "Synthetic" ||
-        attr_name == "BootstrapMethods") {
+        attr_name == "BootstrapMethods" ||
+        attr_name == "SourceDebugExtension") {
       p += attribute_length; // drop these attributes
     } else if (attr_name == "Exceptions") {
       attributes.push_back(ExceptionsAttribute::Read(p, attribute_name));
