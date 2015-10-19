@@ -5,20 +5,35 @@ exports_files(glob(["**"]))
 
 java_binary(
     name = "bundlemerge",
-    srcs = [":precomp_bundlemerge_deploy.jar"],
     main_class = "com.google.devtools.build.xcode.bundlemerge.BundleMerge",
+    runtime_deps = [":bundlemerge_import"],
+)
+
+java_import(
+    name = "bundlemerge_import",
+    jars = [":precomp_bundlemerge_deploy.jar"],
 )
 
 java_binary(
     name = "plmerge",
-    srcs = [":precomp_plmerge_deploy.jar"],
     main_class = "com.google.devtools.build.xcode.plmerge.PlMerge",
+    runtime_deps = [":plmerge_import"],
+)
+
+java_import(
+    name = "plmerge_import",
+    jars = [":precomp_plmerge_deploy.jar"],
 )
 
 java_binary(
     name = "xcodegen",
-    srcs = [":precomp_xcodegen_deploy.jar"],
     main_class = "com.google.devtools.build.xcode.xcodegen.XcodeGen",
+    runtime_deps = [":xcodegen_import"],
+)
+
+java_import(
+    name = "xcodegen_import",
+    jars = [":precomp_xcodegen_deploy.jar"],
 )
 
 filegroup(
