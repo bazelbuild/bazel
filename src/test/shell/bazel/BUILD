@@ -193,7 +193,6 @@ sh_test(
         ":test-deps",
         "//src/tools/generate_workspace",
     ],
-    tags = ["manual"],  # Flaky, see issue #432
 )
 
 sh_test(
