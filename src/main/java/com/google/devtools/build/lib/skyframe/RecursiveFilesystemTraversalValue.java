@@ -292,7 +292,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     private static final class Directory extends ResolvedFile {
       Directory(RootedPath path) {
-        super(FileType.DIRECTORY, Optional.of(path), Optional.of(
+        super(FileType.DIRECTORY, Optional.of(path), Optional.<FileStateValue>of(
             FileStateValue.DIRECTORY_FILE_STATE_NODE));
       }
 
