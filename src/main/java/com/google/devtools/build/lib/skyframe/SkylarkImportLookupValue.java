@@ -67,7 +67,7 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   @VisibleForTesting
-  public static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
+  static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
     return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
   }
 

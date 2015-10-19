@@ -14,20 +14,16 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -58,8 +54,6 @@ import junit.framework.AssertionFailedError;
 
 import java.util.LinkedList;
 import java.util.List;
-
-import javax.annotation.Nullable;
 
 /**
  * Integration tests for Skylark.
@@ -2648,35 +2642,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
                   "\t\tl.append(3)",
                   "trying to mutate a frozen object"));
     }
-  }
-
-  public void testAspect() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "MyAspect = aspect(implementation=_impl)");
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
-
-    AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.<String>of("test/aspect.bzl%MyAspect"),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
-    assertThat(
-        transform(
-            analysisResult.getTargetsToBuild(),
-            new Function<ConfiguredTarget, String>() {
-              @Nullable
-              @Override
-              public String apply(ConfiguredTarget configuredTarget) {
-                return configuredTarget.getLabel().toString();
-              }
-            }))
-        .containsExactly("//test:xxx");
   }
 
   /**

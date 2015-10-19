@@ -20,9 +20,9 @@ import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -111,7 +111,7 @@ public class Bind implements RuleConfiguredTargetFactory {
       ImmutableList.Builder<String> result = ImmutableList.<String>builder().add("label", "files");
       if (configuredTarget != null) {
           result.addAll(
-              configuredTarget.getProvider(SkylarkProviders.class).getKeys());
+              configuredTarget.getProvider(RuleConfiguredTarget.SkylarkProviders.class).getKeys());
       }
       return result.build();
     }

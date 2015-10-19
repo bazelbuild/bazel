@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -89,8 +88,6 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
     private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
         providers = new LinkedHashMap<>();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
-    private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
-        ImmutableMap.builder();
     private final String name;
 
     public Builder(String name) {
@@ -106,8 +103,6 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
       Preconditions.checkNotNull(value);
       AnalysisUtils.checkProvider(key);
       Preconditions.checkState(!providers.containsKey(key));
-      Preconditions.checkArgument(!SkylarkProviders.class.equals(key),
-          "Do not provide SkylarkProviders directly");
       providers.put(key, value);
       return this;
     }
@@ -132,12 +127,6 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
       return this;
     }
 
-    public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc) {
-      // TODO(dslomov): add {@link RuleConfiguredTargetBuilder#checkSkylarkObjectSafe}
-      skylarkProviderBuilder.put(name, value);
-      return this;
-    }
-
     public Aspect build() {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -150,11 +139,6 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
         addProvider(OutputGroupProvider.class, new OutputGroupProvider(outputGroups.build()));
-      }
-
-      ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
-      if (!skylarkProvidersMap.isEmpty()) {
-        providers.put(SkylarkProviders.class, new SkylarkProviders(skylarkProvidersMap));
       }
 
       return new Aspect(name, ImmutableMap.copyOf(providers));

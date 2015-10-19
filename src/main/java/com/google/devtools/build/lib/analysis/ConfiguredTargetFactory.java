@@ -286,14 +286,12 @@ public final class ConfiguredTargetFactory {
    * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
   public Aspect createAspect(
-      AnalysisEnvironment env,
-      RuleConfiguredTarget associatedTarget,
+      AnalysisEnvironment env, RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       AspectParameters aspectParameters,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
-      BuildConfiguration hostConfiguration)
-      throws InterruptedException {
+      BuildConfiguration hostConfiguration) {
     RuleContext.Builder builder = new RuleContext.Builder(env,
         associatedTarget.getTarget(),
         associatedTarget.getConfiguration(),

@@ -22,6 +22,7 @@ import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
@@ -130,14 +131,20 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     providers.addAll(base.providers.keySet());
 
     // Merge output group providers.
-    List<OutputGroupProvider> outputGroupProviders =
-        getAllProviders(base, aspects, OutputGroupProvider.class);
-    OutputGroupProvider mergedOutputGroupProvider = OutputGroupProvider.merge(outputGroupProviders);
+    OutputGroupProvider baseOutputGroupProvider = base.getProvider(OutputGroupProvider.class);
+    List<OutputGroupProvider> outputGroupProviders = new ArrayList<>();
+    if (baseOutputGroupProvider != null) {
+      outputGroupProviders.add(baseOutputGroupProvider);
+    }
 
-    // Merge Skylark providers.
-    List<SkylarkProviders> skylarkProviders =
-        getAllProviders(base, aspects, SkylarkProviders.class);
-    SkylarkProviders mergedSkylarkProviders = SkylarkProviders.merge(skylarkProviders);
+    for (Aspect aspect : aspects) {
+      final OutputGroupProvider aspectProvider = aspect.getProvider(OutputGroupProvider.class);
+      if (aspectProvider == null) {
+        continue;
+      }
+      outputGroupProviders.add(aspectProvider);
+    }
+    OutputGroupProvider outputGroupProvider = OutputGroupProvider.merge(outputGroupProviders);
 
     // Validate that all other providers are only provided once.
     for (Aspect aspect : aspects) {
@@ -146,17 +153,13 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         if (OutputGroupProvider.class.equals(aClass)) {
           continue;
         }
-        if (SkylarkProviders.class.equals(aClass)) {
-          continue;
-        }
         if (!providers.add(aClass)) {
           throw new IllegalStateException("Provider " + aClass + " provided twice");
         }
       }
     }
 
-    if (base.getProvider(OutputGroupProvider.class) == mergedOutputGroupProvider
-        && base.getProvider(SkylarkProviders.class) == mergedSkylarkProviders) {
+    if (baseOutputGroupProvider == outputGroupProvider) {
       this.providers = base.providers;
     } else {
       ImmutableMap.Builder<Class<? extends TransitiveInfoProvider>, Object> builder =
@@ -165,42 +168,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         if (OutputGroupProvider.class.equals(aClass)) {
           continue;
         }
-        if (SkylarkProviders.class.equals(aClass)) {
-          continue;
-        }
         builder.put(aClass, base.providers.get(aClass));
       }
-      if (mergedOutputGroupProvider != null) {
-        builder.put(OutputGroupProvider.class, mergedOutputGroupProvider);
-      }
-      if (mergedSkylarkProviders != null) {
-        builder.put(SkylarkProviders.class, skylarkProviders);
-      }
+      builder.put(OutputGroupProvider.class, outputGroupProvider);
       this.providers = builder.build();
     }
     this.mandatoryStampFiles = base.mandatoryStampFiles;
     this.configConditions = base.configConditions;
     this.aspects = ImmutableList.copyOf(aspects);
-  }
-
-  private static <T extends TransitiveInfoProvider> List<T> getAllProviders(
-      RuleConfiguredTarget base,
-      Iterable<Aspect> aspects,
-      Class<T> providerClass) {
-    T baseProvider = base.getProvider(providerClass);
-    List<T> providers = new ArrayList<>();
-    if (baseProvider != null) {
-      providers.add(baseProvider);
-    }
-
-    for (Aspect aspect : aspects) {
-      final T aspectProvider = aspect.getProvider(providerClass);
-      if (aspectProvider == null) {
-        continue;
-      }
-      providers.add(aspectProvider);
-    }
-    return providers;
   }
 
   /**
@@ -233,7 +208,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    */
   @Override
   public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
+    return getProvider(SkylarkProviders.class).skylarkProviders.get(providerKey);
   }
 
   public ImmutableList<Artifact> getMandatoryStampFiles() {
@@ -243,6 +218,33 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public final Rule getTarget() {
     return (Rule) super.getTarget();
+  }
+
+  /**
+   * A helper class for transitive infos provided by Skylark rule implementations.
+   */
+  @Immutable
+  public static final class SkylarkProviders implements TransitiveInfoProvider {
+    private final ImmutableMap<String, Object> skylarkProviders;
+
+    private SkylarkProviders(ImmutableMap<String, Object> skylarkProviders) {
+      Preconditions.checkNotNull(skylarkProviders);
+      this.skylarkProviders = skylarkProviders;
+    }
+
+    /**
+     * Returns the keys for the Skylark providers.
+     */
+    public ImmutableCollection<String> getKeys() {
+      return skylarkProviders.keySet();
+    }
+
+    /**
+     * Returns a Skylark provider; "key" must be one from {@link #getKeys()}.
+     */
+    public Object getValue(String key) {
+      return skylarkProviders.get(key);
+    }
   }
 
   @Override
@@ -271,6 +273,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public ImmutableCollection<String> getKeys() {
     return ImmutableList.<String>builder().addAll(super.getKeys())
-        .addAll(getProvider(SkylarkProviders.class).getKeys()).build();
+        .addAll(getProvider(SkylarkProviders.class).skylarkProviders.keySet()).build();
   }
 }

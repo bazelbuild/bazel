@@ -62,8 +62,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           .setGlobals(
               ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
           .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
-          .build(); // NB: loading phase functions are not available: this is analysis already,
-                    // so we do *not* setLoadingPhase().
+          .build(); // NB: we do *not* setLoadingPhase()
       Object target = ruleImplementation.call(
           ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(),

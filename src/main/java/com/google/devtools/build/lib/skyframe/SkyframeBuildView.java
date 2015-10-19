@@ -507,13 +507,11 @@ public final class SkyframeBuildView {
 
   @Nullable
   public Aspect createAspect(
-      AnalysisEnvironment env,
-      RuleConfiguredTarget associatedTarget,
+      AnalysisEnvironment env, RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
-      AspectParameters aspectParameters)
-      throws InterruptedException {
+      AspectParameters aspectParameters) {
     return factory.createAspect(env, associatedTarget, aspectFactory, aspectParameters,
         prerequisiteMap, configConditions,
         getHostConfiguration(associatedTarget.getConfiguration()));
