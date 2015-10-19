@@ -271,4 +271,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // Legitimately null option:
     assertNull(create().getOptionValue("test_filter"));
   }
+
+  public void testNoDistinctHostConfigurationUnsupportedWithDynamicConfigs() throws Exception {
+    checkError(
+        "--nodistinct_host_configuration does not currently work with dynamic configurations",
+        "--nodistinct_host_configuration", "--experimental_dynamic_configs");
+  }
 }
