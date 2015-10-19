@@ -38,6 +38,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        "bazel_sandboxing_test_utils.sh",
         "remote_helpers.sh",
         "test-setup.sh",
         "testenv.sh",
@@ -217,6 +218,12 @@ sh_test(
 sh_test(
     name = "bazel_sandboxing_test",
     srcs = ["bazel_sandboxing_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_sandboxing_cpp_test",
+    srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [":test-deps"],
 )
 
