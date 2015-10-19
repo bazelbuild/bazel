@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -96,19 +97,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidCommon androidCommon = new AndroidCommon(
         ruleContext, javaCommon, true /* asNeverLink */, true /* exportDeps */);
     try {
-      ResourceDependencies resourceDeps = LocalResourceContainer.definesAndroidResources(
-          ruleContext.attributes())
-          ? ResourceDependencies.fromRuleDeps(ruleContext)
-          : ResourceDependencies.fromRuleResourceAndDeps(ruleContext);
-      RuleConfiguredTargetBuilder builder = init(
-          ruleContext,
-          filesBuilder,
-          resourceDeps,
-          javaCommon,
-          androidCommon,
-          javaSemantics,
-          androidSemantics,
-          ImmutableList.<String>of("deps"));
+      RuleConfiguredTargetBuilder builder =
+          init(ruleContext, filesBuilder,
+              AndroidCommon.getTransitiveResourceContainers(ruleContext, true),
+              javaCommon, androidCommon, javaSemantics, androidSemantics,
+              ImmutableList.<String>of("deps"));
       if (builder == null) {
         return null;
       }
@@ -123,7 +116,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static RuleConfiguredTargetBuilder init(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
-      ResourceDependencies resourceDeps,
+      NestedSet<ResourceContainer> resourceContainers,
       JavaCommon javaCommon,
       AndroidCommon androidCommon,
       JavaSemantics javaSemantics,
@@ -190,11 +183,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         throw new RuleConfigurationException();
       }
       applicationManifest = androidSemantics.getManifestForRule(ruleContext)
-          .mergeWith(ruleContext, resourceDeps);
+          .mergeWith(ruleContext, resourceContainers);
       resourceApk = applicationManifest.packWithDataAndResources(
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
           ruleContext,
-          resourceDeps,
+          resourceContainers,
           null, /* Artifact rTxt */
           null, /* Artifact symbolsTxt */
           ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
@@ -208,7 +201,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .packWithDataAndResources(ruleContext
                   .getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
               ruleContext,
-              resourceDeps,
+              resourceContainers,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
               ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
@@ -222,7 +215,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .createSplitManifest(ruleContext, "android_resources", false)
           .packWithDataAndResources(getDxArtifact(ruleContext, "android_resources.ap_"),
               ruleContext,
-              resourceDeps,
+              resourceContainers,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
               ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
@@ -236,13 +229,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // Retrieve the resources from the resources attribute on the android_binary rule
       // and recompile them if necessary.
       applicationManifest = ApplicationManifest.fromResourcesRule(ruleContext).mergeWith(
-          ruleContext, resourceDeps);
+          ruleContext, resourceContainers);
       // Always recompiling resources causes AndroidTest to fail in certain circumstances.
-      if (shouldRegenerate(ruleContext, resourceDeps)) {
+      if (shouldRegenerate(ruleContext, resourceContainers)) {
         resourceApk = applicationManifest.packWithResources(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
             ruleContext,
-            resourceDeps,
+            resourceContainers,
             true,
             getProguardConfigArtifact(ruleContext, ""));
       } else {
@@ -255,7 +248,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getImplicitOutputArtifact(
                   AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
               ruleContext,
-              resourceDeps,
+              resourceContainers,
               false,
               getProguardConfigArtifact(ruleContext, "incremental"));
 
@@ -263,7 +256,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .createSplitManifest(ruleContext, "android_resources", false)
           .packWithResources(getDxArtifact(ruleContext, "android_resources.ap_"),
             ruleContext,
-            resourceDeps,
+            resourceContainers,
             false,
             getProguardConfigArtifact(ruleContext, "incremental_split"));
     }
@@ -1279,8 +1272,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * </ul>
    */
   public static boolean shouldRegenerate(RuleContext ruleContext,
-      ResourceDependencies resourceDeps) {
-    return Iterables.size(resourceDeps.getResources()) > 1
+      Iterable<ResourceContainer> resourceContainers) {
+    return Iterables.size(resourceContainers) > 1
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("densities")
         || ruleContext.attributes().isAttributeValueExplicitlySpecified(
             "resource_configuration_filters")

@@ -69,13 +69,6 @@ public class CustomCommandLineTest {
   }
 
   @Test
-  public void testArtifactJoinStringArgs() {
-    CustomCommandLine cl = CustomCommandLine.builder().addJoinStrings("--path", ":",
-        ImmutableList.of("foo", "bar")).build();
-    assertEquals(ImmutableList.of("--path", "foo:bar"), cl.arguments());
-  }
-
-  @Test
   public void testArtifactExecPathArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addExecPath("--path", artifact1).build();
     assertEquals(ImmutableList.of("--path", "dir/file1.txt"), cl.arguments());

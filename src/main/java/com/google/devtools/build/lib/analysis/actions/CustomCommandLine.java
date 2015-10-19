@@ -129,22 +129,6 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  private static final class JoinStringsArg extends ArgvFragment {
-
-    private final String delimiter;
-    private final Iterable<String> strings;
-
-    private JoinStringsArg(String delimiter, Iterable<String> strings) {
-      this.delimiter = delimiter;
-      this.strings = CollectionUtils.makeImmutable(strings);
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(Joiner.on(delimiter).join(strings));
-    }
-  }
-
   /**
    * Arguments that intersperse strings between the items in a sequence. There are two forms of
    * interspersing, and either may be used by this implementation:
@@ -277,14 +261,6 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
-    public Builder addJoinStrings(String arg, String delimiter, Iterable<String> strings) {
-      if (arg != null && strings != null) {
-        arguments.add(new ObjectArg(arg));
-        arguments.add(new JoinStringsArg(delimiter, strings));
-      }
-      return this;
-    }
- 
     public Builder addJoinExecPaths(String arg, String delimiter, Iterable<Artifact> artifacts) {
       if (arg != null && artifacts != null) {
         arguments.add(new ObjectArg(arg));
