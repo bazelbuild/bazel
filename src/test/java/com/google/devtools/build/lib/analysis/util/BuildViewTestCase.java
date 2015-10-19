@@ -115,7 +115,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -1106,8 +1105,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<Artifact> artifacts,
       Iterable<String> common, String... expectedInputs) {
-    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
-        ActionsTestUtil.prettyArtifactNames(artifacts));
+    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
+        .containsExactlyElementsIn(ActionsTestUtil.prettyArtifactNames(artifacts));
   }
 
   /**
@@ -1116,8 +1115,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<String> artifacts,
       String[] expectedInputs, Iterable<String> common) {
-    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
-        artifacts);
+    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
+        .containsExactlyElementsIn(artifacts);
   }
 
   /**
