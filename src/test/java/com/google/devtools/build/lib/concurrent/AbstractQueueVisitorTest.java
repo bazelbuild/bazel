@@ -533,8 +533,8 @@ public class AbstractQueueVisitorTest {
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return true;
+    protected ErrorClassification classifyError(Throwable e) {
+      return ErrorClassification.CRITICAL;
     }
   }
 
@@ -545,8 +545,8 @@ public class AbstractQueueVisitorTest {
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return false;
+    protected ErrorClassification classifyError(Throwable e) {
+      return ErrorClassification.NOT_CRITICAL;
     }
   }
 }

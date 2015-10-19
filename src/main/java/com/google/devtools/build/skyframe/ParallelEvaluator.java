@@ -607,8 +607,14 @@ public final class ParallelEvaluator implements Evaluator {
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return e instanceof RuntimeException;
+    protected ErrorClassification classifyError(Throwable e) {
+      if (e instanceof SchedulerException) {
+        return ErrorClassification.CRITICAL;
+      }
+      if (e instanceof RuntimeException) {
+        return ErrorClassification.CRITICAL_AND_LOG;
+      }
+      return ErrorClassification.NOT_CRITICAL;
     }
 
     protected void waitForCompletion() throws InterruptedException {
