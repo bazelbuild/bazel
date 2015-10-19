@@ -162,19 +162,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
-    ImmutableList<String> exportedProcessorClasses = ImmutableList.of();
-    NestedSet<Artifact> exportedProcessorClasspath =
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    ImmutableList.Builder<String> processorClasses = ImmutableList.builder();
-    NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
-    for (JavaPluginInfoProvider provider : Iterables.concat(
-        common.getPluginInfoProvidersForAttribute("exported_plugins", Mode.HOST),
-        common.getPluginInfoProvidersForAttribute("exports", Mode.TARGET))) {
-      processorClasses.addAll(provider.getProcessorClasses());
-      processorClasspath.addTransitive(provider.getProcessorClasspath());
-    }
-    exportedProcessorClasses = processorClasses.build();
-    exportedProcessorClasspath = processorClasspath.build();
+    JavaPluginInfoProvider javaPluginInfoProvider = JavaPluginInfoProvider.merge(Iterables.concat(
+          common.getPluginInfoProvidersForAttribute("exported_plugins", Mode.HOST),
+          common.getPluginInfoProvidersForAttribute("exports", Mode.TARGET)));
 
     CcLinkParamsStore ccLinkParamsStore = new CcLinkParamsStore() {
       @Override
@@ -249,8 +239,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
         // TODO(bazel-team): this should only happen for java_plugin
-        .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(
-            exportedProcessorClasses, exportedProcessorClasspath))
+        .add(JavaPluginInfoProvider.class, javaPluginInfoProvider)
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);

@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaNativeLibraryProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -88,6 +89,7 @@ public class AndroidCommon {
   private NestedSet<Artifact> transitiveSourceJars = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
+  private JavaPluginInfoProvider transitiveJavaPluginInfoProvider = JavaPluginInfoProvider.EMPTY;
   private JackCompilationHelper jackCompilationHelper;
   private Artifact classJar;
   private Artifact iJar;
@@ -566,8 +568,16 @@ public class AndroidCommon {
     topLevelSourceJars = ImmutableList.of(srcJar);
     transitiveSourceJars = javaCommon.collectTransitiveSourceJars(srcJar);
 
+    boolean hasSources = attributes.hasSourceFiles() || attributes.hasSourceJars();
+
+    if (!hasSources) {
+      // If this android rule has no sources, then it's a forwarding rule, so also forward
+      // any exported java plugins from its deps.
+      this.transitiveJavaPluginInfoProvider = JavaPluginInfoProvider.merge(
+           javaCommon.getPluginInfoProvidersForAttribute("deps", Mode.TARGET));
+    }
+
     if (collectJavaCompilationArgs) {
-      boolean hasSources = attributes.hasSourceFiles() || attributes.hasSourceJars();
       this.javaCompilationArgs =
           collectJavaCompilationArgs(ruleContext, exportDeps, asNeverLink, hasSources);
       this.recursiveJavaCompilationArgs = collectJavaCompilationArgs(
@@ -616,6 +626,7 @@ public class AndroidCommon {
             asNeverLink
                 ? jackCompilationHelper.compileAsNeverlinkLibrary()
                 : jackCompilationHelper.compileAsLibrary())
+        .add(JavaPluginInfoProvider.class, transitiveJavaPluginInfoProvider)
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
