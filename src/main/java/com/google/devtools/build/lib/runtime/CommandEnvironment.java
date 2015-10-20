@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -31,15 +33,19 @@ import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -72,6 +78,7 @@ public final class CommandEnvironment {
   private final BuildView view;
 
   private long commandStartTime;
+  private OutputService outputService;
   private String outputFileSystem;
   private Path workingDirectory;
 
@@ -82,8 +89,8 @@ public final class CommandEnvironment {
     public Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
       Target target = getPackageManager().getTarget(reporter, label);
-      return (runtime.getOutputService() != null)
-          ? runtime.getOutputService().stageTool(target)
+      return (outputService != null)
+          ? outputService.stageTool(target)
           : target.getPackage().getPackageDirectory().getRelative(target.getName());
     }
 
@@ -201,6 +208,13 @@ public final class CommandEnvironment {
     return workingDirectory;
   }
 
+  /**
+   * @return the OutputService in use, or null if none.
+   */
+  public OutputService getOutputService() {
+    return outputService;
+  }
+
   public ActionCache getPersistentActionCache() throws IOException {
     return runtime.getPersistentActionCache(reporter);
   }
@@ -306,6 +320,41 @@ public final class CommandEnvironment {
       throws AbruptExitException {
     commandStartTime -= options.startupTime;
 
+    eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
+    throwPendingException();
+
+    outputService = null;
+    BlazeModule outputModule = null;
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      OutputService moduleService = module.getOutputService();
+      if (moduleService != null) {
+        if (outputService != null) {
+          throw new IllegalStateException(String.format(
+              "More than one module (%s and %s) returns an output service",
+              module.getClass(), outputModule.getClass()));
+        }
+        outputService = moduleService;
+        outputModule = module;
+      }
+    }
+
+    getSkyframeExecutor().setBatchStatter(outputService == null
+        ? null
+        : outputService.getBatchStatter());
+
     runtime.beforeCommand(command, this, optionsParser, options, execStartTimeNanos);
+  }
+
+  /**
+   * Figures out what file system we are writing output to. Here we use
+   * outputBase instead of outputPath because we need a file system to create the latter.
+   */
+  String determineOutputFileSystem() {
+    if (getOutputService() != null) {
+      return getOutputService().getFilesSystemName();
+    }
+    try (AutoProfiler p = profiled("Finding output file system", ProfilerTask.INFO)) {
+      return FileSystemUtils.getFileSystem(runtime.getOutputBase());
+    }
   }
 }

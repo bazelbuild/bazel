@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiledAndLogged;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -172,8 +171,6 @@ public final class BlazeRuntime {
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Clock clock;
 
-  private OutputService outputService;
-
   private final Iterable<BlazeModule> blazeModules;
 
   private final AtomicInteger storedExitCode = new AtomicInteger();
@@ -262,19 +259,6 @@ public final class BlazeRuntime {
       for (BlazeCommand command : module.getCommands()) {
         addCommand(command);
       }
-    }
-  }
-
-  /**
-   * Figures out what file system we are writing output to. Here we use
-   * outputBase instead of outputPath because we need a file system to create the latter.
-   */
-  private String determineOutputFileSystem() {
-    if (getOutputService() != null) {
-      return getOutputService().getFilesSystemName();
-    }
-    try (AutoProfiler p = profiled("Finding output file system", ProfilerTask.INFO)) {
-      return FileSystemUtils.getFileSystem(getOutputBase());
     }
   }
 
@@ -596,30 +580,7 @@ public final class BlazeRuntime {
   void beforeCommand(Command command, CommandEnvironment env, OptionsParser optionsParser,
       CommonCommandOptions options, long execStartTimeNanos)
       throws AbruptExitException {
-    env.getEventBus().post(new GotOptionsEvent(startupOptionsProvider,
-        optionsParser));
-    env.throwPendingException();
-
-    outputService = null;
-    BlazeModule outputModule = null;
-    for (BlazeModule module : blazeModules) {
-      OutputService moduleService = module.getOutputService();
-      if (moduleService != null) {
-        if (outputService != null) {
-          throw new IllegalStateException(String.format(
-              "More than one module (%s and %s) returns an output service",
-              module.getClass(), outputModule.getClass()));
-        }
-        outputService = moduleService;
-        outputModule = module;
-      }
-    }
-
-    skyframeExecutor.setBatchStatter(outputService == null
-        ? null
-        : outputService.getBatchStatter());
-
-    env.setOutputFileSystem(determineOutputFileSystem());
+    env.setOutputFileSystem(env.determineOutputFileSystem());
 
     // Ensure that the working directory will be under the workspace directory.
     Path workspace = getWorkspace();
@@ -784,13 +745,6 @@ public final class BlazeRuntime {
                           "action cache"),
         env.getCommandId() + " (build id)",
     };
-  }
-
-  /**
-   * @return the OutputService in use, or null if none.
-   */
-  public OutputService getOutputService() {
-    return outputService;
   }
 
   private String getFileSizeString(Path path, String type) {
