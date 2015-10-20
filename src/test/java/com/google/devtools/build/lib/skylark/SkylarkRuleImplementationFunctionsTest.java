@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -90,6 +91,17 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  srcs = ['a.go'],",
         "  outs = [ 'gl.a', 'gl.gcgox', ],",
         "  output_to_bindir = 1,",
+        ")",
+        // The two below are used by testResolveCommand
+        "sh_binary(name = 'mytool',",
+        "  srcs = ['mytool.sh'],",
+        "  data = ['file1.dat', 'file2.dat'],",
+        ")",
+        "genrule(name = 'resolve_me',",
+        "  cmd = 'aa',",
+        "  tools = [':mytool', 't.exe'],",
+        "  srcs = ['file3.dat', 'file4.dat'],",
+        "  outs = ['r1.txt', 'r2.txt'],",
         ")");
   }
 
@@ -435,14 +447,82 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
    */
   private void runExpansion(SkylarkRuleContext ruleContext, String command, String expectedPattern)
       throws Exception {
-    String expanded =
-        (String)
-            evalRuleContextCode(
-                ruleContext, String.format("ruleContext.expand_location('$(%s)')", command));
+    assertMatches(
+        "Expanded string",
+        expectedPattern,
+        (String) evalRuleContextCode(
+            ruleContext, String.format("ruleContext.expand_location('$(%s)')", command)));
+  }
 
+  private void assertMatches(String description, String expectedPattern, String computedValue)
+      throws Exception {
     assertTrue(
-        String.format("Expanded string '%s' did not match pattern '%s'", expanded, expectedPattern),
-        Pattern.matches(expectedPattern, expanded));
+        Printer.format("%s %r did not match pattern '%s'",
+            description, computedValue, expectedPattern),
+        Pattern.matches(expectedPattern, computedValue));
+  }
+
+  public void testResolveCommandMakeVariables() throws Exception {
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "inputs, argv, manifests = ruleContext.resolve_command(",
+        "  command='I got the $(HELLO) on a $(DAVE)', ",
+        "  make_variables={'HELLO': 'World', 'DAVE': type('')})");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    assertThat(argv).hasSize(3);
+    assertMatches("argv[0]", "^.*/bash$", argv.get(0));
+    assertThat(argv.get(1)).isEqualTo("-c");
+    assertThat(argv.get(2)).isEqualTo("I got the World on a string");
+  }
+
+  public void testResolveCommandInputs() throws Exception {
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "inputs, argv, manifests = ruleContext.resolve_command(",
+        "   tools=ruleContext.attr.tools)");
+    @SuppressWarnings("unchecked")
+    List<Artifact> inputs = (List<Artifact>) (List<?>) ((MutableList) lookup("inputs")).getList();
+    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
+    Map<?, ?> manifests = (Map<?, ?>) lookup("manifests");
+    assertThat(manifests).hasSize(1);
+  }
+
+  public void testResolveCommandExpandLocations() throws Exception {
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "def foo():", // no for loops at top-level
+        "  label_dict = {}",
+        "  all = []",
+        "  for dep in ruleContext.attr.srcs + ruleContext.attr.tools:",
+        "    all.extend(list(dep.files))",
+        "    label_dict[dep.label] = list(dep.files)",
+        "  return ruleContext.resolve_command(",
+        "    command='A$(locations //foo:mytool) B$(location //foo:file3.dat)',",
+        "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
+        "inputs, argv, manifests = foo()");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    assertThat(argv).hasSize(3);
+    assertMatches("argv[0]", "^.*/bash$", argv.get(0));
+    assertThat(argv.get(1)).isEqualTo("-c");
+    assertMatches("argv[2]", "A.*/mytool .*/mytool.sh B.*file3.dat", argv.get(2));
+  }
+
+  public void testResolveCommandScript() throws Exception {
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "def foo():", // no for loops at top-level
+        "  s = 'a'",
+        "  for i in range(1,17): s = s + s", // 2**17 > CommandHelper.maxCommandLength (=64000)
+        "  return ruleContext.resolve_command(",
+        "    command=s)",
+        "argv = foo()[1]");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    assertThat(argv).hasSize(2);
+    assertMatches("argv[0]", "^.*/bash$", argv.get(0));
+    assertMatches("argv[1]", "^.*/resolve_me[.]script[.]sh$", argv.get(1));
   }
 
   public void testBadParamTypeErrorMessage() throws Exception {
