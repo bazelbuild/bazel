@@ -50,6 +50,11 @@ class InMemoryLinkInfo extends InMemoryContentInfo {
   }
 
   @Override
+  public boolean isSpecialFile() {
+    return false;
+  }
+
+  @Override
   public long getSize() {
     return linkContent.toString().length();
   }

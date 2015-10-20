@@ -362,6 +362,7 @@ public abstract class FileSystem {
       volatile Boolean isFile;
       volatile Boolean isDirectory;
       volatile Boolean isSymbolicLink;
+      volatile Boolean isSpecial;
       volatile long size = -1;
       volatile long mtime = -1;
 
@@ -383,6 +384,12 @@ public abstract class FileSystem {
       public boolean isSymbolicLink() {
         if (isSymbolicLink == null)  { isSymbolicLink = FileSystem.this.isSymbolicLink(path); }
         return isSymbolicLink;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        if (isSpecial == null)  { isSpecial = FileSystem.this.isSpecialFile(path, followSymlinks); }
+        return isSpecial;
       }
 
       @Override
@@ -453,6 +460,12 @@ public abstract class FileSystem {
   protected abstract boolean isFile(Path path, boolean followSymlinks);
 
   /**
+   * Returns true iff {@code path} denotes a special file.
+   * See {@link Path#isSpecialFile(Symlinks)} for specification.
+   */
+  protected abstract boolean isSpecialFile(Path path, boolean followSymlinks);
+
+  /**
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for
    * specification.
    *
@@ -505,6 +518,8 @@ public abstract class FileSystem {
   protected static Dirent.Type direntFromStat(FileStatus stat) {
     if (stat == null) {
       return Type.UNKNOWN;
+    } else if (stat.isSpecialFile()) {
+        return Type.UNKNOWN;
     } else if (stat.isFile()) {
       return Type.FILE;
     } else if (stat.isDirectory()) {

@@ -756,7 +756,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected abstract void invalidate(Predicate<SkyKey> pred);
 
   private static boolean compatibleFileTypes(Dirent.Type oldType, FileStateValue.Type newType) {
-    return (oldType.equals(Dirent.Type.FILE) && newType.equals(FileStateValue.Type.FILE))
+    return (oldType.equals(Dirent.Type.FILE) && newType.equals(FileStateValue.Type.REGULAR_FILE))
+        || (oldType.equals(Dirent.Type.UNKNOWN)
+            && newType.equals(FileStateValue.Type.SPECIAL_FILE))
         || (oldType.equals(Dirent.Type.DIRECTORY) && newType.equals(FileStateValue.Type.DIRECTORY))
         || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateValue.Type.SYMLINK));
   }

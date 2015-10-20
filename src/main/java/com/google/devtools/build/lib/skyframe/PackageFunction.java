@@ -845,7 +845,7 @@ public class PackageFunction implements SkyFunction {
    *
    * <p>May return null if the computation has to be restarted.
    *
-   * <p>Exactly one of {@code replacementContents} and {@link buildFileValue} will be
+   * <p>Exactly one of {@code replacementContents} and {@code buildFileValue} will be
    * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
    * and the latter indicates that we have a legitimate BUILD file and should actually do
    * preprocessing.
@@ -875,13 +875,15 @@ public class PackageFunction implements SkyFunction {
           }
           Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
-            long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
+            Preconditions.checkNotNull(buildFileValue, packageId);
             // Even though we only open and read the file on a cache miss, note that the BUILD is
             // still parsed two times. Also, the preprocessor may suboptimally open and read it
             // again anyway.
             ParserInputSource inputSource;
             try {
-              inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
+              inputSource = buildFileValue.isSpecialFile()
+                  ? ParserInputSource.create(buildFilePath)
+                  : ParserInputSource.create(buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
               env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
                   e.getMessage()));

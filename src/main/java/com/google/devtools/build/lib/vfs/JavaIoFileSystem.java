@@ -94,34 +94,6 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
-    File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
-    try {
-      if (!followSymlinks && fileIsSymbolicLink(file)) {
-        return false;
-      }
-      return file.isDirectory();
-    } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
-    }
-  }
-
-  @Override
-  protected boolean isFile(Path path, boolean followSymlinks) {
-    File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
-    try {
-      if (!followSymlinks && fileIsSymbolicLink(file)) {
-        return false;
-      }
-      return file.isFile();
-    } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
-    }
-  }
-
-  @Override
   protected boolean isReadable(Path path) throws IOException {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
@@ -365,17 +337,6 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     }
   }
 
-  @Override
-  protected boolean isSymbolicLink(Path path) {
-    File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
-    try {
-      return fileIsSymbolicLink(file);
-    } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
-    }
-  }
-
   private boolean fileIsSymbolicLink(File file) {
     return Files.isSymbolicLink(file.toPath());
   }
@@ -428,7 +389,12 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     FileStatus status =  new FileStatus() {
       @Override
       public boolean isFile() {
-        return attributes.isRegularFile();
+        return attributes.isRegularFile() || isSpecialFile();
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return attributes.isOther();
       }
 
       @Override

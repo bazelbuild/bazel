@@ -533,6 +533,25 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
+   * Returns true iff this path denotes an existing special file (e.g. fifo).
+   * Follows symbolic links.
+   */
+  public boolean isSpecialFile() {
+    return fileSystem.isSpecialFile(this, true);
+  }
+
+  /**
+   * Returns true iff this path denotes an existing special file (e.g. fifo).
+   *
+   * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a
+   *        symbolic link, the link is dereferenced until a path other than a
+   *        symbolic link is found.
+   */
+  public boolean isSpecialFile(Symlinks followSymlinks) {
+    return fileSystem.isSpecialFile(this, followSymlinks.toBoolean());
+  }
+
+  /**
    * Returns true iff this path denotes an existing symbolic link. Does not
    * follow symbolic links.
    */
@@ -814,7 +833,7 @@ public class Path implements Comparable<Path>, Serializable {
    * Returns the size in bytes of the file denoted by the current path,
    * following symbolic links.
    *
-   * <p>The size of directory or special file is undefined.
+   * <p>The size of a directory or special file is undefined and should not be used.
    *
    * @throws FileNotFoundException if the file denoted by the current path does
    *         not exist

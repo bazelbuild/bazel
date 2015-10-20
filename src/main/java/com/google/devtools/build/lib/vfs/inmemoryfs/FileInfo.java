@@ -43,6 +43,11 @@ public abstract class FileInfo extends InMemoryContentInfo {
     return true;
   }
 
+  @Override
+  public boolean isSpecialFile() {
+    return false;
+  }
+
   protected abstract byte[] readContent() throws IOException;
 
   protected abstract OutputStream getOutputStream(boolean append) throws IOException;
