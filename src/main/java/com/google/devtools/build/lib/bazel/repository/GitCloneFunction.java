@@ -38,6 +38,7 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.transport.NetRCCredentialsProvider;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -117,6 +118,7 @@ public class GitCloneFunction implements SkyFunction {
       git =
           Git.cloneRepository()
               .setURI(descriptor.remote)
+              .setCredentialsProvider(new NetRCCredentialsProvider())
               .setDirectory(descriptor.directory.getPathFile())
               .setCloneSubmodules(false)
               .setNoCheckout(true)
