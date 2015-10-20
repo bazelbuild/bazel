@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -876,14 +877,11 @@ public class PackageFunction implements SkyFunction {
           Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
             Preconditions.checkNotNull(buildFileValue, packageId);
-            // Even though we only open and read the file on a cache miss, note that the BUILD is
-            // still parsed two times. Also, the preprocessor may suboptimally open and read it
-            // again anyway.
-            ParserInputSource inputSource;
+            byte[] buildFileBytes;
             try {
-              inputSource = buildFileValue.isSpecialFile()
-                  ? ParserInputSource.create(buildFilePath)
-                  : ParserInputSource.create(buildFilePath, buildFileValue.getSize());
+              buildFileBytes = buildFileValue.isSpecialFile()
+                  ? FileSystemUtils.readContent(buildFilePath)
+                  : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
               env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
                   e.getMessage()));
@@ -893,7 +891,8 @@ public class PackageFunction implements SkyFunction {
                   packageId, e.getMessage()), Transience.TRANSIENT);
             }
             try {
-              preprocessingResult = packageFactory.preprocess(packageId, inputSource, globber);
+              preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
+                  buildFileBytes, globber);
             } catch (IOException e) {
               env.getListener().handle(Event.error(
                   Location.fromFile(buildFilePath),

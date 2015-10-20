@@ -487,24 +487,24 @@ EOF
 genrule(
     name = "turtle",
     outs = ["tmnt"],
-    cmd = "echo 'Raphael' > \$@",
+    cmd = "echo 'Leonardo' > \$@",
     visibility = ["//visibility:public"],
 )
 EOF
   bazel fetch //external:best-turtle || fail "Fetch failed"
   bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Raphael" bazel-genfiles/external/mutant/tmnt
+  assert_contains "Leonardo" bazel-genfiles/external/mutant/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
     name = "turtle",
     outs = ["tmnt"],
-    cmd = "echo 'Michaelangelo' > \$@",
+    cmd = "echo 'Donatello' > \$@",
     visibility = ["//visibility:public"],
 )
 EOF
   bazel build //external:best-turtle &> $TEST_log || fail "Second build failed"
-  assert_contains "Michaelangelo" bazel-genfiles/external/mutant/tmnt
+  assert_contains "Donatello" bazel-genfiles/external/mutant/tmnt
 }
 
 function test_external_deps_in_remote_repo() {
