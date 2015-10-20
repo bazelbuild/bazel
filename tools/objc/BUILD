@@ -46,6 +46,11 @@ filegroup(
     srcs = [":testrunner_stub"],
 )
 
+filegroup(
+    name = "memleaks_plugin",
+    srcs = [":memleaks_plugin_stub"],
+)
+
 sh_binary(
     name = "ibtoolwrapper",
     srcs = [":ibtoolwrapper.sh"],

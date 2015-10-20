@@ -71,11 +71,17 @@ public class TestSupport {
     // testIpa is the app actually containing the tests
     Artifact testIpa = testIpa();
 
+    String runMemleaks =
+        ruleContext.getFragment(ObjcConfiguration.class).runMemleaks() ? "true" : "false";
+
     // The substitutions below are common for simulator and lab device.
-    ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
-        .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
-        .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
-        .add(Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
+    ImmutableList.Builder<Substitution> substitutions =
+        new ImmutableList.Builder<Substitution>()
+            .add(Substitution.of("%(memleaks)s", runMemleaks))
+            .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
+            .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
+            .add(
+                Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
 
     // xctestIpa is the app bundle being tested
     Optional<Artifact> xctestIpa = xctestIpa();
@@ -240,7 +246,14 @@ public class TestSupport {
    * Jar files for plugins to the test runner. May be empty.
    */
   private NestedSet<Artifact> plugins() {
-    return PrerequisiteArtifacts.nestedSet(ruleContext, "plugins", Mode.TARGET);
+    NestedSetBuilder<Artifact> pluginArtifacts = NestedSetBuilder.stableOrder();
+    pluginArtifacts.addTransitive(
+        PrerequisiteArtifacts.nestedSet(ruleContext, "plugins", Mode.TARGET));
+    if (ruleContext.getFragment(ObjcConfiguration.class).runMemleaks()) {
+      pluginArtifacts.addTransitive(
+          PrerequisiteArtifacts.nestedSet(ruleContext, IosTest.MEMLEAKS_PLUGIN, Mode.TARGET));
+    }
+    return pluginArtifacts.build();
   }
 
   /**
