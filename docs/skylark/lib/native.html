@@ -39,7 +39,7 @@ A built-in module to support native rules and other package helper functions. Al
               <code>srcs</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>The list of files to export.</p>
             </td>
           </tr>
@@ -48,7 +48,7 @@ A built-in module to support native rules and other package helper functions. Al
               <code>visibility</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a></code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a></code></p>
                           <p>A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.</p>
             </td>
           </tr>
@@ -57,7 +57,7 @@ A built-in module to support native rules and other package helper functions. Al
               <code>licenses</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>Licenses to be specified.</p>
             </td>
           </tr>
@@ -65,7 +65,7 @@ A built-in module to support native rules and other package helper functions. Al
       </table>
         
         <h2 id="glob">glob</h2>
-        <p><pre><a class="anchor" href="list.html">list</a> native.glob(include, exclude=[], exclude_directories=1)
+        <p><pre><a class="anchor" href="list.html">sequence</a> native.glob(include, exclude=[], exclude_directories=1)
 </pre></p>
     
     Glob returns a list of every file in the current package that:<ul>
@@ -91,7 +91,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
               <code>include</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>The list of glob patterns to include.</p>
             </td>
           </tr>
@@ -100,7 +100,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
               <code>exclude</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>The list of glob patterns to exclude.</p>
             </td>
           </tr>
@@ -140,7 +140,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
               <code>packages</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>A complete enumeration of packages in this group.</p>
             </td>
           </tr>
@@ -149,7 +149,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
               <code>includes</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="list.html">list</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
                           <p>Other package groups that are included in this one.</p>
             </td>
           </tr>
