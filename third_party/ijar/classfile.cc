@@ -1,4 +1,4 @@
-// Copyright 2001,2007 Alan Donovan. All rights reserved.
+// Copyright 2007 The Bazel Authors..
 //
 // Author: Alan Donovan <adonovan@google.com>
 //
@@ -488,7 +488,8 @@ struct InnerClassesAttribute : Attribute {
 
     do {
       entry_count = kept_entries.size();
-      for (int i_entry = 0; i_entry < entries_.size(); ++i_entry) {
+      for (int i_entry = 0; i_entry < static_cast<int>(entries_.size());
+           ++i_entry) {
         Entry* entry = entries_[i_entry];
         if (entry->inner_class_info->Kept() ||
             used_class_names.find(entry->inner_class_info->Display())
@@ -509,7 +510,7 @@ struct InnerClassesAttribute : Attribute {
         }
       }
       iteration += 1;
-    } while (entry_count != kept_entries.size());
+    } while (entry_count != static_cast<int>(kept_entries.size()));
 
     if (kept_entries.size() == 0) {
       return;
@@ -626,22 +627,22 @@ struct ClassTypeElementValue : ElementValue {
 
 struct ArrayTypeElementValue : ElementValue {
   virtual ~ArrayTypeElementValue() {
-    for (size_t i = 0; i < values_.size(); i++) {
-      delete values_[i];
+    for (const auto *value : values_) {
+      delete value;
     }
   }
 
   virtual void ExtractClassNames() {
-    for (int i = 0; i < values_.size(); i++) {
-      values_[i]->ExtractClassNames();
+    for (auto *value : values_) {
+      value->ExtractClassNames();
     }
   }
 
   void Write(u1 *&p) {
     put_u1(p, tag_);
     put_u2be(p, values_.size());
-    for (size_t ii = 0; ii < values_.size(); ++ii) {
-      values_[ii]->Write(p);
+    for (auto *value : values_) {
+      value->Write(p);
     }
   }
   static ArrayTypeElementValue *Read(const u1 *&p) {
@@ -1041,8 +1042,8 @@ struct AnnotationsAttribute : Attribute {
   }
 
   virtual void ExtractClassNames() {
-    for (int i = 0; i < annotations_.size(); i++) {
-      annotations_[i]->ExtractClassNames();
+    for (auto *annotation : annotations_) {
+      annotation->ExtractClassNames();
     }
   }
 
@@ -1050,8 +1051,8 @@ struct AnnotationsAttribute : Attribute {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
     put_u2be(p, annotations_.size());
-    for (size_t ii = 0; ii < annotations_.size(); ++ii) {
-      annotations_[ii]->Write(p);
+    for (auto *annotation : annotations_) {
+      annotation->Write(p);
     }
     put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
   }
@@ -1124,8 +1125,8 @@ struct TypeAnnotationsAttribute : Attribute {
   }
 
   virtual void ExtractClassNames() {
-    for (int i = 0; i < type_annotations_.size(); i++) {
-      type_annotations_[i]->ExtractClassNames();
+    for (auto *type_annotation : type_annotations_) {
+      type_annotation->ExtractClassNames();
     }
   }
 
@@ -1210,14 +1211,14 @@ struct HasAttrs {
   void ReadAttrs(const u1 *&p);
 
   virtual ~HasAttrs() {
-    for (size_t i = 0; i < attributes.size(); i++) {
-      delete attributes[i];
+    for (const auto *attribute : attributes) {
+      delete attribute;
     }
   }
 
   void ExtractClassNames() {
-    for (int i = 0; i < attributes.size(); i++) {
-      attributes[i]->ExtractClassNames();
+    for (auto *attribute : attributes) {
+      attribute->ExtractClassNames();
     }
   }
 };
@@ -1777,8 +1778,7 @@ void ClassFile::WriteClass(u1 *&p) {
   members.insert(members.end(), fields.begin(), fields.end());
   members.insert(members.end(), methods.begin(), methods.end());
   ExtractClassNames();
-  for (int i = 0; i < members.size(); i++) {
-    Member *member = members[i];
+  for (auto *member : members) {
     size_t idx = 0;
     devtools_ijar::ExtractClassNames(member->descriptor->Display(), &idx);
     member->ExtractClassNames();
