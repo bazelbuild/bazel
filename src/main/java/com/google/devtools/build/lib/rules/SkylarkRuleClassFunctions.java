@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -76,6 +77,7 @@ import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -329,6 +331,21 @@ public class SkylarkRuleClassFunctions {
     }
   };
 
+  @SkylarkSignature(
+    name = "aspect",
+    returnType = SkylarkAspect.class,
+    documented = false, // TODO(dslomov): Experimental, document later.
+    mandatoryPositionals = {@Param(name = "implementation", type = BaseFunction.class)},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction aspect =
+      new BuiltinFunction("aspect") {
+        public SkylarkAspect invoke(BaseFunction implementation, Environment funcallEnv) {
+          return new SkylarkAspect(implementation, funcallEnv);
+        }
+      };
+
+
   // This class is needed for testing
   public static final class RuleFunction extends BaseFunction {
     // Note that this means that we can reuse the same builder.
@@ -515,5 +532,37 @@ public class SkylarkRuleClassFunctions {
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
+  }
+
+  /**
+   * A Skylark value that is a result of 'aspect(..)' function call.
+   */
+  public static class SkylarkAspect implements SkylarkValue {
+    private final BaseFunction implementation;
+    private final Environment funcallEnv;
+
+    public SkylarkAspect(BaseFunction implementation, Environment funcallEnv) {
+      this.implementation = implementation;
+      this.funcallEnv = funcallEnv;
+    }
+
+    public BaseFunction getImplementation() {
+      return implementation;
+    }
+
+    public Environment getFuncallEnv() {
+      return funcallEnv;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return implementation.isImmutable();
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "Aspect:");
+      implementation.write(buffer, quotationMark);
+    }
   }
 }
