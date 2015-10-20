@@ -34,7 +34,7 @@ public class ObjcLibraryRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
              can be used to develop or build on a Mac.</li>
-         <li><code>lib<var>name</var>_fully_linked.a</code>: A fully linked static library that
+         <li><code><var>name</var>_fully_linked.a</code>: A fully linked static library that
              contains the full transitive closure of library dependencies.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
