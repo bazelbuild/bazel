@@ -337,7 +337,7 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
-      if (i == 0 || rootCausesStored()) {
+      if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
@@ -357,7 +357,7 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
-      if (i == 0 || rootCausesStored()) {
+      if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
@@ -377,7 +377,7 @@ public class MemoizingEvaluatorTest {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(i == 0, "top");
       assertTrue(result.hasError());
-      if (i == 0 || rootCausesStored()) {
+      if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
