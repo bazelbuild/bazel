@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 
 import com.google.common.collect.ImmutableCollection;
@@ -151,10 +150,8 @@ public class SkylarkRuleImplementationFunctions {
       SpawnAction.Builder builder = new SpawnAction.Builder();
       // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
       boolean hasCommand = commandO != Runtime.NONE;
-      Iterable<Artifact> actualInputs = castList(inputs, Artifact.class);
-
-      builder.addInputs(actualInputs);
-      builder.addOutputs(castList(outputs, Artifact.class));
+      builder.addInputs(inputs.getContents(Artifact.class, "inputs"));
+      builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
       if (hasCommand && arguments.size() > 0) {
         // When we use a shell command, add an empty argument before other arguments.
         //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
@@ -162,7 +159,7 @@ public class SkylarkRuleImplementationFunctions {
         // arg1 and arg2 will be $1 and $2, as a user exects.
         builder.addArgument("");
       }
-      builder.addArguments(castList(arguments, String.class));
+      builder.addArguments(arguments.getContents(String.class, "arguments"));
       if (executableO != Runtime.NONE) {
         if (executableO instanceof Artifact) {
           Artifact executable = (Artifact) executableO;
@@ -191,7 +188,7 @@ public class SkylarkRuleImplementationFunctions {
           if (commandList.size() < 3) {
             throw new EvalException(loc, "'command' list has to be of size at least 3");
           }
-          builder.setShellCommand(castList(commandList, String.class, "command"));
+          builder.setShellCommand(commandList.getContents(String.class, "command"));
         } else {
           throw new EvalException(loc, "expected string or list of strings for "
               + "command instead of " + EvalUtils.getDataTypeName(commandO));
@@ -274,7 +271,7 @@ public class SkylarkRuleImplementationFunctions {
         Location loc, Environment env) throws EvalException {
       try {
         return new LocationExpander(ctx.getRuleContext(),
-                   makeLabelMap(castList(targets, AbstractConfiguredTarget.class)), false)
+                makeLabelMap(targets.getContents(AbstractConfiguredTarget.class, "targets")), false)
             .expand(input);
       } catch (IllegalStateException ise) {
         throw new EvalException(loc, ise);
@@ -353,8 +350,9 @@ public class SkylarkRuleImplementationFunctions {
       return Runtime.NONE;
     }
 
-    private NestedSet<Artifact> convertInputs(SkylarkList inputs) {
-      return NestedSetBuilder.<Artifact>compileOrder().addAll(inputs.to(Artifact.class)).build();
+    private NestedSet<Artifact> convertInputs(SkylarkList inputs) throws EvalException {
+      return NestedSetBuilder.<Artifact>compileOrder()
+          .addAll(inputs.getContents(Artifact.class, "inputs")).build();
     }
 
     protected UUID generateUuid(RuleContext ruleContext) {
@@ -486,7 +484,7 @@ public class SkylarkRuleImplementationFunctions {
         builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
       }
       if (!files.isEmpty()) {
-        builder.addArtifacts(castList(files, Artifact.class));
+        builder.addArtifacts(files.getContents(Artifact.class, "files"));
       }
       if (transitiveFiles != Runtime.NONE) {
         builder.addTransitiveArtifacts(((SkylarkNestedSet) transitiveFiles).getSet(Artifact.class));
@@ -601,7 +599,7 @@ public class SkylarkRuleImplementationFunctions {
           // The best way to fix this probably is to convert CommandHelper to Skylark.
           CommandHelper helper = new CommandHelper(
               ctx.getRuleContext(),
-              castList(tools, TransitiveInfoCollection.class),
+              tools.getContents(TransitiveInfoCollection.class, "tools"),
               ImmutableMap.copyOf(labelDict));
           String attribute = Type.STRING.convertOptional(attributeO, "attribute", ruleLabel);
           if (expandLocations) {

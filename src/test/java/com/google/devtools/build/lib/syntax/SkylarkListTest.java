@@ -46,6 +46,7 @@ public class SkylarkListTest extends EvaluationTestCase {
   @Test
   public void testListEmpty() throws Exception {
     assertThat(eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
+    assertThat(eval("8 if [] else 9")).isEqualTo(9);
   }
 
   @Test

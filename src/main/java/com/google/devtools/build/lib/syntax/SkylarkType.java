@@ -644,34 +644,6 @@ public abstract class SkylarkType implements Serializable {
     }
   }
 
-  /** Cast a SkylarkList object into an Iterable of the given type. Treat null as empty List */
-  public static <TYPE> Iterable<TYPE> castList(Object obj, final Class<TYPE> type) {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    return ((SkylarkList) obj).to(type);
-  }
-
-  /** Cast a List or SkylarkList object into an Iterable of the given type. null means empty List */
-  public static <TYPE> Iterable<TYPE> castList(
-      Object obj, final Class<TYPE> type, final String what) throws EvalException {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    List<TYPE> results = new ArrayList<>();
-    for (Object object : com.google.devtools.build.lib.syntax.Type.LIST.convert(obj, what)) {
-      try {
-        results.add(type.cast(object));
-      } catch (ClassCastException e) {
-        throw new EvalException(null, String.format(
-            "Illegal argument: expected %s type for '%s' but got %s instead",
-            EvalUtils.getDataTypeNameFromClass(type), what,
-            EvalUtils.getDataTypeName(object)));
-      }
-    }
-    return results;
-  }
-
   /**
    * Cast a Map object into an Iterable of Map entries of the given key, value types.
    * @param obj the Map object, where null designates an empty map
@@ -748,18 +720,5 @@ public abstract class SkylarkType implements Serializable {
       return new MutableList(list, env);
     }
     return object;
-  }
-
-  /**
-   * Converts object from a Skylark-compatible wrapper type to its original type.
-   */
-  public static Object convertFromSkylark(Object value) {
-    if (value instanceof MutableList) {
-      return new ArrayList<>(((MutableList) value).getList());
-    } else if (value instanceof Tuple) {
-      return ((Tuple) value).getImmutableList();
-    } else {
-      return value;
-    }
   }
 }

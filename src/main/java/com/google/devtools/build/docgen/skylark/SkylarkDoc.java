@@ -17,14 +17,13 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -55,12 +54,12 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"string.html\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {
       return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
-    } else if (Tuple.class.isAssignableFrom(type)) {
+    } else if (type.equals(Tuple.class)) {
       return "<a class=\"anchor\" href=\"list.html\">tuple</a>";
-    } else if (List.class.isAssignableFrom(type) || SkylarkList.class.isAssignableFrom(type)
-        || type == HackHackEitherList.class) {
-      // Annotated Java methods can return simple java.util.Lists (which get auto-converted).
+    } else if (type.equals(MutableList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">list</a>";
+    } else if (type.equals(SkylarkList.class)) {
+      return "<a class=\"anchor\" href=\"list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.isAnnotationPresent(SkylarkModule.class)) {

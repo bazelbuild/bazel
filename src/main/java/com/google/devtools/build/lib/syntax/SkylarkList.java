@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
@@ -45,6 +45,15 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
    */
   public abstract ImmutableList<Object> getImmutableList();
+
+  /**
+   * Returns a List object with the current underlying contents of this SkylarkList.
+   * This object must not be modified, but may not be an ImmutableList.
+   * It may notably be a GlobList, where appropriate.
+   */
+  // TODO(bazel-team): move GlobList out of Skylark, into an extension,
+  // and maybe get rid of this method?
+  public abstract List<Object> getContents();
 
   /**
    * Returns true if this list is a tuple.
@@ -99,15 +108,59 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
     return getClass().hashCode() + 31 * getList().hashCode();
   }
 
+  /**
+   * Cast a {@code List<?>} to a {@code List<T>} after checking its current contents.
+   * @param list the List to cast
+   * @param type the expected class of elements
+   * @param description a description of the argument being converted, or null, for debugging
+   */
   @SuppressWarnings("unchecked")
-  public <T> Iterable<T> to(Class<T> type) {
-    for (Object value : getList()) {
-      Preconditions.checkArgument(
-          type.isInstance(value),
-          Printer.formattable("list element %r is not of type %r", value, type));
+  public static <TYPE> List<TYPE> castList(
+      List<?> list, Class<TYPE> type, @Nullable String description)
+      throws EvalException {
+    for (Object value : list) {
+      if (!type.isInstance(value)) {
+        throw new EvalException(null,
+            Printer.format("Illegal argument: expected type %r %sbut got type %s instead",
+                type,
+                description == null ? "" : String.format("for '%s' element ", description),
+                EvalUtils.getDataTypeName(value)));
+      }
     }
-    return (Iterable<T>) this;
+    return (List<TYPE>) list;
   }
+
+  /**
+   * Cast a SkylarkList to a {@code List<T>} after checking its current contents.
+   * Treat None as meaning the empty List.
+   * @param obj the Object to cast. null and None are treated as an empty list.
+   * @param type the expected class of elements
+   * @param description a description of the argument being converted, or null, for debugging
+   */
+  public static <TYPE> List<TYPE> castSkylarkListOrNoneToList(
+      Object obj, Class<TYPE> type, @Nullable String description)
+      throws EvalException {
+    if (EvalUtils.isNullOrNone(obj)) {
+      return ImmutableList.of();
+    }
+    if (obj instanceof SkylarkList) {
+      return ((SkylarkList) obj).getContents(type, description);
+    }
+    throw new EvalException(null,
+        Printer.format("Illegal argument: %s is not of expected type list or NoneType",
+            description == null ? Printer.repr(obj) : String.format("'%s'", description)));
+  }
+
+  /**
+   * Cast the SkylarkList object into a List of the given type.
+   * @param type the expected class of elements
+   * @param description a description of the argument being converted, or null, for debugging
+   */
+  public <TYPE> List<TYPE> getContents(Class<TYPE> type, @Nullable String description)
+      throws EvalException {
+    return castList(getContents(), type, description);
+  }
+
 
   /**
    * A class for mutable lists.
@@ -126,6 +179,12 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
 
     private final ArrayList<Object> contents = new ArrayList<>();
 
+    // Treat GlobList specially: external code depends on it.
+    // TODO(bazel-team): make data structures *and binary operators* extensible
+    // (via e.g. interface classes for each binary operator) so that GlobList
+    // can be implemented outside of the core of Skylark.
+    @Nullable private GlobList<?> globList;
+
     private final Mutability mutability;
 
     /**
@@ -137,6 +196,9 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
     MutableList(Iterable<?> contents, Mutability mutability) {
       super();
       addAll(contents);
+      if (contents instanceof GlobList<?>) {
+        globList = (GlobList<?>) contents;
+      }
       this.mutability = mutability;
     }
 
@@ -157,6 +219,16 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
      */
     public MutableList(Iterable<?> contents) {
       this(contents, Mutability.IMMUTABLE);
+    }
+
+    /**
+     * Builds a Skylark list (actually immutable) from a variable number of arguments.
+     * @param env an Environment from which to inherit Mutability, or null for immutable
+     * @param contents the contents of the list
+     * @return a Skylark list containing the specified arguments as elements.
+     */
+    public static MutableList of(Environment env, Object... contents) {
+      return new MutableList(ImmutableList.copyOf(contents), env);
     }
 
     /**
@@ -183,6 +255,48 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
       } catch (MutabilityException ex) {
         throw new EvalException(loc, ex);
       }
+      globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
+    }
+
+    @Nullable public GlobList<?> getGlobList() {
+      return globList;
+    }
+
+    /**
+     * @return the GlobList if there is one, otherwise an Immutable copy of the regular contents.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Object> getContents() {
+      if (globList != null) {
+        return (List<Object>) (List<?>) globList;
+      }
+      return getImmutableList();
+    }
+
+    /**
+     * @return the GlobList if there is one, otherwise the regular contents.
+     */
+    private List<?> getContentsUnsafe() {
+      if (globList != null) {
+        return globList;
+      }
+      return contents;
+    }
+
+    /**
+     * Concatenate two MutableList
+     * @param left the start of the new list
+     * @param right the end of the new list
+     * @param env the Environment in which to create a new list
+     * @return a new MutableList
+     */
+    public static MutableList concat(MutableList left, MutableList right, Environment env) {
+      if (left.getGlobList() == null && right.getGlobList() == null) {
+        return new MutableList(Iterables.concat(left, right), env);
+      }
+      return new MutableList(GlobList.concat(
+          left.getContentsUnsafe(), right.getContentsUnsafe()), env);
     }
 
     /**
@@ -300,6 +414,11 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
 
     @Override
     public ImmutableList<Object> getImmutableList() {
+      return contents;
+    }
+
+    @Override
+    public List<Object> getContents() {
       return contents;
     }
 

@@ -59,7 +59,7 @@ public final class ListComprehension extends AbstractComprehension {
 
     @Override
     public Object getResult(Environment env) throws EvalException {
-      return env.isSkylark() ? new MutableList(result, env) : result;
+      return new MutableList(result, env);
     }
   }
 }

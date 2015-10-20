@@ -51,10 +51,11 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -475,13 +476,13 @@ public final class PackageFactory {
    * @param async if true, start globs in the background but don't block on their completion.
    *        Only use this for heuristic preloading.
    */
-  @SkylarkSignature(name = "glob", objectType = Object.class, returnType = GlobList.class,
+  @SkylarkSignature(name = "glob", objectType = Object.class, returnType = SkylarkList.class,
       doc = "Returns a list of files that match glob search pattern",
       mandatoryPositionals = {
-        @Param(name = "include", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "include", type = SkylarkList.class, generic1 = String.class,
             doc = "a list of strings specifying patterns of files to include.")},
       optionalPositionals = {
-        @Param(name = "exclude", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "exclude", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]",
             doc = "a list of strings specifying patterns of files to exclude."),
         // TODO(bazel-team): migrate all existing code to use boolean instead?
@@ -492,8 +493,8 @@ public final class PackageFactory {
       new BuiltinFunction.Factory("glob") {
         public BuiltinFunction create(final PackageContext originalContext, final boolean async) {
           return new BuiltinFunction("glob", this) {
-            public GlobList<String> invoke(
-                Object include, Object exclude, Integer excludeDirectories,
+            public SkylarkList invoke(
+                SkylarkList include, SkylarkList exclude, Integer excludeDirectories,
                 FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException, InterruptedException {
               return callGlob(
@@ -503,7 +504,7 @@ public final class PackageFactory {
         }
       };
 
-  static GlobList<String> callGlob(@Nullable PackageContext originalContext,
+  static SkylarkList callGlob(@Nullable PackageContext originalContext,
       boolean async, Object include, Object exclude, boolean excludeDirs,
       FuncallExpression ast, Environment env)
       throws EvalException, ConversionException, InterruptedException {
@@ -520,16 +521,18 @@ public final class PackageFactory {
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
 
+    GlobList<String> globList;
     if (async) {
       try {
         context.globber.runAsync(includes, excludes, excludeDirs);
       } catch (GlobCache.BadGlobException e) {
         // Ignore: errors will appear during the actual evaluation of the package.
       }
-      return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
+      globList = GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } else {
-      return handleGlob(includes, excludes, excludeDirs, context, ast);
+      globList = handleGlob(includes, excludes, excludeDirs, context, ast);
     }
+    return new MutableList(globList, env);
   }
 
   /**
@@ -621,20 +624,21 @@ public final class PackageFactory {
         @Param(name = "name", type = String.class,
             doc = "The name of the rule."),
         // Both parameter below are lists of label designators
-        @Param(name = "environments", type = HackHackEitherList.class, generic1 = Object.class,
+        @Param(name = "environments", type = SkylarkList.class, generic1 = Object.class,
             doc = "A list of Labels for the environments to be grouped, from the same package."),
-        @Param(name = "defaults", type = HackHackEitherList.class, generic1 = Object.class,
+        @Param(name = "defaults", type = SkylarkList.class, generic1 = Object.class,
             doc = "A list of Labels.")}, // TODO(bazel-team): document what that is
       documented = false, useLocation = true)
   private static final BuiltinFunction.Factory newEnvironmentGroupFunction =
       new BuiltinFunction.Factory("environment_group") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("environment_group", this) {
-            public Runtime.NoneType invoke(String name, Object environmentsO, Object defaultsO,
+            public Runtime.NoneType invoke(
+                String name, SkylarkList environmentsList, SkylarkList defaultsList,
                 Location loc) throws EvalException, ConversionException {
-              List<Label> environments = BuildType.LABEL_LIST.convert(environmentsO,
+              List<Label> environments = BuildType.LABEL_LIST.convert(environmentsList,
                   "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
-              List<Label> defaults = BuildType.LABEL_LIST.convert(defaultsO,
+              List<Label> defaults = BuildType.LABEL_LIST.convert(defaultsList,
                   "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
 
               try {
@@ -659,16 +663,16 @@ public final class PackageFactory {
   @SkylarkSignature(name = "exports_files", returnType = Runtime.NoneType.class,
       doc = "Declare a set of files as exported",
       mandatoryPositionals = {
-        @Param(name = "srcs", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "srcs", type = SkylarkList.class, generic1 = String.class,
             doc = "A list of strings, the names of the files to export.")},
       optionalPositionals = {
         // TODO(blaze-team): make it possible to express a list of label designators,
         // i.e. a java List or Skylark list of Label or String.
-        @Param(name = "visibility", type = HackHackEitherList.class, noneable = true,
+        @Param(name = "visibility", type = SkylarkList.class, noneable = true,
             defaultValue = "None",
             doc = "A list of Labels specifying the visibility of the exported files "
             + "(defaults to public)"),
-        @Param(name = "licenses", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "licenses", type = SkylarkList.class, generic1 = String.class,
             noneable = true, defaultValue = "None",
             doc = "A list of strings specifying the licenses used in the exported code.")},
       documented = false, useAst = true, useEnvironment = true)
@@ -676,7 +680,8 @@ public final class PackageFactory {
       new BuiltinFunction.Factory("exports_files") {
         public BuiltinFunction create () {
           return new BuiltinFunction("exports_files", this) {
-            public Runtime.NoneType invoke(Object srcs, Object visibility, Object licenses,
+            public Runtime.NoneType invoke(
+                SkylarkList srcs, Object visibility, Object licenses,
                 FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException {
               return callExportsFiles(srcs, visibility, licenses, ast, env);
@@ -741,16 +746,16 @@ public final class PackageFactory {
   @SkylarkSignature(name = "licenses", returnType = Runtime.NoneType.class,
       doc = "Declare the license(s) for the code in the current package.",
       mandatoryPositionals = {
-        @Param(name = "license_strings", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "license_strings", type = SkylarkList.class, generic1 = String.class,
             doc = "A list of strings, the names of the licenses used.")},
       documented = false, useLocation = true)
   private static final BuiltinFunction.Factory newLicensesFunction =
       new BuiltinFunction.Factory("licenses") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("licenses", this) {
-            public Runtime.NoneType invoke(Object licensesO, Location loc) {
+            public Runtime.NoneType invoke(SkylarkList licensesList, Location loc) {
               try {
-                License license = BuildType.LICENSE.convert(licensesO, "'licenses' operand");
+                License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
                 context.pkgBuilder.setDefaultLicense(license);
               } catch (ConversionException e) {
                 context.eventHandler.handle(Event.error(loc, e.getMessage()));
@@ -801,11 +806,11 @@ public final class PackageFactory {
         @Param(name = "name", type = String.class,
             doc = "The name of the rule.")},
       optionalNamedOnly = {
-        @Param(name = "packages", type = HackHackEitherList.class, generic1 = String.class,
+        @Param(name = "packages", type = SkylarkList.class, generic1 = String.class,
             defaultValue = "[]",
             doc = "A list of Strings specifying the packages grouped."),
         // java list or list of label designators: Label or String
-        @Param(name = "includes", type = HackHackEitherList.class, generic1 = Object.class,
+        @Param(name = "includes", type = SkylarkList.class, generic1 = Object.class,
             defaultValue = "[]",
             doc = "A list of Label specifiers for the files to include.")},
       documented = false, useAst = true, useEnvironment = true)
@@ -813,7 +818,7 @@ public final class PackageFactory {
       new BuiltinFunction.Factory("package_group") {
         public BuiltinFunction create() {
           return new BuiltinFunction("package_group", this) {
-            public Runtime.NoneType invoke(String name, Object packages, Object includes,
+            public Runtime.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
                 FuncallExpression ast, Environment env) throws EvalException, ConversionException {
               return callPackageFunction(name, packages, includes, ast, env);
             }
