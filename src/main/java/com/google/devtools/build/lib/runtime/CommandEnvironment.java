@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -52,6 +53,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.annotation.Nullable;
+
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
  * command is done and all corresponding objects are garbage collected.
@@ -68,6 +71,7 @@ public final class CommandEnvironment {
   private final LoadingPhaseRunner loadingPhaseRunner;
   private final BuildView view;
 
+  private long commandStartTime;
   private String outputFileSystem;
   private Path workingDirectory;
 
@@ -266,8 +270,16 @@ public final class CommandEnvironment {
         getWorkingDirectory(), defaultsPackageContents, commandId);
   }
 
+  public void recordLastExecutionTime() {
+    runtime.recordLastExecutionTime(getCommandStartTime());
+  }
+
+  public void recordCommandStartTime(long commandStartTime) {
+    this.commandStartTime = commandStartTime;
+  }
+
   public long getCommandStartTime() {
-    return runtime.getCommandStartTime();
+    return commandStartTime;
   }
 
   void setOutputFileSystem(String outputFileSystem) {
@@ -292,6 +304,8 @@ public final class CommandEnvironment {
   void beforeCommand(Command command, OptionsParser optionsParser,
       CommonCommandOptions options, long execStartTimeNanos)
       throws AbruptExitException {
+    commandStartTime -= options.startupTime;
+
     runtime.beforeCommand(command, this, optionsParser, options, execStartTimeNanos);
   }
 }

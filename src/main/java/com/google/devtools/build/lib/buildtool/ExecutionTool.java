@@ -440,7 +440,7 @@ public class ExecutionTool {
       interrupted = true;
       throw e;
     } finally {
-      runtime.recordLastExecutionTime();
+      env.recordLastExecutionTime();
       if (request.isRunningInEmacs()) {
         request.getOutErr().printErrLn("blaze: Leaving directory `" + getExecRoot() + "/'");
       }

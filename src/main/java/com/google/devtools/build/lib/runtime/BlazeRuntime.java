@@ -156,10 +156,10 @@ public final class BlazeRuntime {
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeDirectories directories;
-  private long commandStartTime;
 
+  /** The execution time range of the previous build command in this server, if any. */
   @Nullable
-  private Range<Long> lastExecutionStartFinish = null;
+  private Range<Long> lastExecutionRange = null;
 
   private final SkyframeExecutor skyframeExecutor;
 
@@ -374,9 +374,9 @@ public final class BlazeRuntime {
     }
   }
 
-  public void recordLastExecutionTime() {
+  void recordLastExecutionTime(long commandStartTime) {
     long currentTimeMillis = clock.currentTimeMillis();
-    lastExecutionStartFinish = currentTimeMillis >= commandStartTime
+    lastExecutionRange = currentTimeMillis >= commandStartTime
         ? Range.closed(commandStartTime, currentTimeMillis)
         : null;
   }
@@ -386,15 +386,7 @@ public final class BlazeRuntime {
    */
   @Nullable
   public Range<Long> getLastExecutionTimeRange() {
-    return lastExecutionStartFinish;
-  }
-
-  public void recordCommandStartTime(long commandStartTime) {
-    this.commandStartTime = commandStartTime;
-  }
-
-  public long getCommandStartTime() {
-    return commandStartTime;
+    return lastExecutionRange;
   }
 
   public String getWorkspaceName() {
@@ -561,14 +553,9 @@ public final class BlazeRuntime {
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    clearSkyframeRelevantCaches();
+    skyframeExecutor.resetEvaluator();
     actionCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
-  }
-
-  /** Removes skyframe cache and other caches that must be kept synchronized with skyframe. */
-  private void clearSkyframeRelevantCaches() {
-    skyframeExecutor.resetEvaluator();
   }
 
   /**
@@ -609,8 +596,6 @@ public final class BlazeRuntime {
   void beforeCommand(Command command, CommandEnvironment env, OptionsParser optionsParser,
       CommonCommandOptions options, long execStartTimeNanos)
       throws AbruptExitException {
-    commandStartTime -= options.startupTime;
-
     env.getEventBus().post(new GotOptionsEvent(startupOptionsProvider,
         optionsParser));
     env.throwPendingException();
