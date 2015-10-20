@@ -41,7 +41,6 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
-import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
 import java.util.ArrayDeque;
@@ -596,6 +595,7 @@ public final class ParallelEvaluator implements Evaluator {
   private class ValueVisitor extends AbstractQueueVisitor {
     private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
+    private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
 
     private ValueVisitor(int threadCount) {
       super(/*concurrent*/true,
@@ -650,6 +650,14 @@ public final class ParallelEvaluator implements Evaluator {
      */
     boolean preventNewEvaluations() {
       return preventNewEvaluations.compareAndSet(false, true);
+    }
+
+    void noteCrash(RuntimeException e) {
+      crashes.add(e);
+    }
+
+    Collection<RuntimeException> getCrashes() {
+      return crashes;
     }
 
     void notifyDone(SkyKey key) {
@@ -906,7 +914,9 @@ public final class ParallelEvaluator implements Evaluator {
         // Programmer error (most likely NPE or a failed precondition in a SkyFunction). Output
         // some context together with the exception.
         String msg = prepareCrashMessage(skyKey, state.getInProgressReverseDeps());
-        throw new RuntimeException(msg, re);
+        RuntimeException ex = new RuntimeException(msg, re);
+        visitor.noteCrash(ex);
+        throw ex;
       } finally {
         env.doneBuilding();
         long elapsedTimeNanos = Profiler.nanoTimeMaybe() - startTime;
@@ -1200,6 +1210,10 @@ public final class ParallelEvaluator implements Evaluator {
     try {
       visitor.waitForCompletion();
     } catch (final SchedulerException e) {
+      if (!visitor.getCrashes().isEmpty()) {
+        reporter.handle(Event.error("Crashes detected: " + visitor.getCrashes()));
+        throw Iterables.getFirst(visitor.getCrashes(), null);
+      }
       Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
       if (Thread.interrupted()) {
         // As per the contract of AbstractQueueVisitor#work, if an unchecked exception is thrown and
@@ -1228,6 +1242,7 @@ public final class ParallelEvaluator implements Evaluator {
                     graph.get(errorKey).getValueMaybeWithMetadata()));
       }
     }
+    Preconditions.checkState(visitor.getCrashes().isEmpty(), visitor.getCrashes());
 
     // Successful evaluation, either because keepGoing or because we actually did succeed.
     // TODO(bazel-team): Maybe report root causes during the build for lower latency.
