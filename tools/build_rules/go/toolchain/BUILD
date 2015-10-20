@@ -1,4 +1,6 @@
-# TODO(bazel-team): support darwin.
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "toolchain",
@@ -16,4 +18,15 @@ filegroup(
         "//conditions:default": ["@golang-linux-amd64//:go_tool"],
     }),
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "BUILD.go-toolchain",
+        "WORKSPACE.go-toolchain",
+        ":go_tool",
+        ":toolchain",
+    ],
 )
