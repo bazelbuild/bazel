@@ -1351,20 +1351,24 @@ public final class RuleClass {
 
   private void checkAttrValNonEmpty(
       Rule rule, EventHandler eventHandler, Object attributeValue, Integer attrIndex) {
-    List<?> list;
 
-    if (attributeValue instanceof SkylarkList) {
-      list = ((SkylarkList) attributeValue).getList();
-    } else if (attributeValue instanceof List<?>) {
-      list = (List<?>) attributeValue;
-    } else {
-      // TODO(bazel-team): Test maps, not just lists, as being non-empty.
+    Attribute attr = getAttribute(attrIndex);
+    if (!attr.isNonEmpty()) {
       return;
     }
 
-    Attribute attr = getAttribute(attrIndex);
-    if (attr.isNonEmpty() && list.isEmpty()) {
-      rule.reportError(rule.getLabel() + ": non empty " + "attribute '" + attr.getName()
+    boolean isEmpty = false;
+
+    if (attributeValue instanceof SkylarkList) {
+      isEmpty = ((SkylarkList) attributeValue).isEmpty();
+    } else if (attributeValue instanceof List<?>) {
+      isEmpty = ((List<?>) attributeValue).isEmpty();
+    } else if (attributeValue instanceof Map<?, ?>) {
+      isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
+    }
+
+    if (isEmpty) {
+      rule.reportError(rule.getLabel() + ": non empty attribute '" + attr.getName()
           + "' in '" + name + "' rule '" + rule.getLabel() + "' has to have at least one value",
           eventHandler);
     }
