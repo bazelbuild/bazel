@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
@@ -47,7 +48,9 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
@@ -56,6 +59,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -296,10 +300,6 @@ public final class CommandEnvironment {
     return commandStartTime;
   }
 
-  void setOutputFileSystem(String outputFileSystem) {
-    this.outputFileSystem = outputFileSystem;
-  }
-
   void setWorkingDirectory(Path workingDirectory) {
     this.workingDirectory = workingDirectory;
   }
@@ -338,18 +338,73 @@ public final class CommandEnvironment {
       }
     }
 
-    getSkyframeExecutor().setBatchStatter(outputService == null
+    SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
+    skyframeExecutor.setBatchStatter(outputService == null
         ? null
         : outputService.getBatchStatter());
 
-    runtime.beforeCommand(command, this, optionsParser, options, execStartTimeNanos);
+    this.outputFileSystem = determineOutputFileSystem();
+
+    // Ensure that the working directory will be under the workspace directory.
+    Path workspace = runtime.getWorkspace();
+    Path workingDirectory;
+    if (runtime.inWorkspace()) {
+      workingDirectory = workspace.getRelative(options.clientCwd);
+    } else {
+      workspace = FileSystemUtils.getWorkingDirectory(runtime.getDirectories().getFileSystem());
+      workingDirectory = workspace;
+    }
+    loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
+    this.workingDirectory = workingDirectory;
+
+    updateClientEnv(options.clientEnv, options.ignoreClientEnv);
+
+    // Fail fast in the case where a Blaze command forgets to install the package path correctly.
+    skyframeExecutor.setActive(false);
+    // Let skyframe figure out if it needs to store graph edges for this build.
+    skyframeExecutor.decideKeepIncrementalState(
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
+        optionsParser.getOptions(BuildView.Options.class));
+
+    // Start the performance and memory profilers.
+    runtime.beforeCommand(this, options, execStartTimeNanos);
+
+    if (command.builds()) {
+      Map<String, String> testEnv = new TreeMap<>();
+      for (Map.Entry<String, String> entry :
+          optionsParser.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+        testEnv.put(entry.getKey(), entry.getValue());
+      }
+
+      try {
+        for (Map.Entry<String, String> entry : testEnv.entrySet()) {
+          if (entry.getValue() == null) {
+            String clientValue = clientEnv.get(entry.getKey());
+            if (clientValue != null) {
+              optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+                  "test environment variable from client environment",
+                  ImmutableList.of(
+                      "--test_env=" + entry.getKey() + "=" + clientEnv.get(entry.getKey())));
+            }
+          }
+        }
+      } catch (OptionsParsingException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.handleOptions(optionsParser);
+    }
+
+    eventBus.post(
+        new CommandStartEvent(command.name(), commandId, getClientEnv(), workingDirectory));
   }
 
   /**
    * Figures out what file system we are writing output to. Here we use
    * outputBase instead of outputPath because we need a file system to create the latter.
    */
-  String determineOutputFileSystem() {
+  private String determineOutputFileSystem() {
     if (getOutputService() != null) {
       return getOutputService().getFilesSystemName();
     }
