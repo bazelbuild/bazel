@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.Mutability;
 
 /**
@@ -60,9 +62,9 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
                         // so we do *not* setLoadingPhase().
-      Object aspect;
+      Object aspectSkylarkObject;
       try {
-        aspect =
+        aspectSkylarkObject =
             aspectFunction
                 .getImplementation()
                 .call(
@@ -70,21 +72,40 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                     ImmutableMap.<String, Object>of(),
                     /*ast=*/ null,
                     env);
-      } catch (EvalException e) {
-        ruleContext.ruleError(e.getMessage());
-        return null;
-      }
-      // TODO(dslomov): unify this code with
-      // {@link com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder}
-      Aspect.Builder builder = new Aspect.Builder(name);
-      if (aspect instanceof SkylarkClassObject) {
-        SkylarkClassObject struct = (SkylarkClassObject) aspect;
+
+        if (ruleContext.hasErrors()) {
+          return null;
+        } else if (!(aspectSkylarkObject instanceof SkylarkClassObject)) {
+          ruleContext.ruleError("Aspect implementation doesn't return a struct");
+          return null;
+        }
+
+        Aspect.Builder builder = new Aspect.Builder(name);
+
+        SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
         Location loc = struct.getCreationLoc();
         for (String key : struct.getKeys()) {
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
         }
+        Aspect aspect = builder.build();
+        SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
+        return aspect;
+      } catch (EvalException e) {
+        addAspectToStackTrace(base, e);
+        ruleContext.ruleError("\n" + e.print());
+        return null;
       }
-      return builder.build();
+
+    }
+  }
+
+  private void addAspectToStackTrace(ConfiguredTarget base, EvalException e) {
+    if (e instanceof EvalExceptionWithStackTrace) {
+      ((EvalExceptionWithStackTrace) e)
+          .registerPhantomFuncall(
+              String.format("%s(...)", name),
+              base.getTarget().getAssociatedRule().getLocation(),
+              aspectFunction.getImplementation());
     }
   }
 

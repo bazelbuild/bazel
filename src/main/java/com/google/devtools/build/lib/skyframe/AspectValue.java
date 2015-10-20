@@ -56,6 +56,8 @@ public final class AspectValue extends ActionLookupValue {
 
     public abstract AspectParameters getParameters();
 
+    public abstract String getDescription();
+
     public BuildConfiguration getConfiguration() {
       return configuration;
     }
@@ -85,6 +87,11 @@ public final class AspectValue extends ActionLookupValue {
     @Nullable
     public AspectParameters getParameters() {
       return aspect.getParameters();
+    }
+
+    @Override
+    public String getDescription() {
+      return String.format("%s of %s", aspect.getAspectFactory().getName(), getLabel());
     }
 
     @Override
@@ -149,6 +156,13 @@ public final class AspectValue extends ActionLookupValue {
     @Override
     public AspectParameters getParameters() {
       return AspectParameters.EMPTY;
+    }
+
+    @Override
+    public String getDescription() {
+      // Skylark aspects are referred to on command line with <file>%<value name>
+      return String.format(
+          "%s%%%s of %s", extensionFile.toString(), skylarkFunctionName, getLabel());
     }
 
     @Override
