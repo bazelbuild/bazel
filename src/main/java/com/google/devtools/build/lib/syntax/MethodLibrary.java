@@ -166,7 +166,7 @@ public class MethodLibrary {
         name = "chars",
         type = String.class,
         doc = "The characters to remove",
-        defaultValue = "' \t'"
+        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
       )
     }
   )
@@ -195,7 +195,7 @@ public class MethodLibrary {
         name = "chars",
         type = String.class,
         doc = "The characters to remove",
-        defaultValue = "' \t'"
+        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
       )
     }
   )
@@ -224,7 +224,7 @@ public class MethodLibrary {
         name = "chars",
         type = String.class,
         doc = "The characters to remove",
-        defaultValue = "' \t'"
+        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
       )
     }
   )

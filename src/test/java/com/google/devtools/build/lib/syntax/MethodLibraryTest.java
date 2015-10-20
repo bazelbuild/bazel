@@ -1093,29 +1093,38 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testLStrip() throws Exception {
     new BothModesTest()
-        .testStatement("'abc'.lstrip('')", "abc")
+        .testStatement("'a b c'.lstrip('')", "a b c")
         .testStatement("'abcba'.lstrip('ba')", "cba")
         .testStatement("'abc'.lstrip('xyz')", "abc")
-        .testStatement("'  abc  '.lstrip()", "abc  ");
+        .testStatement("'  a b c  '.lstrip()", "a b c  ")
+        // the "\\"s are because Java absorbs one level of "\"s
+        .testStatement("' \\t\\na b c '.lstrip()", "a b c ")
+        .testStatement("' a b c '.lstrip('')", " a b c ");
   }
 
   @Test
   public void testRStrip() throws Exception {
     new BothModesTest()
-        .testStatement("'abc'.rstrip('')", "abc")
+        .testStatement("'a b c'.rstrip('')", "a b c")
         .testStatement("'abcba'.rstrip('ba')", "abc")
         .testStatement("'abc'.rstrip('xyz')", "abc")
-        .testStatement("'  abc  '.rstrip()", "  abc");
+        .testStatement("'  a b c  '.rstrip()", "  a b c")
+        // the "\\"s are because Java absorbs one level of "\"s
+        .testStatement("' a b c \\t \\n'.rstrip()", " a b c")
+        .testStatement("' a b c '.rstrip('')", " a b c ");
   }
 
   @Test
   public void testStrip() throws Exception {
     new BothModesTest()
-        .testStatement("'abc'.strip('')", "abc")
+        .testStatement("'a b c'.strip('')", "a b c")
         .testStatement("'abcba'.strip('ba')", "c")
         .testStatement("'abc'.strip('xyz')", "abc")
-        .testStatement("'  abc  '.strip()", "abc")
-        .testStatement("' abc\t'.strip()", "abc")
-        .testStatement("'abc'.strip('.')", "abc");
+        .testStatement("'  a b c  '.strip()", "a b c")
+        .testStatement("' a b c\\t'.strip()", "a b c")
+        .testStatement("'a b c'.strip('.')", "a b c")
+        // the "\\"s are because Java absorbs one level of "\"s
+        .testStatement("' \\t\\n\\ra b c \\t\\n\\r'.strip()", "a b c")
+        .testStatement("' a b c '.strip('')", " a b c ");
   }
 }
