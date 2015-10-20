@@ -850,11 +850,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   private static final PathFragment SYSROOT_FRAGMENT = new PathFragment("%sysroot%");
   private static final PathFragment WORKSPACE_FRAGMENT = new PathFragment("%workspace%");
+  private static final PathFragment CROSSTOOL_FRAGMENT = new PathFragment("%crosstool_top%");
 
   /**
-   * Resolve the given include directory. If it is not absolute, it is
-   * interpreted relative to the crosstool top. If it starts with %sysroot%/,
-   * that part is replaced with the actual sysroot.
+   * Resolve the given include directory. If it starts with %sysroot%/,
+   * that part is replaced with the actual sysroot. If it starts with %workspace%/,
+   * that part is replaced with the empty string (essentially making it
+   * relative to the build directory), and if it starts with %crosstool_top%/
+   * or is any relative path, it is interpreted relative to the crosstool top.
+   * Absolute paths remain unchanged. The use of assumed-crosstool-relative
+   * specifications is considered deprecated, and all such uses should eventually
+   * be replaced by "%crosstool_top%/".
    */
   static PathFragment resolveIncludeDir(String s, PathFragment sysroot,
       PathFragment crosstoolTopPathFragment) {
@@ -871,7 +877,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     } else if (path.startsWith(WORKSPACE_FRAGMENT)) {
       return path.subFragment(1, path.segmentCount());
     } else {
-      return crosstoolTopPathFragment.getRelative(path);
+      return crosstoolTopPathFragment.getRelative(path.startsWith(CROSSTOOL_FRAGMENT)
+          ? path.subFragment(1, path.segmentCount()) : path);
     }
   }
 
