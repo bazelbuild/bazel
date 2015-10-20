@@ -193,12 +193,12 @@ public final class ProfileCommand implements BlazeCommand {
       if (opts.combine != null && opts.dumpMode == null) {
         MultiProfileStatistics statistics =
             new MultiProfileStatistics(
-                runtime.getWorkingDirectory(),
+                env.getWorkingDirectory(),
                 runtime.getWorkspaceName(),
                 options.getResidue(),
                 getInfoListener(env),
                 opts.vfsStatsLimit > 0);
-        Path outputFile = runtime.getWorkingDirectory().getRelative(opts.combine);
+        Path outputFile = env.getWorkingDirectory().getRelative(opts.combine);
         try (PrintStream output =
                 new PrintStream(new BufferedOutputStream(outputFile.getOutputStream()))) {
           if (opts.html) {
@@ -225,7 +225,7 @@ public final class ProfileCommand implements BlazeCommand {
         }
       } else {
         for (String name : options.getResidue()) {
-          Path profileFile = runtime.getWorkingDirectory().getRelative(name);
+          Path profileFile = env.getWorkingDirectory().getRelative(name);
           try {
             ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, getInfoListener(env));
 

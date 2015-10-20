@@ -48,16 +48,13 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -159,7 +156,6 @@ public final class BlazeRuntime {
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeDirectories directories;
-  private Path workingDirectory;
   private long commandStartTime;
 
   @Nullable
@@ -207,7 +203,6 @@ public final class BlazeRuntime {
       Iterable<BlazeCommand> commands) {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.directories = directories;
-    this.workingDirectory = directories.getWorkspace();
     this.reporter = reporter;
     this.packageFactory = pkgFactory;
     this.binTools = binTools;
@@ -422,22 +417,9 @@ public final class BlazeRuntime {
    *
    * <p>This is often the first entry on the {@code --package_path}, but not always.
    * Callers should certainly not make this assumption. The Path returned may be null.
-   *
-   * @see #getWorkingDirectory()
    */
   public Path getWorkspace() {
     return directories.getWorkspace();
-  }
-
-  /**
-   * Returns the working directory of the {@code blaze} client process.
-   *
-   * <p>This may be equal to {@code getWorkspace()}, or beneath it.
-   *
-   * @see #getWorkspace()
-   */
-  public Path getWorkingDirectory() {
-    return workingDirectory;
   }
 
   /**
@@ -656,6 +638,7 @@ public final class BlazeRuntime {
 
     // Ensure that the working directory will be under the workspace directory.
     Path workspace = getWorkspace();
+    Path workingDirectory;
     if (inWorkspace()) {
       workingDirectory = workspace.getRelative(options.clientCwd);
     } else {
@@ -663,6 +646,7 @@ public final class BlazeRuntime {
       workingDirectory = workspace;
     }
     env.getLoadingPhaseRunner().updatePatternEvaluator(workingDirectory.relativeTo(workspace));
+    env.setWorkingDirectory(workingDirectory);
 
     env.updateClientEnv(options.clientEnv, options.ignoreClientEnv);
 
@@ -689,7 +673,7 @@ public final class BlazeRuntime {
     }
 
     if (options.memoryProfilePath != null) {
-      Path memoryProfilePath = getWorkingDirectory().getRelative(options.memoryProfilePath);
+      Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {
@@ -834,22 +818,6 @@ public final class BlazeRuntime {
 
   public Map<String, BlazeCommand> getCommandMap() {
     return commandMap;
-  }
-
-  /**
-   * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects a defaults package using the options for the {@link BuildConfiguration}.
-   *
-   * @see DefaultsPackage
-   */
-  public void setupPackageCache(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
-      String defaultsPackageContents, UUID commandId)
-          throws InterruptedException, AbruptExitException {
-    if (!skyframeExecutor.hasIncrementalState()) {
-      clearSkyframeRelevantCaches();
-    }
-    skyframeExecutor.sync(eventHandler, packageCacheOptions, getOutputBase(), getWorkingDirectory(),
-        defaultsPackageContents, commandId);
   }
 
   public void shutdown() {

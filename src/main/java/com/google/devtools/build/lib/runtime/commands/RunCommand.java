@@ -215,7 +215,7 @@ public class RunCommand implements BlazeCommand  {
     }
     Path workingDir;
     try {
-      workingDir = ensureRunfilesBuilt(runtime, targetToRun);
+      workingDir = ensureRunfilesBuilt(env, targetToRun);
     } catch (CommandException e) {
       env.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
@@ -343,17 +343,17 @@ public class RunCommand implements BlazeCommand  {
    * @return the path of the runfiles directory.
    * @throws CommandException
    */
-  private Path ensureRunfilesBuilt(BlazeRuntime runtime, ConfiguredTarget target)
+  private Path ensureRunfilesBuilt(CommandEnvironment env, ConfiguredTarget target)
       throws CommandException {
     FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport == null) {
-      return runtime.getWorkingDirectory();
+      return env.getWorkingDirectory();
     }
 
     Artifact manifest = runfilesSupport.getRunfilesManifest();
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
-    Path workingDir = runtime.getExecRoot()
+    Path workingDir = env.getRuntime().getExecRoot()
         .getRelative(runfilesDir)
         .getRelative(runfilesSupport.getRunfiles().getSuffix());
 
@@ -369,8 +369,8 @@ public class RunCommand implements BlazeCommand  {
         manifest.getExecPath(),
         runfilesDir,
         false);
-    helper.createSymlinksUsingCommand(runtime.getExecRoot(), target.getConfiguration(),
-        runtime.getBinTools());
+    helper.createSymlinksUsingCommand(env.getRuntime().getExecRoot(), target.getConfiguration(),
+        env.getRuntime().getBinTools());
     return workingDir;
   }
 
