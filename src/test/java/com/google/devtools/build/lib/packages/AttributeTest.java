@@ -1,4 +1,4 @@
-// Copyright 2006 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -206,14 +206,14 @@ public class AttributeTest {
   @Test
   public void testCloneBuilder() {
     FileTypeSet txtFiles = FileTypeSet.of(FileType.of("txt"));
-    RuleClass.Builder.RuleClassNamePredicate ruleClasses = 
+    RuleClass.Builder.RuleClassNamePredicate ruleClasses =
         new RuleClass.Builder.RuleClassNamePredicate("mock_rule");
-    
+
     Attribute parentAttr = attr("x", LABEL_LIST)
         .allowedFileTypes(txtFiles)
         .mandatory()
         .build();
-    
+
     Attribute childAttr1 = parentAttr.cloneBuilder().build();
     assertEquals("x", childAttr1.getName());
     assertEquals(txtFiles, childAttr1.getAllowedFileTypesPredicate());
