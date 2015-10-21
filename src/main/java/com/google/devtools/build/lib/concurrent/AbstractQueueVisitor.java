@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,7 +23,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -240,11 +238,7 @@ public class AbstractQueueVisitor {
         concurrent
             ? executorFactory.apply(
                 new ExecutorParams(
-                    parallelism,
-                    keepAliveTime,
-                    units,
-                    poolName,
-                    new LinkedBlockingQueue<Runnable>()))
+                    parallelism, keepAliveTime, units, poolName, new BlockingStack<Runnable>()))
             : null;
   }
 
@@ -332,10 +326,6 @@ public class AbstractQueueVisitor {
     this.pool = executor;
   }
 
-  public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean failFastOnException) {
-    this(/*concurrent=*/ true, executor, true, failFastOnException, true);
-  }
-
   /**
    * Create the AbstractQueueVisitor with concurrency enabled.
    *
@@ -360,8 +350,8 @@ public class AbstractQueueVisitor {
    * they may check the interrupted bit to see if the pool was interrupted.
    *
    * @param interruptWorkers if true, interrupt worker threads if main thread gets an interrupt or
-   *        if a worker throws a critical error (see {@link #isCriticalError(Throwable)}). If
-   *        false, just wait for them to terminate normally.
+   *        if a worker throws a critical error (see {@link #classifyError(Throwable)}. If false,
+   *        just wait for them to terminate normally.
    */
   protected final void work(boolean interruptWorkers) throws InterruptedException {
     if (concurrent) {

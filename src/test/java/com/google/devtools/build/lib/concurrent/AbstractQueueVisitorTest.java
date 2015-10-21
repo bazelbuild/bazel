@@ -529,7 +529,7 @@ public class AbstractQueueVisitorTest {
   private static class QueueVisitorWithCriticalError extends AbstractQueueVisitor {
 
     public QueueVisitorWithCriticalError(ThreadPoolExecutor executor) {
-      super(executor, false);
+      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
     }
 
     @Override
@@ -541,7 +541,7 @@ public class AbstractQueueVisitorTest {
   private static class QueueVisitorWithoutCriticalError extends AbstractQueueVisitor {
 
     public QueueVisitorWithoutCriticalError(ThreadPoolExecutor executor) {
-      super(executor, false);
+      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
     }
 
     @Override
