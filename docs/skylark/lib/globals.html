@@ -16,6 +16,7 @@ Objects, functions and modules registered in the global environment.
               <li><a href="#Label">Label</a></li>
               <li><a href="#None">None</a></li>
               <li><a href="#PACKAGE_NAME">PACKAGE_NAME</a></li>
+              <li><a href="#REPOSITORY_NAME">REPOSITORY_NAME</a></li>
               <li><a href="#True">True</a></li>
                     <li><a href="#bool">bool</a></li>
               <li><a href="#dict">dict</a></li>
@@ -133,6 +134,12 @@ Objects, functions and modules registered in the global environment.
     
     The name of the package the rule or build extension is called from. For example, in the BUILD file <code>some/package/BUILD</code>, its value will be <code>some/package</code>. This variable is special, because its value comes from outside of the extension module (it comes from the BUILD file), so it can only be accessed in functions (transitively) called from BUILD files. For example:<br><pre class=language-python>def extension():
   return PACKAGE_NAME</pre>In this case calling <code>extension()</code> works from the BUILD file (if the function is loaded), but not as a top level function call in the extension module.
+
+        
+        <h2 id="REPOSITORY_NAME">REPOSITORY_NAME</h2>
+        <p><pre><a class="anchor" href="string.html">string</a></pre></p>
+    
+    The name of the repository the rule or build extension is called from. For example, in packages that are called into existence by the WORKSPACE stanza <code>local_repository(name='local', path=...)</code> it will be set to <code>@local</code>. In packages in the main repository, it will be empty. It can only be accessed in functions (transitively) called from BUILD files.
 
         
         <h2 id="True">True</h2>
