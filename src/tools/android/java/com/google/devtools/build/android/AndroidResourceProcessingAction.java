@@ -17,6 +17,7 @@ package com.google.devtools.build.android;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -44,6 +45,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -137,11 +139,21 @@ public class AndroidResourceProcessingAction {
         defaultValue = "",
         converter = DependencyAndroidDataListConverter.class,
         category = "input",
-        help = "Additional Data dependencies. These values will be used if not defined in the "
+        help = "Transitive Data dependencies. These values will be used if not defined in the "
             + "primary resources. The expected format is "
-            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.txt"
-            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.txt]")
-    public List<DependencyAndroidData> data;
+            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
+            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+    public List<DependencyAndroidData> transitiveData;
+
+    @Option(name = "directData",
+        defaultValue = "",
+        converter = DependencyAndroidDataListConverter.class,
+        category = "input",
+        help = "Direct Data dependencies. These values will be used if not defined in the "
+            + "primary resources. The expected format is "
+            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
+            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+    public List<DependencyAndroidData> directData;
 
     @Option(name = "rOutput",
         defaultValue = "null",
@@ -298,11 +310,19 @@ public class AndroidResourceProcessingAction {
           new PackedResourceTarExpander(expandedOut, working),
           new FileDeDuplicator(Hashing.murmur3_128(), deduplicatedOut, working));
 
+      // Resources can appear in both the direct dependencies and transitive -- use a set to
+      // ensure depeduplication.
+      List<DependencyAndroidData> data =
+          ImmutableSet.<DependencyAndroidData>builder()
+              .addAll(options.directData)
+              .addAll(options.transitiveData)
+              .build()
+              .asList();
       final AndroidBuilder builder = sdkTools.createAndroidBuilder();
 
       final MergedAndroidData mergedData = resourceProcessor.mergeData(
           options.primaryData,
-          options.data,
+          data,
           mergedResources,
           mergedAssets,
           modifiers,
@@ -329,7 +349,7 @@ public class AndroidResourceProcessingAction {
           options.versionCode,
           options.versionName,
           filteredData,
-          options.data,
+          data,
           working.resolve("manifest"),
           generatedSources,
           options.packagePath,

@@ -28,35 +28,41 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A provider that supplies Android resources from its transitive closure.
+ * A provider that supplies ResourceContainers from its transitive closure.
  */
 @Immutable
 public final class AndroidResourcesProvider implements TransitiveInfoProvider {
-
   private final Label label;
   private final NestedSet<ResourceContainer> transitiveAndroidResources;
+  private final NestedSet<ResourceContainer> directAndroidResources;
 
-  public AndroidResourcesProvider(Label label,
-      NestedSet<ResourceContainer> transitiveAndroidResources) {
+  public AndroidResourcesProvider(
+      Label label, NestedSet<ResourceContainer> transitiveAndroidResources,
+      NestedSet<ResourceContainer> directAndroidResources) {
     this.label = label;
+    this.directAndroidResources = directAndroidResources;
     this.transitiveAndroidResources = transitiveAndroidResources;
   }
 
   /**
    * Returns the label that is associated with this piece of information.
-   *
-   * <p>
-   * This is usually the label of the target that provides the information.
    */
   public Label getLabel() {
     return label;
   }
 
   /**
-   * Returns transitive Android resources (APK, assets, etc.).
+   * Returns the transitive ResourceContainers for the label.
    */
   public NestedSet<ResourceContainer> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
+  }
+
+  /**
+   * Returns the immediate ResourceContainers for the label.
+   */
+  public NestedSet<ResourceContainer> getDirectAndroidResources() {
+    return directAndroidResources;
   }
 
 
@@ -64,7 +70,8 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
    * The type of resource in question: either asset or a resource.
    */
   public enum ResourceType {
-    ASSETS("assets"), RESOURCES("resources");
+    ASSETS("assets"),
+    RESOURCES("resources");
 
     private final String attribute;
 
@@ -83,7 +90,6 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
    */
   @Immutable
   public static final class ResourceContainer {
-
     private final Label label;
     private final String javaPackage;
     private final String renameManifestPackage;
@@ -102,10 +108,8 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
     public ResourceContainer(Label label,
         String javaPackage,
         @Nullable String renameManifestPackage,
-        boolean constantsInlined,
-        Artifact apk,
-        Artifact manifest,
-        Artifact javaSourceJar,
+        boolean constantsInlined, Artifact apk,
+        Artifact manifest, Artifact javaSourceJar,
         ImmutableList<Artifact> assets,
         ImmutableList<Artifact> resources,
         ImmutableList<PathFragment> assetsRoots,
@@ -184,7 +188,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(label);
+      return Objects.hash(label, rTxt, symbolsTxt);
     }
 
     @Override
@@ -196,7 +200,20 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
         return false;
       }
       ResourceContainer other = (ResourceContainer) obj;
-      return label.equals(other.label);
+      return Objects.equals(label, other.label)
+          && Objects.equals(rTxt, other.rTxt)
+          && Objects.equals(symbolsTxt, other.symbolsTxt);
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "ResourceContainer [label=%s, javaPackage=%s, renameManifestPackage=%s,"
+          + " constantsInlined=%s, apk=%s, manifest=%s, assets=%s, resources=%s, assetsRoots=%s,"
+          + " resourcesRoots=%s, manifestExported=%s, javaSourceJar=%s, rTxt=%s, symbolsTxt=%s]",
+          label, javaPackage, renameManifestPackage, constantsInlined, apk, manifest, assets,
+          resources, assetsRoots, resourcesRoots, manifestExported, javaSourceJar, rTxt,
+          symbolsTxt);
     }
   }
 }
