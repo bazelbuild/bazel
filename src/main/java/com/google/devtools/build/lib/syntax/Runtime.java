@@ -82,6 +82,14 @@ public final class Runtime {
           + "function is loaded), but not as a top level function call in the extension module.")
   public static final String PKG_NAME = "PACKAGE_NAME";
 
+  @SkylarkSignature(name = "REPOSITORY_NAME", returnType = String.class,
+      doc = "The name of the repository the rule or build extension is called from. "
+          + "For example, in packages that are called into existence by the WORKSPACE stanza "
+          + "<code>local_repository(name='local', path=...)</code> it will be set to "
+          + "<code>@local</code>. In packages in the main repository, it will be empty. "
+          + "It can only be accessed in functions (transitively) called from BUILD files.")
+  public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
+
   /**
    * Set up a given environment for supported class methods.
    */

@@ -71,21 +71,21 @@ public class PackageFactoryApparatus {
   /**
    * Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance.
    */
-  public Package createPackage(String packageName, Path buildFile)
-      throws Exception {
-    return createPackage(packageName, buildFile, eventHandler);
+  public Package createPackage(String packageName, Path buildFile) throws Exception {
+    return createPackage(PackageIdentifier.createInDefaultRepo(packageName), buildFile,
+        eventHandler);
   }
 
   /**
-   * Parses and evaluates {@code buildFile} with custom {@code eventHandler} and returns the resulting
-   * {@link Package} instance.
+   * Parses and evaluates {@code buildFile} with custom {@code eventHandler} and returns the
+   * resulting {@link Package} instance.
    */
-  public Package createPackage(String packageName, Path buildFile, EventHandler reporter)
-      throws Exception {
+  public Package createPackage(PackageIdentifier packageIdentifier, Path buildFile,
+      EventHandler reporter) throws Exception {
     try {
       Package pkg =
           factory.createPackageForTesting(
-              PackageIdentifier.createInDefaultRepo(packageName),
+              packageIdentifier,
               buildFile,
               getPackageLocator(),
               reporter);

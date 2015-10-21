@@ -871,4 +871,25 @@ function test_recursive_wildcard_in_remote_repository() {
   expect_not_log "@r//a/y/z:n"
 }
 
+function test_package_name_constants() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a
+  cat > $r/a/BUILD <<'EOF'
+genrule(
+  name = 'b',
+  srcs = [],
+  outs = ['bo'],
+  cmd = 'echo ' + REPOSITORY_NAME + ' ' + PACKAGE_NAME + ' > $@')
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name='r', path='$r')
+EOF
+
+  bazel build @r//a:b || fail "build failed"
+  cat bazel-genfiles/external/r/a/bo > $TEST_log
+  expect_log "@r a"
+}
+
 run_suite "local repository tests"

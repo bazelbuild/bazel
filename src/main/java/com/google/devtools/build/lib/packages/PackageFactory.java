@@ -1336,7 +1336,8 @@ public final class PackageFactory {
       PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
       buildPkgEnv(pkgEnv, context, ruleFactory);
       pkgEnv.setupDynamic(PKG_CONTEXT, context);
-      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.toString());
+      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
+      pkgEnv.setupDynamic(Runtime.REPOSITORY_NAME, packageId.getRepository().toString());
 
       if (containsError) {
         pkgBuilder.setContainsErrors();
