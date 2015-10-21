@@ -334,13 +334,13 @@ public final class ParallelEvaluator implements Evaluator {
 
       if (errorInfo.isTransient()) {
         DependencyState triState =
-            graph.get(ErrorTransienceValue.key()).addReverseDepAndCheckIfDone(skyKey);
+            graph.get(ErrorTransienceValue.KEY).addReverseDepAndCheckIfDone(skyKey);
         Preconditions.checkState(triState == DependencyState.DONE,
             "%s %s %s", skyKey, triState, errorInfo);
 
         final NodeEntry state = graph.get(skyKey);
         state.addTemporaryDirectDeps(
-            GroupedListHelper.create(ImmutableList.of(ErrorTransienceValue.key())));
+            GroupedListHelper.create(ImmutableList.of(ErrorTransienceValue.KEY)));
         state.signalDep();
       }
 
@@ -387,7 +387,7 @@ public final class ParallelEvaluator implements Evaluator {
       Map<SkyKey, ValueWithMetadata> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
       ImmutableMap.Builder<SkyKey, ValueOrUntypedException> builder = ImmutableMap.builder();
       for (SkyKey depKey : depKeys) {
-        Preconditions.checkState(!depKey.equals(ErrorTransienceValue.key()));
+        Preconditions.checkState(!depKey.equals(ErrorTransienceValue.KEY));
         ValueWithMetadata value = values.get(depKey);
         if (value == null) {
           // If this entry is not yet done then (optionally) record the missing dependency and
@@ -747,8 +747,8 @@ public final class ParallelEvaluator implements Evaluator {
      */
     private boolean invalidatedByErrorTransience(Collection<SkyKey> depGroup, NodeEntry entry) {
       return depGroup.size() == 1
-          && depGroup.contains(ErrorTransienceValue.key())
-          && !graph.get(ErrorTransienceValue.key()).getVersion().atMost(entry.getVersion());
+          && depGroup.contains(ErrorTransienceValue.KEY)
+          && !graph.get(ErrorTransienceValue.KEY).getVersion().atMost(entry.getVersion());
     }
 
     private DirtyOutcome maybeHandleDirtyNode(NodeEntry state) {
@@ -782,7 +782,7 @@ public final class ParallelEvaluator implements Evaluator {
             // usual, but we can't, because then the ErrorTransienceValue would remain as a dep,
             // which would be incorrect if, for instance, the value re-evaluated to a non-error.
             state.forceRebuild();
-            graph.get(ErrorTransienceValue.key()).removeReverseDep(skyKey);
+            graph.get(ErrorTransienceValue.KEY).removeReverseDep(skyKey);
             return DirtyOutcome.NEEDS_EVALUATION;
           }
           if (!keepGoing) {
@@ -872,7 +872,7 @@ public final class ParallelEvaluator implements Evaluator {
       // direct deps that were requested on a previous run. This would allow us to avoid the
       // conversion of the direct deps into a set.
       Set<SkyKey> directDeps = state.getTemporaryDirectDeps();
-      Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.key()),
+      Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.KEY),
           "%s cannot have a dep on ErrorTransienceValue during building: %s", skyKey, state);
       // Get the corresponding SkyFunction and call it on this value.
       SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor);
@@ -1174,12 +1174,11 @@ public final class ParallelEvaluator implements Evaluator {
     // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
-    SkyKey errorTransienceKey = ErrorTransienceValue.key();
     NodeEntry errorTransienceEntry = Iterables.getOnlyElement(
-        graph.createIfAbsentBatch(ImmutableList.of(errorTransienceKey)).values());
+        graph.createIfAbsentBatch(ImmutableList.of(ErrorTransienceValue.KEY)).values());
     if (!errorTransienceEntry.isDone()) {
       injectValues(
-          ImmutableMap.of(errorTransienceKey, (SkyValue) new ErrorTransienceValue()),
+          ImmutableMap.of(ErrorTransienceValue.KEY, (SkyValue) ErrorTransienceValue.INSTANCE),
           graphVersion,
           graph,
           dirtyKeyTracker);

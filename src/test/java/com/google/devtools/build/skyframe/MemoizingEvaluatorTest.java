@@ -330,7 +330,7 @@ public class MemoizingEvaluatorTest {
 
     // The graph now contains the three above nodes (and ERROR_TRANSIENCE).
     assertThat(tester.evaluator.getValues().keySet())
-        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.KEY);
 
     String[] noKeys = {};
     tester.evaluator.deleteDirty(2);
@@ -338,14 +338,14 @@ public class MemoizingEvaluatorTest {
 
     // The top node's value is dirty, but less than two generations old, so it wasn't deleted.
     assertThat(tester.evaluator.getValues().keySet())
-        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+        .containsExactly(skyKey("top"), skyKey("d1"), skyKey("d2"), ErrorTransienceValue.KEY);
 
     tester.evaluator.deleteDirty(2);
     tester.eval(true, noKeys);
 
     // The top node's value was dirty, and was two generations old, so it was deleted.
     assertThat(tester.evaluator.getValues().keySet())
-        .containsExactly(skyKey("d1"), skyKey("d2"), ErrorTransienceValue.key());
+        .containsExactly(skyKey("d1"), skyKey("d2"), ErrorTransienceValue.KEY);
   }
 
   @Test
