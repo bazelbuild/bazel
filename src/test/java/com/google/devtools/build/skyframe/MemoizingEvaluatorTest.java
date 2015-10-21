@@ -115,7 +115,7 @@ public class MemoizingEvaluatorTest {
   }
 
   protected MemoizingEvaluator getMemoizingEvaluator(
-      Map<? extends SkyFunctionName, ? extends SkyFunction> functions,
+      Map<SkyFunctionName, ? extends SkyFunction> functions,
       Differencer differencer,
       EvaluationProgressReceiver invalidationReceiver) {
     return new InMemoryMemoizingEvaluator(

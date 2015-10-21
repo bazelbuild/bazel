@@ -136,7 +136,7 @@ public final class ParallelEvaluator implements Evaluator {
     void accept(T object);
   }
 
-  private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
+  private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions;
 
   private final EventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
@@ -152,7 +152,7 @@ public final class ParallelEvaluator implements Evaluator {
   public ParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
-      ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       final EventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
