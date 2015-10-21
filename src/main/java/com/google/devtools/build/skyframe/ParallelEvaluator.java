@@ -303,6 +303,11 @@ public final class ParallelEvaluator implements Evaluator {
      * If this node has an error, that is, if errorInfo is non-null, do nothing. Otherwise, set
      * errorInfo to the union of the child errors that were recorded earlier by getValueOrException,
      * if there are any.
+     *
+     * <p>Child errors are remembered, if there are any and yet the parent recovered without
+     * error, so that subsequent noKeepGoing evaluations can stop as soon as they encounter a
+     * node whose (transitive) children had experienced an error, even if that (transitive)
+     * parent node had been able to recover from it during a keepGoing build.
      */
     private void finalizeErrorInfo() {
       if (errorInfo == null && !childErrorInfos.isEmpty()) {
