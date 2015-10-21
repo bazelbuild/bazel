@@ -719,8 +719,11 @@ static void KillRunningServer(pid_t server_pid) {
   fflush(stderr);
   for (int ii = 0; ii < 100; ++ii) {  // wait up to 10s
     if (kill(server_pid, SIGTERM) == -1) {
-      fprintf(stderr, "done.\n");
-      return;  // Ding! Dong! The witch is dead!
+      if (errno == ESRCH) {
+        fprintf(stderr, "done.\n");
+        return;  // Ding! Dong! The witch is dead!
+      }
+      pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
     }
     poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
   }
@@ -731,12 +734,20 @@ static void KillRunningServer(pid_t server_pid) {
           globals->options.GetProductName().c_str(), server_pid);
   fflush(stderr);
   killpg(server_pid, SIGKILL);
-  if (kill(server_pid, 0) == -1) {  // (probe)
-    fprintf(stderr, "could not be killed.\n");  // task state 'Z' or 'D'?
-    exit(1);  // TODO(bazel-team): confirm whether this is an internal error.
-  } else {
-    fprintf(stderr, "killed.\n");
+  for (int ii = 0; ii < 30; ++ii) {  // wait up to 3s
+    if (kill(server_pid, 0) == -1) {  // (probe)
+      if (errno == ESRCH) {
+        // The previous server is gone. This is what we're looking for!
+        fprintf(stderr, "killed.\n");
+        return;
+      }
+      // Unexpected failure from kill().
+      pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
+    }
+    poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
   }
+  // Process did not go away 3s after SIGKILL. Stuck in state 'Z' or 'D'?
+  pdie(blaze_exit_code::INTERNAL_ERROR, "SIGKILL unsuccessful after 3s");
 }
 
 
