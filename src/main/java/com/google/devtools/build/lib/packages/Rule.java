@@ -704,7 +704,7 @@ public final class Rule implements Target {
       BinaryPredicate<Rule, Attribute> predicate) {
     LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
-      for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
+      for (AspectClass candidateClass : attribute.getAspects()) {
         AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
         AspectDefinition.addAllAttributesOfAspect(Rule.this, labels,
             candidate.getDefinition(), predicate);

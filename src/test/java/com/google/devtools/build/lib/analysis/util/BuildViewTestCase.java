@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -870,11 +871,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner,
       Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
         owner.getConfiguration().getBinDirectory(),
-        (AspectValue.AspectKey) AspectValue.key(
-            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory,
-            AspectParameters.EMPTY).argument());
+        (AspectValue.AspectKey)
+            AspectValue.key(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new NativeAspectClass(creatingAspectFactory),
+                    AspectParameters.EMPTY)
+                .argument());
   }
 
   /**
@@ -930,11 +936,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
       Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
         owner.getConfiguration().getGenfilesDirectory(),
-        (AspectValue.AspectKey) AspectValue.key(
-            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory,
-            AspectParameters.EMPTY).argument());
+        (AspectValue.AspectKey)
+            AspectValue.key(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new NativeAspectClass(creatingAspectFactory),
+                    AspectParameters.EMPTY)
+                .argument());
   }
 
   /**

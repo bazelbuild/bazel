@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 
 import java.util.Objects;
@@ -27,26 +28,25 @@ public final class AspectWithParameters {
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
   // by reference. We should identify the aspect here in a way that does not rely on comparison
   // by reference so that keys can be serialized and deserialized properly.
-  private final Class<? extends ConfiguredAspectFactory> aspectFactory;
+  private final AspectClass aspectClass;
   private final AspectParameters parameters;
 
-  public AspectWithParameters(
-      Class<? extends ConfiguredAspectFactory> aspect, AspectParameters parameters) {
+  public AspectWithParameters(AspectClass aspect, AspectParameters parameters) {
     Preconditions.checkNotNull(parameters);
-    this.aspectFactory = aspect;
+    this.aspectClass = aspect;
     this.parameters = parameters;
   }
 
-  public AspectWithParameters(Class<? extends ConfiguredAspectFactory> aspect) {
-    this.aspectFactory = aspect;
+  public AspectWithParameters(AspectClass aspect) {
+    this.aspectClass = aspect;
     this.parameters = AspectParameters.EMPTY;
   }
 
   /**
-   * Returns the aspectFactory required for building the aspect.
+   * Returns the aspectClass required for building the aspect.
    */
-  public Class<? extends ConfiguredAspectFactory> getAspectFactory() {
-    return aspectFactory;
+  public AspectClass getAspectClass() {
+    return aspectClass;
   }
 
   /**
@@ -65,17 +65,17 @@ public final class AspectWithParameters {
       return false;
     }
     AspectWithParameters that = (AspectWithParameters) other;
-    return Objects.equals(this.aspectFactory, that.aspectFactory) 
+    return Objects.equals(this.aspectClass, that.aspectClass)
         && Objects.equals(this.parameters, that.parameters);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(aspectFactory, parameters);
+    return Objects.hash(aspectClass, parameters);
   }
 
   @Override
   public String toString() {
-    return String.format("AspectWithParameters %s(%s)", aspectFactory, parameters);
+    return String.format("AspectWithParameters %s(%s)", aspectClass, parameters);
   }
 }

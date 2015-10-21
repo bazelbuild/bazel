@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -109,9 +110,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   private ListMultimap<Attribute, Dependency> dependentNodeMap(
       String targetName, Class<? extends ConfiguredAspectFactory> aspect) throws Exception {
-    AspectDefinition aspectDefinition = aspect == null
-        ? null
-        : AspectFactory.Util.create(aspect).getDefinition();
+    AspectDefinition aspectDefinition =
+        aspect == null
+            ? null
+            : AspectFactory.Util.create(new NativeAspectClass(aspect)).getDefinition();
     Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
@@ -155,7 +157,11 @@ public class DependencyResolverTest extends AnalysisTestCase {
         "aspect(name='a', foo=[':b'])",
         "aspect(name='b', foo=[])");
     ListMultimap<Attribute, Dependency> map = dependentNodeMap("//a:a", null);
-    assertDep(map, "foo", "//a:b", new AspectWithParameters(TestAspects.SimpleAspect.class));
+    assertDep(
+        map,
+        "foo",
+        "//a:b",
+        new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)));
   }
 
   @Test
@@ -166,7 +172,11 @@ public class DependencyResolverTest extends AnalysisTestCase {
         "simple(name='b', foo=[])");
     ListMultimap<Attribute, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.AttributeAspect.class);
-    assertDep(map, "foo", "//a:b", new AspectWithParameters(TestAspects.AttributeAspect.class));
+    assertDep(
+        map,
+        "foo",
+        "//a:b",
+        new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)));
   }
 
   @Test
@@ -201,15 +211,18 @@ public class DependencyResolverTest extends AnalysisTestCase {
     BuildConfiguration host = getHostConfiguration();
     BuildConfiguration target = getTargetConfiguration();
 
-    ImmutableSet<AspectWithParameters> twoAspects = ImmutableSet.of(
-        new AspectWithParameters(TestAspects.SimpleAspect.class), 
-        new AspectWithParameters(TestAspects.AttributeAspect.class));
-    ImmutableSet<AspectWithParameters> inverseAspects = ImmutableSet.of(
-        new AspectWithParameters(TestAspects.AttributeAspect.class), 
-        new AspectWithParameters(TestAspects.SimpleAspect.class));
-    ImmutableSet<AspectWithParameters> differentAspects = ImmutableSet.of(
-        new AspectWithParameters(TestAspects.AttributeAspect.class), 
-        new AspectWithParameters(TestAspects.ErrorAspect.class));
+    ImmutableSet<AspectWithParameters> twoAspects =
+        ImmutableSet.of(
+            new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)),
+            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)));
+    ImmutableSet<AspectWithParameters> inverseAspects =
+        ImmutableSet.of(
+            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)),
+            new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)));
+    ImmutableSet<AspectWithParameters> differentAspects =
+        ImmutableSet.of(
+            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)),
+            new AspectWithParameters(new NativeAspectClass(TestAspects.ErrorAspect.class)));
 
     new EqualsTester()
         .addEqualityGroup(

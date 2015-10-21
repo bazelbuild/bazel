@@ -61,17 +61,15 @@ public final class Attribute implements Comparable<Attribute> {
   public static final Predicate<RuleClass> NO_RULE = Predicates.alwaysFalse();
 
   private static final class RuleAspect {
-    private final Class<? extends AspectFactory<?, ?, ?>> aspectFactory;
+    private final AspectClass aspectFactory;
     private final Function<Rule, AspectParameters> parametersExtractor;
 
-    RuleAspect(
-        Class<? extends AspectFactory<?, ?, ?>> aspectFactory,
-        Function<Rule, AspectParameters> parametersExtractor) {
+    RuleAspect(AspectClass aspectFactory, Function<Rule, AspectParameters> parametersExtractor) {
       this.aspectFactory = aspectFactory;
       this.parametersExtractor = parametersExtractor;
     }
 
-    Class<? extends AspectFactory<?, ?, ?>> getAspectFactory() {
+    AspectClass getAspectFactory() {
       return aspectFactory;
     }
     
@@ -701,7 +699,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> aspect(Class<? extends AspectFactory<?, ?, ?>> aspect,
         Function<Rule, AspectParameters> evaluator) {
-      this.aspects.add(new RuleAspect(aspect, evaluator));
+      this.aspects.add(new RuleAspect(new NativeAspectClass(aspect), evaluator));
       return this;
     }
 
@@ -1312,8 +1310,8 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns the set of aspects required for dependencies through this attribute.
    */
-  public ImmutableSet<Class<? extends AspectFactory<?, ?, ?>>> getAspects() {
-    ImmutableSet.Builder<Class<? extends AspectFactory<?, ?, ?>>> builder = ImmutableSet.builder();
+  public ImmutableSet<AspectClass> getAspects() {
+    ImmutableSet.Builder<AspectClass> builder = ImmutableSet.builder();
     for (RuleAspect aspect : aspects) {
       builder.add(aspect.getAspectFactory());
     }
@@ -1323,10 +1321,8 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns set of pairs of aspect factories and corresponding aspect parameters.
    */
-  public ImmutableMap<Class<? extends AspectFactory<?, ?, ?>>, AspectParameters>
-      getAspectsWithParameters(Rule rule) {
-    ImmutableMap.Builder<Class<? extends AspectFactory<?, ?, ?>>, AspectParameters> builder =
-        ImmutableMap.builder();
+  public ImmutableMap<AspectClass, AspectParameters> getAspectsWithParameters(Rule rule) {
+    ImmutableMap.Builder<AspectClass, AspectParameters> builder = ImmutableMap.builder();
     for (RuleAspect aspect : aspects) {
       builder.put(aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule));
     }

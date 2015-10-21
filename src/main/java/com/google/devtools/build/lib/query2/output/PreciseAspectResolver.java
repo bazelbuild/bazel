@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -89,20 +90,24 @@ public class PreciseAspectResolver implements AspectResolver {
       }
 
       // ...figure out which direct dependencies can possibly have aspects attached to them...
-      Multimap<Attribute, Label> depsWithPossibleAspects = ((Rule) target).getTransitions(
-          new BinaryPredicate<Rule, Attribute>() {
-            @Override
-            public boolean apply(@Nullable Rule rule, @Nullable Attribute attribute) {
-              for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
-                if (!AspectFactory.Util.create(aspectFactory).getDefinition()
-                    .getAttributes().isEmpty()) {
-                  return true;
-                }
-              }
+      Multimap<Attribute, Label> depsWithPossibleAspects =
+          ((Rule) target)
+              .getTransitions(
+                  new BinaryPredicate<Rule, Attribute>() {
+                    @Override
+                    public boolean apply(@Nullable Rule rule, @Nullable Attribute attribute) {
+                      for (AspectClass aspectClass : attribute.getAspects()) {
+                        if (!AspectFactory.Util.create(aspectClass)
+                            .getDefinition()
+                            .getAttributes()
+                            .isEmpty()) {
+                          return true;
+                        }
+                      }
 
-              return false;
-            }
-          });
+                      return false;
+                    }
+                  });
 
       // ...and add the package of the aspect.
       for (Label depLabel : depsWithPossibleAspects.values()) {
