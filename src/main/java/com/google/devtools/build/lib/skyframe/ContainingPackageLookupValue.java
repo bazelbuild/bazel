@@ -42,7 +42,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return new SkyKey(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
   }
 
-  static ContainingPackageLookupValue withContainingPackage(PackageIdentifier pkgId, Path root) {
+  public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Path root) {
     return new ContainingPackage(pkgId, root);
   }
 
