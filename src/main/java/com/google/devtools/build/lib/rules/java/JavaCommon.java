@@ -665,7 +665,7 @@ public class JavaCommon {
     return ImmutableList.copyOf(result);
   }
 
-  public Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(String attribute,
+  Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(String attribute,
       Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);

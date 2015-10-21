@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
@@ -27,25 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class JavaPluginInfoProvider implements TransitiveInfoProvider {
-  
-  public static final JavaPluginInfoProvider EMPTY =
-      new JavaPluginInfoProvider(
-          ImmutableList.<String>of(),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-  public static JavaPluginInfoProvider merge(Iterable<JavaPluginInfoProvider> providers) {
-
-    ImmutableList.Builder<String> processorClasses = ImmutableList.builder();
-    NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
-
-    for (JavaPluginInfoProvider provider : providers) {
-      processorClasses.addAll(provider.getProcessorClasses());
-      processorClasspath.addTransitive(provider.getProcessorClasspath());
-    }
-
-    return new JavaPluginInfoProvider(processorClasses.build(), processorClasspath.build());
-  }
-  
   private final ImmutableList<String> processorClasses;
   private final NestedSet<Artifact> processorClasspath;
 
