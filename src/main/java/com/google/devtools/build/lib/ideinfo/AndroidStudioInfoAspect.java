@@ -155,10 +155,6 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
       providerBuilder.ideInfoTextFilesBuilder().addTransitive(depProvider.getIdeInfoTextFiles());
       providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
-      providerBuilder.transitiveDependenciesBuilder().addTransitive(
-          depProvider.getTransitiveDependencies());
-      providerBuilder.transitiveResourcesBuilder().addTransitive(
-          depProvider.getTransitiveResources());
     }
     for (TransitiveInfoCollection dep : prerequisites) {
       dependenciesBuilder.add(dep.getLabel());
@@ -182,9 +178,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       }
     }
 
-    NestedSet<Label> directDependencies = dependenciesBuilder.build();
-    providerBuilder.transitiveDependenciesBuilder().addTransitive(directDependencies);
-    return directDependencies;
+    return dependenciesBuilder.build();
   }
 
   private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
@@ -238,7 +232,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts, providerBuilder));
+          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
     }
     if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
@@ -248,8 +242,6 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
 
     outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
-    outputBuilder.addAllTransitiveDependencies(
-        transform(provider.getTransitiveDependencies(), LABEL_TO_STRING));
 
     outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
 
@@ -278,8 +270,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
       RuleContext ruleContext,
       ConfiguredTarget base,
-      NestedSetBuilder<Artifact> ideResolveArtifacts,
-      AndroidStudioInfoFilesProvider.Builder providerBuilder) {
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
     AndroidIdeInfoProvider provider = base.getProvider(AndroidIdeInfoProvider.class);
     assert provider != null;
@@ -302,15 +293,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     for (SourceDirectory resourceDir : provider.getResourceDirs()) {
       ArtifactLocation artifactLocation = makeArtifactLocation(resourceDir);
       builder.addResources(artifactLocation);
-      providerBuilder.transitiveResourcesBuilder().add(resourceDir);
     }
 
     builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
-
-    NestedSet<SourceDirectory> transitiveResources = providerBuilder.getTransitiveResources();
-    for (SourceDirectory transitiveResource : transitiveResources) {
-      builder.addTransitiveResources(makeArtifactLocation(transitiveResource));
-    }
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
