@@ -3670,10 +3670,7 @@ public class MemoizingEvaluatorTest {
     public void initialize() {
       this.differencer = new RecordingDifferencer();
       this.evaluator =
-          getMemoizingEvaluator(
-              ImmutableMap.of(NODE_TYPE, createDelegatingFunction()),
-              differencer,
-              invalidationReceiver);
+          getMemoizingEvaluator(getSkyFunctionMap(), differencer, invalidationReceiver);
       this.driver = getBuildDriver(evaluator);
     }
 
@@ -3684,7 +3681,7 @@ public class MemoizingEvaluatorTest {
 
     public void invalidate() {
       differencer.invalidate(getModifiedValues());
-      getModifiedValues().clear();
+      clearModifiedValues();
       invalidationReceiver.clear();
     }
 

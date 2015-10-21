@@ -148,9 +148,7 @@ public class ParallelEvaluatorTest {
 
   protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, Iterable<SkyKey> keys)
       throws InterruptedException {
-    ParallelEvaluator evaluator = makeEvaluator(graph,
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
-        keepGoing);
+    ParallelEvaluator evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), keepGoing);
     return evaluator.eval(keys);
   }
 
@@ -519,7 +517,7 @@ public class ParallelEvaluatorTest {
     ParallelEvaluator evaluator =
         makeEvaluator(
             graph,
-            ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
+            tester.getSkyFunctionMap(),
             /*keepGoing=*/ false,
             new EventFilter() {
               @Override
@@ -538,9 +536,7 @@ public class ParallelEvaluatorTest {
     assertContainsEvent(eventCollector, "boop");
     assertContainsEvent(eventCollector, "beep");
     eventCollector.clear();
-    evaluator = makeEvaluator(graph,
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
-        /*keepGoing=*/false);
+    evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false);
     evaluated.set(false);
     evaluator.eval(ImmutableList.of(a));
     assertFalse(evaluated.get());
