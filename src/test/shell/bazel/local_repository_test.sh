@@ -171,7 +171,7 @@ EOF
 }
 
 function test_non_existent_external_ref() {
-  mkdir zoo
+  mkdir -p zoo
   touch zoo/BallPit.java
   cat > zoo/BUILD <<EOF
 java_binary(
@@ -448,6 +448,8 @@ int main() {
 EOF
 
   bazel fetch //:printer || fail "Fetch failed"
+  bazel build @clib-repo//:clib >& $TEST_log \
+    || fail "Building @clib-repo//:clib failed"
   bazel run //:printer >& $TEST_log || fail "Running //:printer failed"
   expect_log "My number is 3"
 }
@@ -616,6 +618,9 @@ cc_binary(
     srcs = ["bin.cc"],
 )
 EOF
+  cat > $r/bin.cc <<EOF
+int main() { return 0; };
+EOF
 
   cat > WORKSPACE <<EOF
 local_repository(
@@ -624,7 +629,7 @@ local_repository(
 )
 EOF
 
-  bazel build --nobuild @r//:bin || fail "build failed"
+  bazel build @r//:bin || fail "build failed"
 }
 
 function test_output_file_in_local_repository() {
@@ -890,6 +895,33 @@ EOF
   bazel build @r//a:b || fail "build failed"
   cat bazel-genfiles/external/r/a/bo > $TEST_log
   expect_log "@r a"
+}
+
+function test_slash_in_repo_name() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a
+
+  touch $r/a/WORKSPACE
+  cat > $r/a/BUILD <<EOF
+cc_binary(
+    name = "bin",
+    srcs = ["bin.cc"],
+)
+EOF
+  cat > $r/a/bin.cc <<EOF
+int main() { return 0; };
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r/a",
+    path = "$r/a",
+)
+EOF
+
+  bazel build @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
+  expect_log "the 'name' attribute must not contain slashes"
 }
 
 run_suite "local repository tests"
