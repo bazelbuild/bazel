@@ -24,6 +24,7 @@
 
 #define _GNU_SOURCE
 
+#include <err.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -116,7 +117,8 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
     umask(022);
 
     // Does not return unless something went wrong.
-    CHECK_CALL(execvp(argv[0], argv));
+    execvp(argv[0], argv);
+    err(EXIT_FAILURE, "execvp(\"%s\", ...)", argv[0]);
   } else {
     // In parent.
 

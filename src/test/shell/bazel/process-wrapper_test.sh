@@ -63,13 +63,11 @@ function test_signal_death() {
 }
 
 function test_signal_catcher() {
-  set -x
   local code=0
   $WRAPPER 1 2 $OUT $ERR /bin/bash -c \
     'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "later"
-  set +x
 }
 
 function test_basic_timeout() {
@@ -93,6 +91,13 @@ function test_timeout_kill() {
     &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "before"
+}
+
+function test_execvp_error_message() {
+  local code=0
+  $WRAPPER -1 0 $OUT $ERR /bin/notexisting &> $TEST_log || code=$?
+  assert_equals 1 "$code"
+  assert_contains "execvp(\"/bin/notexisting\", ...): No such file or directory" "$ERR"
 }
 
 run_suite "process-wrapper"

@@ -30,11 +30,11 @@
     exit(EXIT_FAILURE);                                \
   }
 
-#define CHECK_CALL(x, ...)                                    \
-  if ((x) == -1) {                                            \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": " __VA_ARGS__); \
-    perror(#x);                                               \
-    exit(EXIT_FAILURE);                                       \
+#define CHECK_CALL(x)                             \
+  if ((x) == -1) {                                \
+    fprintf(stderr, __FILE__ ":" S__LINE__ ": "); \
+    perror(#x);                                   \
+    exit(EXIT_FAILURE);                           \
   }
 
 #define CHECK_NOT_NULL(x) \
