@@ -73,7 +73,6 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     assertEquals("cc_library", rule.getRuleClass());
     assertEquals("cc_library rule", rule.getTargetKind());
     assertEquals(42, rule.getLocation().getStartOffset());
-    assertNull(rule.getSyntaxTree());
     assertFalse(rule.containsErrors());
 
     // Attr with explicitly-supplied value:
@@ -230,7 +229,6 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
               pkg,
               pkg.createLabel("myrule"),
               ruleClass,
-              null,
               Location.fromFile(myPkgPath),
               new AttributeContainer(ruleClass));
       if (TargetUtils.isTestRule(rule)) {

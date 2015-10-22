@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
@@ -149,15 +148,13 @@ public final class Rule implements Target {
 
   private final Location location;
 
-  private final FuncallExpression ast; // may be null
-
   private final String workspaceName;
 
   // Initialized in the call to populateOutputFiles.
   private List<OutputFile> outputFiles;
   private ListMultimap<String, OutputFile> outputFileMap;
 
-  Rule(Package pkg, Label label, RuleClass ruleClass, FuncallExpression ast, Location location,
+  Rule(Package pkg, Label label, RuleClass ruleClass, Location location,
       AttributeContainer attributeContainer) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.label = label;
@@ -166,7 +163,6 @@ public final class Rule implements Target {
     this.attributes = attributeContainer;
     this.attributeMap = new RawAttributeMapper(pkg, ruleClass, label, attributes);
     this.containsErrors = false;
-    this.ast = ast;
     this.workspaceName = pkg.getWorkspaceName();
   }
 
@@ -245,15 +241,6 @@ public final class Rule implements Target {
     return ruleClass.getName().equals("genrule") // this is unfortunate...
         ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
         : ruleClass.hasBinaryOutput();
-  }
-
-  /**
-   * Returns the AST for this rule.  Returns null if the package factory chose
-   * not to retain the AST when evaluateBuildFile was called for this rule's
-   * package.
-   */
-  public FuncallExpression getSyntaxTree() {
-    return ast;
   }
 
   /**

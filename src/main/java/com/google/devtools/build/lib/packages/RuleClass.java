@@ -1230,7 +1230,7 @@ public final class RuleClass {
   Rule createRuleWithLabel(Package.Builder pkgBuilder, Label ruleLabel,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
       Location location) throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, null, location);
+    Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, location);
     createRuleCommon(rule, pkgBuilder, attributeValues, eventHandler, ast);
     return rule;
   }
