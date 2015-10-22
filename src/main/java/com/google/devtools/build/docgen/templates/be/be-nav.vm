@@ -1,0 +1,35 @@
+#set ($path = "/docs/be")
+<h3>Build Encyclopedia</h3>
+<ul class="sidebar-nav">
+  <li><a href="${path}/overview.html">Overview</a></li>
+  <li>
+
+    <a data-toggle="collapse" href="#be-menu" aria-expanded="false"
+        aria-controls="be-menu">
+      Concepts <span class="caret"></span>
+    </a>
+    <ul class="collapse sidebar-nav sidebar-submenu" id="be-menu">
+      <li><a href="${path}/common-definitions.html">Common Definitions</a></li>
+      <li><a href="${path}/make-variables.html">"Make" variables</a></li>
+      <li><a href="${path}/predefined-python-variables.html">Predefined Python Variables</a></li>
+    </ul>
+  </li>
+  <li class="sidebar-nav-heading">Built-in Rules</li>
+  <li><a href="${path}/functions.html">Functions</a></li>
+  #foreach ($namePair in $ruleFamilyNames)
+  <li><a href="${path}/${namePair.getFirst()}.html">${namePair.getSecond()}</a></li>
+  #end
+
+  <li class="sidebar-nav-heading">Skylark Rules</li>
+  <li><a href="${path}/appengine.html">Java AppEngine</a></li>
+  <li><a href="${path}/closure.html">Closure Tools</a></li>
+  <li><a href="${path}/d.html">D</a></li>
+  <li><a href="${path}/docker.html">Docker</a></li>
+  <li><a href="${path}/groovy.html">Groovy</a></li>
+  <li><a href="${path}/go.html">Go</a></li>
+  <li><a href="${path}/jsonnet.html">Jsonnet</a></li>
+  <li><a href="${path}/pkg.html">Packaging</a></li>
+  <li><a href="${path}/rust.html">Rust</a></li>
+  <li><a href="${path}/sass.html">Sass</a></li>
+  <li><a href="${path}/scala.html">Scala</a></li>
+</ul>

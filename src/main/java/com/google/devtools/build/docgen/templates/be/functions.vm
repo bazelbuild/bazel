@@ -1,17 +1,67 @@
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+
+<h1>Functions</h1>
+
+<div class="toc">
+  <h1>Contents</h1>
+  <ul>
+    <li><a href="#load">load</a></li>
+    <li><a href="#package">package</a></li>
+    <li><a href="#package_group">package_group</a></li>
+    <li><a href="#licenses">licenses</a></li>
+    <li><a href="#exports_files">exports_files</a></li>
+    <li><a href="#glob">glob</a></li>
+    <li><a href="#select">select</a></li>
+    <li><a href="#workspace">workspace</a></li>
+  </ul>
+</div>
+<!-- =================================================================
+                              load()
+     =================================================================
+-->
+
+<h2 id="load">load</h2>
+
+<pre>load(path, symbols...)</pre>
+
+<p><code>load()</code> is a statement that imports definitions from a
+  Skylark module (<code>.bzl</code> file). For example:
+</p>
+
+<pre class="code">
+load("/tools/build_rules/build_test", "build_test")
+
+build_test(name = ...)
+</pre>
+
+<p>This will execute the
+
+  Skylark
+  module <code>tools/build_rules/build_test.bzl</code> and import the symbol
+  <code>build_test</code> in the local environment. This is useful for
+  using macros or for sharing values between multiple BUILD files. By
+  using more arguments, you can load more symbols at once.</p>
+
+<p>Relative paths are allowed only to load a file from the same directory
+  (not a subdirectory), e.g.</p>
+
+<pre class="code">
+load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
+</pre>
 
 <!-- =================================================================
                               package()
      =================================================================
 -->
 
-<h3 id="package">package</h3>
+<h2 id="package">package</h2>
 
-<p><code>package(default_deprecation,
+<pre>package(default_deprecation,
 
   default_testonly,
   default_visibility,
-  features)</code>
-</p>
+  features)
+</pre>
 
 <p>This function declares metadata that applies to every subsequent rule in the
 package. It is used at most once within a package (BUILD file).</p>
@@ -19,47 +69,66 @@ package. It is used at most once within a package (BUILD file).</p>
 <p>It is recommended that the package function is called at the top of the
 file, before any rule.</p>
 
-<h4 id="package_args">Arguments</h4>
+<h3 id="package_args">Arguments</h3>
 
-<ul>
-  <li id="package.default_visibility"><code>default_visibility</code>:
-    The default visibility of the rules in this package.
-    <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="package.default_visibility"><code>default_visibility</code></td>
+      <td>
+        <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+        <p>The default visibility of the rules in this package.</p>
+        <p>Every rule in this package has the visibility specified in this
+        attribute, unless otherwise specified in the <code>visibility</code>
+        attribute of the rule. For detailed information about the syntax of this
+        attribute, see the documentation of the <a href="#common.visibility">visibility</a>
+        attribute. The package default visibility does not apply to
+        <a href="#exports_files">exports_files</a>, which is
+        public by default.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_deprecation"><code>default_deprecation</code></td>
+      <td>
+        <p><code>String; optional</code></p>
+        <p>Sets the default <a href="#common.deprecation"><code>deprecation</code></a> message
+        for all rules in this package.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_testonly"><code>default_testonly</code></td>
+      <td>
+        <p><code>Boolean; optional; default is 0 except as noted</code></p>
+        <p>Sets the default <a href="#common.testonly"><code>testonly</code></a> property
+        for all rules in this package.</p>
+        <p>In packages under <code>javatests</code> the default value is 1.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.features"><code>features</code></td>
+      <td>
+        <p><code>List strings; optional</code></p>
+        <p>Sets various flags that affect the semantics of this BUILD file.</p>
+        <p>This feature is mainly used by the people working on the build system to
+        tag packages that need some kind of special handling. Do not use this unless
+        explicitly requested by someone working on the build system.</p>
+      </td>
+    </tr>
 
-    <p>Every rule in this package has the visibility specified in this
-    attribute, unless otherwise specified in the <code>visibility</code>
-    attribute of the rule. For detailed information about the syntax of this
-    attribute, see the documentation of the <a href="#common.visibility">visibility</a>
-    attribute. The package default visibility does not apply to
+  </tbody>
+</table>
 
-    <a href="#exports_files">exports_files</a>, which is
-    public by default.
-  </li>
-
-  <li id="package.default_deprecation"><code>default_deprecation</code>:
-    Sets the default <a href="#common.deprecation"><code>deprecation</code></a> message
-    for all rules in this package. <i>(String; optional)</i>
-  </li>
-
-  <li id="package.default_testonly"><code>default_testonly</code>:
-    Sets the default <a href="#common.testonly"><code>testonly</code></a> property
-    for all rules in this package. <i>(Boolean; optional; default is 0 except as noted)</i>
-
-    <p>In packages under <code>javatests</code> the default value is 1.</p>
-  </li>
-
-  <li id="package.features"><code>features</code>:
-    Sets various flags that affect the semantics of this BUILD file.
-    <i>(List strings; optional)</i>
-
-    <p>This feature is mainly used by the people working on the build system to
-    tag packages that need some kind of special handling. Do not use this unless
-    explicitly requested by someone working on the build system.</p>
-  </li>
-
-</ul>
-
-<h4 id="package_example">Examples</h4>
+<h3 id="package_example">Examples</h3>
 
 The declaration below declares that the rules in this package are
 visible only to members of package
@@ -75,9 +144,9 @@ package(default_visibility = ["//foo:target"])
      =================================================================
 -->
 
-<h3 id="package_group">package_group</h3>
+<h2 id="package_group">package_group</h2>
 
-<p><code>package_group(name, packages, includes)</code></p>
+<pre>package_group(name, packages, includes)</pre>
 
 <p>This function defines a set of packages and assigns a label to the
 group. The label can be referenced in <code>visibility</code> attributes.</p>
@@ -87,49 +156,67 @@ to one or more package groups, every rule in the entire source tree, or only to 
 in the same package. For more detailed description of the visibility system, see
 the <a href="#common.visibility">visibility</a> attribute.
 
-<h4 id="package_group_args">Arguments</h4>
+<h3 id="package_group_args">Arguments</h3>
 
-<ul>
-  <li id="package_group.name"><code>name</code>:
-    A unique name for this rule.
-    <i>(<a href="build-ref.html#name">Name</a>; required)</i>
-  </li>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="package_group.name"><code>name</code></td>
+      <td>
+        <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
+        <p>A unique name for this rule.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package_group.packages"><code>packages</code></td>
+      <td>
+        <p><code>List of <a href="build-ref.html#s4">Package</a>; optional</code></p>
+        <p>A complete enumeration of packages in this group.</p>
 
-  <li id="package_group.packages"><code>packages</code>:
-    A complete enumeration of packages in this group.
-    <i>(List of <a href="build-ref.html#s4">Package</a>; optional)</i><br/>
+        <p>Packages should be referred to using their full names,
+        starting with a double slash. For
+        example, <code>//foo/bar/main</code> is a valid element
+        of this list.</p>
 
-    <p>Packages should be referred to using their full names,
-    starting with a double slash. For
-    example, <code>//foo/bar/main</code> is a valid element
-    of this list.</p>
+        <p>You can also specify wildcards: the specification
+        <code>//foo/...</code> specifies every package under
+        <code>//foo</code>, including <code>//foo</code> itself.</p>
 
-    <p>You can also specify wildcards: the specification
-    <code>//foo/...</code> specifies every package under
-    <code>//foo</code>, including <code>//foo</code> itself.
+        <p>If this attribute is missing, the package group itself will contain
+        no packages (but it can still include other package groups).</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package_group.includes"><code>includes</code></td>
+      <td>
+        <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+        <p>Other package groups that are included in this one.</p>
 
-    <p>If this attribute is missing, the package group itself will contain
-    no packages (but it can still include other package groups).</p>
-  </li>
+        <p>The labels in this attribute must refer to other package
+        groups. Packages in referenced package groups are taken to be part
+        of this package group. This is transitive, that is, if package
+        group <code>a</code> contains package group <code>b</code>,
+        and <code>b</code> contains package group <code>c</code>, every
+        package in <code>c</code> will also be a member of <code>a</code>.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-  <li id="package_group.includes"><code>includes</code>:
-    Other package groups that are included in this one.
-    <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+<h3 id="package_group_example">Examples</h3>
 
-    <p>The labels in this attribute must refer to other package
-    groups. Packages in referenced package groups are taken to be part
-    of this package group. This is transitive, that is, if package
-    group <code>a</code> contains package group <code>b</code>,
-    and <code>b</code> contains package group <code>c</code>, every
-    package in <code>c</code> will also be a member of <code>a</code>.</p>
-  </li>
-</ul>
-
-
-<h4 id="package_group_example">Examples</h4>
-
-The following <code>package_group</code> declaration specifies a
-package group called "tropical" that contains tropical fruits.
+<p>The following <code>package_group</code> declaration specifies a
+package group called "tropical" that contains tropical fruits.</p>
 
 <pre class="code">
 package_group(
@@ -142,8 +229,8 @@ package_group(
 )
 </pre>
 
-The following declarations specify the package groups of a fictional
-application:
+<p>The following declarations specify the package groups of a fictional
+application:</p>
 
 <pre class="code">
 package_group(
@@ -174,15 +261,54 @@ package_group(
 )
 </pre>
 
+<!-- =================================================================
+                              licenses()
+     =================================================================
+-->
+
+<h2 id="licenses">licenses</h2>
+
+<pre>licenses(license_types)</pre>
+
+<p><code>licenses()</code> specifies the default license type (or types)
+   of the build rules in a <code>BUILD</code> file.
+
+   The <code>licenses()</code> directive should appear close to the
+   beginning of the <code>BUILD</code> file, before any build rules, as it
+   sets the <code>BUILD</code>-file scope default for build rule license
+   types.</p>
+
+<h3 id="licenses_args">Arguments</h3>
+
+<p>The argument, <code id="licenses.licence_types">license_types</code>,
+   is a list of license-type strings.
+   <!-- TODO(bazel-team): specify some examples -->
+
+</p>
+
+<h3 id="licenses_example">Examples</h3>
+
+<p>The following example specifies a single license type of
+  <code>"notice"</code>.  Third-party software licenses that do not require
+  publishing of source code changes but require some sort of copyright or
+  other public notice are included in this license type.
+</p>
+
+<pre class="code">
+
+licenses(["notice"])  # MIT license
+
+exports_files(["jquery-2.1.1.js"])
+</pre>
 
 <!-- =================================================================
                         exports_files([label, ...])
      =================================================================
   -->
 
-<h3 id="exports_files">exports_files</h3>
+<h2 id="exports_files">exports_files</h2>
 
-<p><code>exports_files([<i>label</i>, ...], visibility, licenses)</code></p>
+<pre>exports_files([<i>label</i>, ...], visibility, licenses)</pre>
 
 <p>
   <code>exports_files()</code> specifies a list of files belonging to
@@ -200,7 +326,7 @@ package_group(
   shell scripts.)
 </p>
 
-<h4 id="exports_files_args">Arguments</h4>
+<h3 id="exports_files_args">Arguments</h3>
 
 <p>
   The argument is a list of names of files within the current package. A
@@ -211,7 +337,7 @@ package_group(
   <a href="#common.licenses">licenses</a> can also be specified.
 </p>
 
-<h4 id="exports_files_example">Example</h4>
+<h3 id="exports_files_example">Example</h3>
 
 <p>
   The following example exports <code>golden.txt</code>, a
@@ -231,10 +357,9 @@ exports_files(["golden.txt"])
      =================================================================
   -->
 
-<h3 id="glob">glob</h3>
+<h2 id="glob">glob</h2>
 
-<p><code>glob(include, exclude=[], exclude_directories=1)</code>
-</p>
+<pre>glob(include, exclude=[], exclude_directories=1)</pre>
 
 <p>
 Glob is a helper function that can be used anywhere a list of filenames
@@ -321,7 +446,7 @@ enables generating individual rules for every input, for example. See the
 <a href="#expanded_glob_example">expanded glob example</a> section below.
 </p>
 
-<h4 id="glob_example">Glob Examples</h4>
+<h3 id="glob_example">Glob Examples</h3>
 
 <p> Create a Java library built from all java files in this directory,
 and all files generated by the <code>:gen_java_srcs</code> rule.</p>
@@ -356,7 +481,7 @@ sh_test(
 )
 </pre>
 
-<h4 id="recursive_glob_example">Recursive Glob Examples</h4>
+<h3 id="recursive_glob_example">Recursive Glob Examples</h3>
 
 <p>Create a library built from all java files in this directory and all
 subdirectories except those whose path includes a directory named testing.
@@ -383,7 +508,7 @@ sh_test(
 )
 </pre>
 
-<h4 id="expanded_glob_example">Expanded Glob Examples</h4>
+<h3 id="expanded_glob_example">Expanded Glob Examples</h3>
 
 <p>
 Create an individual genrule for *_test.cc in the current directory
@@ -412,91 +537,14 @@ $ bazel query '//foo:all' | sort
 //foo:count_lines_c_test
 </pre>
 
-
-<!-- =================================================================
-                              licenses()
-     =================================================================
--->
-
-<h3 id="licenses">licenses</h3>
-
-<p><code>licenses(license_types)</code></p>
-
-<p><code>licenses()</code> specifies the default license type (or types)
-   of the build rules in a <code>BUILD</code> file.
-
-   The <code>licenses()</code> directive should appear close to the
-   beginning of the <code>BUILD</code> file, before any build rules, as it
-   sets the <code>BUILD</code>-file scope default for build rule license
-   types.</p>
-
-<h4 id="licenses_args">Arguments</h4>
-
-<p>The argument, <code id="licenses.licence_types">license_types</code>,
-   is a list of license-type strings.
-   <!-- TODO(bazel-team): specify some examples -->
-
-</p>
-
-<h4 id="licenses_example">Examples</h4>
-
-<p>The following example specifies a single license type of
-  <code>"notice"</code>.  Third-party software licenses that do not require
-  publishing of source code changes but require some sort of copyright or
-  other public notice are included in this license type.
-</p>
-
-<pre class="code">
-
-licenses(["notice"])  # MIT license
-
-exports_files(["jquery-2.1.1.js"])
-</pre>
-
-<!-- =================================================================
-                              load()
-     =================================================================
--->
-
-<h3 id="load">load</h3>
-
-<p><code>load(path, symbols...)</code></p>
-
-<p><code>load()</code> is a statement that imports definitions from a
-  Skylark module (<code>.bzl</code> file). For example:
-</p>
-
-<pre class="code">
-load("/tools/build_rules/build_test", "build_test")
-
-build_test(name = ...)
-</pre>
-
-<p>This will execute the
-
-  Skylark
-  module <code>tools/build_rules/build_test.bzl</code> and import the symbol
-  <code>build_test</code> in the local environment. This is useful for
-  using macros or for sharing values between multiple BUILD files. By
-  using more arguments, you can load more symbols at once.</p>
-
-<p>Relative paths are allowed only to load a file from the same directory
-  (not a subdirectory), e.g.</p>
-
-<pre class="code">
-load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
-</pre>
-
-
 <!-- =================================================================
                               select()
      =================================================================
 -->
 
-<h3 id="select">select</h3>
+<h2 id="select">select</h2>
 
-<p><code>select({conditionA: valuesA, conditionB: valuesB, ...})</code>
-</p>
+<pre>select({conditionA: valuesA, conditionB: valuesB, ...})</pre>
 
 <p><code>select()</code> is the helper function that makes an
   attribute for a
@@ -567,9 +615,9 @@ sh_binary(
      =================================================================
 -->
 
-<h3 id="workspace">workspace</h3>
+<h2 id="workspace">workspace</h2>
 
-<p><code>workspace(name = "something")</code></p>
+<pre>workspace(name = "something")</pre>
 
 <p>This can only be used in the WORKSPACE file.</p>
 
@@ -587,7 +635,4 @@ sh_binary(
   bar.runfiles/baz/qux/foo/bar).
 </p>
 
-</div>
-</div>
-</body>
-</html>
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")

@@ -1,0 +1,122 @@
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+
+<h1>Bazel BUILD Encyclopedia of Functions</h1>
+<h2>Contents</h2>
+
+<h3>Concepts and terminology</h3>
+
+<ul>
+  <li>
+    <a href="common-definitions.html">Common definitions</a>
+    <ul>
+      <li><a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a></li>
+      <li><a href="common-definitions.html#label-expansion">Label expansion</a></li>
+      <li><a href="common-definitions.html#common-attributes">Common attributes</a></li>
+      <li><a href="common-definitions.html#common-attributes-tests">Common attributes for tests</a></li>
+      <li><a href="common-definitions.html#common-attributes-binaries">Common attributes for binaries</a></li>
+      <li><a href="common-definitions.html#configurable-attributes">Configurable attributes</a></li>
+      <li><a href="common-definitions.html#implicit-outputs">Implicit output targets</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="make-variables.html">"Make" variables</a>
+    <ul class="be-toc">
+      <li><a href="make-variables.html#make-var-substitution">"Make" variable substitution</a></li>
+      <li><a href="make-variables.html#predefined_variables">Predefined variables</a></li>
+
+    </ul>
+  </li>
+  <li><a href="predefined-python-variables.html">Predefined Python Variables</a></li>
+</ul>
+
+<h3>Functions</h3>
+
+<ul class="be-toc">
+  <li><a href="functions.html#load">load</a></li>
+
+  <li><a href="functions.html#package">package</a></li>
+  <li><a href="functions.html#package_group">package_group</a></li>
+
+  <li><a href="functions.html#licenses">licenses</a></li>
+  <li><a href="functions.html#exports_files">exports_files</a></li>
+  <li><a href="functions.html#glob">glob</a></li>
+  <li><a href="functions.html#select">select</a></li>
+  <li><a href="functions.html#workspace">workspace</a></li>
+</ul>
+
+<h3>Rules</h3>
+
+<h4>Language-specific Rules</h4>
+
+#macro(summaryTable $ruleFamilies)
+  <tbody>
+  #foreach($ruleFamily in $ruleFamilies)
+    <tr>
+      <td class="lang">${ruleFamily.name}</td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.binaryRules)
+      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.libraryRules)
+      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.testRules)
+      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.otherRules1)
+      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+      <td>
+    #foreach($ruleDoc in $ruleFamily.otherRules2)
+      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          ${ruleDoc.ruleName}
+        </a>
+        <br />
+    #end
+      </td>
+    </tr>
+  #end
+  </tbody>
+#end
+
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <colgroup span="6" width="20%"></colgroup>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+      <th></th>
+    </tr>
+  </thead>
+#summaryTable($langSpecificSummaryFamilies)
+
+</table>
+<h4>Rules that do not apply to a specific programming language</h4>
+
+<table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
+  <colgroup span="6" width="20%"></colgroup>
+#summaryTable($otherSummaryFamilies)
+
+</table>

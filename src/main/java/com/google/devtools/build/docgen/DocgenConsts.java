@@ -29,9 +29,14 @@ public class DocgenConsts {
 
   public static final String LS = "\n";
 
-  public static final String HEADER_TEMPLATE = "templates/be-header.html";
-  public static final String FOOTER_TEMPLATE = "templates/be-footer.html";
-  public static final String BODY_TEMPLATE = "templates/be-body.html";
+  public static final String COMMON_DEFINITIONS_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/be/common-definitions.vm";
+  public static final String OVERVIEW_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/be/overview.vm";
+  public static final String RULES_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/be/rules.vm";
+  public static final String BE_NAV_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/be/be-nav.vm";
 
   public static final String SKYLARK_LIBRARY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-library.vm";

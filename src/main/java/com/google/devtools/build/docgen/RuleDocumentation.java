@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
@@ -101,6 +102,20 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   String getRuleFamily() {
     return ruleFamily;
+  }
+
+  /**
+   * Returns a "normalized" version of the input string. Used to convert rule family names into
+   * strings that are more friendly as file names. For example, "C / C++" is converted to
+   * "c-cpp".
+   */
+  @VisibleForTesting
+  static String normalize(String s) {
+    return s.toLowerCase()
+        .replace("+", "p")
+        .replaceAll("[()]", "")
+        .replaceAll("[\\s/]", "-")
+        .replaceAll("[-]+", "-");
   }
 
   /**
@@ -208,15 +223,22 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   public String getAttributeSignature() {
     StringBuilder sb = new StringBuilder();
-    sb.append(String.format(
-        "%s(<a href=\"#%s.name\">name</a>, ",
-        ruleName, ruleName));
+    sb.append(String.format("%s(<a href=\"#%s.name\">name</a>, ", ruleName, ruleName));
     int i = 0;
     for (RuleDocumentationAttribute attributeDoc : attributes) {
       String attrName = attributeDoc.getAttributeName();
       // Generate the link for the attribute documentation
-      sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
-          attributeDoc.getGeneratedInRule(ruleName).toLowerCase(), attrName, attrName));
+      if (attributeDoc.isCommonType()) {
+        sb.append(String.format("<a href=\"common-definitions.html#%s.%s\">%s</a>",
+            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
+            attrName,
+            attrName));
+      } else {
+        sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
+            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
+            attrName,
+            attrName));
+      }
       if (i < attributes.size() - 1) {
         sb.append(", ");
       } else {

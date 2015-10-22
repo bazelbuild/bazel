@@ -1,0 +1,16 @@
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+
+<h2 id="predefined-python-variables">Predefined Python Variables</h2>
+
+<div class="toc">
+  <h1>Contents</h1>
+  <ul>
+    <li><a href="#packagename">packagename</a></li>
+  </ul>
+</div>
+<h3 id="packagename">PACKAGE_NAME</h3>
+<p>
+  This is a string variable with the name
+  of the package being evaluated. The value is unaffected by subinclude.
+</p>
+

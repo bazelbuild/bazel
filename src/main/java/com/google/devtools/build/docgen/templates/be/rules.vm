@@ -1,0 +1,69 @@
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+
+<h1>${ruleFamily} Rules</h1>
+
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+#foreach ($rule in $ruleDocs)
+    <li>
+      <a href="#${rule.ruleName}">
+        ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
+      </a>
+    </li>
+#end
+  </ul>
+</div>
+
+#foreach ($rule in $ruleDocs)
+  <h2 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
+    ${rule.ruleName}
+  </h2>
+
+  <pre class="rule-signature">${rule.attributeSignature}</pre>
+
+  $rule.htmlDocumentation
+
+  <h3 id="${rule.ruleName}_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="${rule.ruleName}.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+          ${rule.nameExtraHtmlDoc}
+        </td>
+      </tr>
+    #foreach ($attribute in $rule.attributes)
+      #if (!$attribute.isCommonType())
+      <tr>
+        <td id="${rule.ruleName.toLowerCase()}.${attribute.attributeName}"#if($attribute.isDeprecated()) class="deprecated"#end>
+          <code>${attribute.attributeName}</code>
+        </td>
+        <td>
+          #if (!$attribute.synopsis.isEmpty())
+          <p><code>${attribute.synopsis}</code></p>
+          #end
+          $attribute.htmlDocumentation
+        </td>
+      </tr>
+      #end
+    #end
+    </tbody>
+  </table>
+  #if ($rule.isPublicByDefault())
+    The default visibility is public: <code>visibility = ["//visibility:public"]</code>.
+  #end
+#end
+
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")

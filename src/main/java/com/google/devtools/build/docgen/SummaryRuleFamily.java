@@ -30,14 +30,17 @@ import java.util.List;
 @Immutable
 public class SummaryRuleFamily {
   private final String name;
+  private final String id;
   private final ImmutableList<RuleDocumentation> binaryRules;
   private final ImmutableList<RuleDocumentation> libraryRules;
   private final ImmutableList<RuleDocumentation> testRules;
   private final ImmutableList<RuleDocumentation> otherRules1;
   private final ImmutableList<RuleDocumentation> otherRules2;
 
-  SummaryRuleFamily(ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String name) {
+  SummaryRuleFamily(ListMultimap<RuleType, RuleDocumentation> ruleTypeMap,
+      String name, String id) {
     this.name = name;
+    this.id = id;
     this.binaryRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.BINARY));
     this.libraryRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.LIBRARY));
     this.testRules = ImmutableList.copyOf(ruleTypeMap.get(RuleType.TEST));
@@ -56,6 +59,10 @@ public class SummaryRuleFamily {
 
   public String getName() {
     return name;
+  }
+
+  public String getId() {
+    return id;
   }
 
   public List<RuleDocumentation> getBinaryRules() {

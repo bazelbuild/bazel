@@ -1,102 +1,18 @@
-#parse("com/google/devtools/build/docgen/templates/header-comment.vm")
-
-#parse("com/google/devtools/build/docgen/templates/be-header.vm")
-
-#macro(ruledoc $ruleDocs)
-  #foreach ($rule in $ruleDocs)
-    <h3 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
-      ${rule.ruleName}
-    </h3>
-
-    <pre class="rule-signature">${rule.attributeSignature}</pre>
-
-    $rule.htmlDocumentation
-
-    <h4 id="${rule.ruleName}_args">Arguments</h4>
-    <table class="table table-condensed table-bordered table-params">
-      <colgroup>
-        <col class="col-param" />
-        <col class="param-description" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Attribute</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td id="${rule.ruleName}.name"><code>name</code></td>
-          <td>
-            <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
-            <p>A unique name for this rule.</p>
-            ${rule.nameExtraHtmlDoc}
-          </td>
-        </tr>
-      #foreach ($attribute in $rule.attributes)
-        #if (!$attribute.isCommonType())
-        <tr>
-          <td id="${rule.ruleName.toLowerCase()}.${attribute.attributeName}"#if($attribute.isDeprecated()) class="deprecated"#end>
-            <code>${attribute.attributeName}</code>
-          </td>
-          <td>
-            #if (!$attribute.synopsis.isEmpty())
-            <p><code>${attribute.synopsis}</code></p>
-            #end
-            $attribute.htmlDocumentation
-          </td>
-        </tr>
-        #end
-      #end
-      </tbody>
-    </table>
-    #if ($rule.isPublicByDefault())
-      The default visibility is public: <code>visibility = ["//visibility:public"]</code>.
-    #end
-  #end
-#end
-
-<!-- ============================================
-                      binary
-     ============================================
--->
-<h2 id="binary">*_binary</h2>
-
-<p>A <code>*_binary</code> rule compiles an application. This might be
-   an executable, a <code>.jar</code> file, and/or a collection of scripts.</p>
-
-#ruledoc($binaryDocs)
-
-<!-- ============================================
-                      library
-     ============================================
--->
-<h2 id="library">*_library</h2>
-
-<p>A <code>*_library()</code> rule compiles some sources into a library.
-   In general, a <code><var>language</var>_library</code> rule works like
-   the corresponding <code><var>language</var>_binary</code> rule, but
-   doesn't generate an executable.</p>
-
-#ruledoc($libraryDocs)
-
-<!-- ============================================
-                      test
-     ============================================
--->
-<h2 id="test">*_test</h2>
-
-<p>A <code>*_test</code> rule compiles a test.
-
-#ruledoc($testDocs)
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
 <!-- ============================================
                       variables
      ============================================
 -->
-<h2 id="make_variables">"Make" Variables</h2>
+<h1>"Make" Variables</h1>
 
-
+<div class="toc">
+  <ul>
+    <li><a href="#make-var-substitution">"Make" variable subsitution</a></li>
+    <li><a href="#predefined-variables">Predefined variables</a></li>
+    <li><a href="#location">"$(location)" substitution</a></li>
+  </ul>
+</div>
 <p>
   This section describes how to use a special class of built-in string variables
   that are called the "Make" environment.
@@ -116,7 +32,7 @@
   the <a href="#genrule.cmd"><code>cmd</code> attribute of a genrule</a>.
 </p>
 
-<h3 id='make-var-substitution'>"Make" variable substitution</h3>
+<h2 id='make-var-substitution'>"Make" variable substitution</h2>
 
 <p>Variables can be referenced in attributes
 
@@ -145,7 +61,7 @@
   explicitly indicated as such in their definitions in this document.
 </p>
 
-<h3 id="predefined_variables">Predefined "Make" Variables</h3>
+<h2 id="predefined_variables">Predefined "Make" Variables</h2>
 
 <p>Bazel defines a set of "Make" variables for you.</p>
 
@@ -279,21 +195,4 @@ in your genrule's cmd attribute.
   <code>*_test</code> or <code>*_binary</code> rule.
 </p>
 
-<h2 id="predefined-python-variables">Predefined Python Variables</h2>
-
-<h3 id="packagename">PACKAGE_NAME</h3>
-<p>
-  This is a string variable with the name
-  of the package being evaluated. The value is unaffected by subinclude.
-</p>
-
-<!-- ============================================
-                      other
-     ============================================
--->
-<h2 id="misc">Other Stuff</h2>
-
-#ruledoc($otherDocs)
-
-
-#parse("com/google/devtools/build/docgen/templates/be-footer.vm")
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")

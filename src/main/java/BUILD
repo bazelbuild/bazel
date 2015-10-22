@@ -594,11 +594,14 @@ filegroup(
 genrule(
     name = "gen_buildencyclopedia",
     srcs = [":docs_embedded_in_sources"],
-    outs = ["build-encyclopedia.html"],
-    cmd = ("$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-           " $$PWD/src/main/java/com/google/devtools/build/lib" +
-           " $$PWD" +
-           " && cp $$PWD/build-encyclopedia.html $@"),
+    outs = ["build-encyclopedia.zip"],
+    cmd = (
+        "mkdir -p $(@D)/be && " +
+        "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
+        " $$PWD/src/main/java/com/google/devtools/build/lib" +
+        " $(@D)/be &&" +
+        "zip -qj $@ $(@D)/be/*"
+    ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
